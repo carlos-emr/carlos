@@ -436,6 +436,9 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     }
 
     @Override
+    /**
+     * Counts billing visits by the specified provider within a date range.
+     */
     public List<Object[]> countBillingVisitsByProvider(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, COUNT(b) FROM Billing b "
                 + "WHERE b.status <> 'D' "

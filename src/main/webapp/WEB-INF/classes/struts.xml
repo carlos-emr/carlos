@@ -1501,9 +1501,6 @@
             <result name="fail">/eform/partials/import.jsp</result>
             <result name="success">/eform/partials/import.jsp</result>
         </action>
-        <action name="eform/IndivicaRichTextLetterSettings" class="io.github.carlos_emr.carlos.eform.actions.RTLSettings2Action">
-            <result name="success">/eform/efmformrtl_config.jsp</result>
-        </action>
         <action name="eform/addEForm" class="io.github.carlos_emr.carlos.eform.actions.AddEForm2Action">
             <result name="close">/eform/efmshowform_data.jsp</result>
             <result name="fax">/fax/faxAction.do</result>

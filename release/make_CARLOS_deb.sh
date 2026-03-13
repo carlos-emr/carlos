@@ -128,9 +128,9 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/DEBIAN/"
 cd "${REPO_ROOT}" || { echo "ERROR: Failed to cd to ${REPO_ROOT}" >&2; exit 1; }
 mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
 mkdir -p "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/"
-cp "${REPO_ROOT}/target/carlos-0-SNAPSHOT.war" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/carlos.war"
+# WAR is copied generically below (after drugref download) using ${TARGET} and ${PROGRAM} variables.
 
-SHA1=$(sha1sum "${REPO_ROOT}/${TARGET}")
+SHA1=$(sha1sum "${REPO_ROOT}/target/${TARGET}" | awk '{print $1}')
 echo The ${TARGET} SHA1=$SHA1
 
 
@@ -231,14 +231,14 @@ chmod 755 ${RELEASE_DIR}/${DEBNAME}/DEBIAN/postrm
 
 echo "Configuring prerm"
 # prerm: optional pre-removal script run by dpkg before the package is removed.
-if [ -f "release/prerm" ]; then
+if [ -f "${RELEASE_DIR}/prerm" ]; then
     sed -e 's/^PROGRAM.*/PROGRAM='"$PROGRAM"'/' \
     -e 's/^PACKAGE.*/PACKAGE='"$PACKAGE"'/' \
     -e 's/^db_name.*/db_name='"$db_name"'/' \
     -e 's/^VERSION.*/VERSION='"$VERSION"'/' \
     -e 's/^PREVIOUS.*/PREVIOUS='"$PREVIOUS"'/' \
     -e 's/^REVISION.*/REVISION='"$REVISION"'/' \
-    release/prerm > ${RELEASE_DIR}/${DEBNAME}/DEBIAN/prerm
+    "${RELEASE_DIR}/prerm" > ${RELEASE_DIR}/${DEBNAME}/DEBIAN/prerm
     chmod 755 ${RELEASE_DIR}/${DEBNAME}/DEBIAN/prerm
 else
     echo "WARNING: release/prerm not found, skipping (package will not have a pre-removal script)"
@@ -321,8 +321,6 @@ elif [ -f "release/patch19.sql" ]; then
 else
     echo "WARNING: neither release/019toCARLOS.sql nor release/patch19.sql found; patch.sql will be absent"
 fi
-# OpenO_compatibility.sql: optional compatibility shim for legacy OpenO installations.
-[ -f "release/OpenO_compatibility.sql" ] && cp release/OpenO_compatibility.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/ || echo "WARNING: release/OpenO_compatibility.sql not found, skipping"
 
 # --- Pull carlos.properties from source ---
 # For new installs and OSCAR 19 migrations the postinst config step will substitute
@@ -411,31 +409,47 @@ cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/
 cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
 chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
 
+# Bundle incremental update scripts (update-2026-*.sql) for CARLOS revision upgrades.
+# The postinst script applies these after the WAR is deployed to bring the schema current.
+echo "bundling incremental database update scripts from database/mysql/updates/"
+_update_sql_count=0
+for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
+    if [ -f "${_upd_sql}" ]; then
+        cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
+        _update_sql_count=$((_update_sql_count + 1))
+    fi
+done
+echo "Bundled ${_update_sql_count} incremental update SQL files into package"
+
 echo "getting and loading wars"
 # The webapps directory was already created above during the Maven build section.
 # drugref.war: downloaded from upstream at package build time.
 # The drugref webapp creates its own schema on first startup — no drugref.sql is needed.
 DRUGREF_WAR="${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/drugref.war"
-curl -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
+curl -L -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
 # Verify SHA256 checksum of drugref.war (update DRUGREF_SHA256 when upgrading drugref version).
 # To obtain the hash after downloading: sha256sum "${DRUGREF_WAR}"
 # Then export DRUGREF_SHA256=<hash> before running this script.
+DRUGREF_SHA256=${DRUGREF_SHA256:-2d55e5494e543dd9fd2f287e8fea12695ba26108e0e51552dfe552406ddb15d9}
 if [ -z "${DRUGREF_SHA256:-}" ]; then
     echo "ERROR: DRUGREF_SHA256 environment variable must be set to the expected SHA256 of drugref2.48.war." >&2
     echo "  Run: sha256sum ${DRUGREF_WAR}  to get the value, verify it against a trusted source, then re-run." >&2
     exit 1
 fi
 echo "${DRUGREF_SHA256}  ${DRUGREF_WAR}" | sha256sum -c - || { echo "Checksum mismatch for drugref.war — aborting build"; exit 1; }
-cp "${REPO_ROOT}/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war"
+[ -f "${REPO_ROOT}/target/${TARGET}" ] \
+  || { echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — build may have failed" >&2; exit 1; }
+cp "${REPO_ROOT}/target/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war" \
+  || { echo "ERROR: Failed to stage ${PROGRAM}.war into package" >&2; exit 1; }
 
 # --- OscarDocument directory skeleton ---
 # Copy any checked-in document templates and set up the inbox directory structure
 # expected by CARLOS at runtime.
 mkdir -p ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/${PROGRAM}/
-if [ -d "release/Document/oscar/" ]; then
-    cp -r release/Document/oscar/ ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/
+if [ -d "release/Document/carlos/" ]; then
+    cp -r release/Document/carlos/ ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/
 else
-    echo "WARNING: release/Document/oscar/ not found, skipping document templates"
+    echo "WARNING: release/Document/carlos/ not found, skipping document templates"
 fi
 
 echo "now adding in default inbox directories"
@@ -476,10 +490,10 @@ echo "now invoking dpkg -b ${RELEASE_DIR}/${DEBNAME}"
 # Output: ${RELEASE_DIR}/${DEBNAME}.deb
 dpkg -b "${RELEASE_DIR}/${DEBNAME}"
 echo ""
-echo "Testing the deb for update locally"
+#echo "Testing the deb for update locally"
 echo "#########" `date` "#########"
 # Install the freshly built package on this machine for a smoke test.
-dpkg -i "${RELEASE_DIR}/${DEBNAME}.deb"
+#dpkg -i "${RELEASE_DIR}/${DEBNAME}.deb"
 echo ""
 echo ""
 echo ""

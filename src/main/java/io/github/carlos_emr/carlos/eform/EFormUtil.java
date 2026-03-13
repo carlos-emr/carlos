@@ -593,27 +593,6 @@ public class EFormUtil {
         return values;
     }
 
-    // used by addEForm for escaping characters
-    public static String charEscape(String S, char a) {
-        if (null == S) {
-            return S;
-        }
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            // escape the escape characters
-            if (c == '\\') {
-                sb.append("\\\\");
-            } else if (c == a) {
-                sb.append("\\" + a);
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
     public static void addEFormValues(ArrayList<String> names, ArrayList<String> values, Integer fdid, Integer fid, Integer demographic_no) {
         // adds parsed values and names to DB
         // names.size and values.size must equal!

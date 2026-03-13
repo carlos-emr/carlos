@@ -40,7 +40,7 @@ if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
  fi
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
-SRC=/usr/share/${PACKAGE}/
+SRC=/var/lib/${PACKAGE}/
 priorschema=oscar_12
 db_password=CHANGEME
 DOCS=OscarDocument
@@ -143,7 +143,9 @@ db_get carlos-emr/upgrade
 UPGRADE=$RET
 echo upgrade = ${UPGRADE}  >>$LOG_FILE
 
+CARLOS_PROPS_FOUND=false
 if [ -f "${C_HOME}${PROGRAM}.properties" ]; then
+	CARLOS_PROPS_FOUND=true
 	#first grep the password
 	echo "grep the password from the properties file" 1>> $LOG_FILE
 	db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
@@ -191,24 +193,32 @@ if [ -d /etc/apparmor.d/  ] ; then
     if [ -x /usr/local/bin/wkhtmltopdf ] ; then
         echo wkhtmltopdf executable in usr local bin exists >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.local.bin.wkhtmltopdf ] ; then
-	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp /usr/share/carlos-emr/usr.local.bin.wkhtmltopdf /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE
-	        service apparmor reload  2>>$LOG_FILE &
-	        pid=$!;progress $pid  
+	        if [ -f "${SRC}usr.local.bin.wkhtmltopdf" ] ; then
+	            ncecho " [x] Creating an apparmor profile for wkhtmltopdf "
+	            cp "${SRC}usr.local.bin.wkhtmltopdf" /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE
+	            service apparmor reload  2>>$LOG_FILE &
+	            pid=$!;progress $pid
+	        else
+	            echo "WARNING: ${SRC}usr.local.bin.wkhtmltopdf not found; skipping AppArmor profile install" >> $LOG_FILE
+	        fi
 	else
-	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE        
+	        echo  /etc/apparmor.d/usr.local.bin.wkhtmltopdf exists >> $LOG_FILE
         fi
     fi
     ## its in the following location for 24.04
-    if [ -x /usr/bin/wkhtmltopdf ] ; then  
+    if [ -x /usr/bin/wkhtmltopdf ] ; then
         echo wkhtmltopdf executable exists in usr bin >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.bin.wkhtmltopdf ] ; then
-	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp /usr/share/carlos-emr/usr.bin.wkhtmltopdf /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE
-	        service apparmor reload  2>>$LOG_FILE &
-	        pid=$!;progress $pid  
+	        if [ -f "${SRC}usr.bin.wkhtmltopdf" ] ; then
+	            ncecho " [x] Creating an apparmor profile for wkhtmltopdf "
+	            cp "${SRC}usr.bin.wkhtmltopdf" /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE
+	            service apparmor reload  2>>$LOG_FILE &
+	            pid=$!;progress $pid
+	        else
+	            echo "WARNING: ${SRC}usr.bin.wkhtmltopdf not found; skipping AppArmor profile install" >> $LOG_FILE
+	        fi
 	else
-	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE        
+	        echo  /etc/apparmor.d/usr.bin.wkhtmltopdf exists >> $LOG_FILE
         fi
     fi
 fi
@@ -236,15 +246,30 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
    
 
         
-    if [ $lastdeb \< 18.911 ] ; then
-    	ncecho " [x] Converting OSCAR 15 data to OSCAR 19 "
-	    echo "Converting from OSCAR 15 to OSCAR 19 structure" >> $LOG_FILE
-    	$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE
+    if [ -n "${lastbuild}" ] ; then
+        # CARLOS revision update: carlos.properties exists WITH a build tag, so this is
+        # not an OSCAR19->CARLOS migration. Run incremental update scripts only; do NOT
+        # re-run patch.sql (which is the one-time OSCAR19->CARLOS migration script).
+        # Note: CARLOS_PROPS_FOUND=true but no build tag → treat as OSCAR19 migration.
+        ncecho " [x] Applying incremental schema updates "
+        echo "CARLOS revision update: skipping patch.sql, running incremental updates" >> $LOG_FILE
+        (
+            for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
+                echo "Applying incremental update ${_sql}" >> $LOG_FILE
+                if ! $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1; then
+                    echo "ERROR: Failed to apply incremental update ${_sql}" >> $LOG_FILE
+                    exit 1
+                fi
+                echo "Applied ${_sql}" >> $LOG_FILE
+            done
+        ) &
+        pid=$!;progress $pid
     else
-	    ncecho " [x] Patching database to latest schema "
+        # OSCAR 19 migration context (carlos.properties absent): apply the CARLOS migration patch.
+        ncecho " [x] Patching database to latest schema "
+        $MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
+        pid=$!;progress $pid
     fi
-	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
-	pid=$!;progress $pid
 	# lets first update the server.xml if necessary
 	if [ -f "${C_BASE}conf/server.xml" ]; then
                 if grep -Fq "relaxedQueryChars" ${C_BASE}conf/server.xml ; then	
@@ -280,6 +305,11 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
 
     GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"') || true
     STATE=$(echo "$GEOIP2" | awk -F "," '{print $4;}')
+    # Validate STATE is non-empty and alphabetic; default to empty on bad payload
+    if ! echo "$STATE" | grep -qE '^[A-Za-z]+$'; then
+        echo "GEOIP2 STATE invalid or empty ('${STATE}'); defaulting to empty" >> $LOG_FILE
+        STATE=""
+    fi
 
     echo STATE=${STATE} >>$LOG_FILE
 
@@ -381,6 +411,11 @@ IP=$(echo $GEOIP2 | awk -F "," '{print $14;}')
 COUNTRY=$(echo $GEOIP2 | awk -F "," '{print $3;}')
 STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
 LOCALITY=$(echo $GEOIP2 | awk -F "," '{print $6;}')
+# Validate STATE is non-empty and alphabetic; default to empty on bad payload
+if ! echo "$STATE" | grep -qE '^[A-Za-z]+$'; then
+    echo "GEOIP2 STATE invalid or empty ('${STATE}'); defaulting to empty" >> $LOG_FILE
+    STATE=""
+fi
 
 
 sleep 2 &
@@ -468,17 +503,33 @@ echo  Created the Oscar database ${db_name} >>$LOG_FILE
 ### ============================================================
 if [ "${UPGRADE}" = "true" ] ; then
 
-	# OSCAR 19 to CARLOS migration: apply the 019toCARLOS.sql patch to bring the
-	# existing oscar_15 schema up to the CARLOS baseline.  The priorschema table-rename
-	# and multi-step oscar_12/10 upgrade chains have been removed; the 019toCARLOS patch
-	# is the only supported migration path.
+	# OSCAR 19 to CARLOS migration: applies patch.sql to the pre-existing oscar_15 schema
+	# to bring it to the current CARLOS baseline.  The OSCAR 19 schema (oscar_15) IS the
+	# CARLOS schema, so no table-rename or data migration is required beyond schema patching.
+	# If both carlos.properties and oscar.properties exist (prior CARLOS migration site),
+	# skip patch.sql and run incremental updates only.
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
 	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
-
-	ncecho " [x] Patching database to latest schema "
-	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>&1 >$LOG_FILE &
 	pid=$!;progress $pid
-	echo Upgraded ${priorschema} to ${db_name}>>$LOG_FILE
+
+	if [ -z "${lastbuild}" ] ; then
+		# Fresh OSCAR 19 to CARLOS migration (no prior CARLOS build tag): apply the migration patch.
+		ncecho " [x] Patching database to latest schema "
+		$MYSQL ${db_name} < ${SRC}patch.sql >>${LOG_FILE} 2>&1 &
+		pid=$!;progress $pid
+		echo Patched ${db_name}>>$LOG_FILE
+	else
+		echo "carlos.properties found alongside oscar.properties: skipping patch.sql, running incremental updates only" >> $LOG_FILE
+	fi
+
+	# Run incremental update scripts bundled with this package
+	for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
+		ncecho " [x] Applying incremental update $(basename ${_sql}) "
+		echo "Applying incremental update ${_sql}" >> $LOG_FILE
+		$MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1 &
+		pid=$!;progress $pid
+		echo "Applied ${_sql}" >> $LOG_FILE
+	done
 
 else
 	### ============================================================
@@ -503,7 +554,8 @@ else
 		# createdatabase_bc.sh [mysql_user] [database_name]
 		# Password is passed via MYSQL_PWD environment variable (not on command line).
 		# The helper calls createdatabase_generic.sh with province=bc and ICD version 9.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE &
+		pid=$!;progress $pid
 		echo "Populated ${db_name} with BC province schema" >>$LOG_FILE
 	else
 		echo "Running createdatabase_on.sh for ON province" >>$LOG_FILE
@@ -511,7 +563,8 @@ else
 		# Password is passed via MYSQL_PWD environment variable (not on command line).
 		# The helper calls createdatabase_generic.sh with province=on and ICD version 9.
 		# It also loads olis/olisinit.sql for Ontario Laboratory Information System tables.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE &
+		pid=$!;progress $pid
 		echo "Populated ${db_name} with ON province schema" >>$LOG_FILE
 
 		ncecho " [x] Populating database with OLIS data "
@@ -603,8 +656,9 @@ else
     # from the existing 'oscardoc' account so privileges are the same.
     # Account expires in 1 month (b_ExpireSet=1, date_ExpireDate = now + 1 month)
     # and requires a password change at first login (forcePasswordReset=1).
-    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='oscardoc' LIMIT 1;" 2>>$LOG_FILE
     ncecho " [x] Created initial carlos admin user in security table "
+    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='oscardoc' LIMIT 1;" 2>>$LOG_FILE &
+    pid=$!;progress $pid
 
 	echo "probing for Java" >>$LOG_FILE
 
@@ -844,6 +898,8 @@ fi
 	# drugref database is managed by the drugref WAR (deployed as /drugref)
 	# and updates itself on startup. No drugref.sql loading needed here.
 	ncecho " [x] drugref WAR deployed (will init its own schema on first startup) "
+	true &
+	pid=$!;progress $pid
 
 	#ncecho " [x] Applying TallMAN rules to drugref " 
     #echo  patching the Oscar Drug database with tallMAN rules and removing generics from search >>$LOG_FILE
@@ -856,7 +912,8 @@ fi
 if [ "${COUNTRY}" = CA ] ; then
 
 	if [ "${STATE}" = ON ] ; then
-        ncecho " [x] Installing Ontario Specific eForms " 
+        ncecho " [x] Installing Ontario Specific eForms "
+        (
 		echo "Installing NDSS eform set under licence"  >>$LOG_FILE
 		unzip ${SRC}ndss.zip -d ${SRC}OscarDocument/${PROGRAM}/eform/images/ >> $LOG_FILE
 		$MYSQL ${db_name} < ${SRC}ndss.sql 2>>$LOG_FILE
@@ -868,8 +925,9 @@ if [ "${COUNTRY}" = CA ] ; then
         $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('OPR-2017','2017-08-24');"
         $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Postpartum Visit','2017-08-24');"
         $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Resource','2017-08-24');"
-		$MYSQL ${db_name} < ${SRC}opr2017.sql 2>>$LOG_FILE &
-		pid=$!;progress $pid 
+		$MYSQL ${db_name} < ${SRC}opr2017.sql 2>>$LOG_FILE
+        ) &
+		pid=$!;progress $pid
         ncecho " [x] Installing HRM xml files " 
 		echo "Installing current hospital report manager files"  >>$LOG_FILE
 		unzip -j ${C_BASE}/webapps/${PROGRAM}.war  hospitalReportManager/OMD/report_manager_cds.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
@@ -918,17 +976,20 @@ fi
 # Restore pre-existing configuration
 if [ -f "${C_BASE}/${PACKAGE}/ck.properties" ] ; then
         echo "Restoring any pre-existing clientKeystore.properties" >> $LOG_FILE
-        mv ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.default
-        mv ${C_BASE}/${PACKAGE}/ck.properties ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties  1>> $LOG_FILE
+        if [ -f "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" ] ; then
+            mv "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.default" 1>>$LOG_FILE \
+                || { echo "Install Aborted: failed to archive clientKeystore.properties" >>$LOG_FILE; fail; }
+        fi
+        mv "${C_BASE}/${PACKAGE}/ck.properties" "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" 1>>$LOG_FILE \
+            || { echo "Install Aborted: failed to restore ck.properties" >>$LOG_FILE; fail; }
 fi
 
 
 
-if [ "$?" -ne 0 ] ; then
-	echo "Install Aborted."  >>$LOG_FILE
-	fail
-else
-	if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then 
+# Critical long-running operations use progress() which calls fail() on non-zero exit.
+# File operations are guarded by existence checks; the keystore mv uses explicit || fail.
+# set -e is intentionally disabled to allow conditional logic; critical failures do abort.
+if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then
         # Tomcat 9 will look for the property files in some other locations
         # lets provide symbolic links to where we put them for lesser Tomcats       
         if [ ! -e /drugref2.properties ] ; then
@@ -967,7 +1028,6 @@ else
 			cecho "IMPORTANT: Store these credentials securely now - they will not be shown again."
 		fi
 	fi
-fi
 
 echo "#########" `date` "#########"  >>$LOG_FILE
 

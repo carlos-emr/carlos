@@ -117,45 +117,6 @@ public final class Misc {
      * @param a the character to escape
      * @return the escaped string
      */
-    public static String charEscape(String S, char a) {
-        if (null == S) return S;
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '\\') sb.append("\\");
-            else if (c == a) sb.append("\\" + a);
-            else sb.append(c);
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Escapes HTML special characters and converts newlines to HTML line breaks.
-     * Useful for displaying user input that may contain line breaks in HTML.
-     * 
-     * @param s the string to escape
-     * @return the HTML-escaped string with newlines converted to &lt;br/&gt; tags
-     */
-    public static String htmlJsEscape(String s) {
-        return (StringEscapeUtils.escapeHtml4(s).replaceAll("\\n", "<br/>"));
-
-//		if (null == S) return S;
-//		int N = S.length();
-//		StringBuilder sb = new StringBuilder(N);
-//		for (int i = 0; i < N; i++) {
-//			char c = S.charAt(i);
-//			if (c == '&') sb.append("&amp;");
-//			else if (c == '"') sb.append("&quot;");
-//			else if (c == '<') sb.append("&lt;");
-//			else if (c == '>') sb.append("&gt;");
-//			else if (c == '\'') sb.append("&#39;");
-//			else if (c == '\n') sb.append("<br>");
-//			else sb.append(c);
-//		}
-//		return sb.toString();
-    }
-
     /**
      * Extracts the phone number portion (without area code) from a phone number string.
      * Removes all non-digit characters and returns everything after the first 3 digits.

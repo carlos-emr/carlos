@@ -347,14 +347,14 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
             // Insert Program records via native SQL since Program is HBM-mapped.
             // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, testProgramId1)
                 .setParameter(2, "TestProg")
                 .setParameter(3, "community")
                 .executeUpdate();
 
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, testProgramId2)
                 .setParameter(2, "TestProg2")
                 .setParameter(3, "community")
