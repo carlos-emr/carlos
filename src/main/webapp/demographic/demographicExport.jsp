@@ -371,13 +371,13 @@
 
     <%
         if (!userRole.toLowerCase().contains("admin")) { %>
-    <div class="alert alert-block alert-error">
+    <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgsorry"/>
     </div>
     <%
     } else if (!tmp_dir_ready) { %>
-    <div class="alert alert-block alert-error">
+    <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgerror"/>
     </div>
@@ -412,7 +412,7 @@
             </div>
 
             <!-- Error message shown if export fails -->
-            <div id="exportErrorMessage" class="alert alert-error">
+            <div id="exportErrorMessage" class="alert alert-danger">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportError"/>
                 <br/><br/>
                 <button type="button" class="btn" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
@@ -504,7 +504,7 @@
 //    pgpReady = true; //To be removed after CMS4
                     if (!pgpReady) { %>
 
-                <div class="alert alert-block alert-error">
+                <div class="alert alert-danger">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgwarning"/>
                 </div>

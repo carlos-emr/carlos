@@ -276,12 +276,12 @@ function saveForm() {
 $('.save').click(function () {
     saveForm().done(function (data) {
         if (data.saved) {
-            displayMessage('success', '<span class="glyphicon glyphicon-ok-circle"></span> All information entered on the eCGA has been saved.');
+            displayMessage('success', '<span class="fa-solid fa-circle-check"></span> All information entered on the eCGA has been saved.');
         } else {
-            displayMessage('danger', '<span class="glyphicon glyphicon-times"></span> There was a problem during save. Please call support.');
+            displayMessage('danger', '<span class="fa-solid fa-xmark"></span> There was a problem during save. Please call support.');
         }
     }).fail(() => {
-        displayMessage('danger', '<span class="glyphicon glyphicon-times"></span> There was a problem during save. Please call support.');
+        displayMessage('danger', '<span class="fa-solid fa-xmark"></span> There was a problem during save. Please call support.');
     });
 
 });
@@ -299,7 +299,7 @@ $('.exit').click(function () {
             window.close()
         }
     }).fail(() => {
-        displayMessage('danger', '<span class="glyphicon glyphicon-times"></span> There was a problem during save. Please call support.');
+        displayMessage('danger', '<span class="fa-solid fa-xmark"></span> There was a problem during save. Please call support.');
     });
 });
 
@@ -413,7 +413,7 @@ $(document).ready(function ($) {
         saveForm().done(function () {
             window.close();
         }).fail(() => {
-            displayMessage('danger', '<span class="glyphicon glyphicon-times"></span> There was a problem during save. Please call support.');
+            displayMessage('danger', '<span class="fa-solid fa-xmark"></span> There was a problem during save. Please call support.');
         });
     })
 

@@ -180,13 +180,13 @@
             if (data.success) {
                 $("#submit").prop("disabled", true); // Re-disable submit button after save
                 $("#msg").text(data.message || "Configuration saved!");
-                $('.alert').removeClass('alert-error');
+                $('.alert').removeClass('alert-danger');
                 $('.alert').addClass('alert-success');
                 $('.alert').show();
             } else {
                 $("#msg").text(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
                 $('.alert').removeClass('alert-success');
-                $('.alert').addClass('alert-error');
+                $('.alert').addClass('alert-danger');
                 $('.alert').show();
             }
         };
@@ -223,7 +223,7 @@
                     error: function(jqXHR, textStatus, errorThrown) {
                         $("#msg").text("Failed to save configuration. Server returned: " + (errorThrown || textStatus));
                         $('.alert').removeClass('alert-success');
-                        $('.alert').addClass('alert-error');
+                        $('.alert').addClass('alert-danger');
                         $('.alert').show();
                     }
                 });
@@ -564,11 +564,11 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label>Enable Fax Gateway</label>
-                                <label class="radio inline control-label">
+                                <label class="radio inline form-label">
                                     <input type="radio" id="on" name="active" value="true" <%=isActive ? "checked" : ""%> />
                                     Enabled
                                 </label>
-                                <label class="radio inline control-label">
+                                <label class="radio inline form-label">
                                     <input type="radio" id="of" name="active" value="false" <%=!isActive ? "checked" : ""%> />
                                     Disabled
                                 </label>

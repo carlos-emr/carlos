@@ -49,7 +49,7 @@
             <span class="pl-1">No</span></label>
     </div>
     <div class="flex items-center">
-        <span class="tt radio-inline control-label font-bold" data-bs-toggle="tooltip" data-bs-html="true"
+        <span class="tt radio-inline form-label font-bold" data-bs-toggle="tooltip" data-bs-html="true"
               title="Frequent: more than weekly excursions outside of the home.<br><br>Occasional: less than weekly excursions outside of the home">
             <svg height="10" width="10">
                 <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>

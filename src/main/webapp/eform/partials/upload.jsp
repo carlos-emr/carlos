@@ -75,7 +75,7 @@
 
     <form action="${pageContext.request.contextPath}/eform/uploadHtml.do" method="POST" onsubmit="return checkFormAndDisable()"
                enctype="multipart/form-data">
-        <div class="alert alert-error" style="display:none"><% 
+        <div class="alert alert-danger" style="display:none"><% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>

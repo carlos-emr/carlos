@@ -140,12 +140,12 @@
                 String formNameMissing = errors.get("formNameMissing");
                 if (errors.containsKey("formNameMissing")) {
             %>
-            <div class="alert alert-error">
+            <div class="alert alert-danger">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%} else if (errors.containsKey("formNameExists")) { %>
-            <div class="alert alert-error">
+            <div class="alert alert-danger">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
             </div>

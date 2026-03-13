@@ -599,7 +599,7 @@
             </tr>
             <tr>
                 <td>
-                    <label class="control-label" for="primaryRoleProvider"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>:</label>
+                    <label class="form-label" for="primaryRoleProvider"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>:</label>
                     <select id="primaryRoleProvider" name="primaryRoleProvider" onChange="primaryRoleChooseProvider()">
                         <option value="">Select Below</option>
                         <%
@@ -621,7 +621,7 @@
 
             <tr>
                 <td>
-                    <label class="control-label" for="primaryRoleRole"><fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>:</label>
+                    <label class="form-label" for="primaryRoleRole"><fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>:</label>
                     <select id="primaryRoleRole" name="primaryRoleRole">
                     </select>
                 </td>

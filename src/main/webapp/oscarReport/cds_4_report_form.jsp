@@ -82,7 +82,7 @@
         <legend>CDS-MH 4.05</legend>
 
         <div class="control-group">
-            <label class="control-label">Functional Centre</label>
+            <label class="form-label">Functional Centre</label>
             <div class="controls">
                 <select id="functionalCentreId" name="functionalCentreId" class="input-large">
                     <%
@@ -97,7 +97,7 @@
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label">Date Start</label>
+            <label class="form-label">Date Start</label>
             <div class="controls">
                 <input type="text" name="startDate" id="startDate"/>
                 <script type="text/javascript">
@@ -118,7 +118,7 @@
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label">Date End (inclusive)</label>
+            <label class="form-label">Date End (inclusive)</label>
             <div class="controls">
                 <input type="text" name="endDate" id="endDate"/>
                 <script type="text/javascript">
@@ -129,7 +129,7 @@
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label">Filter By</label>
+            <label class="form-label">Filter By</label>
             <div class="controls">
                 <select id="filterCriteriaSelection" onchange="showFilterCriteria()">
                     <option value="">None</option>
@@ -165,7 +165,7 @@
             </div>
         </div>
         <div id="providerOptions" class="control-group">
-            <label class="control-label">Providers to include
+            <label class="form-label">Providers to include
                 <small>
                     (multi select is allowed)
                 </small>
@@ -191,7 +191,7 @@
         </div>
 
         <div id="programOptions" class="control-group">
-            <label class="control-label">Programs to include
+            <label class="form-label">Programs to include
                 <small>
                     (multi select is allowed)
                 </small>

@@ -74,7 +74,7 @@
 
 <div class="container">
 
-    <nav class="navbar navbar-default navbar-fixed-top">
+    <nav class="navbar navbar-light bg-light fixed-top">
         <div class="container">
 
             <button class="btn btn-secondary backtoDashboardBtn" id="getDashboard_${ drilldown.dashboardId }"

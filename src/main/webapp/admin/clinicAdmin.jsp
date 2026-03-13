@@ -79,62 +79,62 @@
             <input type="hidden" name="method" id="method" value="update"/>
 
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicName"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.clinicName"/></label>
+                <label class="form-label" for="clinic.clinicName"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.clinicName"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicName" id="clinic.clinicName" value="<%=Encode.forHtmlAttribute(clinic.getClinicName() != null ? clinic.getClinicName() : "")%>" />
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicAddress"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formAddress"/></label>
+                <label class="form-label" for="clinic.clinicAddress"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formAddress"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicAddress" id="clinic.clinicAddress" value="<%=Encode.forHtmlAttribute(clinic.getClinicAddress() != null ? clinic.getClinicAddress() : "")%>" />
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicCity"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgCity"/></label>
+                <label class="form-label" for="clinic.clinicCity"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgCity"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicCity" id="clinic.clinicCity" value="<%=Encode.forHtmlAttribute(clinic.getClinicCity() != null ? clinic.getClinicCity() : "")%>" />
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicPostal"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgPostal"/></label>
+                <label class="form-label" for="clinic.clinicPostal"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgPostal"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicPostal" id="clinic.clinicPostal" value="<%=Encode.forHtmlAttribute(clinic.getClinicPostal() != null ? clinic.getClinicPostal() : "")%>" />
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicPhone"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/></label>
+                <label class="form-label" for="clinic.clinicPhone"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicPhone" id="clinic.clinicPhone" value="<%=Encode.forHtmlAttribute(clinic.getClinicPhone() != null ? clinic.getClinicPhone() : "")%>" />
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicFax"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/></label>
+                <label class="form-label" for="clinic.clinicFax"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicFax" id="clinic.clinicFax" value="<%=Encode.forHtmlAttribute(clinic.getClinicFax() != null ? clinic.getClinicFax() : "")%>" />
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicLocationCode"><fmt:setBundle basename="oscarResources"/><fmt:message key="location"/>&nbsp;
+                <label class="form-label" for="clinic.clinicLocationCode"><fmt:setBundle basename="oscarResources"/><fmt:message key="location"/>&nbsp;
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.formCode"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicLocationCode" id="clinic.clinicLocationCode" value="<%=Encode.forHtmlAttribute(clinic.getClinicLocationCode() != null ? clinic.getClinicLocationCode() : "")%>" />
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label" for="clinic.clinicProvince"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formprovince"/></label>
+                <label class="form-label" for="clinic.clinicProvince"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formprovince"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicProvince" id="clinic.clinicProvince" value="<%=Encode.forHtmlAttribute(clinic.getClinicProvince() != null ? clinic.getClinicProvince() : "")%>" />
                 </div>
             </div>
             <div class="control-group" title="Multi phone delimited by |">
-                <label class="control-label" for="clinic.clinicDelimPhone"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/>|<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/></label>
+                <label class="form-label" for="clinic.clinicDelimPhone"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/>|<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicDelimPhone" id="clinic.clinicDelimPhone" value="<%=Encode.forHtmlAttribute(clinic.getClinicDelimPhone() != null ? clinic.getClinicDelimPhone() : "")%>" />
                 </div>
             </div>
             <div class="control-group" title="Multi fax delimited by |">
-                <label class="control-label" for="clinic.clinicDelimFax"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/>|<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/></label>
+                <label class="form-label" for="clinic.clinicDelimFax"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/>|<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formFax"/></label>
                 <div class="controls">
                     <input type="text" name="clinic.clinicDelimFax" id="clinic.clinicDelimFax" value="<%=Encode.forHtmlAttribute(clinic.getClinicDelimFax() != null ? clinic.getClinicDelimFax() : "")%>" />
                 </div>

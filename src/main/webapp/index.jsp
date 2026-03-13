@@ -219,7 +219,7 @@
                 padding: 15px;
             }
 
-            .auaContainer .panel {
+            .auaContainer .card {
                 padding: 10px;
             }
 
@@ -232,7 +232,7 @@
                 font-size: x-small;
             }
 
-            .panel {
+            .card {
                 background-color: #fff;
                 border: 1px solid transparent;
                 border-radius: 4px;
@@ -244,26 +244,26 @@
                 padding: 10px 40px 40px;
             }
 
-            .panel-danger > .card-header {
+            .card.border-danger > .card-header {
                 color: #a94442;
                 background-color: #f2dede;
                 border-color: #ebccd1;
             }
 
-            .panel-danger > .card-header + .panel-collapse > .card-body {
+            .card.border-danger > .card-header + .collapse > .card-body {
                 border-top-color: #ebccd1;
             }
 
-            .panel-danger > .card-header .badge {
+            .card.border-danger > .card-header .badge {
                 color: #f2dede;
                 background-color: #a94442;
             }
 
-            .panel-danger > .card-footer + .panel-collapse > .card-body {
+            .card.border-danger > .card-footer + .collapse > .card-body {
                 border-bottom-color: #ebccd1;
             }
 
-            .panel-default {
+            .card {
                 border-color: #ddd;
             }
 

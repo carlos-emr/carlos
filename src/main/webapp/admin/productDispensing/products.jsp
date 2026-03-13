@@ -531,7 +531,7 @@
             <div>
                 <div class="controls controls-row">
                     <div class="control-group col-md-6" id="productNameTemplateGroup">
-                        <label class="control-label" for="productNameTemplate">Choose Existing:</label>
+                        <label class="form-label" for="productNameTemplate">Choose Existing:</label>
                         <div class="controls">
                             <select id="productNameTemplate" name="productNameTemplate"
                                     onChange="copyNameFromTemplate()">
@@ -542,14 +542,14 @@
                 </div>
                 <div class="controls controls-row">
                     <div class="control-group col-md-3" id="productNameGroup">
-                        <label class="control-label" for="productName">Name:</label>
+                        <label class="form-label" for="productName">Name:</label>
                         <div class="controls">
                             <input type="text" name="product.name" id="productName" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
                     <div class="control-group col-md-3" id="productCodeGroup">
-                        <label class="control-label" for="productCode">Code:</label>
+                        <label class="form-label" for="productCode">Code:</label>
                         <div class="controls">
                             <input type="text" name="product.code" id="productCode" value=""/>
                             <span class="help-inline">Required</span>
@@ -560,7 +560,7 @@
                 <div class="controls controls-row">
 
                     <div class="control-group col-md-3" id="productLotGroup">
-                        <label class="control-label" for="productLot">Lot:</label>
+                        <label class="form-label" for="productLot">Lot:</label>
                         <div class="controls">
                             <input type="text" name="product.lotNumber" id="productLot" value=""/>
                             <span class="help-inline">Required</span>
@@ -568,7 +568,7 @@
                     </div>
 
                     <div class="control-group col-md-3" id="productExpiryDateGroup">
-                        <label class="control-label" for="productExpiryDate">Expiry Date:</label>
+                        <label class="form-label" for="productExpiryDate">Expiry Date:</label>
                         <div class="controls">
                             <input type="text" name="product.expiryDate" id="productExpiryDate" value=""/>
                             <span class="help-inline">Required</span>
@@ -578,7 +578,7 @@
                 </div>
                 <div class="controls controls-row">
                     <div class="control-group col-md-3" id="productAmountGroup">
-                        <label class="control-label" for="productAmount">Amount:</label>
+                        <label class="form-label" for="productAmount">Amount:</label>
                         <div class="controls">
                             <input type="text" name="product.amount" id="productAmount" value=""/>
                             <span class="help-inline">Required (number)</span>
@@ -586,7 +586,7 @@
                     </div>
 
                     <div class="control-group col-md-3" id="totalEntriesToCreateGroup">
-                        <label class="control-label" for="productExpiryDate">Total Entries to create:</label>
+                        <label class="form-label" for="productExpiryDate">Total Entries to create:</label>
                         <div class="controls">
                             <input type="text" name="productBulkTotal" id="productBulkTotal" value="1"/>
                         </div>
@@ -596,7 +596,7 @@
 
                 <div class="controls controls-rw">
                     <div class="control-group col-md-3">
-                        <label class="control-label" for="productLocation">Location:</label>
+                        <label class="form-label" for="productLocation">Location:</label>
                         <div class="controls">
                             <select name="product.location" id="productLocation">
                             </select>

@@ -667,7 +667,7 @@
         <%} %>
 
         <%if (billNoErr) { %>
-        <div class="alert alert-error" id="alert_message">
+        <div class="alert alert-danger" id="alert_message">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Error! </strong> Invoice number does not exist!
         </div>

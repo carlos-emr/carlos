@@ -113,7 +113,7 @@
         </h4>
         <div class="row">
             <div class="control-group">
-                <label class="control-label">Begin Date</label>
+                <label class="form-label">Begin Date</label>
                 <div class="controls">
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
@@ -121,7 +121,7 @@
                 </div>
             </div>
             <div class="control-group" id="providerDiv">
-                <label class="control-label">Days</label>
+                <label class="form-label">Days</label>
 
                 <div class="controls">
 
@@ -154,7 +154,7 @@
 <%
 } else {
 %>
-<div class="alert alert-block">
+<div class="alert">
     <h4>Warning!</h4>
     File not created!
 </div>

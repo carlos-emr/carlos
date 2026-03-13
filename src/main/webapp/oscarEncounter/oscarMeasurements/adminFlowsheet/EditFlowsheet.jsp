@@ -435,7 +435,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
             </ul>
 
             <% if (request.getAttribute("errorMessage") != null) { %>
-            <div class="alert alert-error">
+            <div class="alert alert-danger">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <%= Encode.forHtml((String)request.getAttribute("errorMessage")) %>
             </div>

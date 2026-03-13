@@ -135,8 +135,8 @@
     </h3>
 
     <c:if test="${ not empty errormsg }">
-    <div class="alert alert-error">
-        <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
+    <div class="alert alert-danger">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <c:out value="${ errormsg }"/>
     </div>
     </c:if>
@@ -153,7 +153,7 @@
                     Parameter curparam = (Parameter) parameters.get(i);
             %>
             <div class="control-group">
-                <label class="control-label" for="<%=curparam.getParamId()%>"><strong>Step <%=step%>
+                <label class="form-label" for="<%=curparam.getParamId()%>"><strong>Step <%=step%>
                     : </strong> <%=curparam.getParamDescription()%>
                 </label>
 
@@ -214,7 +214,7 @@
                         for (int i2 = 0; i2 < paramChoices.size(); i2++) {
                             Choice curchoice = (Choice) paramChoices.get(i2);
                     %>
-                    <label class="checkbox control-label" for="<%=curparam.getParamId() + curchoice.getChoiceId()%>">
+                    <label class="checkbox form-label" for="<%=curparam.getParamId() + curchoice.getChoiceId()%>">
                         <input type="checkbox" name="<%=curparam.getParamId()%>"
                                id="<%=curparam.getParamId() + curchoice.getChoiceId()%>" class="checkclass<%=i%>"
                                value="<%=curchoice.getChoiceId()%>"/>
@@ -234,7 +234,7 @@
             <%} %> <%--end for loop --%>
 
             <div class="control-group">
-                <label class="control-label"><strong>Step <%=step + 1%>:</strong></label>
+                <label class="form-label"><strong>Step <%=step + 1%>:</strong></label>
                 <div class="controls">
                     <input type="submit" class="btn btn-primary" name="submitButton" value="Run Query"/>
                 </div>

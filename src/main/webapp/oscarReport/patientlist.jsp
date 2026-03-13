@@ -41,7 +41,7 @@
         </h4>
         <div class="row">
             <div class="control-group">
-                <label class="control-label">Doctor</label>
+                <label class="form-label">Doctor</label>
                 <div class="controls">
                     <select name="provider_no" class="col-md-3">
                         <option value="all">All Doctors</option>
@@ -59,14 +59,14 @@
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label">Date From</label>
+                <label class="form-label">Date From</label>
                 <div class="controls">
                     <input id="date_from" name="date_from" size="10"
                            type="text"/>
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label">Date To</label>
+                <label class="form-label">Date To</label>
                 <div class="controls">
                     <input id="date_to" name="date_to" size="10"
                            type="text"/>

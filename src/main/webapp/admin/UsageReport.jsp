@@ -98,7 +98,7 @@
             service begin and end dates.</small>
         </h4>
         <div class="control-group">
-            <label class="control-label">Provider</label>
+            <label class="form-label">Provider</label>
             <div class="controls">
 
                 <select name="providerNo">
@@ -119,7 +119,7 @@
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label">Start Date</label>
+            <label class="form-label">Start Date</label>
             <div class="controls">
                 <input type="text" id="startDate" name="startDate"
                        value="<%=request.getParameter("startDate") != null ? request
@@ -127,7 +127,7 @@
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label">End Date</label>
+            <label class="form-label">End Date</label>
             <div class="controls">
                 <input type="text" id="endDate" name="endDate"
                        value="<%=request.getParameter("endDate") != null ? request

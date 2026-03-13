@@ -163,7 +163,7 @@
                 if (outcome != null && outcome.equals("success")) { %>
             <div class="alert alert-success">SOB File Successfully Uploaded</div>
             <%} else if (outcome != null && outcome.equals("exception")) { %>
-            <div class="alert alert-error">There was a problem uploading this SOB file</div>
+            <div class="alert alert-danger">There was a problem uploading this SOB file</div>
             <%} else if (outcome != null && outcome.equals("uploadedPreviously")) { %>
             <div class="alert ">This file has already been processed</div>
             <%}%>

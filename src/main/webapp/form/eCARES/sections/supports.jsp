@@ -55,7 +55,7 @@
             <span class="pl-1">Other</span></label>
     </div>
     <div class="pl-4 flex items-center">
-        <span class="tt font-bold flex items-center control-label" data-bs-toggle="tooltip" title="For ADL or IADL">
+        <span class="tt font-bold flex items-center form-label" data-bs-toggle="tooltip" title="For ADL or IADL">
         Requires more support
         </span>
 

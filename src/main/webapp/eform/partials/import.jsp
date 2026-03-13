@@ -101,7 +101,7 @@
 
     <div class="control-group">
         <div class="controls">
-            <label class="control-label" for="zippedForm">Import eForm:</label>
+            <label class="form-label" for="zippedForm">Import eForm:</label>
             <input type="file" class="input-file" id="zippedForm" name="zippedForm" size="50" required/>
             <span style="color:red;">
 		         <i class="fa-solid fa-triangle-exclamation" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>

@@ -186,7 +186,7 @@
                     <option value="5">5</option>
                 </select>
 
-                <div class="tt control-label inline-block pl-1" data-bs-toggle="tooltip"
+                <div class="tt form-label inline-block pl-1" data-bs-toggle="tooltip"
                      title="Able to cross arms in front">
                     CRS Arms
                 </div>

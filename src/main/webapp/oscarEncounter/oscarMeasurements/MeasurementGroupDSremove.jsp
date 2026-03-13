@@ -94,7 +94,7 @@
         <input type="hidden" name="property" value="<%=propKey%>">
 
 
-        <div class="alert alert-warning alert-block">
+        <div class="alert alert-warning">
             <h4>Warning!</h4>
             Measurement group <em><strong><%=groupName%>
         </strong></em> is associated with the <em><strong><%=valueDisplay%>

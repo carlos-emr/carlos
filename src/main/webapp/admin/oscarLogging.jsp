@@ -88,14 +88,14 @@
             <small>Please select the date to view report on and log type.</small>
         </h4>
         <div class="control-group">
-            <label class="control-label">Date</label>
+            <label class="form-label">Date</label>
             <div class="controls">
                 <input type="text" id="reportDate" name="reportDate" class="col-md-3"
                        size="10" value="<%=reportDate%>">
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label">Select Report to view</label>
+            <label class="form-label">Select Report to view</label>
             <div class="controls">
                 <select name="reportType" id="reportType" class="col-md-3">
                     <option value="general" <%if (reportType.equals("general")) {%>

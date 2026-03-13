@@ -81,7 +81,7 @@
 <form action="${ctx}/oscarReport/mis_report_form.jsp" class="card card-body bg-body-tertiary form-horizontal" id="misForm">
 
     <div class="control-group">
-        <label class="control-label">Report By</label>
+        <label class="form-label">Report By</label>
         <div class="controls">
             <label class="radio inline">
                 <input
@@ -97,7 +97,7 @@
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label"></label>
+        <label class="form-label"></label>
         <div class="controls">
             <div class="toggleDiv">
 
@@ -142,7 +142,7 @@
     </div>
     <hr style="border-bottom:1px solid #e5e5e5; width:100%;">
     <div class="control-group">
-        <label class="control-label">Date Range Start</label>
+        <label class="form-label">Date Range Start</label>
         <div class="controls">
             <select name="startYear" class="input-medium">
                 <%
@@ -172,7 +172,7 @@
         </div>
     </div>
     <div class="control-group">
-        <label class="control-label">Date Range End (inclusive)</label>
+        <label class="form-label">Date Range End (inclusive)</label>
         <div class="controls">
             <select name="endYear" class="input-medium">
                 <%

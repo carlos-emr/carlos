@@ -383,13 +383,13 @@
             <input type="hidden" name="job.id" id="jobId" value="0"/>
             <fieldset>
                 <div class="control-group">
-                    <label class="control-label" for="jobName">Name:*</label>
+                    <label class="form-label" for="jobName">Name:*</label>
                     <div class="controls">
                         <input type="text" name="job.name" id="jobName" value=""/>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="jobType">Type:*</label>
+                    <label class="form-label" for="jobType">Type:*</label>
                     <div class="controls">
                         <select name="job.oscarJobTypeId" id="jobType">
                             <option value="">&nbsp;</option>
@@ -397,13 +397,13 @@
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="jobDescription">Description:</label>
+                    <label class="form-label" for="jobDescription">Description:</label>
                     <div class="controls">
                         <textarea rows="5" name="job.description" id="jobDescription"></textarea>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="jobEnabled">Enabled: <input type="checkbox" name="job.enabled"
+                    <label class="form-label" for="jobEnabled">Enabled: <input type="checkbox" name="job.enabled"
                                                                                   id="jobEnabled"/></label>
                     <div class="controls">
 
@@ -411,7 +411,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label class="control-label" for="jobProvider">Run As Provider:</label>
+                    <label class="form-label" for="jobProvider">Run As Provider:</label>
                     <div class="controls">
                         <select name="job.provider" id="jobProvider">
                             <option value="">&nbsp;</option>

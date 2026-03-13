@@ -129,8 +129,8 @@
         <c:forEach items="${ htmlList }" var="htmlOut">
             <c:choose>
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
-                    <div class="alert alert-error">
-                        <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
+                    <div class="alert alert-danger">
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         <c:out value="${ htmlOut }"/>
                     </div>
                 </c:when>

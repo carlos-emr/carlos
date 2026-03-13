@@ -76,7 +76,7 @@
                             <input type="submit" name="subm" class="btn groupAdd" value="Add Group" disabled>
                         </form>
 
-                        <div class="alert alert-error textExists" style="display:none;">
+                        <div class="alert alert-danger textExists" style="display:none;">
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             <strong>Error!</strong> the group name you selected already exists.
                         </div>

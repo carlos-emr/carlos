@@ -261,7 +261,7 @@
     <div class="card card-body bg-body-tertiary">
         <form method="post" name="baseurl" action="providerAddRole.jsp" class="form-horizontal">
             <div class="control-group">
-                <label class="control-label" for="role_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.rolename"/></label>
+                <label class="form-label" for="role_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.rolename"/></label>
                 <div class="controls">
                     <input type="text" name="role_name" id="role_name"
                            value="<%=Encode.forHtmlAttribute(prop.getProperty("role_name", ""))%>"

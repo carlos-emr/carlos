@@ -122,13 +122,13 @@
         <c:choose>
             <c:when test="${ not fn:startsWith(fn:toLowerCase(message), 'error') and not fn:startsWith(fn:toLowerCase(message), 'exception')}">
                 <div class="alert alert-success">
-                    <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <c:out value="${ message }"/>
                 </div>
             </c:when>
             <c:otherwise>
-                <div class="alert alert-error">
-                    <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
+                <div class="alert alert-danger">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <c:out value="${ message }"/>
                 </div>
             </c:otherwise>
@@ -140,7 +140,7 @@
         <div class="row">
         <div class="card card-body bg-body-tertiary">
         <div class="control-group">
-        <label class="control-label" for="uploadReportXml">Select template</label>
+        <label class="form-label" for="uploadReportXml">Select template</label>
         <div class="controls">
         <input type="file" id="uploadReportXml" class="input-file" name="templateFile" title="Upload a formatted template file. The extension is usually xml or txt">
         </div>
@@ -162,7 +162,7 @@
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
                     <div class="control-group">
-                        <label class="control-label" for="uploadReportXml">Select template</label>
+                        <label class="form-label" for="uploadReportXml">Select template</label>
                         <div class="controls">
                             <input type="file" id="uploadReportXml" class="input-file" name="templateFile"
                                    title="Upload a formatted template file. The extension is usually xml or txt">

@@ -136,7 +136,7 @@
             service begin and end dates.</small>
         </h4>
         <div class="control-group">
-            <label class="control-label">Select Report</label>
+            <label class="form-label">Select Report</label>
             <div class="controls">
                 <label class="radio inline"> <input type="radio"
                                                     name="reportAction" onClick="toggleDivs();" value="lk"
@@ -149,7 +149,7 @@
             </div>
         </div>
         <div class="control-group" id="providerDiv">
-            <label class="control-label">Provider</label>
+            <label class="form-label">Provider</label>
 
             <div class="controls">
                 <select id="providerview" name="providerview"
@@ -175,14 +175,14 @@
         </div>
 
         <div class="control-group">
-            <label class="control-label">Service Date Begin</label>
+            <label class="form-label">Service Date Begin</label>
             <div class="controls">
                 <input type="text" id="xml_vdate" name="xml_vdate"
                        value="<%=xml_vdate%>">
             </div>
         </div>
         <div class="control-group">
-            <label class="control-label">Service Date End</label>
+            <label class="form-label">Service Date End</label>
             <div class="controls">
 
                 <input type="text" id="xml_appointment_date"

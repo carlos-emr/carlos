@@ -161,7 +161,7 @@
         </table>
       </div>
     <% } else { %>
-      <div class="alert alert-error">
+      <div class="alert alert-danger">
         <strong>Warning!</strong>
         Backup directory not found—check <i>backup_path</i> in your properties.
       </div>

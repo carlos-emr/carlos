@@ -235,19 +235,19 @@
         <form>
             <fieldset>
                 <div class="control-group">
-                    <label class="control-label" for="clientName">Name:</label>
+                    <label class="form-label" for="clientName">Name:</label>
                     <div class="controls">
                         <input type="text" name="clientName" id="clientName"/>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="clientURI">URI:</label>
+                    <label class="form-label" for="clientURI">URI:</label>
                     <div class="controls">
                         <input type="text" name="clientURI" id="clientURI"/>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="lifetime">Token Lifetime (seconds):</label>
+                    <label class="form-label" for="lifetime">Token Lifetime (seconds):</label>
                     <div class="controls">
                         <input type="text" name="lifetime" id="lifetime"/>
                     </div>

@@ -5,7 +5,7 @@
         "font-styles": function (locale, options) {
             var size = (options && options.size) ? ' btn-' + options.size : '';
             return "<li class='dropdown'>" +
-                "<a class='btn dropdown-toggle" + size + "' data-toggle='dropdown' href='#'>" +
+                "<a class='btn dropdown-toggle" + size + "' data-bs-toggle='dropdown' href='#'>" +
                 "<i class='icon-font'></i>&nbsp;<span class='current-font'>" + locale.font_styles.normal + "</span>&nbsp;<b class='caret'></b>" +
                 "</a>" +
                 "<ul class='dropdown-menu'>" +
@@ -48,7 +48,7 @@
             return "<li>" +
                 "<div class='bootstrap-wysihtml5-insert-link-modal modal hide fade'>" +
                 "<div class='modal-header'>" +
-                "<a class='close' data-dismiss='modal'>&times;</a>" +
+                "<a class='btn-close' data-bs-dismiss='modal'>&times;</a>" +
                 "<h3>" + locale.link.insert + "</h3>" +
                 "</div>" +
                 "<div class='modal-body'>" +
@@ -56,8 +56,8 @@
                 "<label class='checkbox'> <input type='checkbox' class='bootstrap-wysihtml5-insert-link-target' checked>" + locale.link.target + "</label>" +
                 "</div>" +
                 "<div class='modal-footer'>" +
-                "<a href='#' class='btn' data-dismiss='modal'>" + locale.link.cancel + "</a>" +
-                "<a href='#' class='btn btn-primary' data-dismiss='modal'>" + locale.link.insert + "</a>" +
+                "<a href='#' class='btn' data-bs-dismiss='modal'>" + locale.link.cancel + "</a>" +
+                "<a href='#' class='btn btn-primary' data-bs-dismiss='modal'>" + locale.link.insert + "</a>" +
                 "</div>" +
                 "</div>" +
                 "<a class='btn" + size + "' data-wysihtml5-command='createLink' title='" + locale.link.insert + "' tabindex='-1'><i class='icon-share'></i></a>" +
@@ -69,15 +69,15 @@
             return "<li>" +
                 "<div class='bootstrap-wysihtml5-insert-image-modal modal hide fade'>" +
                 "<div class='modal-header'>" +
-                "<a class='close' data-dismiss='modal'>&times;</a>" +
+                "<a class='btn-close' data-bs-dismiss='modal'>&times;</a>" +
                 "<h3>" + locale.image.insert + "</h3>" +
                 "</div>" +
                 "<div class='modal-body'>" +
                 "<input value='http://' class='bootstrap-wysihtml5-insert-image-url input-xlarge'>" +
                 "</div>" +
                 "<div class='modal-footer'>" +
-                "<a href='#' class='btn' data-dismiss='modal'>" + locale.image.cancel + "</a>" +
-                "<a href='#' class='btn btn-primary' data-dismiss='modal'>" + locale.image.insert + "</a>" +
+                "<a href='#' class='btn' data-bs-dismiss='modal'>" + locale.image.cancel + "</a>" +
+                "<a href='#' class='btn btn-primary' data-bs-dismiss='modal'>" + locale.image.insert + "</a>" +
                 "</div>" +
                 "</div>" +
                 "<a class='btn" + size + "' data-wysihtml5-command='insertImage' title='" + locale.image.insert + "' tabindex='-1'><i class='icon-picture'></i></a>" +
@@ -96,7 +96,7 @@
         "color": function (locale, options) {
             var size = (options && options.size) ? ' btn-' + options.size : '';
             return "<li class='dropdown'>" +
-                "<a class='btn dropdown-toggle" + size + "' data-toggle='dropdown' href='#' tabindex='-1'>" +
+                "<a class='btn dropdown-toggle" + size + "' data-bs-toggle='dropdown' href='#' tabindex='-1'>" +
                 "<span class='current-color'>" + locale.colours.black + "</span>&nbsp;<b class='caret'></b>" +
                 "</a>" +
                 "<ul class='dropdown-menu'>" +
@@ -271,7 +271,7 @@
                     self.editor.currentView.element.focus(false);
                     caretBookmark = self.editor.composer.selection.getBookmark();
                     insertImageModal.appendTo('body').modal('show');
-                    insertImageModal.on('click.dismiss.modal', '[data-dismiss="modal"]', function (e) {
+                    insertImageModal.on('click.dismiss.modal', '[data-bs-dismiss="modal"]', function (e) {
                         e.stopPropagation();
                     });
                     return false;
@@ -332,7 +332,7 @@
                     self.editor.currentView.element.focus(false);
                     caretBookmark = self.editor.composer.selection.getBookmark();
                     insertLinkModal.appendTo('body').modal('show');
-                    insertLinkModal.on('click.dismiss.modal', '[data-dismiss="modal"]', function (e) {
+                    insertLinkModal.on('click.dismiss.modal', '[data-bs-dismiss="modal"]', function (e) {
                         e.stopPropagation();
                     });
                     return false;

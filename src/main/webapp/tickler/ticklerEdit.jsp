@@ -298,7 +298,7 @@
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
             <input type="hidden" name="parentAjaxId" value="<e:forHtml value='${param.parentAjaxId}' />"/>
             <h2><fmt:message key="tickler.ticklerEdit.title"/></h2>
-            <div id="error" class="alert alert-error" style="display:none;"></div>
+            <div id="error" class="alert alert-danger" style="display:none;"></div>
 
             <table class="table table-condensed">
 

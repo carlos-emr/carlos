@@ -100,7 +100,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - Modify Decision Support for
         Group </h3>
 
-    <div class="alert alert-success alert-block">
+    <div class="alert alert-success">
         <h4>Success!</h4>
         You have successfully <%=state%> the decision support!
 

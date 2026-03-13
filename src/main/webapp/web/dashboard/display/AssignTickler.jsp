@@ -111,7 +111,7 @@
     <div class="row">
         <div class="col-6">
 
-            <label for="datePickerServiceDate" class="control-label">Service
+            <label for="datePickerServiceDate" class="form-label">Service
                 Date:</label>
             <div class="controls">
                 <div class="input-group">
@@ -125,7 +125,7 @@
         </div>
 
         <div class="col-6">
-            <label for="ticklerTime" class="control-label"> Time:</label>
+            <label for="ticklerTime" class="form-label"> Time:</label>
             <div class="controls">
                 <div class="input-group">
                     <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required"/>

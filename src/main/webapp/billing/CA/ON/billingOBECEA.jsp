@@ -53,7 +53,7 @@
     <form action="${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload.do" method="POST" enctype="multipart/form-data">
 
 
-        <div class="alert alert-error">
+        <div class="alert alert-danger">
 
             <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");

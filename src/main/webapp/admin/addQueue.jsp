@@ -126,7 +126,7 @@
 
             if (qn == "default") {
                 $('.alert').removeClass('alert-success');
-                $('.alert').addClass('alert-error');
+                $('.alert').addClass('alert-danger');
                 $('.alert').show();
 
                 $('#addQueueSuccessMsg').html("<strong>Error!</strong> You can not overwrite the <em>default</em> queue.");
@@ -151,7 +151,7 @@
                             var json = data.addNewQueue;
                             if (json != null) {
                                 if (json == true) {
-                                    $('.alert').removeClass('alert-error');
+                                    $('.alert').removeClass('alert-danger');
                                     $('.alert').addClass('alert-success');
                                     $('.alert').show();
 
@@ -159,7 +159,7 @@
                                     $('#newQueueName').val("");
                                 } else {
                                     $('.alert').removeClass('alert-success');
-                                    $('.alert').addClass('alert-error');
+                                    $('.alert').addClass('alert-danger');
                                     $('.alert').show();
 
                                     $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added which is probably because it already exists.");
@@ -169,7 +169,7 @@
                         },
                         error: function (data) {
                             $('.alert').removeClass('alert-success');
-                            $('.alert').addClass('alert-error');
+                            $('.alert').addClass('alert-danger');
                             $('.alert').show();
 
                             $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added, please contact support.");
@@ -181,7 +181,7 @@
 
                 } else {
                     $('.alert').removeClass('alert-success');
-                    $('.alert').addClass('alert-error');
+                    $('.alert').addClass('alert-danger');
                     $('.alert').show();
 
                     $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name can not be empty.");

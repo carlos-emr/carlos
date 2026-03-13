@@ -217,27 +217,27 @@
             <input type="hidden" name="jobType.id" id="jobTypeId" value="0"/>
             <fieldset>
                 <div class="control-group">
-                    <label class="control-label" for="jobTypeName">Name:*</label>
+                    <label class="form-label" for="jobTypeName">Name:*</label>
                     <div class="controls">
                         <input class="input-block-level" type="text" name="jobType.name" id="jobTypeName" value=""/>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="jobTypeDescription">Description:</label>
+                    <label class="form-label" for="jobTypeDescription">Description:</label>
                     <div class="controls">
                         <textarea class="input-block-level" rows="5" name="jobType.description"
                                   id="jobTypeDescription"></textarea>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="jobTypeClassName">JAVA Class Name:</label>
+                    <label class="form-label" for="jobTypeClassName">JAVA Class Name:</label>
                     <div class="controls">
                         <input class="input-block-level" type="text" name="jobType.className" id="jobTypeClassName"
                                value=""/>
                     </div>
                 </div>
                 <div class="control-group">
-                    <label class="control-label" for="jobTypeEnabled">Enabled: <input type="checkbox"
+                    <label class="form-label" for="jobTypeEnabled">Enabled: <input type="checkbox"
                                                                                       name="jobType.enabled"
                                                                                       id="jobTypeEnabled"/></label>
                     <div class="controls">

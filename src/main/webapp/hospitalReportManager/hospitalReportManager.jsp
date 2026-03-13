@@ -91,7 +91,7 @@
         %>
         <form action="<%=request.getContextPath() %>/hospitalReportManager/Statement.do" method="post">
             <div class="control-group">
-                <label class="control-label">Provider Confidentiality Statement</label>
+                <label class="form-label">Provider Confidentiality Statement</label>
                 <div class="controls">
                     <textarea name="statement"><%= Encode.forHtml(statement != null ? statement : "") %></textarea>
                 </div>

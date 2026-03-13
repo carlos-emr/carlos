@@ -56,7 +56,7 @@
             <span class="pl-1">High</span></label>
     </div>
     <div class="flex pl-2 items-center">
-        <label for="caregiver_occupation" class="tt control-label font-bold" data-bs-toggle="tooltip"
+        <label for="caregiver_occupation" class="tt form-label font-bold" data-bs-toggle="tooltip"
                title="Caregiver Occupation">Caregiver Occupation:</label>
 
         <input type="text" name="caregiver_occupation" style="width: 200px; height: 18px;" id="caregiver_occupation"

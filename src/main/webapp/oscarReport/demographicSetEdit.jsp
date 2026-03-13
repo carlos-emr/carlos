@@ -140,7 +140,7 @@
 
         <section id="mainContent">
             <% if (request.getAttribute("deleteSetSuccess") != null && (Boolean) request.getAttribute("deleteSetSuccess")) { %>
-            <div class="alert alert-block alert-success fade show">
+            <div class="alert alert-success fade show">
                 <button type="button" class="btn-close" data-bs-dismiss="alert">X</button>
                 <h4 class="alert-heading">Success!</h4>
                 <p>Patient set "${requestScope.setname}" has been successfully deleted.</p>

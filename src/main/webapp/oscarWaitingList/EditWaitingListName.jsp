@@ -101,7 +101,7 @@
                 <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
-                        <label class="control-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
+                        <label class="form-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
                         <div class="controls">
                             <select name="selectedWL" id="selectedWL">
                                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
@@ -125,7 +125,7 @@
                 <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
-                        <label class="control-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
+                        <label class="form-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
                         <div class="controls">
                             <input type="text" class="input-medium" name="wlNewName" id="wlNewName" placeholder="" value="">
                             <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
@@ -136,7 +136,7 @@
                 <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/></legend>
-                        <label class="control-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
+                        <label class="form-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
                         <div class="controls">
                             <select name="selectedWL2" id="selectedWL2">
                                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>

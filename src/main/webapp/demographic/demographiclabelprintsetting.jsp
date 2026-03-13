@@ -202,7 +202,7 @@
                     </td>
                     <td rowspan=5 style="vertical-align:middle; background-color:#999999;">
                         <div class="control-group">
-                            <label class="control-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formLeft"/>:</label>
+                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formLeft"/>:</label>
                             <div class="controls">
                                 <input type="text" class="input-small" name="left"
                                        placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgPx"/>"
@@ -211,7 +211,7 @@
                             </div>
                         </div>
                         <div class="control-group">
-                            <label class="control-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formTop"/>:</label>
+                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formTop"/>:</label>
                             <div class="controls">
                                 <input type="text" class="input-small" name="top" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.top","0")%>"
@@ -220,7 +220,7 @@
                             </div>
                         </div>
                         <div class="control-group">
-                            <label class="control-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formHeight"/>:</label>
+                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formHeight"/>:</label>
                             <div class="controls">
                                 <input type="text" class="input-small" name="height" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.height","145")%>"
@@ -229,7 +229,7 @@
                             </div>
                         </div>
                         <div class="control-group">
-                            <label class="control-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formGap"/>:</label>
+                            <label class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.formGap"/>:</label>
                             <div class="controls">
                                 <input type="text" class="input-small" name="gap" size="3" maxlength="3"
                                        value="<%= oscarVariables.getProperty("label.gap","0")%>"

@@ -208,7 +208,7 @@
     }
 
     if (demoHIN.equals("")) {
-        warningMsg += "<b><div class='alert alert-error'>Warning: The patient does not have a valid HIN. </div></b>";
+        warningMsg += "<b><div class='alert alert-danger'>Warning: The patient does not have a valid HIN. </div></b>";
     }
     if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
         warningMsg += "<div class='alert alert error'>Warning: the referral doctor's no is wrong. </div>";

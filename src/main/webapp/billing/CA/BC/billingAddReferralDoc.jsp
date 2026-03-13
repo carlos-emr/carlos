@@ -122,7 +122,7 @@
 
     <div class="container-fluid well">
         <% if (request.getAttribute("Error") != null) { %>
-        <div class="alert alert-error">
+        <div class="alert alert-danger">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <%=request.getAttribute("Error") %>
         </div>

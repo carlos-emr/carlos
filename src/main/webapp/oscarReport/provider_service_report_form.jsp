@@ -82,14 +82,14 @@
         </h4>
         <div class="row">
             <div class="control-group">
-                <label class="control-label">Start Date</label>
+                <label class="form-label">Start Date</label>
                 <div class="controls">
                     <input id="startDate" name="startDate" class="input-mini" size="7"
                            type="text"/>
                 </div>
             </div>
             <div class="control-group">
-                <label class="control-label">EndDate (inclusive)</label>
+                <label class="form-label">EndDate (inclusive)</label>
                 <div class="controls">
                     <input id="endDate" name="endDate" class="input-mini" size="7"
                            type="text"/>

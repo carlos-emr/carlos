@@ -250,17 +250,17 @@
         if (demo.getHin() == null) {
             errorFlag = "1";
             errorMsg = errorMsg
-                    + "<br><div class='alert alert-error'>Error: The patient does not have a HIN </div><br>";
+                    + "<br><div class='alert alert-danger'>Error: The patient does not have a HIN </div><br>";
         } else if (demo.getHin().equals("")) {
-            warningMsg += "<br><div class='alert alert-error'>Warning: The patient does not have a HIN </div><br>";
+            warningMsg += "<br><div class='alert alert-danger'>Warning: The patient does not have a HIN </div><br>";
         }
         if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-            warningMsg += "<br><div class='alert alert-error'>Warning: the referral doctor's no is wrong. </div><br>";
+            warningMsg += "<br><div class='alert alert-danger'>Warning: the referral doctor's no is wrong. </div><br>";
         }
         if (demoDOB.length() != 8) {
             errorFlag = "1";
             errorMsg = errorMsg
-                    + "<br><div class='alert alert-error'>Error: The patient does not have a valid DOB. </div><br>";
+                    + "<br><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div><br>";
         }
     }
 
@@ -753,7 +753,7 @@
 	    if (svcCodes.isEmpty()) {
 			codeValid = false;
 		%>
-                    <tr class="alert alert-error">
+                    <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
                             Service code "<%=serviceCodeValue%>" is invalid. Please go back to correct it.
@@ -774,7 +774,7 @@
 		if(dcodes.size() == 0) {
 		codeValid = false;
 		%>
-                    <tr class="alert alert-error">
+                    <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
                             Diagnostic code "<%=dxCodeValue%>" is invalid. Please go back to correct it.
@@ -1033,7 +1033,7 @@
                                    onClick="onClickSave();"/>
                                 <% }else if (dupServiceCode){%>
                         <td>
-                            <div class='alert alert-error'>Warning: Duplicate service codes entered</div>
+                            <div class='alert alert-danger'>Warning: Duplicate service codes entered</div>
                         </td>
                             <% }
                                     %>

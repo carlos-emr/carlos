@@ -95,7 +95,7 @@
     <%
     } else {
     %>
-    <div class="alert alert-error">
+    <div class="alert alert-danger">
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminsavemygroup.msgAdditionFailure"/>
     </div>
     <%

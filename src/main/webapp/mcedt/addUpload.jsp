@@ -84,7 +84,7 @@
             <input id="method" name="method" type="hidden" value=""/>
 
             <div class="form-group">
-                <label class="control-label" for="resourceType">Resource
+                <label class="form-label" for="resourceType">Resource
                     Type</label>
 
                 <select name="resourceType" id="resourceType" class="input-xxlarge">
@@ -96,10 +96,10 @@
                         </option>
                     </c:forEach>
                 </select>
-                <label class="control-label" for="description">Description:</label>
+                <label class="form-label" for="description">Description:</label>
                 <input type="text" name="description" id="description" value=""/>
 
-                <label class="control-label" for="content">File Upload</label>
+                <label class="form-label" for="content">File Upload</label>
                 <input type="file" name="content" id="content" style="content"/>
 
                 <div style="margin-top: 1em;">

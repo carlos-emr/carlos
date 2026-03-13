@@ -133,7 +133,7 @@
     <input type="hidden" name="method" id="method" value=""/>
 
     <div id="programOptions" class="control-group">
-        <label class="control-label">Program:</label>
+        <label class="form-label">Program:</label>
         <div class="controls">
             <select name="programId" id="programId" class="input-medium" onChange="getProviders()">
                 <option value=""></option>

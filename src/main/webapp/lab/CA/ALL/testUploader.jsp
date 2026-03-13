@@ -186,7 +186,7 @@
         }
 
         function showErrorMessage(message) {
-            document.querySelector('.alert').classList.add('alert-error');
+            document.querySelector('.alert').classList.add('alert-danger');
             document.querySelector('.alert').classList.remove('hidden');
             document.getElementById('errorMsg').innerHTML = message;
         }
