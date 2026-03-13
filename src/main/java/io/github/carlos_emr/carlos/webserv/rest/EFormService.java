@@ -25,7 +25,6 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
@@ -122,9 +121,9 @@ public class EFormService extends AbstractServiceImpl {
 
 		if (isValidEformData(eForm)) {
 			eFormDao.persist(eForm);
-			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+			LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(),
+					LogConst.ADD, LogConst.CON_FORM,
+					String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
@@ -200,9 +199,9 @@ public class EFormService extends AbstractServiceImpl {
 
 		if (isValidEformData(eForm)) {
 			eFormDao.persist(eForm);
-			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+			LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(),
+					LogConst.ADD, LogConst.CON_FORM,
+					String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
@@ -239,9 +238,9 @@ public class EFormService extends AbstractServiceImpl {
 
 		if (isValidEformData(eForm)) {
 			eFormDao.merge(eForm);
-			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-					LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+			LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(),
+					LogConst.UPDATE, LogConst.CON_FORM,
+					String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
 		}
@@ -317,9 +316,9 @@ public class EFormService extends AbstractServiceImpl {
 
 			if (isValidEformData(eForm)) {
 				eFormDao.merge(eForm);
-				LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-						LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-						String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+				LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(),
+						LogConst.UPDATE, LogConst.CON_FORM,
+						String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 				EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 				return RestResponse.successResponse(transferObj);
 			}
