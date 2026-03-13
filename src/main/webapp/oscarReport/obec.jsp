@@ -91,7 +91,7 @@
 %>
 
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         Overnight Batch Eligibility Checking Report
         <div class="float-end">

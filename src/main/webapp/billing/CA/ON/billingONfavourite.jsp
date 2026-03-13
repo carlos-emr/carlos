@@ -379,7 +379,7 @@
         </table>
     </form>
     <form method="post" name="baseurl" action="billingONfavourite.jsp">
-        <table style="width:100%;" class="table table-striped table-condensed">
+        <table style="width:100%;" class="table table-striped table-sm">
 
             <tr class="myGreen">
                 <td style="text-align:right"><b>Name</b></td>

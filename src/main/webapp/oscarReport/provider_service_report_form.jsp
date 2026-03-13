@@ -65,7 +65,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>Provider Service Report Form</h4>
 </div>
 

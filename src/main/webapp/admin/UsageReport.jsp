@@ -69,7 +69,7 @@
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>EMR Usage Report</h4>
 </div>
 
@@ -236,7 +236,7 @@
     </dl>
 
     <h5>Age and Gender Distribution</h5>
-    <table class="table table-bordered table-striped table-condensed table-hover">
+    <table class="table table-bordered table-striped table-sm table-hover">
         <thead>
         <tr>
             <th>Age Group - Years</th>
@@ -282,7 +282,7 @@
 
     <h5>Scheduled Appts</h5>
 
-    <table class="table table-bordered table-striped table-condensed table-hover tooltips">
+    <table class="table table-bordered table-striped table-sm table-hover tooltips">
         <thead>
         <tr>
             <th>Scheduled Appts</th>

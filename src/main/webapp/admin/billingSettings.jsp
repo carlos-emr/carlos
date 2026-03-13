@@ -176,7 +176,7 @@
     <form name="billingSettingsForm" method="post" action="${pageContext.request.contextPath}/admin/billingSettings.jsp">
 
         <input type="hidden" name="dboperation" value="">
-        <table id="displaySettingsTable" class="table table-bordered table-striped table-hover table-condensed">
+        <table id="displaySettingsTable" class="table table-bordered table-striped table-hover table-sm">
             <tbody>
             <oscar:oscarPropertiesCheck property="billregion" value="BC">
                 <tr>

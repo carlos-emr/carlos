@@ -98,7 +98,7 @@ if(!authed) {
 	BigTotal = BigTotal.add(ooTotal);
 %>
 <h4>Encounter Statistics - Larry Kain Report</h4>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
 	<dl class="dl-horizontal">
 		<dt>Clinic</dt>
 		<dd><%=clinic%></dd>

@@ -256,11 +256,11 @@
 
             insertButton.click(insertImage);
 
-            insertImageModal.on('shown', function () {
+            insertImageModal.on('shown.bs.modal', function () {
                 urlInput.focus();
             });
 
-            insertImageModal.on('hide', function () {
+            insertImageModal.on('hide.bs.modal', function () {
                 self.editor.currentView.element.focus();
             });
 
@@ -317,11 +317,11 @@
 
             insertButton.click(insertLink);
 
-            insertLinkModal.on('shown', function () {
+            insertLinkModal.on('shown.bs.modal', function () {
                 urlInput.focus();
             });
 
-            insertLinkModal.on('hide', function () {
+            insertLinkModal.on('hide.bs.modal', function () {
                 self.editor.currentView.element.focus();
             });
 

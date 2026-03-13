@@ -38,7 +38,7 @@
     <li><a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.name"/></a></li>
     <!-- <li><a href="#">eForm Emporium</a></li> -->
 	<li class="dropdown">
-		<a href="javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">
+		<a href="javascript:void(0);" class="dropdown-toggle" data-bs-toggle="dropdown">
 		Create eForm
 		<b class="caret"></b>
 		</a>

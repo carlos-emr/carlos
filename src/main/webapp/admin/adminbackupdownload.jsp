@@ -105,7 +105,7 @@
 
     <% if (exists) { %>
       <div class="card card-body bg-body-tertiary">
-        <table class="table table-striped table-condensed">
+        <table class="table table-striped table-sm">
           <thead>
             <tr><th>File Name</th><th>Size</th></tr>
           </thead>

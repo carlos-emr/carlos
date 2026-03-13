@@ -172,7 +172,7 @@
         </div>
 
     </div>
-    <table class="MainTable table-condensed table-borderless" id="scrollNumber1">
+    <table class="MainTable table-sm table-borderless" id="scrollNumber1">
         <tr>
             <td>&nbsp;</td>
             <td>

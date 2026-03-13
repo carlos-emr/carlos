@@ -88,7 +88,7 @@
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h3>
 
 
-        <table class="table table-condensed table-hover">
+        <table class="table table-sm table-hover">
             <thead>
             <tr class="btn-inverse">
                 <th></th>

@@ -137,7 +137,7 @@
 	<a class="brand" href="javascript:void(0)">Flowsheets</a>
 </div></div>
 
-			<table class="table table-striped table-condensed table-hover">
+			<table class="table table-striped table-sm table-hover">
         <thead>
         <tr>
             <td><b>Name</b></td>

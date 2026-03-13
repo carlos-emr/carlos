@@ -28,7 +28,7 @@
 </head>
 <body>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>Patient List</h4>
 </div>
 

@@ -514,7 +514,7 @@
         <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
     </form>
 
-    <table id="reportTbl" class="table table-condensed table-striped table-hover" style="margin-top:10px;">
+    <table id="reportTbl" class="table table-sm table-striped table-hover" style="margin-top:10px;">
         <thead>
         <tr>
             <% for (int i=0; i<vecHeader.size(); i++) {%>

@@ -84,7 +84,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.calldeletedformdata.title"/></h3>
 
 
-    <table class="table table-condensed table-striped table-hover" id="tblDeletedEforms">
+    <table class="table table-sm table-striped table-hover" id="tblDeletedEforms">
         <tr>
             <th><a href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp?orderby=form_name"
                    class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>

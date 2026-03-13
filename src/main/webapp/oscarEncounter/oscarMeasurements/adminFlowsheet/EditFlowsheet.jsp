@@ -468,7 +468,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                 <div class="tab-pane active" id="home">
 
 		<!-- Flowsheet Measurement List -->
-		<table class="table table-striped table-bordered table-condensed" id="measurementTbl">
+		<table class="table table-striped table-bordered table-sm" id="measurementTbl">
 		<thead>
 		<tr>
 		<th style="min-width:60px;max-width:80px;"></th>
@@ -565,7 +565,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 	    		<%
 	    	}else{
 	    	%>
-		    <table class="table table-striped table-condensed">
+		    <table class="table table-striped table-sm">
 
 			<tbody>
 

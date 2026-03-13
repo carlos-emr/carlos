@@ -478,7 +478,7 @@
                value="<%=Encode.forHtmlAttribute(request.getParameter("billTypes"))%>">
 
 
-        <table class="table table-striped table-condensed sortable" id="resultsTable">
+        <table class="table table-striped table-sm sortable" id="resultsTable">
             <thead>
 
             <th class="no-sort"><label for="checkAll" class="checkbox-inline">

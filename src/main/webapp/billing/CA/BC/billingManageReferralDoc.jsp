@@ -113,7 +113,7 @@
                class="contentLink btn btn-info">Add Doctor</a>
         </form>
 
-        <table class="table table-striped table-condensed table-hover">
+        <table class="table table-striped table-sm table-hover">
             <thead>
             <tr>
                 <!--th>id</th-->

@@ -179,7 +179,7 @@
         </tr>
     </table>
 
-    <table id="tblResults" style="width:100%" class="table table-hover table-striped table-condensed">
+    <table id="tblResults" style="width:100%" class="table table-hover table-striped table-sm">
         <thead>
         <tr>
             <th style="text-align:center; width:10%">

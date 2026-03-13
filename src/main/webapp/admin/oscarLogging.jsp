@@ -60,7 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.serverLog"/>
     </h4>

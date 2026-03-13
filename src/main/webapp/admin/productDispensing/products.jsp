@@ -489,7 +489,7 @@
         <span id="productFilterMessage"></span>
     </div>
 
-    <table id="productTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="productTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>

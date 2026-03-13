@@ -1781,10 +1781,10 @@
                     <td style="display:flex;gap:3px;">
 
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 25%;">
-                            <table class="table table-condensed table-borderless">
+                            <table class="table table-sm table-borderless">
                                 <tr>
                                     <td>
-                                        <table class="table table-condensed table-borderless">
+                                        <table class="table table-sm table-borderless">
                                             <tr>
                                                 <td>
                                                     <label>
@@ -1848,12 +1848,12 @@
                                 <tr>
                                     <td>
 
-                                        <table class="table table-condensed table-borderless"
+                                        <table class="table table-sm table-borderless"
                                                style="max-height: 100px;display: block;overflow-y: scroll">
                                             <tr>
                                                 <td>
 
-                                                    <table class="table table-condensed table-borderless">
+                                                    <table class="table table-sm table-borderless">
                                                         <tr>
                                                             <td colspan="2">Recent Referral Doctors</td>
                                                         </tr>
@@ -1898,7 +1898,7 @@
                                                 </td>
                                                 <td>
 
-                                                    <table class="table table-condensed table-borderless">
+                                                    <table class="table table-sm table-borderless">
                                                         <tr>
                                                             <td style="border-top:none;" colspan="2">Referral Doctor on
                                                                 Master Record
@@ -1930,7 +1930,7 @@
                         </div>
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 25%;">
 
-                            <table class="table table-condensed table-borderless">
+                            <table class="table table-sm table-borderless">
                                 <tr>
                                     <td>
                                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.otherservice"/></label>
@@ -2037,7 +2037,7 @@
                             <!-- ONSCREEN DX CODE DISPLAY -->
                         </div>
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 15%;">
-                            <table class="table table-condensed table-borderless">
+                            <table class="table table-sm table-borderless">
                                 <tr>
                                     <td style="width:60%">
                                         <div class="input-group">
@@ -2148,7 +2148,7 @@
                         </div>
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 25%;">
 
-                            <table class="table table-condensed table-borderless" style="height:100%">
+                            <table class="table table-sm table-borderless" style="height:100%">
                                 <tr>
                                     <td>
                                         <label for="shortClaimNote">Short Claim Note</label>
@@ -2223,7 +2223,7 @@
                             <table id="billingFormTable">
                                 <tr>
                                     <td style="width:33%;">
-                                        <table class="table table-condensed serviceCodesTable">
+                                        <table class="table table-sm serviceCodesTable">
                                             <tr style="background-color:#CCCCFF;">
                                                 <td width="25%">
                                                     <div align="left">
@@ -2268,7 +2268,7 @@
 
                                     </td>
                                     <td valign="top" style="width:33%;">
-                                        <table class="table table-condensed serviceCodesTable">
+                                        <table class="table table-sm serviceCodesTable">
                                             <tr style="background-color:#CCCCFF;">
                                                 <td width="21%">
                                                     <label>
@@ -2305,7 +2305,7 @@
                                         <!-- former tool table -->
                                     </td>
                                     <td valign="top" style="width:33%;">
-                                        <table class="table table-condensed serviceCodesTable">
+                                        <table class="table table-sm serviceCodesTable">
                                             <tr style="background-color:#CCCCFF;">
                                                 <td width="25%" align="left" valign="middle">
                                                     <label><%=group3Header%>

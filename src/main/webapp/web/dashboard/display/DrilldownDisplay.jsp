@@ -167,7 +167,7 @@
             </div>
         </form>
 
-        <table class="table table-striped table-condensed" id="drilldownTable">
+        <table class="table table-striped table-sm" id="drilldownTable">
             <c:forEach items="${ drilldown.table }" var="row" varStatus="rowCount">
             <c:choose>
             <c:when test="${ rowCount.index eq 0 }">

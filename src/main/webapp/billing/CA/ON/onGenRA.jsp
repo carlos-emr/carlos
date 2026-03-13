@@ -138,7 +138,7 @@
     </button>
     <br/><br/>
 
-    <table class="table table-striped table-hover table-condensed">
+    <table class="table table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>Read Date</th>

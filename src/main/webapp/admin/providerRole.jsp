@@ -504,7 +504,7 @@
     </div>
 </form>
 
-<table id="provTable" class="table table-striped table-hover table-condensed">
+<table id="provTable" class="table table-striped table-hover table-sm">
     <thead>
     <tr>
         <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/></th>

@@ -128,7 +128,7 @@
 
     <form name="diagcode" id="diagcode" method="post"
           action="billingDigUpdate.jsp">
-        <table style="width:800px; margin:auto" class="table-striped table-condensed">
+        <table style="width:800px; margin:auto" class="table-striped table-sm">
             <thead>
             <tr>
                 <th style="width:12%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.formCode"/></b></th>

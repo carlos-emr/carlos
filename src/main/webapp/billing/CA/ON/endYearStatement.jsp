@@ -91,7 +91,7 @@
     </script>
 
     <style>
-        .well {
+        .card-body {
             padding-left: 8px;
             padding-right: 8px;
         }
@@ -174,7 +174,7 @@
 <% } %></div>
 
     <c:if test="${not empty summary}">
-        <table class="table table-striped table-condensed">
+        <table class="table table-striped table-sm">
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td align="left" colspan="2">Patient Information</td>
@@ -208,7 +208,7 @@
     <br/>
 
     <c:if test="${not empty result}">
-        <table class="table table-striped table-condensed">
+        <table class="table table-striped table-sm">
             <tr bgcolor="#ccffcc">
                 <th>INVOICE NUMBER</th>
                 <th>INVOICE DATE</th>

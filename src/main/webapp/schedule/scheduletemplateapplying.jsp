@@ -614,7 +614,7 @@
                             </tr>
                             <tr>
                                 <td style="text-align:center; white-space:nowrap" colspan="2">
-                                    <table class="table table-condensed talbe-bordered">
+                                    <table class="table table-sm talbe-bordered">
                                         <tr>
                                             <td style="width:70%">
                                                 <script>

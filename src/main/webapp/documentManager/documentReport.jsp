@@ -461,7 +461,7 @@
                     </div>
 
                     <div id="documentsInnerDiv<%=i%>" class="card-body">
-                        <table id="tblDocs<%=i%>" class="table table-condensed table-striped">
+                        <table id="tblDocs<%=i%>" class="table table-sm table-striped">
                             <thead>
                             <tr>
                                 <th>

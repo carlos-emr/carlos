@@ -90,7 +90,7 @@
 
                 <input id="method" name="method" type="hidden" value="cancel"/>
 
-                <table class="table table-striped  table-condensed">
+                <table class="table table-striped  table-sm">
                     <c:forEach var="d" items="${mcedtUploadDetails.data}" varStatus="i">
                         <tr>
                             <td><c:out value="${d.resourceID}"/> <c:out

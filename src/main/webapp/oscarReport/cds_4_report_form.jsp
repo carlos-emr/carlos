@@ -70,7 +70,7 @@
     List<FunctionalCentre> functionalCentres = functionalCentreDao.findInUseByFacility(loggedInInfo.getCurrentFacility().getId());
 %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>CDS Reports</h4>
 </div>
 

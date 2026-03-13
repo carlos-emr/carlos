@@ -100,7 +100,7 @@
             : request.getParameter("xml_appointment_date");
 %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.title"/>
         <div class="float-end">
@@ -112,7 +112,7 @@
     </h4>
 </div>
 
-<table class="table table-bordered table-striped table-condensed table-hover">
+<table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
         <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>

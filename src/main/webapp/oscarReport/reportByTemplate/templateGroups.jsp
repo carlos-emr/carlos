@@ -82,7 +82,7 @@
                     </div>
                     <div class="row">
                         <!--GROUP LIST-->
-                        <table class="table table-condensed table-striped" id="groupListTbl">
+                        <table class="table table-sm table-striped" id="groupListTbl">
                             <thead>
                             <tr>
                                 <th colspan="2">Group Name</th>
@@ -146,7 +146,7 @@
                         </c:choose>
                     </div>
                     <div class="row">
-                        <table class="table table-condensed table-striped" id="groupData">
+                        <table class="table table-sm table-striped" id="groupData">
                             <thead>
                             <tr>
                                 <th>
@@ -243,16 +243,14 @@
     </c:choose>
 
     <!-- MODAL for template group selection -->
-    <div id="selectTemplatesModal" class="modal hide" tabindex="-1"
+    <div id="selectTemplatesModal" class="modal fade" tabindex="-1"
          aria-labelledby="selectTemplatesModal" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content" role="dialog">
                 <div class="modal-header">
-                    <button class="btn-close" data-bs-dismiss="modal">
-                        &times;
-                    </button>
                     <h3 class="modal-title">Select templates for group: <c:out
                             value="${templatesInGroup[0].groupName}"/></h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/rbtAddToGroup.do"

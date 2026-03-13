@@ -89,7 +89,7 @@
 %>
 
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.title"/>
         <%=years%>
@@ -125,7 +125,7 @@
     </button>
 </form>
 
-<table class="table table-bordered table-striped table-condensed table-hover">
+<table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
         <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgName"/></th>

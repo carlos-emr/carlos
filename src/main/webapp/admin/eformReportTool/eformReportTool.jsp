@@ -318,7 +318,7 @@
 
 
     <!--  display list of existing tables made, with ability to delete any one of them -->
-    <table id="listTable" class="table table-striped table-hover table-condensed" style="width: 100%;">
+    <table id="listTable" class="table table-striped table-hover table-sm" style="width: 100%;">
         <thead>
         <th>&nbsp;</th>
         <th>Name</th>

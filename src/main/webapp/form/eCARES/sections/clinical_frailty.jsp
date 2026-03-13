@@ -33,7 +33,7 @@
         Clinical Frailty Score
     </div>
     <div class="h-full">
-        <table id="clinical-frailty-score-table" class="h-full table table-condensed table-striped">
+        <table id="clinical-frailty-score-table" class="h-full table table-sm table-striped">
             <tr>
                 <th width="50%">Scale</th>
                 <th width="25%"><span class="mandatory tt" data-bs-toggle="tooltip"

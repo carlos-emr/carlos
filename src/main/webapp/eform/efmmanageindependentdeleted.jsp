@@ -107,7 +107,7 @@
         <p>View: <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp"
                     class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnCurrent"/></a> | <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnDeleted"/></p>
 
-        <table id="scrollNumber1" name="encounterTable" class="table table-condensed table-striped">
+        <table id="scrollNumber1" name="encounterTable" class="table table-sm table-striped">
             <thead>
             <tr>
                 <th>

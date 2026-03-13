@@ -246,7 +246,7 @@
             <i><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : <c:out
                 value="${param.keyword}"/>
 
-            <table id="patientResults" class="table table-condensed table-striped table-responsive">
+            <table id="patientResults" class="table table-sm table-striped table-responsive">
                 <tr class="tableHeadings deep">
 
                     <% if (fromMessenger) {%>

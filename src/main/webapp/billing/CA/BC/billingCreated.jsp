@@ -326,7 +326,7 @@
             <table>
                 <tr>
                     <td>
-                        <table class="table table-condensed table-striped">
+                        <table class="table table-sm table-striped">
                             <tr class="table-heading">
                                 <td colspan="6">Patient Information</td>
                             </tr>
@@ -366,7 +366,7 @@
 
                         </table>
 
-                        <table class="table table-condensed table-striped">
+                        <table class="table table-sm table-striped">
                             <tr class="table-heading">
                                 <td colspan="8">Billing Information</td>
                             </tr>
@@ -449,7 +449,7 @@
                         <table>
                             <tr>
                                 <td>
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.code"/></td>
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/></td>
@@ -484,7 +484,7 @@
                                 </td>
                                 <td>
 
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/></td>
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.desc"/></td>
@@ -518,7 +518,7 @@
                             </tr>
                             <tr>
                                 <td>
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td>notes</td>
                                         </tr>
@@ -529,7 +529,7 @@
                                     </table>
                                 </td>
                                 <td>
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td>Internal Notes</td>
                                         </tr>

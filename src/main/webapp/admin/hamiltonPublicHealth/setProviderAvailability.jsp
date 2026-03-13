@@ -92,7 +92,7 @@
 %>
 
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>Set all Availabilities</h4>
 </div>
 
@@ -164,7 +164,7 @@
             <button id="editBtn" class="btn" onClick="return edit();">Edit Mode</button>
             <br/>
 
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <tr>
                     <th>Name</th>
                     <th>Status</th>
@@ -196,7 +196,7 @@
 
             <br/>
 
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <tr>
                     <th>Name</th>
                     <th>Status</th>

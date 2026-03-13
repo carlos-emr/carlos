@@ -253,7 +253,7 @@
 
         <!-- for MRP -->
         <div class="card card-body bg-body-tertiary">
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDMRP" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp3())">
                     <tr>
@@ -317,7 +317,7 @@
 
         <!-- for nurse -->
         <div class="card card-body bg-body-tertiary">
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT1" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp1())">
                     <tr>
@@ -382,7 +382,7 @@
 
         <!-- for midwife -->
         <div class="card card-body bg-body-tertiary">
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT2" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp2())">
                     <tr>
@@ -449,7 +449,7 @@
 
         <!--  for resident -->
         <div class="card card-body bg-body-tertiary">
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp())">
                     <tr>

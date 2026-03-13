@@ -333,7 +333,7 @@
           <div class="col-lg-5 fileupload-progress fade">
             <!-- The global progress bar -->
             <div
-              class="progress progress-striped active"
+              class="progress"
               role="progressbar"
               aria-valuemin="0"
               aria-valuemax="100"
@@ -371,7 +371,7 @@
               </td>
               <td>
                   <p class="size"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.processing" />...</p>
-                  <div class="progress progress-striped active" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar progress-bar-success" style="width:0%;"></div></div>
+                  <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar progress-bar-success" style="width:0%;"></div></div>
               </td>
               <td>
                   {% if (!o.options.autoUpload && o.options.edit ) { %}

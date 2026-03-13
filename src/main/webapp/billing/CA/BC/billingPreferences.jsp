@@ -51,7 +51,7 @@
         <form action="${pageContext.request.contextPath}/billing/CA/BC/saveBillingPreferencesAction.do" method="POST">
             <input type="hidden" name="providerNo" id="providerNo"/>
             <h2>Billing Preferences</h2>
-            <table class="table-condensed" id="scrollNumber1">
+            <table class="table-sm" id="scrollNumber1">
 
                 <tr>
                     <td class="MainTableRightColumn">
@@ -168,7 +168,7 @@
                         <div class="tableHeader rowSpacing">(This is the payee info displayed on your private
                             invoices)
                         </div>
-                        <table class="table-condensed" style="border:thin solid grey;">
+                        <table class="table-sm" style="border:thin solid grey;">
                             <%
                                 Provider payeeProvider = providerDao.getProvider(billingPreference != null ? "" + billingPreference.getDefaultPayeeNo() : null);
                                 String payeeInfo;

@@ -170,7 +170,7 @@
     </div><!-- tab content eformOptions -->
 
     <div class="row" style="overflow-x:scroll;">
-        <table class="table table-condensed table-striped" id="eformTbl">
+        <table class="table table-sm table-striped" id="eformTbl">
             <thead>
             <tr>
                 <th></th>

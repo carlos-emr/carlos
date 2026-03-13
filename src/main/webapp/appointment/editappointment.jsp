@@ -947,7 +947,7 @@
 
     <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
-    <table class="table table-condensed table-responsive">
+    <table class="table table-sm table-responsive">
                 <tr>
                     <td>
                         <label for="date"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>:</label>
@@ -1183,7 +1183,7 @@
 
             </table>
 
-    <table class="table table-condensed table-responsive">
+    <table class="table table-sm table-responsive">
                 <tr>
                     <td>
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>:</label>

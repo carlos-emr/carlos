@@ -67,7 +67,7 @@
     <form action="${pageContext.request.contextPath}/demographic/eRourkeExport.do" method="post">
 
         <h3>Vendor Information</h3>
-        <table class="table-condensed">
+        <table class="table-sm">
             <tr>
                 <td>Organization Name</td>
                 <td><input type="text" name="orgName" class="right" /></td>
@@ -163,7 +163,7 @@
         </table>
 
         <h3>Previous Reports</h3>
-        <table class="table table-striped  table-condensed">
+        <table class="table table-striped  table-sm">
             <tr>
                 <th>Run Date</th>
                 <th>File</th>

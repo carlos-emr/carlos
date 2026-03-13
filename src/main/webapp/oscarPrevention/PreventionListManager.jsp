@@ -142,11 +142,12 @@
 
 <form action="PreventionListManager.jsp?formAction=update" method="post">
     <!-- Modal -->
-    <div id="modalConfirm" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="modalConfirmLabel"
+    <div id="modalConfirm" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modalConfirmLabel"
          aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header" style="background-color:#fbb450;">
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true">x</button>
             <h3 id="modalConfirmLabel">Are you sure?</h3>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             <p>Please confirm your changes to the prevention list:</p>
@@ -156,7 +157,7 @@
             <button class="btn" data-bs-dismiss="modal" aria-hidden="true">No, don't save</button>
             <button type="submit" class="btn btn-danger">Yes, please save</button>
         </div>
-    </div>
+    </div></div></div>
 
     <!-- property value to be saved: hidden-->
     <input type="hidden" name="prevention-bin" id="prevention-bin">

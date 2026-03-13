@@ -345,7 +345,7 @@
 
 
         <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment.jsp">
-            <table class="table table-condensed table-striped table-responsive">
+            <table class="table table-sm table-striped table-responsive">
                 <tr class="tableHeadings deep">
 
 

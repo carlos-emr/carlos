@@ -51,7 +51,7 @@
 
 <%@ include file="/taglibs.jsp" %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/>
         <div class="float-end">
@@ -64,7 +64,7 @@
 </div>
 
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
         <col class="col-md-7"></col>
         <col class="col-md-2"></col>
@@ -88,7 +88,7 @@
 
 <!-- Shelter Population -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
         <col class="col-md-7"></col>
         <col class="col-md-2"></col>
@@ -108,7 +108,7 @@
 
 <!-- Shelter Usage -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
         <col class="col-md-4"></col>
         <col class="col-md-4"></col>
@@ -133,7 +133,7 @@
 <!-- Mortality -->
 <c:if test="${not empty mortalities}">
     <table
-            class="table table-bordered table-striped table-condensed table-hover">
+            class="table table-bordered table-striped table-sm table-hover">
         <colgroup>
             <col class="col-md-5"></col>
             <col class="col-md-4"></col>
@@ -154,7 +154,7 @@
 
 <!-- Major Medical Condition -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Major Medical Condition</caption>
     <colgroup>
         <col class="col-md-2"></col>
@@ -188,7 +188,7 @@
 
 <!-- Major Mental Illness -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Major Mental Illness</caption>
     <colgroup>
         <col class="col-md-2"></col>
@@ -222,7 +222,7 @@
 
 <!-- Serious Medical Conditions -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Incidence in the past year of Serious Medical
         Conditions
     </caption>
@@ -258,7 +258,7 @@
 
 <!-- Notes -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Notes on the Data</caption>
     <colgroup>
         <col class="col-md-9"></col>
@@ -301,7 +301,7 @@
 <c:forEach var="categoryCodeDescription"
            items="${categoryCodeDescriptions}">
     <table
-            class="table table-bordered table-striped table-condensed table-hover">
+            class="table table-bordered table-striped table-sm table-hover">
         <caption>
             <c:out value="${categoryCodeDescription.key}"></c:out>
         </caption>

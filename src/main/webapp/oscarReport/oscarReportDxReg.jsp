@@ -192,7 +192,7 @@
         <form action="<%=formAction%>" method="post" class="form-inline" accept-charset="UTF-8">
 
             <div class="row">
-                <display:table name="codeSearch" id="codeSearch" class="table table-condensed table-striped">
+                <display:table name="codeSearch" id="codeSearch" class="table table-sm table-striped">
                     <display:column property="type" title="Code System"/>
                     <display:column property="dxSearchCode" title="Code"/>
                     <display:column property="description" title="Description"/>
@@ -272,7 +272,7 @@
 
             <h3>Results</h3>
             <div class="row">
-                <display:table name="listview" id="listview" class="table table-striped table-hover table-condensed">
+                <display:table name="listview" id="listview" class="table table-striped table-hover table-sm">
                     <display:column property="strFirstName" title="First Name"/>
                     <display:column property="strLastName" title="Last Name"/>
                     <display:column property="strSex" title="Sex"/>

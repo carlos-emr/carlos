@@ -154,7 +154,7 @@
             <tr>
                 <td>
 
-                    <table id="tblDiscs" class="table table-condensed table-striped">
+                    <table id="tblDiscs" class="table table-sm table-striped">
                         <thead>
                             <tr>
                                 <th class="Header">

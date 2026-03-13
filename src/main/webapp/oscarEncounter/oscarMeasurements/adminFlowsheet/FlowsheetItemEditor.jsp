@@ -253,7 +253,7 @@
     <br/>
 
     <b>Recommendations/Warnings:</b>
-    <table id="warningTable" class="table table-bordered table-striped table-hover table-condensed" style="width:70%">
+    <table id="warningTable" class="table table-bordered table-striped table-hover table-sm" style="width:70%">
         <thead>
         <th></th>
         <th>Type</th>
@@ -269,7 +269,7 @@
     <br/>
 
     <b>Targets:</b>
-    <table id="targetTable" class="table table-bordered table-striped table-hover table-condensed" style="width:70%">
+    <table id="targetTable" class="table table-bordered table-striped table-hover table-sm" style="width:70%">
         <thead>
         <th></th>
         <th>Indicator</th>

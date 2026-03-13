@@ -262,7 +262,7 @@
         </button>
         <br/><input type="checkbox" onclick="selectAll();"><br/><br/>
 
-        <table class="table table-striped table-hover table-condensed">
+        <table class="table table-striped table-hover table-sm">
             <thead>
             <tr>
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgSelection"/></th>

@@ -97,7 +97,7 @@
                 class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnDeleted"/></a></p>
 
 
-        <table class="table table-condensed table-striped">
+        <table class="table table-sm table-striped">
             <thead>
             <tr>
                 <th>

@@ -87,7 +87,7 @@
     <br/>
 
     <div id="demo">
-        <table id="episodeTable" class="table table-striped table-condensed">
+        <table id="episodeTable" class="table table-striped table-sm">
             <thead>
             <tr>
                 <th>Description</th>

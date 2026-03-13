@@ -176,7 +176,7 @@
         <input type="hidden" name="curDate" value="<%=nowDate%>">
         <input type="hidden" name="curTime" value="<%=nowTime%>">
 
-        <table class="table table-striped  table-condensed">
+        <table class="table table-striped  table-sm">
 
             <tr>
                 <td>Selection</td>

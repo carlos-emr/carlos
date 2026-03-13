@@ -274,7 +274,7 @@
 
 
     <p>Period: ( <%= startDate == null ? "" : startDate %> ~ <%= endDate == null ? "" : endDate %>)</p>
-    <table class="table table-bordered table-striped table-hover table-condensed">
+    <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
             <TH>Time</TH>
             <TH>Action</TH>

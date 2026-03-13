@@ -359,7 +359,7 @@
 
     <body class="BodyStyle">
     <h4>Manage Jobs</h4>
-    <table id="jobTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="jobTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>

@@ -133,7 +133,7 @@
 
     <div class="container">
 
-        <div class="page-header">
+        <div class="pb-2 mt-4 mb-3 border-bottom">
             <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDemographic"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgSetEdit"/></h3>
         </div>
 
@@ -174,7 +174,7 @@
                         <input type="hidden" name="setName" value="<%=setName%>">
                         <input type="hidden" name="deleteSet" id="deleteSet">
 
-                        <table id="demoTable" class="ele table table-striped table-condensed">
+                        <table id="demoTable" class="ele table table-striped table-sm">
                             <thead>
                             <tr>
                                 <th>&nbsp;<input type="checkbox" id="select_all"
@@ -263,10 +263,11 @@
         </section>
     </div>
 
-    <div id="delete-set-confirm" class="modal hide fade" tabindex="-1" role="dialog">
+    <div id="delete-set-confirm" class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header">
-            <button type="button" class="btn-close" data-bs-dismiss="modal">X</button>
             <h3>Delete Set</h3>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             <p>This will permanently delete the set, this procedure is
@@ -277,7 +278,7 @@
             <a href="javascript:onDeleteConfirm();" class="btn btn-danger">Yes</a>
             <button type="button" class="btn" data-bs-dismiss="modal">No</button>
         </div>
-    </div>
+    </div></div></div>
 
 
     <script>

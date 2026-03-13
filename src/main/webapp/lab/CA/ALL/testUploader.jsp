@@ -249,7 +249,7 @@
 
 <h3>HL7 Lab Upload</h3>
 <div class="loading-screen">
-    <div class="loading-bar progress progress-striped active">
+    <div class="loading-bar progress">
         <div class="bar" style="width: 100%;"></div>
     </div>
     <div class="loading-message">

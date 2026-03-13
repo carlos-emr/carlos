@@ -300,7 +300,7 @@
             <h2><fmt:message key="tickler.ticklerEdit.title"/></h2>
             <div id="error" class="alert alert-danger" style="display:none;"></div>
 
-            <table class="table table-condensed">
+            <table class="table table-sm">
 
                 <tr>
                     <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.demographicName"/></th>

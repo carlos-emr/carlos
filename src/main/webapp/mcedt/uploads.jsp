@@ -107,7 +107,7 @@
 
                     </c:when>
                     <c:otherwise>
-                        <table class="table table-striped  table-condensed">
+                        <table class="table table-striped  table-sm">
                             <thead>
                             <tr>
                                 <th></th>

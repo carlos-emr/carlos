@@ -95,7 +95,7 @@
         report during low traffic times.</p>
     <br/>
 
-    <table class="table table-striped table-condensed">
+    <table class="table table-striped table-sm">
         <thead>
         <tr>
             <th>Date</th>

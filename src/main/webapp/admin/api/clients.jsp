@@ -179,7 +179,7 @@
 
     <body vlink="#0000FF" class="BodyStyle">
     <h4>Manage Clients</h4>
-    <table id="clientTable" name="clientTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="clientTable" name="clientTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>Name</th>
@@ -200,7 +200,7 @@
     %>
     <hr/>
     <h4>Tokens</h4>
-    <table id="tokenTable" name="tokenTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="tokenTable" name="tokenTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>ID</th>
@@ -214,7 +214,7 @@
     </table>
 
     <hr/>
-    <table class="table table-bordered table-striped table-hover table-condensed">
+    <table class="table table-bordered table-striped table-hover table-sm">
         <tr>
             <td>Temporary Credential Request:</td>
             <td><%=here%>/ws/oauth/initiate</td>

@@ -105,7 +105,7 @@
 
     <div class="row">
 
-        <table class="table table-condensed table-striped table-hover" style="font-size:14px;" id="rbtTable">
+        <table class="table table-sm table-striped table-hover" style="font-size:14px;" id="rbtTable">
             <thead>
             <tr>
                 <th onclick="sortTable(0)"><a class="contentLink">#</a></th>

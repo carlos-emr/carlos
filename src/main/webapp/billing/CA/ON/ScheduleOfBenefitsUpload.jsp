@@ -175,7 +175,7 @@
 
                 <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange.do" method="POST"
                         id="sbForm">
-                    <table class="table table-striped  table-condensed">
+                    <table class="table table-striped  table-sm">
                         <tr>
                             <th nowrap><oscar:oscarPropertiesCheck property="SOB_CHECKALL"
                                                                    value="yes">

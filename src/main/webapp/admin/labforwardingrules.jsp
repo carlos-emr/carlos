@@ -168,7 +168,7 @@
 
 
         <%if (frwdProviders != null && frwdProviders.size() > 0) {%>
-        <table class="table table-condensed table-striped" style="width:44%;">
+        <table class="table table-sm table-striped" style="width:44%;">
 
             <thead>
             <tr>

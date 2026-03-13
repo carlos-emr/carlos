@@ -99,7 +99,7 @@
 </form>
 
 
-<table style="width:95%; margin:auto;" class="table table-striped table-condensed">
+<table style="width:95%; margin:auto;" class="table table-striped table-sm">
     <thead>
     <tr class="myYellow">
         <th style="text-align:center; white-space:nowrap;"><b>Invoice No.</b></th>

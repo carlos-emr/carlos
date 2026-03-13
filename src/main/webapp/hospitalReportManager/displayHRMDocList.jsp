@@ -114,7 +114,7 @@
             <td class="MainTableLeftColumn">
             </td>
             <td class="MainTableRightColumn">
-                <table id="tblHRM" class="table table-striped table-hover table-condensed" style="width:100%">
+                <table id="tblHRM" class="table table-striped table-hover table-sm" style="width:100%">
                     <thead>
                     <tr>
 

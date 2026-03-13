@@ -160,7 +160,7 @@
     <h2>Add New Custom Flowsheet</h2>
     <br/>
     <form id="theForm">
-        <table style="width:30%" class="table table-striped table-hover table-condensed">
+        <table style="width:30%" class="table table-striped table-hover table-sm">
 
             <tr>
                 <td><b>Name:</b></td>

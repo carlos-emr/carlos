@@ -145,7 +145,7 @@
                title="Enter an existing or new group name.">
         <small>(Max. 10 chars.)</small>
 
-        <table class="table table-condensed table-hover">
+        <table class="table table-sm table-hover">
             <thead>
             <tr class="btn-inverse">
                 <th></th>

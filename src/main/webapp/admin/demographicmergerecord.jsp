@@ -234,7 +234,7 @@
         <input type="hidden" name="mergeAction" value="merge"/>
         <input type="hidden" name="provider_no" value="<%= session.getAttribute("user") %>"/>
 
-        <table class="table table-striped  table-condensed">
+        <table class="table table-striped  table-sm">
             <tr>
                 <TH align="CENTER" width="5%"></th>
                 <% if (!mergedSearch) {%>

@@ -140,7 +140,7 @@
             </td>
         </tr>
     </table>
-    <table style="width:100%" id="tblResults" class="table table-hover table-striped table-condensed">
+    <table style="width:100%" id="tblResults" class="table table-hover table-striped table-sm">
         <thead>
         <tr>
             <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/></b></th>

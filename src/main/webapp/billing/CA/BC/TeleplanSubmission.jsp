@@ -214,7 +214,7 @@
     <i class="fa-solid fa-print"></i> Print</button>
 
 
-    <table class="table table-striped  table-condensed">
+    <table class="table table-striped  table-sm">
         <thead>
         <tr style="background-color:<%=yearColor%>">
             <th width="12%">Provider</th>

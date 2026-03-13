@@ -110,7 +110,7 @@
             </div>
 
             <!--GROUP LIST-->
-            <table class="table table-condensed table-striped" id="groupListTbl">
+            <table class="table table-sm table-striped" id="groupListTbl">
                 <thead>
                 <tr>
                     <th></th>
@@ -164,7 +164,7 @@
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.contents"/>: <%=groupView%>
             </h4>
 
-            <table class="table table-condensed table-striped">
+            <table class="table table-sm table-striped">
                 <thead>
                 <tr>
                     <th>
@@ -243,12 +243,13 @@
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
         <form action="${pageContext.request.contextPath}/eform/addToGroup.do" method="post" id="eformToGroupForm">
-        <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+        <div id="myModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
              aria-hidden="true">
+            <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true">X</button>
                 <h3 id="myModalLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addToGroup"/> <%=groupView%>
                 </h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
 
@@ -278,7 +279,7 @@
                 <input type="submit" name="subm" id="eformToGroup-btn" class="btn btn-primary"
                        value="Add eForm to Group">
             </div>
-        </div>
+        </div></div></div>
         </form>
                 <% } %>
 

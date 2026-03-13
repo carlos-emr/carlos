@@ -72,7 +72,7 @@
     <iframe id="uploadFrame" name="uploadFrame" frameborder="0" width="100%" height="auto" scrolling="no"
             src="<%=request.getContextPath()%>/eform/partials/upload_image.jsp"></iframe>
 
-    <table class="table table-condensed table-striped table-hover" id="tblImage">
+    <table class="table table-sm table-striped table-hover" id="tblImage">
         <thead>
         <tr>
             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgimgName"/></th>

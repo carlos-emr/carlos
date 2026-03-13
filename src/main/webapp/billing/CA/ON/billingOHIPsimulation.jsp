@@ -229,7 +229,7 @@
                 }
 
                 String billingTable = htmlValue;
-                htmlValue = "\n<table class='table table-hover table-condensed'>\n"
+                htmlValue = "\n<table class='table table-hover table-sm'>\n"
                         + "<thead>";
                 if (summaryView) {
                     htmlValue += "\n<tr><th >OHIP NO</th><th >Number of Records</th><th >Total Billed</th><th colspan='9'></th></tr></thead>";

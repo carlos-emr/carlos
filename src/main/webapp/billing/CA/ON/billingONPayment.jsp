@@ -268,7 +268,7 @@
 
     <div class="row">
         <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.raBillingReport"/></h4>
-        <table class="table-striped table-condensed table-hover">
+        <table class="table-striped table-sm table-hover">
             <thead>
             <tr>
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
@@ -445,7 +445,7 @@
         <hr>
         <!-- 3rd Party Payments Table -->
         <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.premiumPaymentReport"/></h4>
-        <table width="100%" cellspacing="0" class="table-striped table-condensed table-hover">
+        <table width="100%" cellspacing="0" class="table-striped table-sm table-hover">
             <thead>
             <tr>
                 <th style="text-align:left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.providerName"/></th>
@@ -515,7 +515,7 @@
         <hr>
         <!-- 3rd Party Payments Table -->
         <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.3rdPartyBillingReport"/></h4>
-        <table class="table-striped table-condensed table-hover">
+        <table class="table-striped table-sm table-hover">
             <thead>
             <tr>
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>

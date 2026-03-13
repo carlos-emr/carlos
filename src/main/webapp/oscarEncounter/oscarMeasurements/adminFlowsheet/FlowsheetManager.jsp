@@ -157,7 +157,7 @@
 
     <h4>System Flowsheets</h4>
     <table id="systemFsTable" name="systemFsTable"
-           class="table table-bordered table-striped table-hover table-condensed">
+           class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -175,7 +175,7 @@
     <h4>Custom Flowsheets</h4>
     <br/><br/>
     <h6>Clinic-level</h6>
-    <table id="clinicTable" name="fsTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="clinicTable" name="fsTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -196,7 +196,7 @@
 
     <br/><br/>
     <h6>Provider-level</h6>
-    <table id="providerTable" name="fsTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="providerTable" name="fsTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -217,7 +217,7 @@
 
     <br/><br/>
     <h6>Patient-level</h6>
-    <table id="patientTable" name="fsTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="patientTable" name="fsTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>

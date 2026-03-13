@@ -177,7 +177,7 @@
 
     </div>
 
-    <TABLE class="table table-striped  table-condensed">
+    <TABLE class="table table-striped  table-sm">
         <TR style="font-weight:bold;">
             <TD align="center">SERVICE DATE</TD>
             <TD align="center">PATIENT</TD>

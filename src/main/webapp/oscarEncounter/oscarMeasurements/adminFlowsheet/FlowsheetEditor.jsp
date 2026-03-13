@@ -238,7 +238,7 @@
 
     <br/>
 
-    <table id="itemTable" name="itemTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="itemTable" name="itemTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>

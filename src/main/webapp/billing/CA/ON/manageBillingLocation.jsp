@@ -148,7 +148,7 @@
 
                 <td width="37%" valign="top">
 
-                    <table class="table table-striped  table-condensed">
+                    <table class="table table-striped  table-sm">
                         <tr>
                             <th width="6%"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgClinicLocation"/></th>
                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgDescription"/></th>

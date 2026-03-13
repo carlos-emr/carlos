@@ -210,7 +210,7 @@
             </tr>
             <tr>
                 <td>
-                    <table name="tblDiscs" id="tblDiscs" class="table table-condensed table-striped">
+                    <table name="tblDiscs" id="tblDiscs" class="table table-sm table-striped">
                         <thead>
                         <tr class="Field2">
                             <th class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></th>

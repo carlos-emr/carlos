@@ -193,7 +193,7 @@
 
     <body class="BodyStyle">
     <h4>Manage Job Types</h4>
-    <table id="jobTypeTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="jobTypeTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>Name</th>

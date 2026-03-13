@@ -406,7 +406,7 @@
                     <div id="pendingFaxesNone" style="display:none; margin-bottom: 14px;">
                         <span style="color: #059669;"><i class="fas fa-check-circle"></i> All downloaded faxes have been imported successfully.</span>
                     </div>
-                    <table id="pendingFaxesTable" class="table table-striped table-condensed" style="display:none; margin-bottom: 14px;">
+                    <table id="pendingFaxesTable" class="table table-striped table-sm" style="display:none; margin-bottom: 14px;">
                         <thead>
                             <tr>
                                 <th>Filename</th>

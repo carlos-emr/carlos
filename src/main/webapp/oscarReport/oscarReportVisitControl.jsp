@@ -115,7 +115,7 @@
         Providers</a>
 </div>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h3>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
         <div class="float-end">

@@ -174,7 +174,7 @@
             type="button" class="btn-link" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">
-        <table style="width:100%" id="tblDocs" class="table table-condensed">
+        <table style="width:100%" id="tblDocs" class="table table-sm">
             <thead>
             <tr class="title">
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/></th>

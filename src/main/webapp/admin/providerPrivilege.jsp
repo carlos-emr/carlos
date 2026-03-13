@@ -434,7 +434,7 @@
 
 <h4>Role/Privilege List</h4>
 <div class="card card-body bg-body-tertiary">
-    <table id="tblpp" class="table table-condensed">
+    <table id="tblpp" class="table table-sm">
         <thead>
         <tr>
             <th style="width:300px">Role</th>
@@ -519,7 +519,7 @@
         <option value="_principal">_principal</option>
     </select>
 
-        <table id="addtbl" style="width: 100%" class="table table-striped table-condensed">
+        <table id="addtbl" style="width: 100%" class="table table-striped table-sm">
             <thead>
             <tr>
                 <th style="width:300px">Role</th>
@@ -600,7 +600,7 @@
             </tbody>
         </table>
         <br>
-        <table style="width:100%" class="table table-condensed">
+        <table style="width:100%" class="table table-sm">
             <tbody>
             <tr>
                 <td style="width:300px">
