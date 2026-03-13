@@ -22,7 +22,8 @@
 
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import net.sf.json.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
@@ -43,11 +44,14 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import java.io.IOException;
 
 @Path("/eform")
 @Component("EFormService")
 public class EFormService extends AbstractServiceImpl {
 	Logger logger = MiscUtils.getLogger();
+
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Autowired
 	private EFormDao eFormDao;
@@ -111,15 +115,22 @@ public class EFormService extends AbstractServiceImpl {
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> saveEForm(String jsonString) {
 
-		JSONObject jsonObject = JSONObject.fromObject(jsonString);
+		JsonNode jsonObject;
+		try {
+			jsonObject = objectMapper.readTree(jsonString);
+		} catch (IOException e) {
+			logger.error("Failed to parse eForm JSON", e);
+			return RestResponse.errorResponse("Invalid JSON");
+		}
 
-		String formName = jsonObject.getString("formName");
-		String formSubject = jsonObject.optString("formSubject");
-		String formHtml = jsonObject.getString("formHtml");
+		String formName = jsonObject.path("formName").asText();
+		String formSubject = jsonObject.path("formSubject").asText();
+		String formHtml = jsonObject.path("formHtml").asText();
 
-		String roleType = jsonObject.optString("roleType", null);
-		Boolean showLatestFormOnly = jsonObject.optBoolean("showLatestFormOnly", false);
-		Boolean patientIndependent = jsonObject.optBoolean("patientIndependant", false);
+		JsonNode roleTypeNode = jsonObject.path("roleType");
+		String roleType = (!roleTypeNode.isMissingNode() && !roleTypeNode.isNull()) ? roleTypeNode.asText() : null;
+		boolean showLatestFormOnly = jsonObject.path("showLatestFormOnly").asBoolean(false);
+		boolean patientIndependent = jsonObject.path("patientIndependent").asBoolean(false);
 
 
 		EForm nameMatch = eFormDao.findByName(formName);
@@ -187,22 +198,29 @@ public class EFormService extends AbstractServiceImpl {
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> updateEFormJson(String jsonString) {
 
-		JSONObject jsonObject = JSONObject.fromObject(jsonString);
+		JsonNode jsonObject;
+		try {
+			jsonObject = objectMapper.readTree(jsonString);
+		} catch (IOException e) {
+			logger.error("Failed to parse eForm JSON", e);
+			return RestResponse.errorResponse("Invalid JSON");
+		}
 
-		Integer fid = jsonObject.optInt("id");
-		String formName = jsonObject.getString("formName");
-		String formHtml = jsonObject.getString("formHtml");
+		int fid = jsonObject.path("id").asInt();
+		String formName = jsonObject.path("formName").asText();
+		String formHtml = jsonObject.path("formHtml").asText();
 
 		EForm eForm = eFormDao.findById(fid);
 
 		if(eForm != null && eForm.getId() > 0) {
 
 			// only update optional parameters if they are given
-			String formSubject = jsonObject.optString("formSubject", eForm.getSubject());
-			Boolean current = jsonObject.optBoolean("current", eForm.isCurrent());
-			String roleType = jsonObject.optString("roleType", eForm.getRoleType());
-			Boolean showLatestFormOnly = jsonObject.optBoolean("showLatestFormOnly", eForm.isShowLatestFormOnly());
-			Boolean patientIndependant = jsonObject.optBoolean("patientIndependant", eForm.isPatientIndependent());
+			String formSubject = jsonObject.has("formSubject") ? jsonObject.get("formSubject").asText() : eForm.getSubject();
+			boolean current = jsonObject.has("current") ? jsonObject.get("current").asBoolean() : eForm.isCurrent();
+			JsonNode roleTypeNode = jsonObject.path("roleType");
+			String roleType = (!roleTypeNode.isMissingNode() && !roleTypeNode.isNull()) ? roleTypeNode.asText() : eForm.getRoleType();
+			boolean showLatestFormOnly = jsonObject.has("showLatestFormOnly") ? jsonObject.get("showLatestFormOnly").asBoolean() : eForm.isShowLatestFormOnly();
+			boolean patientIndependent = jsonObject.has("patientIndependent") ? jsonObject.get("patientIndependent").asBoolean() : eForm.isPatientIndependent();
 
 
 			eForm.setFormName(formName);
@@ -210,7 +228,7 @@ public class EFormService extends AbstractServiceImpl {
 			eForm.setSubject(formSubject);
 			eForm.setCurrent(current);
 			eForm.setShowLatestFormOnly(showLatestFormOnly);
-			eForm.setPatientIndependent(patientIndependant);
+			eForm.setPatientIndependent(patientIndependent);
 
 			eForm.setRoleType(roleType);
 

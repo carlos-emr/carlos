@@ -116,7 +116,7 @@ var theDefault= myelement;
 var theOptions = q.options;
 
 for (var theOption of theOptions)
-{for (var i=0; i<3; i++) {}
+{
 	if(typeof(theOption)=='object'){
 		if(theOption.text==theDefault){
 			theOption.selected=true;
@@ -156,7 +156,7 @@ $(document).ready(function () {
 
   var table = document.getElementsByClassName('listing') [0] //(list.length)
   var rows = table.getElementsByTagName('tr');
-  for (i = 0; i < rows.length; i++) {
+  for (var i = 0; i < rows.length; i++) {
     var currentRow = table.rows[i];
     if (Number.isInteger(i / 2)) {
       $(currentRow).css('background-color', 'lightblue')
@@ -165,9 +165,9 @@ $(document).ready(function () {
       return function () {
         var cell = row.getElementsByTagName('td') [0];
         var id = cell.innerHTML;
-        id = id.replace('#','');
-        id = id.replace('*','');
-        id = id.replace(' (u)','');
+        id = id.replace(/#/g,'');
+        id = id.replace(/\*/g,'');
+        id = id.replace(/ \(u\)/g,'');
         //alert(id);
 		updateMain(id)
       };
@@ -198,7 +198,7 @@ $(document).ready(function () {
 
 
   </script>
-<body class="template-document_view portaltype-document site-oscarmanual section-15 kssActive" dir="ltr" onload="init();">
+<body class="template-document_view portaltype-document site-oscarmanual section-15 kssActive" dir="ltr">
 
 <div id="visual-portal-wrapper">
 	<div id="portal-top">
