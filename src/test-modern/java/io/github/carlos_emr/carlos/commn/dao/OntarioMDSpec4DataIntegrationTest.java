@@ -35,6 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Calendar;
@@ -81,6 +82,7 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
     private ProgramDao programDao;
 
     @Autowired
+    @Qualifier("programProviderDAO")
     private ProgramProviderDAO programProviderDAO;
 
     private Integer oscarProgramID;
@@ -114,7 +116,8 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
             program.setUrl("google.ca");
             program.setEmail("noreply@caisi.ca");
             programDao.saveProgram(program);
-            oscarProgramID = program.getId();
+            hibernateTemplate.flush();
+            oscarProgramID = programDao.getProgramIdByProgramName("OSCAR");
         }
     }
 

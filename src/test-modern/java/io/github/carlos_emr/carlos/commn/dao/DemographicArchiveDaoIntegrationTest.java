@@ -125,8 +125,8 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return deduplicated roster status history for demographic")
         void shouldReturnDeduplicatedHistory_forDemographic() throws Exception {
-            int demoNo1 = 101;
-            int demoNo2 = 202;
+            int demoNo1 = 990101;
+            int demoNo2 = 990202;
 
             createArchiveWithRosterStatus(demoNo1, "alpha");
             createArchiveWithRosterStatus(demoNo1, "bravo");

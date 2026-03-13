@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -53,6 +54,7 @@ import static org.assertj.core.api.Assertions.*;
 public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
+    @Qualifier("programProviderDAO")
     private ProgramProviderDAO dao;
 
     @Autowired

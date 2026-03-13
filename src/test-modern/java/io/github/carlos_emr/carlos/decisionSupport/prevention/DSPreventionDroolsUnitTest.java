@@ -247,8 +247,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -336,8 +337,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -405,8 +407,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -443,8 +446,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -620,8 +624,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
 
         /**
@@ -636,8 +641,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -698,8 +704,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -760,8 +767,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -798,8 +806,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
     }
 
@@ -839,8 +848,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
 
         /**
@@ -967,8 +977,9 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
 
         /**

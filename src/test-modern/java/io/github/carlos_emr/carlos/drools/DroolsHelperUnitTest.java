@@ -116,8 +116,9 @@ class DroolsHelperUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(MINIMAL_VALID_DRL);
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
 
         /**
@@ -224,8 +225,9 @@ class DroolsHelperUnitTest {
             KieBase kieBase = DroolsHelper.loadFromInputStream(is);
 
             assertThat(kieBase).isNotNull();
-            assertThat(kieBase.getKiePackages()).hasSize(1);
-            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
 
         /**

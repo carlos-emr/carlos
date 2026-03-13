@@ -196,15 +196,7 @@ class LabPDFCreatorIntegrationTest {
             is = zipFile.getInputStream(zipEntry);
             IOUtils.copy(is, writer, "UTF-8");
         } catch (IOException e) {
-            logger.error("Failed to read HL7 body from zip entry", e);
-            if (zipFile != null) {
-                try {
-                    zipFile.close();
-                    zipFile = null;
-                } catch (IOException e1) {
-                    logger.error("Failed to close zip file", e1);
-                }
-            }
+            throw new AssertionError("Failed to read HL7 body from zip entry", e);
         }
 
         return writer.toString();

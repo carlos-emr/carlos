@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.DateFormat;
@@ -55,6 +56,7 @@ import static org.assertj.core.api.Assertions.*;
 public class CaseManagementTmpSaveDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
+    @Qualifier("caseManagementTmpSaveDao")
     private CaseManagementTmpSaveDao dao;
 
     @Nested

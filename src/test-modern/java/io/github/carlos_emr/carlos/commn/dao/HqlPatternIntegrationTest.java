@@ -314,10 +314,10 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
             @SuppressWarnings("unchecked")
             List<Facility> results = query.getResultList();
 
-            // Then
-            assertThat(results).hasSize(1);
-            assertThat(results.get(0).getName()).isEqualTo("Bool Test");
-            assertThat(results.get(0).isDisabled()).isFalse();
+            // Then - seed data may include other non-disabled facilities
+            assertThat(results).isNotEmpty();
+            assertThat(results).allSatisfy(r -> assertThat(r.isDisabled()).isFalse());
+            assertThat(results).extracting(Facility::getName).contains("Bool Test");
         }
     }
 

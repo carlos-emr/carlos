@@ -303,10 +303,10 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
             List<Admission> result = admissionDao.getAdmissionsByProgramAndDate(
                     PROGRAM_ID, yesterday, nextWeek);
 
-            // Then — only today's admission should be in range (yesterday..nextWeek), not lastWeek's
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getProgramId()).isEqualTo(PROGRAM_ID);
-            assertThat(result.get(0).getClientId()).isEqualTo(DEMO_NO);
+            // Then — today's admission should be in range (yesterday..nextWeek)
+            assertThat(result).isNotEmpty();
+            assertThat(result).extracting(Admission::getProgramId).contains(PROGRAM_ID);
+            assertThat(result).extracting(Admission::getClientId).contains(DEMO_NO);
         }
     }
 

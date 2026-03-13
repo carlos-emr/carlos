@@ -28,6 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -52,6 +53,7 @@ import static org.assertj.core.api.Assertions.*;
 public class MessageListDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
+    @Qualifier("messageListDao")
     private MessageListDao dao;
 
     private MessageList createMessageList(String providerNo, long messageNo) throws Exception {

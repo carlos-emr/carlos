@@ -74,17 +74,14 @@ public class ProviderInboxRoutingDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should not throw PersistenceException when adding to provider inbox")
-    void shouldNotThrowPersistenceException_whenAddingToProviderInbox() throws Exception {
-        // When / Then - should not throw PersistenceException (JPA config issue)
-        // Note: may throw other exceptions due to missing prerequisite data,
-        // but PersistenceException indicates a JPA configuration problem
+    void shouldNotThrowPersistenceException_whenAddingToProviderInbox() {
+        // PersistenceException indicates a JPA configuration problem.
+        // The method may throw other exceptions due to missing prerequisite data,
+        // but a PersistenceException specifically means the JPA mapping is broken.
         try {
             dao.addToProviderInbox("1", 1, LabResultData.DOCUMENT);
         } catch (PersistenceException e) {
             fail("PersistenceException indicates JPA configuration issue: " + e.getMessage());
-        } catch (Exception e) {
-            // Other exceptions are acceptable - the legacy test also swallowed these
-            // as the test only validates JPA configuration, not complete routing workflow
         }
     }
 }

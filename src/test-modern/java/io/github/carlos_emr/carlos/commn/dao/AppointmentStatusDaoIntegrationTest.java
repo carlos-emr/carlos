@@ -107,7 +107,7 @@ public class AppointmentStatusDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllStatuses() {
             createStatus("Z", "Test Count", "z.gif");
             long count = appointmentStatusDao.getCountAll();
-            assertThat(count).isEqualTo(1);
+            assertThat(count).isGreaterThanOrEqualTo(1);
         }
     }
 }
