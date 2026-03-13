@@ -57,10 +57,14 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private Integer sectorId;
     private boolean enableHealthNumberRegistry = true;
     private boolean enableDigitalSignatures = false;
-    private boolean enableOcanForms = false;
     private boolean enableCbiForm = false;
     private boolean enableAnonymous = false;
-    private String ocanServiceOrgNumber;
+
+    // OCAN columns remain in DB schema but feature is removed — mapped to satisfy NOT NULL constraints
+    @SuppressWarnings("unused")
+    private boolean enableOcanForms = false;
+    @SuppressWarnings("unused")
+    private int ocanServiceOrgNumber = 0;
     private boolean enableGroupNotes = false;
     private boolean enableEncounterTime = false;
     private boolean enableEncounterTransportationTime = false;
@@ -217,29 +221,12 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
         return lastUpdated;
     }
 
-    public boolean isEnableOcanForms() {
-        return enableOcanForms;
-    }
-
-    public void setEnableOcanForms(boolean enableOcanForms) {
-        this.enableOcanForms = enableOcanForms;
-    }
-
-
     public boolean isEnableCbiForm() {
         return enableCbiForm;
     }
 
     public void setEnableCbiForm(boolean enableCbiForm) {
         this.enableCbiForm = enableCbiForm;
-    }
-
-    public String getOcanServiceOrgNumber() {
-        return ocanServiceOrgNumber;
-    }
-
-    public void setOcanServiceOrgNumber(String ocanServiceOrgNumber) {
-        this.ocanServiceOrgNumber = ocanServiceOrgNumber;
     }
 
     @PreUpdate

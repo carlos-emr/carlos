@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.DrugReason;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
@@ -124,7 +123,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             case "updateSpecialInstruction" -> updateSpecialInstruction();
             case "updateProperty" -> updateProperty();
             case "updateSaveAllDrugs" -> updateSaveAllDrugs();
-            case "getDemoNameAndHIN" -> getDemoNameAndHIN();
             case "updateLongTermStatus" -> updateLongTermStatus();
             case "checkNoStashItem" -> checkNoStashItem();
             case "searchSpecialInstructions" -> {
@@ -1261,27 +1259,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         saveDrug(request);
         return "refresh";
-    }
-
-    public String getDemoNameAndHIN() throws IOException, Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", PRIVILEGE_READ, null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
-        }
-
-        String demoNo = request.getParameter("demoNo").trim();
-        Demographic d = demographicManager.getDemographic(loggedInInfo, demoNo);
-        HashMap hm = new HashMap();
-        if (d != null) {
-            hm.put("patientName", d.getDisplayName());
-            hm.put("patientHIN", d.getHin());
-        } else {
-            hm.put("patientName", "Unknown");
-            hm.put("patientHIN", "Unknown");
-        }
-        ObjectNode jo = objectMapper.valueToTree(hm);
-        response.getOutputStream().write(jo.toString().getBytes());
-        return null;
     }
 
     public String updateLongTermStatus() throws IOException, Exception {

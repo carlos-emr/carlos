@@ -46,15 +46,6 @@ public class RelationshipsDaoImpl extends AbstractDaoImpl<Relationships> impleme
     }
 
     @Override
-    public List<Relationships> findAll() {
-        String sql = "select x from Relationships x order by x.demographicNo";
-        Query query = entityManager.createQuery(sql);
-        @SuppressWarnings("unchecked")
-        List<Relationships> results = query.getResultList();
-        return results;
-    }
-
-    @Override
     public Relationships findActive(Integer id) {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.id = ?1 AND (r.deleted IS NULL OR r.deleted = '0')");
         query.setParameter(1, id);

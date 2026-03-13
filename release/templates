@@ -1,0 +1,64 @@
+Template: carlos-emr/gui_loader
+Type: boolean
+Default: true
+Description: Do you want to launch the GUI interface to install?
+ The carlos deb has a graphical interface installer for installs from
+ the desktop.  Say false to continue in console mode.
+
+Template: carlos-emr/upgrade
+Type: boolean
+Default: true
+Description: Do you want to upgrade from the previous carlos version?
+ OLD carlos INSTALL DETECTED. This option will remove your existing carlos program.
+ It will not remove your existing data.
+ .
+ ***Do not run this option without a backup.***
+
+Template: carlos-emr/billregion
+Type: select
+Choices: ON, BC, Other
+Default: ON
+Description: Which jurisdiction do you want configured?
+ Select the jurisdiction that you want configured.  Select BC if you live in British Columbia.
+
+Template: carlos-emr/triumvirate
+Type: boolean
+Default: false
+Description: Have you installed or are you planning to install fax support from carlos?
+ The carlos deb can set up the GUI to print signed output directly to Hylafax, if that is installed on your server.
+
+Template: carlos-emr/demo
+Type: boolean
+Default: true
+Description: Do you want to install demo data?
+ Demo data are offered for demonstration that can later be removed.
+
+Template: carlos-emr/password
+Type: password
+Default: 
+Description: MySQL password:
+ Please enter your MySQL password.
+
+Template: carlos-emr/eyeform
+Type: boolean
+Default: false
+Description: Do you want to install the eyeform version?
+ An optional version of carlos is designed for Ophthalmology.
+
+Template: carlos-emr/appt_intake_form
+Type: boolean
+Default: true
+Description: Do you want to use the intake form?
+ The intake form allows for users to add common vitals and other measurements from the schedule.
+
+Template: carlos-emr/NEW_CONTACTS_UI 
+Type: boolean
+Default: false
+Description: Do you want to use the new contacts interface?
+  The new contacts interface allows for an expanded number of relations and other contacts related to the patient.
+
+Template: carlos-emr/readme
+Type: boolean
+Default: true
+Description: Do you want to read the README?
+ The Readme file will give final installation and configuration instructions.  Type q to quit the Readme.

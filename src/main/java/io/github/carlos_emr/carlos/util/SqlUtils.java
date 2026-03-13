@@ -36,7 +36,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
@@ -102,53 +101,6 @@ public class SqlUtils {
             ret = list.get(0);
         }
         return ret;
-    }
-
-    /**
-     * Returns a List of Map objects which contain the results of the specified arbitrary query. The key contains the field names of the table and the value, the field value of the
-     * record
-     *
-     * @param qry String - The String SQL Query
-     * @return List - The List of String Map results or null if no results were yielded
-     */
-    public static List<Properties> getQueryResultsMapList(String qry) {
-        List<Properties> records = null;
-        ResultSet rs = null;
-
-        try {
-            records = new ArrayList<Properties>();
-
-            rs = DBHandler.GetSQL(qry);
-            int cols = rs.getMetaData().getColumnCount();
-            while (rs.next()) {
-                Properties record = new Properties();
-                for (int i = 0; i < cols; i++) {
-                    String columnName = rs.getMetaData().getColumnName(i + 1);
-                    String cellValue = Misc.getString(rs, i + 1);
-                    if (columnName != null && !"".equals(columnName)) {
-
-                        cellValue = cellValue == null ? "" : cellValue;
-                        record.setProperty(columnName, cellValue);
-                    } else {
-                        MiscUtils.getLogger().debug("Empty key for value: " + cellValue);
-                    }
-                }
-                records.add(record);
-            }
-        } catch (SQLException e) {
-            records = null;
-            MiscUtils.getLogger().error("Error", e);
-        }
-
-        if (rs != null) {
-            try {
-                rs.close();
-            } catch (SQLException ex1) {
-                MiscUtils.getLogger().error("Error", ex1);
-            }
-        }
-
-        return records;
     }
 
     /**
