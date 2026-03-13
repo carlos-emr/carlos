@@ -30,30 +30,44 @@
 
 package io.github.carlos_emr.carlos.eform.actions;
 
-import com.opensymphony.xwork2.ActionSupport;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.struts2.ServletActionContext;
-
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.FileInputStream;
-import java.util.ArrayList;
+
+import com.opensymphony.xwork2.ActionSupport;
+import org.apache.commons.io.IOUtils;
+import org.apache.struts2.ServletActionContext;
+
+import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
 /**
- * eform_image
+ * Struts2 action that streams eform image and asset files (images, CSS, JavaScript, JSON)
+ * directly to the HTTP response with the correct MIME content type.
  *
- * @author jay
- * and Paul
+ * <p>Files are resolved relative to the configured eform image directory
+ * ({@code OscarProperties.getEformImageDirectory()}). Path traversal attempts are
+ * rejected before any file I/O is performed.</p>
+ *
+ * <p>Supported file types include common raster image formats (PNG, JPEG, BMP, GIF, TIFF,
+ * ICO, etc.), SVG, CSS, JavaScript, JSON, and HTML. An unsupported extension causes the
+ * action to throw an exception rather than serving content with an ambiguous MIME type.</p>
+ *
+ * <p>This action is also used to serve admin-uploaded JSON catalogues (e.g.
+ * {@code vaccine-brands.json}) for client-side autocomplete features.</p>
+ *
+ * @since 2026-03-06
  */
 public class DisplayImage2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
@@ -61,9 +75,6 @@ public class DisplayImage2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private record StreamData(InputStream stream, String contentType) {}
 
-    /**
-     * Creates a new instance of DisplayImage2Action
-     */
     public DisplayImage2Action() {
     }
 
@@ -87,7 +98,8 @@ public class DisplayImage2Action extends ActionSupport {
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(stream, outputStream);
             return NONE;
-        } catch (Exception e) {
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Error streaming eform image to response", e);
             return NONE;
         } finally {
             if (stream != null) {
@@ -99,27 +111,17 @@ public class DisplayImage2Action extends ActionSupport {
     public StreamData process() throws Exception {
 
         String fileName = request.getParameter("imagefile");
-        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
-            throw new IllegalArgumentException("Invalid filename");
+        if (fileName == null || fileName.isEmpty()) {
+            throw new IllegalArgumentException("imagefile parameter is required");
         }
+
         String home_dir = OscarProperties.getInstance().getEformImageDirectory();
-
-        File file = null;
-        try {
-            File directory = new File(home_dir);
-            if (!directory.exists()) {
-                throw new Exception("Directory:  " + home_dir + " does not exist");
-            }
-            file = new File(directory, fileName);
-
-            if (!directory.equals(file.getParentFile())) {
-                MiscUtils.getLogger().debug("SECURITY WARNING: Illegal file path detected, client attempted to navigate away from the file directory");
-                throw new Exception("Could not open file " + fileName + ".  Check the file path");
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("Could not open file " + home_dir + fileName + " does " + home_dir + " exist ?", e);
+        File directory = new File(home_dir);
+        if (!directory.exists()) {
+            throw new Exception("Directory: " + home_dir + " does not exist");
         }
+
+        File file = PathValidationUtils.validatePath(fileName, directory);
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         
@@ -175,6 +177,8 @@ public class DisplayImage2Action extends ActionSupport {
                 contentType = "text/javascript";
             } else if (extension(file.getName()).equalsIgnoreCase("css")) { // for CSS
                 contentType = "text/css";
+            } else if (extension(file.getName()).equalsIgnoreCase("json")) { // for JSON
+                contentType = "application/json";
             } else if (extension(file.getName()).equalsIgnoreCase("rtl") || extension(file.getName()).equalsIgnoreCase("html") || extension(file.getName()).equalsIgnoreCase("htm")) { // for HTML
                 contentType = "text/html";
             } else {
@@ -232,25 +236,11 @@ public class DisplayImage2Action extends ActionSupport {
 
     public static File getImageFile(String imageFileName) throws Exception {
         String home_dir = OscarProperties.getInstance().getEformImageDirectory();
-
-        File file = null;
-        try {
-            File directory = new File(home_dir);
-            if (!directory.exists()) {
-                throw new Exception("Directory:  " + home_dir + " does not exist");
-            }
-            file = new File(directory, imageFileName);
-            //String canonicalPath = file.getParentFile().getCanonicalPath(); //absolute path of the retrieved file
-
-            if (!directory.equals(file.getParentFile())) {
-                MiscUtils.getLogger().debug("SECURITY WARNING: Illegal file path detected, client attempted to navigate away from the file directory");
-                throw new Exception("Could not open file " + imageFileName + ".  Check the file path");
-            }
-            return file;
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("Could not open file " + home_dir + imageFileName + " does " + home_dir + " exist ?", e);
+        File directory = new File(home_dir);
+        if (!directory.exists()) {
+            throw new Exception("Directory: " + home_dir + " does not exist");
         }
+        return PathValidationUtils.validatePath(imageFileName, directory);
     }
 
     /**

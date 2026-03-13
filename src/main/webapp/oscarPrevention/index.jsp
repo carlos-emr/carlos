@@ -29,27 +29,51 @@
 
 --%>
 
+<%--
+    Page    : oscarPrevention/index.jsp
+    Purpose : Displays the immunization and screening prevention record for a patient.
+              Provides a navigable list of prevention types (immunizations and screenings),
+              shows existing prevention records, and allows entry of new immunizations via
+              a brand autocomplete selector and lot-number lookup.
+
+    Features:
+      - Vaccine brand autocomplete (loaded from eform images or bundled catalogue)
+      - Keyboard-navigable brand selector populating brand, dose, route, DIN, and manufacturer
+      - Lot-number autocomplete via CVC query endpoint
+      - Bootstrap 5 alert-based dismissible SSO / ISPA / non-ISPA warnings
+      - Decision-support colour-coded recommendations via Drools (DSPreventionDrools)
+      - DHIR (Digital Health Immunization Repository) submission status
+
+    Parameters:
+      @param demographic_no  String  patient demographic number (required)
+
+    @since 2005-10-26
+--%>
+
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
-<%@page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
+<%@ page import="java.util.*" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -74,8 +98,13 @@
     DHIRSubmissionManager submissionManager = SpringUtils.getBean(DHIRSubmissionManager.class);
     UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
-    //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
     String demographic_no = request.getParameter("demographic_no");
+    try {
+        Integer.parseInt(demographic_no);
+    } catch (NumberFormatException e) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic number");
+        return;
+    }
     DemographicData demoData = new DemographicData();
     String nameAge = demoData.getNameAgeString(loggedInInfo, demographic_no);
     Demographic demo = demoData.getDemographic(loggedInInfo, demographic_no);
@@ -159,20 +188,10 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery-1.9.1.min.js"></script>
-
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/animation-min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/datasource-min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
-
-
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
-
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css">
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css">
+        <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
+        <script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
 
         <script src="<%= request.getContextPath() %>/share/javascript/popupmenu.js" type="text/javascript"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/menutility.js" type="text/javascript"></script>
@@ -232,26 +251,13 @@
                 border: 1px solid #000;
                 width: 4px;
             }
+
+            .autocomplete .ac-item.active {
+                background-color: #e8f0fe;
+            }
         </style>
 
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/niftyCorners.css"/>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
-        <link rel="stylesheet" type="text/css" href="preventPrint.css" media="print"/>
-
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
         <script type="text/javascript">
-            window.onload = function () {
-                if (!NiftyCheck())
-                    return;
-
-//Rounded("div.news","all","transparent","#FFF","small border #999");
-                Rounded("div.headPrevention", "all", "#CCF", "#efeadc", "small border blue");
-                Rounded("div.preventionProcedure", "all", "transparent", "#F0F0E7", "small border #999");
-
-                Rounded("div.leftBox", "top", "transparent", "#CCCCFF", "small border #ccccff");
-                Rounded("div.leftBox", "bottom", "transparent", "#EEEEFF", "small border #ccccff");
-
-            }
 
             function display(elements) {
 
@@ -280,8 +286,8 @@
             }
 
             function showImmunizationOnlyPrintButton() {
-                console.log("test");
-                $("#print_buttons").append("<input type=\"button\" class=\"noPrint\" name=\"printImmButton\" onclick=\"printImmOnly()\" value=\"Print Immunizations Only\">");
+                document.getElementById('print_buttons').insertAdjacentHTML('beforeend',
+                    '<input type="button" class="noPrint btn btn-secondary" name="printImmButton" onclick="printImmOnly()" value="Print Immunizations Only">');
             }
 
             function onPrint() {
@@ -305,10 +311,9 @@
 
 
             function addByLot() {
-                var lotNbr = $("#lotNumberToAdd").val();
-
-                popup(600, 900, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + lotNbr, 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
-
+                var input = document.getElementById('lotNumberToAdd2');
+                var lotNbr = input ? input.value : '';
+                popup(600, 900, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + encodeURIComponent(lotNbr), 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
             }
         </script>
 
@@ -330,8 +335,6 @@
                 font-size: 100%
             }
 
-            /
-            /
             div.news {
                 width: 100px;
                 background: #FFF;
@@ -425,7 +428,7 @@
             }
 
             div.preventionProcedure p {
-                font-size: 0.8em;
+                font-size: 0.7em;
                 font-family: verdana, tahoma, sans-serif;
                 background: #F0F0E7;
                 margin: 0;
@@ -480,73 +483,189 @@
             table.colour_codes {
                 width: 8px;
                 height: 10px;
-                border: 1px solid #999999;
+
             }
 
         </style>
 
-        <!--[if IE]>
-        <style type="text/css">
 
-            table.legend {
-                border: 0;
-                margin-top: 10px;
-                width: 370px;
-            }
-
-            table.legend td {
-                font-size: 10;
-                text-align: left;
-            }
-
-        </style>
-        <![endif]-->
 
         <script>
             function disableSSOWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
-                    jQuery.ajax({
-                        type: "POST",
-                        url: '<%=request.getContextPath()%>/ws/rs/persona/updatePreference',
-                        dataType: 'json',
-                        contentType: 'application/json',
-                        data: JSON.stringify({key: 'prevention_sso_warning', value: 'true'}),
-                        success: function (data) {
-                            $("#ssoWarning").hide();
+                    fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({key: 'prevention_sso_warning', value: 'true'})
+                    }).then(function(response) {
+                        if (response.ok) {
+                            document.getElementById('ssoWarning').style.display = 'none';
                         }
+                    }).catch(function() {
+                        console.warn('Could not save SSO warning preference');
                     });
                 }
             }
 
             function disableISPAWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
-                    jQuery.ajax({
-                        type: "POST",
-                        url: '<%=request.getContextPath()%>/ws/rs/persona/updatePreference',
-                        dataType: 'json',
-                        contentType: 'application/json',
-                        data: JSON.stringify({key: 'prevention_ispa_warning', value: 'true'}),
-                        success: function (data) {
-                            $("#ispaWarning").hide();
+                    fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({key: 'prevention_ispa_warning', value: 'true'})
+                    }).then(function(response) {
+                        if (response.ok) {
+                            document.getElementById('ispaWarning').style.display = 'none';
                         }
+                    }).catch(function() {
+                        console.warn('Could not save ISPA warning preference');
                     });
                 }
             }
 
             function disableNonISPAWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
-                    jQuery.ajax({
-                        type: "POST",
-                        url: '<%=request.getContextPath()%>/ws/rs/persona/updatePreference',
-                        dataType: 'json',
-                        contentType: 'application/json',
-                        data: JSON.stringify({key: 'prevention_non_ispa_warning', value: 'true'}),
-                        success: function (data) {
-                            $("#nonIspaWarning").hide();
+                    fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({key: 'prevention_non_ispa_warning', value: 'true'})
+                    }).then(function(response) {
+                        if (response.ok) {
+                            document.getElementById('nonIspaWarning').style.display = 'none';
                         }
+                    }).catch(function() {
+                        console.warn('Could not save non-ISPA warning preference');
                     });
                 }
             }
+	var VACCINE_BRANDS_DEFAULT = [
+{name:"OtherA", value:"IXCHIQ not less than 3.0 log10 TCID50 per 0.5 milliliter powder for solution for injection", manufacture:"Valneva Austria GmbH", dose:"0.5", units:"mL", route:"IM", din:"2548984"},
+{name:"Chol-Ecol-O", value:"DUKORAL oral suspension", manufacture:"Valneva Sweden AB", dose:"", units:"DOSE", route:"PO", din:"2247208"},
+{name:"Chol-O", value:"VAXCHORA 400000000 to 2000000000 colony forming units per sachet powder for oral suspension", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"PO", din:"2538164"},
+{name:"OtherA", value:"Cytogam 50 milligrams per milliliter solution for infusion", manufacture:"KI BioPharma LLC", dose:"50", units:"mL", route:"IV", din:"2231962"},
+{name:"OtherA", value:"Cytogam 50 milligrams per milliliter solution for infusion", manufacture:"Saol Therapeutics Research Limited", dose:"50", units:"mL", route:"IV", din:"2231962"},
+{name:"COVID-19", value:"COMIRNATY messenger ribonucleic acid 10 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541858"},
+{name:"COVID-19", value:"COMIRNATY messenger ribonucleic acid 30 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2552035"},
+{name:"COVID-19", value:"COMIRNATY Omicron XBB.1.5 messenger ribonucleic acid 10 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541858"},
+{name:"COVID-19", value:"COMIRNATY Omicron XBB.1.5 messenger ribonucleic acid 30 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541823"},
+{name:"COVID-19", value:"SPIKEVAX messenger ribonucleic acid 0.10 milligrams per 1 milliliter dispersion for injection", manufacture:"Moderna Biopharma Canada Corporation", dose:"", units:"mL", route:"IM", din:"2541270"},
+{name:"COVID-19", value:"SPIKEVAX XBB.1.5 messenger ribonucleic acid 0.10 milligrams per 1 milliliter dispersion for injection", manufacture:"Moderna Biopharma Canada Corporation", dose:"", units:"mL", route:"IM", din:"2541270"},
+{name:"DTaP-HB-IPV-Hib", value:"INFANRIX hexa suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2253852"},
+{name:"HA",value:"AVAXIM 160 units per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2237792"},
+{name:"HA",value:"Havrix 1440 ELISA units per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"mL", route:"IM", din:"2187078"},
+{name:"HA",value:"Havrix 720 ELISA units per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2231056"},
+{name:"HA",value:"VAQTA 25 units per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
+{name:"HA",value:"VAQTA 50 units per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
+{name:"HAHB",value:"Twinrix 360 ELISA units HAV and 10 micrograms HBV per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2237548"},
+{name:"HAHB",value:"Twinrix 720 ELISA units HAV and 20 micrograms HBV per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"1", units:"mL", route:"IM", din:"2230578"},
+{name:"HB",value:"RECOMBIVAX HB 10 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
+{name:"HB",value:"RECOMBIVAX HB 40 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2245977"},
+{name:"HB",value:"RECOMBIVAX HB 5 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
+{name:"OtherA", value:"HepaGam B 312 international units per milliliter liquid for injection", manufacture:"KI BioPharma LLC", dose:"", units:"mL", route:"IM", din:"2290979"},
+{name:"OtherA", value:"HepaGam B 312 international units per milliliter liquid for injection", manufacture:"Saol Therapeutic Research Limited", dose:"", units:"mL", route:"IM", din:"2290979"},
+{name:"OtherA", value:"HyperHEP B 110 international units per 0.5 milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"0.5", units:"mL", route:"IM", din:"2520125"},
+{name:"OtherA", value:"HyperHEP B 220 international units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2520001"},
+{name:"Hib", value:"Act-HIB 10 micrograms per 0.5 milliliter powder and diluent for solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"1959034"},
+{name:"HPV", value:"CERVARIX 40 micrograms per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2342227"},
+{name:"HPV-9", value:"GARDASIL 9 270 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2437058"},
+{name:"OtherA", value:"GamaSTAN 15 to 18 percent solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"", route:"IM", din:"2486598"},
+{name:"Inf",value:"AREPANRIX H5N1 3.75 micrograms per 0.5 milliliter suspension and emulsion for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2401886"},
+{name:"Inf",value:"FLUAD 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Seqirus UK Limited", dose:"0.5", units:"mL", route:"IM", din:"2362384"},
+{name:"Inf",value:"FLULAVAL TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2420783"},
+{name:"Inf",value:"FLUMIST QUADRIVALENT 0.2 milliliter intranasal spray", manufacture:"AstraZeneca Canada Inc.", dose:"0.2", units:"mL", route:"Intranasal", din:"2426544"},
+{name:"Inf",value:"FLUZONE High-Dose Quadrivalent 60 micrograms per 0.7 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.7", units:"mL", route:"IM", din:"2500523"},
+{name:"Inf",value:"FLUZONE Quadrivalent 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2432730"},
+{name:"Inf",value:"INFLUVAC TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"BGP Pharma ULC", dose:"0.5", units:"mL", route:"IM", din:"2484854"},
+{name:"IPV", value:"IMOVAX Polio 80 units per 0.5 milliliter solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"SQ", din:"1959042"},
+{name:"JE", value:"IXIARO 6 micrograms per 0.5 milliliter suspension for injection", manufacture:"Valneva Austria GmbH", dose:"0.5", units:"mL", route:"IM", din:"2333279"},
+{name:"rMenB", value:"BEXSERO suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2417030"},
+{name:"rMenB", value:"Trumenba suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2468751"},
+{name:"Men-C-ACYW-135", value:"MenQuadfi solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2507161"},
+{name:"Men-C-ACYW-135", value:"Menactra solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2279924"},
+{name:"Men-C-ACYW-135", value:"Menveo powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2347393"},
+{name:"Men-C-ACYW-135", value:"NIMENRIX powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2402904"},
+{name:"Men-C-ACYW-135", value:"NIMENRIX powder and diluent for solution for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2402904"},
+{name:"Men-C-C",value:"MENJUGATE Liquid 10 micrograms suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2440709"},
+{name:"Men-C-C",value:"NeisVac-C 10 micrograms per 0.5 milliliter suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2245057"},
+{name:"MMR", value:"M-M-R II powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"", din:"466085"},
+{name:"MMR", value:"PRIORIX powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"", route:"", din:"2239208"},
+{name:"MMR-Var",value:"PRIORIX-TETRA powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"", din:"2297884"},
+{name:"MMR-Var",value:"ProQuad powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"", route:"SQ", din:"2399229"},
+{name:"Pneu-C", value:"Prevnar 13 suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2335204"},
+{name:"Pneu-C", value:"VAXNEUVANCE 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2522403"},
+{name:"Pneu-C", value:"PREVNAR 20 0.5 milliliter suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2527049"},
+{name:"Pneu-C", value:"CAPVAXIVE 0.5 milliliter solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2549891"},
+{name:"Rab",value:"Imovax Rabies 2.5 international units per milliliter powder for solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"", units:"VIAL", route:"IM", din:"1908286"},
+{name:"Rab",value:"RABAVERT 2.5 international units per milliliter powder for solution for injection", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"IM", din:"2267667"},
+{name:"OtherA", value:"HyperRAB 300 international units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2486571"},
+{name:"OtherA", value:"KamRAB 150 international units per milliliter solution for injection", manufacture:"Kamada Ltd", dose:"", units:"mL", route:"IM", din:"2482436"},
+{name:"Rota",value:"ROTARIX 1000000 units per 1.5 milliliter oral suspension", manufacture:"GlaxoSmithKline Inc.", dose:"1.5", units:"mL", route:"PO", din:"2300591"},
+{name:"Rota",value:"RotaTeq 115000000 units per 2 milliliter oral solution", manufacture:"Merck Canada Inc.", dose:"", units:"DOSE", route:"PO", din:"2284413"},
+{name:"RSV", value:"ABRYSVO 120 micrograms per 0.5 milliliter powder for suspension", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2544040"},
+{name:"RSV", value:"AREXVY 120 micrograms per 0.5 milliliter powder and suspension for suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2540207"},
+{name:"RSVAb", value:"BEYFORTUS 100 milligrams per 1 milliliter solution for injection syringe", manufacture:"Sanofi Pasteur Limited", dose:"1", units:"mL", route:"IM", din:"2537214"},
+{name:"RSVAb", value:"BEYFORTUS 50 milligrams per 0.5 milliliter solution for injection syringe", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2537206"},
+{name:"RSVAb", value:"SYNAGIS 100 milligrams per milliliter powder for solution for injection", manufacture:"Boehringer Ingelheim (BI) Pharma KG", dose:"", units:"mL", route:"IM", din:"2438364"},
+{name:"RSVAb", value:"SYNAGIS 100 milligrams per milliliter solution for injection", manufacture:"AstraZeneca Canada Inc.", dose:"", units:"mL", route:"IM", din:"2438364"},
+{name:"RZV", value:"SHINGRIX 50 micrograms per 0.5 milliliter powder and suspension for suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2468425"},
+{name:"Td", value:"Td ADSORBED 5 limit of flocculation units and 2 limit of flocculation units per 0.5 milliliter without preservative suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2528401"},
+{name:"Tdap",value:"ADACEL suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2240255"},
+{name:"Tdap",value:"BOOSTRIX suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2247600"},
+{name:"Tdap-IPV", value:"ADACEL-POLIO suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2352044"},
+{name:"Tdap-IPV", value:"BOOSTRIX-POLIO suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2312557"},
+{name:"OtherA", value:"HyperTET 250 antitoxin units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2520087"},
+{name:"Typh-I", value:"TYPHIM Vi 25 micrograms per 0.5 milliliter solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2130955"},
+{name:"Typh-O", value:"Vivotif 10 billion units enteric coated capsule", manufacture:"Bavarian Nordic AS", dose:"", units:"", route:"PO", din:"885975"},
+{name:"Var",value:"VARILRIX not less than 1995 plaque forming units per 0.5 milliliter powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"", route:"SQ", din:"2241047"},
+{name:"Var",value:"VARIVAX III 1350 plaque forming units powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"SQ", din:"2246081"},
+{name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"KI BioPharma LLC", dose:"", units:"VIAL", route:"IM", din:"2442183"},
+{name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"Saol Therapeutics Research Limited", dose:"", units:"VIAL", route:"IM", din:"2442183"},
+{name:"YF", value:"YF-VAX 109648 plaque forming units per 0.5 milliliter powder and diluent for suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"SQ", din:"428833"},
+{name:"Tuberculosis", value:"Tubersol", manufacture:"Sanofi Pasteur Limited", dose:"0.1", units:"mL", route:"Intradermal", din:"00317268"}
+  ];
+
+        /* ---- Vaccine brand catalogue loading ----
+         * Loads vaccine-brands.json from the eform images directory.
+         * Admins can upload a customised vaccine-brands.json via the eform images
+         * upload screen; the file is served via:
+         *   eform/displayImage.do?imagefile=vaccine-brands.json
+         * Falls back to VACCINE_BRANDS_DEFAULT (bundled in source) if the file
+         * cannot be loaded or is absent.
+         */
+        var tags = [];
+        var _vaccineLoadPromise = fetch('<%=request.getContextPath()%>/eform/displayImage.do?imagefile=vaccine-brands.json')
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function(data) {
+                if (!Array.isArray(data)) {
+                    tags = VACCINE_BRANDS_DEFAULT;
+                    return;
+                }
+                tags = data
+                    .filter(function(item) {
+                        return item &&
+                            typeof item.name === 'string' &&
+                            typeof item.value === 'string';
+                    })
+                    .map(function(item) {
+                        return {
+                            name:        item.name,
+                            value:       item.value,
+                            manufacture: typeof item.manufacture === 'string' ? item.manufacture : '',
+                            dose:        typeof item.dose === 'string' ? item.dose : '',
+                            units:       typeof item.units === 'string' ? item.units : '',
+                            route:       typeof item.route === 'string' ? item.route : '',
+                            din:         typeof item.din === 'string' ? item.din : ''
+                        };
+                    });
+                if (!tags.length) {
+                    tags = VACCINE_BRANDS_DEFAULT;
+                }
+            })
+            .catch(function() {
+                console.warn('Could not load custom vaccine-brands.json, using default catalogue');
+                tags = VACCINE_BRANDS_DEFAULT;
+            });
+
         </script>
     </head>
 
@@ -558,28 +677,25 @@
     %>
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
+            <td class="MainTableTopRowLeftColumnx"><h3><i class="fa-solid fa-syringe"></i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></h3></td>
+            <td class="MainTableTopRowRightColumnx">
+                <table class="TopStatusBarx">
                     <tr>
-                        <td><%=nameAge%>
+                        <td><h4><%=Encode.forHtml(nameAge)%></h4>
                         </td>
-                        <td>&nbsp;</td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+
+                        <td></td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
-            <td class="MainTableLeftColumn" valign="top">
-
+            <td class="MainTableLeftColumnX" style="width: 190px;">
 
                 <div class="leftBox">
                     <h3>&nbsp;Preventions</h3>
-                    <div style="background-color: #EEEEFF;">
-                        <p>Screenings</p>
+                    <div style="background-color: lightgray;">
+                        <span>Screenings</span>
                         <ul>
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
@@ -592,19 +708,19 @@
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <% } else {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <%
                                             }
@@ -614,7 +730,7 @@
                             %>
 
                         </ul>
-                        <p>Immunizations</p>
+                        <span>Immunizations</span>
                         <ul>
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
@@ -634,19 +750,19 @@
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%><%=ispa1 %>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
                             </a></li>
                             <% } else {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%><%=ispa1 %>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
                             </a></li>
                             <%
                                             }
@@ -655,7 +771,7 @@
                                 }
                             %>
                         </ul>
-                        <p>Other</p>
+                        <span>Other</span>
                         <ul>
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
@@ -670,19 +786,19 @@
 
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {%>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <% } else {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <%
                                             }
@@ -707,26 +823,23 @@
                 <td valign="top" class="MainTableRightColumn">
 
                     <%if (dhirEnabled && !isSSOLoggedIn && !hideSSOWarning) {%>
-                    <div style="width:100%;background-color:pink;text-align:left;font-weight:bold;font-size:13pt;border-style:solid"
-                         id="ssoWarning">
-                        <span><a href="javascript:void()" onClick="disableSSOWarning()">[x]</a></span> Warning: You are
-                        not logged into OneId and will not be able to submit data to DHIR
+                    <div class="alert alert-warning d-flex align-items-center" id="ssoWarning" role="alert">
+                        <span class="me-2">Warning: You are not logged into OneId and will not be able to submit data to DHIR</span>
+                        <button type="button" class="btn-close ms-auto" aria-label="Dismiss" onclick="disableSSOWarning()"></button>
                     </div>
                     <% } %>
 
                     <%if (dhirEnabled && !hasIspaConsent && !hideISPAWarning) {%>
-                    <div style="width:100%;background-color:pink;text-align:left;font-weight:bold;font-size:13pt;border-style:solid"
-                         id="ispaWarning">
-                        <span><a href="javascript:void()" onClick="disableISPAWarning()">[x]</a></span> Warning: This
-                        patient has not consented to send ISPA vaccines to DHIR
+                    <div class="alert alert-warning d-flex align-items-center" id="ispaWarning" role="alert">
+                        <span class="me-2">Warning: This patient has not consented to send ISPA vaccines to DHIR</span>
+                        <button type="button" class="btn-close ms-auto" aria-label="Dismiss" onclick="disableISPAWarning()"></button>
                     </div>
                     <% } %>
 
                     <%if (dhirEnabled && !hasNonIspaConsent && !hideNonISPAWarning) {%>
-                    <div style="width:100%;background-color:pink;text-align:left;font-weight:bold;font-size:13pt;border-style:solid"
-                         id="nonIspaWarning">
-                        <span><a href="javascript:void()" onClick="disableNonISPAWarning()">[x]</a></span> Warning: This
-                        patient has not consented to send non-ISPA vaccines to DHIR
+                    <div class="alert alert-warning d-flex align-items-center" id="nonIspaWarning" role="alert">
+                        <span class="me-2">Warning: This patient has not consented to send non-ISPA vaccines to DHIR</span>
+                        <button type="button" class="btn-close ms-auto" aria-label="Dismiss" onclick="disableNonISPAWarning()"></button>
                     </div>
                     <% } %>
 
@@ -741,42 +854,50 @@
                         <%
                             if (printError) {
                         %>
-                        <p style="color: red; font-size: larger">An error occurred while
-                            trying to print</p>
+                        <div class="alert alert-danger" role="alert">An error occurred while trying to print</div>
                         <%
                             }
-                        %> <span style="font-size: larger;">Prevention
-		Recommendations</span>
-                        <ul>
-                            <% for (int i = 0; i < warnings.size(); i++) {
-                                String warn = (String) warnings.get(i);%>
-                            <li style="color: red;"><%=warn%>
-                            </li>
+                        %>
+                        <span style="font-size: larger;">Prevention Recommendations</span>
+                        <div class="mt-1">
+                            <%
+                            /* NOTE: warn/reminder strings are generated by the Drools prevention decision
+                             * support engine (DSPreventionDrools) from rule file messages — they are not
+                             * derived from raw user/patient input and are therefore output unencoded here.
+                             * If rule messages are ever allowed to incorporate patient-supplied text,
+                             * this output must be wrapped with Encode.forHtml().
+                             */
+                            if (warnings.size() > 0 ) {
+                            %><div class="alert alert-danger py-1 mb-1" role="alert">
+                                <%for (int i = 0; i < warnings.size(); i++) {
+                                    String warn = (String) warnings.get(i);%>
+                                <%=warn%><br>
+                                <%}%>
+                            </div>
                             <%}%>
+                            <% if (recomendations.size() > 0 ) {
+                            %><div class="alert alert-info py-1 mb-1" role="alert">
                             <% for (int i = 0; i < recomendations.size(); i++) {
                                 String warn = (String) recomendations.get(i);%>
-                            <li style="color: black;"><%=warn%>
-                            </li>
+                            <%=warn%><br>
                             <%}%>
-                            <!--li style="color: red;">6 month TD overdue</li>
-                                 <li>12 month MMR due in 2 months</li-->
+                            </div>
+                            <%}%>
                             <% if (dsProblems) { %>
-                            <li style="color: red;">Decision Support Had Errors Running.</li>
+                            <div class="alert alert-danger py-1 mb-1" role="alert">Decision Support Had Errors Running.</div>
                             <% } %>
-                        </ul>
+                        </div>
                     </div>
                     <% } %>
 
-                    <br/>
                     <%if (!StringUtils.isEmpty(OscarProperties.getInstance().getProperty("cvc.url"))) { %>
-                    <table>
-                        <tr>
-                            <td style="font-size:12pt">Add by Brand/Generic/Lot#</td>
-                            <td><input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" size="20"/>
+                                <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
+                                       style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
                                 <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
-                            </td>
-                        </tr>
-                    </table>
+                    <% } else {%>
+                                <input type="text" id="immunization" class="form-control form-control-sm"
+                                       style="width: 300px;" placeholder="Pick vaccine brand/generic" autocomplete="off">
+                                <div id="immunization_choices" class="autocomplete"></div>
                     <% } %>
                     <%
                         String[] ColourCodesArray = new String[7];
@@ -933,7 +1054,7 @@
                             <%
                                     }
                                 } %> <a href="#"
-                                        onclick="Element.toggle('otherElements'); return false;"
+                                        onclick="var el=document.getElementById('otherElements'); el.style.display=(el.style.display==='none'?'':'none'); return false;"
                                         style="font-size: xx-small;">show/hide all other Preventions</a>
                             <div style="display: none;" id="otherElements">
                                 <%
@@ -1033,7 +1154,7 @@
                                         <span><%=setHash.get("effective")%></span></h2>
                                     <!--a style="font-size:xx-small;" onclick="javascript:showHideItem('<%="prev"+setNum%>')" href="javascript: function myFunction() {return false; }" >show/hide</a-->
                                     <a href="#"
-                                       onclick="Element.toggle('<%="prev"+setNum%>'); return false;"
+                                       onclick="var el=document.getElementById('<%="prev"+setNum%>'); el.style.display=(el.style.display==='none'?'':'none'); return false;"
                                        style="font-size: xx-small;">show/hide</a>
                                     <div class="preventionSet"
                                          <%=pdc.getDisplay(loggedInInfo, setHash,demographic_no)%>;
@@ -1087,9 +1208,9 @@
                 </td>
         </tr>
         <tr>
-            <td class="MainTableBottomRowLeftColumn">
+            <td class="MainTableBottomRowLeftColumnX">
 			<span id="print_buttons">
-				<input type="button" class="noPrint" name="printButton" onclick="EnablePrint(this)"
+				<input type="button" class="noPrint btn btn-secondary" name="printButton" onclick="EnablePrint(this)"
                        value="Enable Print">
 			</input>
             </td>
@@ -1191,66 +1312,322 @@
 
     <script type="text/javascript">
 
-        //basic..just makes the brand name ones bold
-        var resultFormatter2 = function (oResultData, sQuery, sResultMatch) {
-            var output = '';
-
-            if (!oResultData[1]) {
-                output = '<b>' + oResultData[0] + '</b>';
-            } else {
-                output = oResultData[0];
-            }
-            return output;
+        /* ---- Client-side HTML escaping ----
+         * Sanitises untrusted strings before inserting via innerHTML.
+         * Used to encode data loaded from the admin-supplied vaccine-brands.json
+         * catalogue so that a malicious JSON file cannot inject HTML/JS.
+         */
+        function escHtml(str) {
+            var d = document.createElement('div');
+            d.textContent = typeof str === 'string' ? str : '';
+            return d.innerHTML;
         }
 
-        YAHOO.example.BasicRemote = function () {
-            let lotNumberInput = document.getElementById("lotNumberToAdd2");
-            let lotNumberChoices = document.getElementById("lotNumberToAdd2_choices");
-            if (lotNumberInput && lotNumberChoices) {
-                var url = "<%=request.getContextPath()%>/cvc.do?method=query";
-                var oDS = new YAHOO.util.XHRDataSource(url, {
-                    connMethodPost: true,
-                    connXhrMode: 'ignoreStaleResponses'
-                });
-                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;
-                oDS.responseSchema = {
-                    resultsList: "results",
-                    fields: ["name", "generic", "genericSnomedId", "snomedId", "lotNumber"]
-                };
-                oDS.maxCacheEntries = 0;
-                var oAC = new YAHOO.widget.AutoComplete("lotNumberToAdd2", "lotNumberToAdd2_choices", oDS);
-                oAC.queryMatchSubset = true;
-                oAC.minQueryLength = 3;
-                oAC.maxResultsDisplayed = 25;
-                oAC.formatResult = resultFormatter2;
-                oAC.queryMatchContains = true;
-                oAC.itemSelectEvent.subscribe(function (type, args) {
-                    var myAC = args[0]; // reference back to the AC instance
-                    var elLI = args[1]; // reference to the selected LI element
-                    var oData = args[2]; // object literal of selected item's result data
+        /* ---- Plain-JS autocomplete helper ----
+         * Creates an autocomplete dropdown on an input element using the
+         * .autocomplete / .ac-item classes from css/autocomplete.css.
+         *
+         * @param input      - the <input> element
+         * @param dropdown   - the <div class="autocomplete"> element placed after the input
+         * @param getResults - function(query) returning an array of result objects
+         * @param renderItem - function(item) returning the innerHTML for one suggestion row
+         * @param onSelect   - function(item) called when a suggestion is chosen
+         * @param minLen     - minimum query length before suggestions appear (default 2)
+         */
+        function initAutocomplete(input, dropdown, getResults, renderItem, onSelect, minLen) {
+            minLen = minLen || 2;
+            var dropdownId = dropdown.id || ('ac-dropdown-' + Math.random().toString(36).slice(2));
+            dropdown.id = dropdownId;
+            input.setAttribute('role', 'combobox');
+            input.setAttribute('aria-expanded', 'false');
+            input.setAttribute('aria-controls', dropdownId);
+            input.setAttribute('aria-autocomplete', 'list');
+            dropdown.setAttribute('role', 'listbox');
+            dropdown.setAttribute('aria-hidden', 'true');
+            var activeIdx = -1;
 
-                    console.log('selected');
-
-                    console.log('args:' + oData[0] + ',' + oData[1] + ',' + oData[2] + ',' + oData[3] + ',' + oData[4]);
-
-                    //We need to load AddPreventionData with possible brand name, and possible lotnumber/exp.
-                    if (oData[4].length > 0) {
-                        popup(465, 635, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + oData[4], 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
-                        document.getElementById('lotNumberToAdd2').value = '';
-                    } else {
-                        popup(465, 635, 'AddPreventionData.jsp?search=true&demographic_no=<%=demographic_no%>&snomedId=' + oData[2] + '&brandSnomedId=' + oData[3], 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
-                        document.getElementById('lotNumberToAdd2').value = '';
-                    }
-
-
-                });
-
-                return {
-                    oDS: oDS,
-                    oAC: oAC
-                };
+            function clearActive(items) {
+                items.forEach(function(el) { el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
             }
-        }();
+
+            function renderDropdown(results) {
+                dropdown.innerHTML = '';
+                activeIdx = -1;
+                if (!results || results.length === 0) {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    return;
+                }
+                results.forEach(function(item, idx) {
+                    var div = document.createElement('div');
+                    div.className = 'ac-item';
+                    div.id = dropdownId + '-opt-' + idx;
+                    div.setAttribute('role', 'option');
+                    div.setAttribute('aria-selected', 'false');
+                    div.innerHTML = renderItem(item);
+                    div.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        onSelect(item);
+                        dropdown.style.display = 'none';
+                        input.setAttribute('aria-expanded', 'false');
+                        dropdown.setAttribute('aria-hidden', 'true');
+                        input.removeAttribute('aria-activedescendant');
+                    });
+                    dropdown.appendChild(div);
+                });
+                input.setAttribute('aria-expanded', 'true');
+                dropdown.setAttribute('aria-hidden', 'false');
+                dropdown.style.display = 'block';
+            }
+
+            input.addEventListener('input', function() {
+                var q = this.value.trim();
+                if (q.length < minLen) {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    return;
+                }
+                var results = getResults(q);
+                renderDropdown(results);
+            });
+
+            input.addEventListener('keydown', function(e) {
+                var items = dropdown.querySelectorAll('.ac-item');
+                if (!items.length) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIdx = Math.max(activeIdx - 1, 0);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
+                } else if (e.key === 'Enter' && activeIdx >= 0) {
+                    e.preventDefault();
+                    items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
+                } else if (e.key === 'Escape') {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                }
+            });
+        }
+
+        /* ---- Vaccine brand autocomplete on #immunization ----
+         * Filters the `tags` array (loaded from vaccine-brands.json or fallback defaults).
+         * Called by _vaccineLoadPromise.finally() after data is ready.
+         */
+        function initVaccineAutocomplete() {
+            var input = document.getElementById('immunization');
+            var dropdown = document.getElementById('immunization_choices');
+            if (!input || !dropdown) return;
+
+            function filterTags(q) {
+                var lower = q.toLowerCase();
+                return tags.filter(function(t) {
+                    return t.value.toLowerCase().indexOf(lower) !== -1 ||
+                           t.name.toLowerCase().indexOf(lower) !== -1;
+                }).slice(0, 25);
+            }
+
+            initAutocomplete(
+                input,
+                dropdown,
+                filterTags,
+                function(item) {
+                    /* escHtml() sanitises admin-loaded JSON data before innerHTML insertion */
+                    return '<strong>' + escHtml(item.name) + '</strong> &ndash; ' + escHtml(item.value);
+                },
+                function(item) {
+                    input.value = '';
+                    var vPath = '<%=request.getContextPath()%>';
+                    var demographicNo = '<%=demographic_no%>';
+                    var url = vPath + '/oscarPrevention/AddPreventionData.jsp?1=1'
+                        + '&prevention=' + encodeURIComponent(item.name)
+                        + '&demographic_no=' + demographicNo
+                        + '&brandName=' + encodeURIComponent(item.value || '')
+                        + '&din=' + encodeURIComponent(item.din || '')
+                        + '&dose=' + encodeURIComponent(item.dose || '')
+                        + '&route=' + encodeURIComponent(item.route || '')
+                        + '&doseUnit=' + encodeURIComponent(item.units || '')
+                        + '&manufacture=' + encodeURIComponent(item.manufacture || '');
+                    popup(600, 900, url, 'AddPreventionWindow');
+                },
+                2
+            );
+        }
+        /* Initialize once vaccine data is loaded (or fallback is set) */
+        _vaccineLoadPromise.finally(initVaccineAutocomplete);
+
+        /* ---- CVC lot-number autocomplete on #lotNumberToAdd2 ----
+         * Fetches suggestions from the server (cvc.do?method=query).
+         * Mirrors ARIA combobox/listbox pattern from initAutocomplete().
+         */
+        (function() {
+            var input = document.getElementById('lotNumberToAdd2');
+            var dropdown = document.getElementById('lotNumberToAdd2_choices');
+            if (!input || !dropdown) return;
+
+            /* ARIA: wire up combobox/listbox roles */
+            var dropdownId = dropdown.id || 'lotNumberToAdd2_choices';
+            dropdown.id = dropdownId;
+            input.setAttribute('role', 'combobox');
+            input.setAttribute('aria-expanded', 'false');
+            input.setAttribute('aria-controls', dropdownId);
+            input.setAttribute('aria-autocomplete', 'list');
+            dropdown.setAttribute('role', 'listbox');
+            dropdown.setAttribute('aria-hidden', 'true');
+
+            var activeIdx = -1;
+            var debounceTimer;
+            var requestSeq = 0;
+            var cachedResults = [];
+
+            function clearActive(items) {
+                items.forEach(function(el) { el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
+            }
+
+            function fetchResults(q, callback) {
+                clearTimeout(debounceTimer);
+                var seq = ++requestSeq;
+                debounceTimer = setTimeout(function() {
+                    fetch('<%=request.getContextPath()%>/cvc.do?method=query', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: encodeURIComponent(q)
+                    })
+                    .then(function(r) {
+                        if (!r.ok) return Promise.reject('CVC query returned HTTP ' + r.status);
+                        return r.json();
+                    })
+                    .then(function(data) {
+                        if (seq !== requestSeq) return;
+                        cachedResults = data.results || [];
+                        callback(cachedResults);
+                    })
+                    .catch(function(err) {
+                        console.error('CVC lot number lookup failed:', err);
+                        if (seq !== requestSeq) return;
+                        callback([]);
+                    });
+                }, 250);
+            }
+
+            /* Override input listener to use async fetch instead of sync filter */
+            input.addEventListener('input', function() {
+                var q = this.value.trim();
+                if (q.length < 3) {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    activeIdx = -1;
+                    return;
+                }
+                fetchResults(q, function(results) {
+                    dropdown.innerHTML = '';
+                    activeIdx = -1;
+                    if (!results.length) {
+                        dropdown.style.display = 'none';
+                        input.setAttribute('aria-expanded', 'false');
+                        dropdown.setAttribute('aria-hidden', 'true');
+                        input.removeAttribute('aria-activedescendant');
+                        return;
+                    }
+                    results.slice(0, 25).forEach(function(item, idx) {
+                        var div = document.createElement('div');
+                        div.className = 'ac-item';
+                        div.id = dropdownId + '-opt-' + idx;
+                        div.setAttribute('role', 'option');
+                        div.setAttribute('aria-selected', 'false');
+                        div.innerHTML = item.generic ? escHtml(item.name) : '<strong>' + escHtml(item.name) + '</strong>';
+                        div.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            input.value = '';
+                            dropdown.style.display = 'none';
+                            input.setAttribute('aria-expanded', 'false');
+                            dropdown.setAttribute('aria-hidden', 'true');
+                            input.removeAttribute('aria-activedescendant');
+                            activeIdx = -1;
+                            var lotNum = item.lotNumber || '';
+                            if (lotNum.length > 0) {
+                                popup(465, 635, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + encodeURIComponent(lotNum), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                            } else {
+                                popup(465, 635, 'AddPreventionData.jsp?search=true&demographic_no=<%=demographic_no%>&snomedId=' + encodeURIComponent(item.genericSnomedId || '') + '&brandSnomedId=' + encodeURIComponent(item.snomedId || ''), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                            }
+                        });
+                        dropdown.appendChild(div);
+                    });
+                    input.setAttribute('aria-expanded', 'true');
+                    dropdown.setAttribute('aria-hidden', 'false');
+                    dropdown.style.display = 'block';
+                });
+            });
+
+            /* Keyboard navigation */
+            input.addEventListener('keydown', function(e) {
+                var items = dropdown.querySelectorAll('.ac-item');
+                if (!items.length) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIdx = Math.max(activeIdx - 1, 0);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
+                } else if (e.key === 'Enter' && activeIdx >= 0) {
+                    e.preventDefault();
+                    items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
+                } else if (e.key === 'Escape') {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    activeIdx = -1;
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    activeIdx = -1;
+                }
+            });
+        })();
 
     </script>
     </body>
