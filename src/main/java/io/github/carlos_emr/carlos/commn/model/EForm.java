@@ -80,6 +80,7 @@ public class EForm extends AbstractModel<Integer> implements Serializable {
     @Column(name = "patient_independent")
     private boolean patientIndependent;
 
+    @Column(name = "roleType")
     private String roleType;
 
     private boolean stable;
