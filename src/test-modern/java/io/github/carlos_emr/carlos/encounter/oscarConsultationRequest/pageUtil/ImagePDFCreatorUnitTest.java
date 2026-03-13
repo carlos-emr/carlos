@@ -93,6 +93,16 @@ class ImagePDFCreatorUnitTest {
         }
     }
 
+    /** Returns true if AWT graphics are available (display or headless mode). */
+    private static boolean isAwtAvailable() {
+        try {
+            new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB).createGraphics().dispose();
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     /** Creates a test image file in the temp dir. */
     private Path createTestImage(String filename, String format, int width, int height) throws IOException {
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -160,6 +170,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce valid single-page PDF from JPEG image")
         void shouldProduceValidPdf_fromJpegImage() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path jpeg = createTestImage("test.jpg", "JPEG", 400, 600);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -179,6 +190,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce valid single-page PDF from PNG image")
         void shouldProduceValidPdf_fromPngImage() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path png = createTestImage("test.png", "PNG", 400, 600);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -198,6 +210,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should scale large image to fit within 500x700 bounds")
         void shouldScaleLargeImage_toFitWithinBounds() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path large = createTestImage("large.jpg", "JPEG", 2000, 3000);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -217,6 +230,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce multi-page PDF from multi-page TIFF")
         void shouldProduceMultiPagePdf_fromMultiPageTiff() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path tiff = createMultiPageTiff("multi.tiff", 3);
             Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 
@@ -233,6 +247,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce single-page PDF from single-page TIFF")
         void shouldProduceSinglePagePdf_fromSinglePageTiff() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path tiff = createMultiPageTiff("single.tif", 1);
             Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 
@@ -248,6 +263,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should detect TIFF by .tif extension (case-insensitive)")
         void shouldDetectTiff_byTifExtension() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path tiff = createMultiPageTiff("scan.TIF", 2);
             Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 

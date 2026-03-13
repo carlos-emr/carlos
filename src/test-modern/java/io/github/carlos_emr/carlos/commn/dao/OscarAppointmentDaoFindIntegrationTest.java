@@ -90,7 +90,9 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUp() throws ParseException {
         Calendar cal = Calendar.getInstance();
-        cal.set(2026, Calendar.MARCH, 4, 0, 0, 0);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         today = cal.getTime();
 
