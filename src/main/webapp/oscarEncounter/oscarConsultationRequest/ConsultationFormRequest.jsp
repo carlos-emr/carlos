@@ -483,7 +483,7 @@
 
                 } else {
                     form.service.value = "";
-                    for (var i = 0; consultationServices.length; i++) {
+                    for (var i = 0; i < consultationServices.length; i++) {
                         var specialistService = consultationServices[i];
                         if (specialistService.description === service) {
                             form.service.value = specialistService.id;
@@ -497,6 +497,7 @@
     </script>
 
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
         </title>
@@ -504,32 +505,17 @@
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <script>
             var ctx = '<%=request.getContextPath()%>';
-            var requestId = '<%=requestId%>';
-            var demographicNo = '<%=demo%>';
-            var demoNo = '<%=demo%>';
-            var appointmentNo = '<%=appNo%>';
+            var requestId = '<%=Encode.forJavaScript(requestId)%>';
+            var demographicNo = '<%=Encode.forJavaScript(demo)%>';
+            var demoNo = '<%=Encode.forJavaScript(demo)%>';
+            var appointmentNo = '<%=Encode.forJavaScript(appNo)%>';
         </script>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
         <script type="text/javascript"
                 src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery_oscar_defaults.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
         <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet"
               media="screen"/>
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
-        <!-- main calendar program -->
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar.js"></script>
-        <!-- language for the calendar -->
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/lang/calendar-en.js"></script>
-        <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
-
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <!-- Instead of importing conreq.js using the CME tag (as done in Oscar19/OscarPro), we are opting to directly import conreq.js without utilizing the CME tag. -->
         <% if ("ocean".equals(props.get("cme_js"))) {
@@ -539,128 +525,176 @@
                 ocean-host=<%=Encode.forUriComponent(props.getProperty("ocean_host"))%>></script>
         <% } %>
         <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
-        <link rel="stylesheet" type="text/css"
-              href="${ pageContext.request.contextPath }/oscarEncounter/encounterStyles.css">
 
         <style type="text/css">
-
             /* Ocean refer style */
             span.oceanRefer {
                 display: flex;
                 align-items: center;
-                padding-top: 20px
+                padding-top: 10px;
             }
-
             span.oceanRefer a {
                 margin-right: 5px;
             }
 
-            /* End of Ocean refer style */
-
-            #attachedDocumentTable {
-                border: blue thin solid;
+            /* Attachment tables */
+            .consult-attachments {
+                border: 1px solid var(--carlos-border);
+                border-radius: 4px;
+                background-color: var(--carlos-bg-light);
+                padding: 0.5rem;
+            }
+            .consult-attachments h3 {
+                margin: 0 !important;
+                padding: 0.25rem 0 !important;
+                border-bottom: 1px solid var(--carlos-border);
+                font-size: 0.85rem;
+                font-weight: 600;
+            }
+            #attachedDocumentsTable, #attachedLabsTable, #attachedFormsTable,
+            #attachedEFormsTable, #attachedHRMDocumentsTable {
                 border-collapse: collapse;
                 width: 100%;
-                background-color: #ddddff;
             }
-
+            #attachedDocumentTable {
+                border: 1px solid var(--carlos-border);
+                border-collapse: collapse;
+                width: 100%;
+                background-color: var(--carlos-bg-light);
+            }
             #attachedDocumentTable tr td {
                 padding: 5px;
             }
 
-            #attachedDocumentsTable {
-                border-collapse: collapse;
-                width: 100%;
-            }
-
-            #attachedDocumentsTable h3, #attachedLabsTable h3, #attachedFormsTable h3, #attachedEFormsTable h3, #attachedHRMDocumentsTable h3 {
-                margin: 0px !important;
-                padding: 0px !important;
-                border-bottom: grey thin solid;
-            }
-
-            #attachedLabsTable, #attachedFormsTable, #attachedDocumentsTable, #attachedEFormsTable, #attachedHRMDocumentsTable {
-                border-collapse: collapse;
-                width: 100%;
-            }
-
-            .ui-dialog {
-                font-size: small !important;
-            }
-
-            .ui-autocomplete {
-                font-size: small !important;
-            }
-
+            /* jQuery UI overrides */
+            .ui-dialog { font-size: small !important; }
+            .ui-autocomplete { font-size: small !important; }
             .save-and-close-button {
                 width: auto !important;
+                height: auto !important;
+                background-color: var(--carlos-primary) !important;
+                color: #fff !important;
+                border: none !important;
+                border-radius: 4px !important;
+                padding: 0.35rem 0.75rem !important;
+                font-size: 0.8rem !important;
+                font-weight: 500 !important;
+                line-height: 1.2 !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+            }
+            .save-and-close-button:hover {
+                opacity: 0.85 !important;
             }
 
-            th, td.tite1 {
-                background-color: #BFBFFF;
-                color: black;
-                font-size: small;
-                padding: 0px;
+            /* Consultation form layout */
+            .consult-form-label {
+                background-color: var(--carlos-bg-light);
+                color: var(--bs-body-color);
+                font-size: 0.85rem;
+                font-weight: 500;
+                padding: 0.4rem 0.75rem;
+                white-space: nowrap;
+                vertical-align: top;
             }
-
-            td.tite3 {
-                background-color: #BFBFFF;
-                color: black;
-                padding: 0px;
+            .consult-form-value {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.85rem;
+                vertical-align: top;
             }
-
-            td.tite1 {
-                padding: 5px 10px;
-            }
-
-            td.tite4 {
-                padding: 0px 10px;
-                background-color: #ddddff;
-                color: black;
-                font-size: small;
-            }
-
-            td.stat {
-                font-size: 10pt;
-            }
-
-            .consultDemographicData input, .consultDemographicData select, .consultDemographicData textarea {
+            .consult-form-value input[type="text"],
+            .consult-form-value input[type="date"],
+            .consult-form-value select,
+            .consult-form-value textarea {
                 width: 100% !important;
                 box-sizing: border-box;
             }
-
-            input#referalDate, input#appointmentDate, input#followUpDate {
-                background-image: url(<%= request.getContextPath() %>/images/cal.gif);
-                background-position-x: right;
-                background-position-y: center;
-                background-repeat: no-repeat;
+            .consult-section-heading {
+                font-weight: 600;
+                font-size: 0.9rem;
+                padding: 0.5rem 0.75rem;
+                background-color: var(--carlos-bg-light);
+                border-top: 1px solid var(--carlos-border);
             }
 
-            #referalDate_cal, #appointmentDate_cal, #followUpDate_cal {
-                display: none !important;
+            /* Control panel (action buttons) */
+            .consult-control-panel {
+                padding: 0.5rem 0.75rem;
+                border: 1px solid var(--carlos-primary);
+                border-radius: 4px;
+                background-color: var(--carlos-bg-light);
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+            }
+            .consult-control-panel-sticky {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
 
-            * table tr td {
-                vertical-align: top !important;
+            /* Patient info card */
+            .consult-patient-card td {
+                vertical-align: top;
             }
 
+            /* Status sidebar */
+            .consult-sidebar .form-check {
+                margin-bottom: 0.15rem;
+            }
 
+            /* Textarea sizing */
             textarea {
                 width: 100%;
                 box-sizing: border-box;
             }
 
-            .controlPanel {
-                padding: 5px 10px !important;
-                border: blue thin solid;
+            /* Clinical data import buttons - dropdown style */
+            .consult-import-btn-bar {
+                display: inline-flex;
+                flex-wrap: wrap;
+                gap: 0.25rem;
+                padding: 0.25rem 0;
+            }
+            .consult-import-btn-bar .btn {
+                font-size: 0.75rem;
+                padding: 0.15rem 0.5rem;
+            }
+            .consult-import-dropdown .dropdown-item {
+                font-size: 0.8rem;
+                padding: 0.25rem 0.75rem;
+                cursor: pointer;
             }
 
-            .heading {
-                font-weight: bold;
-                padding: 5px !important;
+            /* Collapsible sections */
+            .consult-collapse-heading {
+                cursor: pointer;
+                user-select: none;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .consult-collapse-heading .collapse-icon {
+                transition: transform 0.2s;
+                font-size: 0.75rem;
+            }
+            .consult-collapse-heading[aria-expanded="false"] .collapse-icon {
+                transform: rotate(-90deg);
             }
 
+            /* Annotation textarea */
+            #annotation {
+                color: var(--carlos-primary);
+            }
 
+            /* Radio/checkbox CARLOS blue */
+            .form-check-input:checked {
+                background-color: var(--carlos-primary);
+                border-color: var(--carlos-primary);
+            }
         </style>
     </head>
 
@@ -910,8 +944,90 @@
             });
         }
 
+        /**
+         * Auto-pulls Medical, Social, and Family History into the clinical
+         * information textarea for new consultations.
+         */
+        function autoImportClinicalHistory(demographicNo) {
+            var target = "#clinicalInformation";
+            var issueTypes = ["MedHistory", "SocHistory", "FamHistory"];
+            var idx = 0;
+
+            function fetchNext() {
+                if (idx >= issueTypes.length) return;
+                var issueType = issueTypes[idx];
+                idx++;
+                jQuery.ajax({
+                    method: "POST",
+                    url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData.do",
+                    data: { method: "fetchIssueNote", issueType: issueType, demographicNo: demographicNo },
+                    dataType: 'JSON',
+                    success: function (data) {
+                        if (data.note && data.note.trim().length > 0) {
+                            var current = jQuery(target).val();
+                            if (current && current.trim().length > 0) {
+                                jQuery(target).val(current + "\n" + data.note);
+                            } else {
+                                jQuery(target).val(data.note);
+                            }
+                        }
+                        fetchNext();
+                    },
+                    error: function () { fetchNext(); }
+                });
+            }
+
+            fetchNext();
+        }
+
+        /**
+         * Populates the shared import dropdown menus dynamically to avoid duplicating
+         * the same menu markup for each clinical textarea section.
+         */
+        function buildImportMenus() {
+            var fullImportItems = [
+                {cls: 'clinicalData', prefix: 'SocHistory', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportSocHistory"/>'},
+                {cls: 'clinicalData', prefix: 'FamHistory', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportFamHistory"/>'},
+                {cls: 'clinicalData', prefix: 'MedHistory', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportMedHistory"/>'},
+                {cls: 'clinicalData', prefix: 'Concerns', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportConcerns"/>'},
+                {cls: 'clinicalData', prefix: 'OMeds', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>'},
+                {cls: 'clinicalData', prefix: 'Reminders', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportReminders"/>'},
+                {cls: 'clinicalData', prefix: 'RiskFactors', label: 'Risk Factors'},
+                {divider: true},
+                {cls: 'medicationData', prefix: 'fetchMedications', label: 'Active Medications'},
+                {cls: 'medicationData', prefix: 'fetchLongTermMedications', label: 'Long Term Medications'}
+            ];
+            var medsOnlyItems = [
+                {cls: 'clinicalData', prefix: 'OMeds', label: '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>'},
+                {cls: 'medicationData', prefix: 'fetchMedications', label: 'Active Medications'},
+                {cls: 'medicationData', prefix: 'fetchLongTermMedications', label: 'Long Term Medications'}
+            ];
+
+            jQuery('.consult-import-menu').each(function() {
+                var target = jQuery(this).data('target');
+                var html = '';
+                for (var i = 0; i < fullImportItems.length; i++) {
+                    var item = fullImportItems[i];
+                    if (item.divider) { html += '<li><hr class="dropdown-divider"></li>'; continue; }
+                    html += '<li><a class="dropdown-item ' + item.cls + '" id="' + item.prefix + '_' + target + '" href="javascript:void(0);">' + item.label + '</a></li>';
+                }
+                jQuery(this).html(html);
+            });
+            jQuery('.consult-import-menu-meds').each(function() {
+                var target = jQuery(this).data('target');
+                var html = '';
+                for (var i = 0; i < medsOnlyItems.length; i++) {
+                    var item = medsOnlyItems[i];
+                    html += '<li><a class="dropdown-item ' + item.cls + '" id="' + item.prefix + '_' + target + '" href="javascript:void(0);">' + item.label + '</a></li>';
+                }
+                jQuery(this).html(html);
+            });
+        }
+
         jQuery(document).ready(function () {
-            jQuery(".medicationData").click(function () {
+            buildImportMenus();
+
+            jQuery(document).on('click', '.medicationData', function () {
                 var data = new Object();
                 var target = "#" + this.id.split("_")[1];
                 data.method = this.id.split("_")[0];
@@ -919,7 +1035,7 @@
                 getClinicalData(data, target)
             });
 
-            jQuery(".clinicalData").click(function () {
+            jQuery(document).on('click', '.clinicalData', function () {
                 var data = new Object();
                 var target = "#" + this.id.split("_")[1];
                 data.method = "fetchIssueNote";
@@ -927,6 +1043,14 @@
                 data.demographicNo = <%= demo %>;
                 getClinicalData(data, target)
             });
+
+            // Auto-import Medical and Social History for new consultations
+            <% if (requestId == null && demo != null) { %>
+            var clinical = jQuery("#clinicalInformation").val();
+            if (!clinical || clinical.trim().length === 0) {
+                autoImportClinicalHistory(<%= Encode.forJavaScript(demo) %>);
+            }
+            <% } %>
         })
 
         function setDisabledDateFields(form, disabled) {
@@ -965,6 +1089,7 @@
                 form.reasonForConsultation.disabled = disableFields;
                 form.clinicalInformation.disabled = disableFields;
                 form.concurrentProblems.disabled = disableFields;
+
                 form.currentMedications.disabled = disableFields;
                 form.allergies.disabled = disableFields;
                 form.annotation.disabled = disableFields;
@@ -982,9 +1107,7 @@
                 disableIfExists(form.submitAndSendElectronically, disableFields);
                 disableIfExists(form.submitAndFax, disableFields);
 
-                hideElement('referalDate_cal');
-                hideElement('appointmentDate_cal');
-                hideElement("followUpDate_cal");
+                // Calendar elements removed - using native HTML5 date inputs
             }
         }
 
@@ -1371,7 +1494,7 @@
                 return false;
             }
 
-            $("saved").value = "true";
+            document.getElementById("saved").value = "true";
             document.forms[formName].submission.value = submissionVal;
             document.forms[formName].submit();
             return true;
@@ -1443,26 +1566,26 @@
 
         const providerData = {};
 
-        providerData['<%=Encode.forHtmlContent(clinic.getClinicName())%>'] = {};
+        providerData['<%=Encode.forJavaScript(clinic.getClinicName())%>'] = {};
 
         let addr, ph, fx;
 
         <% if (consultUtil.letterheadAddress != null) { %>
-        addr = '<%= Encode.forHtmlContent(consultUtil.letterheadAddress).replaceAll("\\n", " ") %>';
+        addr = '<%= Encode.forJavaScript(consultUtil.letterheadAddress.replace('\n', ' ')) %>';
         <%} else {%>
-        addr = '<%=Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal()) %>';
+        addr = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
         <%}%>
 
         <% if(consultUtil.letterheadPhone != null) { %>
-        ph = '<%=Encode.forHtmlContent(consultUtil.letterheadPhone).replaceAll("\\n", " ")%>';
+        ph = '<%=Encode.forJavaScript(consultUtil.letterheadPhone.replace('\n', ' '))%>';
         <%} else { %>
-        ph = '<%=Encode.forHtmlContent(clinic.getClinicPhone())%>';
+        ph = '<%=Encode.forJavaScript(clinic.getClinicPhone())%>';
         <% }%>
 
         <%if(consultUtil.letterheadFax != null) { %>
-        fx = '<%=Encode.forHtmlContent(consultUtil.letterheadFax)%>';
+        fx = '<%=Encode.forJavaScript(consultUtil.letterheadFax)%>';
         <% } else {%>
-        fx = '<%=Encode.forHtmlContent(clinic.getClinicFax())%>';
+        fx = '<%=Encode.forJavaScript(clinic.getClinicFax())%>';
         <% } %>
 
         providerData['<%=Encode.forJavaScript(clinic.getClinicName())%>'].address = addr;
@@ -1478,9 +1601,9 @@ for (Provider providerItem: prList) {
 		%>
         providerData['<%=prov_no%>'] = {};
 
-        providerData['<%=prov_no%>'].address = "<%=Encode.forHtmlContent(providerItem.getFullAddress())%>";
-        providerData['<%=prov_no%>'].phone = "<%=Encode.forHtmlContent(providerItem.getClinicPhone())%>";
-        providerData['<%=prov_no%>'].fax = "<%=Encode.forHtmlContent(providerItem.getClinicFax())%>";
+        providerData['<%=prov_no%>'].address = "<%=Encode.forJavaScript(providerItem.getFullAddress())%>";
+        providerData['<%=prov_no%>'].phone = "<%=Encode.forJavaScript(providerItem.getClinicPhone())%>";
+        providerData['<%=prov_no%>'].fax = "<%=Encode.forJavaScript(providerItem.getClinicFax())%>";
 
         <%	}
 }
@@ -1494,9 +1617,9 @@ if (OscarProperties.getInstance().getBooleanProperty("consultation_program_lette
 			String progNo = "prog_" + program.getId();
 %>
         providerData['<%=progNo %>'] = {};
-        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forHtmlContent(program.getAddress()) : (Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal())) %>';
-        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forHtmlContent(program.getPhone()) : Encode.forHtmlContent(clinic.getClinicPhone()) %>';
-        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forHtmlContent(program.getFax()) : Encode.forHtmlContent(clinic.getClinicFax()) %>';
+        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forJavaScript(program.getAddress()) : (Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal())) %>';
+        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forJavaScript(program.getPhone()) : Encode.forJavaScript(clinic.getClinicPhone()) %>';
+        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forJavaScript(program.getFax()) : Encode.forJavaScript(clinic.getClinicFax()) %>';
         <%
 		}
 	}
@@ -1505,21 +1628,21 @@ if (OscarProperties.getInstance().getBooleanProperty("consultation_program_lette
         function switchProvider(value) {
             if (value === -1) {
                 document.getElementById("letterheadName").value = value;
-                document.getElementById("letterheadAddress").value = '<%=Encode.forHtmlAttribute(clinic.getClinicAddress()) + " " + Encode.forHtmlAttribute(clinic.getClinicCity()) + " " + Encode.forHtmlAttribute(clinic.getClinicProvince()) + " " + Encode.forHtmlAttribute(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadAddressSpan").textContent = '<%=Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadPhone").value = "<%=Encode.forHtmlAttribute(clinic.getClinicPhone()) %>";
-                document.getElementById("letterheadPhoneSpan").textContent = "<%=Encode.forHtmlContent(clinic.getClinicPhone()) %>";
-                document.getElementById("letterheadFax").value = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>";
+                document.getElementById("letterheadAddress").value = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadAddressSpan").textContent = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadPhone").value = "<%=Encode.forJavaScript(clinic.getClinicPhone()) %>";
+                document.getElementById("letterheadPhoneSpan").textContent = "<%=Encode.forJavaScript(clinic.getClinicPhone()) %>";
+                document.getElementById("letterheadFax").value = "<%=Encode.forJavaScript(clinic.getClinicFax()) %>";
 
-                document.getElementById("letterheadFaxSpan").textContent = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>";
+                document.getElementById("letterheadFaxSpan").textContent = "<%=Encode.forJavaScript(clinic.getClinicFax()) %>";
 
                 let faxAccountOptions = document.getElementById("faxAccount");
                 if (faxAccountOptions) {
-                    faxAccountOptions.value = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>".replace(/[^0-9.]/g, '');
+                    faxAccountOptions.value = "<%=Encode.forJavaScript(clinic.getClinicFax()) %>".replace(/[^0-9.]/g, '');
                     for(let i = 0; i < faxAccountOptions.options.length; i++) {
                         let option = faxAccountOptions.options[i];
-                        if(option.value === "<%=clinic.getClinicFax() %>".replace(/[^0-9.]/g, '')) {
-                            faxAccountOptions.value = "<%=clinic.getClinicFax()%>".replace(/[^0-9.]/g, '');
+                        if(option.value === "<%=Encode.forJavaScript(clinic.getClinicFax()) %>".replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = "<%=Encode.forJavaScript(clinic.getClinicFax())%>".replace(/[^0-9.]/g, '');
                             break;
                         }
                     }
@@ -1667,8 +1790,8 @@ if (userAgent != null) {
 
         function updateFaxButton() {
             var disabled = !hasFaxNumber();
-            document.getElementById("fax_button").disabled = disabled;
-            document.getElementById("fax_button2").disabled = disabled;
+            var btn = document.getElementById("fax_button");
+            if (btn) btn.disabled = disabled;
         }
 
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
@@ -1714,23 +1837,22 @@ if (userAgent != null) {
 
     <%=WebUtils.popErrorMessagesAsAlert(session)%>
 
-    <body topmargin="0" leftmargin="0" vlink="#0000FF"
-          onload="window.focus();disableDateFields();disableEditing();showSignatureImage();">
+    <body onload="window.focus();disableDateFields();disableEditing();showSignatureImage();">
     <jsp:include page="/images/spinner.jsp" flush="true"/>
     <%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
+    <div class="alert alert-danger m-2">
+        <ul class="mb-0">
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= Encode.forHtml(error) %></li>
             <% } %>
         </ul>
     </div>
 <% } %>
-    <form id="EctConsultationFormRequest2Form" name="EctConsultationFormRequest2Form" style="consultationRequestForm" action="${pageContext.request.contextPath}/oscarEncounter/RequestConsultation.do"
-                method="post" onsubmit="alert('HTHT'); return false;">
+    <form id="EctConsultationFormRequest2Form" name="EctConsultationFormRequest2Form" action="${pageContext.request.contextPath}/oscarEncounter/RequestConsultation.do"
+                method="post">
         <%
             EctConsultationFormRequest2Form thisForm = (EctConsultationFormRequest2Form) request.getAttribute("EctConsultationFormRequest2Form");
             if (thisForm == null) {
@@ -1783,13 +1905,11 @@ if (userAgent != null) {
 
             if (thisForm.iseReferral()) {
         %>
-        <SCRIPT LANGUAGE="JavaScript">
+        <script>
             disableFields = true;
-        </SCRIPT>
+        </script>
         <%
             }
-
-
         %>
 
         <% if (!props.isConsultationFaxEnabled() || !OscarProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
@@ -1800,123 +1920,74 @@ if (userAgent != null) {
         <input type="hidden" name="ext_appNo" value="<%=request.getParameter("appNo") %>">
         <input type="hidden" name="source"
                value="<%=(requestId!=null)?thisForm.getSource():request.getParameter("source") %>">
+        <input type="hidden" name="submission" value="">
         <input type="hidden" id="saved" value="false">
         <input type="hidden" id="contextPath" value="${pageContext.request.contextPath}">
 
-        <table class="MainTable" id="scrollNumber1" name="encounterTable">
-            <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn">Consultation</td>
-                <td class="MainTableTopRowRightColumn">
-                    <table class="TopStatusBar">
-                        <tr>
-                            <td class="Header"
-                                style="padding-left: 2px; padding-right: 2px; border-right: 2px solid #003399; text-align: left; font-size: 80%; font-weight: bold; width: 100%;"
-                            >
-                                <h2>
-                                    <%=Encode.forHtml(thisForm.getPatientName())%> <%=Encode.forHtml(thisForm.getPatientSex())%> <%=Encode.forHtml(thisForm.getPatientAge())%>
-                                </h2>
-                            </td>
-                            <% if ("ocean".equals(props.get("cme_js"))) { %>
-                            <td>
-                                <span id="ocean" style="display:none"></span>
-                                <% if (requestId == null) { %>
-                                <span id="oceanReferButton" class="oceanRefer"></span>
-                            </td>
-                            <% }
-                            }%>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            <tr style="vertical-align: top">
-                <td class="MainTableLeftColumn">
-                    <table>
-                        <tr>
-                            <td colspan="2">
-                                <table>
-                                    <tr>
-                                        <td class="stat" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCreated"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="stat" colspan="2"><%=Encode.forHtml(thisForm.getProviderName())%>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="tite4" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgStatus"/>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table>
-                                    <tr>
-                                        <td class="stat"><input type="radio" name="status" value="1" <%="1".equals(thisForm.getStatus()) ? "checked" : ""%>/>
-                                        </td>
-                                        <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgNoth"/>:
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table>
-                                    <tr>
-                                        <td class="stat"><input type="radio" name="status" value="2" <%="2".equals(thisForm.getStatus()) ? "checked" : ""%>/>
-                                        </td>
-                                        <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSpecCall"/>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table>
-                                    <tr>
-                                        <td class="stat"><input type="radio" name="status" value="3" <%="3".equals(thisForm.getStatus()) ? "checked" : ""%>/>
-                                        </td>
-                                        <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPatCall"/>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <%
-                            if (thisForm.iseReferral()) {
-                        %>
-                        <tr>
-                            <td colspan="2">
-                                <table>
-                                    <tr>
-                                        <td class="stat"><input type="radio" name="status" value="5" <%="5".equals(thisForm.getStatus()) ? "checked" : ""%>/>
-                                        </td>
-                                        <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgBookCon"/>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <%
-                            }
-                        %>
-                        <tr>
-                            <td colspan="2">
-                                <table>
-                                    <tr>
-                                        <td class="stat"><input type="radio" name="status" value="4" <%="4".equals(thisForm.getStatus()) ? "checked" : ""%>/>
-                                        </td>
-                                        <td class="stat"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCompleted"/></td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
+        <%-- Page Header --%>
+        <div class="page-header-bar d-flex align-items-center justify-content-between">
+            <h4 class="page-header-title mb-0">
+                <i class="fa-solid fa-file-medical me-2"></i>Consultation Request
+            </h4>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-dark border" style="font-size:0.85rem;">
+                    <%=Encode.forHtml(thisForm.getPatientName())%> &mdash; <%=Encode.forHtml(thisForm.getPatientSex())%> <%=Encode.forHtml(thisForm.getPatientAge())%>
+                </span>
+                <% if ("ocean".equals(props.get("cme_js"))) { %>
+                    <span id="ocean" style="display:none"></span>
+                    <% if (requestId == null) { %>
+                    <span id="oceanReferButton" class="oceanRefer"></span>
+                    <% } %>
+                <% } %>
+            </div>
+        </div>
 
-                        <tr>
-                            <td colspan="2">
-                                <table id="attachedDocumentTable">
+        <%-- Main Content: Sidebar + Form --%>
+        <div class="container-fluid py-2">
+        <div class="row g-3">
+
+        <%-- Left Sidebar: Status & Attachments --%>
+        <div class="col-md-3 col-lg-2 consult-sidebar">
+                    <div class="card mb-2">
+                        <div class="card-body p-2">
+                            <small class="text-muted d-block"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCreated"/></small>
+                            <small class="fw-semibold"><%=Encode.forHtml(thisForm.getProviderName())%></small>
+                        </div>
+                    </div>
+
+                    <div class="card mb-2">
+                        <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgStatus"/>
+                        </div>
+                        <div class="card-body p-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="status" value="1" id="status1" <%="1".equals(thisForm.getStatus()) ? "checked" : ""%>/>
+                                <label class="form-check-label" for="status1" style="font-size:0.85rem;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgNoth"/></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="status" value="2" id="status2" <%="2".equals(thisForm.getStatus()) ? "checked" : ""%>/>
+                                <label class="form-check-label" for="status2" style="font-size:0.85rem;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSpecCall"/></label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="status" value="3" id="status3" <%="3".equals(thisForm.getStatus()) ? "checked" : ""%>/>
+                                <label class="form-check-label" for="status3" style="font-size:0.85rem;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPatCall"/></label>
+                            </div>
+                            <% if (thisForm.iseReferral()) { %>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="status" value="5" id="status5" <%="5".equals(thisForm.getStatus()) ? "checked" : ""%>/>
+                                <label class="form-check-label" for="status5" style="font-size:0.85rem;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgBookCon"/></label>
+                            </div>
+                            <% } %>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="status" value="4" id="status4" <%="4".equals(thisForm.getStatus()) ? "checked" : ""%>/>
+                                <label class="form-check-label" for="status4" style="font-size:0.85rem;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCompleted"/></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-2 consult-attachments">
+                        <div class="card-body p-2">
+                                <table id="attachedDocumentTable" style="border:none;background:transparent;">
                                     <tr>
                                         <td>
 
@@ -2050,14 +2121,12 @@ if (userAgent != null) {
                                         </td>
                                     </tr>
                                 </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-                <td class="MainTableRightColumn">
-                    <table cellpadding="0" cellspacing="2"
-                           style="border-collapse: collapse" bordercolor="#111111" width="100%"
-                           height="100%" border=1>
+                        </div>
+                    </div>
+        </div><%-- end sidebar --%>
+
+        <%-- Right Main Column --%>
+        <div class="col-md-9 col-lg-10">
                         <% if (requestId != null && "ocean".equals(props.get("cme_js"))) {
                             ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
                             Integer consultId = Integer.parseInt(requestId);
@@ -2068,64 +2137,88 @@ if (userAgent != null) {
                         <span id="editOnOcean" class="oceanRefer"></span>
                         <% }
                         } %>
-                        <!----Start new rows here-->
+                        <%-- Action Buttons --%>
                         <% if (thisForm.geteReferralId() == null) { %>
-                        <tr>
-                            <td class="tite4 controlPanel" colspan=2>
-
+                                <div class="consult-control-panel consult-control-panel-sticky mb-2">
                                 <% if (request.getAttribute("id") != null) { %>
-                                <input name="update" type="button"
+                                <input name="update" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdate"/>"
                                        onclick="return checkForm('Update Consultation Request','EctConsultationFormRequest2Form');"/>
-                                <input name="updateAndPrint" type="button"
+                                <input name="updateAndPrint" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndPrint"/>"
                                        onclick="return checkForm('Update Consultation Request And Print Preview','EctConsultationFormRequest2Form');"/>
-                                <input name="printPreview" type="button" value="Print Preview"
+                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" value="Print Preview"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
                                 <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input name="updateAndSendElectronicallyTop" type="button"
+                                    <input name="updateAndSendElectronicallyTop" type="button" class="btn btn-outline-info btn-sm"
                                            value="<fmt:message key='oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndSendElectronicReferral'/>"
                                            onclick="return checkForm('Update_esend', 'EctConsultationFormRequest2Form');"/>
                                 </c:if>
 
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
-                                    <input id="fax_button" name="updateAndFax" type="button"
+                                    <input id="fax_button" name="updateAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
                                            onclick="return checkForm('Update And Fax','EctConsultationFormRequest2Form');"/>
                                 </oscar:oscarPropertiesCheck>
 
                                 <% } else { %>
-                                <input name="submitSaveOnly" type="button"
+                                <input name="submitSaveOnly" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmit"/>"
                                        onclick="return checkForm('Submit Consultation Request','EctConsultationFormRequest2Form'); "/>
-                                <input name="submitAndPrint" type="button"
+                                <input name="submitAndPrint" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndPrint"/>"
                                        onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
 
                                 <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input name="submitAndSendElectronicallyTop" type="button"
+                                    <input name="submitAndSendElectronicallyTop" type="button" class="btn btn-outline-info btn-sm"
                                            value="<fmt:message key='oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndSendElectronicReferral'/>"
                                            onclick="return checkForm('Submit_esend', 'EctConsultationFormRequest2Form');"/>
                                 </c:if>
 
-
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
-                                    <input id="fax_button" name="submitAndFax" type="button"
+                                    <input id="fax_button" name="submitAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
                                 </oscar:oscarPropertiesCheck>
                                 <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input type="button" value="Send eResponse"
+                                    <input type="button" class="btn btn-outline-success btn-sm" value="Send eResponse"
                                            onclick="document.getElementById('saved').value='true'; document.location='${thisForm.oruR01UrlString(request)}'"/>
                                 </c:if>
 
                                 <% } %>
-                            </td>
-                        </tr>
+                                </div>
                         <% } %>
-                        <tr class="consultDemographicData">
-                            <td>
+                        <%-- Patient Demographics Card --%>
+                                <div class="card mb-2">
+                                    <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
+                                        <i class="fa-solid fa-user me-1"></i>
+                                        <a href="javascript:void(0);"
+                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=demo%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtml(thisForm.getPatientName())%></a>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div class="row g-2" style="font-size:0.85rem;">
+                                            <div class="col-md-4">
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
+                                                <%=Encode.forHtml(thisForm.getPatientAddress().replace("null", ""))%>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientPhone())%><br>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgWPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientWPhone())%><br>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCellPhone"/></small>: <%=Encode.forHtml(thisForm.getPatientCellPhone())%><br>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgEmail"/></small>: <%=Encode.forHtml(thisForm.getPatientEmail())%>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/></small>: <%=Encode.forHtml(thisForm.getPatientDOB())%><br>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/></small>: <%=Encode.forHtml(thisForm.getPatientSex())%><br>
+                                                <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <%=Encode.forHtml(thisForm.getPatientHealthNum())%><%=Encode.forHtml(thisForm.getPatientHealthCardVersionCode())%><%=Encode.forHtml(thisForm.getPatientHealthCardType())%>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                        <div class="consultDemographicData">
+                            <div class="row g-3">
+                            <div class="col-md-7">
                                 <% // Determine if curUser has selected a default practitioner in preferences
                                     UserProperty refPracProp = userPropertyDAO.getProp(providerNo,  UserProperty.DEFAULT_REF_PRACTITIONER);
                                     String refPrac = "";
@@ -2137,10 +2230,10 @@ if (userAgent != null) {
                                 <table>
                                     <% if (props.isConsultationFaxEnabled() && OscarProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
                                     <tr>
-                                        <td class="tite4" style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
-                                        <td class="tite1" style="width:70%">
+                                        <td class="consult-form-label" style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
+                                        <td class="consult-form-value" style="width:70%">
 
-                                            <select name="providerNo" onchange="switchProvider(this.value)">
+                                            <select name="providerNo" class="form-select form-select-sm" onchange="switchProvider(this.value)">
                                                 <%
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
@@ -2157,24 +2250,25 @@ if (userAgent != null) {
                                     </tr>
                                     <% } %>
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formRefDate"/>
                                         </td>
 
                                         <oscar:oscarPropertiesCheck value="false"
                                                                     property="CONSULTATION_LOCK_REFERRAL_DATE">
-                                            <td class="tite3">
-                                                <img alt="calendar" id="referalDate_cal" src="<%= request.getContextPath() %>/images/cal.gif"/>
+                                            <td class="consult-form-value">
                                                 <%
                                                     if (request.getAttribute("id") != null) {
                                                 %>
-                                                <input type="text" id="referalDate" name="referalDate"
-                                                           ondblclick="this.value='';" value="<%=Encode.forHtmlAttribute(thisForm.getReferalDate())%>"/>
+                                                <input type="date" class="form-control form-control-sm" id="referalDate" name="referalDate"
+                                                           value="<%=Encode.forHtmlAttribute(thisForm.getReferalDate() != null ? thisForm.getReferalDate().replace("/", "-") : "")%>"/>
                                                 <%
                                                 } else {
+                                                    // Format as YYYY-MM-DD for HTML5 date input
+                                                    String refDateFormatted = year + "-" + (mon.length() == 1 ? "0" + mon : mon) + "-" + (day.length() == 1 ? "0" + day : day);
                                                 %>
-                                                <input type="text" id="referalDate" name="referalDate"
-                                                           ondblclick="this.value='';" value="<%=formattedDate%>"/>
+                                                <input type="date" class="form-control form-control-sm" id="referalDate" name="referalDate"
+                                                           value="<%=refDateFormatted%>"/>
                                                 <%
                                                     }
                                                 %>
@@ -2184,9 +2278,12 @@ if (userAgent != null) {
                                         <oscar:oscarPropertiesCheck value="true"
                                                                     property="CONSULTATION_LOCK_REFERRAL_DATE">
 
-                                            <td class="tite3">
-                                                <input type="text" id="referalDate" name="referalDate" readonly="true"
-                                                           value="<%=formattedDate%>"/>
+                                            <td class="consult-form-value">
+                                                <%
+                                                    String refDateFormattedLocked = year + "-" + (mon.length() == 1 ? "0" + mon : mon) + "-" + (day.length() == 1 ? "0" + day : day);
+                                                %>
+                                                <input type="date" class="form-control form-control-sm" id="referalDate" name="referalDate" readonly
+                                                           value="<%=refDateFormattedLocked%>"/>
                                             </td>
 
                                         </oscar:oscarPropertiesCheck>
@@ -2196,29 +2293,29 @@ if (userAgent != null) {
                                                                 property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                                 defaultVal="false">
                                         <tr>
-                                            <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formService"/>
+                                            <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formService"/>
                                             </td>
-                                            <td class="tite3">
+                                            <td class="consult-form-value">
                                                 <% if (thisForm.iseReferral() && !thisForm.geteReferralService().isEmpty()) { %>
-                                                <%= thisForm.geteReferralService() %>
+                                                <%=Encode.forHtml(thisForm.geteReferralService())%>
                                                 <% } else { %>
-                                                <select id="service" name="service"
+                                                <select id="service" name="service" class="form-select form-select-sm"
                                                              onchange="fillSpecialistSelect(this);"></select>
                                                 <% } %>
                                             </td>
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
                                     <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/>
+                                        <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/>
                                         </td>
-                                        <td class="tite3">
+                                        <td class="consult-form-value">
                                             <% if (thisForm.iseReferral()) { %>
 
                                             <%=Encode.forHtml(thisForm.getProfessionalSpecialistName())%>
 
                                             <% } else if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
 
-                                            <select name="specialist" id="specialist" onchange="getSpecialist(this)">
+                                            <select name="specialist" id="specialist" class="form-select form-select-sm" onchange="getSpecialist(this)">
                                                 <c:forEach items="${ healthCareTeam }" var="contact" varStatus="loop">
                                                     <option value="${ contact.id }" ${ specialist eq contact.id ? 'selected' : ''} >
                                                             ${ contact.details.formattedName } ( ${ contact.role } )
@@ -2231,7 +2328,7 @@ if (userAgent != null) {
                                             <span id="consult-disclaimer"
                                                   title="When consult was saved this was the saved consultant but is no longer on this specialist list."
                                                   style="display:none;font-size:24px;">*</span>
-                                            <select id="specialist" name="specialist" size="1"
+                                            <select id="specialist" name="specialist" size="1" class="form-select form-select-sm"
                                                          onchange="onSelectSpecialist(this)"></select>
 
                                             <%} // end specialist list condition block %>
@@ -2241,10 +2338,10 @@ if (userAgent != null) {
                                                                 property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                                 defaultVal="false">
                                         <tr>
-                                            <td class="tite4">
+                                            <td class="consult-form-label">
                                                 <input type="hidden" id="hctService" name="service" value="0"/>
                                             </td>
-                                            <td class="tite4" style="font-size:11px;">
+                                            <td class="consult-form-label" style="font-size:11px;">
                                                 <a href="javascript:void(0);"
                                                    onclick="popupPage(500,700,'${ctx}/demographic/Contact.do?method=manageContactList&contactList=HCT&view=detached&demographic_no=<%=demo%>' ); return false;">
                                                     edit Health Care Team
@@ -2254,19 +2351,19 @@ if (userAgent != null) {
                                     </oscar:oscarPropertiesCheck>
 
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formInstructions"/> </br>
                                             <br>
                                             <button type="button" id="eFormButton" style="display: none"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.eFormReferralInstructions"/></button>
                                         </td>
-                                        <td class="tite3">
-                                            <textarea id="annotation" style="color: blue;" rows="4" readonly></textarea>
+                                        <td class="consult-form-value">
+                                            <textarea id="annotation" class="form-control form-control-sm" style="color: var(--carlos-primary);" rows="4" readonly></textarea>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formUrgency"/></td>
-                                        <td class="tite3">
-                                            <select name="urgency" id="urgency">
+                                        <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formUrgency"/></td>
+                                        <td class="consult-form-value">
+                                            <select name="urgency" id="urgency" class="form-select form-select-sm">
                                                 <option value="2" <%="2".equals(thisForm.getUrgency()) ? "selected" : ""%>>
                                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgNUrgent"/>
                                                 </option>
@@ -2280,44 +2377,44 @@ if (userAgent != null) {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formPhone"/>
                                         </td>
-                                        <td class="tite3"><input readonly type="text" name="phone" class="righty"
-                                                                 value="<%=thisForm.getProfessionalSpecialistPhone()%>"/>
+                                        <td class="consult-form-value"><input readonly type="text" name="phone" class="form-control form-control-sm"
+                                                                 value="<%=Encode.forHtmlAttribute(thisForm.getProfessionalSpecialistPhone())%>"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formFax"/>
                                             <c:if test="${ not empty consultUtil.specialistFaxLog.status }">
                                                 <span style="font-size:80%;color:red;">Status: <c:out
                                                         value="${ consultUtil.specialistFaxLog.status }"/></span>
                                             </c:if>
                                         </td>
-                                        <td class="tite3">
-                                            <input readonly type="text" name="fax" class="righty"/>
+                                        <td class="consult-form-value">
+                                            <input readonly type="text" name="fax" class="form-control form-control-sm"/>
                                         </td>
                                     </tr>
 
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formAddr"/>
                                         </td>
-                                        <td class="tite3">
-                                            <textarea readonly name="address"
-                                                      rows="5"><%=thisForm.getProfessionalSpecialistAddress()%></textarea>
+                                        <td class="consult-form-value">
+                                            <textarea readonly name="address" class="form-control form-control-sm"
+                                                      rows="5"><%=Encode.forHtml(thisForm.getProfessionalSpecialistAddress())%></textarea>
                                         </td>
                                     </tr>
 
                                     <oscar:oscarPropertiesCheck defaultVal="false" value="true"
                                                                 property="CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP">
                                         <tr>
-                                            <td class="tite4">
+                                            <td class="consult-form-label">
                                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.appointmentInstr"/>
                                             </td>
-                                            <td class="tite3">
-                                                <select name="appointmentInstructions"
+                                            <td class="consult-form-value">
+                                                <select name="appointmentInstructions" class="form-select form-select-sm"
                                                              id="appointmentInstructions">
                                                     <option value=""></option>
                                                     <c:forEach items="${ appointmentInstructionList.items }"
@@ -2336,28 +2433,26 @@ if (userAgent != null) {
                                     <oscar:oscarPropertiesCheck defaultVal="false" value="true"
                                                                 property="CONSULTATION_PATIENT_WILL_BOOK">
                                         <tr>
-                                            <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></td>
-                                            <td class="tite3"><input type="checkbox" name="patientWillBook" value="1" onclick="disableDateFields()" /></td>
+                                            <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></td>
+                                            <td class="consult-form-value"><input type="checkbox" name="patientWillBook" value="1" onclick="disableDateFields()" /></td>
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
 
 
                                     <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnAppointmentDate"/>
+                                        <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnAppointmentDate"/>
                                         </td>
-                                        <td class="tite3"><img alt="calendar" id="appointmentDate_cal"
-                                                               src="<%= request.getContextPath() %>/images/cal.gif">
-                                            <input type="text" id="appointmentDate" name="appointmentDate"
-                                                       readonly="true" ondblclick="this.value='';" value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentDate())%>"/>
+                                        <td class="consult-form-value">
+                                            <input type="date" class="form-control form-control-sm" id="appointmentDate" name="appointmentDate"
+                                                       value="<%=Encode.forHtmlAttribute(thisForm.getAppointmentDate() != null ? thisForm.getAppointmentDate().replace("/", "-") : "")%>"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formAppointmentTime"/>
+                                        <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formAppointmentTime"/>
                                         </td>
-                                        <td class="tite3">
-                                            <table>
-                                                <tr>
-                                                    <td><select name="appointmentHour" id="appointmentHour">
+                                        <td class="consult-form-value">
+                                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                                    <select name="appointmentHour" id="appointmentHour" class="form-select form-select-sm" style="width:auto;">
                                                         <option value="-1"></option>
                                                         <%
                                                             for (int i = 1; i < 13; i = i + 1) {
@@ -2369,8 +2464,8 @@ if (userAgent != null) {
                                                         <%
                                                             }
                                                         %>
-                                                    </select></td>
-                                                    <td><select name="appointmentMinute" id="appointmentMinute">
+                                                    </select>
+                                                    <select name="appointmentMinute" id="appointmentMinute" class="form-select form-select-sm" style="width:auto;">
                                                         <option value="-1"></option>
                                                         <%
                                                             for (int i = 0; i < 60; i = i + 1) {
@@ -2385,25 +2480,23 @@ if (userAgent != null) {
                                                         <%
                                                             }
                                                         %>
-                                                    </select></td>
-                                                    <td><select name="appointmentPm" id="appointmentPm">
+                                                    </select>
+                                                    <select name="appointmentPm" id="appointmentPm" class="form-select form-select-sm" style="width:auto;">
                                                         <option value="AM" <%="AM".equals(thisForm.getAppointmentPm()) ? "selected" : ""%>>AM</option>
                                                         <option value="PM" <%="PM".equals(thisForm.getAppointmentPm()) ? "selected" : ""%>>PM</option>
-                                                    </select></td>
-                                                    <td><input type="button" value="Clear Date & Time"
-                                                               onclick="clearAppointmentDateAndTime()"/></td>
-                                                </tr>
-                                            </table>
-
+                                                    </select>
+                                                    <input type="button" class="btn btn-outline-secondary btn-sm" value="Clear Date & Time"
+                                                               onclick="clearAppointmentDateAndTime()"/>
+                                            </div>
                                         </td>
                                     </tr>
                                     <%if (bMultisites) { %>
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.siteName"/>
                                         </td>
                                         <td>
-                                            <select name="siteName" id="siteName"
+                                            <select name="siteName" id="siteName" class="form-select form-select-sm"
                                                          onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                                 <% for (int i = 0; i < vecAddressName.size(); i++) {
                                                     String te = vecAddressName.get(i);
@@ -2420,68 +2513,13 @@ if (userAgent != null) {
                                     </tr>
                                     <%} %>
                                 </table>
-                            </td>
-                            <td valign="top">
-                                <table height="100%" width="100%" bgcolor="white">
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPatient"/>
-                                        </td>
-                                        <td class="tite1"><a href="javascript:void(0);"
-                                                             onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=demo%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtml(thisForm.getPatientName())%>
-                                        </a></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/>
-                                        </td>
-                                        <td class="tite1"><%=thisForm.getPatientAddress().replace("null", "")%>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/>
-                                        </td>
-                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientPhone())%>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgWPhone"/>
-                                        </td>
-                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientWPhone())%>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCellPhone"/>
-                                        </td>
-                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientCellPhone())%>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgEmail"/>
-                                        </td>
-                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientEmail())%>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/>
-                                        </td>
-                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientDOB())%>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/>
-                                        </td>
-                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientSex())%>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/>
-                                        </td>
-                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientHealthNum())%><%=Encode.forHtml(thisForm.getPatientHealthCardVersionCode())%><%=Encode.forHtml(thisForm.getPatientHealthCardType())%>
-                                        </td>
-                                    </tr>
+                            </div><%-- end col-md-7 --%>
+                            <div class="col-md-5">
+                                <table class="table table-sm table-bordered mb-0" style="font-size:0.85rem;">
                                     <tr id="conReqSendTo">
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSendTo"/>
+                                        <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSendTo"/>
                                         </td>
-                                        <td class="tite3"><select name="sendTo" id="sendTo">
+                                        <td class="consult-form-value"><select name="sendTo" id="sendTo" class="form-select form-select-sm">
                                             <option value="-1" <%="-1".equals(thisForm.getSendTo()) ? "selected" : ""%>>---- <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgTeams"/> ----</option>
                                             <%
                                                 for (int i = 0; i < consultUtil.teamVec.size(); i++) {
@@ -2497,22 +2535,21 @@ if (userAgent != null) {
                                     </tr>
 
                                     <tr>
-                                        <td colspan="2" class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formAppointmentNotes"/>
+                                        <td colspan="2" class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formAppointmentNotes"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colspan="2" class="tite3"><textarea
+                                        <td colspan="2" class="consult-form-value"><textarea class="form-control form-control-sm"
                                                 name="appointmentNotes"><%=Encode.forHtmlContent(thisForm.getAppointmentNotes())%></textarea></td>
                                     </tr>
 
 
                                     <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formLastFollowup"/>
+                                        <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formLastFollowup"/>
                                         </td>
-                                        <td class="tite3">
-                                            <img alt="calendar" id="followUpDate_cal" src="<%= request.getContextPath() %>/images/cal.gif"/>
-                                            <input type="text" id="followUpDate" name="followUpDate"
-                                                       ondblclick="this.value='';" value="<%=thisForm.getFollowUpDate() != null ? Encode.forHtmlAttribute(thisForm.getFollowUpDate()) : ""%>"/>
+                                        <td class="consult-form-value">
+                                            <input type="date" class="form-control form-control-sm" id="followUpDate" name="followUpDate"
+                                                       value="<%=thisForm.getFollowUpDate() != null ? Encode.forHtmlAttribute(thisForm.getFollowUpDate().replace("/", "-")) : ""%>"/>
                                         </td>
 
                                     </tr>
@@ -2521,9 +2558,9 @@ if (userAgent != null) {
                                         if (thisForm.getFdid() != null) {
                                     %>
                                     <tr>
-                                        <td class="tite4">EForm
+                                        <td class="consult-form-label">EForm
                                         </td>
-                                        <td class="tite1">
+                                        <td class="consult-form-value">
                                             <a href="<%=request.getContextPath()%>/eform/efmshowform_data.jsp?fdid=<%=thisForm.getFdid() %>">Click
                                                 to view</a>
                                         </td>
@@ -2532,22 +2569,28 @@ if (userAgent != null) {
                                         }
                                     %>
                                 </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2" class="tite4 heading">Letterhead</td>
-                        <tr>
-                            <td colspan="2">
-                                <table>
+                            </div><%-- end col-md-5 --%>
+                            </div><%-- end row --%>
+                        </div><%-- end consultDemographicData --%>
+
+                        <%-- Letterhead (collapsible, default collapsed) --%>
+                        <div class="consult-section-heading">
+                            <a class="consult-collapse-heading text-decoration-none text-dark w-100" data-bs-toggle="collapse" href="#collapseLetterhead" role="button" aria-expanded="false" aria-controls="collapseLetterhead">
+                                Letterhead
+                                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+                            </a>
+                        </div>
+                        <div class="collapse" id="collapseLetterhead">
+                        <table class="w-100">
                                     <tr>
 
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <label for="letterheadName">
                                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.letterheadName"/>
                                             </label>
                                         </td>
-                                        <td class="tite1">
-                                            <select name="letterheadName" id="letterheadName"
+                                        <td class="consult-form-value">
+                                            <select name="letterheadName" id="letterheadName" class="form-select form-select-sm"
                                                     onchange="switchProvider(this.value)">
                                                 <option value="<%=Encode.forHtmlAttribute(clinic.getClinicName())%>" <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase(clinic.getClinicName())) ? "selected" : (lhndType.equals("clinic") ? "selected" : "") %>>
                                                 <%=Encode.forHtmlContent(clinic.getClinicName()) %>
@@ -2584,10 +2627,10 @@ if (userAgent != null) {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.letterheadAddress"/>
                                         </td>
-                                        <td class="tite1">
+                                        <td class="consult-form-value">
                                             <% if (consultUtil.letterheadAddress != null) { %>
                                             <input type="hidden" name="letterheadAddress" id="letterheadAddress"
                                                    value="<%=Encode.forHtmlAttribute(consultUtil.letterheadAddress) %>"/>
@@ -2604,9 +2647,9 @@ if (userAgent != null) {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.letterheadPhone"/>
+                                        <td class="consult-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.letterheadPhone"/>
                                         </td>
-                                        <td class="tite1">
+                                        <td class="consult-form-value">
                                             <% if (consultUtil.letterheadPhone != null) {
                                             %>
                                             <input type="hidden" name="letterheadPhone" id="letterheadPhone"
@@ -2624,10 +2667,10 @@ if (userAgent != null) {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <label for="letterheadFax"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.letterheadFax"/></label>
                                         </td>
-                                        <td  class="tite1" style="width:70%;">
+                                        <td  class="consult-form-value" style="width:70%;">
 								<c:choose>
 								    <c:when test="${not empty consultUtil.letterheadFax}">
 									    <input type="hidden" name="letterheadFax" id="letterheadFax" value="${e:forHtmlAttribute(consultUtil.letterheadFax)}" />
@@ -2645,27 +2688,19 @@ if (userAgent != null) {
 							</td>
 						</tr>
 					</table>
-					</td>
-				</tr>
 				<% if (props.isConsultationFaxEnabled()) { %>
-					<tr>
-						<td colspan=2 class="tite4 heading">
-							Fax Account
-						</td>
-					</tr>
-					<tr>
-						<td colspan="2">
-							<table>
+                        <div class="consult-section-heading">Fax Account</div>
+                                <table class="w-100">
 								<tr>
-									<td class="tite4" style="width:30%;">
+									<td class="consult-form-label" style="width:30%;">
 										<label for="faxAccount">Select Account</label>
 									</td>
-									<td class="tite1" style="width:70%;">
+									<td class="consult-form-value" style="width:70%;">
                                             <%
                                                 FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
                                                 List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
                                             %>
-										<select name="faxAccount" id="faxAccount">
+										<select name="faxAccount" id="faxAccount" class="form-select form-select-sm">
 								<%
                                     for (FaxConfig faxConfig : faxConfigs) {
                                 %>
@@ -2674,32 +2709,21 @@ if (userAgent != null) {
                                     }
                                 %>
 									</select>
-
                                         </td>
                                     </tr>
                                 </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan=2 class="tite4 heading">
-                                Additional Fax Recipients
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan=2>
-                                <table style="border-collapse:collapse;" id="addFaxRecipient" width="100%">
-
+                        <div class="consult-section-heading">Additional Fax Recipients</div>
+                                <table style="border-collapse:collapse;" id="addFaxRecipient" class="w-100">
                                     <tr>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             Name <input type="text" id="searchHealthCareTeamInput" value=""
                                                         placeholder="last, first"/>
                                         </td>
-
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             Fax <input type="text" id="copytoSpecialistFax" placeholder="xxx-xxx-xxxx"
                                                        value=""/>
                                         </td>
-                                        <td class="tite4">
+                                        <td class="consult-form-label">
                                             <button onclick="AddOtherFaxProvider(); return false;"> Add Recipient
                                             </button>
                                         </td>
@@ -2707,9 +2731,9 @@ if (userAgent != null) {
                                     <c:if test="${ not empty consultUtil.copyToFaxLog }">
                                         <c:forEach items="${ consultUtil.copyToFaxLog }" var="faxLog">
                                             <tr>
-                                                <td class="tite4"><c:out value="${ faxLog.name }"/></td>
-                                                <td class="tite4"><c:out value="${ faxLog.fax }"/></td>
-                                                <td class="tite4">
+                                                <td class="consult-form-label"><c:out value="${ faxLog.name }"/></td>
+                                                <td class="consult-form-label"><c:out value="${ faxLog.fax }"/></td>
+                                                <td class="consult-form-label">
                                                     <c:out value="${ faxLog.status }"/>
                                                     <c:out value="${ faxLog.sent }"/>
                                                 </td>
@@ -2717,178 +2741,111 @@ if (userAgent != null) {
                                         </c:forEach>
                                     </c:if>
                                 </table>
-                            </td>
-                        </tr>
                         <% } %>
+                        </div><%-- end collapseLetterhead --%>
 
-
-                        <tr>
-                            <td colspan="2" class="tite4 heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formReason"/>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <textarea rows="10" name="reasonForConsultation"><%=Encode.forHtmlContent(thisForm.getReasonForConsultation())%></textarea>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table style="border-collapse: collapse;" width="100%">
-                                    <tr>
-                                        <td width="30%" class="tite4 heading">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formClinInf"/>
-                                        </td>
-                                        <td id="clinicalInfoButtonBar" class="tite4 buttonBar">
-                                            <% if (thisForm.geteReferralId() == null) { %>
-                                            <input id="SocHistory_clinicalInformation" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportSocHistory"/>"/>
-                                            <input id="FamHistory_clinicalInformation" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportFamHistory"/>"/>
-                                            <input id="MedHistory_clinicalInformation" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportMedHistory"/>"/>
-                                            <input id="Concerns_clinicalInformation" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportConcerns"/>"/>
-                                            <input id="OMeds_clinicalInformation" type="button" class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>"/>
-                                            <input id="Reminders_clinicalInformation" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportReminders"/>"/>
-                                            <input id="RiskFactors_clinicalInformation" type="button"
-                                                   class="btn clinicalData" value="Risk Factors"/>
-                                            <input id="fetchMedications_clinicalInformation" type="button"
-                                                   class="btn medicationData" value="Active Medications"/>
-                                            <input id="fetchLongTermMedications_clinicalInformation" type="button"
-                                                   class="btn medicationData" value="Long Term Medications"/>
-                                            <% } %>
-                                        </td>
-                                    </tr>
-                                </table>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <textarea rows="10" id="clinicalInformation"
-                                               name="clinicalInformation"><%=Encode.forHtmlContent(thisForm.getClinicalInformation())%></textarea></td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table style="border-collapse: collapse;" width="100%">
-                                    <tr>
-                                        <td width="30%" class="tite4 heading">
+                        <%-- Clinical Sections --%>
+                        <div class="consult-section-heading">
+                                <a class="consult-collapse-heading text-decoration-none text-dark w-100" data-bs-toggle="collapse" href="#collapseReason" role="button" aria-expanded="true" aria-controls="collapseReason">
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formReason"/>
+                                    <i class="fa-solid fa-chevron-down collapse-icon"></i>
+                                </a>
+                        </div>
+                                <div class="collapse show" id="collapseReason">
+                                <textarea rows="6" name="reasonForConsultation" class="form-control"><%=Encode.forHtmlContent(thisForm.getReasonForConsultation())%></textarea>
+                                </div>
+                        <div class="consult-section-heading">
+                                <div class="d-flex align-items-center justify-content-between w-100">
+                                    <a class="consult-collapse-heading text-decoration-none text-dark" data-bs-toggle="collapse" href="#collapseClinical" role="button" aria-expanded="true" aria-controls="collapseClinical">
+                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formClinInf"/>
+                                        <i class="fa-solid fa-chevron-down collapse-icon"></i>
+                                    </a>
+                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <div class="dropdown consult-import-dropdown">
+                                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
+                                            <i class="fa-solid fa-file-import me-1"></i>Import
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-target="clinicalInformation"></ul>
+                                    </div>
+                                    <% } %>
+                                </div>
+                        </div>
+                                <div class="collapse show" id="collapseClinical">
+                                <textarea rows="6" id="clinicalInformation" class="form-control"
+                                               name="clinicalInformation"><%=Encode.forHtmlContent(thisForm.getClinicalInformation())%></textarea>
+                                </div>
+                        <div class="consult-section-heading">
+                                <div class="d-flex align-items-center justify-content-between w-100">
+                                    <a class="consult-collapse-heading text-decoration-none text-dark" data-bs-toggle="collapse" href="#collapseConcurrent" role="button" aria-expanded="true" aria-controls="collapseConcurrent">
                                             <%
                                                 if (props.getProperty("significantConcurrentProblemsTitle", "").length() > 1) {
                                                     out.print(props.getProperty("significantConcurrentProblemsTitle", ""));
                                                 } else {
-                                            %> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formSignificantProblems"/>
-                                            <%
+                                            %><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formSignificantProblems"/><%
                                                 }
                                             %>
-                                        </td>
-                                        <td id="concurrentProblemsButtonBar" class="tite4 buttonBar">
-                                            <% if (thisForm.geteReferralId() == null) { %>
-                                            <input id="SocHistory_concurrentProblems" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportSocHistory"/>"/>
-                                            <input id="FamHistory_concurrentProblems" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportFamHistory"/>"/>
-                                            <input id="MedHistory_concurrentProblems" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportMedHistory"/>"/>
-                                            <input id="Concerns_concurrentProblems" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportConcerns"/>"/>
-                                            <input id="OMeds_concurrentProblems" type="button" class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>"/>
-                                            <input id="Reminders_concurrentProblems" type="button"
-                                                   class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportReminders"/>"/>
-                                            <input id="RiskFactors_concurrentProblems" type="button"
-                                                   class="btn clinicalData" value="Risk Factors"/>
-                                            <input id="fetchMedications_concurrentProblems" type="button"
-                                                   class="btn medicationData" value="Active Medications"/>
-                                            <input id="fetchLongTermMedications_concurrentProblems" type="button"
-                                                   class="btn medicationData" value="Long Term Medications"/>
-                                            <% } %>
-                                        </td>
-                                    </tr>
-                                </table>
-
-                            </td>
-                        </tr>
-                        <tr id="trConcurrentProblems">
-                            <td colspan=2>
-
-                                <textarea rows="10" id="concurrentProblems"
+                                        <i class="fa-solid fa-chevron-down collapse-icon"></i>
+                                    </a>
+                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <div class="dropdown consult-import-dropdown">
+                                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
+                                            <i class="fa-solid fa-file-import me-1"></i>Import
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-target="concurrentProblems"></ul>
+                                    </div>
+                                    <% } %>
+                                </div>
+                        </div>
+                        <div id="trConcurrentProblems">
+                                <div class="collapse show" id="collapseConcurrent">
+                                <textarea rows="6" id="concurrentProblems" class="form-control"
                                                name="concurrentProblems"><%=Encode.forHtmlContent(thisForm.getConcurrentProblems())%></textarea>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table style="border-collapse: collapse;" width="100%">
-                                    <tr>
-                                        <td width="30%" class="tite4 heading">
+                                </div>
+                        </div>
+                        <div class="consult-section-heading">
+                                <div class="d-flex align-items-center justify-content-between w-100">
+                                    <a class="consult-collapse-heading text-decoration-none text-dark" data-bs-toggle="collapse" href="#collapseMedications" role="button" aria-expanded="true" aria-controls="collapseMedications">
                                             <% if (props.getProperty("currentMedicationsTitle", "").length() > 1) {
                                                 out.print(props.getProperty("currentMedicationsTitle", ""));
-                                            } else { %>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formCurrMedications"/>
-                                            <% } %>
-                                        </td>
-                                        <td id="medsButtonBar" class="tite4 buttonBar">
-                                            <% if (thisForm.geteReferralId() == null) { %>
-                                            <input id="OMeds_currentMedications" type="button" class="btn clinicalData"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>"/>
-                                            <input id="fetchMedications_currentMedications" type="button"
-                                                   class="btn medicationData" value="Active Medications"/>
-                                            <input id="fetchLongTermMedications_currentMedications" type="button"
-                                                   class="btn medicationData" value="Long Term Medications"/>
-                                            <% } %>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan=2>
-                                <textarea rows="10" id="currentMedications"
+                                            } else { %><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formCurrMedications"/><% } %>
+                                        <i class="fa-solid fa-chevron-down collapse-icon"></i>
+                                    </a>
+                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <div class="dropdown consult-import-dropdown">
+                                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
+                                            <i class="fa-solid fa-file-import me-1"></i>Import
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu-meds" data-target="currentMedications"></ul>
+                                    </div>
+                                    <% } %>
+                                </div>
+                        </div>
+                                <div class="collapse show" id="collapseMedications">
+                                <textarea rows="6" id="currentMedications" class="form-control"
                                                name="currentMedications"><%=Encode.forHtmlContent(thisForm.getCurrentMedications())%></textarea>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan=2>
-                                <table style="border-collapse: collapse;" width="100%">
-                                    <tr>
-                                        <td width="30%" class="tite4 heading">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formAllergies"/>
-                                        </td>
-                                        <td class="tite4 buttonBar">
-                                            <% if (thisForm.geteReferralId() == null) { %>
-                                            <input id="fetchAllergies_allergies" type="button"
-                                                   class="btn medicationData" value="Allergies"/>
-                                            <% } %>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan=2>
-                                <textarea rows="10" id="allergies" name="allergies"><%=Encode.forHtmlContent(thisForm.getAllergies())%></textarea></td>
-                        </tr>
+                                </div>
+                        <div class="consult-section-heading">
+                                <div class="d-flex align-items-center justify-content-between w-100">
+                                    <a class="consult-collapse-heading text-decoration-none text-dark" data-bs-toggle="collapse" href="#collapseAllergies" role="button" aria-expanded="true" aria-controls="collapseAllergies">
+                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formAllergies"/>
+                                        <i class="fa-solid fa-chevron-down collapse-icon"></i>
+                                    </a>
+                                    <% if (thisForm.geteReferralId() == null) { %>
+                                    <a class="btn btn-outline-secondary btn-sm medicationData" id="fetchAllergies_allergies" href="javascript:void(0);" style="font-size:0.75rem;">
+                                        <i class="fa-solid fa-file-import me-1"></i>Import Allergies
+                                    </a>
+                                    <% } %>
+                                </div>
+                        </div>
+                                <div class="collapse show" id="collapseAllergies">
+                                <textarea rows="6" id="allergies" name="allergies" class="form-control"><%=Encode.forHtmlContent(thisForm.getAllergies())%></textarea>
+                                </div>
 
                         <%
                             if (props.isConsultationSignatureEnabled()) {
                         %>
-                        <tr>
-                            <td colspan=2 class="tite4 heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan=2>
-
+                        <div class="consult-section-heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
+                        <div>
                                 <input type="hidden" name="newSignature" id="newSignature" value="true"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
                                        value="<%=(consultUtil.signatureImg != null ? consultUtil.signatureImg : "") %>"/>
@@ -2901,69 +2858,8 @@ if (userAgent != null) {
 
                                 <iframe style="width:500px; height:132px;" id="signatureFrame"
 							src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
-
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan=2 class="spacer"></td>
-                        </tr>
+                        </div>
                         <% }%>
-
-                        <% if (thisForm.geteReferralId() == null) { %>
-                        <tr>
-
-                            <td colspan=2 class="tite4 controlPanel">
-                                <input type="hidden" name="submission" value=""/>
-
-                                <%if (request.getAttribute("id") != null) {%>
-
-                                <input name="update" type="button"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdate"/>"
-                                       onclick="return checkForm('Update Consultation Request','EctConsultationFormRequest2Form');"/>
-                                <input name="updateAndPrint" type="button"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndPrint"/>"
-                                       onclick="return checkForm('Update Consultation Request And Print Preview','EctConsultationFormRequest2Form');"/>
-
-                                <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input name="updateAndSendElectronically" type="button"
-                                           value="<fmt:message key='oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndSendElectronicReferral'/>"
-                                           onclick="return checkForm('Update_esend','EctConsultationFormRequest2Form');"/>
-                                </c:if>
-
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
-                                    <input id="fax_button2" name="updateAndFax" type="button"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
-                                           onclick="return checkForm('Update And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
-
-                                <%} else {%>
-
-                                <input name="submitSaveOnly" type="button"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmit"/>"
-                                       onclick="return checkForm('Submit Consultation Request','EctConsultationFormRequest2Form'); "/>
-                                <input name="submitAndPrint" type="button"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndPrint"/>"
-                                       onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
-
-                                <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input name="submitAndSendElectronically" type="button"
-                                           value="<fmt:message key='oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndSendElectronicReferral'/>"
-                                           onclick="return checkForm('Submit_esend','EctConsultationFormRequest2Form');"/>
-                                </c:if>
-
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
-                                    <input id="fax_button2" name="submitAndFax" type="button"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
-                                           onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
-                                <c:if test="${EctConsultationFormRequest2Form.eReferral == true}">
-                                    <input type="button" value="Send eResponse"
-                                           onclick="document.getElementById('saved').value='true'; document.location='${thisForm.oruR01UrlString(request)}'"/>
-                                </c:if>
-                                <% }%>
-                            </td>
-                        </tr>
-                        <% } %>
 
                         <oscar:oscarPropertiesCheck value="false"
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
@@ -2973,9 +2869,9 @@ if (userAgent != null) {
                                 // Load services first, then initialize consultation with saved data
                                 loadServicesFromServer(function() {
                                     initializeConsultation(
-                                        '<%=consultUtil.service%>',
+                                        '<%=Encode.forJavaScript(String.valueOf(consultUtil.service))%>',
                                         '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
-                                        '<%=consultUtil.specialist%>',
+                                        '<%=Encode.forJavaScript(String.valueOf(consultUtil.specialist))%>',
                                         '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                         '<%=Encode.forJavaScript(consultUtil.specPhone)%>',
                                         '<%=Encode.forJavaScript(consultUtil.specFax)%>',
@@ -3006,19 +2902,9 @@ if (userAgent != null) {
                             </script>
                         </oscar:oscarPropertiesCheck>
 
-                        <!----End new rows here-->
-
-                        <tr height="100%">
-                            <td></td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="MainTableBottomRowLeftColumn"></td>
-                <td class="MainTableBottomRowRightColumn"></td>
-            </tr>
-        </table>
+        </div><%-- end main column --%>
+        </div><%-- end row --%>
+        </div><%-- end container-fluid --%>
         <div id="attachDocumentDisplay" style="display:none;"></div>
     </form>
     </body>
@@ -3091,33 +2977,6 @@ if (userAgent != null) {
 
 
     <script type="text/javascript">
-
-        Calendar.setup({
-            inputField: "followUpDate",
-            ifFormat: "%Y/%m/%d",
-            showsTime: false,
-            trigger: "followUpDate",
-            singleClick: true,
-            step: 1
-        });
-        Calendar.setup({
-            inputField: "appointmentDate",
-            ifFormat: "%Y/%m/%d",
-            showsTime: false,
-            trigger: "appointmentDate",
-            singleClick: true,
-            step: 1
-        });
-        <%if("false".equals(OscarProperties.getInstance().getProperty("CONSULTATION_LOCK_REFERRAL_DATE", "true"))) {%>
-        Calendar.setup({
-            inputField: "referalDate",
-            ifFormat: "%Y/%m/%d",
-            showsTime: false,
-            trigger: "referalDate",
-            singleClick: true,
-            step: 1
-        });
-        <%}%>
         jQuery(document).ready(function () {
 
             /**
