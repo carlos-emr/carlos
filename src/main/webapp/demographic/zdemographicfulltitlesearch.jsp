@@ -334,7 +334,7 @@
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
             <INPUT TYPE="hidden" NAME="fromMessenger" VALUE="<%=fromMessenger%>">
             <INPUT TYPE="hidden" NAME="outofdomain" VALUE="">
-            <div class="input-group-btn">
+            <div class="input-group">
                 <INPUT TYPE="SUBMIT" class="rightButton blueButton top btn btn-primary"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>" SIZE="17"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchActive"/>">

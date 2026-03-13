@@ -146,7 +146,7 @@
                 <label>Message:</label>
                 <div class="input-group">
                     <input type="text" id="message" name="message" class="form-control" aria-label="..." required/>
-                    <div class="input-group-btn">
+                    <div class="input-group">
                         <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
                                 aria-haspopup="true" aria-expanded="false">
                             <span class="caret"></span>

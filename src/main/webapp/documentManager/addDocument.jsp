@@ -290,7 +290,7 @@
                         </option>
                         <%}%>
                     </select>
-                    <div class="input-group-btn btn-group">
+                    <div class="input-group btn-group">
                         <input id="docTypeinput" type="button" class="btn btn-secondary form-control"
                                onClick="newDocType();"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/>"/>
@@ -355,7 +355,7 @@
                            <c:if test="${ docerrors['uploaderror'] != null }">alert-danger</c:if>">
 
                     <input type="hidden" name="mode" value="add">
-                    <div class="input-group-btn">
+                    <div class="input-group">
                         <input type="submit" name="Submit" value="Add" class="btn btn-primary">
                         <input type="button" name="Button" class="btn btn-error"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
@@ -399,7 +399,7 @@
                     </option>
                     <%}%>
                 </select>
-                <div class="input-group-btn btn-group">
+                <div class="input-group btn-group">
                     <input id="docTypeinput1" type="button" class="btn btn-secondary form-control"
                            onClick="newDocTypeLink();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/>"/>
@@ -453,7 +453,7 @@
                 <input type="hidden" name="docCreator"
                        value="<%=formdata.getDocCreator()%>">
                 <input type="hidden" name="appointmentNo" value="<%=formdata.getAppointmentNo()%>"/>
-                <div class="input-group-btn">
+                <div class="input-group">
                     <input type="hidden" name="mode" value="addLink">
                     <input class="btn btn-primary" type="SUBMIT" name="Submit" value="Add">
                     <input class="btn" type="button" name="Button"

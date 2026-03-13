@@ -219,7 +219,7 @@
                     <div class="input-group">
                         <input id="newTextSuggest" class="form-control" name="newTextSuggest" type="text"
                                maxlength="100"/>
-                        <div class="input-group-btn">
+                        <div class="input-group">
                             <input type="button" class="btn btn-secondary" name="addNewTextSuggest"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
                                    onclick="addToList('activeText','newTextSuggest')"/>

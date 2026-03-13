@@ -228,7 +228,7 @@
 <fieldset>
     <legend>Practice Profile</legend>
 
-    <dl class="dl-horizontal">
+    <dl class="row">
         <dt>Practice Size</dt>
         <dd>
             <span class="badge"><%=demoList.size()%></span>

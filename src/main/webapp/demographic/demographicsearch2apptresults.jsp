@@ -275,7 +275,7 @@
                    value="<%=Encode.forHtmlAttribute(request.getParameter(temp))%>">
             <% }
             %>
-            <div class="input-group-btn">
+            <div class="input-group">
                 <a href="#" onclick="showHideItem('demographicSearch');" id="cancelButton"
                    class="leftButton top btn btn-link">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>

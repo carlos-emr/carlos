@@ -387,7 +387,7 @@
         </div>
         <div>
             <p>Fax status definitions:</p>
-            <dl class="dl-horizontal">
+            <dl class="row">
                 <dt>RECEIVED</dt>
                 <dd>is the status of a fax that was successfully RECEIVED from the fax gateway service. Click on View in
                     the Action column for a preview of the fax.

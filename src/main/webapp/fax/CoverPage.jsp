@@ -331,7 +331,7 @@
 								  			<div class="col-sm-12 input-group recipientGroup">
 								  				<label></label>
 											      <input type="text" class="form-control" value="<e:forHtmlAttribute value='${ recipient.name }' /> <e:forHtmlAttribute value='${ recipient.fax }' />" disabled/>
-											      <span class="input-group-btn">
+											      <span class="input-group">
 											        <button class="btn btn-danger" type="button">
 											        	<span class="fa-solid fa-xmark"></span>
 											        </button>
@@ -547,7 +547,7 @@
                 '<div class="row">\
                     <div class="col-sm-12 input-group recipientGroup">\
                         <input type="text" class="form-control" value="' + inputValue + '" disabled/>\
-						      <span class="input-group-btn">\
+						      <span class="input-group">\
 						        <button class="btn btn-danger remove-additional-recipient-btn" type="button" onclick="removeRecipient(this)" >\
 						        	<span class="fa-solid fa-trash"></span>\
 						        </button>\
