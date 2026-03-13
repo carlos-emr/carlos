@@ -1677,25 +1677,36 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
 (function() {
     var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
 
-    // ── Localized message strings (OWASP-encoded for safe JS embedding) ──
-<%
-    ResourceBundle _sigBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
-%>
+    // ── Localized message strings (via <fmt:message> for safe fallback, OWASP-encoded for JS) ──
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSelectFirst" var="_sigSelectFirst"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadSuccess" var="_sigUploadSuccess"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadFailed" var="_sigUploadFailed"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadError" var="_sigUploadError"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDrawFirst" var="_sigDrawFirst"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveSuccess" var="_sigSaveSuccess"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveFailed" var="_sigSaveFailed"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveError" var="_sigSaveError"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteConfirm" var="_sigDeleteConfirm"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteSuccess" var="_sigDeleteSuccess"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteFailed" var="_sigDeleteFailed"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteError" var="_sigDeleteError"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded" var="_sigNoSigUploaded"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.btnDelete" var="_sigBtnDelete"/>
     var _msg = {
-        selectFirst:    '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgSelectFirst"))%>',
-        uploadSuccess:  '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgUploadSuccess"))%>',
-        uploadFailed:   '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgUploadFailed"))%>',
-        uploadError:    '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgUploadError"))%>',
-        drawFirst:      '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgDrawFirst"))%>',
-        saveSuccess:    '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgSaveSuccess"))%>',
-        saveFailed:     '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgSaveFailed"))%>',
-        saveError:      '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgSaveError"))%>',
-        deleteConfirm:  '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgDeleteConfirm"))%>',
-        deleteSuccess:  '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgDeleteSuccess"))%>',
-        deleteFailed:   '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgDeleteFailed"))%>',
-        deleteError:    '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.msgDeleteError"))%>',
-        noSigUploaded:  '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.noSigUploaded"))%>',
-        btnDelete:      '<%=Encode.forJavaScript(_sigBundle.getString("provider.providerpreference.signatureStamp.btnDelete"))%>'
+        selectFirst:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSelectFirst"))%>',
+        uploadSuccess:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadSuccess"))%>',
+        uploadFailed:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadFailed"))%>',
+        uploadError:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadError"))%>',
+        drawFirst:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDrawFirst"))%>',
+        saveSuccess:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveSuccess"))%>',
+        saveFailed:     '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveFailed"))%>',
+        saveError:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveError"))%>',
+        deleteConfirm:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteConfirm"))%>',
+        deleteSuccess:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteSuccess"))%>',
+        deleteFailed:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteFailed"))%>',
+        deleteError:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteError"))%>',
+        noSigUploaded:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigNoSigUploaded"))%>',
+        btnDelete:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigBtnDelete"))%>'
     };
 
     // ── Canvas drawing ──
@@ -1772,6 +1783,9 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
     }
 
     function updatePreview(imageUrl) {
+        if (!imageUrl) {
+            return;
+        }
         var img = document.getElementById('sigPreviewImg');
         var placeholder = document.getElementById('sigPlaceholder');
         img.src = imageUrl + (imageUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();

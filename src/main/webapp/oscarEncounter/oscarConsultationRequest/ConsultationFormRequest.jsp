@@ -2902,9 +2902,10 @@ if (userAgent != null) {
                                        value="<%=signatureRequestId %>"/>
 
                                 <% if (hasStampSignature) { %>
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureShow" style="display: block;">
                                     <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage.do"
-                                         alt="<fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig"/>" style="max-height:120px;"/>
+                                         alt="${e:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"

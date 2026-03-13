@@ -42,14 +42,19 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.Base64;
+import java.util.Iterator;
 
 import org.springframework.dao.DataAccessException;
 
@@ -73,6 +78,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     private final UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
 
     private static final int MAX_SIGNATURE_BYTES = 512 * 1024;
+    private static final int MAX_SIGNATURE_WIDTH = 1000;
+    private static final int MAX_SIGNATURE_HEIGHT = 400;
 
     @Override
     public String execute() {
@@ -140,8 +147,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
         try {
             File imageFolder = getImageFolder();
 
-            // Read the uploaded image and re-write as PNG to ensure correct format
-            BufferedImage bufferedImage = ImageIO.read(image);
+            // Read the uploaded image with dimension validation to prevent decompression bombs
+            BufferedImage bufferedImage = readValidatedImage(new FileInputStream(image));
             if (bufferedImage == null) {
                 writeJson(response, "{\"success\":false,\"error\":\"Invalid image file\"}");
                 return NONE;
@@ -191,10 +198,10 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             return NONE;
         }
 
-        // Validate it's actually an image
+        // Validate it's actually an image with dimension check to prevent decompression bombs
         BufferedImage bufferedImage;
         try {
-            bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            bufferedImage = readValidatedImage(new ByteArrayInputStream(imageBytes));
         } catch (IOException e) {
             MiscUtils.getLogger().warn("Could not read drawn signature image from provider {}", providerNo);
             writeJson(response, "{\"success\":false,\"error\":\"Invalid image data\"}");
@@ -316,6 +323,44 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             throw new IOException("Could not create eform image directory: " + imageFolder.getAbsolutePath());
         }
         return imageFolder;
+    }
+
+    /**
+     * Reads an image from the given stream, checking pixel dimensions before full decode
+     * to guard against decompression bombs (small compressed files that expand to huge bitmaps).
+     *
+     * @param inputStream the image data stream
+     * @return the decoded {@link BufferedImage}, or {@code null} if the stream is not a recognized
+     *         image format or the dimensions exceed {@link #MAX_SIGNATURE_WIDTH}/{@link #MAX_SIGNATURE_HEIGHT}
+     * @throws IOException if an I/O error occurs reading the stream
+     */
+    private static BufferedImage readValidatedImage(InputStream inputStream) throws IOException {
+        ImageInputStream iis = ImageIO.createImageInputStream(inputStream);
+        if (iis == null) {
+            return null;
+        }
+        try {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
+                return null;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width > MAX_SIGNATURE_WIDTH || height > MAX_SIGNATURE_HEIGHT) {
+                    MiscUtils.getLogger().warn("Signature image rejected: dimensions {}x{} exceed maximum {}x{}",
+                            width, height, MAX_SIGNATURE_WIDTH, MAX_SIGNATURE_HEIGHT);
+                    return null;
+                }
+                return reader.read(0);
+            } finally {
+                reader.dispose();
+            }
+        } finally {
+            iis.close();
+        }
     }
 
     private void writeJson(HttpServletResponse resp, String json) {

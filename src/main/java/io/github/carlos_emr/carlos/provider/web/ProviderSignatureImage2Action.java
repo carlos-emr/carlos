@@ -106,6 +106,9 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
 
         response.setContentType("image/png");
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
         response.setHeader("Content-disposition", "inline; filename=\"" + signatureName.replaceAll("[^a-zA-Z0-9_.]", "_") + "\"");
 
         try (InputStream fileStream = new FileInputStream(sigFile)) {
