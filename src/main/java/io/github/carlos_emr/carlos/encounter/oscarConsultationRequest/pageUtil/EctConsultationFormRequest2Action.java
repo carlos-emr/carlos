@@ -210,7 +210,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
-                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on new consultation", loggedInInfo.getLoggedInProviderNo());
+                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on new consultation", loggedInInfo.getLoggedInProviderNo());
                     }
                 }
 
@@ -368,7 +368,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
-                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on consultation update (requestId={})", loggedInInfo.getLoggedInProviderNo(), requestId);
+                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on consultation update (requestId={})", loggedInInfo.getLoggedInProviderNo(), requestId);
                     }
                 } else {
                     // Already has a DigitalSignature ID — keep it

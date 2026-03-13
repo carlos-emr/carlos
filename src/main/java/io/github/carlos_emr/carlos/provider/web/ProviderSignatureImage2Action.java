@@ -82,7 +82,10 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        // signatureName is derived from session providerNo — safe for header inclusion
+        if (providerNo == null || !providerNo.matches("[0-9]+")) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
 
         File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());

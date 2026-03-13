@@ -2845,8 +2845,7 @@ if (userAgent != null) {
                         <%
                             if (props.isConsultationSignatureEnabled()) {
                                 // Check for provider signature stamp
-                                UserPropertyDAO consultSigPropDao = SpringUtils.getBean(UserPropertyDAO.class);
-                                UserProperty consultSigProp = consultSigPropDao.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
+                                UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
                                 boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());
                         %>
                         <div class="consult-section-heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>

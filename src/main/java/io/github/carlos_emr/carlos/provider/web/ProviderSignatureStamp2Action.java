@@ -92,14 +92,16 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             writeJson(response, "{\"success\":false,\"error\":\"Session expired\"}");
             return NONE;
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
-        }
-
         String method = request.getParameter("method");
         if (method == null) {
             writeJson(response, "{\"success\":false,\"error\":\"No method specified\"}");
             return NONE;
+        }
+
+        // check is read-only and only requires read privilege
+        String requiredAccess = "check".equals(method) ? "r" : "w";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", requiredAccess, null)) {
+            throw new SecurityException("missing required sec object (_pref)");
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod()) && !"check".equals(method)) {
@@ -108,6 +110,10 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (providerNo == null || !providerNo.matches("[0-9]+")) {
+            writeJson(response, "{\"success\":false,\"error\":\"Invalid session\"}");
+            return NONE;
+        }
 
         switch (method) {
             case "upload":
@@ -135,8 +141,9 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             return NONE;
         }
 
+        File validatedImage;
         try {
-            PathValidationUtils.validateUpload(image);
+            validatedImage = PathValidationUtils.validateUpload(image);
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Signature stamp upload blocked by path validation for provider {}", providerNo);
             writeJson(response, "{\"success\":false,\"error\":\"Upload rejected\"}");
@@ -148,7 +155,10 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             File imageFolder = getImageFolder();
 
             // Read the uploaded image with dimension validation to prevent decompression bombs
-            BufferedImage bufferedImage = readValidatedImage(new FileInputStream(image));
+            BufferedImage bufferedImage;
+            try (InputStream fis = new FileInputStream(validatedImage)) {
+                bufferedImage = readValidatedImage(fis);
+            }
             if (bufferedImage == null) {
                 writeJson(response, "{\"success\":false,\"error\":\"Invalid image file\"}");
                 return NONE;
