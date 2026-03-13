@@ -436,13 +436,16 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
     }
 
     @Override
+    /**
+     * Counts billing visits by the specified provider within a date range.
+     */
     public List<Object[]> countBillingVisitsByProvider(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, COUNT(b) FROM Billing b "
                 + "WHERE b.status <> 'D' "
                 + "AND b.appointmentNo <> '0' "
-                + "AND b.apptProviderNo = ?1"
-                + "AND b.billingDate >= ?2"
-                + "AND b.billingDate <= ?3"
+                + "AND b.apptProviderNo = ?1 "
+                + "AND b.billingDate >= ?2 "
+                + "AND b.billingDate <= ?3 "
                 + "GROUP BY b.visitType";
         Query q = entityManager.createQuery(sql);
         q.setParameter(1, providerNo);

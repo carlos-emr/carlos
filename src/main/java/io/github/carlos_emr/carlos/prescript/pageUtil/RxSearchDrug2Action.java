@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
@@ -82,12 +81,8 @@ public final class RxSearchDrug2Action extends ActionSupport {
             return searchBrandName();
         } else if ("searchGenericName".equals(method)) {
             return searchGenericName();
-        } else if ("searchActiveIngredient".equals(method)) {
-            return searchActiveIngredient();
         } else if ("searchNaturalRemedy".equals(method)) {
             return searchNaturalRemedy();
-        } else if ("jsonSearch".equals(method)) {
-            return jsonSearch();
         } else if ("inactiveDate".equals(method)) {
             return getInactiveDate();
         }
@@ -180,57 +175,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
     }
 
     @SuppressWarnings({"unused", "unchecked", "rawtypes"})
-    public String searchActiveIngredient() {
-        logger.debug("Calling searchActiveIngredient");
-        Parameter.setParameters(request.getParameterMap());
-
-        Vector catVec = new Vector();
-        catVec.add(RxDrugRef.CAT_ACTIVE_INGREDIENT);
-        Vector<Hashtable<String, Object>> results = drugref.list_search_element_select_categories(
-                Parameter.SEARCH_STRING,
-                catVec,
-                wildCardRight(Parameter.WILDCARD));
-        try {
-            jsonify(results, response);
-        } catch (IOException e) {
-            logger.error("Exception creating JSON Object for " + results, e);
-            return "error";
-        }
-
-        return null;
-    }
-
-    @SuppressWarnings({"unused", "unchecked", "rawtypes"})
     public String searchNaturalRemedy() {
-
-        return null;
-    }
-
-
-    @SuppressWarnings({"unchecked", "unused"})
-    public String jsonSearch() {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
-        }
-
-        String searchStr = request.getParameter("query");
-        if (searchStr == null) {
-            searchStr = request.getParameter("name");
-        }
-        String wildcardRightOnly = OscarProperties.getInstance().getProperty("rx.search_right_wildcard_only", "false");
-        Vector<Hashtable<String, Object>> vec = null;
-
-        try {
-            vec = drugref.list_drug_element3(searchStr, wildCardRight(wildcardRightOnly));
-            jsonify(vec, response);
-        } catch (IOException e) {
-            logger.error("Exception while attempting to contact DrugRef", e);
-            return "error";
-        } catch (Exception e) {
-            logger.error("Unknown Error", e);
-            return "error";
-        }
 
         return null;
     }

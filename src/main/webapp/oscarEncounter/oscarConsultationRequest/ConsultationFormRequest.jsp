@@ -132,7 +132,7 @@
                 }
             }
 
-            if (appNo != "") {
+            if (!appNo.isEmpty()) {
                 defaultSiteName = siteDao.getSiteNameByAppointmentNo(appNo);
             }
         }
@@ -206,7 +206,7 @@
             }
     %>
     <SCRIPT LANGUAGE="JavaScript">
-        alert('<%= errorMessage %>');
+        alert('<%= Encode.forJavaScript(errorMessage) %>');
     </SCRIPT>
     <%
         }
@@ -1624,7 +1624,6 @@ if (OscarProperties.getInstance().getBooleanProperty("consultation_program_lette
 		}
 	}
 } %>
-        console.log(providerData);
 
         function switchProvider(value) {
             if (value === -1) {
@@ -2312,7 +2311,7 @@ if (userAgent != null) {
                                         <td class="consult-form-value">
                                             <% if (thisForm.iseReferral()) { %>
 
-                                            <%=thisForm.getProfessionalSpecialistName()%>
+                                            <%=Encode.forHtml(thisForm.getProfessionalSpecialistName())%>
 
                                             <% } else if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
 
@@ -2887,8 +2886,8 @@ if (userAgent != null) {
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
-                                const specialist = "${ consultUtil.specialist }";
-                                const servicevalue = "${ consultUtil.service }";
+                                const specialist = "${e:forJavaScript(consultUtil.specialist)}";
+                                const servicevalue = "${e:forJavaScript(consultUtil.service)}";
 
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;

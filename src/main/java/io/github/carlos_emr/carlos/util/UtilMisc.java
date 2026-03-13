@@ -118,64 +118,6 @@ public class UtilMisc {
         return sb.toString();
     }
 
-    public static String charEscape(String S, char a) {
-        if (null == S) {
-            return S;
-        }
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '\\') {
-                sb.append("\\");
-            } else if (c == a) {
-                sb.append("\\" + a);
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
-    /**
-     * @deprecated use apache's StringEscapeUtils instead.
-     */
-    @Deprecated
-    public static String htmlJsEscape(String S) {
-        if (null == S) {
-            return S;
-        }
-        int N = S.length();
-        StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '&') {
-                sb.append("&amp;");
-            } else if (c == '"') {
-                sb.append("&quot;");
-            } else if (c == '<') {
-                sb.append("&lt;");
-            } else if (c == '>') {
-                sb.append("&gt;");
-            } else if (c == '\'') {
-                sb.append("&#39;");
-            } else if (c == '\n') {
-                sb.append("<br>");
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
-    public static String nullMySQLEscape(String S) {
-        if (null == S) {
-            return S;
-        } else {
-            return "'" + mysqlEscape(S) + "'";
-        }
-    }
-
     public static String mysqlEscape(String S) {
         if (null == S) {
             return S;

@@ -342,8 +342,6 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     /**
-     * Finds form data for the specified demographic record and form name
-    /**
      * Retrieves active form data for a specified demographic record and form name.
      *
      * @param demographicNo Demographic number to find the form data for
@@ -351,7 +349,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
      * @return List of matching form data ordered by creation date and time
      */
     public List<EFormData> findByDemographicIdAndFormName(Integer demographicNo, String formName) {
-        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formName LIKE ?2 and e.status = '1' ORDER BY e.formDate, e.formTime DESC";
+        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formName LIKE ?2 and e.current = true ORDER BY e.formDate, e.formTime DESC";
         Query query = entityManager.createQuery(queryString);
         query.setParameter(1, demographicNo);
         query.setParameter(2, formName);
@@ -363,8 +361,11 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     /**
      * Retrieves a list of EFormData by demographic ID and form ID.
      */
+    /**
+     * Retrieves a list of EFormData based on the specified demographic ID and form ID.
+     */
     public List<EFormData> findByDemographicIdAndFormId(Integer demographicNo, Integer fid) {
-        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formId = ?2 and e.status = '1' ORDER BY e.formDate DESC, e.formTime DESC";
+        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formId = ?2 and e.current = true ORDER BY e.formDate DESC, e.formTime DESC";
         Query query = entityManager.createQuery(queryString);
         query.setParameter(1, demographicNo);
         query.setParameter(2, fid);

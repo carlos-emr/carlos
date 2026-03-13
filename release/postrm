@@ -1,0 +1,231 @@
+#!/bin/sh
+# postrm
+# a script file for CARLOS EMR that uninstalls and tweaks the necessary files
+#=================================================================
+# Copyright Peter Hutten-Czapski 2012-20 released under the GPL v2
+# v 19.11
+#=================================================================
+
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+# PROGRAM matches the war and properties name
+PROGRAM=carlos
+PACKAGE=carlos-emr
+db_name=oscar_15
+VERSION=19
+PREVIOUS=15
+REVISION=4~944
+if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+        TOMCAT=tomcat10
+        TOMCAT_USER=tomcat
+    else
+    if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
+            TOMCAT=tomcat9
+            TOMCAT_USER=tomcat
+        else
+        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+                TOMCAT=tomcat8
+                TOMCAT_USER=tomcat8
+             else
+             if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
+                    TOMCAT=tomcat7
+                    TOMCAT_USER=tomcat7
+             fi
+         fi
+     fi
+ fi
+C_HOME=/usr/share/${TOMCAT}/
+C_BASE=/var/lib/${TOMCAT}/
+SRC=/usr/share/${PACKAGE}/
+db_password=""
+DOCS=${SRC}/OscarDocument/
+
+LOG_FILE=${SRC}Oscar${VERSION}install.log
+
+countdown()
+(                IFS=:
+                set -- $*
+                secs=$(( ${1#0} * 3600 + ${2#0} * 60 + ${3#0} ))
+                while [ $secs -gt 0 ]
+                        do
+                        sleep 1 &
+                        printf "\r%02d:%02d:%02d" $((secs/3600)) $(( (secs/60)%60)) $((secs%60))
+                        secs=$(( $secs - 1 ))
+                        wait
+                        done
+                echo
+)
+
+# --- log the running of the script appending as necessary
+echo "#########" `date` "#########" 1>> $LOG_FILE
+echo PostRemoval script triggered with $1>>$LOG_FILE
+echo VERSION=${VERSION}-${REVISION}>>$LOG_FILE
+
+case "$1" in
+    purge)
+        # ignore errors and remove patient data in doing purge
+        set +e
+        
+        
+        # extract the password first
+    if [ -f "${C_HOME}${PROGRAM}.properties" ]; then
+		#first grep the password
+		echo "grep the password from the properties file" 2>>$LOG_FILE
+		db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 1>>$LOG_FILE
+
+        # delete patient data!!
+        # SANITY CHECK FOR PRODUCTION PURGE
+        if [ -n "${db_password}" ]; then
+            patientCount=$( MYSQL_PWD="${db_password}" mysql -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;" 2>/dev/null)
+            if [ "${patientCount}" -gt "3" ]; then
+                    # the demo sql installs 2 patients purging that is not an issue
+                    echo "Purging will delete YOUR data and settings"
+                    echo "Do you REALLY want to delete ALL the data on ${patientCount} patients? "
+                    echo "*** LAST CHANCE TO HIT [CTRL] + [C] to abort ***"
+                    countdown "00:00:20"
+            fi
+        else
+            echo "db_password not available; skipping patient count check" >>$LOG_FILE
+        fi
+        # drugref already removed by prerm
+   fi
+        
+    echo "Now proceeding with Purge"
+    #delete 7 potential symlinks test for link file with -L (or -e as long as the link is not broken)
+    echo "Removing symlinks"
+    if [ -L "/drugref2.properties" ]; then
+        rm -f /drugref2.properties 2>>$LOG_FILE 
+    fi
+    if [ -L "/${PROGRAM}.properties" ]; then
+        rm -f /${PROGRAM}.properties 2>>$LOG_FILE 
+    fi 
+    if [ -L "/var/lib/${TOMCAT}/drugref2.properties" ]; then
+        rm -f /var/lib/${TOMCAT}/drugref2.properties 2>>$LOG_FILE 
+    fi
+    if [ -L "/var/lib/${TOMCAT}/${PROGRAM}.properties" ]; then
+        rm -f /var/lib/${TOMCAT}/${PROGRAM}.properties 2>>$LOG_FILE 
+    fi 
+    if [ -L "/var/lib/tomcat/drugref2.properties" ]; then
+        rm -f /var/lib/tomcat/drugref2.properties 2>>$LOG_FILE 
+    fi
+    if [ -L "/var/lib/tomcat/${PROGRAM}.properties" ]; then
+        rm -f /var/lib/tomcat/${PROGRAM}.properties 2>>$LOG_FILE 
+    fi 
+    if [ -L "/var/lib/tomcat" ]; then
+        rm -f /var/lib/tomcat 2>>$LOG_FILE 
+    fi
+
+	# remove both war files if not already removed in prerm 
+	if [ -f "${C_BASE}webapps/drugref.war" ]; then
+		echo "Purging drugref.war"
+		rm -f ${C_BASE}webapps/drugref.war 2>>$LOG_FILE
+	fi
+	if [ -f "${C_BASE}webapps/${PROGRAM}.war" ]; then
+		echo "Purging ${PROGRAM}.war"
+		rm -f ${C_BASE}webapps/${PROGRAM}.war 2>>$LOG_FILE
+	fi
+	# remove both exploded war files if not already removed in prerm 
+	if [ -d "${C_BASE}webapps/drugref" ]; then
+		echo "Purging drugref files"
+		rm -f -R ${C_BASE}webapps/drugref 2>>$LOG_FILE
+	fi
+	if [ -d "${C_BASE}webapps/${PROGRAM}" ]; then
+		echo "Purging ${PROGRAM} files"
+		rm -f -R ${C_BASE}webapps/${PROGRAM} 2>>$LOG_FILE
+	fi		
+	
+
+    # reverse the changes to Tomcat and keystore
+    echo "Reversing Changes to ${TOMCAT} configuration"
+	if [ -e "/etc/default/${TOMCAT}.old" ]; then
+	    echo "Restoring ${TOMCAT} configuration"
+        mv /etc/default/${TOMCAT}.old /etc/default/${TOMCAT} 2>>$LOG_FILE
+    fi
+	if [ -e "/var/lib/${TOMCAT}/conf/server.old" ]; then
+	    echo "Restoring server.xml configuration"
+        mv /var/lib/${TOMCAT}/conf/server.old /var/lib/${TOMCAT}/conf/server.xml 2>>$LOG_FILE
+    fi
+	if [ -e "/var/lib/${TOMCAT}/conf/context.old" ]; then
+	    echo "Restoring context.xml configuration"
+        mv /var/lib/${TOMCAT}/conf/context.old /var/lib/${TOMCAT}/conf/context.xml 2>>$LOG_FILE
+    fi
+	if [ -e "/etc/${TOMCAT}/.keystore" ]; then
+	    echo "Deleting tomcat keystore"
+        rm -f /etc/${TOMCAT}/.keystore  2>>$LOG_FILE
+    fi
+    	if [ -e "/etc/${TOMCAT}/cert.pem" ]; then
+	    echo "Deleting certificate"
+        rm -f /etc/${TOMCAT}/cert.pem  2>>$LOG_FILE
+    fi
+	if [ -e "/etc/${TOMCAT}/privkey.pem" ]; then
+	    echo "Deleting private key"
+        rm -f /etc/${TOMCAT}/privkey.pem  2>>$LOG_FILE
+    fi
+	if [ -e "/etc/${TOMCAT}/chain.pem" ]; then
+	    echo "Deleting certificate chain"
+        rm -f /etc/${TOMCAT}/chain.pem  2>>$LOG_FILE
+    fi
+	if [ -e "${SRC}letsencrypt.cron" ]; then
+	    echo "Deleting letsencrypt cron job"
+        rm -f "${SRC}letsencrypt.cron"  2>>$LOG_FILE
+    fi
+        if [ -f /etc/systemd/system/${TOMCAT}.service.d/override.conf ] ; then
+                echo "Deleting override for ${TOMCAT} systemd"
+        rm -f /etc/systemd/system/${TOMCAT}.service.d/override.conf 2>>$LOG_FILE
+        systemctl daemon-reload
+    fi
+
+    # remove property files and the oscar schema
+    echo "Dropping ${db_name}"
+    if [ -n "${db_password}" ]; then
+        MYSQL_PWD="${db_password}" mysql -u root --execute="drop database if exists oscar_15;" 2>>$LOG_FILE
+    else
+        echo "db_password not available; skipping database drop — remove ${db_name} manually if needed" | tee -a $LOG_FILE
+    fi
+    if [ -e "${C_HOME}${PROGRAM}.properties" ]; then
+        echo "Deleting ${PROGRAM}.properties"
+        rm -f ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+    fi
+    if [ -e "/drugref2.properties" ]; then
+        echo "Deleting drugref2.properties"
+        rm -f /drugref2.properties 2>>$LOG_FILE
+    fi
+
+
+    #remove the eform library and HRM files added in postinst so as to clear for a new install
+    if [ -e "${SRC}/OscarDocument/oscar/eform/images" ]; then
+	    echo "Deleting ${SRC}/OscarDocument/oscar/eform/images"
+	    rm -f -r ${SRC}/OscarDocument/oscar/eform/images/*.*
+	    echo "Deleting ${SRC}/OscarDocument/oscar/hrm/OMD"
+	    rm -f -r ${SRC}/OscarDocument/oscar/hrm/OMD/*.*
+    fi 
+
+    # delete all OscarDocuments and files in /usr/share/carlos-emr
+    if [ -d "${SRC}" ]; then
+	    echo "Deleting ${SRC}"
+	    rm -R ${SRC}
+    fi 
+
+    # clearing these debconf settings is not possible while running the deb as it locks the database
+    echo "*** To clear the stored mysql password run ***"
+    echo "echo PURGE | sudo debconf-communicate carlos-emr"
+
+    ;;
+
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Nothing to do here as the deb will do the obvious
+    ;;
+
+    *)
+        echo "$0 called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+
+
+esac
+
+
+
+exit 0
+

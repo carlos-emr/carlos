@@ -32,6 +32,7 @@
 <%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
@@ -39,7 +40,12 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
+        return;
+    }
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
@@ -47,11 +53,7 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.title"/></title>
-        <script language="javascript">
-            <!--
-            start
-            javascript
-
+        <script type="text/javascript">
             function setfocus() {
                 this.focus();
                 document.UPDATEPRE.mygroup_no.focus();
@@ -66,96 +68,103 @@
                 }
                 return true;
             }
-
-            // stop javascript -->
         </script>
     </head>
 
-    <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
+    <body onLoad="setfocus()">
     <%
-        if ("Delete".equals(request.getParameter("submit_form"))) { //delete the group member
+        if ("Delete".equals(request.getParameter("submit_form"))) {
             int rowsAffected = 0;
             String[] param = new String[2];
 
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 StringBuffer strbuf = new StringBuffer(e.nextElement().toString());
-                if (strbuf.toString().indexOf("displaymode") != -1 || strbuf.toString().indexOf("submit_form") != -1)
+                if (strbuf.toString().indexOf("displaymode") != -1 || strbuf.toString().indexOf("submit_form") != -1
+                        || strbuf.toString().indexOf("CSRF-TOKEN") != -1)
                     continue;
                 param[0] = request.getParameter(strbuf.toString());
                 param[1] = strbuf.toString().substring(param[0].length());
                 myGroupDao.deleteGroupMember(param[0], param[1]);
                 rowsAffected = 1;
             }
-            out.println("<script language='JavaScript'>self.close();</script>");
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?displaymode=displaymygroup");
+            return;
         }
     %>
 
+    <div class="container-fluid p-3">
 
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providercontrol.jsp"
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                    <path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H1s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C9.516 10.68 8.289 10 6 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/>
+                    <path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgTitle"/>
+            </h4>
+        </div>
+
+    <form name="UPDATEPRE" method="post" action="providercontrol.jsp"
           onSubmit="return checkForm();">
-        <table border=0 cellspacing=0 cellpadding=0 width="100%">
-            <tr bgcolor="#486ebd">
-                <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgTitle"/></font></th>
-            </tr>
-        </table>
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
+        <input type="hidden" name="displaymode" value="savemygroup">
 
-        <center>
-            <table border="0" cellpadding="0" cellspacing="0" width="80%">
+        <div class="bg-light border rounded p-3 mb-3">
+            <div class="row mb-3">
+                <label class="col-sm-3 col-form-label fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgGroupNo"/></label>
+                <div class="col-sm-9 d-flex align-items-center gap-2">
+                    <input type="text" name="mygroup_no" class="form-control form-control-sm" style="width: 120px;" maxlength="10">
+                    <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgMaxChars"/></small>
+                </div>
+            </div>
+
+            <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
                 <tr>
-                    <td width="100%">
-
-                        <table BORDER="0" CELLPADDING="0" CELLSPACING="1" WIDTH="100%"
-                               BGCOLOR="#C0C0C0">
-                            <tr BGCOLOR="#CCFFFF">
-                                <td ALIGN="center"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgGroupNo"/></font></td>
-                                <td ALIGN="center"><font face="arial"> </font> <input
-                                        type="text" name="mygroup_no" size="10" maxlength="10"> <font
-                                        size="-2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgMaxChars"/></font></td>
-                            </tr>
-                            <%
-                                int i = 0;
-                                for (Provider p : providerDao.getActiveProviders()) {
-                                    i++;
-                            %>
-                            <tr BGCOLOR="#C4D9E7">
-                                <td><font face="arial"> &nbsp;<%=p.getLastName()%>,
-                                    <%=p.getFirstName()%>
-                                </font></td>
-                                <td ALIGN="center"><font face="arial"> </font> <input
-                                        type="checkbox" name="data<%=i%>" value="<%=i%>"> <input
-                                        type="hidden" name="provider_no<%=i%>"
-                                        value="<%=p.getProviderNo()%>"> <INPUT
-                                        TYPE="hidden" NAME="last_name<%=i%>"
-                                        VALUE='<%=p.getLastName()%>'> <INPUT
-                                        TYPE="hidden" NAME="first_name<%=i%>"
-                                        VALUE='<%=p.getFirstName()%>'></td>
-                            </tr>
-                            <%
-                                }
-                            %>
-                            <INPUT TYPE="hidden" NAME="displaymode" VALUE='savemygroup'>
-
-                        </table>
-
+                    <th style="width: 80px;" class="text-center">Select</th>
+                    <th>Provider</th>
+                </tr>
+                </thead>
+                <tbody>
+                <%
+                    int i = 0;
+                    for (Provider p : providerDao.getActiveProviders()) {
+                        i++;
+                %>
+                <tr>
+                    <td class="text-center">
+                        <input type="checkbox" class="form-check-input provider-check" name="data<%=i%>" value="<%=i%>">
+                        <input type="hidden" name="provider_no<%=i%>" value="<%=Encode.forHtmlAttribute(p.getProviderNo() == null ? "" : p.getProviderNo())%>">
+                        <input type="hidden" name="last_name<%=i%>" value="<%=Encode.forHtmlAttribute(p.getLastName() == null ? "" : p.getLastName())%>">
+                        <input type="hidden" name="first_name<%=i%>" value="<%=Encode.forHtmlAttribute(p.getFirstName() == null ? "" : p.getFirstName())%>">
+                    </td>
+                    <td><%=Encode.forHtml(p.getLastName() == null ? "" : p.getLastName())%>, <%=Encode.forHtml(p.getFirstName() == null ? "" : p.getFirstName())%></td>
+                </tr>
+                <%
+                    }
+                %>
+                </tbody>
+                <tfoot>
+                <tr class="table-light">
+                    <td class="text-center" colspan="2">
+                        <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=true}); return false;">Check All</a>
+                        | <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=false}); return false;">Clear All</a>
                     </td>
                 </tr>
+                </tfoot>
             </table>
-        </center>
+        </div>
 
-        <table width="100%" BGCOLOR="#486ebd">
-            <tr>
-                <TD align="center"><input type="hidden" name="Submit"
-                                          value=" Save "> <input type="submit"
-                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnSave"/>">
-                    <INPUT TYPE="RESET"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnExit"/>"
-                           onClick="window.close();"></TD>
-            </tr>
-        </TABLE>
+        <div class="d-flex align-items-center">
+            <input type="submit" class="btn btn-primary btn-sm"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnSave"/>">
+            <input type="button" class="btn btn-secondary btn-sm ms-2"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                   onClick="window.history.go(-1);return false;">
+        </div>
 
-    </FORM>
-
-    <div align="center"><font size="1" face="Verdana" color="#0000FF"><B></B></font></div>
+    </form>
+    </div>
 
     </body>
 </html>

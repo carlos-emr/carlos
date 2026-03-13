@@ -568,7 +568,9 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     lbData.patientName = "Not, Assigned";
                 }
 
-                logger.debug("DOCUMENT " + lbData.isMatchedToPatient());
+                if (logger.isDebugEnabled()) {
+                    logger.debug("DOCUMENT " + lbData.isMatchedToPatient());
+                }
                 lbData.accessionNumber = "";
 
                 DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);

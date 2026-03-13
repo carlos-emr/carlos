@@ -45,13 +45,17 @@
 %>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
-    String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF", tableTitle = "#99ccff";
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
     boolean bEdit = request.getParameter("appointment_no") != null ? true : false;
 %>
 <%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/errorpage.jsp" %>
+<%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -60,6 +64,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -73,15 +78,24 @@
             String userName = (String) session.getAttribute("userlastname") + ", " + (String) session.getAttribute("userfirstname");
             String everyNum = request.getParameter("everyNum") != null ? request.getParameter("everyNum") : "0";
             String everyUnit = request.getParameter("everyUnit") != null ? request.getParameter("everyUnit") : "day";
-            String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : UtilDateUtilities.DateToString(new Date(), "dd/MM/yyyy");
-            int delta = Integer.parseInt(everyNum);
+            String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : (request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd"));
+            int delta;
+            try {
+                delta = Integer.parseInt(everyNum);
+            } catch (NumberFormatException nfe) {
+                delta = 0;
+            }
             if (everyUnit.equals("week")) {
                 delta = delta * 7;
                 everyUnit = "day";
             }
             GregorianCalendar gCalDate = new GregorianCalendar();
             GregorianCalendar gEndDate = (GregorianCalendar) gCalDate.clone();
-            gEndDate.setTime(UtilDateUtilities.StringToDate(endDate, "dd/MM/yyyy"));
+            java.util.Date parsedEndDate = UtilDateUtilities.StringToDate(endDate, "yyyy-MM-dd");
+            if (parsedEndDate == null) {
+                parsedEndDate = new java.util.Date();
+            }
+            gEndDate.setTime(parsedEndDate);
 
             Date iDate = ConversionUtils.fromDateString(request.getParameter("appointment_date"));
             // repeat adding
@@ -234,22 +248,20 @@
 %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
-        <script language="JavaScript">
-            <!--
-
-            function onCheck(a, b) {
-                if (a.checked) {
-                    document.getElementById("everyUnit").value = b;
-                    //document.groupappt.everyUnit.value = b;
-                }
+        <fmt:setBundle basename="oscarResources"/>
+        <fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation" var="msgExitConfirmation"/>
+        <fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation" var="msgDeleteConfirmation"/>
+        <script type="text/javascript">
+            function onCheck(a) {
+                document.getElementById("everyUnit").value = a.value;
+                document.getElementById("everyUnitLabel").textContent = a.dataset.labelPlural;
             }
 
-
             function onExit() {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
-                    window.close()
+                if (confirm('${e:forJavaScript(msgExitConfirmation)}')) {
+                    window.close();
                 }
             }
 
@@ -261,134 +273,126 @@
 
             function onSub() {
                 if (saveTemp == 1) {
-                    return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
+                    return (confirm('${e:forJavaScript(msgDeleteConfirmation)}'));
                 }
             }
-
-            //-->
         </script>
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-
-        <!-- main calendar program -->
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-
-        <!-- language for the calendar -->
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
-
-        <!-- the following script defines the Calendar.setup helper function, which makes
-               adding a calendar a matter of 1 or 2 lines of code. -->
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
     </head>
 
-    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0"
-          rightmargin="0">
-    <form name="groupappt" method="POST"
-          action="appointmentrepeatbooking.jsp" onSubmit="return ( onSub());">
-        <INPUT TYPE="hidden" NAME="groupappt" value="">
-        <table width="100%" BGCOLOR="silver">
-            <tr>
-                <TD>
-                    <% if (bEdit) { %> <INPUT TYPE="button"
-                                              onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
-                    <INPUT TYPE="button"
+    <body onLoad="setfocus()">
+    <div class="container-fluid p-3">
+
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                    <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5z"/>
+                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.title"/>
+            </h4>
+        </div>
+
+        <form name="groupappt" method="POST"
+              action="appointmentrepeatbooking.jsp" onSubmit="return onSub();">
+            <input type="hidden" name="groupappt" value="">
+            <input type="hidden" name="everyUnit" id="everyUnit" value="day">
+
+            <div class="bg-light border rounded p-3 mb-3">
+                <div class="mb-3">
+                    <label class="form-label fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></label>
+                    <div class="ms-2">
+                        <fmt:setBundle basename="oscarResources"/>
+                        <fmt:message key="day" var="labelDay"/>
+                        <fmt:message key="week" var="labelWeek"/>
+                        <fmt:message key="month" var="labelMonth"/>
+                        <fmt:message key="year" var="labelYear"/>
+                        <fmt:message key="day.plural" var="labelDayPlural"/>
+                        <fmt:message key="week.plural" var="labelWeekPlural"/>
+                        <fmt:message key="month.plural" var="labelMonthPlural"/>
+                        <fmt:message key="year.plural" var="labelYearPlural"/>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_day" value="day" checked
+                                   data-label="${e:forHtmlAttribute(labelDay)}" data-label-plural="${e:forHtmlAttribute(labelDayPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_day">${e:forHtml(labelDay)}</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_week" value="week"
+                                   data-label="${e:forHtmlAttribute(labelWeek)}" data-label-plural="${e:forHtmlAttribute(labelWeekPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_week">${e:forHtml(labelWeek)}</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_month" value="month"
+                                   data-label="${e:forHtmlAttribute(labelMonth)}" data-label-plural="${e:forHtmlAttribute(labelMonthPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_month">${e:forHtml(labelMonth)}</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_year" value="year"
+                                   data-label="${e:forHtmlAttribute(labelYear)}" data-label-plural="${e:forHtmlAttribute(labelYearPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_year">${e:forHtml(labelYear)}</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></label>
+                    <div class="col-sm-9 d-flex align-items-center gap-2">
+                        <select name="everyNum" class="form-select form-select-sm" style="width: 70px;">
+                            <%
+                                for (int i = 1; i < 12; i++) {
+                            %>
+                            <option value="<%=i%>"><%=i%></option>
+                            <%
+                                }
+                            %>
+                        </select>
+                        <span id="everyUnitLabel" class="text-muted">${e:forHtml(labelDayPlural)}</span>
+                    </div>
+                </div>
+
+                <div class="row mb-2">
+                    <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
+                    <div class="col-sm-9">
+                        <input type="date" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 170px;"
+                               value="<%=request.getParameter("appointment_date") != null ? Encode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <% if (bEdit) { %>
+                    <input type="button" class="btn btn-primary btn-sm"
+                           onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                    <input type="button" class="btn btn-secondary btn-sm"
                            onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
-                           onClick="onButDelete()"> <% } else { %> <INPUT
-                        TYPE="button"
-                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                    <input type="button" class="btn btn-danger btn-sm"
+                           onclick="onButDelete(); document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
+                    <% } else { %>
+                    <input type="button" class="btn btn-primary btn-sm"
+                           onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
                     <% } %>
-                </TD>
-                <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
-                                         onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
-                        onClick="onExit()"></TD>
-            </tr>
-        </table>
+                    <input type="button" class="btn btn-secondary btn-sm"
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                           onClick="window.history.go(-1);return false;">
+                </div>
+            </div>
 
-        <table border=0 cellspacing=0 cellpadding=0 width="100%">
-            <tr bgcolor="<%=deepcolor%>">
-                <th><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.title"/></font>
-                </th>
-            </tr>
-        </table>
-
-        <table border="0" cellspacing="1" cellpadding="2" width="100%">
-            <tr>
-                <td width="20%"></td>
-                <td nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></td>
-            </tr>
-            <tr>
-                <td></td>
-                <td nowrap>&nbsp;&nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="day" <%="checked"%> onclick='onCheck(this, "day")'>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="day"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="week" <%=""%> onclick='onCheck(this, "week")'>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="week"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="month" <%=""%> onclick='onCheck(this, "month")'>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="month"/> &nbsp;&nbsp;
-                    <input type="radio" name="dateUnit" value="year" <%=""%> onclick='onCheck(this, "year")'>
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="year"/></td>
-            </tr>
-        </table>
-
-        <table border="0" cellspacing="1" cellpadding="2" width="100%">
-            <tr>
-                <td width="20%"></td>
-                <td width="16%" nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></td>
-                <td nowrap><select name="everyNum">
-                    <%
-                        for (int i = 1; i < 12; i++) {
-                    %>
-                    <option value="<%=i%>"><%=i%>
-                    </option>
-                    <%
-                        }
-                    %>
-                </select> <input type="text" name="everyUnit" id="everyUnit" size="10"
-                                 value="<%="day"%>" readonly></td>
-            </tr>
-            <tr>
-                <td></td>
-                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/> &nbsp;&nbsp;
-                    <button type="button" id="f_trigger_b">...</button>
-                    <br>
-                    <font size="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="ddmmyyyy"/></font></td>
-                <td nowrap valign="top"><input type="text" id="endDate"
-                                               name="endDate" size="10"
-                                               value="<%=UtilDateUtilities.DateToString(new Date(),"dd/MM/yyyy")%>"
-                                               readonly></td>
-            </tr>
-        </table>
-        <%
-            String temp = null;
-            for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                temp = e.nextElement().toString();
-                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
-                    continue;
-                out.println("<input type='hidden' name='" + temp + "' value=\"" + UtilMisc.htmlEscape(request.getParameter(temp)) + "\">");
-            }
-        %>
-    </form>
-
-    <script type="text/javascript">
-        Calendar.setup({
-            inputField: "endDate",      // id of the input field
-            ifFormat: "%d/%m/%Y",       // format of the input field
-            showsTime: false,            // will display a time selector
-            button: "f_trigger_b",   // trigger for the calendar (button ID)
-            singleClick: true,           // double-click mode
-            step: 1                // show all years in drop-down boxes (instead of every other year as default)
-        });
-    </script>
+            <%
+                String temp = null;
+                String csrfTokenName = CsrfGuard.getInstance().getTokenName();
+                for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
+                    temp = e.nextElement().toString();
+                    if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals(csrfTokenName))
+                        continue;
+                    out.println("<input type=\"hidden\" name=\"" + Encode.forHtmlAttribute(temp) + "\" value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
+                }
+            %>
+        </form>
+    </div>
 
     </body>
 </html>

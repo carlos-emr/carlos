@@ -691,11 +691,15 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return empty when no documents updated since date")
         void shouldReturnEmpty_whenNoUpdates() {
-            // Given — @PrePersist overrides updatedatetime with now(), so re-set it
+            // Given — @PrePersist/@PreUpdate override updatedatetime with now(),
+            // so use native SQL to bypass JPA lifecycle callbacks
             Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
-            doc.setUpdatedatetime(today);
-            entityManager.merge(doc);
+            entityManager.createNativeQuery("UPDATE document SET updatedatetime = :date WHERE document_no = :docNo")
+                    .setParameter("date", today)
+                    .setParameter("docNo", doc.getDocumentNo())
+                    .executeUpdate();
             entityManager.flush();
+            entityManager.clear();
 
             // When — tomorrow is after document update
             List<Document> result = documentDao.findByDemographicUpdateDate(DEMO_ID, tomorrow);
@@ -730,11 +734,15 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should exclude documents updated at exactly the given date")
         void shouldExcludeDocuments_updatedAtExactDate() {
-            // Given — @PrePersist overrides updatedatetime with now(), so re-set it
+            // Given — @PrePersist/@PreUpdate override updatedatetime with now(),
+            // so use native SQL to bypass JPA lifecycle callbacks
             Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
-            doc.setUpdatedatetime(today);
-            entityManager.merge(doc);
+            entityManager.createNativeQuery("UPDATE document SET updatedatetime = :date WHERE document_no = :docNo")
+                    .setParameter("date", today)
+                    .setParameter("docNo", doc.getDocumentNo())
+                    .executeUpdate();
             entityManager.flush();
+            entityManager.clear();
 
             // When — exclusive: today == today, should NOT include
             List<Document> result = documentDao.findByDemographicUpdateAfterDate(DEMO_ID, today);
@@ -835,11 +843,15 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return empty when no updates since date")
         void shouldReturnEmpty_whenNoUpdates() {
-            // Given — @PrePersist overrides updatedatetime with now(), so re-set it
+            // Given — @PrePersist/@PreUpdate override updatedatetime with now(),
+            // so use native SQL to bypass JPA lifecycle callbacks
             Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
-            doc.setUpdatedatetime(today);
-            entityManager.merge(doc);
+            entityManager.createNativeQuery("UPDATE document SET updatedatetime = :date WHERE document_no = :docNo")
+                    .setParameter("date", today)
+                    .setParameter("docNo", doc.getDocumentNo())
+                    .executeUpdate();
             entityManager.flush();
+            entityManager.clear();
 
             // When
             List<Integer> result = documentDao.findDemographicIdsSince(tomorrow);
