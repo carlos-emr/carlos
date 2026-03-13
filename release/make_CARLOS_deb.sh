@@ -231,14 +231,14 @@ chmod 755 ${RELEASE_DIR}/${DEBNAME}/DEBIAN/postrm
 
 echo "Configuring prerm"
 # prerm: optional pre-removal script run by dpkg before the package is removed.
-if [ -f "release/prerm" ]; then
+if [ -f "${RELEASE_DIR}/prerm" ]; then
     sed -e 's/^PROGRAM.*/PROGRAM='"$PROGRAM"'/' \
     -e 's/^PACKAGE.*/PACKAGE='"$PACKAGE"'/' \
     -e 's/^db_name.*/db_name='"$db_name"'/' \
     -e 's/^VERSION.*/VERSION='"$VERSION"'/' \
     -e 's/^PREVIOUS.*/PREVIOUS='"$PREVIOUS"'/' \
     -e 's/^REVISION.*/REVISION='"$REVISION"'/' \
-    release/prerm > ${RELEASE_DIR}/${DEBNAME}/DEBIAN/prerm
+    "${RELEASE_DIR}/prerm" > ${RELEASE_DIR}/${DEBNAME}/DEBIAN/prerm
     chmod 755 ${RELEASE_DIR}/${DEBNAME}/DEBIAN/prerm
 else
     echo "WARNING: release/prerm not found, skipping (package will not have a pre-removal script)"
