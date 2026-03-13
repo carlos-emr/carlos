@@ -88,5 +88,23 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      */
     DigitalSignature processAndSaveDigitalSignature(LoggedInInfo loggedInInfo, String signatureRequestId, Integer demographicNo, ModuleType moduleType);
 
+    /**
+     * Creates an immutable {@link DigitalSignature} from the provider's stamp signature file on disk.
+     *
+     * <p>Reads the stamp PNG ({@code consult_sig_<providerNo>.png}) from the eForm image directory,
+     * encrypts it, and persists it as a new {@link DigitalSignature} record. This ensures that
+     * historical consultations retain the signature that was active at the time of signing, even
+     * if the provider later updates or deletes their stamp file.</p>
+     *
+     * @param loggedInInfo  Information about the currently logged-in user, used to determine
+     *                      facility and check if digital signatures are enabled.
+     * @param providerNo    The provider number whose stamp file to read (e.g., "999998").
+     * @param demographicNo The ID of the patient associated with the consultation.
+     * @param moduleType    {@link ModuleType} The module from which the signature originated.
+     * @return The saved {@link DigitalSignature} object, or {@code null} if digital signatures
+     *         are disabled, the stamp file does not exist, or an error occurs during processing.
+     */
+    DigitalSignature saveStampSignature(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo, ModuleType moduleType);
+
 }
 

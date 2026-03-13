@@ -188,8 +188,16 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
             try {
                 if (newSignature) {
-		   DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
-                   if (signature != null) {
+                    // Manual signature from tablet/signature pad
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
+                    if (signature != null) {
+                        signatureId = "" + signature.getId();
+                    }
+                } else {
+                    // Stamp signature — create immutable copy from provider's stamp file
+                    DigitalSignature signature = digitalSignatureManager.saveStampSignature(
+                            loggedInInfo, providerNo, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
+                    if (signature != null) {
                         signatureId = "" + signature.getId();
                     }
                 }
@@ -324,14 +332,22 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
             try {
                 if (newSignature) {
-		    DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-		    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
+                    // Manual re-sign from tablet/signature pad
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
                         signatureId = null;
                     }
+                } else if (signatureImg == null || signatureImg.isEmpty()) {
+                    // Stamp signature with no existing DigitalSignature — create immutable copy
+                    DigitalSignature signature = digitalSignatureManager.saveStampSignature(
+                            loggedInInfo, providerNo, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
+                    if (signature != null) {
+                        signatureId = "" + signature.getId();
+                    }
                 } else {
+                    // Already has a DigitalSignature ID — keep it
                     signatureId = signatureImg;
                 }
 

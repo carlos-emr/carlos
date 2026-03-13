@@ -241,8 +241,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
                     PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                     if (sigFile.exists()) {
                         exists = true;
-                        imageUrl = request.getContextPath() + "/eform/displayImage.do?imagefile="
-                                + Encode.forUriComponent(expectedName);
+                        imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
                     }
                 } catch (SecurityException e) {
                     MiscUtils.getLogger().debug("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
@@ -259,8 +258,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     }
 
     private static String buildSuccessJson(HttpServletRequest req, String signatureName) {
-        String imageUrl = req.getContextPath() + "/eform/displayImage.do?imagefile="
-                + Encode.forUriComponent(signatureName);
+        String imageUrl = req.getContextPath() + "/provider/providerSignatureImage.do";
         return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
     }
 

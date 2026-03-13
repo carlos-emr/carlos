@@ -1290,7 +1290,7 @@
                 <label class="pref-label"><fmt:message key="provider.providerpreference.signatureStamp.labelCurrentSig"/></label>
                 <div id="sigPreviewArea" style="border:1px solid var(--carlos-border); border-radius:4px; padding:10px; background:#fff; min-height:80px; display:flex; align-items:center; justify-content:center;">
                     <% if (hasConsultSignature) { %>
-                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/eform/displayImage.do?imagefile=<%=Encode.forUriComponent(consultSigValue)%>"
+                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/provider/providerSignatureImage.do"
                              alt="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("altCurrentSig"))%>" style="max-width:100%; max-height:120px;"/>
                     <% } else { %>
                         <span id="sigPlaceholder" style="color:#999; font-style:italic;"><fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded"/></span>
