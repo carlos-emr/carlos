@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
@@ -160,10 +161,19 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
     @Override
     public DigitalSignature saveStampSignature(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo, ModuleType moduleType) {
         if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
+            logger.debug("Digital signatures disabled for facility — stamp not saved");
             return null;
         }
 
-        String stampFilename = "consult_sig_" + providerNo + ".png";
+        // Prevent provider impersonation: the stamp must belong to the logged-in user
+        String loggedInProvider = loggedInInfo.getLoggedInProviderNo();
+        if (!loggedInProvider.equals(providerNo)) {
+            logger.warn("Provider {} attempted to use stamp signature of provider {} — denied",
+                    loggedInProvider, providerNo);
+            return null;
+        }
+
+        String stampFilename = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
         File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
 
         try {
@@ -183,6 +193,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             logger.warn("Blocked unsafe file access attempt for stamp signature.", e);
         } catch (IOException e) {
             logger.error("Error reading stamp signature file: {}", stampFilename, e);
+        } catch (RuntimeException e) {
+            logger.error("Error persisting stamp signature for provider {}: {}", providerNo, e.getMessage(), e);
         }
 
         return null;

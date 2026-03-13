@@ -51,15 +51,19 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Base64;
 
+import org.springframework.dao.DataAccessException;
+
 /**
  * Manages provider signature stamp images for consultations, prescriptions, and eForms.
  *
  * <p>Supports uploading a signature image file or saving a drawn signature from an HTML5 canvas.
- * Signatures are stored as {@code consult_sig_<providerNo>.png} in the eForm image directory,
- * following the naming convention required by eForms.</p>
+ * The stored stamp image is consumed by consultation requests, prescription previews, and eForms
+ * (via the {@link UserProperty#CONSULT_SIGNATURE_PREFIX} naming convention). Signatures are stored
+ * as {@code consult_sig_<providerNo>.png} in the eForm image directory.</p>
  *
  * <p>Routes based on the {@code method} request parameter:
- * {@code upload}, {@code saveDrawn}, {@code delete}, {@code check}.</p>
+ * {@code upload}, {@code saveDrawn}, {@code delete}, {@code check}.
+ * All methods require HTTP POST except {@code check}, which also accepts GET.</p>
  *
  * @since 2026-03-09
  */
@@ -68,8 +72,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
 
-    private static final int MAX_DRAWN_SIGNATURE_BYTES = 512 * 1024;
-    private static final String SIGNATURE_PREFIX = "consult_sig_";
+    private static final int MAX_SIGNATURE_BYTES = 512 * 1024;
 
     @Override
     public String execute() {
@@ -86,17 +89,14 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_pref)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            String method = request.getParameter("method");
-            if (!"check".equals(method)) {
-                writeJson(response, "{\"success\":false,\"error\":\"POST required\"}");
-                return NONE;
-            }
-        }
-
         String method = request.getParameter("method");
         if (method == null) {
             writeJson(response, "{\"success\":false,\"error\":\"No method specified\"}");
+            return NONE;
+        }
+
+        if (!"POST".equalsIgnoreCase(request.getMethod()) && !"check".equals(method)) {
+            writeJson(response, "{\"success\":false,\"error\":\"POST required\"}");
             return NONE;
         }
 
@@ -123,10 +123,21 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             return NONE;
         }
 
+        if (image.length() > MAX_SIGNATURE_BYTES) {
+            writeJson(response, "{\"success\":false,\"error\":\"File too large\"}");
+            return NONE;
+        }
+
         try {
             PathValidationUtils.validateUpload(image);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Signature stamp upload blocked by path validation for provider {}", providerNo);
+            writeJson(response, "{\"success\":false,\"error\":\"Upload rejected\"}");
+            return NONE;
+        }
 
-            String signatureName = SIGNATURE_PREFIX + providerNo + ".png";
+        String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        try {
             File imageFolder = getImageFolder();
 
             // Read the uploaded image and re-write as PNG to ensure correct format
@@ -141,11 +152,14 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
 
             userPropertyDAO.saveProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE, signatureName);
 
-            writeJson(response, buildSuccessJson(request, signatureName));
+            writeJson(response, buildSuccessJson(request));
 
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Signature stamp upload failed", e);
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Signature stamp upload I/O failed for provider {}", providerNo, e);
             writeJson(response, "{\"success\":false,\"error\":\"Upload failed\"}");
+        } catch (DataAccessException e) {
+            MiscUtils.getLogger().error("Signature stamp upload DB save failed for provider {}", providerNo, e);
+            writeJson(response, "{\"success\":false,\"error\":\"Could not save signature preference\"}");
         }
         return NONE;
     }
@@ -157,107 +171,141 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             return NONE;
         }
 
+        // Strip data URL prefix if present
+        String base64Data = signatureData;
+        if (base64Data.contains(",")) {
+            base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
+        }
+
+        byte[] imageBytes;
         try {
-            // Strip data URL prefix if present
-            String base64Data = signatureData;
-            if (base64Data.contains(",")) {
-                base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
-            }
+            imageBytes = Base64.getDecoder().decode(base64Data);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().warn("Invalid base64 signature data from provider {}", providerNo);
+            writeJson(response, "{\"success\":false,\"error\":\"Invalid signature data\"}");
+            return NONE;
+        }
 
-            byte[] imageBytes = Base64.getDecoder().decode(base64Data);
-            if (imageBytes.length > MAX_DRAWN_SIGNATURE_BYTES) {
-                writeJson(response, "{\"success\":false,\"error\":\"Signature data too large\"}");
-                return NONE;
-            }
+        if (imageBytes.length > MAX_SIGNATURE_BYTES) {
+            writeJson(response, "{\"success\":false,\"error\":\"Signature data too large\"}");
+            return NONE;
+        }
 
-            // Validate it's actually an image
-            BufferedImage bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
-            if (bufferedImage == null) {
-                writeJson(response, "{\"success\":false,\"error\":\"Invalid image data\"}");
-                return NONE;
-            }
+        // Validate it's actually an image
+        BufferedImage bufferedImage;
+        try {
+            bufferedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn("Could not read drawn signature image from provider {}", providerNo);
+            writeJson(response, "{\"success\":false,\"error\":\"Invalid image data\"}");
+            return NONE;
+        }
+        if (bufferedImage == null) {
+            writeJson(response, "{\"success\":false,\"error\":\"Invalid image data\"}");
+            return NONE;
+        }
 
-            String signatureName = SIGNATURE_PREFIX + providerNo + ".png";
+        String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        try {
             File imageFolder = getImageFolder();
             File destinationFile = PathValidationUtils.validatePath(signatureName, imageFolder);
-
-            // Write as PNG
             ImageIO.write(bufferedImage, "png", destinationFile);
 
             userPropertyDAO.saveProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE, signatureName);
 
-            writeJson(response, buildSuccessJson(request, signatureName));
+            writeJson(response, buildSuccessJson(request));
 
-        } catch (IllegalArgumentException e) {
-            MiscUtils.getLogger().warn("Invalid base64 signature data from provider {}", providerNo);
-            writeJson(response, "{\"success\":false,\"error\":\"Invalid signature data\"}");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Signature stamp save failed", e);
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Signature stamp save I/O failed for provider {}", providerNo, e);
             writeJson(response, "{\"success\":false,\"error\":\"Save failed\"}");
+        } catch (DataAccessException e) {
+            MiscUtils.getLogger().error("Signature stamp save DB failed for provider {}", providerNo, e);
+            writeJson(response, "{\"success\":false,\"error\":\"Could not save signature preference\"}");
         }
         return NONE;
     }
 
     private String handleDelete(HttpServletResponse response, String providerNo) {
+        UserProperty prop;
         try {
-            UserProperty prop = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
-            if (prop != null) {
-                // Use the expected deterministic filename rather than trusting the stored value
-                String expectedName = SIGNATURE_PREFIX + providerNo + ".png";
+            prop = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
+        } catch (DataAccessException e) {
+            MiscUtils.getLogger().error("Signature stamp delete: DB lookup failed for provider {}", providerNo, e);
+            writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
+            return NONE;
+        }
+
+        if (prop != null) {
+            // Use the expected deterministic filename rather than trusting the stored value
+            String expectedName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+            try {
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
-                try {
-                    PathValidationUtils.validateExistingPath(sigFile, imageFolder);
-                    if (sigFile.exists() && !sigFile.delete()) {
-                        MiscUtils.getLogger().warn("Could not delete signature file for provider {}: {}", providerNo, sigFile.getAbsolutePath());
-                    }
-                } catch (SecurityException e) {
-                    MiscUtils.getLogger().warn("Suspicious signature path for provider {}: {}", providerNo, e.getMessage());
-                    writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
-                    return NONE;
+                PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                if (sigFile.exists() && !sigFile.delete()) {
+                    MiscUtils.getLogger().warn("Could not delete signature file for provider {}: {}", providerNo, sigFile.getAbsolutePath());
                 }
-                userPropertyDAO.delete(prop);
+            } catch (SecurityException e) {
+                MiscUtils.getLogger().warn("Suspicious signature path for provider {}: {}", providerNo, e.getMessage());
+                writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
+                return NONE;
+            } catch (IOException e) {
+                MiscUtils.getLogger().error("Signature stamp delete: I/O error for provider {}", providerNo, e);
+                writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
+                return NONE;
             }
-            writeJson(response, "{\"success\":true}");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Signature stamp delete failed", e);
-            writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
+
+            try {
+                userPropertyDAO.delete(prop);
+            } catch (DataAccessException e) {
+                MiscUtils.getLogger().error("Signature stamp delete: DB delete failed for provider {} (file may already be removed)", providerNo, e);
+                writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
+                return NONE;
+            }
         }
+        writeJson(response, "{\"success\":true}");
         return NONE;
     }
 
     private String handleCheck(HttpServletRequest request, HttpServletResponse response, String providerNo) {
+        UserProperty prop;
         try {
-            UserProperty prop = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
-            boolean exists = false;
-            String imageUrl = "";
+            prop = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
+        } catch (DataAccessException e) {
+            MiscUtils.getLogger().error("Signature stamp check: DB lookup failed for provider {}", providerNo, e);
+            writeJson(response, "{\"error\":\"Could not check signature status\",\"exists\":false,\"imageUrl\":\"\"}");
+            return NONE;
+        }
 
-            if (prop != null && prop.getValue() != null && !prop.getValue().trim().isEmpty()) {
-                // Use the expected deterministic filename rather than trusting the stored value
-                String expectedName = SIGNATURE_PREFIX + providerNo + ".png";
+        boolean exists = false;
+        String imageUrl = "";
+
+        if (prop != null && prop.getValue() != null && !prop.getValue().trim().isEmpty()) {
+            // Use the expected deterministic filename rather than trusting the stored value
+            String expectedName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+            try {
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
-                try {
-                    PathValidationUtils.validateExistingPath(sigFile, imageFolder);
-                    if (sigFile.exists()) {
-                        exists = true;
-                        imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
-                    }
-                } catch (SecurityException e) {
-                    MiscUtils.getLogger().debug("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
+                PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                if (sigFile.exists()) {
+                    exists = true;
+                    imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
                 }
+            } catch (SecurityException e) {
+                MiscUtils.getLogger().debug("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
+            } catch (IOException e) {
+                MiscUtils.getLogger().error("Signature stamp check: I/O error for provider {}", providerNo, e);
+                writeJson(response, "{\"error\":\"Could not check signature status\",\"exists\":false,\"imageUrl\":\"\"}");
+                return NONE;
             }
-
-            writeJson(response, "{\"exists\":" + exists + ",\"imageUrl\":\""
-                    + Encode.forJavaScript(imageUrl) + "\"}");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Signature stamp check failed", e);
-            writeJson(response, "{\"exists\":false,\"imageUrl\":\"\"}");
         }
+
+        writeJson(response, "{\"exists\":" + exists + ",\"imageUrl\":\""
+                + Encode.forJavaScript(imageUrl) + "\"}");
         return NONE;
     }
 
-    private static String buildSuccessJson(HttpServletRequest req, String signatureName) {
+    private static String buildSuccessJson(HttpServletRequest req) {
         String imageUrl = req.getContextPath() + "/provider/providerSignatureImage.do";
         return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
     }
@@ -278,7 +326,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             writer.write(json);
             writer.flush();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to write JSON response", e);
+            MiscUtils.getLogger().debug("Failed to write JSON response (client may have disconnected)", e);
         }
     }
 

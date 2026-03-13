@@ -68,6 +68,8 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String FAX = "fax";
     public static final String SIGNATURE = "signature";
     public static final String PROVIDER_CONSULT_SIGNATURE = "provider_consult_signature";
+    /** Filename prefix for provider stamp signature images: {@code consult_sig_<providerNo>.png} */
+    public static final String CONSULT_SIGNATURE_PREFIX = "consult_sig_";
     public static final String COLOUR = "colour";
     public static final String SEX = "sex";
     public static final String SCHEDULE_START_HOUR = "schedule.start_hour";

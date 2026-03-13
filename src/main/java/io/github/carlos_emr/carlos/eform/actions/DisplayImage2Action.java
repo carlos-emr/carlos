@@ -35,8 +35,10 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarProperties;
 
 import javax.activation.MimetypesFileTypeMap;
@@ -56,6 +58,7 @@ import java.util.ArrayList;
 public class DisplayImage2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private record StreamData(InputStream stream, String contentType) {}
 
     /**
@@ -71,10 +74,8 @@ public class DisplayImage2Action extends ActionSupport {
             return NONE;
         }
 
-        String requestedFile = request.getParameter("imagefile");
-        if (requestedFile != null && requestedFile.startsWith("consult_sig_")) {
-            MiscUtils.getLogger().info("Signature image access: provider={} file={}",
-                    loggedInInfo.getLoggedInProviderNo(), requestedFile);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         StreamData data = process();

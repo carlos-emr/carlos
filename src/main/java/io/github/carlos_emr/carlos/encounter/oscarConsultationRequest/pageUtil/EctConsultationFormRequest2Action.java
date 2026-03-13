@@ -194,11 +194,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         signatureId = "" + signature.getId();
                     }
                 } else {
-                    // Stamp signature — create immutable copy from provider's stamp file
+                    // Stamp signature — attempt to create immutable copy from provider's stamp file
+                    // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
                     DigitalSignature signature = digitalSignatureManager.saveStampSignature(
                             loggedInInfo, providerNo, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
+                    } else {
+                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on new consultation", providerNo);
                     }
                 }
 
@@ -340,11 +343,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         signatureId = null;
                     }
                 } else if (signatureImg == null || signatureImg.isEmpty()) {
-                    // Stamp signature with no existing DigitalSignature — create immutable copy
+                    // Stamp signature with no existing DigitalSignature — attempt to create immutable copy
+                    // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
                     DigitalSignature signature = digitalSignatureManager.saveStampSignature(
                             loggedInInfo, providerNo, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
+                    } else {
+                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on consultation update (requestId={})", providerNo, requestId);
                     }
                 } else {
                     // Already has a DigitalSignature ID — keep it

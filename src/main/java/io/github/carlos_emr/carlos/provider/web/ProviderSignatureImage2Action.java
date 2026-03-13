@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.provider.web;
 
 import com.opensymphony.xwork2.ActionSupport;
 import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -41,7 +42,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 
 /**
@@ -52,6 +55,9 @@ import java.io.OutputStream;
  * is accepted. This prevents cross-provider signature access when only the requester's own
  * signature is needed.</p>
  *
+ * <p>Returns HTTP 401 if not authenticated, 404 if the signature file does not exist,
+ * or 500 on internal error. On success, streams the PNG image inline.</p>
+ *
  * <p>URL: {@code /provider/providerSignatureImage.do}</p>
  *
  * @since 2026-03-13
@@ -59,8 +65,6 @@ import java.io.OutputStream;
 public class ProviderSignatureImage2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    private static final String SIGNATURE_PREFIX = "consult_sig_";
 
     @Override
     public String execute() {
@@ -78,40 +82,41 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-        String signatureName = SIGNATURE_PREFIX + providerNo + ".png";
+        // signatureName is derived from session providerNo — safe for header inclusion
+        String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
 
-        InputStream fileStream = null;
+        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
+        if (!imageFolder.exists()) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
+        File sigFile;
         try {
-            File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
-            if (!imageFolder.exists()) {
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                return NONE;
-            }
+            sigFile = PathValidationUtils.validatePath(signatureName, imageFolder);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Blocked path traversal attempt for signature image", e);
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
-            File sigFile = PathValidationUtils.validatePath(signatureName, imageFolder);
-            if (!sigFile.exists()) {
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                return NONE;
-            }
+        if (!sigFile.exists()) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
 
-            response.setContentType("image/png");
-            response.setHeader("Content-disposition", "inline; filename=\"" + signatureName + "\"");
+        response.setContentType("image/png");
+        response.setHeader("Content-disposition", "inline; filename=\"" + signatureName.replaceAll("[^a-zA-Z0-9_.]", "_") + "\"");
 
-            fileStream = new FileInputStream(sigFile);
+        try (InputStream fileStream = new FileInputStream(sigFile)) {
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(fileStream, outputStream);
-
-        } catch (Exception e) {
+        } catch (FileNotFoundException e) {
+            MiscUtils.getLogger().debug("Signature image file not found on disk: {}", signatureName);
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        } catch (IOException e) {
             MiscUtils.getLogger().error("Error serving provider signature image", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        } finally {
-            if (fileStream != null) {
-                try {
-                    fileStream.close();
-                } catch (Exception ignored) {
-                    // Stream cleanup — nothing actionable
-                }
-            }
         }
         return NONE;
     }
