@@ -49,6 +49,7 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -110,27 +111,17 @@ public class DisplayImage2Action extends ActionSupport {
     public StreamData process() throws Exception {
 
         String fileName = request.getParameter("imagefile");
-        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
-            throw new IllegalArgumentException("Invalid filename");
+        if (fileName == null || fileName.isEmpty()) {
+            throw new IllegalArgumentException("imagefile parameter is required");
         }
+
         String home_dir = OscarProperties.getInstance().getEformImageDirectory();
-
-        File file = null;
-        try {
-            File directory = new File(home_dir);
-            if (!directory.exists()) {
-                throw new Exception("Directory:  " + home_dir + " does not exist");
-            }
-            file = new File(directory, fileName);
-
-            if (!directory.equals(file.getParentFile())) {
-                MiscUtils.getLogger().debug("SECURITY WARNING: Illegal file path detected, client attempted to navigate away from the file directory");
-                throw new Exception("Could not open file " + fileName + ".  Check the file path");
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("Could not open file " + home_dir + fileName + " does " + home_dir + " exist ?", e);
+        File directory = new File(home_dir);
+        if (!directory.exists()) {
+            throw new Exception("Directory: " + home_dir + " does not exist");
         }
+
+        File file = PathValidationUtils.validatePath(fileName, directory);
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         
@@ -245,25 +236,11 @@ public class DisplayImage2Action extends ActionSupport {
 
     public static File getImageFile(String imageFileName) throws Exception {
         String home_dir = OscarProperties.getInstance().getEformImageDirectory();
-
-        File file = null;
-        try {
-            File directory = new File(home_dir);
-            if (!directory.exists()) {
-                throw new Exception("Directory:  " + home_dir + " does not exist");
-            }
-            file = new File(directory, imageFileName);
-            //String canonicalPath = file.getParentFile().getCanonicalPath(); //absolute path of the retrieved file
-
-            if (!directory.equals(file.getParentFile())) {
-                MiscUtils.getLogger().debug("SECURITY WARNING: Illegal file path detected, client attempted to navigate away from the file directory");
-                throw new Exception("Could not open file " + imageFileName + ".  Check the file path");
-            }
-            return file;
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("Could not open file " + home_dir + imageFileName + " does " + home_dir + " exist ?", e);
+        File directory = new File(home_dir);
+        if (!directory.exists()) {
+            throw new Exception("Directory: " + home_dir + " does not exist");
         }
+        return PathValidationUtils.validatePath(imageFileName, directory);
     }
 
     /**
