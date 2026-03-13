@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.commn.model.Icd9;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -32,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,10 +54,21 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private Icd9Dao dao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     /**
-     * Helper to create and persist an Icd9 entity.
+     * Creates a parent Icd9Synonym record to satisfy FK constraint,
+     * then persists the Icd9 entity.
      */
-    private Icd9 createIcd9(String code, String description) throws Exception {
+    private Icd9 createIcd9(String code, String description) {
+        entityManager.createNativeQuery(
+                "MERGE INTO Icd9Synonym (dxCode, patientFriendly) KEY(dxCode) VALUES (?, ?)")
+                .setParameter(1, code)
+                .setParameter(2, description)
+                .executeUpdate();
+        entityManager.flush();
+
         Icd9 entity = new Icd9();
         entity.setIcd9(code);
         entity.setDescription(description);
@@ -71,12 +83,10 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist ICD-9 code with generated ID")
-        void shouldPersistIcd9_whenValidDataProvided() throws Exception {
-            Icd9 entity = new Icd9();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            dao.persist(entity);
+        void shouldPersistIcd9_whenValidDataProvided() {
+            Icd9 saved = createIcd9("999.0", "Test diagnosis");
 
-            assertThat(entity.getId()).isPositive();
+            assertThat(saved.getId()).isPositive();
         }
 
         @Test

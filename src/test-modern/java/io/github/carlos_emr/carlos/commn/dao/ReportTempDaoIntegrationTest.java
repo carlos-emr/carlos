@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ReportTemp;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.commn.model.ReportTempPK;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Date;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -53,16 +53,31 @@ public class ReportTempDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ReportTempDao reportTempDao;
 
+    private static int counter = 1;
+
+    private ReportTemp createReportTemp() {
+        ReportTempPK pk = new ReportTempPK();
+        pk.setDemographicNo(counter++);
+        pk.setEdb(new Date());
+
+        ReportTemp entity = new ReportTemp();
+        entity.setId(pk);
+        entity.setDemoName("Test Patient");
+        entity.setProviderNo("999001");
+        entity.setAddress("123 Test St");
+        entity.setCreator("testuser");
+        return entity;
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist reporttemp with generated ID")
-        void shouldPersistReportTemp_whenValidDataProvided() throws Exception {
-            ReportTemp entity = new ReportTemp();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
+        @DisplayName("should persist reporttemp with composite PK")
+        void shouldPersistReportTemp_whenValidDataProvided() {
+            ReportTemp entity = createReportTemp();
             reportTempDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,11 +85,11 @@ public class ReportTempDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find reporttemp by ID")
-        void shouldFindReportTemp_whenValidIdProvided() throws Exception {
-            ReportTemp saved = new ReportTemp();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
+        void shouldFindReportTemp_whenValidIdProvided() {
+            ReportTemp saved = createReportTemp();
             reportTempDao.persist(saved);
             ReportTemp found = reportTempDao.find(saved.getId());
+            assertThat(found).isNotNull();
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,9 +101,8 @@ public class ReportTempDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all reporttemp records")
-        void shouldCountAllReportTemps() throws Exception {
-            ReportTemp entity = new ReportTemp();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
+        void shouldCountAllReportTemps() {
+            ReportTemp entity = createReportTemp();
             reportTempDao.persist(entity);
             long count = reportTempDao.getCountAll();
             assertThat(count).isEqualTo(1);

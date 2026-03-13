@@ -66,16 +66,27 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
      * Creates parent Demographic records to satisfy foreign key constraints
      * on the demographic_merged table.
      */
+    private Demographic createMinimalDemographic() {
+        Demographic demo = new Demographic();
+        demo.setDemographicNo(null);
+        demo.setFirstName("Test");
+        demo.setLastName("Patient");
+        demo.setSex("M");
+        demo.setMonthOfBirth("01");
+        demo.setDateOfBirth("15");
+        demo.setYearOfBirth("1990");
+        demo.setHin("");
+        demo.setVer("");
+        demo.setProviderNo("999001");
+        return demo;
+    }
+
     @BeforeEach
-    void setUp() throws Exception {
-        Demographic demo1 = new Demographic();
-        EntityDataGenerator.generateTestDataForModelClass(demo1);
-        demo1.setDemographicNo(null);
+    void setUp() {
+        Demographic demo1 = createMinimalDemographic();
         demographicDao.save(demo1);
 
-        Demographic demo2 = new Demographic();
-        EntityDataGenerator.generateTestDataForModelClass(demo2);
-        demo2.setDemographicNo(null);
+        Demographic demo2 = createMinimalDemographic();
         demographicDao.save(demo2);
 
         hibernateTemplate.flush();

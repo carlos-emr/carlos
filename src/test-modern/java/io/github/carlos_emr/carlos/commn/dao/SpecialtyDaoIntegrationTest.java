@@ -23,15 +23,13 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Specialty;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.commn.model.SpecialtyPK;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -53,16 +51,24 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private SpecialtyDao specialtyDao;
 
+    private static int counter = 1;
+
+    private Specialty createSpecialty() {
+        SpecialtyPK pk = new SpecialtyPK("ON", "spec" + counter++);
+        Specialty entity = new Specialty();
+        entity.setId(pk);
+        return entity;
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist specialty with generated ID")
-        void shouldPersistSpecialty_whenValidDataProvided() throws Exception {
-            Specialty entity = new Specialty();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
+        @DisplayName("should persist specialty with composite PK")
+        void shouldPersistSpecialty_whenValidDataProvided() {
+            Specialty entity = createSpecialty();
             specialtyDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,11 +76,11 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find specialty by ID")
-        void shouldFindSpecialty_whenValidIdProvided() throws Exception {
-            Specialty saved = new Specialty();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
+        void shouldFindSpecialty_whenValidIdProvided() {
+            Specialty saved = createSpecialty();
             specialtyDao.persist(saved);
             Specialty found = specialtyDao.find(saved.getId());
+            assertThat(found).isNotNull();
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,9 +92,8 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all specialty records")
-        void shouldCountAllSpecialtys() throws Exception {
-            Specialty entity = new Specialty();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
+        void shouldCountAllSpecialtys() {
+            Specialty entity = createSpecialty();
             specialtyDao.persist(entity);
             long count = specialtyDao.getCountAll();
             assertThat(count).isEqualTo(1);

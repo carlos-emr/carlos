@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Ichppccode;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -31,14 +30,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
  * Integration tests for {@link IchppccodeDao} covering basic CRUD operations.
  *
- * <p>Migrated from legacy {@code IchppccodeDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code IchppccodeDaoTest} (JUnit 4 / DaoTestFixtures).
+ * Ichppccode uses a String-typed PK with @GeneratedValue(IDENTITY) which is
+ * incompatible with H2 auto-generation, so IDs must be set manually in tests.</p>
  *
  * @since 2026-03-07
  * @see IchppccodeDao
@@ -53,16 +52,25 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private IchppccodeDao ichppccodeDao;
 
+    private static int counter = 1;
+
+    private Ichppccode createIchppccode() {
+        Ichppccode entity = new Ichppccode();
+        entity.setId("ICH" + counter++);
+        entity.setDiagnosticCode("D" + counter);
+        entity.setDescription("Test diagnosis " + counter);
+        return entity;
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist ichppccode with generated ID")
-        void shouldPersistIchppccode_whenValidDataProvided() throws Exception {
-            Ichppccode entity = new Ichppccode();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
+        @DisplayName("should persist ichppccode with manual ID")
+        void shouldPersistIchppccode_whenValidDataProvided() {
+            Ichppccode entity = createIchppccode();
             ichppccodeDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,11 +78,11 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find ichppccode by ID")
-        void shouldFindIchppccode_whenValidIdProvided() throws Exception {
-            Ichppccode saved = new Ichppccode();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
+        void shouldFindIchppccode_whenValidIdProvided() {
+            Ichppccode saved = createIchppccode();
             ichppccodeDao.persist(saved);
             Ichppccode found = ichppccodeDao.find(saved.getId());
+            assertThat(found).isNotNull();
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,9 +94,8 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all ichppccode records")
-        void shouldCountAllIchppccodes() throws Exception {
-            Ichppccode entity = new Ichppccode();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
+        void shouldCountAllIchppccodes() {
+            Ichppccode entity = createIchppccode();
             ichppccodeDao.persist(entity);
             long count = ichppccodeDao.getCountAll();
             assertThat(count).isEqualTo(1);

@@ -62,22 +62,28 @@ public class FormsDaoIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void createFormTables() {
-        // Create formLabReq07 table (not HBM-managed, requires manual creation)
+        // FormLabReq07 entity exists in JPA but lacks formCreated/patientName columns.
+        // hbm2ddl creates the table from the entity, so we add missing columns.
         em.createNativeQuery(
-                "CREATE TABLE IF NOT EXISTS formLabReq07 (" +
-                        "ID INT AUTO_INCREMENT PRIMARY KEY, " +
-                        "formCreated DATE, " +
-                        "patientName VARCHAR(255), " +
-                        "demographic_no INT)"
+                "ALTER TABLE formLabReq07 ADD COLUMN IF NOT EXISTS formCreated DATE"
+        ).executeUpdate();
+        em.createNativeQuery(
+                "ALTER TABLE formLabReq07 ADD COLUMN IF NOT EXISTS patientName VARCHAR(255)"
         ).executeUpdate();
 
-        // Create formLabReq10 table
+        // Create formLabReq10 table (may not have a JPA entity)
         em.createNativeQuery(
                 "CREATE TABLE IF NOT EXISTS formLabReq10 (" +
                         "ID INT AUTO_INCREMENT PRIMARY KEY, " +
                         "formCreated DATE, " +
                         "patientName VARCHAR(255), " +
                         "demographic_no INT)"
+        ).executeUpdate();
+        em.createNativeQuery(
+                "ALTER TABLE formLabReq10 ADD COLUMN IF NOT EXISTS formCreated DATE"
+        ).executeUpdate();
+        em.createNativeQuery(
+                "ALTER TABLE formLabReq10 ADD COLUMN IF NOT EXISTS patientName VARCHAR(255)"
         ).executeUpdate();
 
         // Insert test data into formLabReq07

@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
@@ -53,14 +52,15 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProviderDataDao dao;
 
-    private ProviderData newProvider(String id) throws Exception {
+    private ProviderData newProvider(String id) {
         ProviderData result = new ProviderData();
         result.set(id);
-        try {
-            EntityDataGenerator.generateTestDataForModelClass(result);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        result.setLastName("Last" + id);
+        result.setFirstName("First" + id);
+        result.setProviderType("doctor");
+        result.setSex("M");
+        result.setSpecialty("GP");
+        result.setStatus("1");
         return result;
     }
 
