@@ -65,10 +65,10 @@
 
     <c:choose>
         <c:when test="${ empty templatesInGroup }">
-            <div class="row-fluid">
-                <div class="well span12" id=manageGroups>
+            <div class="row">
+                <div class="card card-body bg-body-tertiary col-md-12" id=manageGroups>
 
-                    <div class="row-fluid">
+                    <div class="row">
                         <!--ADD GROUP-->
                         <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup.do"
                               method="post" id="addGroupTemplate" class="form-inline">
@@ -77,11 +77,11 @@
                         </form>
 
                         <div class="alert alert-error textExists" style="display:none;">
-                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             <strong>Error!</strong> the group name you selected already exists.
                         </div>
                     </div>
-                    <div class="row-fluid">
+                    <div class="row">
                         <!--GROUP LIST-->
                         <table class="table table-condensed table-striped" id="groupListTbl">
                             <thead>
@@ -103,14 +103,14 @@
                                             <td>
                                                 <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup.do" style="display:inline;">
                                                     <input type="hidden" name="groupName" value="${ groupName }"/>
-                                                    <a class="pull-right" href="javascript:void(0);"
+                                                    <a class="float-end" href="javascript:void(0);"
                                                        onclick="if(confirm('Are you sure you want to delete this group?')){this.closest('form').submit();}"
                                                        title="delete group">
                                                         <i style="color:red;" class="fa-solid fa-xmark"></i>
                                                     </a>
                                                 </form>
                                                 <span>&nbsp;</span>
-                                                <a class="pull-right"
+                                                <a class="float-end"
                                                    href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup.do?groupName=${ groupName }"
                                                    title="edit group">
                                                     <i style="color:blue;" class="fa-solid fa-pen-to-square"></i>
@@ -133,10 +133,10 @@
             </div>
         </c:when>
         <c:otherwise>
-            <div class="row-fluid">
+            <div class="row">
                 <!--TEMPLATES IN GROUP-->
-                <div class="well span12">
-                    <div class="row-fluid">
+                <div class="card card-body bg-body-tertiary col-md-12">
+                    <div class="row">
                         <c:choose>
                             <c:when test="${ not empty templatesInGroup }">
                                 <h4>Templates in Group: <c:out value="${templatesInGroup[0].groupName}"/></h4>
@@ -146,7 +146,7 @@
                             </c:otherwise>
                         </c:choose>
                     </div>
-                    <div class="row-fluid">
+                    <div class="row">
                         <table class="table table-condensed table-striped" id="groupData">
                             <thead>
                             <tr>
@@ -189,7 +189,7 @@
                                                                 <input type="hidden" name="groupName" value="${temp.groupName}"/>
                                                                 <a href="javascript:void(0);"
                                                                    onclick="if(confirm('Remove template from group?')){this.closest('form').submit();}"
-                                                                   class="pull-right" title="delete template from group">
+                                                                   class="float-end" title="delete template from group">
                                                                     <i style="color:red;" class="fa-solid fa-xmark"></i>
                                                                 </a>
                                                             </form>
@@ -221,18 +221,18 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="row-fluid actions">
+                    <div class="row actions">
                         <form class="form-inline"
                               action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/rbtGroup.do"
                               id="goBack">
                             <button type="submit" name="back-btn" id="back-btn"
-                                    title="return to template group page" class="btn btn-secondary pull-right">Back
+                                    title="return to template group page" class="btn btn-secondary float-end">Back
                             </button>
 
                             <button type="button" style="margin-right:5px;" name="selectRbtTemplatesBtn"
                                     id="selectRbtTemplatesBtn"
-                                    title="add template to this group" data-toggle="modal"
-                                    data-target="#selectTemplatesModal" class="btn btn-primary pull-right">
+                                    title="add template to this group" data-bs-toggle="modal"
+                                    data-bs-target="#selectTemplatesModal" class="btn btn-primary float-end">
                                 Select Templates
                             </button>
 
@@ -249,7 +249,7 @@
         <div class="modal-dialog">
             <div class="modal-content" role="dialog">
                 <div class="modal-header">
-                    <button class="close" data-dismiss="modal">
+                    <button class="btn-close" data-bs-dismiss="modal">
                         &times;
                     </button>
                     <h3 class="modal-title">Select templates for group: <c:out
@@ -274,7 +274,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" id="templateToGroup-btn" class="btn btn-primary">
                         Add Selected Template(s) to ${templatesInGroup[0].groupName}
                     </button>

@@ -115,11 +115,11 @@
     <div class="container-fluid well">
         <h3>Audit Log Purge Tool</h3>
 
-        <div class="span2">
+        <div class="col-md-2">
 
         </div><!--span2-->
 
-        <div class="span12">
+        <div class="col-md-12">
 
             <%
                 String minDays = OscarProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
@@ -161,7 +161,7 @@
                     chosen date.
                 </p>
 
-                Most Recent Day to purge: <input class="span4" type="text" id="dateBegin" name="dateBegin" value=""/>
+                Most Recent Day to purge: <input class="col-md-4" type="text" id="dateBegin" name="dateBegin" value=""/>
 
                 <br/>
 

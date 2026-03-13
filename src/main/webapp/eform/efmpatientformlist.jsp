@@ -84,13 +84,13 @@
             <fmt:message key="eform.showmyform.title"/>
         </title>
 
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables/datatables.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
 
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 
         <script src="${pageContext.request.contextPath}/js/jquery.fileDownload.js"></script>

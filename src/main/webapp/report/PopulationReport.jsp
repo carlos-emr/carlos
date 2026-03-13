@@ -54,7 +54,7 @@
 <div class="page-header">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/>
-        <div class="pull-right">
+        <div class="float-end">
             <button name='print' onClick='window.print()' class="btn">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
@@ -66,8 +66,8 @@
 <table
         class="table table-bordered table-striped table-condensed table-hover">
     <colgroup>
-        <col class="span7"></col>
-        <col class="span2"></col>
+        <col class="col-md-7"></col>
+        <col class="col-md-2"></col>
     </colgroup>
     <thead>
     <tr>
@@ -90,8 +90,8 @@
 <table
         class="table table-bordered table-striped table-condensed table-hover">
     <colgroup>
-        <col class="span7"></col>
-        <col class="span2"></col>
+        <col class="col-md-7"></col>
+        <col class="col-md-2"></col>
     </colgroup>
     <caption>Homeless Shelter Population</caption>
     <tbody>
@@ -110,8 +110,8 @@
 <table
         class="table table-bordered table-striped table-condensed table-hover">
     <colgroup>
-        <col class="span4"></col>
-        <col class="span4"></col>
+        <col class="col-md-4"></col>
+        <col class="col-md-4"></col>
     </colgroup>
     <caption>Intensity of Shelter Use</caption>
     <tbody>
@@ -135,8 +135,8 @@
     <table
             class="table table-bordered table-striped table-condensed table-hover">
         <colgroup>
-            <col class="span5"></col>
-            <col class="span4"></col>
+            <col class="col-md-5"></col>
+            <col class="col-md-4"></col>
         </colgroup>
         <caption>Mortality In Shelters</caption>
         <tbody>
@@ -157,9 +157,9 @@
         class="table table-bordered table-striped table-condensed table-hover">
     <caption>Major Medical Condition</caption>
     <colgroup>
-        <col class="span2"></col>
-        <col class="span3"></col>
-        <col class="span4"></col>
+        <col class="col-md-2"></col>
+        <col class="col-md-3"></col>
+        <col class="col-md-4"></col>
     </colgroup>
     <thead>
     <tr>
@@ -191,9 +191,9 @@
         class="table table-bordered table-striped table-condensed table-hover">
     <caption>Major Mental Illness</caption>
     <colgroup>
-        <col class="span2"></col>
-        <col class="span3"></col>
-        <col class="span4"></col>
+        <col class="col-md-2"></col>
+        <col class="col-md-3"></col>
+        <col class="col-md-4"></col>
     </colgroup>
     <thead>
     <tr>
@@ -227,9 +227,9 @@
         Conditions
     </caption>
     <colgroup>
-        <col class="span2"></col>
-        <col class="span3"></col>
-        <col class="span4"></col>
+        <col class="col-md-2"></col>
+        <col class="col-md-3"></col>
+        <col class="col-md-4"></col>
     </colgroup>
     <thead>
     <tr>
@@ -261,7 +261,7 @@
         class="table table-bordered table-striped table-condensed table-hover">
     <caption>Notes on the Data</caption>
     <colgroup>
-        <col class="span9"></col>
+        <col class="col-md-9"></col>
     </colgroup>
     <tbody>
     <tr>
@@ -306,8 +306,8 @@
             <c:out value="${categoryCodeDescription.key}"></c:out>
         </caption>
         <colgroup>
-            <col class="span2"></col>
-            <col class="span7"></col>
+            <col class="col-md-2"></col>
+            <col class="col-md-7"></col>
         </colgroup>
         <thead>
         <tr>

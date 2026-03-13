@@ -67,7 +67,7 @@
 <% } %>
         </div>
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             Select diskette <input type="file" name="file1" value="" required>
 
             <input type="submit" name="Submit" class="btn btn-primary" value="Create Report">

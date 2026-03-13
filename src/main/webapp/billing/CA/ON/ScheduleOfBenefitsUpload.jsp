@@ -110,7 +110,7 @@
     <div class="container-fluid form-inline">
 
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
 
             <div>
                 1. Download the text file from <a

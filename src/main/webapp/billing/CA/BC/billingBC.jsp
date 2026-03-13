@@ -358,7 +358,7 @@
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/moment.js"></script>
     <script type="text/javascript"
@@ -366,7 +366,7 @@
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
 
@@ -1269,24 +1269,24 @@
         <img alt="OSCAR EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
     </div>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h3>
-    <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>
+    <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>
     <label class="label-text"><%=Encode.forHtmlContent(demo.getLastName())%>
         , <%=Encode.forHtmlContent(demo.getFirstName())%>
     </label>
 
-    <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.age"/></span>
+    <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.age"/></span>
     <label class="label-text"><%=demo.getAge()%>
     </label>
 
     <%-- 	Keep until confirmed not needed.
 
-            <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.status"/></span>
+            <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.status"/></span>
             <strong class="label-text"><%=demo.getPatientStatus()%></label>
 
-      <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.roster"/></span>
+      <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.roster"/></span>
             <label><%=demo.getRosterStatus()%></label>
     --%>
-    <span class="badge badge-primary" title="Most Responsible Provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.assignedProvider"/></span>
+    <span class="badge bg-primary" title="Most Responsible Provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.assignedProvider"/></span>
     <label class="label-text">
         <c:choose>
             <c:when test="<%= demo.getProviderNo() != null && ! demo.getProviderNo().trim().isEmpty() %>">
@@ -1588,8 +1588,8 @@
                                             <input type='text' id="serviceStartTime" class="form-control"/>
                                             <input type=hidden id="xml_starttime_hr" name="xml_starttime_hr"/>
                                             <input type=hidden id="xml_starttime_min" name="xml_starttime_min"/>
-                                            <span class="input-group-addon">
-		                        <span class="glyphicon glyphicon-time"></span>
+                                            <span class="input-group-text">
+		                        <span class="fa-solid fa-clock"></span>
 		                    </span>
                                         </div>
                                     </div>
@@ -1601,8 +1601,8 @@
                                             <input type='text' id="serviceEndTime" class="form-control"/>
                                             <input type=hidden id="xml_endtime_hr" name="xml_endtime_hr"/>
                                             <input type=hidden id="xml_endtime_min" name="xml_endtime_min"/>
-                                            <span class="input-group-addon">
-		                        <span class="glyphicon glyphicon-time"></span>
+                                            <span class="input-group-text">
+		                        <span class="fa-solid fa-clock"></span>
 		                    </span>
                                         </div>
                                     </div>
@@ -1805,7 +1805,7 @@
                                                         <span class="input-group-btn">
 		                     	<button type="button" class="btn btn-primary"
                                         onclick="ReferralScriptAttach('xml_refer1')">
-	                            	<span class="glyphicon glyphicon-search"></span>
+	                            	<span class="fa-solid fa-magnifying-glass"></span>
 	                          	</button>
                           	</span>
                                                     </div>
@@ -1827,7 +1827,7 @@
                                                         <span class="input-group-btn">
 			                     	<button type="button" class="btn btn-primary"
                                             onclick="ReferralScriptAttach('xml_refer2')">
-		                            	<span class="glyphicon glyphicon-search"></span>
+		                            	<span class="fa-solid fa-magnifying-glass"></span>
 		                          	</button>
 	                          	</span>
                                                     </div>
@@ -1942,7 +1942,7 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
- 							<span class="input-group-addon">
+ 							<span class="input-group-text">
 								1
 							</span>
                                             <input type="text" class="form-control" name="xml_other1"
@@ -1951,7 +1951,7 @@
                                             <span class="input-group-btn">
 		                     	<button type="button" class="btn btn-primary" title="Search code"
                                         onclick="OtherScriptAttach('xml_other1')">
-	                            	<span class="glyphicon glyphicon-search"></span>
+	                            	<span class="fa-solid fa-magnifying-glass"></span>
 	                          	</button>
                           	</span>
                                         </div>
@@ -1970,7 +1970,7 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
- 							<span class="input-group-addon">
+ 							<span class="input-group-text">
 								2
 							</span>
                                             <input type="text" class="form-control" name="xml_other2"
@@ -1979,7 +1979,7 @@
                                             <span class="input-group-btn">
 		                     	<button type="button" class="btn btn-primary" title="Search code"
                                         onclick="OtherScriptAttach('xml_other2')">
-	                            	<span class="glyphicon glyphicon-search"></span>
+	                            	<span class="fa-solid fa-magnifying-glass"></span>
 	                          	</button>
                           	</span>
                                         </div>
@@ -1998,7 +1998,7 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
- 							<span class="input-group-addon">
+ 							<span class="input-group-text">
 								3
 							</span>
                                             <input type="text" class="form-control" name="xml_other3"
@@ -2007,7 +2007,7 @@
                                             <span class="input-group-btn">
 		                     	<button type="button" class="btn btn-primary" title="Search code"
                                         onclick="OtherScriptAttach('xml_other3')">
-	                            	<span class="glyphicon glyphicon-search"></span>
+	                            	<span class="fa-solid fa-magnifying-glass"></span>
 	                          	</button>
                           	</span>
                                         </div>
@@ -2026,7 +2026,7 @@
                                 <!-- <tr>
                                 <td></td>
                                   <td>
-                                    <button class="btn btn-info pull-right btn-xs" onclick="javascript:OtherScriptAttach()">
+                                    <button class="btn btn-info float-end btn-sm" onclick="javascript:OtherScriptAttach()">
                                         Code Search
                                     </button>
                                   </td>
@@ -2057,7 +2057,7 @@
                                                     </c:forEach>
                                             <c:choose>
                                                 <c:when test="${ isIcd10 }">
-										<span class="input-group-addon">
+										<span class="input-group-text">
 											<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/>
 										</span>
                                                     <select style="min-width: 70px;" class="form-control"
@@ -2085,7 +2085,7 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
-								<span class="input-group-addon">
+								<span class="input-group-text">
 									1
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
@@ -2093,7 +2093,7 @@
                                             <span class="input-group-btn">
 		                     		<button type="button" title="Search diagnostic code"
                                             class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-1">
-	                            		<span class="glyphicon glyphicon-search"></span>
+	                            		<span class="fa-solid fa-magnifying-glass"></span>
 		                          	</button>
 	                          	</span>
                                         </div>
@@ -2103,7 +2103,7 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
-  								<span class="input-group-addon">
+  								<span class="input-group-text">
 									2
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
@@ -2111,7 +2111,7 @@
                                             <span class="input-group-btn">
 		                     		<button type="button" title="Search Dx Description"
                                             class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-2">
-	                            		<span class="glyphicon glyphicon-search"></span>
+	                            		<span class="fa-solid fa-magnifying-glass"></span>
 	                          		</button>
 	                          	</span>
                                         </div>
@@ -2120,7 +2120,7 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
-  								<span class="input-group-addon">
+  								<span class="input-group-text">
 									3
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
@@ -2128,7 +2128,7 @@
                                             <span class="input-group-btn">
 		                     		<button type="button" title="Search Dx Description"
                                             class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-3">
-	                            		<span class="glyphicon glyphicon-search"></span>
+	                            		<span class="fa-solid fa-magnifying-glass"></span>
 	                          		</button>
 	                          	</span>
                                         </div>
@@ -2186,7 +2186,7 @@
                                 </tr>
                                 <tr>
                                     <td style="height:100%;vertical-align: bottom;">
-                                        <div class="row-fluid pull-right ">
+                                        <div class="row float-end ">
                                             <div id="ignoreWarningsButton">
                                                 <label class="checkbox" for="ignoreWarn"
                                                        title="Check to ignore validation warnings">

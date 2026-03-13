@@ -267,7 +267,7 @@
         if ("true".equalsIgnoreCase(success)) {
     %>
     <div class="alert alert-success">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <strong>Success!</strong> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.sucess"/>
     </div>
     <%
@@ -307,7 +307,7 @@
         </div>
 
         <div class="row">
-            <div class="span4">
+            <div class="col-md-4">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.FontSize"/><br>
                 <select id="font-size" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
@@ -372,12 +372,12 @@
             </div><!--span4-->
 
 
-            <div class="span4">
+            <div class="col-md-4">
                 <input type="hidden" id="editStyle" name="editStyle"/>
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
-                <textarea rows="8" class="span6" readonly="true" id="styleText" name="styleText"></textarea>
+                <textarea rows="8" class="col-md-6" readonly="true" id="styleText" name="styleText"></textarea>
                 <input class="btn" id="apply-btn" type="button"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
                        style="display:none"/>
@@ -392,11 +392,11 @@
         <!-- row -->
 
 
-        <div class="span10" style="text-align:right;">
+        <div class="col-md-10" style="text-align:right;">
             <hr>
-            <input class="btn btn-large" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Clear"/>"
+            <input class="btn btn-lg" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Clear"/>"
                    onclick="reinit();return false;"/>
-            <input type="submit" name="submit" value="Save" class="btn btn-large btn-primary" onclick="return checkfields();" />
+            <input type="submit" name="submit" value="Save" class="btn btn-lg btn-primary" onclick="return checkfields();" />
         </div>
 
     </form>

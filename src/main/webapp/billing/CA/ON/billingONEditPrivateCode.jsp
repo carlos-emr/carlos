@@ -280,7 +280,7 @@
     <div class="container-fluid">
 
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <form method="post" name="baseur0" action="billingONEditPrivateCode.jsp" class="form-inline">
 
                 Select Code to edit:<br>
@@ -319,7 +319,7 @@
             </form>
         </div><!--select code to edit well-->
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <form method="post" name="baseurl" action="billingONEditPrivateCode.jsp">
 
                 <div class="alert alert-<%=alert%>">
@@ -329,7 +329,7 @@
                 Private Code_ <small>(e.g. O001A)</small><br>
                 <div class="input-append">
                     <input type="text" name="service_code"
-                           value="<%=prop.getProperty("service_code", "?").substring(1)%>" class="span2" maxlength='10'
+                           value="<%=prop.getProperty("service_code", "?").substring(1)%>" class="col-md-2" maxlength='10'
                            onblur="upCaseCtrl(this)" required/>
                     <button type="submit" name="submit" class="btn btn-primary" onclick="javascript:return onSearch();"
                             value="Search">Search

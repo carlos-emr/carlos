@@ -12,14 +12,14 @@
     <title>OSCAR Email</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
-    <link rel="stylesheet" href="${ctx}/library/bootstrap/5.0.2/css/bootstrap.min.css" type="text/css"/>
+    <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/5.0.2/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <%--
         Action return flashy confirmation messages.
@@ -379,8 +379,8 @@
                         <h5 class="card-title">
                             <span class="fa-solid fa-lock"></span> Encryption <span id="encryptionOptionsInfo"
                                                                              class="fa-solid fa-circle-info"
-                                                                             data-toggle="tooltip"
-                                                                             data-placement="auto right"
+                                                                             data-bs-toggle="tooltip"
+                                                                             data-bs-placement="auto right"
                                                                              title="Emails will be sent encrypted by default. Encryption settings can be modified by disabling this feature."></span>
                             <div class="form-check form-switch encryptionLock">
                                 <input class="form-check-input" type="checkbox" id="encryptionSwitch"
@@ -394,7 +394,7 @@
                             <div class="row">
                                 <div class="col-sm-12 form-group">
                                     <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
-                                                                   data-toggle="tooltip" data-placement="auto right"
+                                                                   data-bs-toggle="tooltip" data-bs-placement="auto right"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
                                               rows="5" placeholder="..."><c:out
@@ -416,8 +416,8 @@
                             </div>
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
-                                    <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-toggle="tooltip"
-                                                      data-placement="auto right"
+                                    <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
+                                                      data-bs-placement="auto right"
                                                       title="Clue will be added into the email body (visible)"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -430,7 +430,7 @@
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
                                     <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
-                                                                     data-toggle="tooltip" data-placement="auto right"
+                                                                     data-bs-toggle="tooltip" data-bs-placement="auto right"
                                                                      title="Email attachments will be encrypted when enabled"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -545,12 +545,12 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" id="btnSend" class="btn btn-primary btn-md pull-right" value="Send">
+                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 Send
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel"
-                                    class="btn btn-danger btn-md pull-right" value="Cancel" name="close"
+                                    class="btn btn-danger btn-md float-end" value="Cancel" name="close"
                                     onclick="cancelEmail()">
                                 <span class="btn-label"><i class="fa-solid fa-xmark"></i></span>
                                 Cancel
@@ -579,7 +579,7 @@
                     </div>
                 </c:otherwise>
             </c:choose>
-            <input type="button" class="btn btn-danger btn-md pull-right" value="Close" onclick="window.close();"/>
+            <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
         </c:if>
     </div>
 </div>

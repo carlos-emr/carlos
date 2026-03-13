@@ -70,7 +70,7 @@
 </div>
 
 <form action="${ctx}/oscarReport/provider_service_report_export.jsp"
-      class="well form-horizontal" id="psrForm">
+      class="card card-body bg-body-tertiary form-horizontal" id="psrForm">
 
     <fieldset>
         <h4>
@@ -80,7 +80,7 @@
                 for the entire interval as well. This only does the numbers for a
                 program of type bed or service.</small>
         </h4>
-        <div class="row-fluid">
+        <div class="row">
             <div class="control-group">
                 <label class="control-label">Start Date</label>
                 <div class="controls">

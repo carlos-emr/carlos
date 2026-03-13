@@ -112,13 +112,13 @@
     <body onLoad="setfocus(),hideExit();">
 
     <div class="container-fluid">
-        <div class="row-fluid">
-            <div class="span12">
+        <div class="row">
+            <div class="col-md-12">
                 <!--Body content-->
 
                 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.msgTitle"/></h3>
 
-                <div class="well">
+                <div class="card card-body bg-body-tertiary">
                     <form name="edittemplate" method="post" action="providertemplate.jsp" class="form-inline">
                         <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formEdit"/>:-->
                         Select Template<br>
@@ -156,18 +156,18 @@
                     }
                 %>
 
-                <div class="well">
+                <div class="card card-body bg-body-tertiary">
                     <form name="template" method="post" action="providertemplate.jsp">
                         <input type="hidden" name="dboperation" value="">
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formTemplateName"/>:<br>
                         <input type="text" name="name" pattern="^[a-zA-Z0-9\s]+$" value="<%=bEdit?tName:""%>"
-                               class="span10" maxlength="50"> <!-- match the definition in the schema -->
+                               class="col-md-10" maxlength="50"> <!-- match the definition in the schema -->
 
                         <br><br>
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formTemplateText"/>:<br>
-                        <textarea name="value" rows="20" class="span10"><%=bEdit ? tValue : ""%></textarea>
+                        <textarea name="value" rows="20" class="col-md-10"><%=bEdit ? tValue : ""%></textarea>
 
                         <br>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.btnDelete"/>"
@@ -187,7 +187,7 @@
                     </form>
                 </div>
 
-            </div><!-- span12 -->
+            </div><!-- col-md-12 -->
         </div><!-- row fluid -->
     </div><!-- container -->
 

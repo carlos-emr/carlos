@@ -300,8 +300,8 @@
 
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
-        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>

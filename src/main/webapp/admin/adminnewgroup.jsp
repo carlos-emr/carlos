@@ -186,7 +186,7 @@
         <input type="submit" name="Submit" class="btn btn-primary"
                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.btnSubmit"/>">
 
-        <a href="admindisplaymygroup.jsp" class="btn btn-default">Cancel</a>
+        <a href="admindisplaymygroup.jsp" class="btn btn-secondary">Cancel</a>
 
     </FORM>
 

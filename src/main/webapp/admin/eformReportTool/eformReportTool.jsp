@@ -346,7 +346,7 @@
 
             <div>
                 <div class="controls controls-row">
-                    <div class="control-group span8" id="group1">
+                    <div class="control-group col-md-8" id="group1">
                         <label class="control-label" for="eformReportToolEformId">Choose
                             EForm:</label>
                         <div class="controls">
@@ -358,7 +358,7 @@
                     </div>
                 </div>
                 <div class="controls controls-row">
-                    <div class="control-group span8" id="group2">
+                    <div class="control-group col-md-8" id="group2">
                         <label class="control-label" for="eformReportToolName">Name:</label>
                         <div class="controls">
                             <input type="text" name="eformReportTool.name"
@@ -370,7 +370,7 @@
                 </div>
                 <div class="controls controls-row">
 
-                    <div class="control-group span8" id="group3">
+                    <div class="control-group col-md-8" id="group3">
                         <label class="control-label" for="eformExpiryDate">Expiry
                             Date:</label>
                         <div class="controls">

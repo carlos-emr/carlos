@@ -151,7 +151,7 @@
 
     <form name="serviceform" method="post" action="manageBillingform.jsp">
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <table width="100%">
                 <tr>
                     <td style="width:30%; text-align:right">

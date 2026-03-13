@@ -155,9 +155,9 @@
             </div>
         </div>
 
-        <div class="well well-small">
+        <div class="card card-body bg-body-tertiary well-small">
             <form action="${pageContext.request.contextPath}/report/DxresearchReport.do?method=addSearchCode" method="post" accept-charset="UTF-8">
-                <div class="row-fluid">
+                <div class="row">
                     <input type="hidden" name="action" value="NA"/>
                     <select name="quicklistname" class="sel">
                         <option value="">Add Dx QuickList</option>
@@ -175,9 +175,9 @@
                         </c:forEach>
                     </select>
                     <input type="text" id="codesearch" placeholder="search description" name="codesearch"
-                           class="span4 jsonDxSearch"/>
+                           class="col-md-4 jsonDxSearch"/>
                 </div>
-                <div class="row-fluid">
+                <div class="row">
                     <input type="submit" class="btn btn-primary" value="Add" />
                     <input type="button" class="btn btn-danger" value="Clear"
                            onclick="javascript:this.form.action='${pageContext.servletContext.contextPath}/report/DxresearchReport.do?method=clearSearchCode';this.form.submit()"/>
@@ -185,20 +185,20 @@
             </form>
 
         </div>
-        <div class="row-fluid">
+        <div class="row">
             <strong>Search all patients with disease codes:</strong>
         </div>
 
         <form action="<%=formAction%>" method="post" class="form-inline" accept-charset="UTF-8">
 
-            <div class="row-fluid">
+            <div class="row">
                 <display:table name="codeSearch" id="codeSearch" class="table table-condensed table-striped">
                     <display:column property="type" title="Code System"/>
                     <display:column property="dxSearchCode" title="Code"/>
                     <display:column property="description" title="Description"/>
                 </display:table>
             </div>
-            <div class="row-fluid">
+            <div class="row">
                 <label class="radio">
                     <input type="radio" name="SearchBy" value="patientRegistedDistincted"
                            id="SearchBy_Distincted" <c:if test="${radiostatus == 'patientRegistedDistincted'}">checked</c:if>
@@ -271,7 +271,7 @@
             </div>
 
             <h3>Results</h3>
-            <div class="row-fluid">
+            <div class="row">
                 <display:table name="listview" id="listview" class="table table-striped table-hover table-condensed">
                     <display:column property="strFirstName" title="First Name"/>
                     <display:column property="strLastName" title="Last Name"/>

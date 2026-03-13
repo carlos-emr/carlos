@@ -147,8 +147,8 @@
 
     <div class="tab-content">
         <div class="tab-pane" id="upload">
-            <div class="row-fluid">
-                <div class="well">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
 
                     <iframe id="uploadFrame" name="uploadFrame" frameborder="0" width="100%" height="auto"
                             scrolling="no" src="<%=request.getContextPath()%>/eform/partials/upload.jsp"></iframe>
@@ -158,8 +158,8 @@
         </div>
 
         <div class="tab-pane" id="import">
-            <div class="row-fluid">
-                <div class="well">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
 
                     <iframe id="importFrame" name="importFrame" frameborder="0" width="100%" height="auto"
                             src="<%=request.getContextPath()%>/eform/partials/import.jsp"></iframe>
@@ -169,7 +169,7 @@
         </div>
     </div><!-- tab content eformOptions -->
 
-    <div class="row-fluid" style="overflow-x:scroll;">
+    <div class="row" style="overflow-x:scroll;">
         <table class="table table-condensed table-striped" id="eformTbl">
             <thead>
             <tr>

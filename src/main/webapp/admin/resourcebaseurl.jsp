@@ -148,11 +148,11 @@
 
     <!-- Help Link - Website -->
     <div class="row well" id="websiteDiv" style="background-color:">
-        <div class="span1" style="background-color:">
+        <div class="col-md-1" style="background-color:">
             <input type="radio" name="helpOption" class="helpOption" value="website" <%=checkedWebsite%>>
-        </div><!-- span2 -->
+        </div><!-- col-md-2 -->
 
-        <div class="span8" style="background-color:">
+        <div class="col-md-8" style="background-color:">
             <form method="post" name="baseurl" id="websiteForm" action="resourcebaseurl.jsp" class="form-inline">
 
                 <h4>Website</h4>
@@ -160,24 +160,24 @@
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
                        placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
                        value="<%if(resource_baseurl_value!=null){ out.print(resource_baseurl_value);}%>">
-                <div class="span8">
-                    <input type="submit" class="btn pull-right" name="websiteSave" id="websiteSave"
+                <div class="col-md-8">
+                    <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
                 </div>
 
             </form>
-        </div><!-- span8 -->
+        </div><!-- col-md-8 -->
     </div>
 
     <h4 class="muted text-center"><em>~ or ~</em></h4>
 
     <!-- Help Link - Details -->
     <div class="row well" id="detailsDiv">
-        <div class="span1" style="background-color:">
+        <div class="col-md-1" style="background-color:">
             <input type="radio" name="helpOption" class="helpOption" value="details" <%=checkedDetails%>>
-        </div><!-- span2 -->
+        </div><!-- col-md-2 -->
 
-        <div class="span8" style="background-color:">
+        <div class="col-md-8" style="background-color:">
             <form method="post" name="baseurl" id="detailsForm" action="resourcebaseurl.jsp">
                 <h4>Details</h4>
                 <textarea class="textarea" name="resource_helpHtml" id="resource_helpHtml" placeholder="Enter text ..."
@@ -186,15 +186,15 @@
                         out.print(resource_helpHtml_value);
                     }
                 %></textarea>
-                <div class="span8" style="padding-left:0px;padding-right:0px;">
-                    <div class="span6" id="chars">
+                <div class="col-md-8" style="padding-left:0px;padding-right:0px;">
+                    <div class="col-md-6" id="chars">
                         <div class='alert alert-plain'>Character Limit = 2000</div>
                     </div>
-                    <input type="submit" class="btn pull-right" name="detailsSave" id="detailsSave"
+                    <input type="submit" class="btn float-end" name="detailsSave" id="detailsSave"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
                 </div>
             </form>
-        </div><!-- span8 -->
+        </div><!-- col-md-8 -->
     </div>
 
 </div><!-- container fluid -->

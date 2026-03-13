@@ -372,13 +372,13 @@
     <%
         if (!userRole.toLowerCase().contains("admin")) { %>
     <div class="alert alert-block alert-error">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgsorry"/>
     </div>
     <%
     } else if (!tmp_dir_ready) { %>
     <div class="alert alert-block alert-error">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgerror"/>
     </div>
     <%
@@ -395,14 +395,14 @@
         </div>
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/> </h3>
 
-        <div class="span2">
+        <div class="col-md-2">
             <% if (demographicNo == null) { %>
             <a href='<c:out value="${ctx}/demographic/cihiExportOMD4.do"></c:out>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.cihiexport"/></a><br>
             <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
             <%} %>
         </div><!--span2-->
 
-        <div class="span4">
+        <div class="col-md-4">
 
             <!-- Success message shown after export completes -->
             <div id="exportSuccessMessage" class="alert alert-success">
@@ -505,7 +505,7 @@
                     if (!pgpReady) { %>
 
                 <div class="alert alert-block alert-error">
-                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgwarning"/>
                 </div>
 

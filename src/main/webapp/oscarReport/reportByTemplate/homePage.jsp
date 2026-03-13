@@ -78,7 +78,7 @@
         List<String> templateGroups = rbtGroupManager.getTemplateGroups(loggedInInfo);
         String value = "";
     %>
-    <div class="row-fluid">
+    <div class="row">
         <form class="form-inline">
             <div class="input-prepend">
                 <span class="add-on">Group</span>
@@ -104,7 +104,7 @@
         </form>
     </div>
 
-    <div class="row-fluid">
+    <div class="row">
 
         <table class="table table-condensed table-striped table-hover" style="font-size:14px;" id="rbtTable">
             <thead>

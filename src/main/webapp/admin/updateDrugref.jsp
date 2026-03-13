@@ -146,7 +146,7 @@
     </head>
     <body class="mainbody">
     <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <div id="dbInfo"></div>
         <div id="statusDisplay" style="display:none;">
           <div>

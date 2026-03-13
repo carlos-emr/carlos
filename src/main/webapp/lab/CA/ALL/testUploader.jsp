@@ -258,10 +258,10 @@
     </div>
 </div>
 
-<div class="well">
+<div class="card card-body bg-body-tertiary">
 
     <div class="alert hidden">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <div id="errorMsg">
 
         </div>

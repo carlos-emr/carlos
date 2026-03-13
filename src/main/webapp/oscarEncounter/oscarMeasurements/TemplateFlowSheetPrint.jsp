@@ -500,12 +500,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             </div><!-- module-block -->
 
-            <div class="well" style="padding-bottom:0px;margin-bottom:0px;">
+            <div class="card card-body bg-body-tertiary" style="padding-bottom:0px;margin-bottom:0px;">
                 <h3><oscar:nameage demographicNo="<%=demographic_no%>"/></h3>
             </div>
 
             <!-- VIEW CONTROL -->
-            <div class="well DoNotPrint"
+            <div class="card card-body bg-body-tertiary DoNotPrint"
                  style="margin:0px;padding-top:2px;padding-bottom:2px;background-color:#c6c6c6;overflow: hidden">
 
                 <%if (!printView) {%>
@@ -519,14 +519,14 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <input type="checkbox" name="print-comments-chk" id="print-comments-chk" class="css-checkbox"
                            value="print"/>
                     <label for="print-comments-chk" class="css-label">Print Comments <a href="#comments-list"><span
-                            class="label label-info">view</span></a></label>
+                            class="badge bg-info">view</span></a></label>
                 </div>
 
                 <div class="controls">
                     <input type="checkbox" name="print-recommendation-chk" id="print-recommendation-chk"
                            class="css-checkbox" value="print"/>
                     <label for="print-recommendation-chk" class="css-label">Print Recommendations <a
-                            href="#recommendations-list"><span class="label label-info">view</span></a></label>
+                            href="#recommendations-list"><span class="badge bg-info">view</span></a></label>
                 </div>
                 <%}%>
 
@@ -535,7 +535,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     <%if (printView) {%>
                     <a href="JavaScript:void(0);" class="btn btn-small back loading" title="Cancel"
-                       data-loading-text="cancelling...">Cancel</a>
+                       data-bs-loading-text="cancelling...">Cancel</a>
                     <button type="button" class="btn btn-small btn-success DoNotPrint"
                             onclick="javascript:window.print();"><i class="fa-solid fa-print"></i> Print
                     </button>
@@ -544,16 +544,16 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     view:
                     <div class="btn-group">
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>"
-                           id="all-btn" class="btn btn-small loading" data-loading-text="Loading...">All</a>
+                           id="all-btn" class="btn btn-small loading" data-bs-loading-text="Loading...">All</a>
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=lastOnly"
-                           id="lastOnly-btn" class="btn btn-small loading" data-loading-text="Loading...">Last Only</a>
+                           id="lastOnly-btn" class="btn btn-small loading" data-bs-loading-text="Loading...">Last Only</a>
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=outOfRange"
-                           id="outOfRange-btn" class="btn btn-small loading" data-loading-text="Loading...">Out of
+                           id="outOfRange-btn" class="btn btn-small loading" data-bs-loading-text="Loading...">Out of
                             Range</a>
                     </div>
 
                     <button type="submit" class="btn btn-small DoNotPrint loading-print preview"
-                            data-loading-text="Loading..."><i class="fa-solid fa-print"></i> Preview
+                            data-bs-loading-text="Loading..."><i class="fa-solid fa-print"></i> Preview
                     </button>
 
                     <%}%>
@@ -563,7 +563,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
         <div id="wrapper-content">
             <!--MEASUREMENTS SELECTION LIST  overflow: hidden;-->
-            <div class="well" id="mtype-list">
+            <div class="card card-body bg-body-tertiary" id="mtype-list">
 
                 <%
                     EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
@@ -954,7 +954,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <!--COMMENTS-->
 
-            <div class="well" id="comments-list"  <%=noPrint1%>  >
+            <div class="card card-body bg-body-tertiary" id="comments-list"  <%=noPrint1%>  >
                 <h4>Comments</h4>
                 <ol>
                     <% for (int i = 0; i < comments.size(); i++) {
@@ -969,7 +969,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <!--RECOMMENDATIONS-->
             <% if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems) { %>
-            <div class="well" id="recommendations-list" <%=noPrint2%> >
+            <div class="card card-body bg-body-tertiary" id="recommendations-list" <%=noPrint2%> >
 
                 <h4><%=flowSheet%> Recommendations</h4>
 
@@ -998,7 +998,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             class="fa-solid fa-arrow-up"></i>Top</a></div>
 
     <div class="alert">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <strong>Oops!</strong> You need to make a selection before you can generate a print preview.
     </div>
 

@@ -85,7 +85,7 @@
                 </td>
                 <td><%=editingCodeCode%>
                 </td>
-                <td><input name="editingCodeDesc" value=<%=editingCodeDesc%> class="span4"></td>
+                <td><input name="editingCodeDesc" value=<%=editingCodeDesc%> class="col-md-4"></td>
                 <td><input type="submit" name="submit" class="btn btn-primary" value="Modify"></td>
             </tr>
         </table>

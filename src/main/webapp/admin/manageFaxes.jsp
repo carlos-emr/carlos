@@ -294,33 +294,33 @@
 
             <div class="row">
                 <legend>Search Faxes</legend>
-                <div class="input-append span3">
+                <div class="input-append col-md-3">
 
-                    <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                    <input class="col-md-2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="From" id="dateBegin" name="dateBegin" required/>
                     <span class="add-on">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
 
-                <div class="input-append span3">
+                <div class="input-append col-md-3">
 
-                    <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                    <input class="col-md-2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="To" id="dateEnd" name="dateEnd" required/>
                     <span class="add-on">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
-                <div class="span6">
-                    <input class="span6" type="text" placeholder="Pt. Name (last, first)" id="autocompletedemo"/>
+                <div class="col-md-6">
+                    <input class="col-md-6" type="text" placeholder="Pt. Name (last, first)" id="autocompletedemo"/>
                     <input type="hidden" id="demographic_no" name="demographic_no" value="">
                 </div>
 
             </div>
 
             <div class="row">
-                <div class="span5">
-                    <select class="span5" name="oscarUser">
+                <div class="col-md-5">
+                    <select class="col-md-5" name="oscarUser">
                         <option value="-1">Provider</option>
 
                         <%
@@ -338,8 +338,8 @@
                         %>
                     </select>
                 </div>
-                <div class="span5">
-                    <select class="span5" name="team">
+                <div class="col-md-5">
+                    <select class="col-md-5" name="team">
                         <option value="-1">Team</option>
                         <%
                             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
@@ -354,8 +354,8 @@
                         %>
                     </select>
                 </div>
-                <div class="span2">
-                    <select class="span2" name="status">
+                <div class="col-md-2">
+                    <select class="col-md-2" name="status">
                         <option value="-1">Status</option>
 
                         <%
@@ -371,16 +371,16 @@
             </div>
 
             <div class="row">
-                <div class="span12">
-                    <input class="btn btn-default" type="submit" value="Fetch Faxes"/>
-                    <input class="btn btn-default" type="button" value="Reset" onclick="return resetForm();"/>
+                <div class="col-md-12">
+                    <input class="btn btn-secondary" type="submit" value="Fetch Faxes"/>
+                    <input class="btn btn-secondary" type="button" value="Reset" onclick="return resetForm();"/>
                 </div>
             </div>
 
         </form>
 
         <div class="row">
-            <div class="span12">
+            <div class="col-md-12">
                 <div id="results" style="margin-top:20px;">
                     <!-- container -->
                 </div>

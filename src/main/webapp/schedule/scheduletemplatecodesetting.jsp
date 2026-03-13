@@ -151,7 +151,7 @@
         </form>
     </div>
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <form name="addtemplatecode" method="post" action="scheduletemplatecodesetting.jsp" class="form-horizontal">
             <%
                 boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(" Edit ");

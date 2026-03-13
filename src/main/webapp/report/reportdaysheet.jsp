@@ -171,8 +171,8 @@
             </span>
             <span style="float:right;">
                 <span style="margin-right:10px; font-size:12px; color:#888;"><%=createtime%></span>
-                <input type="button" class="btn btn-sm btn-default" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>" onClick="window.print()">
-                <input type="button" class="btn btn-sm btn-default" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>" onClick="window.close()">
+                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>" onClick="window.print()">
+                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>" onClick="window.close()">
             </span>
         </div>
 

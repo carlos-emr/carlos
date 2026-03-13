@@ -127,9 +127,9 @@
         }
     %>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
             type="text/javascript"></script>
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
           type="text/css"/>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <script language="JavaScript">
@@ -196,7 +196,7 @@
         <div id="demographicSearch" class="searchBox input-group select-group" style="margin-bottom:10px;">
             <%--    <ul style="display: flex;">--%>
             <%--        <li>--%>
-            <select class="wideInput form-control input-group-addon" name="search_mode">
+            <select class="wideInput form-control input-group-text" name="search_mode">
                 <option value="search_name" <%=request.getParameter("search_mode").equals("search_name") ? "selected" : ""%>>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optName"/>
                 </option>
@@ -476,7 +476,7 @@
                     onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
 
                     <td class="demoId">
-                        <input type="submit" class="mbttn btn btn-default btn-sm" name="demographic_no"
+                        <input type="submit" class="mbttn btn btn-secondary btn-sm" name="demographic_no"
                                value="<%=demo.getDemographicNo()%>"
                                onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<%=URLEncoder.encode(demo.getLastName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getFirstName(), StandardCharsets.UTF_8)%>','<%=URLEncoder.encode(demo.getChartNo() == null ? "" : demo.getChartNo(), StandardCharsets.UTF_8)%>','<%=request.getParameter("messageId")%>','<%=demo.getProviderNo()%>')">
                     </td>
@@ -592,7 +592,7 @@
                 <%
                     if (nLastPage >= 0) {
                 %>
-                <input type="submit" id="prevPageButton" name="submit" class="btn btn-default"
+                <input type="submit" id="prevPageButton" name="submit" class="btn btn-secondary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnPrevPage"/>"
                        onClick="last()">
                 <%
@@ -600,7 +600,7 @@
 
                     if (rowCounter == limit) {
                 %>
-                <input type="submit" id="nextPageButton" class="btn btn-default" name="submit"
+                <input type="submit" id="nextPageButton" class="btn btn-secondary" name="submit"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/>"
                        onClick="next()">
                 <%

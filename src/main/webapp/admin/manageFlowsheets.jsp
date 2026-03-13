@@ -191,11 +191,11 @@
             </tbody>
 			</table>
 
-		<div class="panel panel-default">
-			<div class="panel-heading">
+		<div class="card">
+			<div class="card-header">
 				<h4>Upload Custom Flowsheet</h4>
 			</div>
-		<div class="panel-body">
+		<div class="card-body">
 			<form enctype="multipart/form-data" method="POST" action="<%=request.getContextPath()%>/admin/manageFlowsheetsUpload.jsp">
         <input type="file" name="flowsheet_file">
 				<span title="<fmt:message key="global.uploadWarningBody"/>" style="vertical-align:middle;cursor:pointer"><img alt="alert" src="<%=request.getContextPath()%>/images/icon_alertsml.gif"/></span>

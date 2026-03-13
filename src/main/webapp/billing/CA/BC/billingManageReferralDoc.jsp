@@ -103,7 +103,7 @@
         <form action="<%=request.getContextPath() %>/billing/CA/BC/billingManageReferralDoc.jsp" class="form-inline"
               name="referralDocform" id="referralDocform">
             Last Name: <input type="text" name="lastname" value="<%= (lastname == null)?"":lastname%>"/>
-            <select name="limit" class="span1" title="limit results">
+            <select name="limit" class="col-md-1" title="limit results">
                 <option value="10" <%=selected(limit, "10")%>>10</option>
                 <option value="50" <%=selected(limit, "50")%>>50</option>
                 <option value="100" <%=selected(limit, "100")%>>100</option>

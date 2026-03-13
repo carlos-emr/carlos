@@ -34,7 +34,7 @@
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_caregiver_stress" data-score="1">
-        <strong class="tt" data-toggle="tooltip" title="Caregiver Stress">
+        <strong class="tt" data-bs-toggle="tooltip" title="Caregiver Stress">
             Caregiver Stress
         </strong>
     </div>
@@ -56,7 +56,7 @@
             <span class="pl-1">High</span></label>
     </div>
     <div class="flex pl-2 items-center">
-        <label for="caregiver_occupation" class="tt control-label font-bold" data-toggle="tooltip"
+        <label for="caregiver_occupation" class="tt control-label font-bold" data-bs-toggle="tooltip"
                title="Caregiver Occupation">Caregiver Occupation:</label>
 
         <input type="text" name="caregiver_occupation" style="width: 200px; height: 18px;" id="caregiver_occupation"

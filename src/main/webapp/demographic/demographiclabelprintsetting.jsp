@@ -156,7 +156,7 @@
     %>
 
     <form method="post" class="form-horizontal" name="labelprint" action="demographicprintdemographic.jsp">
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr style="text-align:center">
                     <th><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.msgLabel"/></th>

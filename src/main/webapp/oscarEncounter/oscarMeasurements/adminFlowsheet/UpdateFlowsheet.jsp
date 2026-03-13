@@ -169,7 +169,7 @@ display:inline-block;
 
 <div class="container-fluid" id="container-main">
 
-        <div class="span8">
+        <div class="col-md-8">
 <form action="FlowSheetCustomAction.do" method="post" onsubmit="return validateRuleValue();">
                 <input type="hidden" name="method" value="update"/>
                 <input type="hidden" name="flowsheet" value="<%=flowsheet%>"/>
@@ -186,7 +186,7 @@ display:inline-block;
                     <input type="hidden" name="prevention_type" value="<%=h2.get("prevention_type")%>"/>
                     <input type="hidden" name="measurement_type" value="<%=h2.get("measurement_type")%>"/>
 
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
                         <h4>Measurement Details</h4>
 
                         <div class="mtype-details">
@@ -213,7 +213,7 @@ display:inline-block;
                         </div>
                     </div>
 
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
                         <h4>Rule</h4>
 
                         <table class="table table-striped">
@@ -329,7 +329,7 @@ display:inline-block;
                 </div>
 
 
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
                         <table class="table table-striped">
                             <%
                                 Hashtable colourHash = mFlowsheet.getIndicatorHashtable();

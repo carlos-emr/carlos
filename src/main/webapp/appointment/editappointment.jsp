@@ -1571,7 +1571,7 @@
         <%--        <a href=# onclick="window.close();" id="backButton" class="leftButton top"><%= strDate%></a>--%>
         <%--        <a href="javascript:toggleView();" id="editButton" class="rightButton top">Edit</a>--%>
         <%--    </div>--%>
-        <%--    <div id="info" class="panel">--%>
+        <%--    <div id="info" class="card">--%>
         <%--        <ul>--%>
         <%--            <li class="mainInfo"><a href="#" onclick="demographicdetail(550,700)">--%>
         <%--                <%--%>

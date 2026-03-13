@@ -244,7 +244,7 @@ function getLabel(name) {
 }
 
 function displayMessage(type, text) {
-    alert = '<div class="alert alert-' + type + ' alert-static alert-dismissable fade in"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' + text + '</div>';
+    alert = '<div class="alert alert-' + type + ' alert-static alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' + text + '</div>';
 
     $('body').append(alert);
 

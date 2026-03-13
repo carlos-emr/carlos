@@ -70,7 +70,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
             <h2>Update Upload</h2>
 
             <form action="${pageContext.request.contextPath}/mcedt/update.do" method="post" id="form"

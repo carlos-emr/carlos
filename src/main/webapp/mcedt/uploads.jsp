@@ -83,7 +83,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
 
             <h2>Create New Upload</h2>
 

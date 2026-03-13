@@ -146,11 +146,11 @@
 
     </head>
     <body>
-    <form name="myform" class="well form-horizontal" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary form-horizontal" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
         <fieldset>
             <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Provider: </label>
 
                 <select name="providerNo">
@@ -170,7 +170,7 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Content Type:</label>
                 <select name="content">
                     <option value="admin">Admin</option>
@@ -178,7 +178,7 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Start Date: </label>
                 <div class="input-append">
                     <input type="text" name="startDate" id="startDate1" value="<%=startDate!=null?startDate:""%>"
@@ -187,7 +187,7 @@
                 </div>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>End Date: </label>
                 <div class="input-append">
                     <input type="text" name="endDate" id="endDate1" value="<%=endDate!=null?endDate:""%>"
@@ -197,7 +197,7 @@
             </div>
 
 
-            <div class="span8" style="padding-top:10px;">
+            <div class="col-md-8" style="padding-top:10px;">
                 <input class="btn btn-primary" type="submit" name="submit" value="Run Report">
             </div>
 
@@ -268,7 +268,7 @@
         }
     %> - Log Report</h4>
 
-    <button class="btn pull-right" onClick="window.print()" style="margin-bottom:4px">
+    <button class="btn float-end" onClick="window.print()" style="margin-bottom:4px">
         <i class="fa-solid fa-print"></i> Print
     </button>
 

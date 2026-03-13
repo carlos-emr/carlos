@@ -43,7 +43,7 @@
     <title>Dashboard Drilldown</title>
 
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
+          href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"/>
@@ -55,7 +55,7 @@
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
     <script type="text/javascript"
@@ -77,28 +77,28 @@
     <nav class="navbar navbar-default navbar-fixed-top">
         <div class="container">
 
-            <button class="btn btn-default backtoDashboardBtn" id="getDashboard_${ drilldown.dashboardId }"
+            <button class="btn btn-secondary backtoDashboardBtn" id="getDashboard_${ drilldown.dashboardId }"
                     type="button">
-                <span class="glyphicon glyphicon-circle-arrow-left text-center" aria-hidden="true"></span>
+                <span class="fa-solid fa-circle-arrow-left text-center" aria-hidden="true"></span>
                 Dashboard
             </button>
 
-            <button class="btn btn-default" type="button" onclick="window.print();">
-                <span class="glyphicon glyphicon-print text-center" aria-hidden="true"></span>
+            <button class="btn btn-secondary" type="button" onclick="window.print();">
+                <span class="fa-solid fa-print text-center" aria-hidden="true"></span>
                 Print
             </button>
 
             <form action="${ pageContext.request.contextPath }/web/dashboard/display/ExportResults.do" method="POST"
                   class="inlineForm">
                 <input type="hidden" name="indicatorId" value="${ drilldown.id }">
-                <button class="btn btn-default exportResults" type="submit" id="exportResults_${ drilldown.id }">
-                    <span class="glyphicon glyphicon-download-alt text-center" aria-hidden="true"></span>
+                <button class="btn btn-secondary exportResults" type="submit" id="exportResults_${ drilldown.id }">
+                    <span class="fa-solid fa-download text-center" aria-hidden="true"></span>
                     Export
                 </button>
             </form>
 
-            <button class="btn btn-default" type="button" data-toggle="modal" data-target="#indicatorInfo">
-                <span class="glyphicon glyphicon-info-sign text-center" aria-hidden="true"></span>
+            <button class="btn btn-secondary" type="button" data-bs-toggle="modal" data-bs-target="#indicatorInfo">
+                <span class="fa-solid fa-circle-info text-center" aria-hidden="true"></span>
                 Details
             </button>
         </div>
@@ -147,20 +147,20 @@
                 </div>
                 <div class="form-group andcondition lessthancondition" style="display:none;">
                     <div class="input-group">
-                        <span class="input-group-addon andcondition">and</span>
+                        <span class="input-group-text andcondition">and</span>
                         <input type="text" class="form-control andcondition lessthancondition"
                                placeholder="Parameter" id="datatableFilterConditionLessThan"/>
                     </div>
                 </div>
                 <div class="form-group">
-                    <button class="btn btn-default" type="button" id="datatableFilterExecuteButton">
-                        <span class="glyphicon glyphicon-filter text-center" aria-hidden="true"></span>
+                    <button class="btn btn-secondary" type="button" id="datatableFilterExecuteButton">
+                        <span class="fa-solid fa-filter text-center" aria-hidden="true"></span>
                         Filter
                     </button>
                 </div>
                 <div class="form-group">
-                    <button class="btn btn-default" type="button" id="datatableFilterResetButton">
-                        <span class="glyphicon glyphicon-refresh text-center" aria-hidden="true"></span>
+                    <button class="btn btn-secondary" type="button" id="datatableFilterResetButton">
+                        <span class="fa-solid fa-arrows-rotate text-center" aria-hidden="true"></span>
                         Reset
                     </button>
                 </div>
@@ -175,10 +175,10 @@
             <tr>
                 <th class="donotprint" id="0">
                     <div class="dropdown" id="actionMenu">
-                        <a href="javascript:void(0)" class="btn btn-secondary dropdown-toggle" data-toggle="dropdown"
+                        <a href="javascript:void(0)" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
                            role="button"
                            aria-haspopup="true" aria-expanded="false" id="actionMenuLink">
-                            <span class="glyphicon glyphicon-check"></span>
+                            <span class="fa-solid fa-check"></span>
                             Actions
                             <span class="caret"></span>
                         </a>
@@ -283,7 +283,7 @@
                                             <a class="donotprint"
                                                href="${ pageContext.request.contextPath }/demographic/demographiccontrol.jsp?demographic_no=${ column }&amp;displaymode=edit&amp;dboperation=search_detail"
                                                target="_blank" title="Open Patient File">
-                                                <span class="glyphicon glyphicon-folder-open"
+                                                <span class="fa-solid fa-folder-open"
                                                       style="margin-right:10px;"></span>
                                                 <c:out value="${ column }"/>
                                             </a>
@@ -325,7 +325,7 @@
             <div class="modal-content">
 
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal"
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
                             aria-hidden="true">&times;
                     </button>
                     <h4 class="modal-title">
@@ -373,7 +373,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         Close
                     </button>
                 </div>
@@ -388,7 +388,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal"
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
                             aria-hidden="true">&times;
                     </button>
                     <h4>Assign Tickler</h4>
@@ -396,7 +396,7 @@
                 <div class="modal-body"></div>
                 <div class="modal-footer">
                     <button id="saveTicklerBtn" type="submit" class="btn btn-primary">Save</button>
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -408,7 +408,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal"
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
                             aria-hidden="true">&times;
                     </button>
                     <h4>Verify ICD9 Code For Addition To Disease Registry</h4>
@@ -428,7 +428,7 @@
                         <input type="hidden" name="dxUpdateICD9Code" value="${ fn:escapeXml(drilldown.dxUpdateICD9Code) }"/>
                         <button type="submit" id="confirmAddToDiseaseRegistry" class="btn btn-primary">Confirm</button>
                     </form>
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 </div>
             </div>
         </div>
@@ -440,7 +440,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal"
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
                             aria-hidden="true">&times;
                     </button>
                     <h4>Verify Patient Exclusion</h4>
@@ -461,7 +461,7 @@
                         <input type="hidden" name="indicatorId" value="${ fn:escapeXml(drilldown.id) }"/>
                         <button type="submit" id="confirmPatientExclusion" class="btn btn-primary">Confirm</button>
                     </form>
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 </div>
             </div>
         </div>
@@ -473,7 +473,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal"
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
                             aria-hidden="true">&times;
                     </button>
                     <h4>Verify Patient Status Update</h4>
@@ -489,7 +489,7 @@
                         <input type="hidden" name="method" value="setPatientsInactive"/>
                         <button type="submit" id="confirmPatientStatusUpdate" class="btn btn-primary">Confirm</button>
                     </form>
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 </div>
             </div>
         </div>

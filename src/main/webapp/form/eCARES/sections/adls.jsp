@@ -41,7 +41,7 @@
         <div class="flex-1 flex flex-col">
             <div class="flex">
                 <span class="mandatory tt font-bold w-10 pl-1" data-names="ind,asst,dep"
-                      data-toggle="tooltip" title="Feeding">
+                      data-bs-toggle="tooltip" title="Feeding">
                     <span class="highlight" data-field-name="feeding">Feeding</span>
                 </span>
 
@@ -61,7 +61,7 @@
                     <span class="pl-1">DEP</span></label></div>
             <div class="flex">
                 <span class="mandatory tt font-bold w-10 pl-1" data-names="ind,asst,dep"
-                      data-toggle="tooltip" title="Dressing">
+                      data-bs-toggle="tooltip" title="Dressing">
                     <span class="highlight" data-field-name="dressing">Dressing</span>
                 </span>
 
@@ -85,7 +85,7 @@
         <div class="flex-1">
             <div class="flex">
                 <span class="mandatory tt font-bold w-9"
-                      data-names="ind,asst,dep" data-toggle="tooltip"
+                      data-names="ind,asst,dep" data-bs-toggle="tooltip"
                       title="Bathing">
                     <span class="highlight" data-field-name="bathing">Bathing</span>
                 </span>
@@ -108,7 +108,7 @@
 
             <div class="flex">
                 <span class="mandatory tt font-bold w-9" data-names="ind,asst,dep"
-                      data-toggle="tooltip" title="Toileting">
+                      data-bs-toggle="tooltip" title="Toileting">
                     <span class="highlight" data-field-name="toileting">Toileting</span>
                     </span>
 

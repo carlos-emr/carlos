@@ -444,7 +444,7 @@
                     String tmpStrBillType = Arrays.toString(strBillType);
                 %>
                 <div class="row">
-                    <div class="span12">
+                    <div class="col-md-12">
                         <label class="checkbox inline"><input type="checkbox" name="billTypeAll" id="ALL" value="ALL"
                                                               checked onclick="changeStatus();">ALL</label>
                         <label class="checkbox inline"><input type="checkbox" name="billType"
@@ -473,7 +473,7 @@
                     </div>
                     <!--</div>-->
                     <!--<div class="row">-->
-                    <div class="span10">
+                    <div class="col-md-10">
                         <% // multisite start ==========================================
                             String curSite = request.getParameter("site");
                             if (bMultisites) {
@@ -563,7 +563,7 @@
                             OHIP No.:
                             <input type="text" class="input-small" name="provider_ohipNo" readonly value="<%=ohipNo%>"></label>
                     </div>
-                    <div class="span6">
+                    <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
                         <div class="input-append">
                             <input type="text" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
@@ -590,7 +590,7 @@
                 </div>
                 <!-- row -->
                 <div class="row">
-                    <div class="span12">
+                    <div class="col-md-12">
                         <label>Dx:
                             <input type="text" name="dx" class="input-mini" placeholder="123" value="<%=dx%>"></label>
                         <label>Serv. Code:
@@ -676,7 +676,7 @@
                         </div>
                         <!--</div>-->
                         <!--<div class="row" >-->
-                        <div class="span12">
+                        <div class="col-md-12">
                             <label class="radio inline"><input type="radio" name="statusType"
                                                                value="%" <%=statusType.equals("%")?"checked":""%>>All</label>
                             <label class="radio inline"><input type="radio" name="statusType"
@@ -705,7 +705,7 @@
                         <!--</div>-->
                         <!-- row -->
                         <!--<div class="row">-->
-                        <div class="span4" style="padding-top:10px;">
+                        <div class="col-md-4" style="padding-top:10px;">
                             <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
                             <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
                                     class="fa-solid fa-print"></i> Print

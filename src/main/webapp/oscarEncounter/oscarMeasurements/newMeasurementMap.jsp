@@ -137,7 +137,7 @@
                 </td>
             </tr>
         </table>
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <table>
                 <tr>
                     <th colspan="2" class="Header">Add New Loinc

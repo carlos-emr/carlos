@@ -87,8 +87,8 @@
     <%@ include file="efmTopNav.jspf" %>
 
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/></h3>
-    <div class="row-fluid">
-        <div class="well span6">
+    <div class="row">
+        <div class="card card-body bg-body-tertiary col-md-6">
 
             <!--ADD GROUP-->
             <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="post" id="addGroupForm"
@@ -105,7 +105,7 @@
 
 
             <div class="alert alert-error textExists" style="display:none;">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <strong>Error!</strong> the group name you selected already exists.
             </div>
 
@@ -160,7 +160,7 @@
 
         <!--EFORMS IN GROUP-->
 
-        <div class="well span6">
+        <div class="card card-body bg-body-tertiary col-md-6">
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.contents"/>: <%=groupView%>
             </h4>
 
@@ -195,9 +195,9 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <tr rel="popover" data-html="true" data-title="<%=curForm.get("formName")%>"
-                    data-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=curForm.get("formSubject")%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=curForm.get("formFileName")%></small>"
-                    data-trigger="hover" data-placement="bottom">
+                <tr rel="popover" data-bs-html="true" data-title="<%=curForm.get("formName")%>"
+                    data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=curForm.get("formSubject")%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=curForm.get("formFileName")%></small>"
+                    data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup.do" style="display:inline;">
@@ -234,9 +234,9 @@
                 </tbody>
             </table>
 
-            <div class="row-fluid">
+            <div class="row">
                 <button type="button" name="addEform-btn" id="addEform-btn" title="add eform to this group"
-                        class="btn btn-primary modalShow pull-right">Add eForm
+                        class="btn btn-primary modalShow float-end">Add eForm
                 </button>
             </div>
         </div>
@@ -246,7 +246,7 @@
         <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
              aria-hidden="true">
             <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">X</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true">X</button>
                 <h3 id="myModalLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addToGroup"/> <%=groupView%>
                 </h3>
             </div>
@@ -273,7 +273,7 @@
 
             </div>
             <div class="modal-footer">
-                <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+                <button class="btn" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
 
                 <input type="submit" name="subm" id="eformToGroup-btn" class="btn btn-primary"
                        value="Add eForm to Group">

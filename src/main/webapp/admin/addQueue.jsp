@@ -76,7 +76,7 @@
 
 <h3>Add New Inbox Queue</h3>
 
-<div class="well">
+<div class="card card-body bg-body-tertiary">
 
 
     <form class="form-inline" id="addQueueForm">
@@ -89,7 +89,7 @@
 </div>
 
 <div class="alert">
-    <button type="button" class="close" data-dismiss="alert">&times;</button>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     <div id="addQueueSuccessMsg">
         <strong>Warning!</strong> Best check yo self, you're not looking too good.
     </div>

@@ -491,7 +491,7 @@
         <%=msg%>
     </div>
     <% } %>
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
 
         <div class="controls">
             <div class="input-append">
@@ -591,7 +591,7 @@
 
       <% if( newCaseManagement ) {
       %>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
        <form name="myform" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <table>
             <tr>

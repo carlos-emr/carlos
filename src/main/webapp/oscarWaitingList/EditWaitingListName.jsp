@@ -96,9 +96,9 @@
         <%
             }
         %>
-        <div class="container-fluid  form-horizontal span12" id="editWrapper">
+        <div class="container-fluid  form-horizontal col-md-12" id="editWrapper">
             <div class="row">
-                <div class="span6">
+                <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
                         <label class="control-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
@@ -121,8 +121,8 @@
                                    onclick="resetFields('change');document.forms[0].actionChosen.value='change'">
                         </div> <!-- class="controls" -->
                     </fieldset>
-                </div> <!-- class="span4" -->
-                <div class="span6">
+                </div> <!-- class="col-md-4" -->
+                <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
                         <label class="control-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
@@ -132,8 +132,8 @@
                                    onclick="resetFields('create');document.forms[0].actionChosen.value='create'">
                         </div> <!-- class="controls" -->
                     </fieldset>
-                </div> <!-- class="span4" -->
-                <div class="span6">
+                </div> <!-- class="col-md-4" -->
+                <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/></legend>
                         <label class="control-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
@@ -155,7 +155,7 @@
                                    onclick="resetFields('remove');document.forms[0].actionChosen.value='remove'">
                         </div> <!-- class="controls" -->
                     </fieldset>
-                </div> <!-- class="span4" -->
+                </div> <!-- class="col-md-4" -->
             </div> <!-- class="row" -->
         </div>
         <!-- end editWrapper -->

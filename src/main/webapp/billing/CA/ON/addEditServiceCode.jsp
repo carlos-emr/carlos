@@ -465,11 +465,11 @@
 
         <form method="post" id="baseurl" name="baseurl" action="addEditServiceCode.jsp">
 
-            <div class="span10">
+            <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>
                 <div class="input-append">
                     <input type="text" name="service_code" value="<%=prop.getProperty("service_code", "")%>"
-                           class="span2" maxlength='5' onblur="upCaseCtrl(this)"/>
+                           class="col-md-2" maxlength='5' onblur="upCaseCtrl(this)"/>
                     <button class="btn btn-primary" type="submit" name="submitFrm" value="Search"
                             onclick="javascript:return onSearch();">Search
                     </button>
@@ -495,14 +495,14 @@
             </div>
 
 
-            <div class="span10">
+            <div class="col-md-10">
                 Description <small>50 Characters</small><br>
-                <textarea name="description" class="span6"><%=prop.getProperty("description", "")%></textarea>
+                <textarea name="description" class="col-md-6"><%=prop.getProperty("description", "")%></textarea>
             </div>
 
-            <div class="span10">
+            <div class="col-md-10">
                 Style<br>
-                <select id="servicecode_style" name="servicecode_style" class="span2"
+                <select id="servicecode_style" name="servicecode_style" class="col-md-2"
                         onchange="displayStyleText(this.options[this.selectedIndex].value);" title="CSS Style Viewer">
                     <option value="-1,None">None</option>
                     <%
@@ -516,16 +516,16 @@
                     %>
                 </select>
                 <br>
-                <textarea id="displayStyle" readonly="readonly" class="span6"></textarea>
+                <textarea id="displayStyle" readonly="readonly" class="col-md-6"></textarea>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 Fee <small> e.g. 18.20</small><br>
                 <input type="text" name="value" value="<%=prop.getProperty("value", "")%>" size='8' maxlength='8'
                        pattern="\d+(\.\d{2})?"><br/>
             </div>
 
-            <div class="span6">
+            <div class="col-md-6">
                 Percentage <small> e.g. 0.20</small><br>
                 <input type="text" name="percentage" value="<%=prop.getProperty("percentage", "")%>" size='8'
                        maxlength='8'>
@@ -533,7 +533,7 @@
                 max.<input type="text" name="max" value="<%=prop.getProperty("max", "")%>" size='7' maxlength='8'>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>Issued Date</label>
                 <div class="input-append">
                     <input type="text" name="billingservice_date" id="billingservice_date"
@@ -543,7 +543,7 @@
                 </div>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>Termination Date</label>
                 <div class="input-append">
                     <input type="text" name="termination_date" id="termination_date"
@@ -554,7 +554,7 @@
             </div>
 
 
-            <div class="span10">
+            <div class="col-md-10">
                 <% String sliFlagValue = prop.getProperty("sliFlag", "0");
                     sliFlagValue = sliFlagValue.equals("1") || sliFlagValue.equals("true") ? "checked" : "";
                 %>
@@ -562,7 +562,7 @@
             </div>
 
 
-            <div class="span10">
+            <div class="col-md-10">
                 <br>
                 <input type="hidden" id="action" name="action" value=''> <input class="btn" type="submit"
                                                                                 name="submitFrm"

@@ -78,7 +78,7 @@
 
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></h3>
 
-<form action="${ctx}/oscarReport/mis_report_form.jsp" class="well form-horizontal" id="misForm">
+<form action="${ctx}/oscarReport/mis_report_form.jsp" class="card card-body bg-body-tertiary form-horizontal" id="misForm">
 
     <div class="control-group">
         <label class="control-label">Report By</label>
@@ -113,7 +113,7 @@
                     %>
                 </select>
                 <%} else {%>
-                <div class="alert span6">
+                <div class="alert col-md-6">
                     No function centre in use by facility
                 </div>
 

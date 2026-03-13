@@ -130,7 +130,7 @@
 
     </head>
 
-    <body class="preview" id="top" data-spy="scroll" data-target=".subnav" data-offset="180">
+    <body class="preview" id="top" data-bs-spy="scroll" data-bs-target=".subnav" data-bs-offset="180">
 
     <div class="container">
 
@@ -140,14 +140,14 @@
 
         <section id="mainContent">
             <% if (request.getAttribute("deleteSetSuccess") != null && (Boolean) request.getAttribute("deleteSetSuccess")) { %>
-            <div class="alert alert-block alert-success fade in">
-                <button type="button" class="close" data-dismiss="alert">X</button>
+            <div class="alert alert-block alert-success fade show">
+                <button type="button" class="btn-close" data-bs-dismiss="alert">X</button>
                 <h4 class="alert-heading">Success!</h4>
                 <p>Patient set "${requestScope.setname}" has been successfully deleted.</p>
             </div>
             <% } %>
             <div class="row">
-                <div class="span12">
+                <div class="col-md-12">
                     <form class="form-horizontal well form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit.do">
                     <div><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgPatientSet"/>: <select
                             name="patientSet">
@@ -165,7 +165,7 @@
                    List<Map<String,String>> list = (List<Map<String,String>>) request.getAttribute("SET");
                    String setName = (String) request.getAttribute("setname");%>
                     <div><form action="${pageContext.request.contextPath}/report/SetEligibility.do" method="post">
-                        <input type="button" class="btn" data-toggle="tooltip"
+                        <input type="button" class="btn" data-bs-toggle="tooltip"
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgIneligible"/>"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnSetIneligible"/>"
                                onclick="submit();">
@@ -217,7 +217,7 @@
                             </tbody>
                         </table>
                         <!-- Button to trigger modal delete confirmation. Backend not implimented-->
-                        <!--<a href="#delete-set-confirm" role="button" class="btn btn-alert" data-toggle="modal"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.delGroup"/></a>-->
+                        <!--<a href="#delete-set-confirm" role="button" class="btn btn-alert" data-bs-toggle="modal"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.delGroup"/></a>-->
                     </form></div>
                     <script>
 
@@ -266,7 +266,7 @@
 
     <div id="delete-set-confirm" class="modal hide fade" tabindex="-1" role="dialog">
         <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal">X</button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal">X</button>
             <h3>Delete Set</h3>
         </div>
         <div class="modal-body">
@@ -276,7 +276,7 @@
         </div>
         <div class="modal-footer">
             <a href="javascript:onDeleteConfirm();" class="btn btn-danger">Yes</a>
-            <button type="button" class="btn" data-dismiss="modal">No</button>
+            <button type="button" class="btn" data-bs-dismiss="modal">No</button>
         </div>
     </div>
 

@@ -218,7 +218,7 @@
 
     <!-- css -->
     <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
 
     <style>
@@ -429,7 +429,7 @@ function validateFields() {
 			<tr>
 				<td><!-- colspan -->
 				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validateFields()">
-				<table class="well" style="width:100%">
+				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
 							<th colspan="2" style="text-align:left"><fmt:message key="messenger.CreateMessage.msgMessage" /></th>

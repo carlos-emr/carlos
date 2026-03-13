@@ -157,12 +157,12 @@
                 margin: 0 auto;
             }
 
-            .loginContainer .panel-heading #oscar_logo {
+            .loginContainer .card-header #oscar_logo {
                 max-width: 300px;
                 margin: 0 auto;
             }
 
-            .loginContainer .panel-heading {
+            .loginContainer .card-header {
                 margin: 0 auto;
                 padding-top: 25px;
                 padding-bottom: 10px;
@@ -223,12 +223,12 @@
                 padding: 10px;
             }
 
-            .auaContainer .panel-heading {
+            .auaContainer .card-header {
                 font-size: small;
 			text-align: center;
             }
 
-            .auaContainer .panel-body {
+            .auaContainer .card-body {
                 font-size: x-small;
             }
 
@@ -240,26 +240,26 @@
                 box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
             }
 
-            .panel-body {
+            .card-body {
                 padding: 10px 40px 40px;
             }
 
-            .panel-danger > .panel-heading {
+            .panel-danger > .card-header {
                 color: #a94442;
                 background-color: #f2dede;
                 border-color: #ebccd1;
             }
 
-            .panel-danger > .panel-heading + .panel-collapse > .panel-body {
+            .panel-danger > .card-header + .panel-collapse > .card-body {
                 border-top-color: #ebccd1;
             }
 
-            .panel-danger > .panel-heading .badge {
+            .panel-danger > .card-header .badge {
                 color: #f2dede;
                 background-color: #a94442;
             }
 
-            .panel-danger > .panel-footer + .panel-collapse > .panel-body {
+            .panel-danger > .card-footer + .panel-collapse > .card-body {
                 border-bottom-color: #ebccd1;
             }
 
@@ -427,7 +427,7 @@
                     width: 350px;
                 }
 
-                .loginContainer .panel-heading {
+                .loginContainer .card-header {
                     width: 200px;
                 }
 
@@ -443,7 +443,7 @@
                     width: 450px;
                 }
 
-                .loginContainer .panel-heading {
+                .loginContainer .card-header {
                     width: 300px;
                 }
 
@@ -596,9 +596,9 @@ body {
         </div>
 
         <div class="loginContainer">
-            <div class="panel panel-default">
+            <div class="card">
 
-                <div class="panel-heading">
+                <div class="card-header">
 
                         <%--			    	<div id="oscar_logo">--%>
                         <%--				    	<!-- EMR logo -->--%>
@@ -619,7 +619,7 @@ body {
                     </div>
                 </c:if>
 
-                <div class="panel-body">
+                <div class="card-body">
                     <div class="leftinput">
                         <%--
                             Autocomplete attribute strategy (WHATWG HTML spec):
@@ -704,14 +704,14 @@ body {
         </div>
 
         <div id="auaText" class="auaContainer" style="display:none;">
-            <div class="panel panel-default">
-                <div class="panel-heading">
+            <div class="card">
+                <div class="card-header">
                     Acceptable Use Agreement
                 </div>
-                <div class="panel-body">
+                <div class="card-body">
                     <c:out value="${ LoginResourceBean.acceptableUseAgreementManager.text }" escapeXml="false"/>
                 </div>
-                <div class="panel-footer"></div>
+                <div class="card-footer"></div>
             </div>
         </div>
 

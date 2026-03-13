@@ -117,11 +117,11 @@
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></title>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
             type="text/javascript"></script>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
           type="text/css"/>
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
@@ -324,7 +324,7 @@
                             <input type="text" name="xml_vdate" class="form-control" id="xml_vdate"
                                    value="<%=xml_vdate%>" placeholder="yyyy-mm-dd"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                            <span class="input-group-addon"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div><!--span2-->
                 </div>
@@ -339,7 +339,7 @@
                             <input type="text" class="form-control" name="xml_appointment_date" placeholder="yyyy-mm-dd"
                                    id="xml_appointment_date" value="<%=xml_appointment_date%>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                            <span class="input-group-addon"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div><!--span3-->
                 </div>
@@ -462,7 +462,7 @@
                     </div>
                 </div>
             </div>
-            <div class="form-group pull-right">
+            <div class="form-group float-end">
                 <input type="hidden" name="submitted" value="yes"/>
                 <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
             </div>

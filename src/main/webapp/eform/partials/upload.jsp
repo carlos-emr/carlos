@@ -63,7 +63,7 @@
 
     <c:if test="${ not empty status }">
         <div class="alert alert-success">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success!</strong> Your eform was uploaded.
         </div>
 

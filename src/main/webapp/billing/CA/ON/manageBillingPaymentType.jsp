@@ -67,7 +67,7 @@
 <body>
 &nbsp;<h4>Manage Billing Payment Type</h4>
 
-<div class="well">
+<div class="card card-body bg-body-tertiary">
     <table style="width:80%" id="tblBillType" class="table table-striped">
         <thead>
         <tr>

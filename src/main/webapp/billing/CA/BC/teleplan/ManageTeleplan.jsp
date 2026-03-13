@@ -74,7 +74,7 @@
 
         <%if (request.getAttribute("error") != null) { %>
         <div class="alert alert-error">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <%=request.getAttribute("error")%>
         </div>
         <%}%>

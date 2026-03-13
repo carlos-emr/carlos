@@ -372,7 +372,7 @@
 
 <div class="container-fluid" id="container-main">
 
-    <div class="row-fluid">
+    <div class="row">
 
         <h4 style="display:inline;">
 
@@ -424,19 +424,19 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		  </span>
     </div><!-- row -->
 
-    <div class="row-fluid">
-        <div class="span12">
+    <div class="row">
+        <div class="col-md-12">
 
             <ul class="nav nav-tabs" id="myTab">
                 <li class="list-title">Measurements:</li>
-                <li class="active"><a href="#home" data-toggle="tab">All</a></li>
-                <li><a href="#custom" data-toggle="tab">Custom</a></li>
-                <li><a href="#add" data-toggle="tab"><i class="fa-solid fa-circle-plus"></i> Add</a></li>
+                <li class="active"><a href="#home" data-bs-toggle="tab">All</a></li>
+                <li><a href="#custom" data-bs-toggle="tab">Custom</a></li>
+                <li><a href="#add" data-bs-toggle="tab"><i class="fa-solid fa-circle-plus"></i> Add</a></li>
             </ul>
 
             <% if (request.getAttribute("errorMessage") != null) { %>
             <div class="alert alert-error">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <%= Encode.forHtml((String)request.getAttribute("errorMessage")) %>
             </div>
             <% } %>
@@ -552,11 +552,11 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
 	<div class="tab-pane" id="custom">
 
-		<div class="span4">
+		<div class="col-md-4">
 		<!--right sidebar-->
 
 			<!-- Custom List -->
-		    <div class="well" style="min-width: 240px">
+		    <div class="card card-body bg-body-tertiary" style="min-width: 240px">
 		    <h4>Custom List:</h4>
 		    <%
 		    if(custList.size()==0){
@@ -607,7 +607,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
                                     <td><%=cust.getAction()%>
                                         <% if (isHigherScope) { %>
-                                        <span class="label label-info" title="Inherited from <%=custLevel%> level">Inherited</span>
+                                        <span class="badge bg-info" title="Inherited from <%=custLevel%> level">Inherited</span>
                                         <% } %>
                                     </td>
 
@@ -652,14 +652,14 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                             <%} %>
                         </div><!-- well -->
 
-                    </div><!-- span4 -->
+                    </div><!-- col-md-4 -->
 
                 </div><!-- custom tab -->
 
                 <!-- ADD NEW MEAS -->
                 <div class="tab-pane" id="add">
 
-                    <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="well"
+                    <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
                           action="FlowSheetCustomAction.do" method="post">
                         <input type="hidden" name="flowsheet" value="<%=temp%>"/>
                         <input type="hidden" name="method" value="save"/>
@@ -763,7 +763,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
                         <legend></legend>
 
-                        <input type="submit" class="btn btn-large btn-primary" value="Save"/>
+                        <input type="submit" class="btn btn-lg btn-primary" value="Save"/>
 
                     </form>
 

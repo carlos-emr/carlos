@@ -113,10 +113,10 @@
         <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do" method="post">
             <input type="hidden" name="demographicNoParam" id="demographicNoParam"/>
 
-            <div class="span5">
+            <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-append">
-                    <input class="span4" id="nameForlooksOnly" type="text" value="<%=name%>">
+                    <input class="col-md-4" id="nameForlooksOnly" type="text" value="<%=name%>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
@@ -126,7 +126,7 @@
             <input type="hidden" name="lastNameParam" id="lname" value="<%=request.getParameter("lastNameParam")%>"/>
 
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>Start Date:</label>
                 <div class="input-append">
                     <input type="text" style="width:90px" name="fromDateParam" id="fromDateParam"
@@ -137,7 +137,7 @@
             </div>
 
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>End Date:</label>
                 <div class="input-append">
                     <input type="text" style="width:90px" name="toDateParam" id="toDateParam"
@@ -147,7 +147,7 @@
                 </div>
             </div>
 
-            <div class="span10">
+            <div class="col-md-10">
                 <input class="btn" type="submit" name="search" value="Create Statement"
                        onclick="return validateFields();">
 

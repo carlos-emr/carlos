@@ -103,7 +103,7 @@
 <div class="page-header">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.title"/>
-        <div class="pull-right">
+        <div class="float-end">
             <button name='print' onClick='window.print()' class="btn">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>

@@ -433,7 +433,7 @@
 %>
 
 <h4>Role/Privilege List</h4>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
     <table id="tblpp" class="table table-condensed">
         <thead>
         <tr>
@@ -500,7 +500,7 @@
 
 
 <h4>Add Role/Privilege</h4>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
     <form name="myform2" action="providerPrivilege.jsp" method="POST">
         For:
         <select name="roleUserGroup"

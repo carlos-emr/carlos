@@ -85,7 +85,7 @@
         </p>
 
         <p class="row">
-        <p class="span2">
+        <p class="col-md-2">
             <input type="submit" value="Validate" />
         </p>
         </p>

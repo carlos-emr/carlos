@@ -99,7 +99,7 @@ for pre-populating data.
 %>
 
 <form method="post" enctype="multipart/form-data" action="oruR01Upload.do" onsubmit="return checkRequiredFields()"
-      class="well form-horizontal">
+      class="card card-body bg-body-tertiary form-horizontal">
     <fieldset>
         <div class="control-group">
             <label class="control-label">From Provider:</label>

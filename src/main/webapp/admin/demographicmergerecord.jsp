@@ -215,7 +215,7 @@
                value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> Address
         <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> HIN
 
-        <input type="text" NAME="keyword" class="span6" MAXLENGTH="100" value="<%=(keyword != null)?keyword:""%>">
+        <input type="text" NAME="keyword" class="col-md-6" MAXLENGTH="100" value="<%=(keyword != null)?keyword:""%>">
         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">
         <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
@@ -379,11 +379,11 @@
         <br>
         <% if (mergedSearch) {%>
 
-        <input type="submit" class="btn btn-warning btn-large" value="UnMerge Selected Records" onclick="UnMerge()"/>
+        <input type="submit" class="btn btn-warning btn-lg" value="UnMerge Selected Records" onclick="UnMerge()"/>
 
         <%} else {%>
 
-        <input type="submit" class="btn btn-primary btn-large" value="Merge Selected Records"/>
+        <input type="submit" class="btn btn-primary btn-lg" value="Merge Selected Records"/>
 
         <%}%> <br/>
 

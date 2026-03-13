@@ -62,7 +62,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Billing Report Center</title>
 
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/searchBox.css">
 
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -107,7 +107,7 @@
             &nbsp;Billing Report Center
         </h4>
         <span style="float:right;">
-            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-default">Manage Provider List</a>
+            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
         </span>
     </div>
 

@@ -87,13 +87,13 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></title>
 
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker-standalone.css"/>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <script language="JavaScript">
         //<!--
@@ -566,7 +566,7 @@
 
 
             <div class="container-fluid ">
-                <div class="pull-right button-bar">
+                <div class="float-end button-bar">
                     <%if ("pri".equalsIgnoreCase(bean.getBillingType())) {%>
                     <input class="btn btn-primary" type="submit" name="submit" value="Save & Print Receipt"/>
                     <%}%>

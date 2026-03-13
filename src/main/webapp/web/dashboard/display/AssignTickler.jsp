@@ -48,9 +48,9 @@
       action="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler.do" method="POST" novalidate>
     <input type="hidden" value="saveTickler" name="method"/>
     <div class="row">
-        <div class="col-xs-12">
+        <div class="col-12">
             <div class="form-group">
-                <div class="well" id="patientTicklerList">
+                <div class="card card-body bg-body-tertiary" id="patientTicklerList">
 						<span class="message">
 							Assign this Tickler action for each of the
 							selected patients.
@@ -65,7 +65,7 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-12">
+        <div class="col-12">
             <div class="form-group">
                 <label>Action:</label>
                 <select class="form-control required" name="ticklerCategoryId">
@@ -80,7 +80,7 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-6">
+        <div class="col-6">
             <div class="form-group">
                 <label>Assign to:</label>
                 <select class="form-control required" name="taskAssignedTo">
@@ -94,7 +94,7 @@
             </div>
         </div>
 
-        <div class="col-xs-6">
+        <div class="col-6">
             <div class="form-group">
                 <label>Priority:</label>
 
@@ -109,7 +109,7 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-6">
+        <div class="col-6">
 
             <label for="datePickerServiceDate" class="control-label">Service
                 Date:</label>
@@ -117,20 +117,20 @@
                 <div class="input-group">
                     <input name="serviceDate" id="datePickerServiceDate" type="text"
                            class="date-picker form-control required"/>
-                    <label for="datePickerServiceDate" class="input-group-addon btn">
-                        <span class="glyphicon glyphicon-calendar"></span>
+                    <label for="datePickerServiceDate" class="input-group-text btn">
+                        <span class="fa-solid fa-calendar"></span>
                     </label>
                 </div>
             </div>
         </div>
 
-        <div class="col-xs-6">
+        <div class="col-6">
             <label for="ticklerTime" class="control-label"> Time:</label>
             <div class="controls">
                 <div class="input-group">
                     <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required"/>
-                    <label for="ticklerTime" class="input-group-addon btn">
-                        <span class="glyphicon glyphicon-time"></span>
+                    <label for="ticklerTime" class="input-group-text btn">
+                        <span class="fa-solid fa-clock"></span>
                     </label>
                 </div>
             </div>
@@ -138,7 +138,7 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-12">
+        <div class="col-12">
             <div class="form-group">
                 <label>Message:</label>
                 <select class="form-control" name="message">

@@ -530,7 +530,7 @@
 
             <div>
                 <div class="controls controls-row">
-                    <div class="control-group span6" id="productNameTemplateGroup">
+                    <div class="control-group col-md-6" id="productNameTemplateGroup">
                         <label class="control-label" for="productNameTemplate">Choose Existing:</label>
                         <div class="controls">
                             <select id="productNameTemplate" name="productNameTemplate"
@@ -541,14 +541,14 @@
                     </div>
                 </div>
                 <div class="controls controls-row">
-                    <div class="control-group span3" id="productNameGroup">
+                    <div class="control-group col-md-3" id="productNameGroup">
                         <label class="control-label" for="productName">Name:</label>
                         <div class="controls">
                             <input type="text" name="product.name" id="productName" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
-                    <div class="control-group span3" id="productCodeGroup">
+                    <div class="control-group col-md-3" id="productCodeGroup">
                         <label class="control-label" for="productCode">Code:</label>
                         <div class="controls">
                             <input type="text" name="product.code" id="productCode" value=""/>
@@ -559,7 +559,7 @@
                 </div>
                 <div class="controls controls-row">
 
-                    <div class="control-group span3" id="productLotGroup">
+                    <div class="control-group col-md-3" id="productLotGroup">
                         <label class="control-label" for="productLot">Lot:</label>
                         <div class="controls">
                             <input type="text" name="product.lotNumber" id="productLot" value=""/>
@@ -567,7 +567,7 @@
                         </div>
                     </div>
 
-                    <div class="control-group span3" id="productExpiryDateGroup">
+                    <div class="control-group col-md-3" id="productExpiryDateGroup">
                         <label class="control-label" for="productExpiryDate">Expiry Date:</label>
                         <div class="controls">
                             <input type="text" name="product.expiryDate" id="productExpiryDate" value=""/>
@@ -577,7 +577,7 @@
 
                 </div>
                 <div class="controls controls-row">
-                    <div class="control-group span3" id="productAmountGroup">
+                    <div class="control-group col-md-3" id="productAmountGroup">
                         <label class="control-label" for="productAmount">Amount:</label>
                         <div class="controls">
                             <input type="text" name="product.amount" id="productAmount" value=""/>
@@ -585,7 +585,7 @@
                         </div>
                     </div>
 
-                    <div class="control-group span3" id="totalEntriesToCreateGroup">
+                    <div class="control-group col-md-3" id="totalEntriesToCreateGroup">
                         <label class="control-label" for="productExpiryDate">Total Entries to create:</label>
                         <div class="controls">
                             <input type="text" name="productBulkTotal" id="productBulkTotal" value="1"/>
@@ -595,7 +595,7 @@
                 </div>
 
                 <div class="controls controls-rw">
-                    <div class="control-group span3">
+                    <div class="control-group col-md-3">
                         <label class="control-label" for="productLocation">Location:</label>
                         <div class="controls">
                             <select name="product.location" id="productLocation">

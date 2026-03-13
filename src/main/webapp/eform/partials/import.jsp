@@ -60,7 +60,7 @@
 
 <c:if test="${ not empty status }">
     <div class="alert alert-success">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <strong>Success!</strong> Your eform was imported.
     </div>
 
@@ -77,7 +77,7 @@
         List<String> importErrors = (List<String>) request.getAttribute("importErrors");
         if (importErrors != null && importErrors.size() > 0) {
     %>
-    <div class="row-fluid">
+    <div class="row">
         <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
@@ -110,8 +110,8 @@
         </div>
     </div>
 
-    <div class="row-fluid">
-        <span class="label label-info">Info: </span>
+    <div class="row">
+        <span class="badge bg-info">Info: </span>
         <span>Zip file format only</span>
     </div>
 

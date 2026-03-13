@@ -255,7 +255,7 @@
 
         <form name="form1" method="post" action="ongenreport.jsp" onsubmit="return checkSubmit();">
 
-            <div class="span4">
+            <div class="col-md-4">
                 Select Provider<br>
                 <select name="providers" onchange="setBillingCenter(this.value);">
                     <%
@@ -293,7 +293,7 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 Billing Center<br>
                 <select name="billcenter" id="billcenter">
                     <%
@@ -315,7 +315,7 @@
             <input type="hidden" name="curDate" value="<%=nowDate%>">
 
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Service Date Start:</label>
                 <div class="input-append">
                     <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>"
@@ -324,7 +324,7 @@
                 </div>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Service Date End:</label>
                 <div class="input-append">
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date"
@@ -334,7 +334,7 @@
                 </div>
             </div>
 
-            <div class="span10">
+            <div class="col-md-10">
                 <input type="checkbox" name="useProviderMOH"
                        id="useProviderMOH" <%=("true".equals(request.getParameter("useProviderMOH")) ? "checked" : "") %>>Use
                 individual provider's bill center setting (will use above bill center if provider does not have one

@@ -661,14 +661,14 @@
 
         <%if (request.getParameter("adminSubmit") != null) { %>
         <div class="alert alert-success" id="alert_message">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success! </strong> Your entry was saved!
         </div>
         <%} %>
 
         <%if (billNoErr) { %>
         <div class="alert alert-error" id="alert_message">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Error! </strong> Invoice number does not exist!
         </div>
         <%} %>
@@ -682,19 +682,19 @@
                   action="billingONCorrection.jsp<%if (request.getParameter("admin")!=null) { out.print("?admin"); }%>">
                 <input type="hidden" id="billTotal" value="<%=BillTotal%>"/>
 
-                <div class="span2">
+                <div class="col-md-2">
                     <a href="#" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>);"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formInvoiceNo"/></a><br>
-                    <input type="text" id="billing_no" name="billing_no" value="<%=nullToEmpty(billNo)%>" class="span2"
+                    <input type="text" id="billing_no" name="billing_no" value="<%=nullToEmpty(billNo)%>" class="col-md-2"
                            required>
                 </div>
 
 
-                <div class="span2">
+                <div class="col-md-2">
                     OHIP Claim No <br>
-                    <input type="text" name="claim_no" value="<%=nullToEmpty(claimNo)%>" class="span2">
+                    <input type="text" name="claim_no" value="<%=nullToEmpty(claimNo)%>" class="col-md-2">
                 </div>
 
-                <div class="span2">
+                <div class="col-md-2">
                     <br>
                     <input class="btn btn-primary" type="submit" name="submit" value="Search">
                 </div>
@@ -748,7 +748,7 @@
             <input type="hidden" name="oldStatus" value="<%=thirdParty ? "thirdParty" : "" %>"/>
 
             <div class="row well well-small">
-                <div class="span10">
+                <div class="col-md-10">
                     <table>
                         <tr>
                             <th style="text-align:left" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPatientInformation"/></th>
@@ -780,7 +780,7 @@
 
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgDoctorNo"/>:
                                 <div class="input-append">
-                                    <input type="text" name="rdohip" value="<%=r_doctor_ohip%>" class="span2" readonly/>
+                                    <input type="text" name="rdohip" value="<%=r_doctor_ohip%>" class="col-md-2" readonly/>
                                     <a href="javascript:referralScriptAttach2('rdohip','rd')" class="btn"><i
                                             class="fa-solid fa-magnifying-glass"></i></a>
                                 </div>
@@ -791,7 +791,7 @@
             </div>
 
             <div class="row well well-small">
-                <div class="span10">
+                <div class="col-md-10">
 
                     <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgAditInfo"/></strong><br>
 
@@ -888,12 +888,12 @@
 
             <div class="row well well-small">
 
-                <div class="span10">
+                <div class="col-md-10">
                     <b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgBillingInf"/></b><br>
 
-                    <div class="span4">
+                    <div class="col-md-4">
 
-                        <div class="span4" style="margin-left:0px;">
+                        <div class="col-md-4" style="margin-left:0px;">
                             <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnBillingDate"/>:</label>
                             <div class="input-append">
                                 <input type="text" name="xml_appointment_date" id="xml_appointment_date"
@@ -901,7 +901,7 @@
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                                 <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                             </div>
-                        </div><!--cal span2-->
+                        </div><!--cal col-md-2-->
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formBillingType"/>:<br>
                         <input type="hidden" name="xml_status" value="<%=BillType%>">
@@ -1032,9 +1032,9 @@
                         <input type="hidden" name="xml_provider_no" value="<%=Provider%>">
                     </div><!--span4-->
 
-                    <div class="span4">
+                    <div class="col-md-4">
                         <input type="hidden" name="xml_visitdate" value="<%=visitdate%>"/>
-                        <div class="span4" style="margin-left:0px;">
+                        <div class="col-md-4" style="margin-left:0px;">
                             <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnAdmissionDate"/>:</label>
                             <div class="input-append">
                                 <input type="text" name="xml_vdate" id="xml_vdate" value="<%=visitdate%>"
@@ -1108,7 +1108,7 @@
                             <option value="RTF " <%=sliCode.startsWith("RTF") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.RTF"/></option>
                         </select>
                     </div><!--span4-->
-                </div><!-- span10 -->
+                </div><!-- col-md-10 -->
             </div>
             <!--well-->
 
@@ -1216,7 +1216,7 @@
 
 
             <div class="row well well-small">
-                <div class="span10">
+                <div class="col-md-10">
 
                     <b> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formDiagnosticCode"/></b>
                     <br>
@@ -1225,7 +1225,7 @@
                     <input type="hidden" name="xml_dig_search1">
 
                     <div class="input-append">
-                        <input type="text" name="xml_diagnostic_detail" value="<%=diagCode%>" class="span8">
+                        <input type="text" name="xml_diagnostic_detail" value="<%=diagCode%>" class="col-md-8">
                         <a href="javascript:ScriptAttach()" class="btn"><i class="fa-solid fa-magnifying-glass"></i></a>
                     </div>
 
@@ -1233,7 +1233,7 @@
             </div>
 
             <div class="row well well-small">
-                <div class="span10">
+                <div class="col-md-10">
 
                     <%
                         if (securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
@@ -1266,7 +1266,7 @@
                     <br><br>
 
                     <div class="row">
-                        <div class="span5">
+                        <div class="col-md-5">
                             <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgNotes"/>:<br>
                             <textarea name="comment" style="width:100%" rows=4><%=comment %></textarea>
                             <%
@@ -1287,7 +1287,7 @@
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.dueDate"/><img src="<%= request.getContextPath() %>/images/cal.gif" id="invoiceDueDate_cal" />
                     :<input type="text" maxlength="10" id="invoiceDueDate" name="invoiceDueDate" value="<%=dueDateStr%>"/>
                     -->
-                            <div class="span2">
+                            <div class="col-md-2">
                                 <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.dueDate"/>:</label>
                                 <div class="input-append">
                                     <input type="text" name="invoiceDueDate" id="invoiceDueDate" value="<%=dueDateStr%>"
@@ -1299,7 +1299,7 @@
                             <% } %>
                         </div>
 
-                        <div class="span5" id="thirdParty" style=" <%=thirdParty ? "" : "display:none"%>">
+                        <div class="col-md-5" id="thirdParty" style=" <%=thirdParty ? "" : "display:none"%>">
                             <a href="#" onclick="search3rdParty('billTo');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgPayer"/></a><br>
                             <textarea id="billTo" name="billTo" cols="32" rows=4><%=payer%></textarea>
                             <% String useDemoClinicInfoOnInvoice = OscarProperties.getInstance().getProperty("useDemoClinicInfoOnInvoice", "");

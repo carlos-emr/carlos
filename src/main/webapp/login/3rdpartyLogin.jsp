@@ -214,7 +214,7 @@
 <body>
 <div class="container">
     <div class="row">
-        <div class="span5">
+        <div class="col-md-5">
             <div style="margin-top:25px;">
                 <img src="${pageContext.request.contextPath}/images/OSCAR-LOGO.gif"
                      width="450" height="274" alt="OSCAR Logo">
@@ -227,7 +227,7 @@
                 </p>
             </div>
         </div>
-        <div class="span7">
+        <div class="col-md-7">
 
             <!-- Username / Password Form -->
             <div id="login_div" class="form-container">
@@ -246,7 +246,7 @@
                         </span>
                     </div>
 
-                    <button class="btn btn-large btn-primary"
+                    <button class="btn btn-lg btn-primary"
                             type="button"
                             onclick="submitCredentials()">
                         Sign in

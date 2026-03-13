@@ -180,9 +180,9 @@
         <form name="serviceform" method="post" action="BatchBill.do" class="form-inline">
             <input type="hidden" id="method" name="method" value="">
 
-            <div class="span2">
+            <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/><br>
-                <select name="providers" class="span2" onChange="jumpMenu('window',this)">
+                <select name="providers" class="col-md-2" onChange="jumpMenu('window',this)">
                     <option value="#"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/></b></option>
                     <option value="all"
                             <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgAllProvider"/></option>
@@ -204,9 +204,9 @@
                 </select>
             </div>
 
-            <div class="span3">
+            <div class="col-md-3">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceCode"/>:
-                <select id="service_code" class="span3" name="service_code">
+                <select id="service_code" class="col-md-3" name="service_code">
                     <option value="all" <%=servicecode.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgAllServiceCode"/></option>
                     <%
                         List<String> serviceCodes = batchBillingDAO.findDistinctServiceCodes();
@@ -220,9 +220,9 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgClinicLocation"/>:
-                <select name="clinic_view" class="span4">
+                <select name="clinic_view" class="col-md-4">
                     <%
                         String clinic_location = "", clinic_code = "";
                         List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
@@ -257,7 +257,7 @@
 
         %>
 
-        <button class="btn pull-right" type='button' name='print' value='Print' onClick='window.print()'><i
+        <button class="btn float-end" type='button' name='print' value='Print' onClick='window.print()'><i
                 class="fa-solid fa-print"></i> Print
         </button>
         <br/><input type="checkbox" onclick="selectAll();"><br/><br/>
@@ -348,7 +348,7 @@
 
             <tr>
                 <td colspan="7">
-                    <div class="span3">
+                    <div class="col-md-3">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceDate"/>
                         <div class="input-append">
                             <input type="text" name="BillDate" id="BillDate"
@@ -358,7 +358,7 @@
                         </div>
                     </div>
 
-                    <div class="span4">
+                    <div class="col-md-4">
                         <input type="button" class="btn btn-primary" onclick="return setMethod('doBatchBill');"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.btnSubmit"/>">
                         <input type="button" class="btn" onclick="return askFirst('remove');"

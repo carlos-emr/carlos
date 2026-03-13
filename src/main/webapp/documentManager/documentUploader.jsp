@@ -105,8 +105,8 @@
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css" />
 
      <!-- tested with Bootstrap 2.3.1 and Bootstrap 3.0.0 -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <!--<link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">-->
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <!--<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">-->
 
     <!-- styles to alter add files button and adjust bootstrap 3 progress bar -->
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/documentUploader/style.css">
@@ -240,11 +240,11 @@
 </head>
 <body onload="setDropList();">
     <div class="container">
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <h3 class="panel-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h3>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h3>
         </div>
-        <div class="panel-body">
+        <div class="card-body">
             <ul>
                 <li><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title" /></li>
                 <li><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUpload.onlyPdf" /></li>
@@ -313,17 +313,17 @@
         <div class="row fileupload-buttonbar">
           <div class="col-lg-7">
             <!-- The fileinput-button span is used to style the file input field as button -->
-            <span class="btn fileinput-button btn-default">
-              <i class="glyphicon glyphicon-plus"></i>
+            <span class="btn fileinput-button btn-secondary">
+              <i class="fa-solid fa-plus"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnAdd" />...</span>
               <input type="file" name="filedata" multiple />
             </span>
             <button type="submit" class="btn btn-primary start">
-              <i class="glyphicon glyphicon-upload"></i>
+              <i class="fa-solid fa-upload"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
             </button>
             <button type="reset" class="btn cancel">
-              <i class="glyphicon glyphicon-ban-circle"></i>
+              <i class="fa-solid fa-ban"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.reset" /></span>
             </button>
             <!-- The global file processing state -->
@@ -347,7 +347,7 @@
             <div class="progress-extended">&nbsp;</div>
           </div>
         </div>
-        <div id="drop-area" > <span style="font-size:40px; color:lightblue;"><i class="glyphicon glyphicon-cloud-upload"></i></span>
+        <div id="drop-area" > <span style="font-size:40px; color:lightblue;"><i class="fa-solid fa-cloud-arrow-up"></i></span>
         <!-- The table listing the files available for upload/download -->
             <table role="presentation" class="table table-striped table-compact">
               <tbody id="tbodyid" class="files"></tbody>
@@ -376,19 +376,19 @@
               <td>
                   {% if (!o.options.autoUpload && o.options.edit ) { %}
                     <button class="btn btn-success edit btn-small btn-sm" data-index="{%=i%}" disabled>
-                        <i class="glyphicon glyphicon-edit"></i>
+                        <i class="fa-solid fa-pen-to-square"></i>
                         <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update" /></span>
                     </button>
                   {% } %}
                   {% if (!i && !o.options.autoUpload) { %}
                       <button class="btn btn-primary start btn-small btn-sm" disabled>
-                          <i class="glyphicon glyphicon-upload"></i>
+                          <i class="fa-solid fa-upload"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
                       </button>
                   {% } %}
                   {% if (!i) { %}
                       <button class="btn cancel btn-small btn-sm">
-                          <i class="glyphicon glyphicon-ban-circle"></i>
+                          <i class="fa-solid fa-ban"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel" /></span>
                       </button>
                   {% } %}
@@ -416,7 +416,7 @@
                       {% } %}
                   </p>
                   {% if (file.error) { %}
-                      <div><span class="label label-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.fileError" /></span> {%=file.error%}</div>
+                      <div><span class="badge bg-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.fileError" /></span> {%=file.error%}</div>
                   {% } %}
               </td>
               <td>
@@ -425,7 +425,7 @@
               <td>
                   {% if (file.deleteUrl) { %}
                       <button class="btn btn-danger delete" data-type="{%=file.deleteType%}" data-url="{%=file.deleteUrl%}"{% if (file.deleteWithCredentials) { %} data-xhr-fields='{"withCredentials":true}'{% } %}>
-                          <i class="glyphicon glyphicon-trash"></i>
+                          <i class="fa-solid fa-trash"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete" /></span>
                       </button>
                       <input type="checkbox" name="delete" value="1" class="toggle">

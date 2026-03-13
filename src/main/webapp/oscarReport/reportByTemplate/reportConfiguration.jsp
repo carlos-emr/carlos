@@ -136,12 +136,12 @@
 
     <c:if test="${ not empty errormsg }">
     <div class="alert alert-error">
-        <a href="#" data-dismiss="alert" class="close">&times;</a>
+        <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
         <c:out value="${ errormsg }"/>
     </div>
     </c:if>
 
-    <div class="well configDiv" id=manageGroups>
+    <div class="card card-body bg-body-tertiary configDiv" id=manageGroups>
         <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/GenerateReportAction.do"
                    method="post" onsubmit="return checkform(this);">
             <input type="hidden" name="templateId" value="${ curreport.templateId }">

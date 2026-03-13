@@ -139,7 +139,7 @@
             }
         }
     </script>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
           type="text/css">
     <style>
         table {
@@ -220,7 +220,7 @@
                         <input id="newTextSuggest" class="form-control" name="newTextSuggest" type="text"
                                maxlength="100"/>
                         <div class="input-group-btn">
-                            <input type="button" class="btn btn-default" name="addNewTextSuggest"
+                            <input type="button" class="btn btn-secondary" name="addNewTextSuggest"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
                                    onclick="addToList('activeText','newTextSuggest')"/>
                         </div>
@@ -229,7 +229,7 @@
             </tr>
             <tr>
                 <td colspan="3">
-                    <div class="form-group pull-right">
+                    <div class="form-group float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
                                onclick="doSelect('activeText');doSelect('inactiveText');document.tsTicklerForm.submit();"/>

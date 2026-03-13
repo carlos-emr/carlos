@@ -115,14 +115,14 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></h3>
 
     <div class="container-fluid well well-small">
-        <div class="span2">Date: <%=DateUtils.sumDate("yyyy-MM-dd", "0")%>
+        <div class="col-md-2">Date: <%=DateUtils.sumDate("yyyy-MM-dd", "0")%>
         </div>
-        <div class="span2 pull-right">
+        <div class="col-md-2 float-end">
             <button class="btn" type="button" value="Print" onclick="window.print()"/>
             <i class="fa-solid fa-print icon-white"></i> Print</button></div>
 
-        <div class="span12">
-            <div class="span2">
+        <div class="col-md-12">
+            <div class="col-md-2">
                 Start:
                 <div class="input-append">
                     <input type="text" name="xml_vdate" id="xml_vdate" value="<%=startDate%>"
@@ -130,7 +130,7 @@
                     <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
-            <div class="span2">
+            <div class="col-md-2">
                 End:
                 <div class="input-append">
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<%=endDate%>"
@@ -139,7 +139,7 @@
                 </div>
             </div>
 
-            <div class="span6">
+            <div class="col-md-6">
                 Provider
                 <div>
                     <select name="providerview">
@@ -170,7 +170,7 @@
         </div><!--span10-->
 
 
-        <div class="span12">
+        <div class="col-md-12">
             <br>
 
         </div><!--span12-->

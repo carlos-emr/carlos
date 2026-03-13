@@ -73,7 +73,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
 
             <h2>Upload Details</h2>
 

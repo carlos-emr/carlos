@@ -291,7 +291,7 @@
                         <%}%>
                     </select>
                     <div class="input-group-btn btn-group">
-                        <input id="docTypeinput" type="button" class="btn btn-default form-control"
+                        <input id="docTypeinput" type="button" class="btn btn-secondary form-control"
                                onClick="newDocType();"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/>"/>
                     </div>
@@ -308,7 +308,7 @@
             </div>
             <div class="form-group">
                 <label for="observationDate" title="Observation Date">Observation Date</label>
-                <input class="span2 form-control" type="date" name="observationDate" id="observationDate"
+                <input class="col-md-2 form-control" type="date" name="observationDate" id="observationDate"
                        value="<%=formdata.getObservationDate()%>"
                        onclick="checkDefaultDate(this, '<%=UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>')">
             </div>
@@ -400,7 +400,7 @@
                     <%}%>
                 </select>
                 <div class="input-group-btn btn-group">
-                    <input id="docTypeinput1" type="button" class="btn btn-default form-control"
+                    <input id="docTypeinput1" type="button" class="btn btn-secondary form-control"
                            onClick="newDocTypeLink();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/>"/>
                 </div>

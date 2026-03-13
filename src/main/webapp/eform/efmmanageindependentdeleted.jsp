@@ -100,7 +100,7 @@
     <%@ include file="efmTopNav.jspf" %>
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h3 style="display:inline"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
             class="fa-solid fa-circle-question"></i>
 

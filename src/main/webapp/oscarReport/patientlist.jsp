@@ -32,18 +32,18 @@
     <h4>Patient List</h4>
 </div>
 
-<form id="plForm" action="<%=request.getContextPath() %>/patientlistbyappt" class="well form-horizontal">
+<form id="plForm" action="<%=request.getContextPath() %>/patientlistbyappt" class="card card-body bg-body-tertiary form-horizontal">
 
     <fieldset>
         <h4>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.exportPatientbyAppt"/> <br> <small>Please select
             the provider and appointment date from &amp; to.</small>
         </h4>
-        <div class="row-fluid">
+        <div class="row">
             <div class="control-group">
                 <label class="control-label">Doctor</label>
                 <div class="controls">
-                    <select name="provider_no" class="span3">
+                    <select name="provider_no" class="col-md-3">
                         <option value="all">All Doctors</option>
                         <%
                             ArrayList<ProviderNameBean> dnl = new DoctorList().getDoctorNameList();

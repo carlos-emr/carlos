@@ -118,7 +118,7 @@
 <div class="page-header">
     <h3>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
-        <div class="pull-right">
+        <div class="float-end">
             <button name="print" onclick="window.print()" class="btn hidden-print">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
@@ -128,7 +128,7 @@
 </div>
 
 <form action="${ctx}/oscarReport/oscarReportVisitControl.jsp"
-      class="well form-horizontal hidden-print" id="visitForm">
+      class="card card-body bg-body-tertiary form-horizontal hidden-print" id="visitForm">
     <fieldset>
         <h4>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>

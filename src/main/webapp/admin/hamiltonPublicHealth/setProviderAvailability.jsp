@@ -129,7 +129,7 @@
 </script>
 
 
-<form class="well " action="setProviderAvailability.jsp" id="theForm" method="post">
+<form class="card card-body bg-body-tertiary " action="setProviderAvailability.jsp" id="theForm" method="post">
     <input type="hidden" name="method" id="method" value=""/>
 
     <div id="programOptions" class="control-group">

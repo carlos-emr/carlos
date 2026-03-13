@@ -106,7 +106,7 @@
 
     <h4><i class="fa-solid fa-magnifying-glass" title=""></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.description"/></h4>
     <div name="alert" style="display:none;" class="alert alert-error"></div>
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <form method="post" action="securitysearchresults.jsp" name="searchprovider">
             <table style="width:100%">
                 <tr>

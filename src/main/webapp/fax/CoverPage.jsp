@@ -57,13 +57,13 @@
     <title>OSCAR Fax</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
-    <link rel="stylesheet" href="${ctx}/library/bootstrap/3.0.0/css/bootstrap.min.css" type="text/css"/>
+    <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-1.12.0.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <script type="text/javascript">
 
@@ -234,11 +234,11 @@
 		  		<input type="hidden" name="documents" value="<e:forHtmlAttribute value='${ documents }' />" />
 		  		<input type="hidden" name="transType" value="<e:forHtmlAttribute value='${ transType }' />" />
 							
-				<div class="panel panel-default">
-				  	<div class="panel-heading">
-						<h3 class="panel-title">From</h3>
+				<div class="card">
+				  	<div class="card-header">
+						<h3 class="card-title">From</h3>
 					</div>
-					<div class="panel-body">
+					<div class="card-body">
 						<div class="container">
 							<div class="row">	
 							<div class="col-sm-12">				
@@ -276,11 +276,11 @@
 					</div>
 				</div>
 				
-				<div class="panel panel-default">
-				  	<div class="panel-heading">
-						<h3 class="panel-title">To</h3>
+				<div class="card">
+				  	<div class="card-header">
+						<h3 class="card-title">To</h3>
 					</div>
-				  	<div class="panel-body">
+				  	<div class="card-body">
 						<div class="container">
 						  	<div class="row" id="fax-recipients">	
 								<div class="col-sm-6 form-group">
@@ -298,11 +298,11 @@
 					</div>
 				</div>
 		
-				<div class="panel panel-default">
-				  	<div class="panel-heading">
-						<h3 class="panel-title">Copy(s) to</h3>
+				<div class="card">
+				  	<div class="card-header">
+						<h3 class="card-title">Copy(s) to</h3>
 					</div>
-				  	<div class="panel-body">
+				  	<div class="card-body">
 				  		<div class="container" id="fax-additional-recipients" >
 	
 				  			<div class="row" id="additionalRecipientControlPanel">			  			
@@ -319,7 +319,7 @@
 								<div class="col-sm-2 form-group">
 									<label for="additionalRecipient_fax_btn">&nbsp;</label>
 							        <button class="btn btn-primary form-control" id="additionalRecipient_fax_btn" title="Add recipient to list" type="button">
-							        	<span class="glyphicon glyphicon-plus"></span>
+							        	<span class="fa-solid fa-plus"></span>
 							        </button>
 							   </div>
 						 	</div>
@@ -333,7 +333,7 @@
 											      <input type="text" class="form-control" value="<e:forHtmlAttribute value='${ recipient.name }' /> <e:forHtmlAttribute value='${ recipient.fax }' />" disabled/>
 											      <span class="input-group-btn">
 											        <button class="btn btn-danger" type="button">
-											        	<span class="glyphicon glyphicon-remove"></span>
+											        	<span class="fa-solid fa-xmark"></span>
 											        </button>
 											      </span>
 	                                    </div>
@@ -351,11 +351,11 @@
                 </div>
 
                 <c:if test="${ not empty documents and transactionType eq 'CONSULTATION' }">
-                    <div class="panel panel-default">
-                        <div class="panel-heading">
-                            <h3 class="panel-title">Attachments</h3>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Attachments</h3>
                         </div>
-                        <div class="panel-body">
+                        <div class="card-body">
                             <div class="container">
                                 <div class="row">
                                     <ol class="list-group col-sm-12">
@@ -370,11 +370,11 @@
                     </div>
                 </c:if>
 
-                <div class="panel panel-default">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">Cover page</h3>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Cover page</h3>
                     </div>
-                    <div class="panel-body">
+                    <div class="card-body">
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
@@ -403,14 +403,14 @@
                     <div class="row">
                         <div class="col-sm-12">
                             <input type="hidden" id="submitMethod" name="method" value="queue"/>
-                            <button type="submit" id="btnSend" class="btn btn-primary btn-md pull-right" value="Send">
-                                <span class="btn-label"><i class="glyphicon glyphicon-send"></i></span>
+                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send">
+                                <span class="btn-label"><i class="fa-solid fa-paper-plane"></i></span>
                                 Send
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel" type="submit"
-                                    class="btn btn-danger btn-md pull-right" value="Cancel"
+                                    class="btn btn-danger btn-md float-end" value="Cancel"
                                     onclick="document.getElementById('submitMethod').value = 'cancel'">
-                                <span class="btn-label"><i class="glyphicon glyphicon-remove-circle"></i></span>
+                                <span class="btn-label"><i class="fa-solid fa-circle-xmark"></i></span>
                                 Cancel
                             </button>
                         </div>
@@ -419,11 +419,11 @@
             </form>
             <%-- Only show preview before submission, not after --%>
             <c:if test="${ transactionType ne 'CONSULTATION' and empty faxSuccessful }">
-                <div class="panel panel-default" id="preview-panel">
-                    <div class="panel-heading">
-                        <h3 class="panel-title">Preview</h3>
+                <div class="card" id="preview-panel">
+                    <div class="card-header">
+                        <h3 class="card-title">Preview</h3>
                     </div>
-                    <div class="panel-body">
+                    <div class="card-body">
                         <div class="container">
                             <object id="previewPDF"
                                     data="${ctx}/fax/faxAction.do?method=getPreview&faxFilePath=<e:forUriComponent value='${faxFilePath}' />"
@@ -453,7 +453,7 @@
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
-            <input type="button" class="btn btn-danger btn-md pull-right" value="Close" onclick="window.close();"/>
+            <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
         </c:if>
     </div>
 </div>
@@ -549,7 +549,7 @@
                         <input type="text" class="form-control" value="' + inputValue + '" disabled/>\
 						      <span class="input-group-btn">\
 						        <button class="btn btn-danger remove-additional-recipient-btn" type="button" onclick="removeRecipient(this)" >\
-						        	<span class="glyphicon glyphicon-trash"></span>\
+						        	<span class="fa-solid fa-trash"></span>\
 						        </button>\
 						      </span>\
 					    </div>\

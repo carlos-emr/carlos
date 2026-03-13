@@ -94,7 +94,7 @@
 <div class="page-header">
     <h4>
         Overnight Batch Eligibility Checking Report
-        <div class="pull-right">
+        <div class="float-end">
             <button name="print" onclick="window.print()" class="btn">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
@@ -104,14 +104,14 @@
 </div>
 
 
-<form action="${ctx}/oscarReport/obec.do" class="well form-horizontal"
+<form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary form-horizontal"
       id="obecForm">
     <fieldset>
         <h4>
             OBEC Report <br> <small>Please select the service begin
             date and number of days.</small>
         </h4>
-        <div class="row-fluid">
+        <div class="row">
             <div class="control-group">
                 <label class="control-label">Begin Date</label>
                 <div class="controls">

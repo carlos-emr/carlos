@@ -65,11 +65,11 @@
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
                 type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
                 type="text/javascript"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
                 type="text/javascript"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
               type="text/css"/>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
@@ -518,7 +518,7 @@
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/>
                         <%=surname%>, <%=firstName%>
                     </span>
-                            <input type=button class="btn btn-default pull-right" onclick="returnToRx();"
+                            <input type=button class="btn btn-secondary float-end" onclick="returnToRx();"
                                    value="Return to RX"/>
                         </h2>
                     </th>

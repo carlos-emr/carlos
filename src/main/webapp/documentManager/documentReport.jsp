@@ -348,14 +348,14 @@
                 -moz-osx-font-smoothing: grayscale;
             }
 
-            .panel-body {
+            .card-body {
                 overflow: auto;
             }
 
             a {
                 color: blue;
             }
-            .panel-body table tr td a {
+            .card-body table tr td a {
 	            text-wrap: auto;
 	            word-wrap: anywhere;
 	            word-break: break-word;
@@ -408,8 +408,8 @@
                     String currentkey = (String) categoryKeys.get(i);
                     ArrayList category = (ArrayList) categories.get(i);
             %>
-                <div class="doclist panel panel-default">
-                    <div class="headerline panel-heading">
+                <div class="doclist card">
+                    <div class="headerline card-header">
                         <div class="container">
                             <div class="form-inline">
                                 <div class="form-group" style="margin-right: 10px;">
@@ -460,7 +460,7 @@
                         </div>
                     </div>
 
-                    <div id="documentsInnerDiv<%=i%>" class="panel-body">
+                    <div id="documentsInnerDiv<%=i%>" class="card-body">
                         <table id="tblDocs<%=i%>" class="table table-condensed table-striped">
                             <thead>
                             <tr>

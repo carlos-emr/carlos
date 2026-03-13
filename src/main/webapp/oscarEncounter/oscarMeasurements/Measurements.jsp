@@ -214,7 +214,7 @@
                                 <table>
                                     <tr>
                                         <td>
-                                            <div class="well">
+                                            <div class="card card-body bg-body-tertiary">
                                                 <table class="table table-striped">
                                                     <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");

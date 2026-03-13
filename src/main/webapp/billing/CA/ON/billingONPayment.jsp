@@ -207,7 +207,7 @@
 
 
 <div class="container-fluid">
-    <span class="pull-right"><%=today%></span>
+    <span class="float-end"><%=today%></span>
 
     <div class="row well">
         <%=errorMsg%>
@@ -216,7 +216,7 @@
 
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
 
-            <div class="span3">
+            <div class="col-md-3">
                 Provider:<br>
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.providerName"/>-->
                 <select name="providerList">
@@ -237,7 +237,7 @@
             </div>
 
 
-            <div class="span2">
+            <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
                 <div class="input-append">
                     <input type="text" style="width:90px" name="startDateText" id="startDateText"
@@ -247,7 +247,7 @@
                 </div>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
                 <div class="input-append">
                     <input type="text" style="width:90px" name="endDateText" id="endDateText"
@@ -257,7 +257,7 @@
                 </div>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <br>
                 <input class="btn btn-primary" type="submit"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.generateReport"/>"/>

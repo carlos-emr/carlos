@@ -31,7 +31,7 @@
 <html>
 <head>
     <title>Private Billing Statement - Print Preview</title>
-    <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/3.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
     <style type="text/css">
         @media print, screen {
             body {
@@ -184,7 +184,7 @@
 <div class="noPrint btn-toolbar" role="toolbar" arial-label="Toolbar">
     <div class="btn-group mr-2" role="group" arial-label="Button group 1">
         <button class="btn btn-primary" onclick="window.print();">
-            <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+            <span class="fa-solid fa-print" aria-hidden="true"></span>
             Print
         </button>
         <button class="btn btn-secondary" onclick="goBack();">Go Back</button>
@@ -493,7 +493,7 @@
 <div class="noPrint btn-toolbar" role="toolbar" arial-label="Toolbar">
     <div class="btn-group mr-2" role="group" arial-label="Button group 1">
         <button class="btn btn-primary" onclick="window.print();">
-            <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+            <span class="fa-solid fa-print" aria-hidden="true"></span>
             Print
         </button>
         <button class="btn btn-secondary" onclick="goBack();">Go Back</button>
@@ -501,7 +501,7 @@
 </div>
 
 <script type="text/javascript" src="${ctx}/js/jquery-1.12.3.js"></script>
-<script type="text/javascript" src="${ctx}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript">
     function handleClickBillToClinic() {
         var billToClinic = $("input:checkbox#cbBillToClinic").is(":checked");

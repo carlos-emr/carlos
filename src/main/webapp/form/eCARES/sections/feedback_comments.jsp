@@ -29,7 +29,7 @@
 
 --%>
 
-<span class="tt mt-2 inline-block" data-toggle="tooltip"
+<span class="tt mt-2 inline-block" data-bs-toggle="tooltip"
       title="Comments and Feedback"><strong>Comments and Feedback</strong></span>
 <div id="feedback-comments-container" class="flex mt-2 w-full justify-end">
     <textarea name="feedback_comments" id="feedback_comments" class="form-control"

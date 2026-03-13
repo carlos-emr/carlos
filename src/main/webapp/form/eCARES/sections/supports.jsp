@@ -34,7 +34,7 @@
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_supports" data-score="1">
-        <strong class="tt" data-toggle="tooltip" title="HCNS: Home Care Nursing Support">Supports</strong>
+        <strong class="tt" data-bs-toggle="tooltip" title="HCNS: Home Care Nursing Support">Supports</strong>
     </div>
 
     <div class="pl-4 flex items-center">
@@ -55,7 +55,7 @@
             <span class="pl-1">Other</span></label>
     </div>
     <div class="pl-4 flex items-center">
-        <span class="tt font-bold flex items-center control-label" data-toggle="tooltip" title="For ADL or IADL">
+        <span class="tt font-bold flex items-center control-label" data-bs-toggle="tooltip" title="For ADL or IADL">
         Requires more support
         </span>
 

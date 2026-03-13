@@ -203,7 +203,7 @@
 
 </head>
 <body>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
 
     <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab.do?method=saveManage"
           onsubmit="return confirmSave();">

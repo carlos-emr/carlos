@@ -27,7 +27,7 @@
     <head>
         <meta charset="utf-8">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
-        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/3.0.0/css/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
         <style>
             .table > tbody > tr.highlight_pink {
                 background-color: pink;
@@ -66,7 +66,7 @@
             </div>
             <div class="btn-group mr-2" role="group" arial-label="Button group 1">
                 <button type="button" id="btnPrintSelected" class="btn btn-primary" onclick="printSelected();">
-                    <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+                    <span class="fa-solid fa-print" aria-hidden="true"></span>
                     Print Selected
                 </button>
             </div>
@@ -178,10 +178,10 @@
 
                         <%-- pop up a printer-frieldy private billing statement page --%>
                     <td>
-                        <button class="btn btn-primary btn-xs"
+                        <button class="btn btn-primary btn-sm"
                                 value="${invoice.demographicNumber}|${invoice.recipientId}"
                                 onclick="printItem(this.value)">
-                            <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+                            <span class="fa-solid fa-print" aria-hidden="true"></span>
                             print
                         </button>
                     </td>
@@ -192,7 +192,7 @@
     </div>
 
     <script type="text/javascript" src="${ctx}/js/jquery-1.12.3.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <script type="text/javascript">
         function printItem(itemValue) {

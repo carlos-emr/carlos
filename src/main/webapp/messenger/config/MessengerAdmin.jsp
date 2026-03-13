@@ -262,22 +262,22 @@
                     </a>
                     <ul class="nav nav-tabs">
                         <li class="active">
-                            <a href="#addContacts" data-toggle="tab">Manage Contacts</a>
+                            <a href="#addContacts" data-bs-toggle="tab">Manage Contacts</a>
                         </li>
                         <li>
-                            <a href="#manageGroups" data-toggle="tab">Manage Contact Groups</a>
+                            <a href="#manageGroups" data-bs-toggle="tab">Manage Contact Groups</a>
                         </li>
                     </ul>
                 </div>
             </div>
 
-            <div class="row-fluid tab-content">
+            <div class="row tab-content">
                 <div class="tab-pane active" id="addContacts">
                     <p>Enable or disable (check or uncheck) clinic providers as a contact in the
                         Messenger address book.</p>
                     <ul class="nav nav-tabs">
                         <li class="active">
-                            <a data-toggle="tab" href="#local-contacts">
+                            <a data-bs-toggle="tab" href="#local-contacts">
                                 Local Providers
                             </a>
                         </li>
@@ -286,7 +286,7 @@
                     <div class="tab-content">
                         <div class="tab-pane active" id="local-contacts">
                             <c:forEach items="${ localContacts }" var="contact" varStatus="count">
-                                <div class="row-fluid contact-entry">
+                                <div class="row contact-entry">
                                     <label class="checkbox">
                                         <input type="checkbox" value="${ contact.id.compositeId }"
                                             ${ contact.member ? 'checked="checked"' : '' } />
@@ -308,13 +308,13 @@
                     <ul class="nav nav-tabs">
                         <c:forEach items="${ groups }" var="group" varStatus="count">
                             <li ${ count.index eq 0 ? 'class="active"' : '' } >
-                                <a data-toggle="tab" href="#group-${ group.key.id }">
+                                <a data-bs-toggle="tab" href="#group-${ group.key.id }">
                                     <c:out value="${ group.key.groupDesc }"/>
                                 </a>
                             </li>
                         </c:forEach>
                         <li>
-                            <a data-toggle="tab" href="#new-group" class="muted">
+                            <a data-bs-toggle="tab" href="#new-group" class="muted">
                                 <i class="fa-solid fa-plus add-group-tab" title="New Group"></i>
                             </a>
                         </li>
@@ -326,7 +326,7 @@
                                  id="group-${ group.key.id }">
                                 <div id="group-member-list-${ group.key.id }">
                                     <c:forEach items="${ group.value }" var="member">
-                                        <div class="row-fluid contact-entry">
+                                        <div class="row contact-entry">
                                             <label class="checkbox">
                                                 <i class="fa-solid fa-trash group-member"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
@@ -354,8 +354,8 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row-fluid" style="background-color:white;">
-                                    <button id="delete-${ group.key.id }" class="btn delete-group-btn pull-right">Delete
+                                <div class="row" style="background-color:white;">
+                                    <button id="delete-${ group.key.id }" class="btn delete-group-btn float-end">Delete
                                         Group
                                     </button>
                                 </div>

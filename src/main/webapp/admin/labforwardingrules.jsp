@@ -129,7 +129,7 @@
     <input type="hidden" name="remProviderNum" value="">
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h5>Select Provider</h5>
         Please Select the provider to set fowarding rules for:
 
@@ -151,7 +151,7 @@
     </div>
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h5>Current Forwarding Rules</h5>
         <%
             String status = "N";
@@ -201,7 +201,7 @@
 
 
         <div class="alert alert-error">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Warning!</strong> The incoming labs are not being forwarded.
         </div>
 
@@ -217,7 +217,7 @@
     </div>
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
 
         <h5>Update Forwarding Rules</h5>
 

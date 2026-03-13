@@ -481,7 +481,7 @@
                         <br>
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgStepFour"/>
                     </div>
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
 
 
                         <%

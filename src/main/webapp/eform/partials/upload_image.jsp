@@ -86,7 +86,7 @@
 
     <c:if test="${ not empty status }">
         <div class="alert alert-success">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success!</strong> Your image was uploaded.
             <c:if test="${ not empty sanitizedFileName }">
                 <br/>Saved as: <strong>${Encode.formHtmlContent(sanitizedFileName)}</strong>
@@ -107,8 +107,8 @@
         </script>
     </c:if>
 
-    <div class="row-fluid">
-        <div class="well">
+    <div class="row">
+        <div class="card card-body bg-body-tertiary">
             <form action="${pageContext.request.contextPath}/eform/imageUpload.do" enctype="multipart/form-data" method="post">
 
                 <s:if test="hasActionErrors()">

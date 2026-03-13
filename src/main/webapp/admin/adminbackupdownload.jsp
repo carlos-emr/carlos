@@ -104,7 +104,7 @@
     </h3>
 
     <% if (exists) { %>
-      <div class="well">
+      <div class="card card-body bg-body-tertiary">
         <table class="table table-striped table-condensed">
           <thead>
             <tr><th>File Name</th><th>Size</th></tr>

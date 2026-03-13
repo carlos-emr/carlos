@@ -125,12 +125,12 @@
         <small><c:out value="${ reportobject.description }"/></small>
     </h3>
 
-    <div class="reportBorderDiv row-fluid">
+    <div class="reportBorderDiv row">
         <c:forEach items="${ htmlList }" var="htmlOut">
             <c:choose>
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
                     <div class="alert alert-error">
-                        <a href="#" data-dismiss="alert" class="close">&times;</a>
+                        <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
                         <c:out value="${ htmlOut }"/>
                     </div>
                 </c:when>
@@ -164,7 +164,7 @@
 
             <% } %>
         </div>
-        <div class="row-fluid sub-actions">
+        <div class="row sub-actions">
             <a href="#" class="showhidequery result-btn" onclick="showHideItem('sqlDiv')">
                 Show/Hide Query
             </a>

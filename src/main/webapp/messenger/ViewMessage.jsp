@@ -124,7 +124,7 @@
     <script src="<%=request.getContextPath() %>/messenger/messenger-common.js"></script>
     <!-- css -->
     <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
 <%
 String boxType = request.getParameter("boxType");
@@ -414,7 +414,7 @@ function fmtOscarMsg() {
 				<tr>
 					<td class="Printable">
 
-					<table valign="top" class="well"  style="width:100%"><!-- the messageblock -->
+					<table valign="top" class="card card-body bg-body-tertiary"  style="width:100%"><!-- the messageblock -->
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgFrom" />:</td>
 							<td colspan="2" id="sentBy" class="Printable" ><c:out value="${ viewMessageSentby }" />

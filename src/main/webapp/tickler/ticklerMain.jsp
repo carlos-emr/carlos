@@ -854,7 +854,7 @@
 
             </c:if>
             <c:if test="${not empty param.demoview}">
-            <div class="pull-left" style="margin-bottom:10px;">
+            <div class="float-start" style="margin-bottom:10px;">
                 <label for="ticklerview">Filter</label>
                 <select id="ticklerview" class="form-control" name="ticklerview">
                     <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
@@ -980,7 +980,7 @@
                     </tr>
 
                 </table>
-                <div class="pull-right">
+                <div class="float-end">
                     <button class="btn btn-primary" onclick="saveNoteDialog()">Save</button>
                     <button class="btn btn-danger" onclick="closeNoteDialog()">Exit</button>
                 </div>

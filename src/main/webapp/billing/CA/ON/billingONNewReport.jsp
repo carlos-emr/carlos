@@ -511,7 +511,7 @@
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">
         </div>
-        <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-default">Manage Provider List</a>
+        <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
     </form>
 
     <table id="reportTbl" class="table table-condensed table-striped table-hover" style="margin-top:10px;">

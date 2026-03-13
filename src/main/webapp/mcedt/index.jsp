@@ -142,7 +142,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
 
             <h2>MCEDT Resources</h2>
 

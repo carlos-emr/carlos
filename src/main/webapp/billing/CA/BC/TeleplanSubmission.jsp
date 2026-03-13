@@ -210,7 +210,7 @@
     </form>
 
     Activity List | <a href="#" onClick="showHideLayers('Layer2','','show');">Show Archive</a>
-    <button class="btn pull-right" type="button" value="Print" onclick="window.print()"/>
+    <button class="btn float-end" type="button" value="Print" onclick="window.print()"/>
     <i class="fa-solid fa-print"></i> Print</button>
 
 

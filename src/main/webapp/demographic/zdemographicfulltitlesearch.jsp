@@ -288,7 +288,7 @@
             }
         %>
         <div class="input-group select-group">
-            <select class="form-control input-group-addon" name="search_mode" id="search_mode" onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
+            <select class="form-control input-group-text" name="search_mode" id="search_mode" onchange="if(this.value === 'search_dob') document.titlesearch.keyword.value = '';">
                 <option value="search_name" <%=searchMode.equals("search_name") ? "selected" : ""%>>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.formName"/>
                 </option>

@@ -127,11 +127,11 @@
     <form action="<%=request.getContextPath()%>/eform/editForm.do" method="POST" enctype="multipart/form-data"
           id="editform" name="eFormEdit">
 
-        <div class="well" style="position: relative;">
+        <div class="card card-body bg-body-tertiary" style="position: relative;">
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             <div class="alert alert-success">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgChangesSaved"/>.
             </div>
             <% } %>
@@ -141,12 +141,12 @@
                 if (errors.containsKey("formNameMissing")) {
             %>
             <div class="alert alert-error">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%} else if (errors.containsKey("formNameExists")) { %>
             <div class="alert alert-error">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%}%>
@@ -214,7 +214,7 @@
 
             <br/>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditHtml"/>:<br/>
-            <textarea wrap="off" name="formHtml" style="" class="span12" rows="40"><%= formHtml%></textarea><br/>
+            <textarea wrap="off" name="formHtml" style="" class="col-md-12" rows="40"><%= formHtml%></textarea><br/>
 
             <p>
             <div id="panelDisplay">
@@ -235,7 +235,7 @@
             </a>
 
             <input type="submit" class="btn btn-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgSave"/>"
-                   data-loading-text="Saving..." name="savebtn" id="savebtn">
+                   data-bs-loading-text="Saving..." name="savebtn" id="savebtn">
 
             </p>
         </div>

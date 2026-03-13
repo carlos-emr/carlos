@@ -314,7 +314,7 @@
             <input type="hidden" name="billcenter" value="<%=billCenter%>">
             <%=healthOffice%>
 
-            <button type='button' name='print' value='Print' class="btn pull-right" onClick='window.print()'><i
+            <button type='button' name='print' value='Print' class="btn float-end" onClick='window.print()'><i
                     class="fa-solid fa-print"></i> Print
             </button>
             <br/>
@@ -333,9 +333,9 @@
             <input type="hidden" name="curDate" value="<%=nowDate%>">
 
 
-            <div class="span12" style="margin:4px;">
+            <div class="col-md-12" style="margin:4px;">
 
-                <div class="span3">
+                <div class="col-md-3">
                     Select Provider<br>
                     <select name="providers">
                         <% if (bMultisites) { %>
@@ -371,7 +371,7 @@
                     </select>
                 </div><!--span3-->
 
-                <div class="span2">
+                <div class="col-md-2">
                     From:<br>
                     <div class="input-append">
                         <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>" style="width:90px"
@@ -381,7 +381,7 @@
                 </div>
 
 
-                <div class="span2">
+                <div class="col-md-2">
                     To:<br>
                     <div class="input-append">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
@@ -391,13 +391,13 @@
                 </div>
 
                 <% if (!bMultisites) { %>
-                <div class="span2" style="min-width:140px"><br><input type="checkbox" name="summaryView"
+                <div class="col-md-2" style="min-width:140px"><br><input type="checkbox" name="summaryView"
                                                                       id="summaryView" <%= summaryView ? "checked" : "" %> />Summary
                     View
                 </div>
                 <% } %>
 
-                <div class="span2">
+                <div class="col-md-2">
                     <br>
                     <button class="btn btn-primary " type="submit" name="submit" value="Create Report">Create Report
                     </button>
@@ -406,7 +406,7 @@
 
             </div> <!--span12-->
 
-            <div class="span11">
+            <div class="col-md-11">
 
                 <br>
 

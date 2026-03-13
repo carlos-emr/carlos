@@ -124,7 +124,7 @@
         <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.description"/></h4>
 
     <form method="post" action="providersearchresults.jsp" name="searchprovider" onsubmit="return onsub()">
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr>
                     <td rowspan="2" style="text-align:right; vertical-align:middle">

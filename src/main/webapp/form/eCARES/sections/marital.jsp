@@ -34,7 +34,7 @@
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_marital" data-score="1">
-        <strong class="tt" data-toggle="tooltip" title="Marital Status">Marital</strong>
+        <strong class="tt" data-bs-toggle="tooltip" title="Marital Status">Marital</strong>
     </div>
     <div class="pl-4 flex items-center">
         <label class="font-normal flex items-center ml-2"><input type="radio" name="marital" class="m-0"
@@ -50,7 +50,7 @@
             <span class="pl-1">Single</span></label>
     </div>
     <div class="pl-4 flex items-center">
-        <span class="tt radio-inline control-label font-bold" data-toggle="tooltip" data-html="true"
+        <span class="tt radio-inline control-label font-bold" data-bs-toggle="tooltip" data-bs-html="true"
               title="Whom Lives With">
             <svg height="10" width="10">
                 <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>

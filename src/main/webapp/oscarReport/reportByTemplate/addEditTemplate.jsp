@@ -122,13 +122,13 @@
         <c:choose>
             <c:when test="${ not fn:startsWith(fn:toLowerCase(message), 'error') and not fn:startsWith(fn:toLowerCase(message), 'exception')}">
                 <div class="alert alert-success">
-                    <a href="#" data-dismiss="alert" class="close">&times;</a>
+                    <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
                     <c:out value="${ message }"/>
                 </div>
             </c:when>
             <c:otherwise>
                 <div class="alert alert-error">
-                    <a href="#" data-dismiss="alert" class="close">&times;</a>
+                    <a href="#" data-bs-dismiss="alert" class="close">&times;</a>
                     <c:out value="${ message }"/>
                 </div>
             </c:otherwise>
@@ -137,8 +137,8 @@
     <c:if test="${ empty opentext and empty param.opentext }">
         <!-- <form class="form-horizontal" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates.do"
                         enctype="multipart/form-data">
-        <div class="row-fluid">
-        <div class="well">
+        <div class="row">
+        <div class="card card-body bg-body-tertiary">
         <div class="control-group">
         <label class="control-label" for="uploadReportXml">Select template</label>
         <div class="controls">
@@ -151,7 +151,7 @@
         <input type="hidden" name="uuid" value="${ curreport.uuid }">
         <div class="control-group">
         <div class="controls">
-        <input type="submit" class="btn btn-primary pull-right" value="Upload & <%=StringUtils.capitalize(action)%>">
+        <input type="submit" class="btn btn-primary float-end" value="Upload & <%=StringUtils.capitalize(action)%>">
         </div>
         </div>
         </div>
@@ -159,8 +159,8 @@
     </form> -->
         <form class="form-horizontal" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates.do"
                    method="post" enctype="multipart/form-data" onsubmit="return validateFileUpload()">
-            <div class="row-fluid">
-                <div class="well">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
                     <div class="control-group">
                         <label class="control-label" for="uploadReportXml">Select template</label>
                         <div class="controls">
@@ -174,7 +174,7 @@
                     <input type="hidden" name="uuid" value="${ curreport.uuid }">
                     <div class="control-group">
                         <div class="controls">
-                            <input type="submit" class="btn btn-primary pull-right"
+                            <input type="submit" class="btn btn-primary float-end"
                                    value="Upload & <%=StringUtils.capitalize(action)%>">
                         </div>
                     </div>
@@ -185,8 +185,8 @@
     <c:if test="${ opentext eq '1' or param.opentext eq '1' }">
 
         <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/addEditTemplatesAction.do" method="post">
-            <div class="row-fluid">
-                <div class="well">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
                     <textarea id="xmltext" name="xmltext"
                               style="width:99%;height:300px;overflow-y:scroll;">${ templatexml }</textarea>
                     <input type="hidden" name="action" value="${ action }">
@@ -196,13 +196,13 @@
                 </div>
 
                 <div class="form-actions">
-                    <input type="submit" class="btn pull-right" value="Save">
+                    <input type="submit" class="btn float-end" value="Save">
 
                     <c:if test="${ action eq 'edit' }">
-                        <input type="submit" class="btn btn-primary pull-right" name="done" value="Done">
+                        <input type="submit" class="btn btn-primary float-end" name="done" value="Done">
                     </c:if>
                     <c:if test="${ action ne 'edit' }">
-                        <input type="button" class="btn pull-right" name="cancel" value="Cancel"
+                        <input type="button" class="btn float-end" name="cancel" value="Cancel"
                                onclick="document.location='homePage.jsp'">
                     </c:if>
                 </div>
