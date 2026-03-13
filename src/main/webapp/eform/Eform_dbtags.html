@@ -110,6 +110,9 @@ text-transform: none;
 
 <script>
 function updateMain(myelement){
+if (!window.opener || window.opener.closed || !window.opener.document) {
+	return;
+}
 var q = window.opener.document.getElementById('oscarDbTagSelect')
 
 var theDefault= myelement;
@@ -1714,6 +1717,14 @@ $(document).ready(function () {
 									00:00:00.0","dateEntered":"2016-04-04 12:34:46.0"}]</td>
 								</tr>
 							</table>
+						</div><!-- end parent-fieldname-text -->
+					</div><!-- end content-core -->
+				</div><!-- end content -->
+			</div><!-- end portal-column-content div -->
+			</td>
+		</tr>
+	</table><!-- end portal-columns -->
+</div><!-- end visual-portal-wrapper -->
 
 Copyright &copy; 2012-2026 by Peter Hutten-Czapski.
 A portion of this work was previously published on OscarManual.org

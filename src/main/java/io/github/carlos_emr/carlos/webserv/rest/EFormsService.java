@@ -26,6 +26,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.managers.FormsManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
@@ -44,6 +45,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * REST service for retrieving eForm listings and supporting reference data in CARLOS EMR.
+ *
+ * <p>Provides read-only endpoints to query eForm collections, available images, and eForm
+ * database tag names. All endpoints require the caller to have {@code _eform} read
+ * privilege; requests failing authorization receive an error {@link RestResponse}.</p>
+ *
+ * <p>Base path: {@code /eforms}</p>
+ *
+ * @since 2026-01-01
+ */
 @Path("/eforms")
 @Component("EFormsService")
 public class EFormsService extends AbstractServiceImpl
@@ -53,30 +65,54 @@ public class EFormsService extends AbstractServiceImpl
 	@Autowired
 	private FormsManager formsManager;
 
+	@Autowired
+	private SecurityInfoManager securityInfoManager;
+
 	/**
-	 * retrieves a list of all EForms better than the getAllEFormNames method
-	 * EForm responses will not contain the eform html
-	 * @return RestResponse
+	 * Retrieves a list of all active eForms sorted by name.
+	 *
+	 * <p>eForm responses do not contain HTML content; use {@code GET /eform/{dataId}} to
+	 * retrieve full HTML for a specific form.</p>
+	 *
+	 * <p>HTTP: {@code GET /eforms/} — produces {@code application/json}</p>
+	 *
+	 * @return {@link RestResponse} containing a {@code List<}{@link EFormTo1}{@code >} of all
+	 *         active eForms sorted by name on success, or an error response if authorization fails
+	 * @throws IllegalStateException if the caller is not authenticated
 	 */
 	@GET
 	@Path("/")
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<List<EFormTo1>> getEFormList()
 	{
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "r", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 		List<EFormTo1> allEforms = new EFormConverter(true).getAllAsTransferObjects(getLoggedInInfo(),
 				formsManager.findByStatus(getLoggedInInfo(), true, EFormDao.EFormSortOrder.NAME));
 		return RestResponse.successResponse(allEforms);
 	}
 
 	/**
-	 * retrieves a list of all EForm image names as strings
-	 * @return RestResponse
+	 * Retrieves a sorted list of all eForm image filenames from the configured image directory.
+	 *
+	 * <p>Only files matching the extensions {@code .jpg}, {@code .jpeg}, {@code .png}, or
+	 * {@code .gif} are included.</p>
+	 *
+	 * <p>HTTP: {@code GET /eforms/images} — produces {@code application/json}</p>
+	 *
+	 * @return {@link RestResponse} containing a {@code List<String>} of image filenames
+	 *         (sorted alphabetically) on success, or an error response if authorization fails
+	 * @throws IllegalStateException if the caller is not authenticated
 	 */
 	@GET
 	@Path("/images")
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<List<String>> getEFormImageList()
 	{
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "r", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 		String imageHomeDir = OscarProperties.getInstance().getEformImageDirectory();
 		File directory = new File(imageHomeDir);
 
@@ -86,14 +122,27 @@ public class EFormsService extends AbstractServiceImpl
 	}
 
 	/**
-	 * retrieves a list of all EForm database tags
-	 * @return RestResponse
+	 * Retrieves the list of all eForm database tag names supported by the eForm engine.
+	 *
+	 * <p>These tags are used in eForm HTML to reference patient and provider data
+	 * (e.g., {@code patient_name}, {@code today}, {@code hin}).</p>
+	 *
+	 * <p>HTTP: {@code GET /eforms/databaseTags} — produces {@code application/json}</p>
+	 *
+	 * @return {@link RestResponse} containing a {@code List<String>} of database tag names
+	 *         on success, or an error response if authorization fails or the tag list cannot
+	 *         be loaded
+	 * @throws IllegalStateException if the caller is not authenticated
+	 * @throws RuntimeException if {@link EFormLoader} fails to initialize or retrieve tag names
 	 */
 	@GET
 	@Path("/databaseTags")
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<List<String>> getEFormDatabaseTagList()
 	{
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "r", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 		List<String> dbTagList;
 		try
 		{

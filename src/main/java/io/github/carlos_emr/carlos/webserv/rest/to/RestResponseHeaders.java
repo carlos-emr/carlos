@@ -32,7 +32,13 @@ import io.github.carlos_emr.OscarProperties;
 import java.io.Serializable;
 
 /**
- * custom headers class for rest responses.
+ * Serializable DTO representing metadata headers included in every REST API response.
+ *
+ * <p>Contains build information sourced from {@link OscarProperties} at construction time,
+ * allowing API consumers to correlate responses with specific CARLOS EMR build versions.
+ * Instances are immutable after construction.</p>
+ *
+ * @since 2018-01-01
  */
 @Schema(description = "Generic response header object")
 public class RestResponseHeaders implements Serializable
@@ -40,15 +46,37 @@ public class RestResponseHeaders implements Serializable
 	private final String buildDate;
 	private final String buildTag;
 
+	/**
+	 * Constructs response headers populated from {@link OscarProperties}.
+	 *
+	 * <p>Reads {@code buildDate} from {@link OscarProperties#getBuildDate()} and
+	 * {@code buildTag} from {@link OscarProperties#getBuildTag()} at construction time.
+	 * The values reflect the current application build metadata and may be {@code null}
+	 * if the properties are not configured.</p>
+	 */
 	public RestResponseHeaders()
 	{
 		this.buildDate = OscarProperties.getBuildDate();
 		this.buildTag = OscarProperties.getBuildTag();
 	}
+
+	/**
+	 * Returns the application build date string.
+	 *
+	 * @return String the build date as provided by {@link OscarProperties#getBuildDate()};
+	 *         may be {@code null} if the build date property is not set
+	 */
 	public String getBuildDate()
 	{
 		return buildDate;
 	}
+
+	/**
+	 * Returns the application build tag string.
+	 *
+	 * @return String the build tag (e.g., a version label or git tag) as provided by
+	 *         {@link OscarProperties#getBuildTag()}; may be {@code null} if the property is not set
+	 */
 	public String getBuildTag()
 	{
 		return buildTag;

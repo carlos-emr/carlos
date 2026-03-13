@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
@@ -46,6 +47,17 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 
+/**
+ * REST service for managing individual eForms in CARLOS EMR.
+ *
+ * <p>Provides endpoints to load, create, and update eForm templates.
+ * All endpoints require valid OAuth authentication via the session or request context.
+ * eForm HTML content may be large; callers should handle responses accordingly.</p>
+ *
+ * <p>Base path: {@code /eform}</p>
+ *
+ * @since 2026-01-01
+ */
 @Path("/eform")
 @Component("EFormService")
 public class EFormService extends AbstractServiceImpl {
@@ -57,8 +69,14 @@ public class EFormService extends AbstractServiceImpl {
 	private EFormDao eFormDao;
 
 	/**
-	 * retrieves an eForm with the given id.
-	 * @return ResponseEntity containing data for the eForm. includes full html
+	 * Retrieves an eForm with the given id, including full HTML content.
+	 *
+	 * <p>HTTP: {@code GET /eform/{dataId}} — produces {@code application/json}</p>
+	 *
+	 * @param id Integer the unique eForm identifier (path parameter {@code dataId})
+	 * @return {@link RestResponse} containing an {@link EFormTo1} transfer object with full
+	 *         HTML content on success, or an error response if the form is not found
+	 * @throws IllegalStateException if the caller is not authenticated
 	 */
 	@GET
 	@Path("/{dataId}")
@@ -75,8 +93,18 @@ public class EFormService extends AbstractServiceImpl {
 	}
 
 	/**
-	 * Saves an eform. Performs an update if the eform has an fid, otherwise it will save a new eform.
-	 * @return RestResponse with data from the eform saved. response does not include html
+	 * Saves a new eForm using a typed transfer object.
+	 *
+	 * <p>Performs name-uniqueness validation before persisting. If the form name is already
+	 * in use, the save is aborted and an error response is returned.</p>
+	 *
+	 * <p>HTTP: {@code POST /eform/} — consumes and produces {@code application/json}</p>
+	 *
+	 * @param eformTo1 {@link EFormTo1} the eForm data transfer object deserialized from the request body;
+	 *                  must contain a unique {@code formName} and non-empty {@code formHtml}
+	 * @return {@link RestResponse} containing the persisted {@link EFormTo1} (without HTML) on success,
+	 *         or an error response with a descriptive message on failure
+	 * @throws IllegalStateException if the caller is not authenticated
 	 */
 	@POST
 	@Path("/")
@@ -96,7 +124,7 @@ public class EFormService extends AbstractServiceImpl {
 			eFormDao.persist(eForm);
 			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), eForm.getFormName());
+					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
 
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
@@ -105,9 +133,23 @@ public class EFormService extends AbstractServiceImpl {
 	}
 
 	/**
-	 * Saves an eform. Parses plain json instead of a transfer object
-	 * @param jsonString raw JSON string containing eform data
-	 * @return RestResponse with data from the eform saved. response does not include html
+	 * Saves a new eForm by parsing a raw JSON string.
+	 *
+	 * <p>Provides an alternative to the typed-object endpoint, useful when the caller
+	 * cannot produce a typed {@link EFormTo1} payload. Performs name-uniqueness validation
+	 * before persisting.</p>
+	 *
+	 * <p>HTTP: {@code POST /eform/json} — consumes and produces {@code application/json}</p>
+	 *
+	 * <p>Expected JSON keys: {@code formName} (String, required), {@code formHtml} (String, required),
+	 * {@code formSubject} (String, optional), {@code roleType} (String, optional),
+	 * {@code showLatestFormOnly} (boolean, default {@code false}),
+	 * {@code patientIndependent} (boolean, default {@code false}).</p>
+	 *
+	 * @param jsonString String the raw JSON request body; must not be null or blank
+	 * @return {@link RestResponse} containing the persisted {@link EFormTo1} (without HTML) on success,
+	 *         or an error response with a descriptive message on failure
+	 * @throws IllegalStateException if the caller is not authenticated
 	 */
 	@POST
 	@Path("/json")
@@ -115,10 +157,14 @@ public class EFormService extends AbstractServiceImpl {
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> saveEForm(String jsonString) {
 
+		if (jsonString == null || jsonString.trim().isEmpty()) {
+			return RestResponse.errorResponse("Invalid JSON");
+		}
+
 		JsonNode jsonObject;
 		try {
 			jsonObject = objectMapper.readTree(jsonString);
-		} catch (IOException e) {
+		} catch (IOException | IllegalArgumentException e) {
 			logger.error("Failed to parse eForm JSON", e);
 			return RestResponse.errorResponse("Invalid JSON");
 		}
@@ -156,7 +202,7 @@ public class EFormService extends AbstractServiceImpl {
 			eFormDao.persist(eForm);
 			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), eForm.getFormName());
+					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
 
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
@@ -165,14 +211,29 @@ public class EFormService extends AbstractServiceImpl {
 	}
 
 	/**
-	 * Updates an eform with the given id.
-	 * @return RestResponse with data from the eform saved. response does not include html
+	 * Updates an existing eForm using a typed transfer object.
+	 *
+	 * <p>The path parameter {@code dataId} must match the id in the request body;
+	 * mismatches are rejected with an error response to prevent accidental cross-form updates.</p>
+	 *
+	 * <p>HTTP: {@code PUT /eform/{dataId}} — consumes and produces {@code application/json}</p>
+	 *
+	 * @param dataId   Integer the eForm id from the URL path (must match body id)
+	 * @param eformTo1 {@link EFormTo1} the eForm data transfer object; must have a non-null id
+	 *                  matching {@code dataId}, and non-empty {@code formHtml} and {@code formName}
+	 * @return {@link RestResponse} containing the updated {@link EFormTo1} (without HTML) on success,
+	 *         or an error response with a descriptive message on failure
+	 * @throws IllegalStateException if the caller is not authenticated
 	 */
 	@PUT
 	@Path("/{dataId}")
 	@Consumes("application/json")
 	@Produces(MediaType.APPLICATION_JSON)
-	public RestResponse<EFormTo1> updateEForm(EFormTo1 eformTo1) {
+	public RestResponse<EFormTo1> updateEForm(@PathParam("dataId") Integer dataId, EFormTo1 eformTo1) {
+
+		if (eformTo1 == null || eformTo1.getId() == null || !dataId.equals(eformTo1.getId())) {
+			return RestResponse.errorResponse("Path id does not match payload id");
+		}
 
 		EForm eForm = new EFormConverter(false).getAsDomainObject(getLoggedInInfo(), eformTo1);
 
@@ -180,7 +241,7 @@ public class EFormService extends AbstractServiceImpl {
 			eFormDao.merge(eForm);
 			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 					LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), eForm.getFormName());
+					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
 		}
@@ -188,29 +249,51 @@ public class EFormService extends AbstractServiceImpl {
 	}
 
 	/**
-	 * Updates an eform with the given id. Parses plain json instead of a transfer object
-	 * @param jsonString raw JSON string containing eform data
-	 * @return RestResponse with data from the eform saved. response does not include html
+	 * Updates an existing eForm by parsing a raw JSON string.
+	 *
+	 * <p>Authentication is enforced at the start of this method before any parsing or
+	 * database operations are performed. The path parameter {@code dataId} is used as the
+	 * authoritative form id; any {@code id} field in the JSON body is ignored to prevent
+	 * URL/body id mismatch exploits.</p>
+	 *
+	 * <p>HTTP: {@code PUT /eform/{dataId}/json} — consumes and produces {@code application/json}</p>
+	 *
+	 * <p>Expected JSON keys: {@code formName} (String, required), {@code formHtml} (String, required),
+	 * {@code formSubject} (String, optional — preserved from existing record if absent),
+	 * {@code current} (boolean, optional), {@code roleType} (String, optional),
+	 * {@code showLatestFormOnly} (boolean, optional), {@code patientIndependent} (boolean, optional).</p>
+	 *
+	 * @param dataId     Integer the eForm id from the URL path (used exclusively; body id is ignored)
+	 * @param jsonString String the raw JSON request body; must not be null or blank
+	 * @return {@link RestResponse} containing the updated {@link EFormTo1} (without HTML) on success,
+	 *         or an error response with a descriptive message on failure
+	 * @throws IllegalStateException if the caller is not authenticated
 	 */
 	@PUT
 	@Path("/{dataId}/json")
 	@Consumes("application/json")
 	@Produces(MediaType.APPLICATION_JSON)
-	public RestResponse<EFormTo1> updateEFormJson(String jsonString) {
+	public RestResponse<EFormTo1> updateEFormJson(@PathParam("dataId") Integer dataId, String jsonString) {
+
+		// Enforce authentication before any parsing or DB operations
+		getLoggedInInfo();
+
+		if (jsonString == null || jsonString.trim().isEmpty()) {
+			return RestResponse.errorResponse("Invalid JSON");
+		}
 
 		JsonNode jsonObject;
 		try {
 			jsonObject = objectMapper.readTree(jsonString);
-		} catch (IOException e) {
+		} catch (IOException | IllegalArgumentException e) {
 			logger.error("Failed to parse eForm JSON", e);
 			return RestResponse.errorResponse("Invalid JSON");
 		}
 
-		int fid = jsonObject.path("id").asInt();
 		String formName = jsonObject.path("formName").asText();
 		String formHtml = jsonObject.path("formHtml").asText();
 
-		EForm eForm = eFormDao.findById(fid);
+		EForm eForm = eFormDao.findById(dataId);
 
 		if (eForm != null && eForm.getId() > 0) {
 
@@ -236,7 +319,7 @@ public class EFormService extends AbstractServiceImpl {
 				eFormDao.merge(eForm);
 				LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 						LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-						String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), eForm.getFormName());
+						String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
 				EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 				return RestResponse.successResponse(transferObj);
 			}
@@ -245,9 +328,11 @@ public class EFormService extends AbstractServiceImpl {
 	}
 
 	/**
-	 * basic validation for eform data
-	 * @param eForm the EForm to validate
-	 * @return true if data is valid, false otherwise
+	 * Validates basic eForm data before persisting or merging.
+	 *
+	 * @param eForm {@link EForm} the eForm entity to validate; may be {@code null}
+	 * @return {@code true} if the eForm is non-null with non-empty {@code formHtml} and {@code formName};
+	 *         {@code false} otherwise
 	 */
 	private boolean isValidEformData(EForm eForm) {
 		if (eForm == null)

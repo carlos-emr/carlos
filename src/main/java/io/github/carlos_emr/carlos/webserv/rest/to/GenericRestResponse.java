@@ -28,13 +28,46 @@
 package io.github.carlos_emr.carlos.webserv.rest.to;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import java.io.Serializable;
 
+/**
+ * Generic immutable wrapper for all REST API responses in CARLOS EMR.
+ *
+ * <p>Carries three independent payloads typed by the generic parameters, allowing each
+ * concrete subclass to specialise the types it needs while sharing serialization and
+ * status semantics:</p>
+ * <ul>
+ *   <li><strong>H</strong> — header metadata (e.g., build date/tag); populated on every response</li>
+ *   <li><strong>B</strong> — the response body (domain data); non-null on {@link ResponseStatus#SUCCESS}</li>
+ *   <li><strong>E</strong> — error details; non-null on {@link ResponseStatus#ERROR}</li>
+ * </ul>
+ *
+ * <p>Instances are immutable after construction. This class is not thread-safe by itself, but
+ * since all fields are final and types are expected to be immutable DTOs, shared reads are safe.</p>
+ *
+ * <p>Use the concrete subclass {@link RestResponse} and its static factory methods rather than
+ * instantiating this class directly.</p>
+ *
+ * @param <H> the type of the response headers object
+ * @param <B> the type of the response body object (populated on success)
+ * @param <E> the type of the response error object (populated on error)
+ *
+ * @since 2018-01-01
+ */
 @Schema(description = "Generic response wrapper object")
 public class GenericRestResponse<H, B, E> implements Serializable
 {
+	/**
+	 * Indicates the overall outcome of the REST operation.
+	 *
+	 * <ul>
+	 *   <li>{@link #SUCCESS} — the request completed successfully; the body is populated and
+	 *       the error is {@code null}.</li>
+	 *   <li>{@link #ERROR} — the request failed; the error is populated and
+	 *       the body is {@code null}.</li>
+	 * </ul>
+	 */
 	public enum ResponseStatus
 	{
 		SUCCESS, ERROR
@@ -45,6 +78,18 @@ public class GenericRestResponse<H, B, E> implements Serializable
 	private final E error;
 	private final ResponseStatus status;
 
+	/**
+	 * Constructs a generic REST response with all fields set.
+	 *
+	 * <p>For {@link ResponseStatus#SUCCESS} responses, {@code body} should be non-null and
+	 * {@code error} should be {@code null}. For {@link ResponseStatus#ERROR} responses,
+	 * {@code error} should be non-null and {@code body} should be {@code null}.</p>
+	 *
+	 * @param headers {@code H} the response header object; should not be {@code null}
+	 * @param body    {@code B} the response body; non-null for success, {@code null} for error
+	 * @param error   {@code E} the error detail; non-null for error, {@code null} for success
+	 * @param status  {@link ResponseStatus} the overall request outcome; must not be {@code null}
+	 */
 	protected GenericRestResponse(H headers, B body, E error, ResponseStatus status)
 	{
 		this.headers = headers;
@@ -53,32 +98,59 @@ public class GenericRestResponse<H, B, E> implements Serializable
 		this.status = status;
 	}
 
+	/**
+	 * Returns the response header metadata.
+	 *
+	 * @return {@code H} the header object; non-null in normal usage
+	 */
 	public H getHeaders()
 	{
 		return headers;
 	}
 
+	/**
+	 * Returns the response body containing domain data.
+	 *
+	 * @return {@code B} the body object; non-null on {@link ResponseStatus#SUCCESS},
+	 *         {@code null} on {@link ResponseStatus#ERROR}
+	 */
 	public B getBody()
 	{
 		return body;
 	}
 
+	/**
+	 * Returns the response error details.
+	 *
+	 * @return {@code E} the error object; non-null on {@link ResponseStatus#ERROR},
+	 *         {@code null} on {@link ResponseStatus#SUCCESS}
+	 */
 	public E getError()
 	{
 		return error;
 	}
 
+	/**
+	 * Returns the overall status of this response.
+	 *
+	 * @return {@link ResponseStatus} indicating {@code SUCCESS} or {@code ERROR}; never {@code null}
+	 */
 	public ResponseStatus getStatus()
 	{
 		return status;
 	}
 
 	/**
-	 * override the toString on this object to write it as a JSON object string
+	 * Returns a concise, non-sensitive summary of this response for logging purposes.
+	 *
+	 * <p>Deliberately does not include body or error content to prevent PHI leakage
+	 * in application logs.</p>
+	 *
+	 * @return String a summary string containing only the response status
 	 */
 	@Override
 	public String toString()
 	{
-		return ReflectionToStringBuilder.toString(this);
+		return "GenericRestResponse{status=" + status + "}";
 	}
 }
