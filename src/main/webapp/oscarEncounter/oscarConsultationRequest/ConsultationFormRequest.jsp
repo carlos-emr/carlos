@@ -69,6 +69,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.clinic.ClinicData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -2843,21 +2844,41 @@ if (userAgent != null) {
 
                         <%
                             if (props.isConsultationSignatureEnabled()) {
+                                // Check for provider signature stamp
+                                UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
+                                boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());
                         %>
                         <div class="consult-section-heading"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
-                                <input type="hidden" name="newSignature" id="newSignature" value="true"/>
+                                <input type="hidden" name="newSignature" id="newSignature" value="<%= hasStampSignature ? "false" : "true" %>"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
-                                       value="<%=(consultUtil.signatureImg != null ? consultUtil.signatureImg : "") %>"/>
+                                       value="<%=(consultUtil.signatureImg != null ? Encode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
                                        value="<%=signatureRequestId %>"/>
 
+                                <% if (hasStampSignature) { %>
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
+                                <div id="signatureShow" style="display: block;">
+                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage.do"
+                                         alt="${e:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
+                                </div>
+                                <div id="signatureFrame" style="display: none;">
+                                    <iframe style="width:500px; height:132px;"
+                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+                                </div>
+                                <div style="margin-top:5px;">
+                                    <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
+                                        <fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.linkResignManually"/>
+                                    </a>
+                                </div>
+                                <% } else { %>
                                 <div id="signatureShow" style="display: none;">
                                     <img id="signatureImgTag" src=""/>
                                 </div>
 
                                 <iframe style="width:500px; height:132px;" id="signatureFrame"
 							src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+                                <% } %>
                         </div>
                         <% }%>
 

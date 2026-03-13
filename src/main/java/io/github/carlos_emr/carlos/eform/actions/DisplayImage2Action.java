@@ -35,7 +35,10 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarProperties;
 
 import javax.activation.MimetypesFileTypeMap;
@@ -55,6 +58,7 @@ import java.util.ArrayList;
 public class DisplayImage2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private record StreamData(InputStream stream, String contentType) {}
 
     /**
@@ -64,6 +68,16 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return NONE;
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+
         StreamData data = process();
         String contentType = data.contentType();
         InputStream stream = data.stream();
