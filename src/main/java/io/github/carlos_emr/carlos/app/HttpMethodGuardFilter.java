@@ -53,8 +53,8 @@ import java.util.stream.Collectors;
  *       mutator prefixes (Add, Delete, Save, Submit, Create, etc.). The {@code method} request
  *       parameter is also checked for mutator values (save, delete, update, etc.) to catch
  *       mixed-method actions that route via parameter.</li>
- *   <li><strong>.jsp pages</strong>: The JSP filename is checked against known mutator JSP
- *       patterns (names containing save, delete, add, submit, create, merge, control, etc.).</li>
+ *   <li><strong>.jsp pages</strong>: The JSP filename is checked against an explicit set of
+ *       known mutator JSPs identified by auditing form POST targets in the codebase.</li>
  * </ul>
  *
  * <h3>Configuration</h3>
@@ -74,12 +74,38 @@ public class HttpMethodGuardFilter implements Filter {
      * "Edit" and "Update" are intentionally excluded — they commonly load forms via GET,
      * and their actual save operations go through separate Save/Add actions or use
      * {@code ?method=save} (which IS caught by {@link #MUTATOR_METHOD_PARAMS}).
+     *
+     * <p>Includes abbreviated forms: "del" (for delGroup, DelService) and
+     * "rem" (for remFromGroup) which are used in some struts action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_PREFIXES = Set.of(
-            "add", "delete", "remove", "save", "submit", "create",
+            "add", "delete", "del",
+            "remove", "rem",
+            "save", "submit", "create",
             "assign", "complete", "process", "archive",
             "merge", "transfer", "approve", "reject", "toggle",
             "cancel", "close", "resubmit"
+    );
+
+    /**
+     * Specific action names (lowercased) that are known mutators but whose URL names
+     * do not match any prefix in {@link #MUTATOR_ACTION_PREFIXES}. These are struts
+     * action mappings where the URL name differs significantly from the class name.
+     *
+     * <p>Identified by auditing struts.xml for class names like Save*, Delete*, Add*
+     * mapped to non-matching URL action names.</p>
+     */
+    private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
+            "oncallclinic",           // SaveOnCallClinic2Action
+            "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
+            "reprocessbill",          // BillingReProcessBill2Action
+            "movemohfiles",           // ArchiveMOHFile2Action
+            "newmeasurementmap",      // EctAddMeasurementMap2Action
+            "remapmeasurementmap",    // EctRemoveMeasurementMap2Action
+            "setupaddmeasurementgroup",      // EctSetupAddMeasurementGroup2Action
+            "setupaddmeasurementtype",       // EctSetupAddMeasurementType2Action
+            "setupaddmeasuringinstruction",  // EctSetupAddMeasuringInstruction2Action
+            "rbtaddtogroup"           // RBTAddToGroup2Action (starts with "rbt", not "add")
     );
 
     /**
@@ -95,17 +121,14 @@ public class HttpMethodGuardFilter implements Filter {
     );
 
     /**
-     * Keywords in JSP filenames that indicate mutator JSPs (case-insensitive).
-     * These are JSPs that receive form POST submissions and perform state changes.
-     */
-    private static final Set<String> MUTATOR_JSP_KEYWORDS = Set.of(
-            "save", "delete", "submit", "create", "merge"
-    );
-
-    /**
      * Specific JSP filenames (without path, lowercased) known to be mutators.
-     * These are JSPs whose names don't match the keyword patterns above but are
-     * confirmed POST-only targets from the codebase analysis.
+     * These are confirmed POST-only form targets identified by auditing all
+     * {@code <form method="post" action="*.jsp">} patterns in the codebase.
+     *
+     * <p>Keyword-based detection (e.g., "contains 'save'") was intentionally avoided
+     * because past-tense confirmation pages like {@code batchsaved.jsp},
+     * {@code billingcreated.jsp}, and {@code efmformmanagerdeleted.jsp} are read-only
+     * pages that would be falsely blocked.</p>
      */
     private static final Set<String> MUTATOR_JSP_NAMES = Set.of(
             // Admin mutators
@@ -123,9 +146,11 @@ public class HttpMethodGuardFilter implements Filter {
             "lotnrdeleterecord.jsp",
             "manageflowsheetsupload.jsp",
             "dbmanageprovider.jsp",
+            "adminsavemygroup.jsp",
             // Appointment mutators
             "addappointment.jsp",
             "appointmentcontrol.jsp",
+            "appointmentdeletearecord.jsp",
             // Demographic mutators
             "demographicaddarecord.jsp",
             "demographicmergerecord.jsp",
@@ -140,33 +165,54 @@ public class HttpMethodGuardFilter implements Filter {
             "onaddedit3rdaddr.jsp",
             "settlebg.jsp",
             "gensimulation.jsp",
+            "billingdeletenoappt.jsp",
+            "billingdeletewithbillno.jsp",
+            "billingdeletewithoutno.jsp",
+            "deleteprivatecode.jsp",
+            "deleteservices.jsp",
+            "ongenreport.jsp",
+            "billingondisplay.jsp",
+            "billingoneditprivatecode.jsp",
             // Schedule mutators
             "scheduledatesave.jsp",
             "scheduledatefinal.jsp",
             "scheduleholidaysetting.jsp",
             "scheduletemplatecodesetting.jsp",
+            "schedulecreatedate.jsp",
             // Prevention mutators
             "preventionmanager.jsp",
             "preventionlistmanager.jsp",
             // Messenger mutators
             "postitems.jsp",
             "adjustattachments.jsp",
+            "createmessage.jsp",
             // Encounter mutators
             "measurementgroupdscomplete.jsp",
             // Tickler mutators
             "dbticklerdemomain.jsp",
             "dbticklermain.jsp",
+            // Lab mutators
+            "createlab.jsp",
+            "createlabtest.jsp",
+            // Decision support mutators
+            "checklistedit.jsp",
+            "riskedit.jsp",
+            // Report mutators
+            "reportformconfig.jsp",
+            "reportformdemoconfig.jsp",
+            "reportformorder.jsp",
+            "reportformrecord.jsp",
             // Other mutators
             "annotation.jsp",
             "groupnoteselectaction.jsp",
             "preference_action.jsp",
             "patientlettermanager.jsp",
-            "checklistedit.jsp",
-            "riskedit.jsp",
             "providercontrol.jsp",
             "providerprivilege.jsp",
             "providerrole.jsp",
-            "providertemplate.jsp"
+            "providertemplate.jsp",
+            "providersavedemographicaccessory.jsp",
+            "formsaveandexit.jsp"
     );
 
     private Set<String> allowList = Collections.emptySet();
@@ -206,8 +252,11 @@ public class HttpMethodGuardFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-        // Only inspect GET requests — all other methods pass through
-        if (!"GET".equalsIgnoreCase(httpRequest.getMethod())) {
+        // Only inspect GET and HEAD requests — all other methods pass through.
+        // HEAD is semantically identical to GET (RFC 7231 §4.3.2) and must be blocked
+        // on mutator endpoints for the same reason as GET.
+        String method = httpRequest.getMethod();
+        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
             chain.doFilter(request, response);
             return;
         }
@@ -255,6 +304,11 @@ public class HttpMethodGuardFilter implements Filter {
             return false;
         }
 
+        // Check action name against explicit mutator action names
+        if (MUTATOR_ACTION_NAMES.contains(actionNameLower)) {
+            return true;
+        }
+
         // Check action name against mutator prefixes
         for (String prefix : MUTATOR_ACTION_PREFIXES) {
             if (actionNameLower.startsWith(prefix)) {
@@ -293,7 +347,8 @@ public class HttpMethodGuardFilter implements Filter {
             return false;
         }
 
-        // Check against known mutator JSP names
+        // Check against known mutator JSP names (explicit set only — no keyword matching
+        // to avoid false positives on confirmation pages like batchsaved.jsp, billingcreated.jsp)
         if (MUTATOR_JSP_NAMES.contains(jspNameLower)) {
             // Special case: PreventionManager.jsp is only a mutator when formAction=update|custom
             if ("preventionmanager.jsp".equals(jspNameLower) || "preventionlistmanager.jsp".equals(jspNameLower)) {
@@ -301,13 +356,6 @@ public class HttpMethodGuardFilter implements Filter {
                 return formAction != null && ("update".equalsIgnoreCase(formAction) || "custom".equalsIgnoreCase(formAction));
             }
             return true;
-        }
-
-        // Check JSP name against mutator keywords
-        for (String keyword : MUTATOR_JSP_KEYWORDS) {
-            if (jspNameLower.contains(keyword)) {
-                return true;
-            }
         }
 
         return false;
@@ -355,7 +403,8 @@ public class HttpMethodGuardFilter implements Filter {
         String methodParam = request.getParameter("method");
         String detail = methodParam != null ? path + "?method=" + methodParam : path;
 
-        LOGGER.warn("Blocked GET request on mutator endpoint: {} (remote: {}, session: {})",
+        LOGGER.warn("Blocked {} request on mutator endpoint: {} (remote: {}, session: {})",
+                request.getMethod(),
                 detail,
                 request.getRemoteAddr(),
                 request.getRequestedSessionId() != null ? "present" : "none");

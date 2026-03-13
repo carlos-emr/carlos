@@ -207,9 +207,6 @@ class HttpMethodGuardFilterUnitTest {
         @DisplayName("should block GET to Save* action")
         void shouldBlock_forGetToSaveAction() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/admin/oncallClinic.do");
-            // SaveOnCallClinic2Action mapped as admin/oncallClinic - name doesn't match prefix
-            // But let's test a direct save-named action
             when(request.getRequestURI()).thenReturn("/carlos/SaveAssoc.do");
             when(request.getParameter("method")).thenReturn(null);
 
@@ -421,8 +418,8 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should block GET to JSP matching keyword 'delete'")
-        void shouldBlock_forGetToJspWithDeleteKeyword() throws Exception {
+        @DisplayName("should block GET to lotnrdeleterecord.jsp (explicit mutator JSP)")
+        void shouldBlock_forGetToLotnrDeleteRecordJsp() throws Exception {
             when(request.getMethod()).thenReturn("GET");
             when(request.getRequestURI()).thenReturn("/carlos/admin/lotnrdeleterecord.jsp");
 
@@ -430,6 +427,166 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET requests to actions with mismatched URL/class names")
+    class MismatchedActionNames {
+
+        @Test
+        @DisplayName("should block GET to oncallClinic (SaveOnCallClinic2Action)")
+        void shouldBlock_forGetToOncallClinic() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/oncallClinic.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to billingAddCode (BillingAddCode2Action)")
+        void shouldBlock_forGetToBillingAddCode() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/CA/BC/billingAddCode.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to rbtAddToGroup (RBTAddToGroup2Action)")
+        void shouldBlock_forGetToRbtAddToGroup() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/actions/rbtAddToGroup.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+    }
+
+    @Nested
+    @DisplayName("GET requests with abbreviated prefixes (del/rem)")
+    class AbbreviatedPrefixes {
+
+        @Test
+        @DisplayName("should block GET to delGroup (DeleteGroup2Action)")
+        void shouldBlock_forGetToDelGroup() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/eforms/delGroup.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to DelService (EctConDeleteServices2Action)")
+        void shouldBlock_forGetToDelService() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarEncounter/DelService.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to remFromGroup (RBTRemoveFromGroup2Action)")
+        void shouldBlock_forGetToRemFromGroup() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/actions/remFromGroup.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+    }
+
+    @Nested
+    @DisplayName("HEAD requests (blocked same as GET)")
+    class HeadRequests {
+
+        @Test
+        @DisplayName("should block HEAD to mutator action")
+        void shouldBlock_forHeadToMutatorAction() throws Exception {
+            when(request.getMethod()).thenReturn("HEAD");
+            when(request.getRequestURI()).thenReturn("/carlos/tickler/addTickler.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should pass through HEAD to read-only action")
+        void shouldPassThrough_forHeadToReadOnlyAction() throws Exception {
+            when(request.getMethod()).thenReturn("HEAD");
+            when(request.getRequestURI()).thenReturn("/carlos/web/dashboard/display/DashboardDisplay.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("JSP confirmation pages (past-tense names should NOT be blocked)")
+    class JspConfirmationPages {
+
+        @Test
+        @DisplayName("should pass through GET to batchsaved.jsp (confirmation page)")
+        void shouldPassThrough_forGetToBatchSavedJsp() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/batchsaved.jsp");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to billingcreated.jsp (confirmation page)")
+        void shouldPassThrough_forGetToBillingCreatedJsp() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/billingcreated.jsp");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to efmformmanagerdeleted.jsp (confirmation page)")
+        void shouldPassThrough_forGetToDeletedConfirmationJsp() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/eform/efmformmanagerdeleted.jsp");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
         }
     }
 
