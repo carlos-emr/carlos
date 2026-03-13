@@ -253,14 +253,17 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
         # Note: CARLOS_PROPS_FOUND=true but no build tag → treat as OSCAR19 migration.
         ncecho " [x] Applying incremental schema updates "
         echo "CARLOS revision update: skipping patch.sql, running incremental updates" >> $LOG_FILE
-        for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
-            echo "Applying incremental update ${_sql}" >> $LOG_FILE
-            if ! $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1; then
-                echo "ERROR: Failed to apply incremental update ${_sql}" >> $LOG_FILE
-                fail
-            fi
-            echo "Applied ${_sql}" >> $LOG_FILE
-        done
+        (
+            for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
+                echo "Applying incremental update ${_sql}" >> $LOG_FILE
+                if ! $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1; then
+                    echo "ERROR: Failed to apply incremental update ${_sql}" >> $LOG_FILE
+                    exit 1
+                fi
+                echo "Applied ${_sql}" >> $LOG_FILE
+            done
+        ) &
+        pid=$!;progress $pid
     else
         # OSCAR 19 migration context (carlos.properties absent): apply the CARLOS migration patch.
         ncecho " [x] Patching database to latest schema "
@@ -507,6 +510,7 @@ if [ "${UPGRADE}" = "true" ] ; then
 	# skip patch.sql and run incremental updates only.
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
 	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
+	pid=$!;progress $pid
 
 	if [ -z "${lastbuild}" ] ; then
 		# Fresh OSCAR 19 to CARLOS migration (no prior CARLOS build tag): apply the migration patch.
@@ -522,10 +526,8 @@ if [ "${UPGRADE}" = "true" ] ; then
 	for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
 		ncecho " [x] Applying incremental update $(basename ${_sql}) "
 		echo "Applying incremental update ${_sql}" >> $LOG_FILE
-		if ! $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1; then
-			echo "ERROR: Failed to apply incremental update ${_sql}" >> $LOG_FILE
-			fail
-		fi
+		$MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1 &
+		pid=$!;progress $pid
 		echo "Applied ${_sql}" >> $LOG_FILE
 	done
 
@@ -552,7 +554,8 @@ else
 		# createdatabase_bc.sh [mysql_user] [database_name]
 		# Password is passed via MYSQL_PWD environment variable (not on command line).
 		# The helper calls createdatabase_generic.sh with province=bc and ICD version 9.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE &
+		pid=$!;progress $pid
 		echo "Populated ${db_name} with BC province schema" >>$LOG_FILE
 	else
 		echo "Running createdatabase_on.sh for ON province" >>$LOG_FILE
@@ -560,7 +563,8 @@ else
 		# Password is passed via MYSQL_PWD environment variable (not on command line).
 		# The helper calls createdatabase_generic.sh with province=on and ICD version 9.
 		# It also loads olis/olisinit.sql for Ontario Laboratory Information System tables.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE &
+		pid=$!;progress $pid
 		echo "Populated ${db_name} with ON province schema" >>$LOG_FILE
 
 		ncecho " [x] Populating database with OLIS data "
@@ -652,8 +656,9 @@ else
     # from the existing 'oscardoc' account so privileges are the same.
     # Account expires in 1 month (b_ExpireSet=1, date_ExpireDate = now + 1 month)
     # and requires a password change at first login (forcePasswordReset=1).
-    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='oscardoc' LIMIT 1;" 2>>$LOG_FILE
     ncecho " [x] Created initial carlos admin user in security table "
+    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='oscardoc' LIMIT 1;" 2>>$LOG_FILE &
+    pid=$!;progress $pid
 
 	echo "probing for Java" >>$LOG_FILE
 
@@ -893,6 +898,8 @@ fi
 	# drugref database is managed by the drugref WAR (deployed as /drugref)
 	# and updates itself on startup. No drugref.sql loading needed here.
 	ncecho " [x] drugref WAR deployed (will init its own schema on first startup) "
+	true &
+	pid=$!;progress $pid
 
 	#ncecho " [x] Applying TallMAN rules to drugref " 
     #echo  patching the Oscar Drug database with tallMAN rules and removing generics from search >>$LOG_FILE
@@ -905,7 +912,8 @@ fi
 if [ "${COUNTRY}" = CA ] ; then
 
 	if [ "${STATE}" = ON ] ; then
-        ncecho " [x] Installing Ontario Specific eForms " 
+        ncecho " [x] Installing Ontario Specific eForms "
+        (
 		echo "Installing NDSS eform set under licence"  >>$LOG_FILE
 		unzip ${SRC}ndss.zip -d ${SRC}OscarDocument/${PROGRAM}/eform/images/ >> $LOG_FILE
 		$MYSQL ${db_name} < ${SRC}ndss.sql 2>>$LOG_FILE
@@ -917,8 +925,9 @@ if [ "${COUNTRY}" = CA ] ; then
         $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('OPR-2017','2017-08-24');"
         $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Postpartum Visit','2017-08-24');"
         $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Resource','2017-08-24');"
-		$MYSQL ${db_name} < ${SRC}opr2017.sql 2>>$LOG_FILE &
-		pid=$!;progress $pid 
+		$MYSQL ${db_name} < ${SRC}opr2017.sql 2>>$LOG_FILE
+        ) &
+		pid=$!;progress $pid
         ncecho " [x] Installing HRM xml files " 
 		echo "Installing current hospital report manager files"  >>$LOG_FILE
 		unzip -j ${C_BASE}/webapps/${PROGRAM}.war  hospitalReportManager/OMD/report_manager_cds.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
