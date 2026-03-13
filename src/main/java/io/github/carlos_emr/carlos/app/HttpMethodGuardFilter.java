@@ -328,7 +328,7 @@ public class HttpMethodGuardFilter implements Filter {
     /**
      * Determines if a {@code .jsp} URL targets a mutator JSP.
      *
-     * <p>Checks the JSP filename against known mutator JSP names and keyword patterns.</p>
+     * <p>Checks the JSP filename against an explicit set of known mutator JSP names.</p>
      *
      * @param path    the request path (without context path)
      * @param request the HTTP request (for parameter access)
