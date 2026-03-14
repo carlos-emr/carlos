@@ -29,6 +29,7 @@
 
 --%>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/moment.js"></script>
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/alertify.core.css"/>
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/alertify.default.css"/>

@@ -117,6 +117,7 @@
         <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
               rel="stylesheet">
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
 

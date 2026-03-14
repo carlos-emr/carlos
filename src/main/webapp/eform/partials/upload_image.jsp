@@ -42,6 +42,7 @@
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">

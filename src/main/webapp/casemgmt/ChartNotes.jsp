@@ -145,6 +145,7 @@
 %>
 
 <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.6.4.min.js"/>"></script>
+<script src="<c:out value="${ctx}/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.12.1.min.js" />"></script>
 <script type="text/javascript">
     jQuery.noConflict();

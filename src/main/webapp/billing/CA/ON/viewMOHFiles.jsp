@@ -37,6 +37,7 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></title>
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 

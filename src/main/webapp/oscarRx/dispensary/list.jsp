@@ -58,6 +58,7 @@
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <title>Dispensary</title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -180,7 +181,7 @@
 
             $(document).ready(function () {
 
-                $("input[name='remove']").live('click', function () {
+                $(document).on('click', "input[name='remove']", function () {
                     clearErrors();
 
                     var hash = $(this).attr('id').substring("remove_".length);
@@ -195,7 +196,7 @@
                     }
                 });
 
-                $("input[name='add']").live('click', function () {
+                $(document).on('click', "input[name='add']", function () {
                     clearErrors();
 
                     var hash = $(this).attr('id').substring("add_".length);

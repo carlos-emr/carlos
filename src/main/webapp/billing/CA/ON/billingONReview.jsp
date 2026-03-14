@@ -296,6 +296,7 @@
 
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script>
         jQuery.noConflict();
     </script>

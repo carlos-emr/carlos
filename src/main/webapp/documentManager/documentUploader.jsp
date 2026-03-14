@@ -113,6 +113,7 @@
 
     <!-- tested with jQuery 1.12.3 and jQuery 3.6.4 -->
     <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-compat.js"></script>
 
     <!-- jQuery ui OR just the jQuery ui widget factory to match the jQuery above -->
     <script src="${pageContext.request.contextPath}/js/jquery.ui.widget.js"></script> <!-- 1.12.1 -->

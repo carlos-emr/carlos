@@ -82,6 +82,7 @@
         <!-- Bootstrap -->
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
         <script>

@@ -78,6 +78,7 @@
     }
     </style>
     <script type="text/javascript" src="<c:out value="${ oscar_context_path }/library/jquery/jquery-3.6.4.min.js" />"></script>
+    <script src="<c:out value="${ oscar_context_path }/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
             src="<c:out value="${ oscar_context_path }/js/jquery-ui-1.8.18.custom.min.js" />"></script>
 

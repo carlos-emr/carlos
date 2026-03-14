@@ -828,6 +828,7 @@ and other liscences (MIT, LGPL etc) as indicated
                 // ensure that we check the integrety of the CDN's version
 
                 textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js&quot; &gt;&lt;/script&gt;\n";
+                textTop += "&lt;script type=&quot;text/javascript&quot; src=&quot;<%=request.getContextPath()%>/library/jquery/jquery-compat.js&quot; &gt;&lt;/script&gt;\n";
                 // if unavailable reference the one in OSCAR
                 textTop += "&lt;script&gt; window.jQuery || document.write('&lt;script src=&quot;<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js&quot;&gt;&lt; &#92;/script&gt;') &lt;/script&gt;\n";
             }

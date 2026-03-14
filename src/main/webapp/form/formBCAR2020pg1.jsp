@@ -100,6 +100,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
                 type="text/javascript"></script>
 
         <!-- Checkbox multi-select -->

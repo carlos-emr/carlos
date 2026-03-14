@@ -55,6 +55,7 @@
     %>
 
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript" charset="utf-8">
         $(function () {
             var tabContainers = $('div.tabs > div');

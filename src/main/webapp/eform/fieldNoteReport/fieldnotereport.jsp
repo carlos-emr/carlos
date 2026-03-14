@@ -299,6 +299,7 @@
     </form>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script>
         $(document).ready(function () {
             parent.parent.resizeIframe($('html').height());

@@ -70,6 +70,7 @@
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/form/print.css">
         <script src="<%= request.getContextPath() %>/share/javascript/prototype.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
 

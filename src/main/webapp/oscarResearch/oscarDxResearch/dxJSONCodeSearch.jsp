@@ -59,6 +59,7 @@
 </style>
 <link rel="stylesheet" type="text/css" href="${ oscar_context_path }/css/jquery.ui.autocomplete.css"/>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
 <script type="text/javascript" src="${ oscar_context_path }/js/dxJSONCodeSearch.js"></script>
 
