@@ -291,11 +291,6 @@
         </title><!--I18n-->
 
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" crossorigin="anonymous">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
 
 
@@ -535,41 +530,13 @@
             }
 
             function validatePreventionDate() {
-                const prevDateInput = document.getElementById('prevDate').value;
-                const errorMessage = document.getElementById('errorPrevDateMessage');
-                const validationResult = checkDateFormat(prevDateInput);
-                let isValidDate = false;
-                if (validationResult === true) {
-                    errorMessage.textContent = '';
-                    isValidDate = true;
-                } else if (validationResult === "Required") {
-                    errorMessage.textContent = 'Date is required!';
-                } else {
-                    errorMessage.textContent = 'Invalid date format! Expected formats are YYYY, YYYY-MM, YYYY-MM-DD, or YYYY-MM-DD hh:mm.';
+                const prevDateInput = document.getElementById('prevDate');
+                if (!prevDateInput.value) {
+                    prevDateInput.setCustomValidity('Date is required');
+                    return false;
                 }
-
-                return isValidDate;
-            }
-
-            function checkDateFormat(input) {
-                const dateFormats = [
-                    /^\d{4}$/,
-                    /^\d{4}-(0[1-9]|1[0-2])$/,
-                    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/,
-                    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$/
-                ];
-
-                if (!input.trim()) {
-                    return "Required";
-                }
-
-                for (let i = 0; i < dateFormats.length; i++) {
-                    if (dateFormats[i].test(input)) {
-                        return true;
-                    }
-                }
-
-                return false;
+                prevDateInput.setCustomValidity('');
+                return true;
             }
 
             <%
@@ -633,28 +600,8 @@
                 </table>
             </td>
         </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top">
-
-
-                &nbsp;
-                <!--
-               <%
-                 DemographicExt ineligx = demographicExtDao.getDemographicExt(Integer.parseInt(demographic_no),prevention+"Inelig");
-				 String inelig = "";
-				 if(ineligx != null) {
-					 inelig = ineligx.getValue();
-				 }
-
-                 if (inelig.equals("yes")){ %>
-                    Patient Ineligible<br>
-                    <a href="setPatientIneligible.jsp?prev=<%=prevention%>&demo=<%=demographic_no%>&elig=yes">Set Patient Eligible</a>
-                 <%}else{%>
-                    <a href="setPatientIneligible.jsp?prev=<%=prevention%>&demo=<%=demographic_no%>">Set Patient Ineligible</a>
-                 <%}%>
--->
-            </td>
-            <td valign="top" class="MainTableRightColumn">
+    </table>
+    <div class="container-fluid px-2 py-2">
                 <%
 
                     if (dhirEnabled && session.getAttribute("oneIdEmail") == null) {
@@ -698,7 +645,7 @@
                     <div class="prevention">
                         <fieldset>
                             <legend>Summary</legend>
-                            <textarea class="form-control" name="summary" readonly><%=summary%></textarea>
+                            <textarea class="form-control form-control-sm" name="summary" readonly><%=summary%></textarea>
                             <%if (hasImportExtra) { %>
                             <a href="javascript:void(0);" title="Extra data from Import"
                                onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=id %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
@@ -710,6 +657,8 @@
                     <% } %>
                     <%if (layoutType.equals("injection")) {%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
                             </legend>
@@ -726,19 +675,16 @@
                             </div>
                             <div>&nbsp;</div>
                             <div style="margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          required>
                                 <br>
-                                <div id="errorPrevDateMessage"
-                                     class="alert alert-danger"></div>
-                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control"
+                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -749,11 +695,13 @@
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
                                 </select>
                                 <br/>
-                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control" name="creator"
+                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control form-control-sm" name="creator"
                                                                                             value="<%=creatorName%>"
                                                                                             readonly/> <br/>
                             </div>
                         </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
                         <fieldset>
                             <legend>Result</legend>
 
@@ -764,7 +712,7 @@
                             %>
 
                             <label for="cvcName" class="form-label">Trade Name:</label>
-                            <select id="cvcName" name="cvcName" class="form-select" onChange="changeCVCName()">
+                            <select id="cvcName" name="cvcName" class="form-select form-select-sm" onChange="changeCVCName()">
                                 <option value="-1">Select Below</option>
                                 <%
                                     //get the tradenames associated with this generic
@@ -793,19 +741,19 @@
 
                             <br/>
                             <span id="unknownName" style="display:block"><label for="name" class="form-label">Name</label> <input
-                                    type="text" class="form-control" id="name" name="name"
-                                    value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/> <br/><br/></span>
+                                    type="text" class="form-control form-control-sm" id="name" name="name"
+                                    value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/> <br/><br/></span>
                             <%
 
                             } else {
-                            %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control" id="name" name="name"
-                                                                      value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/>
+                            %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control form-control-sm" id="name" name="name"
+                                                                      value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/>
                             <br/> <%
                             }
 
                         } else {
-                        %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control" id="name" name="name"
-                                                                  value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/>
+                        %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control form-control-sm" id="name" name="name"
+                                                                  value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/>
                             <br/>
 
                             <% } %>
@@ -813,7 +761,7 @@
 
                             <label for="location" class="form-label">Location:</label>
 
-                            <select name="location" id="location" class="form-select" onChange="changeSite(this)">
+                            <select name="location" id="location" class="form-select form-select-sm" onChange="changeSite(this)">
                                 <option value=""></option>
                                 <%
                                     String locationSelected = " selected=\"selected\" ";
@@ -891,36 +839,36 @@
                             <div id="locationDiv" style="display:<%=locationDisplay%>">
                                 <label for="location2">Specify Location:</label>
 
-                                <input type="text" class="form-control" name="location2" id="location2"
+                                <input type="text" class="form-control form-control-sm" name="location2" id="location2"
                                        value="<%=str((extraData.get("location2")),"")%>"/>
                             </div>
 
                             <br/>
                             <label for="route" class="form-label">Route:</label>
-                            <select name="route" id="route" class="form-select">
+                            <select name="route" id="route" class="form-select form-select-sm">
                                 <option value=""></option>
                                 <%
                                     String routeSelected = " selected=\"selected\" ";
                                 %>
-                                <option value="ID" <%="ID".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
+                                <option value="ID" <%="ID".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Intradermal: ID
                                 </option>
-                                <option value="IM" <%="IM".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
+                                <option value="IM" <%="IM".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Intramuscular: IM
                                 </option>
-                                <option value="IN" <%="IN".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
+                                <option value="IN" <%="IN".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Intranasal: IN
                                 </option>
-                                <option value="PO" <%="PO".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
+                                <option value="PO" <%="PO".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Oral: PO
                                 </option>
-                                <option value="SC" <%="SC".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
+                                <option value="SC" <%="SC".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Subcutaneous: SC
                                 </option>
                             </select>
                             <br/>
                             <label for="din" class="form-label">DIN:</label>
-                            <input type="text" class="form-control" name="din" id="din" value="<%=str((extraData.get("din")),Encode.forHtmlAttribute(pDIN))%>"/>
+                            <input type="text" class="form-control form-control-sm" name="din" id="din" value="<%=Encode.forHtmlAttribute(str((extraData.get("din")), pDIN))%>"/>
                             <br/>
                             <%
                                 String dose = str((extraData.get("dose")), "");
@@ -943,10 +891,10 @@
                                 }
                             %>
 
-                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/>
+                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/>
                             <br>
                             <label for="doseUnit" class="form-label">Dose Unit:</label>
-                            <select name="doseUnit" class="form-select">
+                            <select name="doseUnit" class="form-select form-select-sm">
                                 <option value="" <%="".equals(d2) ? "selected=\"selected\" " : "" %>></option>
                                 <option value="mL" <%="mL".equals(d2) ? "selected=\"selected\" " : "" %>>mL</option>
                                 <option value="mg" <%="mg".equals(d2) ? "selected=\"selected\" " : "" %>>mg</option>
@@ -961,9 +909,9 @@
 
                             <br/>
                             <%if (!isCvc) { %>
-                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control" name="lot" id="lot"
+                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control form-control-sm" name="lot" id="lot"
                                                                  value="<%=str(lot,"")%>"/>
-                            <select onchange="javascript:updateLotNr(this);" class="form-select" id="lotDrop" name="lotItem">
+                            <select onchange="javascript:updateLotNr(this);" class="form-select form-select-sm" id="lotDrop" name="lotItem">
                                 <%
                                     for (String lotnr : lotNrList) {
                                 %>
@@ -975,25 +923,31 @@
                             <%} else { %>
                             <div id="cvcLotDiv">
                                 <label for="cvcLot">Lot:</label>
-                                <input type="text" class="form-control" name="lot" id="lot" value="<%=str(lot,"")%>" style="display:block"/>
+                                <input type="text" class="form-control form-control-sm" name="lot" id="lot" value="<%=str(lot,"")%>" style="display:block"/>
 
-                                <select onchange="javascript:updateCvcLot();" class="form-select" id="cvcLot" name="cvcLot"
+                                <select onchange="javascript:updateCvcLot();" class="form-select form-select-sm" id="cvcLot" name="cvcLot"
                                         style="display:none;">
 
                                 </select></div>
-                            <label for="expiryDate" class="form-label">Expiry Date:</label> <input type="text" class="form-control" name="expiryDate"
+                            <label for="expiryDate" class="form-label">Expiry Date:</label> <input type="text" class="form-control form-control-sm" name="expiryDate"
                                                                                 id="expiryDate"
                                                                                 value="<%=str((extraData.get("expiryDate")),"")%>"/><br/>
                             <% } %>
-                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control" name="manufacture"
+                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control form-control-sm" name="manufacture"
                                                                                  id="manufacture"
-                                                                                 value="<%=str((extraData.get("manufacture")),Encode.forHtmlAttribute(pMaker))%>"/><br/>
+                                                                                 value="<%=Encode.forHtmlAttribute(str((extraData.get("manufacture")), pMaker))%>"/><br/>
                         </fieldset>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
@@ -1002,6 +956,8 @@
                     </script>
                     <%} else if (layoutType.equals("h1n1")) {%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
                             </legend>
@@ -1018,19 +974,16 @@
                             </div>
                             <div>&nbsp;</div>
                             <div style="margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          required>
                                 <br>
-                                <div id="errorPrevDateMessage"
-                                     class="alert alert-danger"></div>
-                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control"
+                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -1041,30 +994,32 @@
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
                                 </select>
                                 <br/>
-                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control" name="creator"
+                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control form-control-sm" name="creator"
                                                                                             value="<%=creatorName%>"
                                                                                             readonly/> <br/>
                             </div>
                         </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
                         <fieldset>
                             <legend>Result</legend>
-                            <label for="location" class="form-label">Location:</label> <input type="text" class="form-control" name="location"
+                            <label for="location" class="form-label">Location:</label> <input type="text" class="form-control form-control-sm" name="location"
                                                                            value="<%=str((extraData.get("location")),"")%>"/>
                             <br/>
-                            <label for="location2" class="form-label">Other Location:</label> <input type="text" class="form-control" name="location2"
+                            <label for="location2" class="form-label">Other Location:</label> <input type="text" class="form-control form-control-sm" name="location2"
                                                                                  value="<%=str((extraData.get("location2")),"")%>"/>
                             <br/>
-                            <label for="route" class="form-label">Route:</label> <input type="text" class="form-control" name="route"
+                            <label for="route" class="form-label">Route:</label> <input type="text" class="form-control form-control-sm" name="route"
                                                                      value="<%=str((extraData.get("route")),"")%>"/><br/>
-                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control" name="dose"
+                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control form-control-sm" name="dose"
                                                                    value="<%=str((extraData.get("dose")),"")%>"/><br/>
                             <label for="dose1" class="form-label">Dose 1:</label> <input type="checkbox" class="form-check-input" name="dose1"
                                                                       value="true" <%=checked(str((extraData.get("dose1")), ""), "true")%>/><br/>
                             <label for="dose2" class="form-label">Dose 2:</label> <input type="checkbox" class="form-check-input" name="dose2"
                                                                       value="true" <%=checked(str((extraData.get("dose2")), ""), "true")%>/><br/>
-                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control" name="lot"
+                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control form-control-sm" name="lot"
                                                                  value="<%=str((extraData.get("lot")),"")%>"/><br/>
-                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control" name="manufacture"
+                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control form-control-sm" name="manufacture"
                                                                                  value="<%=str((extraData.get("manufacture")),"")%>"/><br/>
                         </fieldset>
                         <fieldset>
@@ -1075,11 +1030,11 @@
                                 }
 
                             %>
-                            <label for="gender" class="form-label">Gender:</label> <input type="text" class="form-control" name="gender" readonly
+                            <label for="gender" class="form-label">Gender:</label> <input type="text" class="form-control form-control-sm" name="gender" readonly
                                                                        value="<%=gender%>"/> <br/>
-                            <label for="age" class="form-label">Age:</label> <input type="text" class="form-control" name="age" readonly value="<%=age%>"/><br/>
+                            <label for="age" class="form-label">Age:</label> <input type="text" class="form-control form-control-sm" name="age" readonly value="<%=age%>"/><br/>
                             <label for="chronic" class="form-label">Chronic Condition:</label>
-                            <select name="chronic" class="form-select">
+                            <select name="chronic" class="form-select form-select-sm">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("chronic")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
                                     Yes
@@ -1117,7 +1072,7 @@
                             <label for="remote" class="form-label">Remote Setting:</label> <input type="checkbox" class="form-check-input" name="remote"
                                                                                value="true" <%=checked(str((extraData.get("remote")), ""), "true")%>/><br/>
                             <label for="healthcareworker" class="form-label">Health Care Worker:</label>
-                            <select name="healthcareworker" class="form-select">
+                            <select name="healthcareworker" class="form-select form-select-sm">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("healthcareworker")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
                                     Yes
@@ -1172,16 +1127,24 @@
                             <label for="firstnations" class="form-label">First Nations:</label> <input type="checkbox" class="form-check-input" name="firstnations"
                                                                                     value="true" <%=checked(str((extraData.get("firstnations")), ""), "true")%>/><br/>
                         </fieldset>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
                     <%} else if (layoutType.equals("PAPMAM")) {/*next layout type*/%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
                             </legend>
@@ -1198,19 +1161,16 @@
                             </div>
                             <div>&nbsp;</div>
                             <div style="margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                                           id="prevDate"
-                                                                                                          value="<%=prevDate%>"
-                                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                                          required>
                                 <br>
-                                <div id="errorPrevDateMessage"
-                                     class="alert alert-danger"></div>
-                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control"
+                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control form-control-sm"
                                                                                                               name="providerName"
                                                                                                               id="providerName"
                                                                                                               value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -1221,11 +1181,13 @@
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
                                 </select>
                                 <br/>
-                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control" name="creator"
+                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control form-control-sm" name="creator"
                                                                                             value="<%=creatorName%>"
                                                                                             readonly/> <br/>
                             </div>
                         </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
                         <fieldset>
                             <legend>Result</legend>
                             <% if (extraData.get("result") == null) {
@@ -1242,19 +1204,27 @@
                             <br/>
                             <input type="radio" class="form-check-input" name="result"
                                    value="other" <%=checked((extraData.get("result")),"other")%> >Other</input> &nbsp;
-                            &nbsp; Reason: <input type="text" class="form-control" name="reason"
+                            &nbsp; Reason: <input type="text" class="form-control form-control-sm" name="reason"
                                                   value="<%=str((extraData.get("reason")),"")%>"/>
                         </fieldset>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
                     <%} else if (layoutType.equals("history")) {%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
                             </legend>
@@ -1267,19 +1237,16 @@
                                        value="previous" <%=checked(completed,"2")%>>Previous</input>
                             </div>
                             <div style="float:left;margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          required>
                                 <br>
-                                <div id="errorPrevDateMessage"
-                                     class="alert alert-danger"></div>
                                 <label for="provider" class="form-label fields">Provider:</label> <input type="hidden"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -1291,14 +1258,20 @@
                                 </select>
                             </div>
                         </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    </div><!-- end prevention div -->
                     <%} %>
 
 
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                     <div class="prevention">
                         <fieldset>
                             <legend><a onclick="showHideNextDate('nextDateDiv','nextDate','neverWarn')"
@@ -1306,10 +1279,8 @@
                             </legend>
                             <div id="nextDateDiv" style="display:none;">
                                 <div>
-                                    <label for="nextDate" class="form-label">Next Date:</label><input type="text" class="form-control" name="nextDate"
-                                                                                   value="<%=nextDate%>" id="nextDate"
-                                                                                   size="9"><a id="nextDateCal"><img
-                                        title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                                    <label for="nextDate" class="form-label">Next Date:</label><input type="date" class="form-control form-control-sm" name="nextDate"
+                                                                                   value="<%=nextDate%>" id="nextDate">
                                 </div>
                                 <div>
                                     <label for="neverWarn" class="form-label checkbox">Never Remind:</label><input type="checkbox" class="form-check-input"
@@ -1317,14 +1288,17 @@
                                                                                                         id="neverWarn"
                                                                                                         value="neverRemind"
                                                                                                         onchange="disableifchecked(this,'nextDate');"  <%=completed(never)%>/>
-                                    Reason: <input type="text" class="form-control" name="neverReason"
+                                    Reason: <input type="text" class="form-control form-control-sm" name="neverReason"
                                                    value="<%=str((extraData.get("neverReason")),"")%>"/>
                                 </div>
                             </div>
                         </fieldset>
                     </div>
-                    <br/>
-                    <input type="submit" class="btn btn-primary" value="Save" name="action">
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
+                    <input type="submit" class="btn btn-primary btn-sm" value="Save" name="action">
                     <%
                         ConsentDao consentDao = SpringUtils.getBean(ConsentDao.class);
                         Consent ispaConsent = consentDao.findByDemographicAndConsentType(Integer.parseInt(demographic_no), "dhir_ispa_consent");
@@ -1339,45 +1313,17 @@
                         if (dhirEnabled && isSSOLoggedIn) {
                             if ((ispa && hasIspaConsent) || (!ispa && hasNonIspaConsent)) {
                     %>
-                    <input type="submit" class="btn btn-primary" value="Save & Submit" name="action">
+                    <input type="submit" class="btn btn-primary btn-sm" value="Save & Submit" name="action">
                     <% }
                     } %>
                     <% if (id != null) { %>
-                    <input type="submit" class="btn btn-danger" name="delete" value="Delete"/>
+                    <input type="submit" class="btn btn-danger btn-sm" name="delete" value="Delete"/>
                     <% } %>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
                 </form>
                 <% } %>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn">
-                &nbsp;
-            </td>
-            <td class="MainTableBottomRowRightColumn" valign="top">
-                &nbsp;
-            </td>
-        </tr>
-    </table>
-    <%if (prevHash != null) { %>
-    <script type="text/javascript">
-        Calendar.setup({
-            inputField: "prevDate",
-            ifFormat: "%Y-%m-%d %H:%M",
-            showsTime: true,
-            button: "date",
-            singleClick: true,
-            step: 1
-        });
-        Calendar.setup({
-            inputField: "nextDate",
-            ifFormat: "%Y-%m-%d",
-            showsTime: false,
-            button: "nextDateCal",
-            singleClick: true,
-            step: 1
-        });
-    </script>
-    <% } %>
+    </div>
     </body>
 </html>
 <%!
