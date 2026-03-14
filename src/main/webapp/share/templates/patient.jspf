@@ -75,7 +75,7 @@ Demographic demographic_header=demographicDao_header.getDemographic(d);
 
 
 <%if(alert.length()!=0){%>
-<a title="<%=alert%>"><i class="icon-warning-sign"></i></a>
+<a title="<%=alert%>"><i class="fa-solid fa-triangle-exclamation"></i></a>
 <%}%>
 </h4>
 
