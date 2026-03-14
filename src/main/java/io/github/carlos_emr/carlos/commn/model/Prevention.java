@@ -235,6 +235,23 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         return String.valueOf(deleted);
     }
 
+    /**
+     * Returns the raw integer value of the {@code refused} field.
+     * <p>
+     * Standard semantics: {@code 0}=active/completed, {@code 1}=refused,
+     * {@code 2}=ineligible, {@code 3}=completed externally.
+     * <p>
+     * For the "Smoking" prevention type, this field is repurposed to encode
+     * smoking history status: {@code 0}=Yes (current smoker), {@code 1}=No (non-smoker),
+     * {@code 2}=Previous (ex-smoker).
+     *
+     * @return int raw refused status value (0, 1, 2, or 3)
+     * @since 2026-03-14
+     */
+    public int getRefusedRawValue() {
+        return refused - '0';
+    }
+
     public List<PreventionExt> getPreventionExts() {
         return this.preventionExts;
     }

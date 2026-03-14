@@ -302,6 +302,60 @@ public class Prevention {
         return !isInelligible(preventionType);
     }
 
+    /**
+     * Returns the raw refused status value for the most recent prevention record of the given type.
+     * <p>
+     * Standard semantics: {@code 0}=active/completed, {@code 1}=refused,
+     * {@code 2}=ineligible, {@code 3}=completed externally.
+     * <p>
+     * For the "Smoking" prevention type, the refused field is repurposed to encode
+     * smoking history status:
+     * <ul>
+     *   <li>{@code 0} - Currently smoking ("Yes")</li>
+     *   <li>{@code 1} - Not smoking ("No")</li>
+     *   <li>{@code 2} - Previously smoked ("Previous")</li>
+     * </ul>
+     * <p>
+     * <b>Important note on {@code isPreventionNever("Smoking")}:</b> The {@code never}
+     * column in the preventions table is separate from the {@code refused} column and is
+     * always {@code 0} for all three smoking states. Therefore {@code isPreventionNever}
+     * cannot be used to detect non-smokers; use {@code isCurrentlySmoking} instead.
+     *
+     * @param preventionType String the prevention type key (e.g. "Smoking", "LDCT")
+     * @return int the raw refused status value, or {@code -1} if no record exists
+     * @since 2026-03-14
+     */
+    public int getRefusedStatus(String preventionType) {
+        int status = -1;
+        Vector vec = (Vector) preventionTypes.get(preventionType);
+        if (vec != null && !vec.isEmpty()) {
+            PreventionItem p = (PreventionItem) vec.get(vec.size() - 1);
+            status = p.getRefusedStatus();
+        }
+        return status;
+    }
+
+    /**
+     * Returns {@code true} if the most recent prevention record for the given type indicates
+     * a "currently active" or "yes" response (refused status = 0).
+     * <p>
+     * For the "Smoking" prevention type specifically, this returns {@code true} when the
+     * patient is a current smoker. The Smoking assessment stores its answer in the
+     * {@code refused} field: {@code 0}=Yes (current smoker), {@code 1}=No (non-smoker),
+     * {@code 2}=Previous (ex-smoker).
+     * <p>
+     * Use this method instead of {@code !isPreventionNever("Smoking")} for LDCT eligibility
+     * checks. The {@code never} column is always {@code 0} for all smoking states and cannot
+     * distinguish current smokers from non-smokers.
+     *
+     * @param preventionType String the prevention type key (e.g. "Smoking")
+     * @return boolean {@code true} if the most recent record has refused status = 0
+     * @since 2026-03-14
+     */
+    public boolean isCurrentlySmoking(String preventionType) {
+        return getRefusedStatus(preventionType) == 0;
+    }
+
 
     public int getHowManyMonthsSinceLast(String preventionType) {
         int retval = -1;

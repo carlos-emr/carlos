@@ -51,6 +51,12 @@
 //     Status:    isPreventionNever(String), isNextDateSet(String), isPassedNextDate(String),
 //                isInelligible(String), isLastPreventionWithinRange(String, String, String),
 //                isTodayinDateRange(String, String)
+//     Smoking:   isCurrentlySmoking(String), getRefusedStatus(String)
+//                NOTE: isPreventionNever("Smoking") is INCORRECT for smoking checks — the
+//                "never" column is always 0 for all smoking states (Yes/No/Previous).
+//                The smoking answer is stored in the "refused" column:
+//                  0=Yes (current smoker), 1=No (non-smoker), 2=Previous (ex-smoker).
+//                Use isCurrentlySmoking("Smoking") to check for active smoking status.
 //     Sex:       isMale(), isFemale()
 //
 // Consequence methods:
@@ -1144,13 +1150,20 @@ end
 // LDCT: Low-Dose CT Lung Cancer Screening (2 rules)
 // Canadian guideline (CTFPHC 2016): Annual LDCT for adults aged 55-74 who are
 //   high-risk smokers (30+ pack-years or equivalent significant smoking history)
-// Rule 1: WARNING if no LDCT on record for patients aged 55-74 with positive smoking history
+// Rule 1: WARNING if no LDCT on record for patients aged 55-74 who are current smokers
 // Rule 2: WARNING if LDCT count is 1 or 2 and it is > 12 months old (annual x3 years)
 //         LDCT 2 stops firing after 3rd annual screen (count >= 3).
-// Precondition (heavy smoker detection): Smoking assessment must be on record AND
-//   not marked as "never" (non-smoker). This uses the Prevention module's "Smoking" type.
-//   A Smoking record exists (getNumberOfPreventionType("Smoking") > 0) AND
-//   the record is NOT marked as never-smoked (!isPreventionNever("Smoking")).
+//
+// Smoking status check (LDCT 1):
+//   The Smoking prevention type uses the "refused" column (NOT the "never" column) to
+//   store the patient's smoking answer. The "never" column is always 0 for all smoking
+//   states, so isPreventionNever("Smoking") cannot be used here.
+//   Smoking refused column encoding:
+//     0 = Yes (currently smoking)   <-- LDCT rule should fire
+//     1 = No (not smoking)          <-- LDCT rule should NOT fire
+//     2 = Previous (ex-smoker)      <-- LDCT rule should NOT fire
+//   isCurrentlySmoking("Smoking") returns true only when refused = 0.
+//
 //   Note: Full heavy-smoker detection (pack-years, cigarettes/day) requires measurement
 //   values (NOSK > 23, POSK > 0, SKST = yes, SMK = yes, SmkS > 23) which are stored in
 //   the measurements table and are not accessible from the Prevention DRL fact object.
@@ -1162,6 +1175,7 @@ rule "LDCT 1"
         eval( prev.getAgeInYears() >= 55 )
         eval( prev.getAgeInYears() <= 74 )
         eval( prev.getNumberOfPreventionType("Smoking") > 0 )
+        eval( prev.isCurrentlySmoking("Smoking") )
         eval( prev.getHowManyMonthsSinceLast("LDCT") == -1 )
         eval( !prev.isPreventionNever("LDCT") )
         eval( !prev.isInelligible("LDCT") )
