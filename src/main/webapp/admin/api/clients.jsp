@@ -86,7 +86,17 @@
                             var secret = data[x].secret;
                             var uri = data[x].uri;
                             var lifetime = data[x].lifetime;
-                            $('#clientTable > tbody:last').append('<tr><td>' + name + '</td><td>' + key + '</td><td>' + secret + '</td><td>' + uri + '</td><td>' + lifetime + '</td><td><a href="javascript:void(0);" onclick="deleteClient(' + id + ');"><img border="0" title="delete" src="<%= request.getContextPath() %>/images/Delete16.gif"/></a></td></tr>');
+                            var $row = $('<tr>');
+                            $row.append($('<td>').text(name));
+                            $row.append($('<td>').text(key));
+                            $row.append($('<td>').text(secret));
+                            $row.append($('<td>').text(uri));
+                            $row.append($('<td>').text(lifetime));
+                            var $delLink = $('<a>').attr('href', 'javascript:void(0);')
+                                .on('click', (function(delId) { return function() { deleteClient(delId); }; })(id))
+                                .append($('<img>').attr({border: '0', title: 'delete', src: '<%= request.getContextPath() %>/images/Delete16.gif'}));
+                            $row.append($('<td>').append($delLink));
+                            $('#clientTable > tbody:last').append($row);
                         }
                     });
             }
@@ -110,7 +120,13 @@
                             var tokenId = data[x].tokenId;
                             var tokenSecret = data[x].tokenSecret;
 
-                            $('#tokenTable > tbody:last').append('<tr><td>' + tokenId + '</td><td>' + lifetime + '</td><td>' + issued + '</td><td>' + providerNo + '</td><td></td></tr>');
+                            var $trow = $('<tr>');
+                            $trow.append($('<td>').text(tokenId));
+                            $trow.append($('<td>').text(lifetime));
+                            $trow.append($('<td>').text(issued));
+                            $trow.append($('<td>').text(providerNo));
+                            $trow.append($('<td>'));
+                            $('#tokenTable > tbody:last').append($trow);
                         }
                     });
             }

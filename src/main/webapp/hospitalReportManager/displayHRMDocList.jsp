@@ -17,6 +17,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.hospitalReportManager.*,io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -135,19 +136,19 @@
                     <tr>
 
                         <td><a href="#"
-                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display.do?id=<%=curhrmdoc.get("id")%>', 'HRM Report'); return false;"
-                        ><%=curhrmdoc.get("report_type")%>
+                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display.do?id=<%=Encode.forUriComponent(String.valueOf(curhrmdoc.get("id")))%>', 'HRM Report'); return false;"
+                        ><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_type")))%>
                         </a></td>
-                        <td><%=curhrmdoc.get("description")%>
+                        <td><%=Encode.forHtml(String.valueOf(curhrmdoc.get("description")))%>
                         </td>
-                        <td><%=curhrmdoc.get("report_status")%>
+                        <td><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_status")))%>
                         </td>
-                        <td style="text-align: center;"><%=curhrmdoc.get("report_date")%>
+                        <td style="text-align: center;"><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_date")))%>
                         </td>
-                        <td style="text-align: center;"><%=curhrmdoc.get("time_received")%>
+                        <td style="text-align: center;"><%=Encode.forHtml(String.valueOf(curhrmdoc.get("time_received")))%>
                         </td>
-                        <td><%=curhrmdoc.get("category") != null ? curhrmdoc.get("category")  : "" %>
-                        <td><%=curhrmdoc.get("class_subclass") != null ? curhrmdoc.get("class_subclass")  : "" %>
+                        <td><%=curhrmdoc.get("category") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("category"))) : "" %>
+                        <td><%=curhrmdoc.get("class_subclass") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("class_subclass"))) : "" %>
                     </tr>
                     <%
                         }

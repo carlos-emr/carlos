@@ -130,17 +130,18 @@
 
                             for (var i = 0; i < arr.length; i++) {
                                 var job = arr[i];
-                                var html = '<tr>';
+                                var $row = $('<tr>');
+                                var $nameLink = $('<a>').attr('href', 'javascript:void(0);')
+                                    .text(job.name)
+                                    .on('click', (function(id) { return function() { editJobType(id); }; })(job.id));
+                                $row.append($('<td>').append($('<u>').append($nameLink)));
+                                $row.append($('<td>').text(job.description));
+                                $row.append($('<td>').text(job.className));
+                                $row.append($('<td>').text(job.currentlyValid));
+                                $row.append($('<td>').text(job.enabled));
+                                $row.append($('<td>').text(new Date(job.updated)));
 
-                                html += '<td><u><a href="javascript:void(0);" onclick="editJobType(' + job.id + ');">' + job.name + '</a></u></td>';
-                                html += '<td>' + job.description + '</td>';
-                                html += '<td>' + job.className + '</td>';
-                                html += '<td>' + job.currentlyValid + '</td>';
-                                html += '<td>' + job.enabled + '</td>';
-                                html += '<td>' + new Date(job.updated) + '</td>';
-                                html += '</tr>';
-
-                                $('#jobTypeTable tbody').append(html);
+                                $('#jobTypeTable tbody').append($row);
 
                             }
                             initiate();
