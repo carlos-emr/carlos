@@ -239,21 +239,6 @@
 
     </script>
 
-    <style type="text/css">
-        .span4 {
-            padding-left: 0px;
-            padding-right: 0px;
-            margin-left: 0px;
-            margin-right: 0px;
-        }
-
-        .span10 {
-            padding-left: 0px;
-            padding-right: 0px;
-            margin-left: 0px;
-            margin-right: 0px;
-        }
-    </style>
 
 </head>
 <body>
