@@ -601,7 +601,7 @@
             </td>
         </tr>
     </table>
-    <div class="container-fluid px-2 py-2">
+    <div class="container-fluid px-2 py-1">
                 <%
 
                     if (dhirEnabled && session.getAttribute("oneIdEmail") == null) {
@@ -657,7 +657,7 @@
                     <% } %>
                     <%if (layoutType.equals("injection")) {%>
                     <div class="prevention">
-                    <div class="row g-2">
+                    <div class="row g-1">
                     <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
@@ -674,13 +674,17 @@
                                 <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
                             </div>
                             <div>&nbsp;</div>
-                            <div style="margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
+                            <div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields">Date:</label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
-                                                                                          required>
-                                <br>
-                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control form-control-sm"
+                                                                                          required></div>
+                                </div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields">Provider:</label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
@@ -693,11 +697,14 @@
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
-                                <br/>
-                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control form-control-sm" name="creator"
+                                </select></div>
+                                </div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields">Creator:</label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
                                                                                             value="<%=creatorName%>"
-                                                                                            readonly/> <br/>
+                                                                                            readonly/></div>
+                                </div>
                             </div>
                         </fieldset>
                     </div><!-- end col-md-5 -->
@@ -711,7 +718,9 @@
                                     if (tnList != null && tnList.size() > 0) {
                             %>
 
-                            <label for="cvcName" class="form-label">Trade Name:</label>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="cvcName" class="col-form-label col-form-label-sm">Trade Name:</label></div>
+                                <div class="col-sm-8">
                             <select id="cvcName" name="cvcName" class="form-select form-select-sm" onChange="changeCVCName()">
                                 <option value="-1">Select Below</option>
                                 <%
@@ -738,29 +747,41 @@
                                 %>
 
                             </select>
+                                </div>
+                            </div>
 
-                            <br/>
-                            <span id="unknownName" style="display:block"><label for="name" class="form-label">Name</label> <input
+                            <span id="unknownName" style="display:block">
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm">Name</label></div>
+                                <div class="col-sm-8"><input
                                     type="text" class="form-control form-control-sm" id="name" name="name"
-                                    value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/> <br/><br/></span>
+                                    value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/></div>
+                            </div></span>
                             <%
 
                             } else {
-                            %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control form-control-sm" id="name" name="name"
-                                                                      value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/>
-                            <br/> <%
+                            %>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm">Name:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" id="name" name="name"
+                                                                      value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/></div>
+                            </div>
+                            <%
                             }
 
                         } else {
-                        %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control form-control-sm" id="name" name="name"
-                                                                  value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/>
-                            <br/>
+                        %>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm">Name:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" id="name" name="name"
+                                                                  value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/></div>
+                            </div>
 
                             <% } %>
 
-
-                            <label for="location" class="form-label">Location:</label>
-
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="location" class="col-form-label col-form-label-sm">Location:</label></div>
+                                <div class="col-sm-8">
                             <select name="location" id="location" class="form-select form-select-sm" onChange="changeSite(this)">
                                 <option value=""></option>
                                 <%
@@ -828,6 +849,8 @@
                                 </option>
 
                             </select>
+                                </div>
+                            </div>
 
                             <%
                                 String locationDisplay = "none";
@@ -835,16 +858,17 @@
                                     locationDisplay = "block";
                                 }
                             %>
-                            <br>
                             <div id="locationDiv" style="display:<%=locationDisplay%>">
-                                <label for="location2">Specify Location:</label>
-
-                                <input type="text" class="form-control form-control-sm" name="location2" id="location2"
-                                       value="<%=str((extraData.get("location2")),"")%>"/>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="location2" class="col-form-label col-form-label-sm">Specify Location:</label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="location2" id="location2"
+                                       value="<%=str((extraData.get("location2")),"")%>"/></div>
+                                </div>
                             </div>
 
-                            <br/>
-                            <label for="route" class="form-label">Route:</label>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="route" class="col-form-label col-form-label-sm">Route:</label></div>
+                                <div class="col-sm-8">
                             <select name="route" id="route" class="form-select form-select-sm">
                                 <option value=""></option>
                                 <%
@@ -866,10 +890,12 @@
                                     Subcutaneous: SC
                                 </option>
                             </select>
-                            <br/>
-                            <label for="din" class="form-label">DIN:</label>
-                            <input type="text" class="form-control form-control-sm" name="din" id="din" value="<%=Encode.forHtmlAttribute(str((extraData.get("din")), pDIN))%>"/>
-                            <br/>
+                                </div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="din" class="col-form-label col-form-label-sm">DIN:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="din" id="din" value="<%=Encode.forHtmlAttribute(str((extraData.get("din")), pDIN))%>"/></div>
+                            </div>
                             <%
                                 String dose = str((extraData.get("dose")), "");
                                 String d1 = pDose;
@@ -891,9 +917,13 @@
                                 }
                             %>
 
-                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/>
-                            <br>
-                            <label for="doseUnit" class="form-label">Dose Unit:</label>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm">Dose:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="doseUnit" class="col-form-label col-form-label-sm">Dose Unit:</label></div>
+                                <div class="col-sm-8">
                             <select name="doseUnit" class="form-select form-select-sm">
                                 <option value="" <%="".equals(d2) ? "selected=\"selected\" " : "" %>></option>
                                 <option value="mL" <%="mL".equals(d2) ? "selected=\"selected\" " : "" %>>mL</option>
@@ -906,10 +936,12 @@
                                 </option>
 
                             </select>
-
-                            <br/>
+                                </div>
+                            </div>
                             <%if (!isCvc) { %>
-                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control form-control-sm" name="lot" id="lot"
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="lot" class="col-form-label col-form-label-sm">Lot:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="lot" id="lot"
                                                                  value="<%=str(lot,"")%>"/>
                             <select onchange="javascript:updateLotNr(this);" class="form-select form-select-sm" id="lotDrop" name="lotItem">
                                 <%
@@ -919,34 +951,46 @@
                                 </option>
                                 <%}%>
                                 <option value="-1">Other</option>
-                            </select><br/>
+                            </select></div>
+                            </div>
                             <%} else { %>
                             <div id="cvcLotDiv">
-                                <label for="cvcLot">Lot:</label>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="cvcLot" class="col-form-label col-form-label-sm">Lot:</label></div>
+                                    <div class="col-sm-8">
                                 <input type="text" class="form-control form-control-sm" name="lot" id="lot" value="<%=str(lot,"")%>" style="display:block"/>
 
                                 <select onchange="javascript:updateCvcLot();" class="form-select form-select-sm" id="cvcLot" name="cvcLot"
                                         style="display:none;">
 
-                                </select></div>
-                            <label for="expiryDate" class="form-label">Expiry Date:</label> <input type="text" class="form-control form-control-sm" name="expiryDate"
+                                </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="expiryDate" class="col-form-label col-form-label-sm">Expiry Date:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="expiryDate"
                                                                                 id="expiryDate"
-                                                                                value="<%=str((extraData.get("expiryDate")),"")%>"/><br/>
+                                                                                value="<%=str((extraData.get("expiryDate")),"")%>"/></div>
+                            </div>
                             <% } %>
-                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control form-control-sm" name="manufacture"
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="manufacture" class="col-form-label col-form-label-sm">Manufacture:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="manufacture"
                                                                                  id="manufacture"
-                                                                                 value="<%=Encode.forHtmlAttribute(str((extraData.get("manufacture")), pMaker))%>"/><br/>
+                                                                                 value="<%=Encode.forHtmlAttribute(str((extraData.get("manufacture")), pMaker))%>"/></div>
+                            </div>
                         </fieldset>
                     </div><!-- end col-md-7 -->
-                    </div><!-- end row g-2 -->
-                    <div class="row g-2 mt-1">
+                    </div><!-- end row g-1 -->
+                    <div class="row g-1 mt-1">
                     <div class="col-12">
                         <fieldset>
                             <legend>Comments</legend>
                             <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div><!-- end col-12 -->
-                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end row g-1 mt-1 -->
                     </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
@@ -956,7 +1000,7 @@
                     </script>
                     <%} else if (layoutType.equals("h1n1")) {%>
                     <div class="prevention">
-                    <div class="row g-2">
+                    <div class="row g-1">
                     <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
@@ -973,13 +1017,17 @@
                                 <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
                             </div>
                             <div>&nbsp;</div>
-                            <div style="margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
+                            <div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields">Date:</label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
-                                                                                          required>
-                                <br>
-                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control form-control-sm"
+                                                                                          required></div>
+                                </div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields">Provider:</label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
@@ -992,35 +1040,60 @@
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
-                                <br/>
-                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control form-control-sm" name="creator"
+                                </select></div>
+                                </div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields">Creator:</label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
                                                                                             value="<%=creatorName%>"
-                                                                                            readonly/> <br/>
+                                                                                            readonly/></div>
+                                </div>
                             </div>
                         </fieldset>
                     </div><!-- end col-md-5 -->
                     <div class="col-md-7">
                         <fieldset>
                             <legend>Result</legend>
-                            <label for="location" class="form-label">Location:</label> <input type="text" class="form-control form-control-sm" name="location"
-                                                                           value="<%=str((extraData.get("location")),"")%>"/>
-                            <br/>
-                            <label for="location2" class="form-label">Other Location:</label> <input type="text" class="form-control form-control-sm" name="location2"
-                                                                                 value="<%=str((extraData.get("location2")),"")%>"/>
-                            <br/>
-                            <label for="route" class="form-label">Route:</label> <input type="text" class="form-control form-control-sm" name="route"
-                                                                     value="<%=str((extraData.get("route")),"")%>"/><br/>
-                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control form-control-sm" name="dose"
-                                                                   value="<%=str((extraData.get("dose")),"")%>"/><br/>
-                            <label for="dose1" class="form-label">Dose 1:</label> <input type="checkbox" class="form-check-input" name="dose1"
-                                                                      value="true" <%=checked(str((extraData.get("dose1")), ""), "true")%>/><br/>
-                            <label for="dose2" class="form-label">Dose 2:</label> <input type="checkbox" class="form-check-input" name="dose2"
-                                                                      value="true" <%=checked(str((extraData.get("dose2")), ""), "true")%>/><br/>
-                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control form-control-sm" name="lot"
-                                                                 value="<%=str((extraData.get("lot")),"")%>"/><br/>
-                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control form-control-sm" name="manufacture"
-                                                                                 value="<%=str((extraData.get("manufacture")),"")%>"/><br/>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="location" class="col-form-label col-form-label-sm">Location:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="location"
+                                                                           value="<%=str((extraData.get("location")),"")%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="location2" class="col-form-label col-form-label-sm">Other Location:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="location2"
+                                                                                 value="<%=str((extraData.get("location2")),"")%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="route" class="col-form-label col-form-label-sm">Route:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="route"
+                                                                     value="<%=str((extraData.get("route")),"")%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm">Dose:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose"
+                                                                   value="<%=str((extraData.get("dose")),"")%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose1" class="col-form-label col-form-label-sm">Dose 1:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="dose1"
+                                                                      value="true" <%=checked(str((extraData.get("dose1")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose2" class="col-form-label col-form-label-sm">Dose 2:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="dose2"
+                                                                      value="true" <%=checked(str((extraData.get("dose2")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="lot" class="col-form-label col-form-label-sm">Lot:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="lot"
+                                                                 value="<%=str((extraData.get("lot")),"")%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="manufacture" class="col-form-label col-form-label-sm">Manufacture:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="manufacture"
+                                                                                 value="<%=str((extraData.get("manufacture")),"")%>"/></div>
+                            </div>
                         </fieldset>
                         <fieldset>
                             <legend>Info</legend>
@@ -1030,10 +1103,18 @@
                                 }
 
                             %>
-                            <label for="gender" class="form-label">Gender:</label> <input type="text" class="form-control form-control-sm" name="gender" readonly
-                                                                       value="<%=gender%>"/> <br/>
-                            <label for="age" class="form-label">Age:</label> <input type="text" class="form-control form-control-sm" name="age" readonly value="<%=age%>"/><br/>
-                            <label for="chronic" class="form-label">Chronic Condition:</label>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="gender" class="col-form-label col-form-label-sm">Gender:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="gender" readonly
+                                                                       value="<%=gender%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="age" class="col-form-label col-form-label-sm">Age:</label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="age" readonly value="<%=age%>"/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="chronic" class="col-form-label col-form-label-sm">Chronic Condition:</label></div>
+                                <div class="col-sm-8">
                             <select name="chronic" class="form-select form-select-sm">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("chronic")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
@@ -1066,12 +1147,22 @@
                                 <option value="Children/Adolescent with Longterm Acetylsalicylic Acid" <%= str((extraData.get("chronic")), "").equalsIgnoreCase("Children/Adolescent with Longterm Acetylsalicylic Acid") ? "selected" : "" %> >
                                     Children/Adolescent with Longterm Acetylsalicylic Acid
                                 </option>
-                            </select><br/>
-                            <label for="pregnant" class="form-label">Pregnant:</label> <input type="checkbox" class="form-check-input" name="pregnant"
-                                                                           value="true" <%=checked(str((extraData.get("pregnant")), ""), "true")%>/><br/>
-                            <label for="remote" class="form-label">Remote Setting:</label> <input type="checkbox" class="form-check-input" name="remote"
-                                                                               value="true" <%=checked(str((extraData.get("remote")), ""), "true")%>/><br/>
-                            <label for="healthcareworker" class="form-label">Health Care Worker:</label>
+                            </select>
+                                </div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="pregnant" class="col-form-label col-form-label-sm">Pregnant:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="pregnant"
+                                                                           value="true" <%=checked(str((extraData.get("pregnant")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="remote" class="col-form-label col-form-label-sm">Remote Setting:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="remote"
+                                                                               value="true" <%=checked(str((extraData.get("remote")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="healthcareworker" class="col-form-label col-form-label-sm">Health Care Worker:</label></div>
+                                <div class="col-sm-8">
                             <select name="healthcareworker" class="form-select form-select-sm">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("healthcareworker")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
@@ -1101,11 +1192,16 @@
                                 <option value="vaccine manufacturer" <%= str((extraData.get("healthcareworker")), "").equalsIgnoreCase("vaccine manufacturer") ? "selected" : "" %> >
                                     Vaccine Mfr
                                 </option>
-                            </select><br/>
+                            </select>
+                                </div>
+                            </div>
 
-                            <label for="householdcontact" class="form-label">Household Contact or Care Provider:</label> <input
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="householdcontact" class="col-form-label col-form-label-sm">Household Contact or Care Provider:</label></div>
+                                <div class="col-sm-8"><input
                                 type="checkbox" class="form-check-input" name="householdcontact"
-                                value="true" <%=checked(str((extraData.get("householdcontact")), ""), "true")%>/><br/>
+                                value="true" <%=checked(str((extraData.get("householdcontact")), ""), "true")%>/></div>
+                            </div>
                             <%
                                 boolean bothfirstresponders = false;
                                 if (str((extraData.get("firstresponder")), "").equalsIgnoreCase("true")) {
@@ -1113,37 +1209,52 @@
                                 }
 
                             %>
-                            <label for="firstresponderpolice" class="form-label">First Responder Police:</label> <input type="checkbox" class="form-check-input"
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="firstresponderpolice" class="col-form-label col-form-label-sm">First Responder Police:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                                      name="firstresponderpolice"
-                                                                                                     value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderpolice")), ""), "true")%>/><br/>
-                            <label for="firstresponderfire" class="form-label">First Responder Fire:</label> <input type="checkbox" class="form-check-input"
+                                                                                                     value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderpolice")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="firstresponderfire" class="col-form-label col-form-label-sm">First Responder Fire:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                                  name="firstresponderfire"
-                                                                                                 value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderfire")), ""), "true")%>/><br/>
-                            <label for="swineworker" class="form-label">Swine Worker:</label> <input type="checkbox" class="form-check-input" name="swineworker"
-                                                                                  value="true" <%=checked(str((extraData.get("swineworker")), ""), "true")%>/><br/>
-                            <label for="poultryworker" class="form-label">Poultry Worker:</label> <input type="checkbox" class="form-check-input"
+                                                                                                 value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderfire")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="swineworker" class="col-form-label col-form-label-sm">Swine Worker:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="swineworker"
+                                                                                  value="true" <%=checked(str((extraData.get("swineworker")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="poultryworker" class="col-form-label col-form-label-sm">Poultry Worker:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                       name="poultryworker"
-                                                                                      value="true" <%=checked(str((extraData.get("poultryworker")), ""), "true")%>/><br/>
-                            <label for="firstnations" class="form-label">First Nations:</label> <input type="checkbox" class="form-check-input" name="firstnations"
-                                                                                    value="true" <%=checked(str((extraData.get("firstnations")), ""), "true")%>/><br/>
+                                                                                      value="true" <%=checked(str((extraData.get("poultryworker")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-1 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="firstnations" class="col-form-label col-form-label-sm">First Nations:</label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="firstnations"
+                                                                                    value="true" <%=checked(str((extraData.get("firstnations")), ""), "true")%>/></div>
+                            </div>
                         </fieldset>
                     </div><!-- end col-md-7 -->
-                    </div><!-- end row g-2 -->
-                    <div class="row g-2 mt-1">
+                    </div><!-- end row g-1 -->
+                    <div class="row g-1 mt-1">
                     <div class="col-12">
                         <fieldset>
                             <legend>Comments</legend>
                             <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div><!-- end col-12 -->
-                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end row g-1 mt-1 -->
                     </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
                     <%} else if (layoutType.equals("PAPMAM")) {/*next layout type*/%>
                     <div class="prevention">
-                    <div class="row g-2">
+                    <div class="row g-1">
                     <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
@@ -1160,13 +1271,17 @@
                                 <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
                             </div>
                             <div>&nbsp;</div>
-                            <div style="margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
+                            <div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields">Date:</label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                                           id="prevDate"
                                                                                                           value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
-                                                                                                          required>
-                                <br>
-                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control form-control-sm"
+                                                                                                          required></div>
+                                </div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields">Provider:</label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                                               name="providerName"
                                                                                                               id="providerName"
                                                                                                               value="<%=providerName%>"/>
@@ -1179,11 +1294,14 @@
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
-                                <br/>
-                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control form-control-sm" name="creator"
+                                </select></div>
+                                </div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields">Creator:</label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
                                                                                             value="<%=creatorName%>"
-                                                                                            readonly/> <br/>
+                                                                                            readonly/></div>
+                                </div>
                             </div>
                         </fieldset>
                     </div><!-- end col-md-5 -->
@@ -1208,27 +1326,27 @@
                                                   value="<%=str((extraData.get("reason")),"")%>"/>
                         </fieldset>
                     </div><!-- end col-md-7 -->
-                    </div><!-- end row g-2 -->
-                    <div class="row g-2 mt-1">
+                    </div><!-- end row g-1 -->
+                    <div class="row g-1 mt-1">
                     <div class="col-12">
                         <fieldset>
                             <legend>Comments</legend>
                             <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div><!-- end col-12 -->
-                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end row g-1 mt-1 -->
                     </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
                     <%} else if (layoutType.equals("history")) {%>
                     <div class="prevention">
-                    <div class="row g-2">
+                    <div class="row g-1">
                     <div class="col-md-5">
                         <fieldset>
                             <legend>Prevention : <%=prevention%>
                             </legend>
-                            <div style="float:left;">
+                            <div>
                                 <input name="given" type="radio" class="form-check-input"
                                        value="yes"      <%=checked(completed,"0")%>>Yes</input><br/>
                                 <input name="given" type="radio" class="form-check-input"
@@ -1236,13 +1354,17 @@
                                 <input name="given" type="radio" class="form-check-input"
                                        value="previous" <%=checked(completed,"2")%>>Previous</input>
                             </div>
-                            <div style="float:left;margin-left:30px;">
-                                <label for="prevDate" class="form-label fields">Date:</label> <input type="date" class="form-control form-control-sm" name="prevDate"
+                            <div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields">Date:</label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
-                                                                                          required>
-                                <br>
-                                <label for="provider" class="form-label fields">Provider:</label> <input type="hidden"
+                                                                                          required></div>
+                                </div>
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields">Provider:</label></div>
+                                    <div class="col-sm-8"><input type="hidden"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
@@ -1255,7 +1377,8 @@
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
+                                </select></div>
+                                </div>
                             </div>
                         </fieldset>
                     </div><!-- end col-md-5 -->
@@ -1265,12 +1388,12 @@
                             <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div><!-- end col-md-7 -->
-                    </div><!-- end row g-2 -->
+                    </div><!-- end row g-1 -->
                     </div><!-- end prevention div -->
                     <%} %>
 
 
-                    <div class="row g-2 mt-1">
+                    <div class="row g-1 mt-1">
                     <div class="col-12">
                     <div class="prevention">
                         <fieldset>
@@ -1278,25 +1401,27 @@
                                        href="javascript: function myFunction() {return false; }">Set Next Date</a>
                             </legend>
                             <div id="nextDateDiv" style="display:none;">
-                                <div>
-                                    <label for="nextDate" class="form-label">Next Date:</label><input type="date" class="form-control form-control-sm" name="nextDate"
-                                                                                   value="<%=nextDate%>" id="nextDate">
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="nextDate" class="col-form-label col-form-label-sm">Next Date:</label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="nextDate"
+                                                                                   value="<%=nextDate%>" id="nextDate"></div>
                                 </div>
-                                <div>
-                                    <label for="neverWarn" class="form-label checkbox">Never Remind:</label><input type="checkbox" class="form-check-input"
+                                <div class="row g-1 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="neverWarn" class="col-form-label col-form-label-sm">Never Remind:</label></div>
+                                    <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                                         name="neverWarn"
                                                                                                         id="neverWarn"
                                                                                                         value="neverRemind"
                                                                                                         onchange="disableifchecked(this,'nextDate');"  <%=completed(never)%>/>
                                     Reason: <input type="text" class="form-control form-control-sm" name="neverReason"
-                                                   value="<%=str((extraData.get("neverReason")),"")%>"/>
+                                                   value="<%=str((extraData.get("neverReason")),"")%>"/></div>
                                 </div>
                             </div>
                         </fieldset>
                     </div>
                     </div><!-- end col-12 -->
-                    </div><!-- end row g-2 mt-1 -->
-                    <div class="row g-2 mt-1">
+                    </div><!-- end row g-1 mt-1 -->
+                    <div class="row g-1 mt-1">
                     <div class="col-12">
                     <input type="submit" class="btn btn-primary btn-sm" value="Save" name="action">
                     <%
@@ -1320,7 +1445,7 @@
                     <input type="submit" class="btn btn-danger btn-sm" name="delete" value="Delete"/>
                     <% } %>
                     </div><!-- end col-12 -->
-                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end row g-1 mt-1 -->
                 </form>
                 <% } %>
     </div>
