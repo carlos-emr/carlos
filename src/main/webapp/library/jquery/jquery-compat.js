@@ -16,6 +16,7 @@
  *   $.parseJSON()    (removed 3.0 — alias for JSON.parse)
  *   $.trim()         (deprecated 3.5)
  *   .andSelf()       (removed 3.0 — alias for .addBack)
+ *   $.isWindow()     (removed 3.3)
  *   .live()          (removed 1.9 — warning stub; callers must migrate to .on)
  *   .die()           (removed 1.9 — warning stub; callers must migrate to .off)
  *   .delegate()      (removed 3.0 — delegates to .on)
@@ -129,6 +130,13 @@
             return arguments.length === 1 ?
                 this.off(selector, "**") :
                 this.off(types, selector || "**", fn);
+        };
+    }
+
+    // --- $.isWindow (removed jQuery 3.3) ---
+    if (!$.isWindow) {
+        $.isWindow = function (obj) {
+            return obj != null && obj === obj.window;
         };
     }
 

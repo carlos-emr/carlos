@@ -62,6 +62,7 @@
        scope="request"/>
 <link rel="stylesheet" href="${ctx}/library/flatpickr/flatpickr.min.css" type="text/css"/>
 <script src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
+<script src="${ctx}/library/jquery/jquery-compat.js"></script>
 <script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
 <%
