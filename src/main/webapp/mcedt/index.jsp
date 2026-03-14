@@ -153,7 +153,7 @@
                 <input id="method" name="method" type="hidden" value=""/>
 
                 <div class="navbar">
-                    <div class="navbar-inner"
+                    <div class="container-fluid"
                          style="vertical-align: middle !important;">
 
                         Resource Type:

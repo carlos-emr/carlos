@@ -256,7 +256,7 @@
         <div class="container-fluid">
 
             <div class="navbar">
-                <div class="navbar-inner">
+                <div class="container-fluid">
                     <a class="brand" href="#">
                         Messenger Group Admin
                     </a>

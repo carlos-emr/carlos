@@ -156,7 +156,7 @@ display:inline-block;
 
     <%
         if (request.getParameter("demographic") == null) { %>
-<div class="navbar" id="demoHeader"><div class="navbar-inner">
+<div class="navbar" id="demoHeader"><div class="container-fluid">
     <a class="brand" href="javascript:void(0)">Update Flowsheet Measurement</a>
     <em>for <strong><%=flowsheet%></strong> flowsheet </em>
 </div></div>

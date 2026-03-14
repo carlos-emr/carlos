@@ -361,7 +361,7 @@
 <body id="editFlowsheetBody">
 
 <% if(demographic == null || "null".equalsIgnoreCase(demographic)){ %>
-	<div class="navbar" id="demoHeader"><div class="navbar-inner">
+	<div class="navbar" id="demoHeader"><div class="container-fluid">
 		<a class="brand" href="javascript:void(0)">Edit Flowsheet</a>
 	</div></div>
 <% }%>

@@ -31,7 +31,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
     <div class="navbar">
-    <div class="navbar-inner">
+    <div class="container-fluid">
     <a class="brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/></a>
     <ul class="nav">
     <li><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp" class="contentLink">eForm Library</a></li>

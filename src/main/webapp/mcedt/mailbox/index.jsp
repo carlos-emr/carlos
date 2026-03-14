@@ -214,12 +214,12 @@
 
                             <div class="navbar" style="width: 30%; float: right;">
                                 <p class="greenText bold capital font14" style="margin-top:5px;">Other Tools</p>
-                                <div class="navbar-inner" style="vertical-align: middle !important;">
+                                <div class="container-fluid" style="vertical-align: middle !important;">
                                     <button type="button" class="flatLink black font12 bottomMargin20"
                                             onclick="return changePass();">Change Password
                                     </button>
                                 </div>
-                                <div class="navbar-inner" style="vertical-align: middle !important;">
+                                <div class="container-fluid" style="vertical-align: middle !important;">
                                     <button class="flatLink black font12" onclick="return deleteSelected(this);"
                                             disabled>Check Connection
                                     </button>
@@ -230,7 +230,7 @@
 
                     <tr>
                         <div class="navbar">
-                            <div class="navbar-inner"
+                            <div class="container-fluid"
                                  style="vertical-align: middle !important; width: 65%; float: left;">
                                 <button class="green flatLink font14" style="width:45%; padding:20px; margin-right:2%;"
                                         onclick="this.disabled=true;ShowSpin(true); return autoDownload();">
