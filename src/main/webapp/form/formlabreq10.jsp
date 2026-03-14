@@ -69,7 +69,7 @@
               href="<%= request.getContextPath() %>/form/labReq07Style.css">
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/form/print.css">
         <script src="<%= request.getContextPath() %>/share/javascript/prototype.js" type="text/javascript"></script>
-        <script src="<%=request.getContextPath()%>/js/jquery-1.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
 

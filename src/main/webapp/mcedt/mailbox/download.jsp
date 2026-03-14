@@ -46,7 +46,7 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
-    <script src="${pageContext.request.contextPath}/js/jquery-1.7.1.min.js" type="application/javascript"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js" type="application/javascript"></script>
     <script language="javascript">
         $(window).load(function () {
             $('input[type="checkbox"]').click(function () {
