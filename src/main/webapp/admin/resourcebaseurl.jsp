@@ -115,7 +115,7 @@
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/css/bootstrap-wysihtml5.css">
+    <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
 
     <style>
         .info {
@@ -181,12 +181,8 @@
         <div class="col-md-8" style="background-color:">
             <form method="post" name="baseurl" id="detailsForm" action="resourcebaseurl.jsp">
                 <h4>Details</h4>
-                <textarea class="textarea" name="resource_helpHtml" id="resource_helpHtml" placeholder="Enter text ..."
-                          style="width:100%;height:160px"><%
-                    if (resource_helpHtml_value != null) {
-                        out.print(resource_helpHtml_value);
-                    }
-                %></textarea>
+                <input type="hidden" name="resource_helpHtml" id="resource_helpHtml_hidden"/>
+                <div id="resource_helpHtml_editor" style="width:100%;min-height:160px"></div>
                 <div class="col-md-8" style="padding-left:0px;padding-right:0px;">
                     <div class="col-md-6" id="chars">
                         <div class='alert alert-plain'>Character Limit = 2000</div>
@@ -203,23 +199,33 @@
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-<script src="<%=request.getContextPath() %>/js/wysihtml5-0.3.0.js"></script>
-<script src="<%=request.getContextPath() %>/js/bootstrap-wysihtml5.js"></script>
+<script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
 
 <script>
-    $('.textarea').wysihtml5();
-
-    editor.observe("load", function () {
-        editor.composer.element.addEventListener("keyup", function () {
-
-            char_count($(editor.composer.element).html().length);
-
-        });
+    var Editor = toastui.Editor;
+    var editor = new Editor({
+        el: document.querySelector('#resource_helpHtml_editor'),
+        height: '200px',
+        initialEditType: 'wysiwyg',
+        initialValue: '',
+        hideModeSwitch: true,
+        toolbarItems: [['bold', 'italic', 'strike'], ['ul', 'ol'], ['link']]
     });
 
-    function char_count(c) {
-        $("#chars").html(c);
+    <%-- Load existing HTML content into the editor --%>
+    <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
+    editor.setHTML('<%= resource_helpHtml_value.replace("'", "\\'").replace("\n", "\\n").replace("\r", "") %>');
+    <% } %>
 
+    <%-- Sync editor content to hidden input before form submit --%>
+    document.getElementById('detailsForm').addEventListener('submit', function() {
+        document.getElementById('resource_helpHtml_hidden').value = editor.getHTML();
+    });
+
+    <%-- Character count on editor change --%>
+    editor.on('change', function() {
+        var html = editor.getHTML();
+        var c = html.length;
         if (c > 2000) {
             $("#chars").html("<div class='alert'><strong>Warning!</strong> Character Limit = 2000. Character Count = " + c + "</div>");
             $("#detailsSave").prop("disabled", true);
@@ -227,8 +233,7 @@
             $("#chars").html("<div class='alert alert-success'><strong>Good!</strong> Character Limit = 2000. Character Count = " + c + "</div>");
             $("#detailsSave").prop("disabled", false);
         }
-    }
-
+    });
 
     helpOptionCheck();
 
