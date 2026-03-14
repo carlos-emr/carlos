@@ -16,8 +16,8 @@
  *   $.parseJSON()    (removed 3.0 — alias for JSON.parse)
  *   $.trim()         (deprecated 3.5)
  *   .andSelf()       (removed 3.0 — alias for .addBack)
- *   .live()          (removed 1.9 — delegates to .on)
- *   .die()           (removed 1.9 — delegates to .off)
+ *   .live()          (removed 1.9 — warning stub; callers must migrate to .on)
+ *   .die()           (removed 1.9 — warning stub; callers must migrate to .off)
  *   .delegate()      (removed 3.0 — delegates to .on)
  *   .undelegate()    (removed 3.0 — delegates to .off)
  *   .bind()          (deprecated 3.0 — delegates to .on)
@@ -97,19 +97,23 @@
     }
 
     // --- .live / .die (removed jQuery 1.9) ---
+    // Cannot be reliably polyfilled in jQuery 3.x because this.selector and
+    // this.context were also removed. All application code callers have been
+    // migrated to .on()/.off(). These stubs prevent "not a function" errors
+    // and log a warning to aid debugging if any missed callers surface.
     if (!$.fn.live) {
-        $.fn.live = function (types, data, fn) {
-            if (typeof data === "function") {
-                fn = data;
-                data = undefined;
+        $.fn.live = function () {
+            if (typeof console !== "undefined" && console.warn) {
+                console.warn("jQuery .live() is removed. Migrate to .on(). Called with:", arguments);
             }
-            $(this.context || document).on(types, this.selector, data, fn);
             return this;
         };
     }
     if (!$.fn.die) {
-        $.fn.die = function (types, fn) {
-            $(this.context || document).off(types, this.selector, fn);
+        $.fn.die = function () {
+            if (typeof console !== "undefined" && console.warn) {
+                console.warn("jQuery .die() is removed. Migrate to .off(). Called with:", arguments);
+            }
             return this;
         };
     }
