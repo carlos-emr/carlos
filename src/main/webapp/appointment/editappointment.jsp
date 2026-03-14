@@ -1035,7 +1035,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>:</label>
                     </td>
                     <td>
-				<select name="reasonCode" class="form-control">
+				<select name="reasonCode" class="form-select">
                             <%
                                 String rCode = bFirstDisp && appt.getReasonCode() != null ? appt.getReasonCode().toString() : request.getParameter("reasonCode");
                                 pageContext.setAttribute("rCode", rCode);
@@ -1081,7 +1081,7 @@
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
 
                             if (bMultisites) { %>
-				        <select tabindex="4" name="location" class="form-control" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+				        <select tabindex="4" name="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
@@ -1100,7 +1100,7 @@
                             isSiteSelected = true;
                             if (locationEnabled) {
                         %>
-		<select name="location" class="form-control">
+		<select name="location" class="form-select">
                             <%
                                 String location = Encode.forJava(bFirstDisp ? (appt.getLocation()) : request.getParameter("location"));
                                 if (programs != null && !programs.isEmpty()) {
@@ -1196,7 +1196,7 @@
 
                             if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
 
-                <select name="status" class="form-control" style="background-color:<%=((AppointmentStatus)allStatus.get(curSelect)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <select name="status" class="form-select" style="background-color:<%=((AppointmentStatus)allStatus.get(curSelect)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
                             <option class="<%=((AppointmentStatus)allStatus.get(i)).getStatus()%>"
                                     style="background-color:<%=((AppointmentStatus)allStatus.get(i)).getColor()%>"
@@ -1221,7 +1221,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formType"/>:</label>
                     </td>
                     <td>
-                        <select name="type" class="form-control" id="type"
+                        <select name="type" class="form-select" id="type"
                                 title="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
                         <option data-dur="" data-reason=""></option><!-- important leave a blank top entry  -->
 

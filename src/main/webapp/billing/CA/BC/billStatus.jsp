@@ -295,7 +295,7 @@
                 <div class="col-sm-3">
                     <div class="mb-3">
                         <label for="providerview">Select provider</label>
-                        <select name="providerview" id="providerview" class="form-control">
+                        <select name="providerview" id="providerview" class="form-select">
                             <option value="ALL">All Providers</option>
                             <% String proFirst = "";
                                 String proLast = "";

@@ -245,7 +245,7 @@ $(document).ready(function () {
 
         // exclude the first column.
         if (i > 0) {
-            var select = $('<select class="form-control" ><option value="">All</option></select>')
+            var select = $('<select class="form-select" ><option value="">All</option></select>')
                 .appendTo($(this).empty())
                 .on('change', function () {
                     drilldownTable.column(columnId).search($(this).val()).draw();

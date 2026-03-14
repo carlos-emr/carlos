@@ -186,7 +186,7 @@
                 <td><%= status.equals("N") ? "New" : "Filed" %>
                 </td>
                 <td>
-                    <button type="submit" class="btn btn-small"
+                    <button type="submit" class="btn btn-sm"
                             onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')"
                             title="remove provider"><i class="fa-solid fa-trash"></i> remove
                     </button>

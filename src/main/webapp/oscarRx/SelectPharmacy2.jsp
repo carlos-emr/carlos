@@ -527,7 +527,7 @@
 
                 <tr>
                     <td>
-                        <table class="table-sm">
+                        <table class="table table-sm">
                             <tr>
                                 <th class="DivContentSectionHeadTitle">
 
@@ -566,7 +566,7 @@
                             </tr>
                             <tr>
                                 <td>
-                                    <table class="table-sm">
+                                    <table class="table table-sm">
                                         <tr class="sticky-heading">
                                             <th id="preferredList" style="font-weight: normal;">
                                                 <div style="text-align: center">
@@ -584,7 +584,7 @@
                                     <% RxPharmacyData pharmacy = new RxPharmacyData();
                                         List<PharmacyInfo> pharList = pharmacy.getAllPharmacies();
                                     %>
-                                    <table id="pharmacyList" class="table-sm table-striped"
+                                    <table id="pharmacyList" class="table table-sm table-striped"
                                            style="margin-top:5px;width:100%">
                                         <tr class="sticky-heading">
                                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.pharmacyName"/></th>

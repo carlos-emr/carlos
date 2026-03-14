@@ -254,7 +254,7 @@
 									<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>
 								</span>
 
-                                                <select class="form-control" name="selectedCodingSystem"
+                                                <select class="form-select" name="selectedCodingSystem"
                                                             <%=disabled%>>
                                                     <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
                                                         <option value="${codingSys}">

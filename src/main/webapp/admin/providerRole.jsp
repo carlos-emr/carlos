@@ -577,7 +577,7 @@
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnAdd"/>" disabled="disabled">
                     <input type="submit" name="buttonUpdate" class="btn btn-info"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
-                    <input type="submit" name="submit" class="btn-link" style="color:red;"
+                    <input type="submit" name="submit" class="btn btn-link" style="color:red;"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
                 </div>
             </td>

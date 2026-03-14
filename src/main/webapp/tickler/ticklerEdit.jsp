@@ -379,7 +379,7 @@
                                                       style="font-weight:bold">
                         <fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</label></td>
                     <td>
-                        <select class="form-control" name="suggestedText" id="suggestedText">
+                        <select class="form-select" name="suggestedText" id="suggestedText">
                             <option value="">---</option>
                             <%
                                 TicklerTextSuggestDao ticklerTextSuggestDao = (TicklerTextSuggestDao) SpringUtils.getBean(TicklerTextSuggestDao.class);
@@ -391,7 +391,7 @@
                     </td>
 
                     <td colspan="2">
-                        <select class="form-control" name="status" id="status">
+                        <select class="form-select" name="status" id="status">
                                     <% if (t.getStatusDesc(vLocale).equals(stActive)){selected="selected";}else{selected="";}%>
                             <option <%=selected%> value="A"><fmt:message key="tickler.ticklerMain.stActive"/></option>
                                     <% if (t.getStatusDesc(vLocale).equals(stComplete)){selected="selected";}else{selected="";}%>
@@ -415,7 +415,7 @@
                     </td>
 
                     <td colspan="2">
-                        <select class="form-control" name="priority" id="priority">
+                        <select class="form-select" name="priority" id="priority">
                             <% if (t.getPriorityWeb().equals(prHigh)) {
                                 selected = "selected";
                             } else {
@@ -448,7 +448,7 @@
                 </tr>
                 <tr>
                     <td colspan="2">
-                        <select class="form-control" name="assignedToProviders" id="assignedToProviders">
+                        <select class="form-select" name="assignedToProviders" id="assignedToProviders">
                             <%
                                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                                 List<Provider> providers = providerDao.getActiveProviders();

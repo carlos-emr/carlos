@@ -147,7 +147,7 @@
         <div class="col-12">
             <div class="mb-3">
                 <label>Message:</label>
-                <select class="form-control" name="message">
+                <select class="form-select" name="message">
                     <option value=""></option>
                     <c:forEach items="${ textSuggestions }" var="textSuggestion">
                         <option>

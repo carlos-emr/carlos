@@ -219,7 +219,7 @@
 
                 <form id="sendToPhrForm" action="efmpatientformlistSendPhrAction.jsp">
                     <input type="hidden" name="clientId" value="<%=demographic_no%>"/>
-                    <table id="efmTable" class="table table-striped table-compact dataTable no-footer">
+                    <table id="efmTable" class="table table-striped table-sm dataTable no-footer">
                         <thead>
                         <tr>
                             <th>

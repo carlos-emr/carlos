@@ -534,9 +534,9 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 <div class="DoNotPrint" style="float:right">
 
                     <%if (printView) {%>
-                    <a href="JavaScript:void(0);" class="btn btn-small back loading" title="Cancel"
+                    <a href="JavaScript:void(0);" class="btn btn-sm back loading" title="Cancel"
                        data-bs-loading-text="cancelling...">Cancel</a>
-                    <button type="button" class="btn btn-small btn-success DoNotPrint"
+                    <button type="button" class="btn btn-sm btn-success DoNotPrint"
                             onclick="javascript:window.print();"><i class="fa-solid fa-print"></i> Print
                     </button>
                     <%} else {%>
@@ -544,15 +544,15 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     view:
                     <div class="btn-group">
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>"
-                           id="all-btn" class="btn btn-small loading" data-bs-loading-text="Loading...">All</a>
+                           id="all-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">All</a>
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=lastOnly"
-                           id="lastOnly-btn" class="btn btn-small loading" data-bs-loading-text="Loading...">Last Only</a>
+                           id="lastOnly-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Last Only</a>
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=outOfRange"
-                           id="outOfRange-btn" class="btn btn-small loading" data-bs-loading-text="Loading...">Out of
+                           id="outOfRange-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Out of
                             Range</a>
                     </div>
 
-                    <button type="submit" class="btn btn-small DoNotPrint loading-print preview"
+                    <button type="submit" class="btn btn-sm DoNotPrint loading-print preview"
                             data-bs-loading-text="Loading..."><i class="fa-solid fa-print"></i> Preview
                     </button>
 

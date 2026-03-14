@@ -60,7 +60,7 @@ Required Parameters to plug-in:
     </tr>
     <tr>
         <td class="quickList">
-            <select class="form-control" style="overflow:auto" name="quickList"
+            <select class="form-select" style="overflow:auto" name="quickList"
                          onchange="javascript:changeList(this,'${ demographicNo }','${ providerNo }');">
                 <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
                     <option value="${ quickLists.quickListName }" ${ quickLists.quickListName eq param.quickList || quickLists.lastUsed eq 'Selected' ? 'selected' : '' } >

@@ -220,7 +220,7 @@ Ontario, Canada
 
             </div>
             <div class="right-column">
-                <table id="efmTable" class="table table-striped table-compact dataTable no-footer">
+                <table id="efmTable" class="table table-striped table-sm dataTable no-footer">
                     <thead>
                     <tr>
                         <th><fmt:message key="eform.showmyform.btnFormName"/></th>

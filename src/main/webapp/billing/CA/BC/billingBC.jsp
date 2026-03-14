@@ -1435,7 +1435,7 @@
 
                                             <label for="selectBillingForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingform"/></label>
 
-                                            <select class="form-control" id="selectBillingForm">
+                                            <select class="form-select" id="selectBillingForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
                                                 <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
                                                         selected
@@ -1454,7 +1454,7 @@
                                         <div class="mb-3">
 
                                             <label for="xml_provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.billProvider"/></label>
-                                            <select id="xml_provider" class="form-control"
+                                            <select id="xml_provider" class="form-select"
                                                          name="xml_provider">
 
                                                 <option value="">
@@ -1475,7 +1475,7 @@
                                         <div class="mb-3">
 
                                             <label for="xml_billtype"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingtype"/></label>
-                                            <select class="form-control" id="xml_billtype"
+                                            <select class="form-select" id="xml_billtype"
                                                          property="xml_billtype" onchange="CheckType();gotoPrivate();">
                                                 <option value="MSP">Bill MSP</option>
                                                 <option value="WCB">Bill WCB</option>
@@ -1491,7 +1491,7 @@
                                         <div class="mb-3">
 
                                             <label for="xml_location">Clarification Code</label>
-                                            <select class="form-control" id="xml_location"
+                                            <select class="form-select" id="xml_location"
                                                          name="xml_location">
                                                 <%
                                                     for (int i = 0; i < billlocation.length; i++) {
@@ -1511,7 +1511,7 @@
                                         <div class="mb-3">
 
                                             <label for="xml_visittype">Service Location</label>
-                                            <select class="form-control" id="xml_visittype"
+                                            <select class="form-select" id="xml_visittype"
                                                          name="xml_visittype">
                                                 <%
                                                     for (BillingFormData.BillingVisit billingVisit : billvisit) {
@@ -1563,7 +1563,7 @@
                                     <div class="mb-3">
 
                                         <label for="afterHours">After Hours</label>
-                                        <select class="form-control" name="afterHours"
+                                        <select class="form-select" name="afterHours"
                                                      id="afterHours">
                                             <option value="0">No</option>
                                             <option value="E">Evening</option>
@@ -1616,7 +1616,7 @@
                                     <div class="mb-3">
 
                                         <label for="dependent">Dependent</label>
-                                        <select class="form-control" name="dependent" id="dependent">
+                                        <select class="form-select" name="dependent" id="dependent">
                                             <option value="00">No</option>
                                             <option value="66">Yes</option>
                                         </select>
@@ -1627,7 +1627,7 @@
                                     <div class="mb-3">
 
                                         <label for="submissionCode">Sub Code</label>
-                                        <select class="form-control" name="submissionCode"
+                                        <select class="form-select" name="submissionCode"
                                                      id="submissionCode">
                                             <option value="0">O - Normal</option>
                                             <option value="D">D - Duplicate</option>
@@ -1669,7 +1669,7 @@
                                             request.setAttribute("paymentMethodList", types);
                                             request.setAttribute("defaultPaymentMethod", OscarProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
                                         %>
-                                        <select class="form-control" id="xml_encounter" name="xml_encounter">
+                                        <select class="form-select" id="xml_encounter" name="xml_encounter">
                                             <c:forEach items="${paymentMethodList}" var="paymentMethod">
                                                 <option value="${paymentMethod.id}" ${ defaultPaymentMethod eq paymentMethod.id ? 'selected' : ''}>${paymentMethod.paymentType}</option>
                                             </c:forEach>
@@ -1764,7 +1764,7 @@
                                         </div>
                                         <div class='mb-3'>
                                             <label for="mva_claim_code">MVA?</label>
-                                            <select class="form-control" name="mva_claim_code"
+                                            <select class="form-select" name="mva_claim_code"
                                                          id="mva_claim_code">
                                                 <option value="N">No</option>
                                                 <option value="Y">Yes</option>
@@ -1814,7 +1814,7 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <select class="form-control" name="refertype1">
+                                                    <select class="form-select" name="refertype1">
                                                         <option value="">Select Type</option>
                                                         <option value="T">Refer To</option>
                                                         <option value="B">Refer By</option>
@@ -1836,7 +1836,7 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <select class="form-control" name="refertype2">
+                                                    <select class="form-select" name="refertype2">
                                                         <option value="">Select Type</option>
                                                         <option value="T">Refer To</option>
                                                         <option value="B">Refer By</option>
@@ -2063,7 +2063,7 @@
 										<span class="input-group-text">
 											<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/>
 										</span>
-                                                    <select style="min-width: 70px;" class="form-control"
+                                                    <select style="min-width: 70px;" class="form-select"
                                                             name="dxCodeSystem" id="codingSystem">
                                                         <oscar:oscarPropertiesCheck value="false"
                                                                                     property="DISABLE_MSP_DX_SYSTEM">
@@ -2163,7 +2163,7 @@
 
                                 <tr>
                                     <td align="left" colspan="2">
-                                        <select class="form-control" name="correspondenceCode"
+                                        <select class="form-select" name="correspondenceCode"
                                                      onchange="correspondenceNote();">
                                             <option value="0">No Correspondence</option>
                                             <option value="N">Electronic Correspondence</option>

@@ -473,10 +473,10 @@
                                         <p>You can either click any of the buttons below to pull in any medications from
                                             the E-Chart, or enter your own in the box below.</p>
                                         <input id="fetchMedications|mt_attMedications" type="button"
-                                               class="btn-small clinicalData" value="Medications"/>&nbsp;
+                                               class="btn btn-sm clinicalData" value="Medications"/>&nbsp;
                                         <input id="fetchLongTermMedications|mt_attMedications" type="button"
-                                               class="btn-small clinicalData" value="Long Term Medications"/>&nbsp;
-                                        <input id="fetchOtherMeds" type="button" class="btn-small"
+                                               class="btn btn-sm clinicalData" value="Long Term Medications"/>&nbsp;
+                                        <input id="fetchOtherMeds" type="button" class="btn btn-sm"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>"
                                                onclick="importFromEnct('OtherMeds',document.forms[0].mt_attMedications);"/>
                                         <br/>
@@ -497,7 +497,7 @@
                                         <p>You can either click the button below to pull in any allergies from the
                                             E-Chart, or enter your own in the box below.</p>
                                         <input id="fetchAllergies|mt_attAllergies" type="button"
-                                               class="btn-small clinicalData" value="Allergies"/>
+                                               class="btn btn-sm clinicalData" value="Allergies"/>
                                         <br/>
                                         <textarea name="mt_attAllergies" id="mt_attAllergies"
                                                   style="width: 100%; height:180px;" size="30"
@@ -514,23 +514,23 @@
 
                                         <span class="title">Additional Information</span>
                                         <p>The buttons below will pull information in from the E-Chart.</p>
-                                        <input id="fetchAddInfoSocHistory" type="button" class="btn-small"
+                                        <input id="fetchAddInfoSocHistory" type="button" class="btn btn-sm"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportSocHistory"/>"
                                                onclick="importFromEnct('SocialHistory',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
-                                        <input id="fetchAddInfoFamHistory" type="button" class="btn-small"
+                                        <input id="fetchAddInfoFamHistory" type="button" class="btn btn-sm"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportFamHistory"/>"
                                                onclick="importFromEnct('FamilyHistory',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
-                                        <input id="fetchAddInfoMedHistory" type="button" class="btn-small"
+                                        <input id="fetchAddInfoMedHistory" type="button" class="btn btn-sm"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportMedHistory"/>"
                                                onclick="importFromEnct('MedicalHistory',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
-                                        <input id="fetchAddInfoConcerns" type="button" class="btn-small"
+                                        <input id="fetchAddInfoConcerns" type="button" class="btn btn-sm"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportConcerns"/>"
                                                onclick="importFromEnct('ongoingConcerns',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
-                                        <input id="fetchAddInfoReminders" type="button" class="btn-small"
+                                        <input id="fetchAddInfoReminders" type="button" class="btn btn-sm"
                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.btnImportReminders"/>"
                                                onclick="importFromEnct('Reminders',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
                                         <input id="fetchRiskFactors|mt_attAdditionalInfo" type="button"
-                                               class="btn-small clinicalData" value="Risk Factors"/>&nbsp;
+                                               class="btn btn-sm clinicalData" value="Risk Factors"/>&nbsp;
                                         <br/>
                                         <textarea name="mt_attAdditionalInfo" id="mt_attAdditionalInfo"
                                                   style="width: 100%; height:180px;" size="30"

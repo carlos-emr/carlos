@@ -58,7 +58,7 @@
                     <td class="MainTableRightColumn">
                         <div class="mb-3">
                             <label for="defaultBillingProvider">Select Default Billing Provider:</label>
-                            <select name="defaultBillingProvider" class="form-control"
+                            <select name="defaultBillingProvider" class="form-select"
                                          id="defaultBillingProvider">
                                 <c:forEach var="billing" items="${billingProviderList}">
                                     <option value="${billing.providerNo}">
@@ -77,7 +77,7 @@
                 <tr>
                     <td class="MainTableRightColumn">
                         <label for="referral"> Select Default Referral Type:</label>
-                        <select id="referral" class="form-control" name="referral">
+                        <select id="referral" class="form-select" name="referral">
                         <option value="1">Refer To</option>
                         <option value="2">Refer By</option>
                         <option value="3">Neither</option>
@@ -113,7 +113,7 @@
 
                     <td class="MainTableRightColumn">
                         <label for="defaultBillingForm">Select Default Billing Form:</label>
-                        <select name="defaultBillingForm" class="form-control"
+                        <select name="defaultBillingForm" class="form-select"
                                      id="defaultBillingForm">
                             <c:forEach var="billing" items="${billingFormList}">
                                 <option value="${billing.formCode}">
@@ -127,7 +127,7 @@
 
                     <td class="MainTableRightColumn"><label for="defaultServiceLocation">Select Default Service
                         Location:</label>
-                        <select name="defaultServiceLocation" class="form-control"
+                        <select name="defaultServiceLocation" class="form-select"
                                      id="defaultServiceLocation">
                             <c:forEach var="serviceLocation" items="${serviceLocationList}">
                                 <option value="${serviceLocation.visitType}">
@@ -140,7 +140,7 @@
                     <td class="MainTableRightColumn">
                         <label for="payeeProviderNo">Select Default Payee (select "Custom" to set a custom
                             payee):</label>
-                        <select name="payeeProviderNo" class="form-control" id="payeeProviderNo"
+                        <select name="payeeProviderNo" class="form-select" id="payeeProviderNo"
                                      onchange="defaultPayeeSelect()">
                             <c:forEach var="provider" items="${providerList}">
                                 <option value="${provider.providerNo}">

@@ -388,7 +388,7 @@
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%=demographic%>&template=<%=flowsheet%><%=tracker%>"
-               class="btn btn-small" title="go back to <%=flowsheet%> flowsheet"><i class="fa-solid fa-backward"></i></a>
+               class="btn btn-sm" title="go back to <%=flowsheet%> flowsheet"><i class="fa-solid fa-backward"></i></a>
 
             <%}%>
 

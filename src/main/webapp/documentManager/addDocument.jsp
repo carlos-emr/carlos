@@ -280,7 +280,7 @@
             <div class="mb-3">
                 <label for="docType">Type</label>
                 <div class="input-group">
-                    <select id="docType" class="form-control" name="docType">
+                    <select id="docType" class="form-select" name="docType">
                         <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
                         <%
                             for (int i = 0; i < doctypes.size(); i++) {
@@ -315,7 +315,7 @@
 
             <div class="mb-3">
                 <label for="docClass"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/>:</label>
-                <select name="docClass" id="docClass" class="form-control">
+                <select name="docClass" id="docClass" class="form-select">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
                     <% boolean consult1Shown = false;
                         for (String reportClass : reportClasses) {
@@ -387,7 +387,7 @@
         <div class="mb-3">
             <label for="docType1">Link Type</label>
             <div class="input-group">
-                <select id="docType1" name="docType" class="form-control">
+                <select id="docType1" name="docType" class="form-select">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
                     <%
                         for (int i1 = 0; i1 < doctypes.size(); i1++) {
@@ -415,7 +415,7 @@
 
         <div class="mb-3">
             <label for="docClassB"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/></label>
-            <select name="docClass" id="docClassB" class="form-control">
+            <select name="docClass" id="docClassB" class="form-select">
                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
                 <% boolean consult2Shown = false;
                     for (String reportClass : reportClasses) {

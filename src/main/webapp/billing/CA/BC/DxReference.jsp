@@ -56,7 +56,7 @@
 
 <div>
     <c:if test="${ not empty dxList }">
-        <select class="form-control" size="10" style="width:100%;height:100%;">
+        <select class="form-select" size="10" style="width:100%;height:100%;">
             <c:forEach items="${ dxList }" var="dx">
                 <option onClick="quickPickDiagnostic('${ dx.dx }');return false;" title="${ dx.desc }">
                     <c:out value="${ dx.dx }"/> - <c:out value="${ dx.numMonthSinceDate }m"/>

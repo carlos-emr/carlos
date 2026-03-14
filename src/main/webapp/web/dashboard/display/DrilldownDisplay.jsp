@@ -127,12 +127,12 @@
         <form id="datatableFilterGroup" class="d-flex flex-wrap align-items-center gap-2" style="display:none;">
             <div id="datatableFilterGroupBody">
                 <div class="mb-3">
-                    <select class="form-control" id="datatableFilterColumnSelector">
+                    <select class="form-select" id="datatableFilterColumnSelector">
                         <option value="0">All</option>
                     </select>
                 </div>
                 <div class="mb-3">
-                    <select id="datatableFilterConditionSelector" class="form-control">
+                    <select id="datatableFilterConditionSelector" class="form-select">
                         <option value="all">All</option>
                         <option value="equal">equals</option>
                         <option value="gt">greater than</option>

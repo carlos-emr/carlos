@@ -728,7 +728,7 @@
 
                     <div class="mb-3">
                         <label for="mrpview"> <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/></label>
-                        <select id="mrpview" class="form-control" name="mrpview">
+                        <select id="mrpview" class="form-select" name="mrpview">
                             <option value="all" <%=mrpview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
@@ -746,7 +746,7 @@
                     <div class="mb-3">
                         <label for="providerview"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></label>
 
-                        <select id="providerview" class="form-control" name="providerview">
+                        <select id="providerview" class="form-select" name="providerview">
                             <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 for (Provider p : providers) {
@@ -779,7 +779,7 @@
                                 sel.form.assignedTo.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
                             }
                         </script>
-                        <select id="site" class="form-control" name="site" onchange="changeSite(this)">
+                        <select id="site" class="form-select" name="site" onchange="changeSite(this)">
                             <option value="none">---select clinic---</option>
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
@@ -802,7 +802,7 @@
                             }
                         } else {
                         %>
-                        <select id="assignedTo" class="form-control" name="assignedTo">
+                        <select id="assignedTo" class="form-select" name="assignedTo">
                             <%
                                 // Check for property to default assigned providers and if present - default to user logged in
                                 boolean ticklerDefaultAssignedProvier = OscarProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
@@ -830,7 +830,7 @@
                     </div>
                     <div class="mb-3">
 					    <label for="ticklerview">Filter</label>
-                        <select id="ticklerview" class="form-control" name="ticklerview">
+                        <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
                                 <fmt:setBundle basename="oscarResources"/>
                                 <fmt:message key="tickler.ticklerMain.formActive"/></option>
@@ -856,7 +856,7 @@
             <c:if test="${not empty param.demoview}">
             <div class="float-start" style="margin-bottom:10px;">
                 <label for="ticklerview">Filter</label>
-                <select id="ticklerview" class="form-control" name="ticklerview">
+                <select id="ticklerview" class="form-select" name="ticklerview">
                     <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
                     <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
                     <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
@@ -867,7 +867,7 @@
 
         <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
             <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
-            <table id="ticklerResults" class="table table-striped table-compact" style="width:100%">
+            <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>
                     <th>&nbsp</th>
