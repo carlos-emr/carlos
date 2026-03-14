@@ -76,7 +76,7 @@
 
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" aria-labelledby="indicatorTitle_${ indicatorPanel.id }">
+    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" tabindex="-1" aria-labelledby="indicatorTitle_${ indicatorPanel.id }">
         <div class="modal-dialog">
 
             <div class="modal-content">

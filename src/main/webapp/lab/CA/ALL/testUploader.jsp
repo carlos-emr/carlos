@@ -249,8 +249,8 @@
 
 <h3>HL7 Lab Upload</h3>
 <div class="loading-screen">
-    <div class="loading-bar progress">
-        <div class="bar" style="width: 100%;"></div>
+    <div class="loading-bar progress" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" style="width: 100%;"></div>
     </div>
     <div class="loading-message">
         Please be patient. Uploading a large number of HL7 labs may take some time. Do not close this window while

@@ -545,7 +545,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secSchedule">
+                data-bs-toggle="collapse" data-bs-target="#secSchedule" aria-expanded="true" aria-controls="secSchedule">
             <i class="fas fa-calendar-alt section-icon"></i> Schedule &amp; Appointments
         </button>
     </h2>
@@ -706,7 +706,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secContact">
+                data-bs-toggle="collapse" data-bs-target="#secContact" aria-expanded="false" aria-controls="secContact">
             <i class="fas fa-address-card section-icon"></i> Contact Information
         </button>
     </h2>
@@ -769,7 +769,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secRx">
+                data-bs-toggle="collapse" data-bs-target="#secRx" aria-expanded="false" aria-controls="secRx">
             <i class="fas fa-prescription-bottle-alt section-icon"></i> Prescriptions
         </button>
     </h2>
@@ -841,7 +841,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secClinical">
+                data-bs-toggle="collapse" data-bs-target="#secClinical" aria-expanded="false" aria-controls="secClinical">
             <i class="fas fa-stethoscope section-icon"></i> Clinical Settings
         </button>
     </h2>
@@ -933,7 +933,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secConsult">
+                data-bs-toggle="collapse" data-bs-target="#secConsult" aria-expanded="false" aria-controls="secConsult">
             <i class="fas fa-user-md section-icon"></i> Consultation
         </button>
     </h2>
@@ -984,7 +984,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secDisplay">
+                data-bs-toggle="collapse" data-bs-target="#secDisplay" aria-expanded="false" aria-controls="secDisplay">
             <i class="fas fa-desktop section-icon"></i> Display &amp; UI
         </button>
     </h2>
@@ -1073,7 +1073,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secLab">
+                data-bs-toggle="collapse" data-bs-target="#secLab" aria-expanded="false" aria-controls="secLab">
             <i class="fas fa-flask section-icon"></i> Lab, Prevention &amp; Messaging
         </button>
     </h2>
@@ -1180,7 +1180,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secApptCard">
+                data-bs-toggle="collapse" data-bs-target="#secApptCard" aria-expanded="false" aria-controls="secApptCard">
             <i class="fas fa-id-card section-icon"></i> Appointment Card
         </button>
     </h2>
@@ -1228,7 +1228,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secBilling">
+                data-bs-toggle="collapse" data-bs-target="#secBilling" aria-expanded="false" aria-controls="secBilling">
             <i class="fas fa-file-invoice-dollar section-icon"></i> Billing
         </button>
     </h2>
@@ -1273,7 +1273,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secSignatureStamp">
+                data-bs-toggle="collapse" data-bs-target="#secSignatureStamp" aria-expanded="false" aria-controls="secSignatureStamp">
             <i class="fas fa-signature section-icon"></i> <fmt:message key="provider.providerpreference.signatureStamp.title"/>
         </button>
     </h2>
@@ -1350,7 +1350,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secAccount">
+                data-bs-toggle="collapse" data-bs-target="#secAccount" aria-expanded="false" aria-controls="secAccount">
             <i class="fas fa-user-cog section-icon"></i> Account &amp; Advanced
         </button>
     </h2>

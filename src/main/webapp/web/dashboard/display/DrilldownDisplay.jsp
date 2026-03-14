@@ -318,12 +318,12 @@
     </div> <!--  end main content row -->
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo" class="modal fade">
+    <div id="indicatorInfo" class="modal fade" tabindex="-1" aria-labelledby="indicatorInfoTitle">
         <div class="modal-dialog">
             <div class="modal-content">
 
                 <div class="modal-header">
-                    <h4 class="modal-title">
+                    <h4 class="modal-title" id="indicatorInfoTitle">
                         <c:out value="${ drilldown.name }"/>
                     </h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -380,11 +380,11 @@
     <!--  end indicator modal  -->
 
     <!-- modal panel for tickler assignment -->
-    <div id="assignTickler" class="modal fade">
+    <div id="assignTickler" class="modal fade" tabindex="-1" aria-labelledby="assignTicklerTitle">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4>Assign Tickler</h4>
+                    <h4 id="assignTicklerTitle">Assign Tickler</h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body"></div>
@@ -398,11 +398,11 @@
     <!-- End Tickler assignment modal panel -->
 
     <!-- modal panel for bulk addition to disease registry -->
-    <div id="modalConfirmAddToDiseaseRegistry" class="modal fade">
+    <div id="modalConfirmAddToDiseaseRegistry" class="modal fade" tabindex="-1" aria-labelledby="addToDiseaseRegistryTitle">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4>Verify ICD9 Code For Addition To Disease Registry</h4>
+                    <h4 id="addToDiseaseRegistryTitle">Verify ICD9 Code For Addition To Disease Registry</h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -428,11 +428,11 @@
     <!-- End bulk addition to disease registry modal panel -->
 
     <!-- modal panel for patient exclusion -->
-    <div id="modalConfirmPatientExclusion" class="modal fade">
+    <div id="modalConfirmPatientExclusion" class="modal fade" tabindex="-1" aria-labelledby="patientExclusionTitle">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4>Verify Patient Exclusion</h4>
+                    <h4 id="patientExclusionTitle">Verify Patient Exclusion</h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -459,11 +459,11 @@
     <!-- End patient exclusion modal panel -->
 
     <!-- modal panel for patient status update -->
-    <div id="modalConfirmPatientStatusUpdate" class="modal fade">
+    <div id="modalConfirmPatientStatusUpdate" class="modal fade" tabindex="-1" aria-labelledby="patientStatusUpdateTitle">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4>Verify Patient Status Update</h4>
+                    <h4 id="patientStatusUpdateTitle">Verify Patient Status Update</h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">

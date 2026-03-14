@@ -58,7 +58,7 @@ String curProvider_no = (String)session.getAttribute("user");
 	objectName="_admin,_admin.userAdmin,_admin.provider"
 	rights="r" reverse="<%=false%>">			
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseOne">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UserManagement"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -96,7 +96,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #BILLING -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.invoices,_admin,_admin.billing" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwo">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.billing"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -243,7 +243,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #LABS/INBOX -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin," rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThree">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LabsInbox"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -268,7 +268,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!--  #FORMS/EFORMS -->	
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseForms">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseForms" aria-expanded="false" aria-controls="collapseForms">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FormsEforms"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -310,7 +310,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #REPORTS-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFive">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarReport"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -435,7 +435,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #ECHART -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.encounter" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSix">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eChart"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -454,7 +454,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #Schedule Management -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.schedule,_admin.schedule.curprovider_only" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeven">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ScheduleManagement"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -501,7 +501,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <caisi:isModuleLoad moduleName="caisi">
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" 	rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI" aria-expanded="false" aria-controls="collapseCAISI">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -534,7 +534,7 @@ String curProvider_no = (String)session.getAttribute("user");
 
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" rights="r" reverse="<%=true%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI2">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI2" aria-expanded="false" aria-controls="collapseCAISI2">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -583,7 +583,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #SYSTEM Management-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseEight">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemManagement"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -725,7 +725,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #Fax Management -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r" reverse="<%=false%>">
 	<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFifteen">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFifteen" aria-expanded="false" aria-controls="collapseFifteen">
 				Faxes
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -746,7 +746,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #Email Management -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.email" rights="r" reverse="<%=false%>">
 	<div class="accordion-heading">
-		<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeventeen">
+		<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeventeen" aria-expanded="false" aria-controls="collapseSeventeen">
 			Emails
 			<i class="fa-solid fa-chevron-right"></i>
 		</a>
@@ -767,7 +767,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #SYSTEM REPORTS-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseNine">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemReports"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -801,7 +801,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #INTEGRATION-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTen">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTen" aria-expanded="false" aria-controls="collapseTen">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Integration"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -855,7 +855,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #Data Management -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwelve">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwelve" aria-expanded="false" aria-controls="collapseTwelve">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DataManagement"/>
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>
@@ -894,7 +894,7 @@ String curProvider_no = (String)session.getAttribute("user");
 <oscar:oscarPropertiesCheck property="admin.hph" value="true">
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThirteen">
+				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThirteen" aria-expanded="false" aria-controls="collapseThirteen">
 				Hamilton Public Health
 				<i class="fa-solid fa-chevron-right"></i>
 				</a>

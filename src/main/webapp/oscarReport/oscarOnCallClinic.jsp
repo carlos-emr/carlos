@@ -181,7 +181,7 @@
 <body>
 <div id="calendar" class="calendar" oncontextmenu="return false;">
 </div>
-<div id="modal" class="modal fade" aria-labelledby="onCallModalTitle">
+<div id="modal" class="modal fade" tabindex="-1" aria-labelledby="onCallModalTitle">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">

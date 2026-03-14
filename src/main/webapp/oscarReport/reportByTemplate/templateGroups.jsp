@@ -245,11 +245,11 @@
 
     <!-- MODAL for template group selection -->
     <div id="selectTemplatesModal" class="modal fade" tabindex="-1"
-         aria-labelledby="selectTemplatesModal" aria-hidden="true">
+         aria-labelledby="selectTemplatesModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 class="modal-title">Select templates for group: <c:out
+                    <h3 class="modal-title" id="selectTemplatesModalLabel">Select templates for group: <c:out
                             value="${templatesInGroup[0].groupName}"/></h3>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
