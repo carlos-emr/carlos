@@ -194,7 +194,7 @@
             return bool;
         }
 
-        // Search  NB .context is a jQuery 1.3 - 2.4 property
+        // Search - uses raw DOM element (jQuery .context removed in 3.x)
         jQuery(document).ready(function () {
             jQuery("#userSearch").on("keyup", function () {
                 var value = jQuery(this).val().toLowerCase();
@@ -202,7 +202,7 @@
                     function () {
                         jQuery(this).toggle(
                             (jQuery(this).text().toLowerCase().indexOf(value) > -1) &&
-                            inGroup(jQuery(this).context))
+                            inGroup(this))
                     });
             });
         });
