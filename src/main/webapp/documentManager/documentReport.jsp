@@ -393,7 +393,7 @@
 
         <jsp:include page="addDocument.jsp">
             <jsp:param name="appointmentNo" value="<%=appointmentNo%>"/>
-            <jsp:param name="addDocument" value="<%=Encode.forHtmlAttribute(request.getParameter(\"mode\") != null ? request.getParameter(\"mode\") : \"\")%>"/>
+            <jsp:param name="mode" value="<%=Encode.forHtmlAttribute(request.getParameter(\"mode\") != null ? request.getParameter(\"mode\") : \"\")%>"/>
         </jsp:include>
 
 
@@ -443,7 +443,7 @@
                                 <select id="viewdoctype<%=i%>" name="view"
                                         class="form-select form-select-sm"
                                         onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
-                                    <option value="">All</option>
+                                    <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAll"/></option>
                                     <%
                                         for (int i3 = 0; i3 < doctypes.size(); i3++) {
                                             String doctype = (String) doctypes.get(i3); %>
@@ -481,7 +481,7 @@
                                 <th class="col-date">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDate"/>
                                 </th>
-                                <th class="col-actions text-end">Actions</th>
+                                <th class="col-actions text-end"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgActions"/></th>
                             </tr>
                             </thead>
                             <tbody>

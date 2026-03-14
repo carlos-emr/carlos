@@ -370,7 +370,7 @@
             <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
 
             <div class="form-group">
-                <label for="docType">Type</label>
+                <label for="docType"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgType"/></label>
                 <div class="input-group">
                     <select id="docType" class="form-control" name="docType">
                         <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
@@ -391,7 +391,7 @@
             </div>
 
             <div class="form-group">
-                <label for="docDesc">Description</label>
+                <label for="docDesc"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDescription"/></label>
                 <input type="text"
                        class="form-control <c:if test='${ docerrors["descmissing"] != null}' >alert-danger</c:if>"
                        id="docDesc" name="docDesc" value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>"
@@ -399,7 +399,7 @@
                 <input type="hidden" name="docCreator" value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>"/>
             </div>
             <div class="form-group">
-                <label for="observationDate" title="Observation Date">Observation Date</label>
+                <label for="observationDate"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgObservationDate"/></label>
                 <input class="span2 form-control" type="date" name="observationDate" id="observationDate"
                        value="<%=Encode.forHtmlAttribute(formdata.getObservationDate())%>"
                        onclick="checkDefaultDate(this, '<%=UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>')">
@@ -430,7 +430,7 @@
             <div class="checkbox">
                 <label>
                     <input type="checkbox" id="restrictToProgram" name="restrictToProgram">
-                    Restrict to current program</label>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgRestrictToProgram"/></label>
             </div>
             <% if (EDocUtil.isProviderModule(module)) {%>
             <div class="checkbox">
@@ -441,7 +441,7 @@
             </div>
             <% } %>
             <div class="form-group">
-                <label for="docFile">Select Document</label>
+                <label for="docFile"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgSelectDocument"/></label>
                 <div class="input-group">
                     <input type="file" name="docFile" id="docFile" class="form-control"
                            <c:if test="${ docerrors['uploaderror'] != null }">alert-danger</c:if>">
@@ -479,7 +479,7 @@
         <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
 
         <div class="form-group">
-            <label for="docType1">Link Type</label>
+            <label for="docType1"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgLinkType"/></label>
             <div class="input-group">
                 <select id="docType1" name="docType" class="form-control">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
@@ -501,7 +501,7 @@
 
 
         <div class="form-group">
-            <label for="docDesc2">Description</label>
+            <label for="docDesc2"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDescription"/></label>
             <input type="text" name="docDesc" id="docDesc2"
                    class="form-control <c:if test="${ linkhtmlerrors['descmissing'] != null }">alert-danger</c:if>"
                    value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>" onfocus="checkDefaultValue(this)">
@@ -538,7 +538,7 @@
         <% } %>
 
         <div class="form-group">
-            <label for="html">Link</label>
+            <label for="html"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgLink"/></label>
             <div class="input-group">
                 <input type="text" id="html" name="html" class="form-control"
                        value="<%=Encode.forHtmlAttribute(formdata.getHtml())%>" onfocus="checkDefaultValue(this)">

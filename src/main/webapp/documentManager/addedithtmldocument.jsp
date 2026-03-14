@@ -199,9 +199,12 @@
             if (object.reviewerId.value !== "") {
                 ans = confirm("Re-submitting this HTML will remove reviewer information. Confirm?");
             }
-            if (ans && !validDate("observationDate")) {
-                alert("Invalid Date: must be in format yyyy/mm/dd");
-                ans = false;
+            if (ans) {
+                var dateEl = document.getElementById("observationDate");
+                if (!dateEl || dateEl.value.trim() === "") {
+                    alert("Observation date is required");
+                    ans = false;
+                }
             }
             object.Submit.disabled = false;
             return ans;
@@ -213,14 +216,11 @@
             }
         }
 
-        function reviewed(ths) {
-            var thisForm = ths.form;
-            thisForm.reviewDoc.value = true;
-            thisForm.submit();
-        }
-
         function newDocType() {
             var newOpt = prompt("Please enter new document type:", "");
+            if (newOpt === null) {
+                return;
+            }
             if (newOpt !== "") {
                 document.getElementById("docType").options[document.getElementById("docType").length] = new Option(newOpt, newOpt);
                 document.getElementById("docType").options[document.getElementById("docType").length - 1].selected = true;
@@ -251,7 +251,7 @@
 
     <div class="row g-2 mb-2">
         <div class="col-auto">
-            <label for="docType" class="form-label mb-0 small fw-bold">Type</label>
+            <label for="docType" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgType"/></label>
             <div class="input-group input-group-sm">
                 <select id="docType" name="docType" class="form-select form-select-sm">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
@@ -290,12 +290,12 @@
 
     <div class="row g-2 mb-2">
         <div class="col-auto">
-            <label for="docDesc" class="form-label mb-0 small fw-bold">Description</label>
+            <label for="docDesc" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDescription"/></label>
             <input type="text" name="docDesc" id="docDesc" class="form-control form-control-sm<% if (linkhtmlerrors.containsKey("descmissing")) {%> is-invalid<%}%>"
                    onfocus="checkDefaultValue(this)" value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>">
         </div>
         <div class="col-auto">
-            <label for="observationDate" class="form-label mb-0 small fw-bold">Observation Date</label>
+            <label for="observationDate" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgObservationDate"/></label>
             <input type="date" name="observationDate" id="observationDate" class="form-control form-control-sm"
                    value="<%=Encode.forHtmlAttribute(formdata.getObservationDate().replace("/", "-"))%>">
         </div>
@@ -305,13 +305,13 @@
     <div class="form-check mb-2">
         <input type="checkbox" class="form-check-input" name="docPublic" id="docPublic"
             <%=Encode.forHtmlAttribute(formdata.getDocPublic() + " ")%> value="checked">
-        <label class="form-check-label small" for="docPublic">Public</label>
+        <label class="form-check-label small" for="docPublic"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgPublic"/></label>
     </div>
     <% } %>
 
 
     <div class="mb-2">
-        <label for="htmlContent" class="form-label mb-0 small fw-bold">HTML Content</label>
+        <label for="htmlContent" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgHtmlContent"/></label>
         <textarea name="html" id="htmlContent" class="form-control form-control-sm<% if (linkhtmlerrors.containsKey("uploaderror")) {%> is-invalid<%}%>"
                   rows="8" wrap="off"><%=Encode.forHtml(formdata.getHtml())%></textarea>
     </div>

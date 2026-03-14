@@ -236,7 +236,7 @@
 
     <div class="row g-2 mb-2">
         <div class="col-auto">
-            <label for="docType" class="form-label mb-0 small fw-bold">Type</label>
+            <label for="docType" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgType"/></label>
             <select name="docType" id="docType" class="form-select form-select-sm<% if (docerrors.containsKey("typemissing")) {%> is-invalid<%}%>">
                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
                 <% for (int i = 0; i < doctypes.size(); i++) {
@@ -270,12 +270,12 @@
 
     <div class="row g-2 mb-2">
         <div class="col-auto">
-            <label for="docDesc" class="form-label mb-0 small fw-bold">Description</label>
+            <label for="docDesc" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDescription"/></label>
             <input type="text" name="docDesc" id="docDesc" class="form-control form-control-sm<% if (docerrors.containsKey("descmissing")) {%> is-invalid<%}%>"
                    value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>">
         </div>
         <div class="col-auto">
-            <label for="observationDate" class="form-label mb-0 small fw-bold">Observation Date</label>
+            <label for="observationDate" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgObservationDate"/></label>
             <input type="date" name="observationDate" id="observationDate" class="form-control form-control-sm"
                    value="<%=Encode.forHtmlAttribute(formdata.getObservationDate().replace("/", "-"))%>">
         </div>
@@ -283,11 +283,11 @@
 
     <div class="row g-2 mb-2">
         <div class="col-auto">
-            <label class="form-label mb-0 small fw-bold">File</label>
+            <label class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgFile"/></label>
             <div class="form-text small text-truncate" style="max-width: 300px;"><%=Encode.forHtml(fileName)%></div>
         </div>
         <div class="col-auto">
-            <label class="form-label mb-0 small fw-bold">Added By</label>
+            <label class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgAddedBy"/></label>
             <div class="form-text small"><%=Encode.forHtml(EDocUtil.getProviderName(formdata.getDocCreator()))%></div>
         </div>
     </div>
@@ -296,7 +296,7 @@
     <div class="form-check mb-2">
         <input type="checkbox" class="form-check-input" name="docPublic" id="docPublic"
             <%=Encode.forHtmlAttribute(formdata.getDocPublic() + " ")%> value="checked">
-        <label class="form-check-label small" for="docPublic">Public</label>
+        <label class="form-check-label small" for="docPublic"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgPublic"/></label>
     </div>
     <%}%>
 
@@ -306,7 +306,7 @@
     </oscar:oscarPropertiesCheck>
     <% if (updatableContent) { %>
     <div class="mb-2">
-        <label class="form-label mb-0 small fw-bold">Replace File <span class="fw-normal text-muted">(blank to keep current)</span></label>
+        <label class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.msgReplaceFile"/> <span class="fw-normal text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.msgReplaceFileHint"/></span></label>
         <input type="file" name="docFile" class="form-control form-control-sm<% if (docerrors.containsKey("uploaderror")) {%> is-invalid<%}%>">
     </div>
     <% } %>
