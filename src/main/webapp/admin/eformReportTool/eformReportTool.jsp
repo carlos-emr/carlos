@@ -80,10 +80,6 @@
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
 
-        <link
-                href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css"
-                rel="stylesheet">
-
 
         <script>
             $(document)
