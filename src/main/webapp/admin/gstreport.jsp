@@ -116,6 +116,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></h3>
 
     <div class="container-fluid card card-body bg-body-tertiary">
+        <div class="row">
         <div class="col-md-2">Date: <%=DateUtils.sumDate("yyyy-MM-dd", "0")%>
         </div>
         <div class="col-md-2 float-end">
@@ -176,6 +177,7 @@
 
         </div><!--span12-->
 
+        </div><!--row-->
     </div>
 
     <TABLE class="table table-striped  table-sm">

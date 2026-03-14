@@ -108,6 +108,7 @@
     <div class="container-fluid card card-body bg-body-tertiary">
         <h3>Audit Log Purge Tool</h3>
 
+        <div class="row">
         <div class="col-md-2">
 
         </div><!--span2-->
@@ -171,6 +172,7 @@
             <% } %>
         </div><!--span4-->
 
+        </div><!--row-->
     </div><!--container-->
 
 

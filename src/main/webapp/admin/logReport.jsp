@@ -151,6 +151,7 @@
         <fieldset>
             <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
 
+            <div class="row">
             <div class="col-md-4">
                 <label>Provider: </label>
 
@@ -202,6 +203,7 @@
                 <input class="btn btn-primary" type="submit" name="submit" value="Run Report">
             </div>
 
+            </div><!--row-->
         </fieldset>
     </form>
     <%
