@@ -49,6 +49,7 @@
     </title>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+    <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/js/jqplot/jquery.jqplot2.min.css"/>

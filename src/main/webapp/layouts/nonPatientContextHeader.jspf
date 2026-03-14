@@ -209,7 +209,7 @@ label.error {
 									<!-- <a href=# onClick ="popupPage2('<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>-->
 									<a class="dropdown-item" href=# onClick ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/About.jsp')">About</a>
 									</li>
-									<li class="dropdown-divider"></li>
+									<li><hr class="dropdown-divider"></li>
 								
 										<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc" rights="r">
 										 <!--  <li id="admin">
@@ -233,7 +233,7 @@ label.error {
 									
 							        <li><a class="dropdown-item" href="#" onclick='window.open("<%=request.getContextPath()%>/provider/providerchangepassword.jsp","changePassword","resizable=yes,scrollbars=yes,width=700,height=300");'><i class="fa-solid fa-lock"></i> Change Password</a></li>
 							        <li><a class="dropdown-item" href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/scratch/index.jsp','scratch')" style="padding-right:10px;"><i class="fa-solid fa-pencil"></i> Scratch Pad</a></li>
-							        <li class="dropdown-divider"></li>
+							        <li><hr class="dropdown-divider"></li>
 							        <li><a class="dropdown-item" href="<%=request.getContextPath()%>/logout.jsp"><i class="fa-solid fa-power-off"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/></a></li>
 							    </ul>
 			</div>

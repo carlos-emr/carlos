@@ -44,6 +44,7 @@
 
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+    <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"/>
@@ -188,7 +189,7 @@
                                     Select None
                                 </a>
                             </li>
-                            <li role="separator" class="dropdown-divider"></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a href="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler.do" class="dropdown-item"
                                    title="Assign Tickler to Checked Rows." id="assignTicklerChecked">

@@ -58,6 +58,7 @@
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
+    <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
