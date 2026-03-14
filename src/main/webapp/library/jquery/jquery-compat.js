@@ -3,7 +3,7 @@
  *
  * Restores jQuery APIs removed in 1.9–3.x so that vendored third-party plugins
  * (DataTables, fileupload, validate, sparkline, tablesorter, autocomplete, etc.)
- * continue to work with jQuery 3.6.4.
+ * continue to work with jQuery 3.7.1.
  *
  * Must be loaded immediately after jquery-3.7.1.min.js and before any plugins.
  *

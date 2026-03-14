@@ -55,7 +55,7 @@
 eForm Generator version 7.4 (C) Peter Hutten-Czapski 2014-2023
 based on the origional stand alone eform generator by Shelter Lee
 version notes
-7.5 Updated jQuery to refer to internal 3.6.4 failover to 1.12.3
+7.5 Updated jQuery to refer to internal 3.7.1 failover to 1.12.3
 7.4 Removed inline CSS if its default can be specified for the page
 7.3 upgraded jQuery support to current
 7.2 reverted default width to 750
