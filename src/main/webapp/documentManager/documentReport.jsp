@@ -173,7 +173,7 @@
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
                 type="text/javascript"></script>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
+                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
         <%
