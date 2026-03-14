@@ -217,7 +217,7 @@ label.error {
 					 <ul class="dropdown-menu">
 					 				<li>	
 									<!-- <a href=# onClick ="popupPage2('<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>-->
-									<a href=# onClick ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/About.jsp')">About</a>
+									<a class="dropdown-item" href=# onClick ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/About.jsp')">About</a>
 									</li>
 									<li class="dropdown-divider"></li>
 								
@@ -228,7 +228,7 @@ label.error {
 										
 										<% if (OscarProperties.getInstance().getBooleanProperty("admin2.enabled", "true")) { %>
 										<li id="admin2">
-										 <a href="<%=request.getContextPath()%>/administration/" TITLE='Administration Panel'><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
+										 <a class="dropdown-item" href="<%=request.getContextPath()%>/administration/" TITLE='Administration Panel'><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
 										<!--title new is temp for development-->
 										</li>
 										<% } %>
@@ -237,14 +237,14 @@ label.error {
 									
 							        <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
 									<li>  
-										<a href=# onClick ="popupPage2('<%=request.getContextPath()%>/provider/providerpreference.jsp?provider_no=<%=curUser_no%>');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' ; return true"><i class="fa-solid fa-user"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.pref"/></a>
+										<a class="dropdown-item" href=# onClick ="popupPage2('<%=request.getContextPath()%>/provider/providerpreference.jsp?provider_no=<%=curUser_no%>');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' ; return true"><i class="fa-solid fa-user"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.pref"/></a>
 									</li>
 									</security:oscarSec>
 									
-							        <li><a href="#" onclick='window.open("<%=request.getContextPath()%>/provider/providerchangepassword.jsp","changePassword","resizable=yes,scrollbars=yes,width=700,height=300");'><i class="fa-solid fa-lock"></i> Change Password</a></li>
-							        <li><a href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/scratch/index.jsp','scratch')" style="padding-right:10px;"><i class="fa-solid fa-pencil"></i> Scratch Pad</a></li>
+							        <li><a class="dropdown-item" href="#" onclick='window.open("<%=request.getContextPath()%>/provider/providerchangepassword.jsp","changePassword","resizable=yes,scrollbars=yes,width=700,height=300");'><i class="fa-solid fa-lock"></i> Change Password</a></li>
+							        <li><a class="dropdown-item" href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/scratch/index.jsp','scratch')" style="padding-right:10px;"><i class="fa-solid fa-pencil"></i> Scratch Pad</a></li>
 							        <li class="dropdown-divider"></li>
-							        <li><a href="<%=request.getContextPath()%>/logout.jsp"><i class="fa-solid fa-power-off"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/></a></li>
+							        <li><a class="dropdown-item" href="<%=request.getContextPath()%>/logout.jsp"><i class="fa-solid fa-power-off"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/></a></li>
 							    </ul>
 			</div>
 		    

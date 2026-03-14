@@ -246,7 +246,7 @@
             <a href="#" class="dropdown-archive">Show Archive</a>
             <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
                 <%for (int i = 0; i < 5; i++) { %>
-                <li><a href="billingONMRI.jsp?year=<%=yearArray[i]%>">YEAR <%=yearArray[i]%>
+                <li><a class="dropdown-item" href="billingONMRI.jsp?year=<%=yearArray[i]%>">YEAR <%=yearArray[i]%>
                 </a></li>
                 <%}%>
             </ul>

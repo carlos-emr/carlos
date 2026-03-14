@@ -59,13 +59,13 @@
 
             <ul class="dropdown-menu float-end text-start">
                 <li>
-                    <a href="javascript:void(0)" data-bs-toggle="modal"
+                    <a class="dropdown-item" href="javascript:void(0)" data-bs-toggle="modal"
                        data-bs-target="#indicatorInfo_${ indicatorPanel.id }">
                         Indicator Info
                     </a>
                 </li>
                 <li>
-                    <a href="javascript:void(0)" class="indicatorDrilldownBtn" id="getDrilldown_${ indicatorPanel.id }">
+                    <a class="dropdown-item indicatorDrilldownBtn" href="javascript:void(0)" id="getDrilldown_${ indicatorPanel.id }">
                         Drill Down
                     </a>
                 </li>

@@ -154,7 +154,7 @@
                         <ul class="dropdown-menu" style="height:300px;overflow-y:scroll;">
                             <c:forEach items="${ textSuggestions }" var="textSuggestion">
                                 <li>
-                                    <a class="select-tickler-message" href="#"><c:out
+                                    <a class="dropdown-item select-tickler-message" href="#"><c:out
                                             value="${ textSuggestion.suggestedText }"/></a>
                                 </li>
                             </c:forEach>

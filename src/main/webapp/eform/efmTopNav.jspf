@@ -43,8 +43,8 @@
 
 		</a>
 		<ul class="dropdown-menu">
-		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit.jsp' class="contentLink">Create In Editor</a></li>
-		<li><a href="#" onclick="newWindow('<%= request.getContextPath() %>/eform/eformGenerator.jsp', 'createGenerator'); return false;">eForm Generator</a></li>
+		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit.jsp' class="dropdown-item contentLink">Create In Editor</a></li>
+		<li><a class="dropdown-item" href="#" onclick="newWindow('<%= request.getContextPath() %>/eform/eformGenerator.jsp', 'createGenerator'); return false;">eForm Generator</a></li>
 		</ul>
 	</li>
 
