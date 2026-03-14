@@ -5,7 +5,7 @@
  * (DataTables, fileupload, validate, sparkline, tablesorter, autocomplete, etc.)
  * continue to work with jQuery 3.6.4.
  *
- * Must be loaded immediately after jquery-3.6.4.min.js and before any plugins.
+ * Must be loaded immediately after jquery-3.7.1.min.js and before any plugins.
  *
  * Polyfills provided:
  *   $.browser        (removed 1.9)

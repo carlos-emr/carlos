@@ -503,7 +503,7 @@ display:inline-block;
     <div id="scrollToTop"><a href="#updateFlowsheetBody"><i class="fa-solid fa-arrow-up"></i>Top</a></div>
 
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">

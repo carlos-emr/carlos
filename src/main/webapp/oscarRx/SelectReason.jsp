@@ -65,7 +65,7 @@
             <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
             <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script> --%>
 
-        <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-3.6.4.min.js"></script>
+        <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${ oscar_context_path }/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript">var ctx = '${ oscar_context_path }';</script>

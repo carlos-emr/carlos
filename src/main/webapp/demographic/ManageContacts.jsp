@@ -69,7 +69,7 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
 
-        <script src="<c:out value="../library/jquery/jquery-3.6.4.min.js"/>"></script>
+        <script src="<c:out value="../library/jquery/jquery-3.7.1.min.js"/>"></script>
         <script src="<c:out value="../library/jquery/jquery-compat.js"/>"></script>
         <script>
             jQuery.noConflict();

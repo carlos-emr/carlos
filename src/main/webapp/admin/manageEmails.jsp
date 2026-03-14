@@ -27,7 +27,7 @@
     <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
-    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ctx}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui.min.js"></script>

@@ -111,7 +111,7 @@
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/documentUploader/style.css">
 
     <!-- tested with jQuery 1.12.3 and jQuery 3.6.4 -->
-    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-compat.js"></script>
 
     <!-- jQuery ui OR just the jQuery ui widget factory to match the jQuery above -->

@@ -68,7 +68,7 @@
         <!-- Bootstrap -->
         <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
 
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->

@@ -295,7 +295,7 @@
         }
     </style>
 
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
 
     <oscar:customInterface section="main"/> <!--needs to be in header-->
@@ -422,7 +422,7 @@
     </div>
 </div>
 
-<!-- jquery-3.6.4.min.js - in nonPatientContextHeader.jspf -->
+<!-- jquery-3.7.1.min.js - in nonPatientContextHeader.jspf -->
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>
