@@ -48,6 +48,7 @@
         <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet">
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script>
             $(function () {

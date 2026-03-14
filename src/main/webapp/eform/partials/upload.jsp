@@ -57,6 +57,7 @@
             }
         </style>
     <link rel="stylesheet" href="<%=Encode.forHtmlAttribute(request.getContextPath())%>/css/fontawesome-all.min.css">
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </head>
 
