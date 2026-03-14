@@ -29,28 +29,33 @@
 
 --%>
 
-<%@page import="java.text.ParseException" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.DemographicData,java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="java.text.ParseException" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="java.text.SimpleDateFormat" %>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -260,89 +265,35 @@
     DemographicData demoData = new DemographicData();
     String[] demoInfo = demoData.getNameAgeSexArray(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.valueOf(demographic_no));
     String nameage = demoInfo[0] + ", " + demoInfo[1] + " " + demoInfo[2] + " " + age;
-
     HashMap<String, String> genders = new HashMap<String, String>();
     genders.put("M", "Male");
     genders.put("F", "Female");
     genders.put("U", "Unknown");
+
+    String pBrand = request.getParameter("brandName");
+    if (pBrand == null) pBrand = "";
+    String pDIN = request.getParameter("din");
+    if (pDIN == null) pDIN = "";
+    String pDose = request.getParameter("dose");
+    if (pDose == null) pDose = "";
+    String pRoute = request.getParameter("route");
+    if (pRoute == null) pRoute = "";
+    String pUnit = request.getParameter("doseUnit");
+    if (pUnit == null) pUnit = "";
+    String pMaker = request.getParameter("manufacture");
+    if (pMaker == null) pMaker = "";
+
 %>
-
-
+<fmt:setBundle basename="oscarResources"/>
 <html>
-
     <head>
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
+            <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
         </title><!--I18n-->
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.7.1.min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-
-        <style type="text/css">
-            div.ImmSet {
-                background-color: #ffffff;
-            }
-
-            div.ImmSet h2 {
-            }
-
-            div.ImmSet ul {
-            }
-
-            div.ImmSet li {
-            }
-
-            div.ImmSet li a {
-                text-decoration: none;
-                color: blue;
-            }
-
-            div.ImmSet li a:hover {
-                text-decoration: none;
-                color: red;
-            }
-
-            div.ImmSet li a:visited {
-                text-decoration: none;
-                color: blue;
-            }
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css">
 
 
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-            div.prevention {
-                background-color: #999999;
-            }
-
-            div.prevention fieldset {
-                width: 35em;
-                font-weight: bold;
-            }
-
-            div.prevention legend {
-                font-weight: bold;
-            }
-
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-        </style>
 
         <SCRIPT LANGUAGE="JavaScript">
 
@@ -384,88 +335,6 @@
 
         </SCRIPT>
 
-        <style type="text/css">
-            table.outline {
-                margin-top: 50px;
-                border-bottom: 1pt solid #888888;
-                border-left: 1pt solid #888888;
-                border-top: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-            }
-
-            table.grid {
-                border-bottom: 1pt solid #888888;
-                border-left: 1pt solid #888888;
-                border-top: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-            }
-
-            td.gridTitles {
-                border-bottom: 2pt solid #888888;
-                font-weight: bold;
-                text-align: center;
-            }
-
-            td.gridTitlesWOBottom {
-                font-weight: bold;
-                text-align: center;
-            }
-
-            td.middleGrid {
-                border-left: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-                text-align: center;
-            }
-
-
-            label {
-                float: left;
-                width: 120px;
-                font-weight: bold;
-            }
-
-            label.checkbox {
-                float: left;
-                width: 116px;
-                font-weight: bold;
-            }
-
-            label.fields {
-                float: left;
-                width: 80px;
-                font-weight: bold;
-            }
-
-            span.labelLook {
-                font-weight: bold;
-
-            }
-
-            input, textarea, select {
-
-            / / margin-bottom: 5 px;
-            }
-
-            textarea {
-                width: 450px;
-                height: 100px;
-            }
-
-
-            .boxes {
-                width: 1em;
-            }
-
-            #submitbutton {
-                margin-left: 120px;
-                margin-top: 5px;
-                width: 90px;
-            }
-
-            br {
-                clear: left;
-            }
-        </style>
 
         <script type="text/javascript">
             function hideExtraName(ele) {
@@ -541,11 +410,13 @@
             var warnOnWindowClose = true;
 
             function copyLot() {
-
-                var cvcName = $("#cvcName option:selected").val();
-                if (cvcName !== undefined && cvcName != -1 && $("#cvcLot").is(":visible")) {
-                    $("#lot").val($("#cvcLot").val());
-                    $("#name").val($("#cvcName option:selected").text());
+                var cvcNameEl = document.getElementById('cvcName');
+                var selectedOption = cvcNameEl ? cvcNameEl.options[cvcNameEl.selectedIndex] : null;
+                var cvcNameVal = selectedOption ? selectedOption.value : undefined;
+                var cvcLot = document.getElementById('cvcLot');
+                if (cvcNameVal !== undefined && cvcNameVal != -1 && cvcLot && cvcLot.style.display !== 'none') {
+                    document.getElementById('lot').value = cvcLot.value;
+                    document.getElementById('name').value = selectedOption.text;
                 }
             }
 
@@ -579,65 +450,73 @@
             function changeCVCName() {
                 lots = null;
 
-                var snomedId = $("#cvcName").val();
+                var snomedId = document.getElementById('cvcName').value;
+                var lot = document.getElementById('lot');
+                var cvcLot = document.getElementById('cvcLot');
+                var expiryDate = document.getElementById('expiryDate');
+                var unknownName = document.getElementById('unknownName');
+                var name = document.getElementById('name');
+
                 if (snomedId == "-1") {
-                    $("#lot").show();
-                    $("#cvcLot").hide();
-                    $("#expiryDate").val('');
-                    $("#unknownName").show();
+                    lot.style.display = '';
+                    cvcLot.style.display = 'none';
+                    if (expiryDate) expiryDate.value = '';
+                    if (unknownName) unknownName.style.display = '';
                 } else if (snomedId == "0") {
-                    $("#name").show();
+                    if (name) name.style.display = '';
                 } else {
-                    $("#unknownName").hide();
-                    $.ajax({
-                        type: "POST",
-                        url: "<%=request.getContextPath()%>/cvc.do",
-                        data: {method: "getLotNumberAndExpiryDates", snomedConceptId: snomedId},
-                        dataType: 'json',
-                        success: function (data, textStatus) {
-                            if (data != null && data instanceof Array && data.length > 0) {
-                                $("#lot").hide();
-                                $("#cvcLot").show();
-                                $("#cvcLot").find("option").remove().end();
+                    if (unknownName) unknownName.style.display = 'none';
+                    var formData = new URLSearchParams();
+                    formData.append('method', 'getLotNumberAndExpiryDates');
+                    formData.append('snomedConceptId', snomedId);
+                    fetch('<%=request.getContextPath()%>/cvc.do', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: formData.toString()
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data != null && Array.isArray(data) && data.length > 0) {
+                            lot.style.display = 'none';
+                            cvcLot.style.display = '';
+                            cvcLot.innerHTML = '';
+                            cvcLot.appendChild(new Option('', ''));
 
-                                $("#cvcLot").append('<option value=""></option>');
+                            for (var x = 0; x < data.length; x++) {
+                                var item = data[x];
+                                var d = new Date(data[x].expiryDate.time);
+                                var month = ((d.getMonth() + 1) > 9) ? (d.getMonth() + 1) : ("0" + (d.getMonth() + 1));
+                                var day = ((d.getDate()) > 9) ? (d.getDate()) : ("0" + (d.getDate()));
+                                var output = d.getFullYear() + "-" + month + "-" + day;
 
-                                for (var x = 0; x < data.length; x++) {
-                                    var item = data[x];
-                                    //console.log(JSON.stringify(item));
-                                    var d = new Date(data[x].expiryDate.time);
-                                    // console.log(d);
-                                    var month = ((d.getMonth() + 1) > 9) ? (d.getMonth() + 1) : ("0" + (d.getMonth() + 1));
-                                    var day = ((d.getDate()) > 9) ? (d.getDate()) : ("0" + (d.getDate()));
-                                    var output = d.getFullYear() + "-" + month + "-" + day;
+                                var opt = document.createElement('option');
+                                opt.value = item.lotNumber;
+                                opt.setAttribute('expiryDate', output);
+                                opt.text = item.lotNumber;
 
-
-                                    if (startup2 && escapeHtml(item.lotNumber) == '<%=addByLotNbr %>') {
-                                        $("#cvcLot").append('<option selected="selected" value="' + item.lotNumber + '" expiryDate="' + output + '">' + item.lotNumber + '</option>');
-                                        startup2 = false;
-                                    } else if (startup && escapeHtml(item.lotNumber) == '<%=(existingPrevention != null)?existingPrevention.get("lot"):"" %>') {
-                                        $("#cvcLot").append('<option selected="selected" value="' + escapeHtml(item.lotNumber) + '" expiryDate="' + output + '">' + escapeHtml(item.lotNumber) + '</option>');
-                                        startup = false;
-                                    } else {
-                                        $("#cvcLot").append('<option value="' + escapeHtml(item.lotNumber) + '" expiryDate="' + output + '">' + escapeHtml(item.lotNumber) + '</option>');
-                                    }
-                                    updateCvcLot();
+                                if (startup2 && item.lotNumber == '<%=Encode.forJavaScript(addByLotNbr != null ? addByLotNbr : "")%>') {
+                                    opt.selected = true;
+                                    startup2 = false;
+                                } else if (startup && item.lotNumber == '<%=Encode.forJavaScript(existingPrevention != null && existingPrevention.get("lot") != null ? (String)existingPrevention.get("lot") : "")%>') {
+                                    opt.selected = true;
+                                    startup = false;
                                 }
-                            } else {
-                                $("#cvcLot").hide();
-                                $("#cvcLot").find("option").remove().end();
-
-                                // $("#lot").val('');
-                                $("#lot").show();
+                                cvcLot.appendChild(opt);
+                                updateCvcLot();
                             }
+                        } else {
+                            cvcLot.style.display = 'none';
+                            cvcLot.innerHTML = '';
+                            lot.style.display = '';
                         }
                     });
                 }
             }
 
             function updateCvcLot() {
-                var lotNumber = $("#cvcLot").find(":selected");
-                $("#expiryDate").val(lotNumber.attr('expiryDate'));
+                var cvcLot = document.getElementById('cvcLot');
+                var selected = cvcLot ? cvcLot.options[cvcLot.selectedIndex] : null;
+                document.getElementById('expiryDate').value = selected ? (selected.getAttribute('expiryDate') || '') : '';
             }
 
 
@@ -652,47 +531,19 @@
             }
 
             function validatePreventionDate() {
-                const prevDateInput = document.getElementById('prevDate').value;
-                const errorMessage = document.getElementById('errorPrevDateMessage');
-                const validationResult = checkDateFormat(prevDateInput);
-                let isValidDate = false;
-                if (validationResult === true) {
-                    errorMessage.textContent = '';
-                    isValidDate = true;
-                } else if (validationResult === "Required") {
-                    errorMessage.textContent = 'Date is required!';
-                } else {
-                    errorMessage.textContent = 'Invalid date format! Expected formats are YYYY, YYYY-MM, YYYY-MM-DD, or YYYY-MM-DD hh:mm.';
+                const prevDateInput = document.getElementById('prevDate');
+                if (!prevDateInput.value) {
+                    prevDateInput.setCustomValidity('Date is required');
+                    return false;
                 }
-
-                return isValidDate;
-            }
-
-            function checkDateFormat(input) {
-                const dateFormats = [
-                    /^\d{4}$/,
-                    /^\d{4}-(0[1-9]|1[0-2])$/,
-                    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/,
-                    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1]) (0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$/
-                ];
-
-                if (!input.trim()) {
-                    return "Required";
-                }
-
-                for (let i = 0; i < dateFormats.length; i++) {
-                    if (dateFormats[i].test(input)) {
-                        return true;
-                    }
-                }
-
-                return false;
+                prevDateInput.setCustomValidity('');
+                return true;
             }
 
             <%
                 if(foundByLotNumber) {
             %>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 startup2 = true;
                 changeCVCName();
             });
@@ -703,9 +554,9 @@
 
 
             <% if(existingPrevention != null && snomedId != null && existingPrevention.get("brandSnomedId") != null) { %>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 startup = true;
-                $("#cvcName").val('<%=existingPrevention.get("brandSnomedId")%>');
+                document.getElementById('cvcName').value = '<%=Encode.forJavaScript((String)existingPrevention.get("brandSnomedId"))%>';
                 changeCVCName();
             });
             <% } %>
@@ -713,11 +564,13 @@
 
             function changeSite(el) {
                 var val = el.options[el.selectedIndex].value;
+                var locationDiv = document.getElementById('locationDiv');
+                var location2 = document.getElementById('location2');
                 if (val == 'Other') {
-                    $("#locationDiv").show();
+                    locationDiv.style.display = '';
                 } else {
-                    $("#locationDiv").hide();
-                    $("#location2").val('');
+                    locationDiv.style.display = 'none';
+                    location2.value = '';
                 }
             }
         </script>
@@ -728,7 +581,7 @@
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn" width="100">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
+                <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
             </td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
@@ -741,41 +594,21 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
             </td>
         </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top">
-
-
-                &nbsp;
-                <!--
-               <%
-                 DemographicExt ineligx = demographicExtDao.getDemographicExt(Integer.parseInt(demographic_no),prevention+"Inelig");
-				 String inelig = "";
-				 if(ineligx != null) {
-					 inelig = ineligx.getValue();
-				 }
-
-                 if (inelig.equals("yes")){ %>
-                    Patient Ineligible<br>
-                    <a href="setPatientIneligible.jsp?prev=<%=prevention%>&demo=<%=demographic_no%>&elig=yes">Set Patient Eligible</a>
-                 <%}else{%>
-                    <a href="setPatientIneligible.jsp?prev=<%=prevention%>&demo=<%=demographic_no%>">Set Patient Ineligible</a>
-                 <%}%>
--->
-            </td>
-            <td valign="top" class="MainTableRightColumn">
+    </table>
+    <div class="container-fluid px-2 py-1">
                 <%
 
                     if (dhirEnabled && session.getAttribute("oneIdEmail") == null) {
                 %>
-                <div style="width:100%;background-color:pink;text-align:center;font-weight:bold;font-size:13pt">
-                    Warning: You are not logged into OneId and will not be able to submit data to DHIR
+                <div class="alert alert-danger">
+                    <fmt:message key="oscarprevention.addpreventiondata.dhirWarning"/>
                 </div>
                 <% } %>
 
@@ -783,7 +616,7 @@
                     if (request.getAttribute("errors") != null) {
                         List<String> errorList = (List<String>) request.getAttribute("errors");
                 %>
-                <ul style="color:red"><%
+                <ul class="alert alert-danger"><%
                     for (String error : errorList) {
                 %>
                     <li><%=error %>
@@ -797,23 +630,23 @@
                 %>
 
                 <% if (prevHash == null) { %>
-                <h3 style="color:red">Prevention not found!</h3>
+                <h3 class="alert alert-danger"><fmt:message key="oscarprevention.addpreventiondata.preventionNotFound"/></h3>
                 <%} else { %>
                 <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" method="post" onsubmit="return handleFormSubmission()">
-                    <input type="hidden" name="prevention" value="<%=prevention%>"/>
-                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
-                    <input type="hidden" name="providerNo" value="<%=provider%>"/>
+                    <input type="hidden" name="prevention" value="<%=Encode.forHtmlAttribute(prevention != null ? prevention : "")%>"/>
+                    <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>"/>
+                    <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(provider != null ? provider : "")%>"/>
                     <%if (snomedId != null) {%>
-                    <input type="hidden" name="snomedId" value="<%=snomedId %>"/>
+                    <input type="hidden" name="snomedId" value="<%=Encode.forHtmlAttribute(snomedId != null ? snomedId : "")%>"/>
                     <%} %>
                     <% if (id != null) { %>
-                    <input type="hidden" name="id" value="<%=id%>"/>
-                    <input type="hidden" name="layoutType" value="<%=layoutType%>"/>
+                    <input type="hidden" name="id" value="<%=Encode.forHtmlAttribute(id != null ? id : "")%>"/>
+                    <input type="hidden" name="layoutType" value="<%=Encode.forHtmlAttribute(layoutType != null ? layoutType : "")%>"/>
 
                     <div class="prevention">
                         <fieldset>
-                            <legend>Summary</legend>
-                            <textarea name="summary" readonly><%=summary%></textarea>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.summary"/></legend>
+                            <textarea class="form-control form-control-sm" name="summary" readonly><%=summary%></textarea>
                             <%if (hasImportExtra) { %>
                             <a href="javascript:void(0);" title="Extra data from Import"
                                onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=id %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
@@ -825,52 +658,59 @@
                     <% } %>
                     <%if (layoutType.equals("injection")) {%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
-                            <legend>Prevention : <%=prevention%>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <%=Encode.forHtml(prevention != null ? prevention : "")%>
                             </legend>
                             <div>
-                                <input name="given" type="radio" value="given"      <%=checked(completed,"0")%>
-                                       onClick="$('#providerDrop').val('<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>');hideExtraName(document.getElementById('providerDrop'))">Completed</input>
+                                <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
+                                       onclick="document.getElementById('providerDrop').value='<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>';hideExtraName(document.getElementById('providerDrop'))"><fmt:message key="oscarprevention.addpreventiondata.completed"/></input>
                                 <br/>
-                                <input name="given" type="radio" value="given_ext"  <%=checked(completed,"3")%>
-                                       onClick="$('#providerDrop').val('-1');hideExtraName(document.getElementById('providerDrop'))">Completed
-                                externally</input><br/>
-                                <input name="given" type="radio"
-                                       value="refused"    <%=checked(completed,"1")%>>Refused</input><br/>
-                                <input name="given" type="radio" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
+                                <input name="given" type="radio" class="form-check-input" value="given_ext"  <%=checked(completed,"3")%>
+                                       onclick="document.getElementById('providerDrop').value='-1';hideExtraName(document.getElementById('providerDrop'))"><fmt:message key="oscarprevention.addpreventiondata.completedexternally"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input"
+                                       value="refused"    <%=checked(completed,"1")%>><fmt:message key="oscarprevention.addpreventiondata.refused"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>><fmt:message key="oscarprevention.addpreventiondata.ineligible"/></input>
                             </div>
                             <div>&nbsp;</div>
-                            <div style="margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
+                            <div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
-                                <br>
-                                <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="text"
+                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          required></div>
+                                </div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
-                                                                                              value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                                                                                              value="<%=Encode.forHtmlAttribute(providerName != null ? providerName : "")%>"/>
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<%= h.get("providerNo")%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%= h.get("lastName") %> <%= h.get("firstName") %>
+                                    <option value="<%=Encode.forHtmlAttribute(h.get("providerNo"))%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%=Encode.forHtml(h.get("lastName") + " " + h.get("firstName"))%>
                                     </option>
                                     <%}%>
-                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
-                                <br/>
-                                <label for="creator" class="fields">Creator:</label> <input type="text" name="creator"
-                                                                                            value="<%=creatorName%>"
-                                                                                            readonly/> <br/>
+                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
+                                </select></div>
+                                </div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.creator"/></label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
+                                                                                            value="<%=Encode.forHtmlAttribute(creatorName != null ? creatorName : "")%>"
+                                                                                            readonly/></div>
+                                </div>
                             </div>
                         </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
                         <fieldset>
-                            <legend>Result</legend>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.resultat"/></legend>
 
                             <%
                                 if (snomedId != null) {
@@ -878,9 +718,11 @@
                                     if (tnList != null && tnList.size() > 0) {
                             %>
 
-                            <label for="cvcName">Trade Name:</label>
-                            <select id="cvcName" name="cvcName" onChange="changeCVCName()">
-                                <option value="-1">Select Below</option>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="cvcName" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.tradename"/></label></div>
+                                <div class="col-sm-8">
+                            <select id="cvcName" name="cvcName" class="form-select form-select-sm" onChange="changeCVCName()">
+                                <option value="-1"><fmt:message key="oscarprevention.addpreventiondata.selectbelow"/></option>
                                 <%
                                     //get the tradenames associated with this generic
                                     for (CVCImmunization tn : tnList) {
@@ -898,36 +740,49 @@
                                             }
                                         }
                                 %>
-                                <option value="<%=tn.getSnomedConceptId()%>" <%=selected%>><%=tn.getDisplayName() %>
+                                <option value="<%=Encode.forHtmlAttribute(tn.getSnomedConceptId())%>" <%=selected%>><%=Encode.forHtml(tn.getDisplayName())%>
                                 </option>
                                 <%
                                     }
                                 %>
 
                             </select>
+                                </div>
+                            </div>
 
-                            <br/>
-                            <span id="unknownName" style="display:block"><label for="name">Name</label> <input
-                                    type="text" id="name" name="name"
-                                    value="<%=str((extraData.get("name")),"")%>"/> <br/><br/></span>
+                            <span id="unknownName" style="display:block">
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.name"/></label></div>
+                                <div class="col-sm-8"><input
+                                    type="text" class="form-control form-control-sm" id="name" name="name"
+                                    value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/></div>
+                            </div></span>
                             <%
+
                             } else {
-                            %> <label for="name">Name:</label> <input type="text" id="name" name="name"
-                                                                      value="<%=str((extraData.get("name")),"")%>"/>
-                            <br/> <%
+                            %>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.name"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" id="name" name="name"
+                                                                      value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/></div>
+                            </div>
+                            <%
                             }
 
                         } else {
-                        %> <label for="name">Name:</label> <input type="text" id="name" name="name"
-                                                                  value="<%=str((extraData.get("name")),prevention)%>"/>
-                            <br/>
+                        %>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.name"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" id="name" name="name"
+                                                                  value="<%=Encode.forHtmlAttribute(!pBrand.isEmpty() ? pBrand : str((extraData.get("name")),""))%>"/></div>
+                            </div>
 
                             <% } %>
 
-
-                            <label for="location">Location:</label>
-
-                            <select name="location" id="location" onChange="changeSite(this)">
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="location" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.location"/></label></div>
+                                <div class="col-sm-8">
+                            <select name="location" id="location" class="form-select form-select-sm" onChange="changeSite(this)">
                                 <option value=""></option>
                                 <%
                                     String locationSelected = " selected=\"selected\" ";
@@ -994,6 +849,8 @@
                                 </option>
 
                             </select>
+                                </div>
+                            </div>
 
                             <%
                                 String locationDisplay = "none";
@@ -1001,47 +858,48 @@
                                     locationDisplay = "block";
                                 }
                             %>
-                            <br>
                             <div id="locationDiv" style="display:<%=locationDisplay%>">
-                                <label for="location2">Specify Location:</label>
-
-                                <input type="text" name="location2" id="location2"
-                                       value="<%=str((extraData.get("location2")),"")%>"/>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="location2" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.specifyLocation"/></label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="location2" id="location2"
+                                       value="<%=str((extraData.get("location2")),"")%>"/></div>
+                                </div>
                             </div>
 
-                            <br/>
-                            <label for="route">Route:</label>
-
-                            <select name="route" id="route">
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="route" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.route"/></label></div>
+                                <div class="col-sm-8">
+                            <select name="route" id="route" class="form-select form-select-sm">
                                 <option value=""></option>
                                 <%
                                     String routeSelected = " selected=\"selected\" ";
                                 %>
-                                <option value="ID" <%="ID".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="ID" <%="ID".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Intradermal: ID
                                 </option>
-                                <option value="IM" <%="IM".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="IM" <%="IM".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Intramuscular: IM
                                 </option>
-                                <option value="IN" <%="IN".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="IN" <%="IN".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Intranasal: IN
                                 </option>
-                                <option value="PO" <%="PO".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="PO" <%="PO".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Oral: PO
                                 </option>
-                                <option value="SC" <%="SC".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="SC" <%="SC".equals(str((extraData.get("route")), pRoute)) ? routeSelected : "" %>>
                                     Subcutaneous: SC
                                 </option>
                             </select>
-                            <br/>
-
-                            <label for="route">DIN:</label>
-                            <input type="text" name="din" id="din" value="<%=str((extraData.get("din")),"")%>"/>
-                            <br/>
+                                </div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="din" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.din"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="din" id="din" value="<%=Encode.forHtmlAttribute(str((extraData.get("din")), pDIN))%>"/></div>
+                            </div>
                             <%
                                 String dose = str((extraData.get("dose")), "");
-                                String d1 = "";
-                                String d2 = "";
+                                String d1 = pDose;
+                                String d2 = pUnit;
                                 if (dose.split(" ").length == 2) {
                                     String d3 = dose.split(" ")[1];
                                     if (!d3.equals("mL") && !d3.equals("mg") && !d3.equals("g") && !d3.equals("capsule") && !d3.equals("vial")) {
@@ -1051,17 +909,22 @@
                                         d2 = dose.split(" ")[1];
                                     }
                                 } else {
-                                    d1 = dose;
+                                    d1 = pDose;
                                 }
 
                                 if ("".equals(dose)) {
                                     d2 = "mL";
                                 }
                             %>
-                            <label for="dose">Dose:</label> <input type="text" name="dose" value="<%=d1%>"/>
-                            <br>
-                            <label for="doseUnit">Dose Unit:</label>
-                            <select name="doseUnit">
+
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="doseUnit" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.doseunit"/></label></div>
+                                <div class="col-sm-8">
+                            <select name="doseUnit" class="form-select form-select-sm">
                                 <option value="" <%="".equals(d2) ? "selected=\"selected\" " : "" %>></option>
                                 <option value="mL" <%="mL".equals(d2) ? "selected=\"selected\" " : "" %>>mL</option>
                                 <option value="mg" <%="mg".equals(d2) ? "selected=\"selected\" " : "" %>>mg</option>
@@ -1073,42 +936,62 @@
                                 </option>
 
                             </select>
-
-                            <br/>
+                                </div>
+                            </div>
                             <%if (!isCvc) { %>
-                            <label for="lot">Lot:</label> <input type="text" name="lot" id="lot"
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="lot" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.lot"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="lot" id="lot"
                                                                  value="<%=str(lot,"")%>"/>
-                            <select onchange="javascript:updateLotNr(this);" id="lotDrop" name="lotItem">
+                            <select onchange="javascript:updateLotNr(this);" class="form-select form-select-sm" id="lotDrop" name="lotItem">
                                 <%
                                     for (String lotnr : lotNrList) {
                                 %>
                                 <option value="<%=lotnr%>" <%= (lotnr.equals(lot) ? " selected" : "") %>><%=lotnr%>
                                 </option>
                                 <%}%>
-                                <option value="-1">Other</option>
-                            </select><br/>
+                                <option value="-1"><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
+                            </select></div>
+                            </div>
                             <%} else { %>
                             <div id="cvcLotDiv">
-                                <label for="cvcLot">Lot:</label>
-                                <input type="text" name="lot" id="lot" value="<%=str(lot,"")%>" style="display:block"/>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="cvcLot" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.lot"/></label></div>
+                                    <div class="col-sm-8">
+                                <input type="text" class="form-control form-control-sm" name="lot" id="lot" value="<%=str(lot,"")%>" style="display:block"/>
 
-                                <select onchange="javascript:updateCvcLot();" id="cvcLot" name="cvcLot"
+                                <select onchange="javascript:updateCvcLot();" class="form-select form-select-sm" id="cvcLot" name="cvcLot"
                                         style="display:none;">
 
-                                </select></div>
-                            <label for="expiryDate">Expiry Date:</label> <input type="text" name="expiryDate"
+                                </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="expiryDate" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.expirydate"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="expiryDate"
                                                                                 id="expiryDate"
-                                                                                value="<%=str((extraData.get("expiryDate")),"")%>"/><br/>
+                                                                                value="<%=str((extraData.get("expiryDate")),"")%>"/></div>
+                            </div>
                             <% } %>
-                            <label for="manufacture">Manufacture:</label> <input type="text" name="manufacture"
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="manufacture" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.manufacture"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="manufacture"
                                                                                  id="manufacture"
-                                                                                 value="<%=str((extraData.get("manufacture")),"")%>"/><br/>
+                                                                                 value="<%=Encode.forHtmlAttribute(str((extraData.get("manufacture")), pMaker))%>"/></div>
+                            </div>
                         </fieldset>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                         <fieldset>
-                            <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.comments"/></legend>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
@@ -1117,87 +1000,124 @@
                     </script>
                     <%} else if (layoutType.equals("h1n1")) {%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
-                            <legend>Prevention : <%=prevention%>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <%=Encode.forHtml(prevention != null ? prevention : "")%>
                             </legend>
                             <div>
-                                <input name="given" type="radio" value="given"      <%=checked(completed,"0")%>
-                                       onClick="$('#providerDrop').val('<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>');hideExtraName(document.getElementById('providerDrop'))">Completed</input>
+                                <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
+                                       onclick="document.getElementById('providerDrop').value='<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>';hideExtraName(document.getElementById('providerDrop'))"><fmt:message key="oscarprevention.addpreventiondata.completed"/></input>
                                 <br/>
-                                <input name="given" type="radio" value="given_ext"  <%=checked(completed,"3")%>
-                                       onClick="$('#providerDrop').val('-1');hideExtraName(document.getElementById('providerDrop'))">Completed
-                                externally</input><br/>
-                                <input name="given" type="radio"
-                                       value="refused"    <%=checked(completed,"1")%>>Refused</input><br/>
-                                <input name="given" type="radio" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
+                                <input name="given" type="radio" class="form-check-input" value="given_ext"  <%=checked(completed,"3")%>
+                                       onclick="document.getElementById('providerDrop').value='-1';hideExtraName(document.getElementById('providerDrop'))"><fmt:message key="oscarprevention.addpreventiondata.completedexternally"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input"
+                                       value="refused"    <%=checked(completed,"1")%>><fmt:message key="oscarprevention.addpreventiondata.refused"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>><fmt:message key="oscarprevention.addpreventiondata.ineligible"/></input>
                             </div>
                             <div>&nbsp;</div>
-                            <div style="margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
+                            <div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
-                                <br>
-                                <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="text"
+                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          required></div>
+                                </div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
-                                                                                              value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                                                                                              value="<%=Encode.forHtmlAttribute(providerName != null ? providerName : "")%>"/>
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<%= h.get("providerNo")%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%= h.get("lastName") %> <%= h.get("firstName") %>
+                                    <option value="<%=Encode.forHtmlAttribute(h.get("providerNo"))%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%=Encode.forHtml(h.get("lastName") + " " + h.get("firstName"))%>
                                     </option>
                                     <%}%>
-                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
-                                <br/>
-                                <label for="creator" class="fields">Creator:</label> <input type="text" name="creator"
-                                                                                            value="<%=creatorName%>"
-                                                                                            readonly/> <br/>
+                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
+                                </select></div>
+                                </div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.creator"/></label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
+                                                                                            value="<%=Encode.forHtmlAttribute(creatorName != null ? creatorName : "")%>"
+                                                                                            readonly/></div>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
+                        <fieldset>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.resultat"/></legend>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="location" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.location"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="location"
+                                                                           value="<%=str((extraData.get("location")),"")%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="location2" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.otherlocation"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="location2"
+                                                                                 value="<%=str((extraData.get("location2")),"")%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="route" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.route"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="route"
+                                                                     value="<%=str((extraData.get("route")),"")%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose"
+                                                                   value="<%=str((extraData.get("dose")),"")%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose1" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose1"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="dose1"
+                                                                      value="true" <%=checked(str((extraData.get("dose1")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="dose2" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose2"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="dose2"
+                                                                      value="true" <%=checked(str((extraData.get("dose2")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="lot" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.lot"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="lot"
+                                                                 value="<%=str((extraData.get("lot")),"")%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="manufacture" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.manufacture"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="manufacture"
+                                                                                 value="<%=str((extraData.get("manufacture")),"")%>"/></div>
                             </div>
                         </fieldset>
                         <fieldset>
-                            <legend>Result</legend>
-                            <label for="location">Location:</label> <input type="text" name="location"
-                                                                           value="<%=str((extraData.get("location")),"")%>"/>
-                            <br/>
-                            <label for="location">Other Location:</label> <input type="text" name="location2"
-                                                                                 value="<%=str((extraData.get("location2")),"")%>"/>
-                            <br/>
-                            <label for="route">Route:</label> <input type="text" name="route"
-                                                                     value="<%=str((extraData.get("route")),"")%>"/><br/>
-                            <label for="dose">Dose:</label> <input type="text" name="dose"
-                                                                   value="<%=str((extraData.get("dose")),"")%>"/><br/>
-                            <label for="dose1">Dose 1:</label> <input type="checkbox" name="dose1"
-                                                                      value="true" <%=checked(str((extraData.get("dose1")), ""), "true")%>/><br/>
-                            <label for="dose2">Dose 2:</label> <input type="checkbox" name="dose2"
-                                                                      value="true" <%=checked(str((extraData.get("dose2")), ""), "true")%>/><br/>
-                            <label for="lot">Lot:</label> <input type="text" name="lot"
-                                                                 value="<%=str((extraData.get("lot")),"")%>"/><br/>
-                            <label for="manufacture">Manufacture:</label> <input type="text" name="manufacture"
-                                                                                 value="<%=str((extraData.get("manufacture")),"")%>"/><br/>
-                        </fieldset>
-                        <fieldset>
-                            <legend>Info</legend>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.info"/></legend>
                             <% String gender = genders.get(demoInfo[2]);
                                 if (gender == null) {
                                     gender = genders.get("U");
                                 }
 
                             %>
-                            <label for="gender">Gender:</label> <input type="text" name="gender" readonly
-                                                                       value="<%=gender%>"/> <br/>
-                            <label for="age">Age:</label> <input type="text" name="age" readonly value="<%=age%>"/><br/>
-                            <label for="chronic">Chronic Condition:</label>
-                            <select name="chronic">
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="gender" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.gender"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="gender" readonly
+                                                                       value="<%=gender%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="age" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.age"/></label></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="age" readonly value="<%=age%>"/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="chronic" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.chronic"/></label></div>
+                                <div class="col-sm-8">
+                            <select name="chronic" class="form-select form-select-sm">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("chronic")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
-                                    Yes
+                                    <fmt:message key="oscarprevention.addpreventiondata.yes"/>
                                 </option>
                                 <option value="cardiac disorder" <%= str((extraData.get("chronic")), "").equalsIgnoreCase("cardiac disorder") ? "selected" : "" %> >
                                     Cardiac Disorder
@@ -1226,16 +1146,26 @@
                                 <option value="Children/Adolescent with Longterm Acetylsalicylic Acid" <%= str((extraData.get("chronic")), "").equalsIgnoreCase("Children/Adolescent with Longterm Acetylsalicylic Acid") ? "selected" : "" %> >
                                     Children/Adolescent with Longterm Acetylsalicylic Acid
                                 </option>
-                            </select><br/>
-                            <label for="pregnant">Pregnant:</label> <input type="checkbox" name="pregnant"
-                                                                           value="true" <%=checked(str((extraData.get("pregnant")), ""), "true")%>/><br/>
-                            <label for="remote">Remote Setting:</label> <input type="checkbox" name="remote"
-                                                                               value="true" <%=checked(str((extraData.get("remote")), ""), "true")%>/><br/>
-                            <label for="healthcareworker">Health Care Worker:</label>
-                            <select name="healthcareworker">
+                            </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="pregnant" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.pregnant"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="pregnant"
+                                                                           value="true" <%=checked(str((extraData.get("pregnant")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="remote" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.remotesetting"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="remote"
+                                                                               value="true" <%=checked(str((extraData.get("remote")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="healthcareworker" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.healthcareworker"/></label></div>
+                                <div class="col-sm-8">
+                            <select name="healthcareworker" class="form-select form-select-sm">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("healthcareworker")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
-                                    Yes
+                                    <fmt:message key="oscarprevention.addpreventiondata.yes"/>
                                 </option>
                                 <option value="acute care" <%= str((extraData.get("healthcareworker")), "").equalsIgnoreCase("acute care") ? "selected" : "" %> >
                                     Acute Care
@@ -1261,11 +1191,16 @@
                                 <option value="vaccine manufacturer" <%= str((extraData.get("healthcareworker")), "").equalsIgnoreCase("vaccine manufacturer") ? "selected" : "" %> >
                                     Vaccine Mfr
                                 </option>
-                            </select><br/>
+                            </select>
+                                </div>
+                            </div>
 
-                            <label for="householdcontact">Household Contact or Care Provider:</label> <input
-                                type="checkbox" name="householdcontact"
-                                value="true" <%=checked(str((extraData.get("householdcontact")), ""), "true")%>/><br/>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="householdcontact" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.householdcontact"/></label></div>
+                                <div class="col-sm-8"><input
+                                type="checkbox" class="form-check-input" name="householdcontact"
+                                value="true" <%=checked(str((extraData.get("householdcontact")), ""), "true")%>/></div>
+                            </div>
                             <%
                                 boolean bothfirstresponders = false;
                                 if (str((extraData.get("firstresponder")), "").equalsIgnoreCase("true")) {
@@ -1273,173 +1208,223 @@
                                 }
 
                             %>
-                            <label for="firstresponderpolice">First Responder Police:</label> <input type="checkbox"
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="firstresponderpolice" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.firstresponderpolice"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                                      name="firstresponderpolice"
-                                                                                                     value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderpolice")), ""), "true")%>/><br/>
-                            <label for="firstresponderfire">First Responder Fire:</label> <input type="checkbox"
+                                                                                                     value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderpolice")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="firstresponderfire" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.firstresponderfire"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                                  name="firstresponderfire"
-                                                                                                 value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderfire")), ""), "true")%>/><br/>
-                            <label for="swineworker">Swine Worker:</label> <input type="checkbox" name="swineworker"
-                                                                                  value="true" <%=checked(str((extraData.get("swineworker")), ""), "true")%>/><br/>
-                            <label for="poultryworker">Poultry Worker:</label> <input type="checkbox"
+                                                                                                 value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderfire")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="swineworker" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.swineworker"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="swineworker"
+                                                                                  value="true" <%=checked(str((extraData.get("swineworker")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="poultryworker" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.poultryworker"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                       name="poultryworker"
-                                                                                      value="true" <%=checked(str((extraData.get("poultryworker")), ""), "true")%>/><br/>
-                            <label for="firstnations">First Nations:</label> <input type="checkbox" name="firstnations"
-                                                                                    value="true" <%=checked(str((extraData.get("firstnations")), ""), "true")%>/><br/>
+                                                                                      value="true" <%=checked(str((extraData.get("poultryworker")), ""), "true")%>/></div>
+                            </div>
+                            <div class="row g-2 align-items-center mb-1">
+                                <div class="col-sm-4"><label for="firstnations" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.firstnations"/></label></div>
+                                <div class="col-sm-8"><input type="checkbox" class="form-check-input" name="firstnations"
+                                                                                    value="true" <%=checked(str((extraData.get("firstnations")), ""), "true")%>/></div>
+                            </div>
                         </fieldset>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                         <fieldset>
-                            <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.comments"/></legend>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
                     <%} else if (layoutType.equals("PAPMAM")) {/*next layout type*/%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
-                            <legend>Prevention : <%=prevention%>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <%=Encode.forHtml(prevention != null ? prevention : "")%>
                             </legend>
                             <div>
-                                <input name="given" type="radio" value="given"      <%=checked(completed,"0")%>
-                                       onClick="$('#providerDrop').val('<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>');hideExtraName(document.getElementById('providerDrop'))">Completed</input>
+                                <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
+                                       onclick="document.getElementById('providerDrop').value='<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>';hideExtraName(document.getElementById('providerDrop'))"><fmt:message key="oscarprevention.addpreventiondata.completed"/></input>
                                 <br/>
-                                <input name="given" type="radio" value="given_ext"  <%=checked(completed,"3")%>
-                                       onClick="$('#providerDrop').val('-1');hideExtraName(document.getElementById('providerDrop'))">Completed
-                                externally</input><br/>
-                                <input name="given" type="radio"
-                                       value="refused"    <%=checked(completed,"1")%>>Refused</input><br/>
-                                <input name="given" type="radio" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
+                                <input name="given" type="radio" class="form-check-input" value="given_ext"  <%=checked(completed,"3")%>
+                                       onclick="document.getElementById('providerDrop').value='-1';hideExtraName(document.getElementById('providerDrop'))"><fmt:message key="oscarprevention.addpreventiondata.completedexternally"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input"
+                                       value="refused"    <%=checked(completed,"1")%>><fmt:message key="oscarprevention.addpreventiondata.refused"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>><fmt:message key="oscarprevention.addpreventiondata.ineligible"/></input>
                             </div>
                             <div>&nbsp;</div>
-                            <div style="margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
-                                                                                          id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
-                                <br>
-                                <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="text"
-                                                                                              name="providerName"
-                                                                                              id="providerName"
-                                                                                              value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                            <div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
+                                                                                                          id="prevDate"
+                                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                                          required></div>
+                                </div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
+                                                                                                              name="providerName"
+                                                                                                              id="providerName"
+                                                                                                              value="<%=Encode.forHtmlAttribute(providerName != null ? providerName : "")%>"/>
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<%= h.get("providerNo")%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%= h.get("lastName") %> <%= h.get("firstName") %>
+                                    <option value="<%=Encode.forHtmlAttribute(h.get("providerNo"))%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%=Encode.forHtml(h.get("lastName") + " " + h.get("firstName"))%>
                                     </option>
                                     <%}%>
-                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
-                                <br/>
-                                <label for="creator" class="fields">Creator:</label> <input type="text" name="creator"
-                                                                                            value="<%=creatorName%>"
-                                                                                            readonly/> <br/>
+                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
+                                </select></div>
+                                </div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.creator"/></label></div>
+                                    <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
+                                                                                            value="<%=Encode.forHtmlAttribute(creatorName != null ? creatorName : "")%>"
+                                                                                            readonly/></div>
+                                </div>
                             </div>
                         </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
                         <fieldset>
-                            <legend>Result</legend>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.resultat"/></legend>
                             <% if (extraData.get("result") == null) {
                                 extraData.put("result", "pending");
                             } %>
                             <%=str(prevResultDesc, "")%><br/>
-                            <input type="radio" name="result"
-                                   value="pending" <%=checked( (extraData.get("result")) ,"pending")%> >Pending</input>
+                            <input type="radio" class="form-check-input" name="result"
+                                   value="pending" <%=checked( (extraData.get("result")) ,"pending")%> ><fmt:message key="oscarprevention.addpreventiondata.pending"/></input>
                             <br/>
-                            <input type="radio" name="result"
-                                   value="normal"  <%=checked((extraData.get("result")),"normal")%> >Normal</input><br/>
-                            <input type="radio" name="result"
-                                   value="abnormal" <%=checked((extraData.get("result")),"abnormal")%> >Abnormal</input>
+                            <input type="radio" class="form-check-input" name="result"
+                                   value="normal"  <%=checked((extraData.get("result")),"normal")%> ><fmt:message key="oscarprevention.addpreventiondata.normal"/></input><br/>
+                            <input type="radio" class="form-check-input" name="result"
+                                   value="abnormal" <%=checked((extraData.get("result")),"abnormal")%> ><fmt:message key="oscarprevention.addpreventiondata.abnormal"/></input>
                             <br/>
-                            <input type="radio" name="result"
-                                   value="other" <%=checked((extraData.get("result")),"other")%> >Other</input> &nbsp;
-                            &nbsp; Reason: <input type="text" name="reason"
+                            <input type="radio" class="form-check-input" name="result"
+                                   value="other" <%=checked((extraData.get("result")),"other")%> ><fmt:message key="oscarprevention.addpreventiondata.other"/></input> &nbsp;
+                            &nbsp; <fmt:message key="oscarprevention.addpreventiondata.reason"/> <input type="text" class="form-control form-control-sm" name="reason"
                                                   value="<%=str((extraData.get("reason")),"")%>"/>
                         </fieldset>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                         <fieldset>
-                            <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.comments"/></legend>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    </div><!-- end prevention div -->
                     <script type="text/javascript">
                         hideExtraName(document.getElementById('providerDrop'));
                     </script>
                     <%} else if (layoutType.equals("history")) {%>
                     <div class="prevention">
+                    <div class="row g-2">
+                    <div class="col-md-5">
                         <fieldset>
-                            <legend>Prevention : <%=prevention%>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <%=Encode.forHtml(prevention != null ? prevention : "")%>
                             </legend>
-                            <div style="float:left;">
-                                <input name="given" type="radio"
-                                       value="yes"      <%=checked(completed,"0")%>>Yes</input><br/>
-                                <input name="given" type="radio"
-                                       value="never"    <%=checked(completed,"1")%>>Never</input><br/>
-                                <input name="given" type="radio"
-                                       value="previous" <%=checked(completed,"2")%>>Previous</input>
+                            <div>
+                                <input name="given" type="radio" class="form-check-input"
+                                       value="yes"      <%=checked(completed,"0")%>><fmt:message key="oscarprevention.addpreventiondata.yes"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input"
+                                       value="never"    <%=checked(completed,"1")%>><fmt:message key="oscarprevention.addpreventiondata.history.never"/></input><br/>
+                                <input name="given" type="radio" class="form-check-input"
+                                       value="previous" <%=checked(completed,"2")%>><fmt:message key="oscarprevention.addpreventiondata.previous"/></input>
                             </div>
-                            <div style="float:left;margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
+                            <div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
-                                    id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
-                                <br>
-                                <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="hidden"
+                                                                                          value="<%=prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : prevDate%>"
+                                                                                          required></div>
+                                </div>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
+                                    <div class="col-sm-8"><input type="hidden"
                                                                                               name="providerName"
                                                                                               id="providerName"
-                                                                                              value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                                                                                              value="<%=Encode.forHtmlAttribute(providerName != null ? providerName : "")%>"/>
+                                <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<%= h.get("providerNo")%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%= h.get("lastName") %> <%= h.get("firstName") %>
+                                    <option value="<%=Encode.forHtmlAttribute(h.get("providerNo"))%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><%=Encode.forHtml(h.get("lastName") + " " + h.get("firstName"))%>
                                     </option>
                                     <%}%>
-                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
-                                </select>
+                                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
+                                </select></div>
+                                </div>
                             </div>
                         </fieldset>
+                    </div><!-- end col-md-5 -->
+                    <div class="col-md-7">
                         <fieldset>
-                            <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.comments"/></legend>
+                            <textarea class="form-control form-control-sm" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
-                    </div>
+                    </div><!-- end col-md-7 -->
+                    </div><!-- end row g-2 -->
+                    </div><!-- end prevention div -->
                     <%} %>
 
 
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
                     <div class="prevention">
                         <fieldset>
-                            <legend><a onclick="showHideNextDate('nextDateDiv','nextDate','neverWarn')"
-                                       href="javascript: function myFunction() {return false; }">Set Next Date</a>
+                            <legend><a class="btn-link" onclick="showHideNextDate('nextDateDiv','nextDate','neverWarn')"
+                                       href="javascript: function myFunction() {return false; }"><fmt:message key="oscarprevention.addpreventiondata.setnextdate"/></a>
                             </legend>
                             <div id="nextDateDiv" style="display:none;">
-                                <div>
-                                    <label for="nextDate">Next Date:</label><input type="text" name="nextDate"
-                                                                                   value="<%=nextDate%>" id="nextDate"
-                                                                                   size="9"><a id="nextDateCal"><img
-                                        title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="nextDate" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.nextdate"/></label></div>
+                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="nextDate"
+                                                                                   value="<%=nextDate%>" id="nextDate"></div>
                                 </div>
-                                <div>
-                                    <label for="neverWarn" class="checkbox">Never Remind:</label><input type="checkbox"
+                                <div class="row g-2 align-items-center mb-1">
+                                    <div class="col-sm-4"><label for="neverWarn" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.neverremind"/></label></div>
+                                    <div class="col-sm-8"><input type="checkbox" class="form-check-input"
                                                                                                         name="neverWarn"
                                                                                                         id="neverWarn"
                                                                                                         value="neverRemind"
                                                                                                         onchange="disableifchecked(this,'nextDate');"  <%=completed(never)%>/>
-                                    Reason: <input type="text" name="neverReason"
-                                                   value="<%=str((extraData.get("neverReason")),"")%>"/>
+                                    <fmt:message key="oscarprevention.addpreventiondata.reason"/> <input type="text" class="form-control form-control-sm" name="neverReason"
+                                                   value="<%=str((extraData.get("neverReason")),"")%>"/></div>
                                 </div>
                             </div>
                         </fieldset>
                     </div>
-                    <br/>
-                    <input type="submit" value="Save" name="action">
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
+                    <div class="row g-2 mt-1">
+                    <div class="col-12">
+                    <fmt:message key="oscarprevention.addpreventiondata.btnsave" var="msgBtnSave"/>
+                    <fmt:message key="oscarprevention.addpreventiondata.saveandsubmit" var="msgBtnSaveSubmit"/>
+                    <fmt:message key="oscarprevention.addpreventiondata.delete" var="msgBtnDelete"/>
+                    <input type="submit" class="btn btn-primary btn-sm" value="${msgBtnSave}" name="action">
                     <%
                         ConsentDao consentDao = SpringUtils.getBean(ConsentDao.class);
                         Consent ispaConsent = consentDao.findByDemographicAndConsentType(Integer.parseInt(demographic_no), "dhir_ispa_consent");
@@ -1454,45 +1439,17 @@
                         if (dhirEnabled && isSSOLoggedIn) {
                             if ((ispa && hasIspaConsent) || (!ispa && hasNonIspaConsent)) {
                     %>
-                    <input type="submit" value="Save & Submit" name="action">
+                    <input type="submit" class="btn btn-primary btn-sm" value="${msgBtnSaveSubmit}" name="action">
                     <% }
                     } %>
                     <% if (id != null) { %>
-                    <input type="submit" name="delete" value="Delete"/>
+                    <input type="submit" class="btn btn-danger btn-sm" name="delete" value="${msgBtnDelete}"/>
                     <% } %>
+                    </div><!-- end col-12 -->
+                    </div><!-- end row g-2 mt-1 -->
                 </form>
                 <% } %>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn">
-                &nbsp;
-            </td>
-            <td class="MainTableBottomRowRightColumn" valign="top">
-                &nbsp;
-            </td>
-        </tr>
-    </table>
-    <%if (prevHash != null) { %>
-    <script type="text/javascript">
-        Calendar.setup({
-            inputField: "prevDate",
-            ifFormat: "%Y-%m-%d %H:%M",
-            showsTime: true,
-            button: "date",
-            singleClick: true,
-            step: 1
-        });
-        Calendar.setup({
-            inputField: "nextDate",
-            ifFormat: "%Y-%m-%d",
-            showsTime: false,
-            button: "nextDateCal",
-            singleClick: true,
-            step: 1
-        });
-    </script>
-    <% } %>
+    </div>
     </body>
 </html>
 <%!
