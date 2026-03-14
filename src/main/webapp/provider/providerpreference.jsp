@@ -1677,7 +1677,7 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
 (function() {
     var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
 
-    // ── Localized message strings (via <fmt:message> for safe fallback, OWASP-encoded for JS) ──
+    // ── Localized message strings (via fmt:message for safe fallback, OWASP-encoded for JS) ──
     <fmt:message key="provider.providerpreference.signatureStamp.msgSelectFirst" var="_sigSelectFirst"/>
     <fmt:message key="provider.providerpreference.signatureStamp.msgUploadSuccess" var="_sigUploadSuccess"/>
     <fmt:message key="provider.providerpreference.signatureStamp.msgUploadFailed" var="_sigUploadFailed"/>
