@@ -1,6 +1,6 @@
 /* Set the defaults for DataTables initialisation */
 $.extend(true, $.fn.dataTable.defaults, {
-    "sDom": "<'row-fluid'<'span6'l><'span6'f>r>t<'row-fluid'<'span6'i><'span6'p>>",
+    "sDom": "<'row'<'col-sm-6'l><'col-sm-6'f>r>t<'row'<'col-sm-6'i><'col-sm-6'p>>",
     "sPaginationType": "bootstrap",
     "oLanguage": {
         "sLengthMenu": "_MENU_ records per page"
@@ -43,9 +43,9 @@ $.extend($.fn.dataTableExt.oPagination, {
             };
 
             $(nPaging).addClass('pagination').append(
-                '<ul>' +
-                '<li class="prev disabled"><a href="#">&larr; ' + oLang.sPrevious + '</a></li>' +
-                '<li class="next disabled"><a href="#">' + oLang.sNext + ' &rarr; </a></li>' +
+                '<ul class="pagination">' +
+                '<li class="page-item prev disabled"><a class="page-link" href="#">&larr; ' + oLang.sPrevious + '</a></li>' +
+                '<li class="page-item next disabled"><a class="page-link" href="#">' + oLang.sNext + ' &rarr; </a></li>' +
                 '</ul>'
             );
             var els = $('a', nPaging);
@@ -79,8 +79,8 @@ $.extend($.fn.dataTableExt.oPagination, {
 
                 // Add the new list items and their event handlers
                 for (j = iStart; j <= iEnd; j++) {
-                    sClass = (j == oPaging.iPage + 1) ? 'class="active"' : '';
-                    $('<li ' + sClass + '><a href="#">' + j + '</a></li>')
+                    sClass = (j == oPaging.iPage + 1) ? 'class="page-item active"' : 'class="page-item"';
+                    $('<li ' + sClass + '><a class="page-link" href="#">' + j + '</a></li>')
                         .insertBefore($('li:last', an[i])[0])
                         .bind('click', function (e) {
                             e.preventDefault();

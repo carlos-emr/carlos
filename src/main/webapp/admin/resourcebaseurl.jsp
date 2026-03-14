@@ -200,7 +200,7 @@
 
 </div><!-- container fluid -->
 
-<script src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script src="<%=request.getContextPath() %>/js/wysihtml5-0.3.0.js"></script>
 <script src="<%=request.getContextPath() %>/js/bootstrap-wysihtml5.js"></script>

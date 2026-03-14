@@ -79,6 +79,7 @@ select.selectpicker {
 }
 
 .has-error .bootstrap-select .dropdown-toggle,
+.is-invalid .bootstrap-select .dropdown-toggle,
 .error .bootstrap-select .dropdown-toggle,
 .bootstrap-select.is-invalid .dropdown-toggle,
 .was-validated .bootstrap-select .selectpicker:invalid + .dropdown-toggle {
@@ -94,7 +95,7 @@ select.selectpicker {
     width: auto !important;
 }
 
-.bootstrap-select:not([class*="col-"]):not([class*="form-control"]):not(.input-group-btn) {
+.bootstrap-select:not([class*="col-"]):not([class*="form-control"]):not(.input-group-text) {
     width: 220px;
 }
 
@@ -114,29 +115,29 @@ select.selectpicker {
     width: 100%;
 }
 
-.bootstrap-select.form-control.input-group-btn {
+.bootstrap-select.form-control.input-group-text {
     z-index: auto;
 }
 
-.bootstrap-select.form-control.input-group-btn:not(:first-child):not(:last-child) > .btn {
+.bootstrap-select.form-control.input-group-text:not(:first-child):not(:last-child) > .btn {
     border-radius: 0;
 }
 
-.bootstrap-select:not(.input-group-btn),
+.bootstrap-select:not(.input-group-text),
 .bootstrap-select[class*="col-"] {
     float: none;
     display: inline-block;
     margin-left: 0;
 }
 
-.bootstrap-select.dropdown-menu-right,
-.bootstrap-select[class*="col-"].dropdown-menu-right,
-.row .bootstrap-select[class*="col-"].dropdown-menu-right {
+.bootstrap-select.dropdown-menu-end,
+.bootstrap-select[class*="col-"].dropdown-menu-end,
+.row .bootstrap-select[class*="col-"].dropdown-menu-end {
     float: right;
 }
 
 .form-inline .bootstrap-select,
-.form-horizontal .bootstrap-select,
+.row .bootstrap-select,
 .mb-3 .bootstrap-select {
     margin-bottom: 0;
 }
@@ -229,6 +230,18 @@ select.selectpicker {
     right: 12px;
     margin-top: -2px;
     vertical-align: middle;
+}
+
+/* BS5 caret fallback - BS5 removed the .caret class */
+.bootstrap-select .dropdown-toggle::after {
+    display: inline-block;
+    margin-left: 0.255em;
+    vertical-align: 0.255em;
+    content: "";
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-bottom: 0;
+    border-left: 0.3em solid transparent;
 }
 
 .input-group .bootstrap-select.form-control .dropdown-toggle {
@@ -364,7 +377,7 @@ select.selectpicker {
     transform: rotate(45deg);
 }
 
-.bootstrap-select.show-menu-arrow.open > .dropdown-toggle,
+.bootstrap-select.show-menu-arrow.show > .dropdown-toggle,
 .bootstrap-select.show-menu-arrow.show > .dropdown-toggle {
     z-index: 1061;
 }
@@ -405,19 +418,19 @@ select.selectpicker {
     border-bottom: 0;
 }
 
-.bootstrap-select.show-menu-arrow.pull-right .dropdown-toggle .filter-option:before {
+.bootstrap-select.show-menu-arrow.float-end .dropdown-toggle .filter-option:before {
     right: 12px;
     left: auto;
 }
 
-.bootstrap-select.show-menu-arrow.pull-right .dropdown-toggle .filter-option:after {
+.bootstrap-select.show-menu-arrow.float-end .dropdown-toggle .filter-option:after {
     right: 13px;
     left: auto;
 }
 
-.bootstrap-select.show-menu-arrow.open > .dropdown-toggle .filter-option:before,
 .bootstrap-select.show-menu-arrow.show > .dropdown-toggle .filter-option:before,
-.bootstrap-select.show-menu-arrow.open > .dropdown-toggle .filter-option:after,
+.bootstrap-select.show-menu-arrow.show > .dropdown-toggle .filter-option:before,
+.bootstrap-select.show-menu-arrow.show > .dropdown-toggle .filter-option:after,
 .bootstrap-select.show-menu-arrow.show > .dropdown-toggle .filter-option:after {
     display: block;
 }
