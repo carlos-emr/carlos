@@ -626,6 +626,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
+                                    String displayName = h.get("displayName") != null ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
                                     if (hcType == null) {
@@ -637,7 +638,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <% } else {
                             %>
@@ -645,7 +646,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <%
                                             }
@@ -661,6 +662,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
+                                    String displayName = h.get("displayName") != null ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
                                     String ispaStr = h.get("ispa");
@@ -679,7 +681,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
+                                <%=Encode.forHtml(displayName)%><%=ispa1 %>
                             </a></li>
                             <% } else {
                             %>
@@ -687,7 +689,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
+                                <%=Encode.forHtml(displayName)%><%=ispa1 %>
                             </a></li>
                             <%
                                             }
@@ -702,6 +704,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
+                                    String displayName = h.get("displayName") != null ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
 
@@ -715,7 +718,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <% } else {
                             %>
@@ -723,7 +726,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <%
                                             }
