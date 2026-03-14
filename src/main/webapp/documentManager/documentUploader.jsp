@@ -375,19 +375,19 @@
               </td>
               <td>
                   {% if (!o.options.autoUpload && o.options.edit ) { %}
-                    <button class="btn btn-success edit btn-small btn-sm" data-index="{%=i%}" disabled>
+                    <button class="btn btn-success edit btn-sm" data-index="{%=i%}" disabled>
                         <i class="fa-solid fa-pen-to-square"></i>
                         <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update" /></span>
                     </button>
                   {% } %}
                   {% if (!i && !o.options.autoUpload) { %}
-                      <button class="btn btn-primary start btn-small btn-sm" disabled>
+                      <button class="btn btn-primary start btn-sm" disabled>
                           <i class="fa-solid fa-upload"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
                       </button>
                   {% } %}
                   {% if (!i) { %}
-                      <button class="btn cancel btn-small btn-sm">
+                      <button class="btn cancel btn-sm">
                           <i class="fa-solid fa-ban"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel" /></span>
                       </button>

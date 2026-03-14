@@ -138,7 +138,7 @@
                         <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup.do" style="display:inline;">
                             <input type="hidden" name="group_name" value="<%=Encode.forHtmlAttribute(groupName)%>"/>
                             <a href="javascript:void(0);"
-                               class="btn btn-small" title="delete this group"
+                               class="btn btn-sm btn-secondary" title="delete this group"
                                data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=Encode.forHtmlAttribute(groupName)%></strong>?"
 ><i
                                     class="fa-solid fa-trash"></i></a>
@@ -204,7 +204,7 @@
                             <input type="hidden" name="fid" value="<%=curForm.get("fid")%>"/>
                             <input type="hidden" name="groupName" value="<%=Encode.forHtmlAttribute(groupView)%>"/>
                             <a href="javascript:void(0);"
-                               title="remove from group" class="btn btn-small"
+                               title="remove from group" class="btn btn-sm btn-secondary"
                                data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"
 ><i
                                     class="fa-solid fa-trash"></i></a>

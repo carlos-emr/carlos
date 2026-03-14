@@ -169,7 +169,7 @@
         </div><!-- col-md-8 -->
     </div>
 
-    <h4 class="muted text-center"><em>~ or ~</em></h4>
+    <h4 class="text-muted text-center"><em>~ or ~</em></h4>
 
     <!-- Help Link - Details -->
     <div class="row card card-body bg-body-tertiary" id="detailsDiv">

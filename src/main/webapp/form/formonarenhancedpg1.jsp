@@ -4025,7 +4025,7 @@
         </form>
     </div>
 
-    <div id="lab_menu_div" class="hidden">
+    <div id="lab_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)"
                    onclick="popPage('form/formlabreq<%=labReqVer%>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=eFTS','LabReq')">MOH&amp;LTC
@@ -4037,7 +4037,7 @@
         </ul>
     </div>
 
-    <div id="forms_menu_div" class="hidden">
+    <div id="forms_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="loadUltrasoundForms();">Ultrasound</a></li>
             <li><a href="javascript:void(0)" onclick="loadCustomForms();"><%=customEformGroup%>
@@ -4045,7 +4045,7 @@
         </ul>
     </div>
 
-    <div id="sickle_cell_menu_div" class="hidden">
+    <div id="sickle_cell_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="return false;">Guidelines</a></li>
             <li><a href="javascript:void(0)" onclick="return false;">Patient Handout</a></li>
@@ -4054,7 +4054,7 @@
         </ul>
     </div>
 
-    <div id="thalassemia_menu_div" class="hidden">
+    <div id="thalassemia_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="return false;">Guidelines</a></li>
             <li><a href="javascript:void(0)" onclick="return false;">Patient Handout</a></li>
@@ -4063,7 +4063,7 @@
         </ul>
     </div>
 
-    <div id="genetics_menu_div" class="hidden">
+    <div id="genetics_menu_div" class="d-none">
         <ul>
             <li><a href="http://www.sogc.org/guidelines/documents/gui217CPG0810.pdf" target="sogc">SOGC Guidelines</a>
             </li>

@@ -561,7 +561,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		    <%
 		    if(custList.size()==0){
 	    		%>
-	    		<p class="muted">No custom measurements</p>
+	    		<p class="text-muted">No custom measurements</p>
 	    		<%
 	    	}else{
 	    	%>

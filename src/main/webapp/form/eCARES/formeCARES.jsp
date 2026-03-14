@@ -77,7 +77,7 @@
         <input type="hidden" name="providerNo" value="${ param.provNo }"/>
         <input type="hidden" name="method" value="save"/>
         <input type="hidden" name="ticklerId" value="0"/>
-        <div id="contextPath" class="hidden">${pageContext.servletContext.contextPath}</div>
+        <div id="contextPath" class="d-none">${pageContext.servletContext.contextPath}</div>
         <fieldset>
             <div class="form-container center-container">
 

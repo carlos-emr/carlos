@@ -159,12 +159,12 @@
         });
 
         function selectOther() {
-            document.querySelector('.alert').classList.add('hidden');
+            document.querySelector('.alert').classList.add('d-none');
             if (document.UPLOAD.type.value == "OTHER") {
-                document.getElementById('OTHER').classList.remove('hidden');
+                document.getElementById('OTHER').classList.remove('d-none');
                 document.getElementById('otherType').required = true;
             } else {
-                document.getElementById('OTHER').classList.add('hidden');
+                document.getElementById('OTHER').classList.add('d-none');
                 document.getElementById('otherType').required = false;
             }
         }
@@ -187,12 +187,12 @@
 
         function showErrorMessage(message) {
             document.querySelector('.alert').classList.add('alert-danger');
-            document.querySelector('.alert').classList.remove('hidden');
+            document.querySelector('.alert').classList.remove('d-none');
             document.getElementById('errorMsg').innerHTML = message;
         }
 
         function getFileList(event) {
-            document.querySelector('.alert').classList.add('hidden');
+            document.querySelector('.alert').classList.add('d-none');
             const fileList = document.getElementById('file-list');
             const files = event.target.files;
             fileList.innerHTML = '';
@@ -260,7 +260,7 @@
 
 <div class="card card-body bg-body-tertiary">
 
-    <div class="alert hidden">
+    <div class="alert d-none">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <div id="errorMsg">
 
@@ -297,7 +297,7 @@
             <option value="OTHER">Other</option>
         </select>
         <br>
-        <div id="OTHER" class="hidden">
+        <div id="OTHER" class="d-none">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.pleaseSpecifyTheOtherLabType"/>:<br>
             <input type="text" id="otherType">
         </div>

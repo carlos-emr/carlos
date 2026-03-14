@@ -293,7 +293,7 @@
                                         <span id="${ contact.id.compositeId }" class="provider-name">
 									<c:out value="${ contact.lastName }"/>, <c:out value="${ contact.firstName }"/>
 								</span>
-                                        <span class="muted">
+                                        <span class="text-muted">
 									<c:out value="${ contact.providerType }"/>
 								</span>
                                     </label>
@@ -314,7 +314,7 @@
                             </li>
                         </c:forEach>
                         <li class="nav-item">
-                            <a data-bs-toggle="tab" href="#new-group" class="nav-link muted">
+                            <a data-bs-toggle="tab" href="#new-group" class="nav-link text-muted">
                                 <i class="fa-solid fa-plus add-group-tab" title="New Group"></i>
                             </a>
                         </li>
@@ -336,7 +336,7 @@
 											<c:out value="${ member.lastName }"/>, <c:out
                                                         value="${ member.firstName }"/>
 										</span>
-                                                <span class="muted">
+                                                <span class="text-muted">
 											<c:out value="${ member.providerType }"/>
 										</span>
                                             </label>

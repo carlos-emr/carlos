@@ -3112,7 +3112,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </form>
     </div>
 
-    <div id="lab_menu_div" class="hidden">
+    <div id="lab_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)"
                    onclick="popPage('form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AnteNatal','LabReq')">Routine
@@ -3123,7 +3123,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </ul>
     </div>
 
-    <div id="forms_menu_div" class="hidden">
+    <div id="forms_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="loadUltrasoundForms();">Ultrasound</a></li>
             <li><a href="javascript:void(0)" onclick="loadCustomForms();"><%=customEformGroup%>
