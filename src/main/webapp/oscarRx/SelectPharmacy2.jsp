@@ -539,22 +539,22 @@
                                             href="javascript:void(0)"
                                             onclick="addPharmacy();">(add missing pharmacy
 									to clinic database)</a></span></h4>
-                                    <div class="form-inline">
-                                        <div class="form-group"><label for="pharmacySearch">Pharmacy Name </label>
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <div class="mb-3"><label for="pharmacySearch">Pharmacy Name </label>
                                             <input type="text" class="form-control" id="pharmacySearch"/></div>
-                                        <div class="form-group"><label
+                                        <div class="mb-3"><label
                                                 for="pharmacyAddressSearch">Address </label><input type="text"
                                                                                                    class="form-control"
                                                                                                    id="pharmacyAddressSearch"/>
                                         </div>
-                                        <div class="form-group"><label for="pharmacyCitySearch">City </label><input
+                                        <div class="mb-3"><label for="pharmacyCitySearch">City </label><input
                                                 type="text" class="form-control" id="pharmacyCitySearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPostalCodeSearch">Postal
+                                        <div class="mb-3"><label for="pharmacyPostalCodeSearch">Postal
                                             Code </label><input type="text" class="form-control"
                                                                 id="pharmacyPostalCodeSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPhoneSearch">Phone </label><input
+                                        <div class="mb-3"><label for="pharmacyPhoneSearch">Phone </label><input
                                                 type="text" class="form-control" id="pharmacyPhoneSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyFaxSearch">Fax </label><input
+                                        <div class="mb-3"><label for="pharmacyFaxSearch">Fax </label><input
                                                 type="text" class="form-control" id="pharmacyFaxSearch"/></div>
                                     </div>
                                     <p> Instructions: Add the patient&apos;s preferred pharmacies by clicking on a

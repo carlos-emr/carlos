@@ -200,7 +200,7 @@
 <div class="container-fluid card card-body bg-body-tertiary">
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></h3>
 
-    <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="form-inline"
+    <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="d-flex flex-wrap align-items-center gap-2"
           onSubmit="return checkTypeIn()">
 
         Search:

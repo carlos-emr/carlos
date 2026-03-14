@@ -965,7 +965,7 @@ $(document).ready(function(){
 			}
 
 		//expand request menu item
-		$("#collapse"+show).collapse('show');	
+		bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapse'+show)).show();
 
 		//load request page or load default
 		$("#dynamic-content").load(pageToLoad, 

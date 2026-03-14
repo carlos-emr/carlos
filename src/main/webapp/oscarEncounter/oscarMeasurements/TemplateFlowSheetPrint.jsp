@@ -479,7 +479,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
     <body class="BodyStyle" id="printFlowsheetBody">
 
-    <form action="TemplateFlowSheetPrint.jsp" id="flowsheetPrintForm" method="post" class="form-inline">
+    <form action="TemplateFlowSheetPrint.jsp" id="flowsheetPrintForm" method="post" class="d-flex flex-wrap align-items-center gap-2">
         <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
         <input type="hidden" name="template" value="<%=temp%>"/>
         <input type="hidden" name="printView" value="true"/>
@@ -1038,7 +1038,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             });
 
             $('.loading').on("click", function () {
-                $(this).button('loading');
+                var btn = this;
+                var loadingText = btn.getAttribute('data-bs-loading-text') || 'Loading...';
+                if (!btn.getAttribute('data-original-text')) { btn.setAttribute('data-original-text', btn.textContent); }
+                btn.disabled = true;
+                btn.textContent = loadingText;
             });
 
             $('a.back').on("click", function () {
@@ -1150,7 +1154,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 if (error == true) {
                     return false;
                 } else {
-                    $(".loading-print").button('loading');
+                    document.querySelectorAll('.loading-print').forEach(function(btn) {
+                        var loadingText = btn.getAttribute('data-bs-loading-text') || 'Loading...';
+                        if (!btn.getAttribute('data-original-text')) { btn.setAttribute('data-original-text', btn.innerHTML); }
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' + loadingText;
+                    });
                     return true;
                 }
 

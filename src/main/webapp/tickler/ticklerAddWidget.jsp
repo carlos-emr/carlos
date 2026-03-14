@@ -65,7 +65,7 @@
     <input type="hidden" name="demographicNo" value="${ param.demographicNo }"/>
     <div class="row">
         <div class="col-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Action:</label>
                 <select class="form-control required" name="categoryId" required="true">
                     <option value="" selected></option>
@@ -81,7 +81,7 @@
 
     <div class="row">
         <div class="col-6">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Assign to:</label>
                 <select class="form-control required" name="taskAssignedTo" required="true">
                     <option value=""></option>
@@ -95,7 +95,7 @@
         </div>
 
         <div class="col-6">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Priority:</label>
                 <select class="form-control required" name="priority" required="true">
                     <option value="Low">Low</option>
@@ -108,7 +108,7 @@
 
     <div class="row">
         <div class="col-6">
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="datePickerServiceDate" class="form-label">
                     Service Date:
                 </label>
@@ -125,7 +125,7 @@
         </div>
 
         <div class="col-6">
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="ticklerTime" class="form-label"> Time:</label>
                 <div class="controls">
                     <div class="input-group">
@@ -142,7 +142,7 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Message:</label>
                 <div class="input-group">
                     <input type="text" id="message" name="message" class="form-control" aria-label="..." required/>
@@ -167,7 +167,7 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Encounter Note:</label>
                 <textarea name="comments" class="form-control" rows="6" placeholder="Additional comments."></textarea>
             </div>

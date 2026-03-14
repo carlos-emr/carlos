@@ -137,10 +137,12 @@ select.selectpicker {
 
 .form-inline .bootstrap-select,
 .form-horizontal .bootstrap-select,
-.form-group .bootstrap-select {
+.mb-3 .bootstrap-select {
     margin-bottom: 0;
 }
 
+/* Bootstrap 5 migration: .form-group-lg/.form-group-sm no longer exist.
+   Kept for backward compatibility with any remaining legacy markup. */
 .form-group-lg .bootstrap-select.form-control,
 .form-group-sm .bootstrap-select.form-control {
     padding: 0;

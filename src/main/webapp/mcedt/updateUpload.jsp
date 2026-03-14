@@ -81,12 +81,12 @@
             <input id="method" name="method" type="hidden"
                    value="addUpdateRequest"/>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Upload ID</label>
                 <input type="text" name="resourceId" readonly="true"/>
             </div>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label>File Upload</label>
                 <input type="file" name="content" id="content"/>
             </div>

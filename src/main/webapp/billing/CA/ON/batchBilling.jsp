@@ -177,7 +177,7 @@
         <%
             ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
         %>
-        <form name="serviceform" method="post" action="BatchBill.do" class="form-inline">
+        <form name="serviceform" method="post" action="BatchBill.do" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" id="method" name="method" value="">
 
             <div class="col-md-2">

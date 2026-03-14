@@ -229,7 +229,7 @@
             </tr>
             <tr>
                 <td colspan="3">
-                    <div class="form-group float-end">
+                    <div class="mb-3 float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
                                onclick="doSelect('activeText');doSelect('inactiveText');document.tsTicklerForm.submit();"/>

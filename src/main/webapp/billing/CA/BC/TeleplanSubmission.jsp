@@ -191,7 +191,7 @@
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do" method="post" onsubmit="return checkSubmit();"
-               class="form-inline">
+               class="d-flex flex-wrap align-items-center gap-2">
 
         Select provider
         <select name="providers">

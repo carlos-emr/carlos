@@ -55,7 +55,7 @@
         <h4>Total Private Patient Bills: ${bills.size()}</h4>
 
         <div class="btn-toolbar" role="toolbar" arial-label="Toolbar">
-            <div class="btn-group mr-2" role="group">Filter By:
+            <div class="btn-group me-2" role="group">Filter By:
                 <select name="providerList" id="providerList" class="selectpicker" style="height:38px;margin-top:-1px;"
                         onchange="handleFilterByProvider()">
                     <option value="%">All Providers</option>
@@ -64,13 +64,13 @@
                     </c:forEach>
                 </select>
             </div>
-            <div class="btn-group mr-2" role="group" arial-label="Button group 1">
+            <div class="btn-group me-2" role="group" arial-label="Button group 1">
                 <button type="button" id="btnPrintSelected" class="btn btn-primary" onclick="printSelected();">
                     <span class="fa-solid fa-print" aria-hidden="true"></span>
                     Print Selected
                 </button>
             </div>
-            <div class="btn-group mr-2" role="group" arial-label="Button group 2">
+            <div class="btn-group me-2" role="group" arial-label="Button group 2">
                 <div class="form-check">
                     <label>
                         <input style="margin-top:0px;" type="checkbox" id="cbBillToClinic" checked> Bill To Clinic

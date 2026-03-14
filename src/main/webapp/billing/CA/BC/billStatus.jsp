@@ -264,13 +264,13 @@
         <%}%>
 
 
-        <form name="serviceform" method="get" action="billStatus.jsp" class="form-inline">
+        <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%=readonly%>"/>
             <input type="hidden" name="lastName" value="<%=request.getParameter("lastName")%>"/>
             <input type="hidden" name="firstName" value="<%=request.getParameter("firstName")%>"/>
             <div class="row">
                 <div class="col-lg-12">
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label class="form-check form-check-inline">
                             <input type="checkbox" id="showMSP" name="showMSP"
                                    value="show"  <%=showMSP ? "checked" : ""%>/>
@@ -292,7 +292,7 @@
             </div>
             <div class="row">
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="providerview">Select provider</label>
                         <select name="providerview" id="providerview" class="form-control">
                             <option value="ALL">All Providers</option>
@@ -318,7 +318,7 @@
                 </div>
                 <input type="hidden" name="verCode" value="V03"/>
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="xml_vdate">Service Start Date:</label>
                         <div class="input-group">
                             <input type="text" name="xml_vdate" class="form-control" id="xml_vdate"
@@ -329,7 +329,7 @@
                     </div><!--span2-->
                 </div>
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
     <label style="white-space: nowrap;" for="xml_appointment_date">Service End Date:
         <a href="javascript: function myFunction() {return false; }" onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-30")%>')" >30</a>
         <a href="javascript: function myFunction() {return false; }" onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-60")%>')" >60</a>
@@ -344,7 +344,7 @@
                     </div><!--span3-->
                 </div>
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="demographicNo">Demographic:</label>
                         <%
                             String readonlyStr = "true".equals(readonly) ? "readonly" : "";
@@ -357,7 +357,7 @@
             </div>
             <div class="row">
                 <div class="col-lg-12">
-                    <div class="form-group">
+                    <div class="mb-3">
 
                         <% String billTypes = request.getParameter("billTypes");
                             if (billTypes == null) {
@@ -462,7 +462,7 @@
                     </div>
                 </div>
             </div>
-            <div class="form-group float-end">
+            <div class="mb-3 float-end">
                 <input type="hidden" name="submitted" value="yes"/>
                 <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
             </div>

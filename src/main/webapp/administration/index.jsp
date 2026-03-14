@@ -454,7 +454,7 @@
                     }
 
                     // Re-initialize Bootstrap dropdowns for dynamically loaded content
-                    $("#dynamic-content .dropdown-toggle").dropdown();
+                    document.querySelectorAll('#dynamic-content .dropdown-toggle').forEach(function(el) { new bootstrap.Dropdown(el); });
 
                     // Toggle overflow for pages with CSS tooltips (for browser compatibility)
                     if ($("#dynamic-content .css-tooltip").length > 0) {
@@ -589,7 +589,7 @@
 
 
         // initialiaze toolstips
-        $('[data-bs-toggle="tooltip"]').tooltip();
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) { new bootstrap.Tooltip(el); });
     });
 
     function popupPage(vheight, vwidth, varpage) {

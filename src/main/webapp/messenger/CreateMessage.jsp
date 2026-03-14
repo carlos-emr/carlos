@@ -443,7 +443,7 @@ function validateFields() {
 							<div class="ChooseRecipientsBox" style="max-height: 576px; overflow-y: scroll;">
 							<table>
                                 <tr>
-								<td style="padding: 10px 5px; min-width:fit-content;"  class="form-inline"><!--list of the providers cell Start-->
+								<td style="padding: 10px 5px; min-width:fit-content;"  class="d-flex flex-wrap align-items-center gap-2"><!--list of the providers cell Start-->
 									<%if(recall){ %>
 										<div>
 											<input name="provider" value="<%=Encode.forHtmlAttribute(delegate)%>" type="checkbox" checked>

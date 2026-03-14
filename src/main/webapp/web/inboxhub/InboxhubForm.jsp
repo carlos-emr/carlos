@@ -698,12 +698,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     // Show the toast and wrapper div
     function toastErrorMessage() {
         jQuery('#ajaxErrorToast').parent().css('display', 'block'); // Show the wrapper
-        jQuery('#ajaxErrorToast').toast('show'); // Show the toast
+        bootstrap.Toast.getOrCreateInstance(document.getElementById('ajaxErrorToast')).show(); // Show the toast
     }
 
     // Hide the toast and wrapper div completely when the toast is dismissed
-    jQuery('#ajaxErrorToast').on('hidden.bs.toast', function () {
-        jQuery(this).parent().css('display', 'none'); // Hide the wrapper to prevent background blocking
+    document.getElementById('ajaxErrorToast').addEventListener('hidden.bs.toast', function () {
+        this.parentElement.style.display = 'none'; // Hide the wrapper to prevent background blocking
     });
 
     function showInboxhubStats() {

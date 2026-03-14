@@ -568,7 +568,7 @@
             border: 0;
         }
 
-        .has-error {
+        .is-invalid {
             background-color: #f2dede;
         }
 
@@ -1226,10 +1226,10 @@
                  * Error highlight and message methods
                  */
                 highlight: function (element) {
-                    jQuery(element).addClass('has-error');
+                    jQuery(element).addClass('is-invalid');
                 },
                 unhighlight: function (element) {
-                    jQuery(element).removeClass('has-error');
+                    jQuery(element).removeClass('is-invalid');
                 },
                 submitHandler: function (form) {
                     toggleWCB();
@@ -1342,7 +1342,7 @@
         </div>
         <%}%>
 
-        <form style="bcBillingForm" class="form-inline" method="post"
+        <form style="bcBillingForm" class="d-flex flex-wrap align-items-center gap-2" method="post"
               action="${pageContext.request.contextPath}/billing/CA/BC/CreateBilling.do" onsubmit="toggleWCB();">
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">
@@ -1428,7 +1428,7 @@
                             <table class="tool-bar" id="billingPatientInfo">
                                 <tr>
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="selectBillingForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingform"/></label>
 
@@ -1448,7 +1448,7 @@
                                     </td>
 
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.billProvider"/></label>
                                             <select id="xml_provider" class="form-control"
@@ -1469,7 +1469,7 @@
                                     </td>
 
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_billtype"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingtype"/></label>
                                             <select class="form-control" id="xml_billtype"
@@ -1485,7 +1485,7 @@
 
                                     </td>
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_location">Clarification Code</label>
                                             <select class="form-control" id="xml_location"
@@ -1505,7 +1505,7 @@
                                     </td>
 
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_visittype">Service Location</label>
                                             <select class="form-control" id="xml_visittype"
@@ -1533,7 +1533,7 @@
                         <table class="tool-bar">
                             <tr>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <a href="javascript:void(0)" id="hlSDate">
                                             <label for="xml_appointment_date"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.servicedate"/></label>
@@ -1545,7 +1545,7 @@
 
                                 </td>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <a href="javascript:void(0)" id="serviceToDate">
                                             <label for="service_to_date">To Date</label>
@@ -1557,7 +1557,7 @@
 
                                 </td>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="afterHours">After Hours</label>
                                         <select class="form-control" name="afterHours"
@@ -1571,7 +1571,7 @@
 
                                 </td>
                                 <td title="(HHMM 24hr):">
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="timeCall">Time Call</label>
                                         <input type="text" class="form-control" name="timeCall" id="timeCall"/>
@@ -1581,7 +1581,7 @@
 
                                 <td>
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="serviceStartTime">Start</label>
                                         <div class='input-group date datetimepicker'>
 
@@ -1595,7 +1595,7 @@
                                     </div>
                                 <td>
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="serviceEndTime">End</label>
                                         <div class='input-group date datetimepicker'>
                                             <input type='text' id="serviceEndTime" class="form-control"/>
@@ -1610,7 +1610,7 @@
                                 </td>
 
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="dependent">Dependent</label>
                                         <select class="form-control" name="dependent" id="dependent">
@@ -1621,7 +1621,7 @@
 
                                 </td>
                                 <td title="Submission Code">
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="submissionCode">Sub Code</label>
                                         <select class="form-control" name="submissionCode"
@@ -1641,7 +1641,7 @@
 
                                 </td>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="xml_encounter">Payment Method</label>
                                         <%
@@ -1676,7 +1676,7 @@
                                 </td>
                                 <td>
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="facilityNum">BCP Facility</label>
                                         <input type="text" class="form-control" name="facilityNum"
                                                    id="facilityNum" size="5" maxlength="5"/>
@@ -1687,7 +1687,7 @@
                                 <!-- sub facility not currently used. But it does work. Unhide to use -->
                                 <td style="display: none;">
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="facilitySubNum">Sub Facility</label>
                                         <input type="text" class="form-control" name="facilitySubNum"
                                                    id="facilitySubNum" size="5" maxlength="5"/>
@@ -1705,7 +1705,7 @@
                                 <tr>
                                     <td>
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.admissiondate"/>
-                                        <div class="form-group">
+                                        <div class="mb-3">
                                             <div class='input-group text'>
 
                                                 <input type="text" name="xml_vdate" readonly="true" value="" size="10"
@@ -1754,12 +1754,12 @@
                                 <tr>
                                     <td>
 
-                                        <div class='form-group'>
+                                        <div class='mb-3'>
                                             <label for="icbc_claim_no">ICBC Claim No</label>
                                             <input type="text" class="form-control" name="icbc_claim_no"
                                                        id="icbc_claim_no" maxlength="8"/>
                                         </div>
-                                        <div class='form-group'>
+                                        <div class='mb-3'>
                                             <label for="mva_claim_code">MVA?</label>
                                             <select class="form-control" name="mva_claim_code"
                                                          id="mva_claim_code">

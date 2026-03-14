@@ -49,7 +49,7 @@
     <input type="hidden" value="saveTickler" name="method"/>
     <div class="row">
         <div class="col-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <div class="card card-body bg-body-tertiary" id="patientTicklerList">
 						<span class="message">
 							Assign this Tickler action for each of the
@@ -66,7 +66,7 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Action:</label>
                 <select class="form-control required" name="ticklerCategoryId">
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
@@ -81,7 +81,7 @@
 
     <div class="row">
         <div class="col-6">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Assign to:</label>
                 <select class="form-control required" name="taskAssignedTo">
                     <option value=""></option>
@@ -95,7 +95,7 @@
         </div>
 
         <div class="col-6">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Priority:</label>
 
                 <select class="form-control required" name="priority">
@@ -139,7 +139,7 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Message:</label>
                 <select class="form-control" name="message">
                     <option value=""></option>

@@ -794,7 +794,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
     <script>
         $(function () {
-            $('[data-bs-toggle="popover"]').popover({});
+            document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
         });
 
 
@@ -821,7 +821,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
             <%if(request.getParameter("add")!=null){%>
 //$('#addModal').modal('show');
-            $('#myTab a[href="#add"]').tab('show');
+            bootstrap.Tab.getOrCreateInstance(document.querySelector('#myTab a[href="#add"]')).show();
             <%}%>
 
             $(document).scroll(function () {
@@ -836,7 +836,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
             //$('<a href="#" class="btn btn-secondary" id="add-new" title="Add Measurement" style="margin-left:15px"><i class="fa-solid fa-plus"></i> Add</a>').appendTo('div.dataTables_filter label');
 
             $("#add-new").click(function () {
-                $('#addModal').modal('show');
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal')).show();
             });
 
             $("#measurement-select").click(function () {

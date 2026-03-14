@@ -110,7 +110,7 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 <body>
-<FORM name="gstform" action="gstreport.jsp" class="form-inline">
+<FORM name="gstform" action="gstreport.jsp" class="d-flex flex-wrap align-items-center gap-2">
 
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></h3>
 

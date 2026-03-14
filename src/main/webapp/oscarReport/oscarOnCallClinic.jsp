@@ -76,7 +76,7 @@
 
                 // Callback Events
                 clickDay: function (d) {
-                    $(d.element).popover('hide');
+                    bootstrap.Popover.getInstance(d.element)?.hide();
                     var dataSource = $('#calendar').data('calendar').getDataSource();
                     var newId = 0;
                     var delId = 0;
@@ -145,20 +145,20 @@
                                 + '</div>';
                         }
 
-                        $(e.element).popover({
+                        var existingPopover = bootstrap.Popover.getInstance(e.element);
+                        if (existingPopover) { existingPopover.dispose(); }
+                        new bootstrap.Popover(e.element, {
                             trigger: 'manual',
                             container: 'body',
                             html: true,
                             content: content
-                        });
-
-                        $(e.element).popover('show');
+                        }).show();
                     }
 
                 },
                 mouseOutDay: function (e) {
                     if ($(".event-tooltip-content").is(":visible")) {
-                        $(e.element).popover('hide');
+                        bootstrap.Popover.getInstance(e.element)?.hide();
                     }
 
                 },
@@ -170,7 +170,7 @@
                 $('#calendar').data('calendar').setDataSource(data);
             });
 
-            $("#modal").modal();
+            new bootstrap.Modal(document.getElementById('modal'));
         });
     </script>
 </head>

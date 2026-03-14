@@ -100,7 +100,7 @@
             String limit = request.getParameter("limit");
             String lastname = request.getParameter("lastname");
         %>
-        <form action="<%=request.getContextPath() %>/billing/CA/BC/billingManageReferralDoc.jsp" class="form-inline"
+        <form action="<%=request.getContextPath() %>/billing/CA/BC/billingManageReferralDoc.jsp" class="d-flex flex-wrap align-items-center gap-2"
               name="referralDocform" id="referralDocform">
             Last Name: <input type="text" name="lastname" value="<%= (lastname == null)?"":lastname%>"/>
             <select name="limit" class="col-md-1" title="limit results">

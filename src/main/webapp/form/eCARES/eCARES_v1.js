@@ -250,7 +250,7 @@ function displayMessage(type, text) {
 
     //close alert if user dosen't do it manually
     setTimeout(function () {
-        $(".alert").alert('close');
+        document.querySelectorAll('.alert').forEach(function(el) { var a = bootstrap.Alert.getInstance(el); if (a) { a.close(); } else { el.remove(); } });
     }, 5000);
 
 }
@@ -294,7 +294,7 @@ $('.exit').click(function () {
         })
 
         if (EMPTY_MANDATORY.length > 0) {
-            $('#myModal').modal('show');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('myModal')).show();
         } else {
             window.close()
         }
@@ -307,9 +307,7 @@ $('.print').click(function () {
     window.print();
 });
 
-$('.tt').tooltip({
-    container: 'body'
-});
+document.querySelectorAll('.tt').forEach(function(el) { new bootstrap.Tooltip(el, { container: 'body' }); });
 
 $('circle').click(function () {
     if ($(this).data('demo')) {
@@ -334,7 +332,7 @@ function confirmExit() {
     return "All information entered on the eCGA has been saved. The eCGA is not complete, are you sure you want to close?";
 }
 
-$('#chartModal').on('shown.bs.modal', function () {
+document.getElementById('chartModal').addEventListener('shown.bs.modal', function () {
     renderGraph();
 });
 
@@ -391,7 +389,8 @@ $(document).ready(function ($) {
             })
         }
 
-        const widget = $("#ticklerModal").modal("show");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ticklerModal')).show();
+        const widget = $("#ticklerModal");
         const comment = (note + "").replaceAll('  ', '').replaceAll('\n', '').replaceAll(',', '\n').trim();
         widget.find('.modal-title').text('Create Tickler');
         widget.find("input[name='message']").val("eCGA Form Actions Required");
@@ -436,7 +435,7 @@ $(document).ready(function ($) {
                 if (data.saved) {
                     displayMessage('success', 'Successfully saved Tickler')
                     $("input[name='ticklerId']").val(data.id);
-                    $("#ticklerModal").modal("hide");
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('ticklerModal')).hide();
                     saveForm();
                 } else {
                     displayMessage('danger', data.error)
@@ -461,7 +460,8 @@ $(document).ready(function ($) {
                 highlightLabels(emptyMandatory, 'red')
                 $completed.val("false");
             } else {
-                const $myModal = $("#myModal").modal("show");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('myModal')).show();
+                const $myModal = $("#myModal");
                 $myModal.find(".modal-body").html("<p>Close this eCGA form as complete and exit? (this action cannot be undone)</p>");
                 $myModal.find("button.continueButton").text("No Continue Editing");
                 $myModal.find("button.closeWindowButton").text("Exit");
@@ -712,7 +712,8 @@ function load(field_name, value) {
 
     if (field_name === 'incompleteFormExists') {
         if (value) {
-            const $myModal = $("#myModal").modal("show");
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('myModal')).show();
+            const $myModal = $("#myModal");
             $myModal.find(".modal-body").html("<p>An incomplete eCGA form already exists. Start a new form anyway?</p>");
             $myModal.find("button.continueButton").text("Continue");
             $myModal.find("button.closeWindowButton").off('click')

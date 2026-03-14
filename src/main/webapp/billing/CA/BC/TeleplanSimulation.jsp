@@ -152,7 +152,7 @@
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile.do"
-               onsubmit="return checkSubmit();" class="form-inline">
+               onsubmit="return checkSubmit();" class="d-flex flex-wrap align-items-center gap-2">
         <label for="provider">Select provider</label>
         <select id="provider" name="providers">
             <option value="all">All Providers</option>

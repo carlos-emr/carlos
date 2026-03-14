@@ -116,7 +116,7 @@
         }
 
         $(function () {
-            $('[data-bs-toggle="popover"]').popover();
+            document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
         });
 
     </script>
@@ -242,7 +242,7 @@
     <script>
         $('#eformOptions a').click(function (e) {
             e.preventDefault();
-            $(this).tab('show');
+            bootstrap.Tab.getOrCreateInstance(this).show();
         });
 
         registerFormSubmit('eformImportForm', 'dynamic-content');

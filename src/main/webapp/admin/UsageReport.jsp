@@ -287,26 +287,26 @@
         <tr>
             <th>Scheduled Appts</th>
             <th><a data-bs-toggle="tooltip"
-                   data-original-title="Bill for services  includes OHIP, WSIB, other Provincial plans, private insurance and uninsured (self pay, third parties) invoicing">Billing</a>
+                   data-bs-title="Bill for services  includes OHIP, WSIB, other Provincial plans, private insurance and uninsured (self pay, third parties) invoicing">Billing</a>
             </th>
             <th><a data-bs-toggle="tooltip"
-                   data-original-title="Enter encounter notes for patients seen  progress note entry associated with a kept patient office visit">Encounter
+                   data-bs-title="Enter encounter notes for patients seen  progress note entry associated with a kept patient office visit">Encounter
                 Note</a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-original-title="Enter problem lists for patients seen  presence of CPP problem list entry. If an application allows for none in the CPP category of Problem List/Ongoing Problems this is an
+                   data-bs-title="Enter problem lists for patients seen  presence of CPP problem list entry. If an application allows for none in the CPP category of Problem List/Ongoing Problems this is an
 					acceptable entry.">Problem
                 List</a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-original-title="Store documents not originated from an EMR  includes any scanned documents or external documents delivered through an electronic interface e.g. through Hospital Report
+                   data-bs-title="Store documents not originated from an EMR  includes any scanned documents or external documents delivered through an electronic interface e.g. through Hospital Report
 					Manager.">Stored
                 Documents</a></th>
             <th>Rx new/renewals</th>
             <th><a data-bs-toggle="tooltip"
-                   data-original-title="Generate automated alerts or  reminders to support care delivery includes medication alerts (drug-drug, drug-allergy, drug-condition); preventive care and chronic disease
+                   data-bs-title="Generate automated alerts or  reminders to support care delivery includes medication alerts (drug-drug, drug-allergy, drug-condition); preventive care and chronic disease
 					management reminders">Use
                 of reminders/alerts</a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-original-title="Receive lab results electronically, directly into the EMR from private labs  includes electronic interfaces with hospital labs.">Labs</a>
+                   data-bs-title="Receive lab results electronically, directly into the EMR from private labs  includes electronic interfaces with hospital labs.">Labs</a>
             </th>
         </tr>
         </thead>
@@ -361,9 +361,7 @@
     });
 
     // initialiaze toolstips
-    $('.tooltips').tooltip({
-        selector: "a[data-bs-toggle=tooltip]"
-    });
+    document.querySelectorAll('.tooltips a[data-bs-toggle="tooltip"]').forEach(function(el) { new bootstrap.Tooltip(el); });
 
     registerFormSubmit('usageForm', 'dynamic-content');
 </script>

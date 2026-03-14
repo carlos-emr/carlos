@@ -83,7 +83,7 @@
 
             <input id="method" name="method" type="hidden" value=""/>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label class="form-label" for="resourceType">Resource
                     Type</label>
 

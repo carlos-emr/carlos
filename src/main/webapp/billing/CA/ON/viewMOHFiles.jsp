@@ -83,7 +83,7 @@
     </form>
 
     <% if (folder == EDTFolder.INBOX) { %>
-    <form method="POST" action="<%=request.getContextPath()%>/billing/CA/ON/moveMOHFiles.do" onsubmit="return checkForm();" class="form-inline">
+    <form method="POST" action="<%=request.getContextPath()%>/billing/CA/ON/moveMOHFiles.do" onsubmit="return checkForm();" class="d-flex flex-wrap align-items-center gap-2">
     <% } %>
 
         <% if (folder == EDTFolder.INBOX) {%>

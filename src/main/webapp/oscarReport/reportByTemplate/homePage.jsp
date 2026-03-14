@@ -78,7 +78,7 @@
         String value = "";
     %>
     <div class="row">
-        <form class="form-inline">
+        <form class="d-flex flex-wrap align-items-center gap-2">
             <div class="input-group">
                 <span class="input-group-text">Group</span>
                 <select name="templates" id="viewSelect">

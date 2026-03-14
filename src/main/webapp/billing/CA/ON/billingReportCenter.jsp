@@ -112,7 +112,7 @@
     </div>
 
     <form name="serviceform" method="post" action="billingReportControl.jsp">
-        <div class="form-inline" style="margin-bottom:10px;">
+        <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
             <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="unbilled" checked> Unbilled
             </label>

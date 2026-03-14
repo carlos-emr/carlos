@@ -189,7 +189,7 @@
             <strong>Search all patients with disease codes:</strong>
         </div>
 
-        <form action="<%=formAction%>" method="post" class="form-inline" accept-charset="UTF-8">
+        <form action="<%=formAction%>" method="post" class="d-flex flex-wrap align-items-center gap-2" accept-charset="UTF-8">
 
             <div class="row">
                 <display:table name="codeSearch" id="codeSearch" class="table table-sm table-striped">

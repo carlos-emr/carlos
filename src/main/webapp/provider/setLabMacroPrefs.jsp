@@ -406,7 +406,7 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
 
 %>
 
- <div class="form-group row" id="macro_<%=x%>">
+ <div class="mb-3 row" id="macro_<%=x%>">
     <div class="col-sm-2">
         <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="<%=Encode.forHtmlAttribute(name)%>">
     </div>
@@ -449,7 +449,7 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
 }
 %>
 
- <div class="form-group row" id="macro_new">
+ <div class="mb-3 row" id="macro_new">
     <div class="col-sm-2">
         <label for="name_new"><fmt:message key="global.macro" /></label><br><input type="text" id="name_new" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="">
     </div>
@@ -477,7 +477,7 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
     </div>
 </div>
 
-<div class="form-group row mt-3">
+<div class="mb-3 row mt-3">
     <div class="col-sm-5 offset-sm-1">
         <input type="submit" class="btn btn-primary" value="<fmt:message key="global.btnSave" />"/>
         <input type="button" class="btn btn-secondary" value="<fmt:message key="global.btnClose" />" onclick="window.close();"/>
@@ -492,7 +492,7 @@ String rawJsonValue = (submittedJSON != null) ? submittedJSON : ((up != null && 
 // Auto-show raw JSON editor on validation error so user can fix their input.
 String rawPanelStyle = (submittedJSON != null) ? "display:block;" : "display:none;";
 %>
-<div class="form-group row" style="<%=rawPanelStyle%>" id="raw">
+<div class="mb-3 row" style="<%=rawPanelStyle%>" id="raw">
     <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><%=Encode.forHtml(rawJsonValue)%></textarea>
     <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnSave" />" />
 </div>

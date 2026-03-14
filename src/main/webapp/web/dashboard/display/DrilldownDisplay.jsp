@@ -125,14 +125,14 @@
         </c:forEach>
 
         <!-- Filter customization. Javascript will integrate this into the DataTable. -->
-        <form id="datatableFilterGroup" class="form-inline" style="display:none;">
+        <form id="datatableFilterGroup" class="d-flex flex-wrap align-items-center gap-2" style="display:none;">
             <div id="datatableFilterGroupBody">
-                <div class="form-group">
+                <div class="mb-3">
                     <select class="form-control" id="datatableFilterColumnSelector">
                         <option value="0">All</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="mb-3">
                     <select id="datatableFilterConditionSelector" class="form-control">
                         <option value="all">All</option>
                         <option value="equal">equals</option>
@@ -141,24 +141,24 @@
                         <option value="between">between</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="mb-3">
                     <input type="text" class="form-control" placeholder="Parameter"
                            id="datatableFilterConditionGreaterThan"/>
                 </div>
-                <div class="form-group andcondition lessthancondition" style="display:none;">
+                <div class="mb-3 andcondition lessthancondition" style="display:none;">
                     <div class="input-group">
                         <span class="input-group-text andcondition">and</span>
                         <input type="text" class="form-control andcondition lessthancondition"
                                placeholder="Parameter" id="datatableFilterConditionLessThan"/>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="mb-3">
                     <button class="btn btn-secondary" type="button" id="datatableFilterExecuteButton">
                         <span class="fa-solid fa-filter text-center" aria-hidden="true"></span>
                         Filter
                     </button>
                 </div>
-                <div class="form-group">
+                <div class="mb-3">
                     <button class="btn btn-secondary" type="button" id="datatableFilterResetButton">
                         <span class="fa-solid fa-arrows-rotate text-center" aria-hidden="true"></span>
                         Reset

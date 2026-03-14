@@ -284,7 +284,7 @@
     <script>
 
         function onDeleteConfirm() {
-            $('#delete-set-confirm').modal('hide');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('delete-set-confirm')).hide();
             $('#deleteSet').val('deleteSet');
             document.getElementsByName("DemographicSetEditForm")[0].submit();
         }
@@ -294,8 +294,9 @@
             //e.preventDefault();
 
             var id = $(this).data('id');
-            $('#delete-set-confirm').modal({backdrop: true});
-            $('#delete-set-confirm').data('id', id).modal('show');
+            var deleteModal = new bootstrap.Modal(document.getElementById('delete-set-confirm'), {backdrop: true});
+            $('#delete-set-confirm').data('id', id);
+            deleteModal.show();
         };
 
     </script>

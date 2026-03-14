@@ -55,7 +55,7 @@
 
                 <tr>
                     <td class="MainTableRightColumn">
-                        <div class="form-group">
+                        <div class="mb-3">
                             <label for="defaultBillingProvider">Select Default Billing Provider:</label>
                             <select name="defaultBillingProvider" class="form-control"
                                          id="defaultBillingProvider">

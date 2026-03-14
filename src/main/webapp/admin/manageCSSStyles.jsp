@@ -260,7 +260,7 @@
 
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></h3>
 
-<div class="container-fluid form-inline">
+<div class="container-fluid d-flex flex-wrap align-items-center gap-2">
 
     <%
         String success = (String) request.getAttribute("success");

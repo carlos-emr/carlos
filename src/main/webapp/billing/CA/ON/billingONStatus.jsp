@@ -434,7 +434,7 @@
     <div class="container-fluid">
         <!--Hiding for now since this does not seem to manage the providers in the select
             <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">Manage Provider List</a>-->
-        <form name="serviceform" class="form-inline" method="get" action="billingONStatus.jsp"
+        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="billingONStatus.jsp"
               onsubmit="ShowSpin(true);">
             <input type="hidden" id="sortName" name="sortName" value="<%=sortName%>">
             <input type="hidden" id="sortOrder" name="sortOrder" value="<%=sortOrder%>">

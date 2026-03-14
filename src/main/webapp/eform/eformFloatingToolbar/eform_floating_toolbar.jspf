@@ -44,50 +44,48 @@
   pageContext.setAttribute("isEmailEnabled", emailComposeManager.isEmailEnabled());
 %>
 
-<div id="eform_floating_toolbar" class="no-print DoNotPrint hidden-print"> 
-	<nav id="eform_floating_toolbar_nav" class="navbar navbar-default no-print DoNotPrint hidden-print">
-		<form class="navbar-form" >
+<div id="eform_floating_toolbar" class="no-print DoNotPrint d-print-none">
+	<nav id="eform_floating_toolbar_nav" class="navbar navbar-light bg-light no-print DoNotPrint d-print-none">
+		<form class="d-flex" >
 			<div class="input-group">
 		  		<input type="text" class="form-control" aria-label="Subject" name="remote_eform_subject" id="remote_eform_subject" placeholder="Subject" required/>
-		  		<div class="input-group-btn">
 		  			<button type="button" class="btn btn-primary" value="Save" name="remoteSubmitButton" title="Save only" id="remoteSubmitButton" onclick="remoteSave()" >
-		  				<span class="btn-label"><i class="glyphicon glyphicon-save"></i></span>
+		  				<span class="btn-label"><i class="fa-solid fa-floppy-disk"></i></span>
 		  				Save
 		  			</button>
-			   		<button type="button" class="btn btn-default" id="remotePrintButton" name="remotePrintButton" value="Print" title="Save and then print" onclick="remotePrint()">
-			   			<span class="btn-label"><i class="glyphicon glyphicon-print"></i></span>
+			   		<button type="button" class="btn btn-secondary" id="remotePrintButton" name="remotePrintButton" value="Print" title="Save and then print" onclick="remotePrint()">
+			   			<span class="btn-label"><i class="fa-solid fa-print"></i></span>
 			   			Print
 			   		</button>
-					<button type="button" class="btn btn-default" id="remoteDownloadButton" name="remoteDownloadButton" value="Download" title="Save and Download" onclick="remoteDownload()">
-			   			<span class="btn-label"><i class="glyphicon glyphicon-download"></i></span>
+					<button type="button" class="btn btn-secondary" id="remoteDownloadButton" name="remoteDownloadButton" value="Download" title="Save and Download" onclick="remoteDownload()">
+			   			<span class="btn-label"><i class="fa-solid fa-download"></i></span>
 			   			Download
 			   		</button>
 							
-					<button type="button" class="btn btn-default" id="remoteFaxButton" name="remoteFaxButton" title="${faxActive ? 'Save and then send by fax' : 'No active fax senders'}"
+					<button type="button" class="btn btn-secondary" id="remoteFaxButton" name="remoteFaxButton" title="${faxActive ? 'Save and then send by fax' : 'No active fax senders'}"
 							${faxActive ? '' : 'disabled'} onclick="remoteFax()">
-						<span class="btn-label"><i class="glyphicon glyphicon-send"></i></span>
+						<span class="btn-label"><i class="fa-solid fa-paper-plane"></i></span>
 						Fax
 					</button>
 					
 		
-			   		<button type="button" class="btn btn-default" id="remoteSaveEdocumentButton" name="saveEdocumentButton" value="eDocument" title="Save and then save as PDF" onclick="remoteEdocument()">
-			   			<span class="btn-label"><i class="glyphicon glyphicon-import"></i></span>
+			   		<button type="button" class="btn btn-secondary" id="remoteSaveEdocumentButton" name="saveEdocumentButton" value="eDocument" title="Save and then save as PDF" onclick="remoteEdocument()">
+			   			<span class="btn-label"><i class="fa-solid fa-file-import"></i></span>
 			   			Add to Documents
 			   		</button>
-					<button type="button" class="btn btn-default" value="Email" name="EmailButton" title="${isEmailEnabled ? 'Email' : 'Consent or Sender Details Not Configured'}" id="remoteEmailButton" 
+					<button type="button" class="btn btn-secondary" value="Email" name="EmailButton" title="${isEmailEnabled ? 'Email' : 'Consent or Sender Details Not Configured'}" id="remoteEmailButton" 
 							${isEmailEnabled ? '' : 'disabled'} onclick="remoteEmail()">
-		  				<span class="btn-label"><i class="glyphicon glyphicon-envelope"></i></span>
+		  				<span class="btn-label"><i class="fa-solid fa-envelope"></i></span>
 		  				Email
 		  			</button>
-					<button type="button" class="btn btn-default" value="Attach" name="AttachButton" title="Add Attachment" id="remoteAttachButton" data-poload="">
-		  				<span class="btn-label"><i class="glyphicon glyphicon-plus"></i></span>
+					<button type="button" class="btn btn-secondary" value="Attach" name="AttachButton" title="Add Attachment" id="remoteAttachButton" data-poload="">
+		  				<span class="btn-label"><i class="fa-solid fa-plus"></i></span>
 		  				Attach <span class="badge" id="remoteTotalAttachments">0</span>
 		  			</button>
 			   		<button type="button" class="btn btn-danger " id="remoteCloseEformWindow" name="closeEformWindow" value="Close" title="Close this eForm" onclick="remoteClose()">
-			   			<span class="btn-label"><i class="glyphicon glyphicon-remove-circle"></i></span>
+			   			<span class="btn-label"><i class="fa-solid fa-circle-xmark"></i></span>
 			   			Close
 			   		</button>
-		  		</div>
 			</div>
 			<div>
 				<span id="required-warning" style="color:red;display:none;margin:5px;">Subject required</span>
@@ -96,19 +94,15 @@
 		</form>
 		
   		<div>
-			<div class="input-group-btn">
 		  		<button type="button" class="btn btn-link" id="closeToolbarButton" name="closeToolbarButton" title="Close this toolbar" onclick="closeToolbar()">
-		   			<span class="btn-label"><i class="glyphicon glyphicon-chevron-right"></i></span>
+		   			<span class="btn-label"><i class="fa-solid fa-chevron-right"></i></span>
 		   		</button>
-		   	</div>
 		</div>
 	</nav>
-	<div class="no-print DoNotPrint hidden-print" style="border-top: #e7e7e7 thin solid;position: fixed;right: 0;bottom: 0;border-left: #e7e7e7 thin solid;background-color: #ccc;padding-right: 25px;">
-		<div class="input-group-btn">
+	<div class="no-print DoNotPrint d-print-none" style="border-top: #e7e7e7 thin solid;position: fixed;right: 0;bottom: 0;border-left: #e7e7e7 thin solid;background-color: #ccc;padding-right: 25px;">
 			<button type="button" style="display:none;" class="btn btn-link" id="openToolbarButton" name="openToolbarButton" title="Open toolbar" onclick="openToolbar()">
-				<span class="btn-label"><i class="glyphicon glyphicon-chevron-left"></i></span>
+				<span class="btn-label"><i class="fa-solid fa-chevron-left"></i></span>
 			</button>
-		</div>
 	</div>
 	<div id="attachDocumentDisplay" style="display:none;"></div>
 	<div id="oscar-spinner-screen" class="oscar-spinner-screen">

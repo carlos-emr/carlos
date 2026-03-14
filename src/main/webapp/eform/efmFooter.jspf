@@ -64,7 +64,7 @@ $(document).ready(function() {
         } else {
             $('#dataConfirmed').attr('href', href).removeData('confirmForm');
         }
-        $('#confirmModal').modal('show');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
         return false;
     });
 
@@ -75,7 +75,7 @@ $(document).ready(function() {
         if (confirmForm && confirmForm.length) {
             confirmForm.submit();
         }
-        $('#confirmModal').modal('hide');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();
     });
     
     $(document).on("click", '#dataConfirmOK', function(e) {
@@ -97,7 +97,7 @@ $(document).ready(function() {
                 $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
             }
             // Re-initialize Bootstrap dropdowns for dynamically loaded content
-            $("#dynamic-content .dropdown-toggle").dropdown();
+            document.querySelectorAll('#dynamic-content .dropdown-toggle').forEach(function(el) { new bootstrap.Dropdown(el); });
         });
     });
 });

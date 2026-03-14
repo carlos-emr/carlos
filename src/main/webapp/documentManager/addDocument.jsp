@@ -260,7 +260,7 @@
         </a>
     </div>
 
-    <div id="addDocDiv" class="addDocDiv card card-body bg-body-tertiary form-inline" style="display: none; padding:5px;">
+    <div id="addDocDiv" class="addDocDiv card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" style="display: none; padding:5px;">
         <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST" enctype="multipart/form-data"
                    class="forms" onsubmit="return submitUpload(this)">
 
@@ -277,7 +277,7 @@
             <input type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(curUser)%>">
             <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docType">Type</label>
                 <div class="input-group">
                     <select id="docType" class="form-control" name="docType">
@@ -298,7 +298,7 @@
                 </div>
             </div>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docDesc">Description</label>
                 <input type="text"
                        class="form-control <c:if test='${ docerrors["descmissing"] != null}' >alert-danger</c:if>"
@@ -306,14 +306,14 @@
                        onfocus="checkDefaultValue(this)"/>
                 <input type="hidden" name="docCreator" value="<%=formdata.getDocCreator()%>"/>
             </div>
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="observationDate" title="Observation Date">Observation Date</label>
                 <input class="col-md-2 form-control" type="date" name="observationDate" id="observationDate"
                        value="<%=formdata.getObservationDate()%>"
                        onclick="checkDefaultDate(this, '<%=UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>')">
             </div>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docClass"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/>:</label>
                 <select name="docClass" id="docClass" class="form-control">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
@@ -330,7 +330,7 @@
                     <% } %>
                 </select>
             </div>
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docSubClass"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/>:</label>
                 <input type="text" name="docSubClass" id="docSubClass" class="form-control">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
@@ -348,7 +348,7 @@
                     Public</label>
             </div>
             <% } %>
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docFile">Select Document</label>
                 <div class="input-group">
                     <input type="file" name="docFile" id="docFile" class="form-control"
@@ -369,7 +369,7 @@
         </form>
     </div>
 
-    <div id="addLinkDiv" class="addDocDiv form-inline card card-body bg-body-tertiary" style="display: none;">
+    <div id="addLinkDiv" class="addDocDiv d-flex flex-wrap align-items-center gap-2 card card-body bg-body-tertiary" style="display: none;">
 
         <form action="${pageContext.request.contextPath}/documentManager/addLink.do" method="POST" class="forms"
                    onsubmit="return submitUploadLink(this)">
@@ -386,7 +386,7 @@
         <input type="hidden" name="observationDate" value="<%=formdata.getObservationDate()%>">
         <input type="hidden" name="appointmentNo" value="<%=formdata.getAppointmentNo()%>"/>
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docType1">Link Type</label>
             <div class="input-group">
                 <select id="docType1" name="docType" class="form-control">
@@ -408,14 +408,14 @@
         </div>
 
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docDesc2">Description</label>
             <input type="text" name="docDesc" id="docDesc2"
                    class="form-control <c:if test="${ linkhtmlerrors['descmissing'] != null }">alert-danger</c:if>"
                    value="<%=formdata.getDocDesc()%>" onfocus="checkDefaultValue(this)">
         </div>
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docClassB"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/></label>
             <select name="docClass" id="docClassB" class="form-control">
                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
@@ -432,7 +432,7 @@
                 <% } %>
             </select>
         </div>
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docSubClass2"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/></label>
             <input type="text" name="docSubClass" id="docSubClass2" class="form-control">
             <div class="autocomplete_style" id="docSubClass_list2"></div>
@@ -445,7 +445,7 @@
         </div>
         <% } %>
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="html">Link</label>
             <div class="input-group">
                 <input type="text" id="html" name="html" class="form-control"

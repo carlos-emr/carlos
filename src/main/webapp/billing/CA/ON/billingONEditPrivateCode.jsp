@@ -281,7 +281,7 @@
 
 
         <div class="card card-body bg-body-tertiary">
-            <form method="post" name="baseur0" action="billingONEditPrivateCode.jsp" class="form-inline">
+            <form method="post" name="baseur0" action="billingONEditPrivateCode.jsp" class="d-flex flex-wrap align-items-center gap-2">
 
                 Select Code to edit:<br>
                 <select name="service_code" id="service_code" required>

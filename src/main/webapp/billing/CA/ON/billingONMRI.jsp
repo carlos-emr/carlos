@@ -478,7 +478,7 @@
 </div><!--container-->
 
 <script>
-    $('.dropdown-archive').dropdown();
+    document.querySelectorAll('.dropdown-archive').forEach(function(el) { new bootstrap.Dropdown(el); });
 
     var startDate = $("#xml_vdate").datepicker({
         format: "yyyy-mm-dd"

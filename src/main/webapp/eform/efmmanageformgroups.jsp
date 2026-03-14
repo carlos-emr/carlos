@@ -92,7 +92,7 @@
 
             <!--ADD GROUP-->
             <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="post" id="addGroupForm"
-                  class="form-inline">
+                  class="d-flex flex-wrap align-items-center gap-2">
                 <div class="controls">
                     <div class="input-group">
                         <input type="text" name="groupName" class="check"
@@ -291,17 +291,17 @@
 
 
             $(function () {
-                $('[data-bs-toggle="popover"]').popover({});
+                document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
             });
 
             $(document).ready(function () {
 
                 $("#eformToGroupForm").submit(function () {
-                    $('#myModal').modal('hide');
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('myModal')).hide();
                 });
 
                 $(".modalShow").click(function () {
-                    $('#myModal').modal('toggle');
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('myModal')).toggle();
                 });
 
                 $(".check").change(validate).keyup(validate);

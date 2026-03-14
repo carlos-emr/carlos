@@ -308,7 +308,7 @@
 <body onLoad="setfocus();showHideLayers('Layer1','','hide')">
 
 <div class="wrapper">
-    <form class="form-inline" action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling.do" method="post">
+    <form class="d-flex flex-wrap align-items-center gap-2" action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling.do" method="post">
 
         <div id="page-header">
             <table id="oscarBillingHeader">

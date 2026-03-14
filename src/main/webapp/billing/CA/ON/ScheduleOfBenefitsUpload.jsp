@@ -107,7 +107,7 @@
 
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/> </h3>
-    <div class="container-fluid form-inline">
+    <div class="container-fluid d-flex flex-wrap align-items-center gap-2">
 
 
         <div class="card card-body bg-body-tertiary">

@@ -79,7 +79,7 @@
 <div class="card card-body bg-body-tertiary">
 
 
-    <form class="form-inline" id="addQueueForm">
+    <form class="d-flex flex-wrap align-items-center gap-2" id="addQueueForm">
         <input type="text" id="newQueueName" class="form-control input-queue" placeholder="Type queue name" value=""/>
         <input type="button" class="btn btn-primary" value="Add" id="add-btn"/>
 

@@ -263,14 +263,14 @@
 			<input type="hidden" id="provider" name="provider" value="<%= Encode.forHtmlAttribute(provider) %>" />
 		    <input type="hidden" id="queue" name="queue" value="<%=queueId%>"/>
 
-             <div class="form-group">
+             <div class="mb-3">
                 <label for="destinationDrop"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.destination" />:</label>
                     <select onchange="javascript:setDestination(this);"  id="destinationDrop"  name="destinationDrop" class="form-control">
                         <option value="pendingDocs" <%=( destination.equals("pendingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.pendingDocs" /></option>
                         <option value="incomingDocs" <%=( destination.equals("incomingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.incomingDocs" /></option>
                     </select>
              </div>
-             <div class="form-group" id="providerDropDiv">
+             <div class="mb-3" id="providerDropDiv">
                 <label for="providerDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.sendToProvider" />:</label>
 				<select onchange="javascript:setProvider(this);" id="providerDrop" name="providerDrop" class="form-control">
 					<option value="0" <%=("0".equals(provider) ? " selected" : "")%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.none" /></option>
@@ -284,7 +284,7 @@
 					%>
 				</select>
              </div>
-             <div class="form-group">
+             <div class="mb-3">
 				<label for="queueDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue" />:</label>
 				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-control">
 					<%
@@ -299,7 +299,7 @@
 					%>
 				</select>
              </div>
-             <div class="form-group" id="destFolderDiv">
+             <div class="mb-3" id="destFolderDiv">
                 <label for="destFolderDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.folder" />:</label>
                     <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-control">
                         <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax" /></option>

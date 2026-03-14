@@ -70,7 +70,7 @@
                     <div class="row">
                         <!--ADD GROUP-->
                         <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup.do"
-                              method="post" id="addGroupTemplate" class="form-inline">
+                              method="post" id="addGroupTemplate" class="d-flex flex-wrap align-items-center gap-2">
                             <input type="text" name="groupName" class="check" placeholder="Group Name">
                             <input type="submit" name="subm" class="btn groupAdd" value="Add Group" disabled>
                         </form>
@@ -221,7 +221,7 @@
                         </table>
                     </div>
                     <div class="row actions">
-                        <form class="form-inline"
+                        <form class="d-flex flex-wrap align-items-center gap-2"
                               action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/rbtGroup.do"
                               id="goBack">
                             <button type="submit" name="back-btn" id="back-btn"
@@ -286,7 +286,7 @@
 
             $("#templateToGroup-btn").on("click", function () {
                 $("#templateToGroupForm").trigger("submit");
-                $('#selectTemplatesModal').modal('hide');
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('selectTemplatesModal')).hide();
             });
 
             $(".check").on("change", validate).keyup(validate);

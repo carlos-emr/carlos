@@ -707,7 +707,7 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgTickler"/> Manager
         </h2>
 
-        <form name="serviceform" method="get" action="ticklerMain.jsp" class="form-inline">
+        <form name="serviceform" method="get" action="ticklerMain.jsp" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="Submit" value="">
             <input type="hidden" name="demoview" value="${param.demoview}">
 
@@ -715,18 +715,18 @@
                 <div class="control-container">
                     <label for="dateRange"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/> <a
                             href="javascript:void(0)" id="dateRange" onClick="allYear()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/></a></label>
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="xml_vdate">From</label>
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
                     </div>
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="xml_appointment_date">To</label>
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
                     </div>
 
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="mrpview"> <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/></label>
                         <select id="mrpview" class="form-control" name="mrpview">
                             <option value="all" <%=mrpview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
@@ -743,7 +743,7 @@
                             %>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="providerview"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></label>
 
                         <select id="providerview" class="form-control" name="providerview">
@@ -759,7 +759,7 @@
                             %>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="assignedTo"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/></label>
                         <%
                             if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
@@ -828,7 +828,7 @@
                             }
                         %>
                     </div>
-                    <div class="form-group">
+                    <div class="mb-3">
 					    <label for="ticklerview">Filter</label>
                         <select id="ticklerview" class="form-control" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
@@ -842,7 +842,7 @@
                                 <fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                         </select>
                     </div>
-                    <div class="form-group" style="padding-top:15px;">
+                    <div class="mb-3" style="padding-top:15px;">
                         <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>">
                         <label for="saveViewButton"> </label>

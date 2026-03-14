@@ -411,13 +411,13 @@
                 <div class="doclist card">
                     <div class="headerline card-header">
                         <div class="container">
-                            <div class="form-inline">
-                                <div class="form-group" style="margin-right: 10px;">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="mb-3" style="margin-right: 10px;">
                                     <%= Encode.forHtmlContent(currentkey) %>
                                 </div>
 
                                 <% if (i == 0) {%>
-                                <div class="form-group">
+                                <div class="mb-3">
                                         <%--      <label for="viewstatus"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
                                     <select class="form-control" id="viewstatus" name="viewstatus"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
@@ -432,7 +432,7 @@
                                     </select>
                                 </div>
                                 <%}%>
-                                <div class="form-group">
+                                <div class="mb-3">
                                         <%--          <label for="view"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
                                             class="form-control"
@@ -449,7 +449,7 @@
                                     </select>
                                 </div>
                                 <%if (DocumentBrowserLink) {%>
-                                <div class="form-group">
+                                <div class="mb-3">
                                     <a class="btn btn-link form-control"
                                         href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>

@@ -221,7 +221,7 @@
 				<c:set var="formAction" value="${ctx}/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.do" />
 			</c:if>
 			
-			<form id="coverPageForm" class="form-inline" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>
+			<form id="coverPageForm" class="d-flex flex-wrap align-items-center gap-2" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>
 			
 				<input type="hidden" name="requestId" value="<e:forHtmlAttribute value='${ reqId }' />" />
 				<input type="hidden" name="reqId" value="<e:forHtmlAttribute value='${ reqId }' />" />
@@ -283,12 +283,12 @@
 				  	<div class="card-body">
 						<div class="container">
 						  	<div class="row" id="fax-recipients">	
-								<div class="col-sm-6 form-group">
+								<div class="col-sm-6 mb-3">
 									<label for="searchProfessionalSpecialist_name">Name</label>
 								 	<input class="autocomplete form-control" type="text" name="recipient" value="<e:forHtmlAttribute value='${ professionalSpecialistName }' />"
 								 		id="searchProfessionalSpecialist_name" placeholder="Search: last, first" required/>
 								 </div>	
-								 <div class="col-sm-6 form-group">
+								 <div class="col-sm-6 mb-3">
 									<label for="searchProfessionalSpecialist_fax">Fax</label>
 									<input class="form-control" type="text" name="recipientFaxNumber" value="<e:forHtmlAttribute value='${ not empty fax ? fax : param.fax }' />"
 										id="searchProfessionalSpecialist_fax" placeholder="xxx-xxx-xxxx"  required/>
@@ -306,17 +306,17 @@
 				  		<div class="container" id="fax-additional-recipients" >
 	
 				  			<div class="row" id="additionalRecipientControlPanel">			  			
-				  				<div class="col-sm-5 form-group">
+				  				<div class="col-sm-5 mb-3">
 						  			<label for="additionalRecipient_name" >Name</label>
 								 	<input class="autocomplete form-control" type="text" value=""  
 								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="Search: last, first"  />
 								</div>
-									<div class="col-sm-5 form-group">	
+									<div class="col-sm-5 mb-3">	
 								 	<label for="additionalRecipient_fax">Fax</label>
 								 	<input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""  
 								 		id="additionalRecipient_fax" placeholder="xxx-xxx-xxxx"  />
 								</div>
-								<div class="col-sm-2 form-group">
+								<div class="col-sm-2 mb-3">
 									<label for="additionalRecipient_fax_btn">&nbsp;</label>
 							        <button class="btn btn-primary form-control" id="additionalRecipient_fax_btn" title="Add recipient to list" type="button">
 							        	<span class="fa-solid fa-plus"></span>

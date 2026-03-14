@@ -153,7 +153,7 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
-            <form method="post" name="baseurl" id="websiteForm" action="resourcebaseurl.jsp" class="form-inline">
+            <form method="post" name="baseurl" id="websiteForm" action="resourcebaseurl.jsp" class="d-flex flex-wrap align-items-center gap-2">
 
                 <h4>Website</h4>
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->

@@ -133,9 +133,7 @@
             margin-right: 5px;
         }
 
-        .hide {
-            display: none;
-        }
+        /* Bootstrap 5: using .d-none utility for display:none */
 
         .error-message {
             color: red;
@@ -189,7 +187,7 @@
             <input type="hidden" name="totalInvalidRecipintEmails" id="totalInvalidRecipintEmails"
                    value="${fn:length(invalidReceiverEmailList)}"/>
 
-            <form id="emailComposeForm" class="form-inline" action='${ emailSendAction }' method="post"
+            <form id="emailComposeForm" class="d-flex flex-wrap align-items-center gap-2" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
                 <input type="hidden" name="fdid" value="${fdid}"/>
@@ -205,7 +203,7 @@
                     <div class="card-body">
                         <div class="container">
                             <div class="row">
-                                <div class="col-sm-12 form-group">
+                                <div class="col-sm-12 mb-3">
                                     <label for="senderEmailAddress">Sender</label>
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
@@ -231,7 +229,7 @@
                     </div>
                     <div class="card-body">
                         <div class="container">
-                            <div class="row form-group">
+                            <div class="row mb-3">
                                 <div class="col-sm-1">
                                     <label for="receiverName">Patient</label>
                                 </div>
@@ -243,7 +241,7 @@
                             </div>
                             <div id="receiverEmailsContainer">
                                 <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
-                                    <div class="row form-group mt-3">
+                                    <div class="row mb-3 mt-3">
                                         <div class="col-sm-1">
                                             <label for="receiverEmailAddress${loop.index + 1}">Email(s)</label>
                                         </div>
@@ -392,7 +390,7 @@
                     <div class="card-body" id="encryptionOptions">
                         <div class="container">
                             <div class="row">
-                                <div class="col-sm-12 form-group">
+                                <div class="col-sm-12 mb-3">
                                     <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
                                                                    data-bs-toggle="tooltip" data-bs-placement="auto right"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
@@ -402,7 +400,7 @@
                                     <div class="error-message" id="encryptedMessageError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 form-group">
+                            <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Password</label>
                                 </div>
@@ -414,7 +412,7 @@
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 form-group">
+                            <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="auto right"
@@ -427,7 +425,7 @@
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 form-group">
+                            <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
                                                                      data-bs-toggle="tooltip" data-bs-placement="auto right"
@@ -526,7 +524,7 @@
                     </div>
                 </div>
 
-                <div id="additionalParams" class="m-2 row hide">
+                <div id="additionalParams" class="m-2 row d-none">
                     <div class="col-sm-3">
                         <button type="button" class="btn btn-link text-decoration-none"
                                 onclick="showAdditionalParamsTextBox()">Add Additional Parameters
@@ -535,7 +533,7 @@
                     <div class="col-sm-9">
                         <c:set var="emailAdditionalParams"
                                value="${not empty emailAdditionalParams ? emailAdditionalParams : ''}"/>
-                        <input type="text" class="form-control ${ not empty emailAdditionalParams ? '' : 'hide' }"
+                        <input type="text" class="form-control ${ not empty emailAdditionalParams ? '' : 'd-none' }"
                                name="additionalURLParams" id="additionalURLParams"
                                placeholder="Extra Parameters (if applicable)"
                                value="<c:out value='${emailAdditionalParams}' />">
@@ -712,7 +710,7 @@
 
     function showEncryptionOptions() {
         const checkbox = document.getElementById("encryptionSwitch");
-        document.getElementById("encryptionOptions").classList.toggle('hide', !checkbox.checked);
+        document.getElementById("encryptionOptions").classList.toggle('d-none', !checkbox.checked);
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
         document.getElementById("isEncryption").innerHTML = checkbox.checked ? "ON" : "OFF";
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
@@ -724,7 +722,7 @@
 
     function removeReceiverEmail(button) {
         let receiverEmailsContainer = document.getElementById("receiverEmailsContainer");
-        let formGroup = button.closest('.form-group');
+        let formGroup = button.closest('.mb-3');
         if (receiverEmailsContainer.children.length > 1) {
             receiverEmailsContainer.removeChild(formGroup);
         } else {
@@ -836,14 +834,14 @@
 
         const senderEmailType = selectedSender.getAttribute('data-email-type');
         if (senderEmailType && senderEmailType === "API") {
-            document.getElementById('additionalParams').classList.remove('hide');
+            document.getElementById('additionalParams').classList.remove('d-none');
         } else {
-            document.getElementById('additionalParams').classList.add('hide');
+            document.getElementById('additionalParams').classList.add('d-none');
         }
     }
 
     function showAdditionalParamsTextBox() {
-        document.getElementById('additionalURLParams').classList.toggle('hide');
+        document.getElementById('additionalURLParams').classList.toggle('d-none');
     }
 
     function showErrorAndClose() {

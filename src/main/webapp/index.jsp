@@ -267,7 +267,9 @@
                 border-color: #ddd;
             }
 
-            .form-group {
+            /* Bootstrap 5 migration: .form-group replaced by .mb-3 utility class.
+               Custom margin-bottom kept here for login page styling. */
+            .mb-3 {
                 margin-bottom: 15px;
             }
 
@@ -290,7 +292,7 @@
                 transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
             }
 
-            .has-error .form-control {
+            .is-invalid .form-control {
                 border-color: #a94442;
                 -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
                 box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
@@ -613,7 +615,7 @@ body {
                 </div>
 
                 <c:if test='${ param.login eq "failed" }'>
-                    <c:set var="login_error" value="has-error" scope="page"/>
+                    <c:set var="login_error" value="is-invalid" scope="page"/>
                     <div class="alert">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formFailedLabel"/>
                     </div>
@@ -632,13 +634,13 @@ body {
                         --%>
                         <form action="login.do" method="POST" name="loginForm">
 
-                            <div class="form-group ${ login_error }">
+                            <div class="mb-3 ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.userName"/>"
                                        value="" size="15" maxlength="15" autocomplete="off"
                                        class="form-control" required>
                             </div>
 
-                            <div class="input-wrapper form-group ${ login_error }">
+                            <div class="input-wrapper mb-3 ${ login_error }">
                               <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
                               <button type="button"
                                       id="toggleBtn"
@@ -651,7 +653,7 @@ body {
 
 							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
                             <div class="pin-wrapper">
-                                <div class="input-wrapper form-group ${ login_error }">
+                                <div class="input-wrapper mb-3 ${ login_error }">
                                   <!-- The input starts with the secure-text class -->
                                   <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">

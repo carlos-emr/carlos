@@ -66,7 +66,7 @@
 
 <div class="container main-container" style="padding-bottom: 80px;">
     <noscript>Your browser either does not support JavaScript, or has it turned off.</noscript>
-    <form name="formeCARES" class="form-inline" role="form" method="post"
+    <form name="formeCARES" class="d-flex flex-wrap align-items-center gap-2" role="form" method="post"
           action="${pageContext.servletContext.contextPath}/formeCARES.do" id="formeCARES">
         <input type="hidden" name="demographicNo"
                value="${ not empty param.demographicNo ? param.demographicNo : param.demographic_no }"/>

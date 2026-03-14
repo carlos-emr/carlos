@@ -10,7 +10,7 @@ $.extend(true, $.fn.dataTable.defaults, {
 
 /* Default class modification */
 $.extend($.fn.dataTableExt.oStdClasses, {
-    "sWrapper": "dataTables_wrapper form-inline"
+    "sWrapper": "dataTables_wrapper d-flex flex-wrap align-items-center gap-2"
 });
 
 
