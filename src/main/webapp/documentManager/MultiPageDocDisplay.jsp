@@ -341,7 +341,7 @@
                                             var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do";
                                             var formid = "#acknowledgeForm_" + docId;
 
-                                            jQuery("#ackStatus").val(status);
+                                            document.getElementById("ackStatus").value = status;
                                             var data = jQuery(formid).serialize();
                                             data += "&method=addComment";
 

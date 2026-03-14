@@ -286,7 +286,7 @@
 
         function onDeleteConfirm() {
             bootstrap.Modal.getOrCreateInstance(document.getElementById('delete-set-confirm')).hide();
-            $('#deleteSet').val('deleteSet');
+            document.getElementById('deleteSet').value = 'deleteSet';
             document.getElementsByName("DemographicSetEditForm")[0].submit();
         }
 
