@@ -299,11 +299,10 @@
                     <button type="button" class="btn btn-secondary save-tickler">Create Tickler</button>
                     <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
                 </div>
-            </div>
-        </div><!-- /.modal-content -->
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
 
-    </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
+    </div><!-- /.modal -->
 
 <!-- Modal -->
 <div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel"

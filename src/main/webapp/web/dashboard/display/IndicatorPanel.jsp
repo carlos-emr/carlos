@@ -51,7 +51,7 @@
 
     <div class="row indicatorFooter">
         <div class="col-md-12 text-end">
-
+            <div class="dropdown d-inline-block">
             <a href="javascript:void(0)" class="dropdown-toggle" data-bs-toggle="dropdown" role="button"
                aria-haspopup="true" aria-expanded="false">
                 options
@@ -71,6 +71,7 @@
                 </li>
             </ul>
 
+            </div><!-- /.dropdown -->
         </div>
     </div>
 
