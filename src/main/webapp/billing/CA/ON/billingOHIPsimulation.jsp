@@ -442,10 +442,12 @@
     }
 
 
-    $(".xlink").click(function (e) {
-        var source = $(this).attr('rel');
-
-        $("#dynamic-content").html('<iframe id="myFrame" name="myFrame" frameborder="0" width="950" height="1000" src="' + source + '">');
+    document.querySelectorAll(".xlink").forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            var source = this.getAttribute('rel');
+            // Existing pattern: creates iframe from server-set rel attribute
+            document.getElementById("dynamic-content").innerHTML = '<iframe id="myFrame" name="myFrame" frameborder="0" width="950" height="1000" src="' + source + '">';
+        });
     });
 
 </script>

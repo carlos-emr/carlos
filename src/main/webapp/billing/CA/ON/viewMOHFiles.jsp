@@ -61,11 +61,13 @@
         }
 
         function toggleCheckboxes(el) {
-            jQuery("input[name='mohFile']").attr("checked", jQuery(el).attr("checked"));
+            document.querySelectorAll("input[name='mohFile']").forEach(function (cb) {
+                cb.checked = el.checked;
+            });
         }
 
         function checkForm() {
-            if (jQuery("input[name='mohFile']:checked").size() > 0) {
+            if (document.querySelectorAll("input[name='mohFile']:checked").length > 0) {
                 return true;
             }
             alert("Please select a file first.");

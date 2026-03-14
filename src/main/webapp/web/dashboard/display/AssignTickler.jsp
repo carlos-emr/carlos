@@ -32,15 +32,13 @@
 <script type="text/javascript">
 
     //--> Date picker
-    $(function () {
+    document.addEventListener('DOMContentLoaded', function () {
         flatpickr('.date-picker', {
             dateFormat: 'm-d-Y',
             allowInput: true
         });
-    });
 
-    // --> Time picker
-    $(function () {
+        // --> Time picker
         flatpickr('.time-picker', {
             enableTime: true,
             noCalendar: true,

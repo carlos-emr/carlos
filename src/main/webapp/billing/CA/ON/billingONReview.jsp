@@ -309,8 +309,8 @@
         var bClick = false;
 
         function onSave() {
-            var value = jQuery("#payee").val();
-            jQuery("#payeename").val(value);
+            var value = document.getElementById("payee").value;
+            document.getElementById("payeename").value = value;
             var ret = checkTotal();
             bClick = false;
 
@@ -413,7 +413,7 @@
 
 
         function updateElement(eId, data) {
-            jQuery("#" + eId).val(data);
+            document.getElementById(eId).value = data;
         }
 
         function checkTotal() {
@@ -443,7 +443,7 @@
                 }
 
                 updateElement("total", formatTotal(total));
-                total += new Number(jQuery("#gst").val());
+                total += new Number(document.getElementById("gst").value);
                 updateElement("gstBilledTotal", formatTotal(total));
 
             }
@@ -1261,9 +1261,9 @@
 <script language="JavaScript">
     function calculatePayment() {
         var payment = 0.00;
-        jQuery("input[id^='paid_']").each(function (index) {
-            if (this != null && this.value.length > 0) {
-                payment = parseFloat(payment) + parseFloat(this.value);
+        document.querySelectorAll("input[id^='paid_']").forEach(function (el) {
+            if (el != null && el.value.length > 0) {
+                payment = parseFloat(payment) + parseFloat(el.value);
                 payment = payment.toFixed(2);
             }
         });
@@ -1276,9 +1276,9 @@
 
     function calculateDiscount() {
         var discount = 0.00;
-        jQuery("input[id^='discount_']").each(function (index) {
-            if (this != null && this.value.length > 0) {
-                discount = parseFloat(discount) + parseFloat(this.value);
+        document.querySelectorAll("input[id^='discount_']").forEach(function (el) {
+            if (el != null && el.value.length > 0) {
+                discount = parseFloat(discount) + parseFloat(el.value);
                 discount = discount.toFixed(2);
             }
         });
@@ -1289,15 +1289,15 @@
 
     function calculateTotal() {
         var total = 0.00;
-        jQuery("input[id^='percCodeSubtotal_']").each(function (index) {
-            if (this != null && this.value.length > 0) {
-                total = parseFloat(total) + parseFloat(this.value);
+        document.querySelectorAll("input[id^='percCodeSubtotal_']").forEach(function (el) {
+            if (el != null && el.value.length > 0) {
+                total = parseFloat(total) + parseFloat(el.value);
                 total = total.toFixed(2);
             }
         });
-        jQuery("#total").val(total);
-        jQuery("#gstBilledTotal").val(total);
-        jQuery("#stotal").val(total);
+        document.getElementById("total").value = total;
+        document.getElementById("gstBilledTotal").value = total;
+        document.getElementById("stotal").value = total;
     }
 
     function onTotalChanged() {
@@ -1309,9 +1309,9 @@
             return;
         }
 
-        var total = jQuery("#total").val();
-        jQuery("#gstBilledTotal").val(total);
-        jQuery("#stotal").val(total);
+        var total = document.getElementById("total").value;
+        document.getElementById("gstBilledTotal").value = total;
+        document.getElementById("stotal").value = total;
     }
 
     function addToDiseaseRegistry() {

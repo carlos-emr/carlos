@@ -107,11 +107,13 @@
                     xsltProcessor = new XSLTProcessor();
                     xsltProcessor.importStylesheet(xsl);
                     resultDocument = xsltProcessor.transformToFragment(xmlDoc, document);
-                    jQuery("#MOHreport").html(resultDocument);
+                    var mohReport = document.getElementById("MOHreport");
+                    mohReport.innerHTML = '';
+                    mohReport.appendChild(resultDocument);
                 } else if (window.ActiveXObject) {
-                    // code for IE
+                    // code for IE - uses transformNode which returns a string
                     ex = xmlDoc.transformNode(xsl);
-                    jQuery('#MOHreport').html(ex);
+                    document.getElementById('MOHreport').innerHTML = ex;
                 } else {
                     alert("Viewing report is not supported by this Browser.");
                 }

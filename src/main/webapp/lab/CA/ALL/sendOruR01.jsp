@@ -67,19 +67,19 @@
 
     <script>
         function checkRequiredFields() {
-            if (jQuery("#professionalSpecialistId").val().length == 0) {
+            if (document.getElementById('professionalSpecialistId').value.length == 0) {
                 alert('Select a providers / specialist to send to.');
                 return (false);
             }
-            if (jQuery("#clientFirstName").val().length == 0 || jQuery("#clientLastName").val().length == 0) {
+            if (document.getElementById('clientFirstName').value.length == 0 || document.getElementById('clientLastName').value.length == 0) {
                 alert('The clients first and last name is required.');
                 return (false);
             }
-            if (jQuery("#subject").val().length == 0) {
+            if (document.getElementById('subject').value.length == 0) {
                 alert('The subject is required.');
                 return (false);
             }
-            if (jQuery("#textMessage").val().length == 0 && jQuery("#uploadFile").val().length == 0) {
+            if (document.getElementById('textMessage').value.length == 0 && document.getElementById('uploadFile').value.length == 0) {
                 alert('Either Text Data or an Upload File is required.');
                 return (false);
             }
@@ -154,7 +154,7 @@ for pre-populating data.
                 <input type="text" id="clientBirthDay" name="clientBirthDay"
                        value="<%=sendOruR01UIBean.getClientBirthDate()%>"/>
                 <script>
-                    jQuery(document).ready(function () {
+                    document.addEventListener('DOMContentLoaded', function () {
                         flatpickr("#clientBirthDay", {dateFormat: "Y-m-d", allowInput: true});
                     });
                 </script>
