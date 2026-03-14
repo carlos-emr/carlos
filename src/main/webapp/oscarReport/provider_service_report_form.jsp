@@ -50,7 +50,7 @@
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-    <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
+    <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet" type="text/css"/>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery.validate.min.js"></script>
     <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
     <script src="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.js"></script>
