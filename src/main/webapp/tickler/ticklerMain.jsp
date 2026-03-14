@@ -159,8 +159,6 @@
                 src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
         <script type="text/javascript"
                 src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
-              rel="stylesheet" type="text/css"/>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
         <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/css/print.css"/>

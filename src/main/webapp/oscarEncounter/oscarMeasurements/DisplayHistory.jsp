@@ -57,6 +57,7 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js">//1.13.4</script>
+        <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
         <script>
             // NOTE

@@ -353,10 +353,10 @@
     <%@ include file="/includes/global-head.jspf" %>
     <title>Ontario Billing Report</title>
 
-    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 
     <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
         function selectprovider(s) {

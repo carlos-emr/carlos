@@ -74,8 +74,6 @@
         <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
         <link type="text/css" media="all" href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"
               rel="stylesheet">
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
-              rel="stylesheet" type="text/css"/>
         <link href="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/css/responsive.dataTables.min.css"
               rel="stylesheet" type="text/css"/>
         <link href="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/css/responsive.jqueryui.min.css"

@@ -287,8 +287,6 @@
 <head>
     <title>PROVIDER</title>
 
-    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
-          rel="stylesheet">
     <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
 
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -300,6 +298,7 @@
 
 
     <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <!-- DataTables 1.13.4 -->
 
     <script>

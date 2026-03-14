@@ -167,8 +167,6 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
 
         <%@ include file="/includes/global-head.jspf" %>
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
-              rel="stylesheet" type="text/css"/>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
 
