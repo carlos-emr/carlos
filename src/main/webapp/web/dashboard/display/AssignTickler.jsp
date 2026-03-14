@@ -34,7 +34,7 @@
     //--> Date picker
     document.addEventListener('DOMContentLoaded', function () {
         flatpickr('.date-picker', {
-            dateFormat: 'm-d-Y',
+            dateFormat: 'Y-m-d',
             allowInput: true
         });
 

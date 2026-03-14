@@ -46,8 +46,6 @@
           href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.css"/>
-    <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
@@ -61,8 +59,6 @@
             src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/datetime-sort.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/drilldownDisplayController.js"></script>

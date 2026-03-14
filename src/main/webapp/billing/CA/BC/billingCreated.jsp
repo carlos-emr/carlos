@@ -90,8 +90,6 @@
           href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/flatpickr/flatpickr.min.css"/>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
             <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
