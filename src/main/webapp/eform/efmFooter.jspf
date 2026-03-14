@@ -33,7 +33,7 @@
 <div id="confirmModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
 <div class="modal-dialog"><div class="modal-content">
 <div class="modal-header">
-<h3 id="myModalLabel">Modal header</h3>
+<h3 id="confirmModalLabel">Modal header</h3>
 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <div class="modal-body" id="confirmModalBody">

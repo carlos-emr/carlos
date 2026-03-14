@@ -379,7 +379,7 @@
                             <span class="fa-solid fa-lock"></span> Encryption <span id="encryptionOptionsInfo"
                                                                              class="fa-solid fa-circle-info"
                                                                              data-bs-toggle="tooltip"
-                                                                             data-bs-placement="auto right"
+                                                                             data-bs-placement="right"
                                                                              title="Emails will be sent encrypted by default. Encryption settings can be modified by disabling this feature."></span>
                             <div class="form-check form-switch encryptionLock">
                                 <input class="form-check-input" type="checkbox" id="encryptionSwitch"
@@ -393,7 +393,7 @@
                             <div class="row">
                                 <div class="col-sm-12 mb-3">
                                     <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
-                                                                   data-bs-toggle="tooltip" data-bs-placement="auto right"
+                                                                   data-bs-toggle="tooltip" data-bs-placement="right"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
                                               rows="5" placeholder="..."><c:out
@@ -416,7 +416,7 @@
                             <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
-                                                      data-bs-placement="auto right"
+                                                      data-bs-placement="right"
                                                       title="Clue will be added into the email body (visible)"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -429,7 +429,7 @@
                             <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
-                                                                     data-bs-toggle="tooltip" data-bs-placement="auto right"
+                                                                     data-bs-toggle="tooltip" data-bs-placement="right"
                                                                      title="Email attachments will be encrypted when enabled"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -581,6 +581,11 @@
 
 <script type="text/javascript">
     document.addEventListener("DOMContentLoaded", function () {
+        // Initialize BS5 tooltips
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            new bootstrap.Tooltip(el);
+        });
+
         // Check if any error
         if (document.getElementById('isEmailError').value === 'true') {
             // Open EForm again on sent

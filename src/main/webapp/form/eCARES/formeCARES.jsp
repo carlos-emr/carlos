@@ -262,7 +262,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title">Please confirm</h4>
+                    <h4 class="modal-title" id="myModalLabel">Please confirm</h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -284,7 +284,7 @@
 
 
     <!-- Modal -->
-    <div class="modal fade" id="ticklerModal" tabindex="-1" aria-labelledby="myModalLabel"
+    <div class="modal fade" id="ticklerModal" tabindex="-1" aria-labelledby="ticklerModalTitle"
          aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -311,7 +311,7 @@
     <div class="modal-dialog modal-lg" style="width:60%;">
         <div class="modal-content">
             <div class="modal-header">
-                <h4 class="modal-title">eFI - Frailty Index</h4>
+                <h4 class="modal-title" id="chartModalLabel">eFI - Frailty Index</h4>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
