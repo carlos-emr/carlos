@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -199,6 +200,7 @@
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
 
 <script>
@@ -209,12 +211,15 @@
         initialEditType: 'wysiwyg',
         initialValue: '',
         hideModeSwitch: true,
-        toolbarItems: [['bold', 'italic', 'strike'], ['ul', 'ol'], ['link']]
+        toolbarItems: [['bold', 'italic', 'strike'], ['ul', 'ol'], ['link']],
+        customHTMLSanitizer: function(html) {
+            return DOMPurify.sanitize(html);
+        }
     });
 
-    <%-- Load existing HTML content into the editor --%>
+    <%-- Load existing HTML content into the editor (OWASP-encoded for JS context, DOMPurify-sanitized by editor) --%>
     <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
-    editor.setHTML('<%= resource_helpHtml_value.replace("'", "\\'").replace("\n", "\\n").replace("\r", "") %>');
+    editor.setHTML('<%= Encode.forJavaScript(resource_helpHtml_value) %>');
     <% } %>
 
     <%-- Sync editor content to hidden input before form submit --%>
