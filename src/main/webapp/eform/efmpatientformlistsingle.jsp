@@ -61,7 +61,7 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
 
 		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap -->
-		<link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
+		<link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 		<link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" >
 
 		<script src="${pageContext.request.contextPath}/js/global.js"></script>

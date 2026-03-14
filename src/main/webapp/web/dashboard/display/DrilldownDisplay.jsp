@@ -50,7 +50,7 @@
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.css"/>
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/css/bootstrap-timepicker.min.css"/>
+          href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
@@ -60,12 +60,11 @@
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap.js"></script>
+            src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.js"></script>
-    <script type="text/javascript" src="${ pageContext.request.contextPath }/js/bootstrap-timepicker.min.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/moment.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/datetime-moment.js"></script>
     <script type="text/javascript"
