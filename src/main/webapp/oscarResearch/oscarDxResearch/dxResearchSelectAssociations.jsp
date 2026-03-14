@@ -106,7 +106,6 @@
         </script>
 
     </head>
-    <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/oscarResearch/oscarDxResearch/dxResearch.css">
     <body class="BodyStyle" vlink="#0000FF" rightmargin="0" leftmargin="0"
           topmargin="0" marginwidth="0" marginheight="0" onload="setfocus()" bgcolor="#EEEEFF">
     <!--  -->

@@ -93,8 +93,6 @@
             src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/effects.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript"
@@ -2365,8 +2363,6 @@
           href="${pageContext.servletContext.contextPath}/share/yui/css/autocomplete.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/share/css/demographicProviderAutocomplete.css"/>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/share/css/oscarMDSIndex.css"/>
     <style type="text/css">
         .Cell {
             background-color: #9999CC;

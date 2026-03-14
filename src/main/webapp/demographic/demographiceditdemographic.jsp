@@ -280,9 +280,6 @@
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
 
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <% if (isMobileOptimized) { %>
         <meta name="viewport"
               content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width"/>
