@@ -307,7 +307,7 @@
         }
     </style>
 
-    <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery-1.9.1.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
 
     <oscar:customInterface section="main"/> <!--needs to be in header-->
 </head>
@@ -433,7 +433,7 @@
     </div>
 </div>
 
-<!-- jquery-1.9.1.js - in nonPatientContextHeader.jspf -->
+<!-- jquery-3.6.4.min.js - in nonPatientContextHeader.jspf -->
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
