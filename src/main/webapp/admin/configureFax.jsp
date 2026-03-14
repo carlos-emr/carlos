@@ -99,7 +99,7 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 
     <style>
         body {
