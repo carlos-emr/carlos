@@ -169,7 +169,7 @@
 			headingName="Immunizations"
 			healthCanadaType="DTaP"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -179,7 +179,7 @@
 			headingName="Immunizations"
 			healthCanadaType="DTaP-IPV-Hib-HB"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -189,7 +189,7 @@
 			headingName="Immunizations"
 			healthCanadaType="DTaP-IPV-HB"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -199,7 +199,7 @@
 			headingName="Immunizations"
 			healthCanadaType="DT-IPV"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -209,7 +209,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Tdap-IPV"
 			layout="injection"
-            atc="J07AJ52" minAge="4" maxAge="6"
+      atc="J07AJ52" minAge="4" maxAge="6"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -220,7 +220,7 @@
 			healthCanadaType="DTaP-IPV-Hib"
 			link="http://www.phac-aspc.gc.ca/"
 			layout="injection"
-            atc="J07CA06" minAge="0" maxAge="6"
+      atc="J07CA06" minAge="0" maxAge="6"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -231,7 +231,7 @@
 			healthCanadaType="DTaP-HB-IPV-Hib"
 			link="http://www.phac-aspc.gc.ca/"
 			layout="injection"
-            atc="J07CA02" minAge="0" maxAge="6"
+      atc="J07CA02" minAge="0" maxAge="6"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -251,8 +251,8 @@
 			headingName="Immunizations"
 			healthCanadaType="Rota"
 			link="www.novaccine.com/pdffiles/Rotarix_new_package_insert.pdf"
-			layout="oral"
-            atc="J07BH01" minAge="0" maxAge="2"
+			layout="injection"
+      atc="J07BH01" minAge="0" maxAge="2"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -262,7 +262,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Rota-1"
 			layout="injection"
-            atc="J07BH01" minAge="0" maxAge="2"
+      atc="J07BH01" minAge="0" maxAge="2"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -272,7 +272,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Rota-5"
 			layout="injection"
-            atc="J07BH01" minAge="0" maxAge="2"
+      atc="J07BH01" minAge="0" maxAge="2"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -283,7 +283,7 @@
 			healthCanadaType="Hib"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#Hib"
 			layout="injection"
-            atc="J07AG51" minAge="0" maxAge="6"
+      atc="J07AG51" minAge="0" maxAge="6"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -292,8 +292,8 @@
 			desc="Pneu-P-23=Pneumococcal Polysaccharide 23-valent eg Pneumovax 23"
 			name="Pneu-P-23"
 			headingName="Immunizations"
-            link=""
-            layout="injection"
+      link=""
+      layout="injection"
 			healthCanadaType="Pneu-P-23"
 			atc="J07AL01" showIfMinRecordNum="1" />
 
@@ -305,7 +305,7 @@
 			healthCanadaType="Pneu-C-7"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#PneuC"
 			layout="injection"
-            atc="J07AL02" minAge="0" maxAge="2"
+      atc="J07AL02" minAge="0" maxAge="2"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -315,7 +315,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Pneu-C-13"
 			layout="injection"
-            atc="J07AL02" minAge="0" maxAge="100"
+      atc="J07AL02" minAge="0" maxAge="100"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -325,7 +325,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Pneu-C-15"
 			layout="injection"
-            atc="J07AL02" minAge="0" maxAge="5"
+      atc="J07AL02" minAge="0" maxAge="5"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -335,7 +335,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Pneu-C-20"
 			layout="injection"
-            atc="J07AL02" minAge="18"
+      atc="J07AL02" minAge="18"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -345,7 +345,7 @@
 			headingName="Immunizations"
 			healthCanadaType="M"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1" />
 
 	<item
@@ -365,7 +365,7 @@
 			healthCanadaType="MMR"
 			link="http://www.phac-aspc.gc.ca/publicat/cig-gci/p04-meas-roug-eng.php"
 			layout="injection"
-            atc="J07BD52" minAge="0" maxAge="9"
+      atc="J07BD52" minAge="0" maxAge="9"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -376,7 +376,7 @@
 			healthCanadaType="MMR-Var"
 			link="http://www.phac-aspc.gc.ca/publicat/ccdr-rmtc/10vol36/acs-9/index-eng.php"
 			layout="injection"
-            atc="J07BD54" minAge="0" maxAge="9"
+      atc="J07BD54" minAge="0" maxAge="9"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -386,7 +386,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Men-P-AC"
 			layout="injection"
-            atc="J07AH"
+      atc="J07AH"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -397,7 +397,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Men-P-ACYW-135"
 			layout="injection"
-            atc="J07AH"
+      atc="J07AH"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -407,7 +407,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Men-C-ACYW-135"
 			layout="injection"
-            atc="J07AH"
+      atc="J07AH"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -418,7 +418,7 @@
 			healthCanadaType="Men-C-C"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#MenC"
 			layout="injection"
-            atc="J07AH07" minAge="0" maxAge="19"
+      atc="J07AH07" minAge="0" maxAge="19"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -462,7 +462,8 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="Shingrix"
+    	displayName="Zostavax"
 			desc="RZV=Recombinant Herpes Zoster (Subunit) Vaccine eg Shingrix (2 doses)"
 			name="RZV"
 			headingName="Immunizations"
@@ -482,7 +483,9 @@
 			healthCanadaType="HB"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#HepB"
 			layout="injection"
-            atc="J07BC01" minAge="0" maxAge="1"
+      atc="J07BC01" 
+      minAge="0" 
+      maxAge="1"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -493,7 +496,7 @@
 			headingName="Immunizations"
 			healthCanadaType="T"
 			layout="injection"
-            atc="J07AM"
+      atc="J07AM"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -503,7 +506,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Td-IPV"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1" />
 
 	<item
@@ -511,10 +514,10 @@
 			desc="Tdap=Diphtheria, Tetanus and Acellular Pertussis adult/adolescent formulation eg Adacel, Boostrix"
 			name="Tdap"
 			headingName="Immunizations"
-            healthCanadaType="Tdap"
+      healthCanadaType="Tdap"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#dTap"
 			layout="injection"
-            atc="J07AJ52" minAge="10"
+      atc="J07AJ52" minAge="10"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -522,10 +525,12 @@
 			desc="Td=Tetanus and Diphtheria adult type formulation eg Td Adsorbed"
 			name="Td"
 			headingName="Immunizations"
-            healthCanadaType="Td"
+      healthCanadaType="Td"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#dTap"
 			layout="injection"
-            atc="J07CA01" minAge="0" showIfMinRecordNum="1" />
+      atc="J07CA01" 
+      minAge="0" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -536,7 +541,8 @@
 			healthCanadaType="Inf"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#Flu"
 			layout="injection"
-            atc="J07BB01" minAge="0" />
+      atc="J07BB01" 
+      minAge="0" />
 
 	<item
 			resultDesc=""
@@ -545,7 +551,7 @@
 			headingName="Immunizations"
 			healthCanadaType="HA-Typh-I"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1" />
 
 	<item
@@ -554,9 +560,9 @@
 			desc="HepA=Hepatitis A eg Havrix, Avaxim"
 			name="HA"
 			headingName="Immunizations"
-            link=""
-            layout="injection"
-            healthCanadaType="HA"
+      link=""
+      layout="injection"
+      healthCanadaType="HA"
 			atc="J07BC02" showIfMinRecordNum="1" />
 
 	<item
@@ -565,11 +571,11 @@
 			desc="HepAB=Hepatitis A + B eg Twinrix"
 			name="HAHB"
 			headingName="Immunizations"
-            link=""
+      link=""
 			layout="injection"
-            healthCanadaType="HAHB"
+      healthCanadaType="HAHB"
 			atc="J07BC20"
-            showIfMinRecordNum="1" />
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -579,8 +585,9 @@
 			headingName="Immunizations"
 			healthCanadaType="Chol-O"
 			link=""
-            layout="oral"
-            atc="J07AE01" showIfMinRecordNum="1" />
+      layout="injection"
+      atc="J07AE01" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -589,7 +596,7 @@
 			headingName="Immunizations"
 			healthCanadaType="Chol-Ecol-O"
 			layout="injection"
-            atc=""
+      atc=""
 			showIfMinRecordNum="1" />
 
 	<item
@@ -657,7 +664,7 @@
 			healthCanadaType="IPV"
             link=""
             layout="injection"
-            atc="J07BF03"
+      atc="J07BF03"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -667,7 +674,7 @@
 			headingName="Immunizations"
 			healthCanadaType="BCG"
 			layout="injection"
-            atc="J07AN"
+      atc="J07AN"
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -677,7 +684,7 @@
 			headingName="Immunizations"
 			healthCanadaType="YF"
 			layout="injection"
-            atc="J07BL"
+      atc="J07BL"
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -687,7 +694,7 @@
 			headingName="Immunizations"
 			healthCanadaType="TBE"
 			layout="injection"
-            atc="J07BA"
+      atc="J07BA"
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -697,7 +704,7 @@
 			headingName="Immunizations"
 			healthCanadaType="JE"
 			layout="injection"
-            atc="J07BA"
+      atc="J07BA"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -707,7 +714,7 @@
 			name="H1N1"
 			headingName="Immunizations"
 			healthCanadaType="Inf"
-            layout="h1n1"
+      layout="h1n1"
 			minAge="0"
 			atc="J07BB02" />
 
@@ -715,11 +722,11 @@
 			resultDesc=""
 			desc="COVID-19=COVID-19 vaccine eg Comirnaty, Spikevax, Nuvaxovid"
 			name="COVID-19"
-            headingName="Immunizations"
+      headingName="Immunizations"
 			healthCanadaType="COVID-19"
 			link="https://www.cdc.gov/vaccines/covid-19"
 			layout="injection"
-            atc="J07BX03"
+      atc="J07BX03"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -732,7 +739,7 @@
 			layout="injection"
 			minAge="60"
 			maxAge="100"
-            atc="J07BX05"
+      atc="J07BX05"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -746,7 +753,34 @@
 			layout="injection"
 			minAge="0"
 			maxAge="2"
-            atc="J06BD08"
+      atc="J06BD08"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="TdP-IPV-Hib=Legacy combination vaccine (similar to DTaP-IPV-Hib); combination given at 2, 4, 18 months and 4-6 years"
+			name="TdP-IPV-Hib"
+			headingName="Immunizations"
+			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html"
+			layout="injection" atc="J07CA06" minAge="0" maxAge="6"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc="DTaP-Hib=Diphtheria, Tetanus, Pertussis, Hib"
+			desc="DTaP-Hib=Diphtheria, Tetanus, Acellular Pertussis, Haemophilus Influenzae type b - pediatric"
+			name="DTaP-Hib"
+			headingName="Immunizations"
+			healthCanadaType="DTaP-Hib"
+			layout="injection" atc=""
+			showIfMinRecordNum="1"/>
+
+	<item
+			resultDesc=""
+			desc="HBTmf=Hepatitis B Thimerosal-free formulation"
+			name="HBTmf"
+			headingName="Immunizations"
+			healthCanadaType="HB"
+			layout="injection" atc="J07BC"
 			showIfMinRecordNum="1" />
 
 	<!-- ============================================================ -->
@@ -760,7 +794,8 @@
 			headingName="Screenings"
 			link=""
 			layout="injection"
-			atc="J07AN01" showIfMinRecordNum="1" />
+			atc="J07AN01" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -768,8 +803,11 @@
 			name="PAP"
 			headingName="Screenings"
 			link=""
-			layout="PAPMAM" minAge="25"
-			maxAge="70" sex="F" showIfMinRecordNum="1" />
+			layout="PAPMAM" 
+      minAge="25"
+			maxAge="70" 
+      sex="F" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -777,8 +815,11 @@
 			name="HPV-CERVIX"
 			headingName="Screenings"
 			link=""
-			layout="PAPMAM" minAge="25"
-			maxAge="69" sex="F" showIfMinRecordNum="1" />
+			layout="PAPMAM" 
+      minAge="25"
+			maxAge="69" 
+      sex="F" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -787,7 +828,9 @@
 			headingName="Screenings"
 			link=""
 			layout="PAPMAM" minAge="40"
-			maxAge="74" sex="F" showIfMinRecordNum="1" />
+			maxAge="74" 
+      sex="F" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -795,8 +838,11 @@
 			name="PSA"
 			headingName="Screenings"
 			link=""
-			layout="PAPMAM" minAge="50"
-			maxAge="70" sex="M" showIfMinRecordNum="1" />
+			layout="PAPMAM" 
+      minAge="50"
+			maxAge="70" 
+      sex="M" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc="FOBT=Fecal Occult Blood Test"
@@ -806,7 +852,9 @@
 			headingName="Screenings"
 			link=""
 			layout="PAPMAM"
-			minAge="50" maxAge="74" showIfMinRecordNum="1" />
+			minAge="50" 
+      maxAge="74" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -815,7 +863,9 @@
 			headingName="Screenings"
 			link=""
 			layout="PAPMAM" minAge="65"
-			maxAge="80" sex="M" showIfMinRecordNum="1" />
+			maxAge="80" 
+      sex="M" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
@@ -829,12 +879,13 @@
 	<item
 			resultDesc=""
 			displayName="LDCT Lung Cancer"
-			desc="LDCT=Low-Dose Computed Tomography for lung cancer screening - annual for high-risk smokers ages 55-74 (Canada CTFPHC: 20+ pack-years)"
+			desc="LDCT=Low-Dose Computed Tomography for lung cancer screening - annual x3 for high-risk smokers ages 55-74 (Canada CTFPHC: 20+ pack-years)"
 			name="LDCT"
 			headingName="Screenings"
 			link=""
 			layout="PAPMAM"
-			minAge="55" maxAge="74"
+			minAge="55" 
+      maxAge="74"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -843,7 +894,8 @@
 			name="BMD"
 			headingName="Screenings"
 			link=""
-			layout="PAPMAM" minAge="65"
+			layout="PAPMAM" 
+      minAge="65"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -949,31 +1001,5 @@
             link="" layout="PAPMAM"
 			showIfMinRecordNum="1" />
 
-	<item
-			resultDesc=""
-			desc="TdP-IPV-Hib=Legacy combination vaccine (similar to DTaP-IPV-Hib); combination given at 2, 4, 18 months and 4-6 years"
-			name="TdP-IPV-Hib"
-			headingName="Other"
-			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html"
-			layout="injection" atc="J07CA06" minAge="0" maxAge="6"
-			showIfMinRecordNum="1" />
-
-	<item
-			resultDesc="DTaP-Hib=Diphtheria, Tetanus, Pertussis, Hib"
-			desc="DTaP-Hib=Diphtheria, Tetanus, Acellular Pertussis, Haemophilus Influenzae type b - pediatric"
-			name="DTaP-Hib"
-			headingName="Immunizations"
-			healthCanadaType="DTaP-Hib"
-			layout="injection" atc=""
-			showIfMinRecordNum="1"/>
-
-	<item
-			resultDesc=""
-			desc="HBTmf=Hepatitis B Thimerosal-free formulation"
-			name="HBTmf"
-			headingName="Other"
-			healthCanadaType="HB"
-			layout="injection" atc="J07BC"
-			showIfMinRecordNum="1" />
 
 </preventions>
