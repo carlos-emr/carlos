@@ -291,6 +291,7 @@
                                 </label>
                                 </div>
                             </div>
+                            </div>
                         </c:forEach>
 
                         <input type="hidden" name="session_authenticity_token"
