@@ -1162,7 +1162,6 @@ rule "LDCT 1"
         eval( prev.getAgeInYears() >= 55 )
         eval( prev.getAgeInYears() <= 74 )
         eval( prev.getNumberOfPreventionType("Smoking") > 0 )
-        eval( !prev.isPreventionNever("Smoking") )
         eval( prev.getHowManyMonthsSinceLast("LDCT") == -1 )
         eval( !prev.isPreventionNever("LDCT") )
         eval( !prev.isInelligible("LDCT") )
