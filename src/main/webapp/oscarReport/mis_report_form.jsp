@@ -83,17 +83,17 @@
     <div class="mb-3">
         <label class="form-label">Report By</label>
         <div>
-            <label class="radio inline">
-                <input
+            <div class="form-check form-check-inline">
+                <input class="form-check-input"
                         type="radio" id="reportByFn" name="reportBy" value="functionalCentre"
                         checked="checked" onclick="toggleDivs()">
-                Functional Centre
-            </label>
-            <label class="radio inline">
-                <input type="radio" id="reportByPr" name="reportBy"
+                <label class="form-check-label" for="reportByFn">Functional Centre</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" id="reportByPr" name="reportBy"
                        value="programs" onclick="toggleDivs()">
-                Programs
-            </label>
+                <label class="form-check-label" for="reportByPr">Programs</label>
+            </div>
         </div>
     </div>
     <div class="mb-3">

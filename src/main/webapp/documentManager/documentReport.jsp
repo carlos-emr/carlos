@@ -437,7 +437,7 @@
                                 <div class="mb-3">
                                         <%--          <label for="view"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
-                                            class="form-control"
+                                            class="form-select"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
                                         <option value="">All</option>
                                         <%
@@ -452,7 +452,7 @@
                                 </div>
                                 <%if (DocumentBrowserLink) {%>
                                 <div class="mb-3">
-                                    <a class="btn btn-link form-control"
+                                    <a class="btn btn-link"
                                         href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>

@@ -183,14 +183,16 @@
                 <tr>
                     <td>Auto-populate Referring Physician on Billing Form for All Providers?:</td>
                     <td>
-                        <label for="auto_populate_refer-true" class="radio inline">
-                            <input id="auto_populate_refer-true" type="radio" value="true" name="auto_populate_refer"
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" id="auto_populate_refer-true" type="radio" value="true" name="auto_populate_refer"
                                     <%=(dataBean.getProperty("auto_populate_refer", "false").equals("true")) ? "checked" : ""%> />
-                            Yes</label>
-                        <label for="auto_populate_refer-false" class="radio inline">
-                            <input id="auto_populate_refer-false" type="radio" value="false" name="auto_populate_refer"
+                            <label class="form-check-label" for="auto_populate_refer-true">Yes</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" id="auto_populate_refer-false" type="radio" value="false" name="auto_populate_refer"
                                     <%=(dataBean.getProperty("auto_populate_refer", "false").equals("false")) ? "checked" : ""%> />
-                            No</label>
+                            <label class="form-check-label" for="auto_populate_refer-false">No</label>
+                        </div>
                     </td>
                 </tr>
                 <tr>

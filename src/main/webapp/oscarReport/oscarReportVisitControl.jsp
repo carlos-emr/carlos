@@ -140,14 +140,18 @@
         <div class="mb-3">
             <label class="form-label">Select Report</label>
             <div>
-                <label class="radio inline"> <input type="radio"
-                                                    name="reportAction" onClick="toggleDivs();" value="lk"
-                    <%=reportAction.equals("lk")?"checked":""%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgLarryKainReport"/>
-                </label> <label class="radio inline"> <input type="radio"
-                                                             name="reportAction" onClick="toggleDivs();" value="vr"
-                <%=reportAction.equals("vr") || reportAction.equals("")?"checked":""%>>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgVisitReport"/>
-            </label>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" id="reportActionLk"
+                           name="reportAction" onClick="toggleDivs();" value="lk"
+                        <%=reportAction.equals("lk")?"checked":""%>>
+                    <label class="form-check-label" for="reportActionLk"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgLarryKainReport"/></label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" id="reportActionVr"
+                           name="reportAction" onClick="toggleDivs();" value="vr"
+                        <%=reportAction.equals("vr") || reportAction.equals("")?"checked":""%>>
+                    <label class="form-check-label" for="reportActionVr"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgVisitReport"/></label>
+                </div>
             </div>
         </div>
         <div class="mb-3" id="providerDiv">
