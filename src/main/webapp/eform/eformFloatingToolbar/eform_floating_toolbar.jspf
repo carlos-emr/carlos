@@ -80,7 +80,7 @@
 		  			</button>
 					<button type="button" class="btn btn-secondary" value="Attach" name="AttachButton" title="Add Attachment" id="remoteAttachButton" data-poload="">
 		  				<span class="btn-label"><i class="fa-solid fa-plus"></i></span>
-		  				Attach <span class="badge" id="remoteTotalAttachments">0</span>
+		  				Attach <span class="badge bg-secondary" id="remoteTotalAttachments">0</span>
 		  			</button>
 			   		<button type="button" class="btn btn-danger " id="remoteCloseEformWindow" name="closeEformWindow" value="Close" title="Close this eForm" onclick="remoteClose()">
 			   			<span class="btn-label"><i class="fa-solid fa-circle-xmark"></i></span>
