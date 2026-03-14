@@ -62,7 +62,7 @@
 
 		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap -->
 		<link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
-		<link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css" rel="stylesheet" >
+		<link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" >
 
 		<script src="${pageContext.request.contextPath}/js/global.js"></script>
 		<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>

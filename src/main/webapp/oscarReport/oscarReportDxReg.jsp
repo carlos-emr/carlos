@@ -74,7 +74,7 @@
         <link href="${pageContext.servletContext.contextPath}/css/DT_bootstrap.css" rel="stylesheet" type="text/css"/>
         <link type="text/css" media="all" href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"
               rel="stylesheet">
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
+        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet" type="text/css"/>
         <link href="${pageContext.servletContext.contextPath}/library/DataTables-1.10.12/extensions/Responsive/css/responsive.dataTables.min.css"
               rel="stylesheet" type="text/css"/>
@@ -89,7 +89,7 @@
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/dxJSONCodeSearch.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables-1.10.12/media/js/jquery.dataTables.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/DataTables-1.10.12/extensions/Responsive/js/dataTables.responsive.min.js"></script>
         <script type="text/javascript"

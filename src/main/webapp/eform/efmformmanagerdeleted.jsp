@@ -125,9 +125,9 @@
     <%@ include file="efmFooter.jspf" %>
 
     <script>
-        $('#tblDeletedEforms').dataTable({
-            "aaSorting": [[0, "asc"]],
-            "fnDrawCallback": bindLinks
+        $('#tblDeletedEforms').DataTable({
+            "order": [[0, "asc"]],
+            "drawCallback": bindLinks
         });
 
         function bindLinks(oSettings) {

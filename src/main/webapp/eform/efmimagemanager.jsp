@@ -112,9 +112,9 @@
     <%@ include file="efmFooter.jspf" %>
 
     <script>
-        $('#tblImage').dataTable({
-            "aaSorting": [[0, "asc"]],
-            "bPaginate": false
+        $('#tblImage').DataTable({
+            "order": [[0, "asc"]],
+            "paging": false
         });
     </script>
     </body>

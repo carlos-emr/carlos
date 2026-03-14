@@ -85,7 +85,6 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
                 type="text/javascript"></script>
-        <script src="<%=request.getContextPath()%>/js/fg.menu.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery.are-you-sure.js"></script>
 
         <!-- Checkbox multi-select -->

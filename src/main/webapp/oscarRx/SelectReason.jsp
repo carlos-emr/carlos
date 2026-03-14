@@ -67,7 +67,7 @@
 
         <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${ oscar_context_path }/library/jquery/jquery-compat.js"></script>
-        <script type="text/javascript" src="${ oscar_context_path }/js/jquery-ui-1.8.18.custom.min.js"></script>
+        <script type="text/javascript" src="${ oscar_context_path }/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript">var ctx = '${ oscar_context_path }';</script>
         <title>Drug Reason</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">

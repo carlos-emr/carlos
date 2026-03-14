@@ -106,12 +106,26 @@
 
         <script src="<%= context %>/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
         <script src="<%= context %>/library/jquery/jquery-compat.js"></script>
-        <script src="<%= context %>/js/jquery-ui-1.8.18.custom.min.js"></script>
-        <script src="<%= context %>/js/fg.menu.js"></script>
-
-
-        <link rel="stylesheet" href="<%= context %>/css/cupertino/jquery-ui-1.8.18.custom.css">
-        <link rel="stylesheet" href="<%= context %>/css/fg.menu.css">
+        <script src="<%= context %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.12.1.min.css">
+        <script>
+            /* Bootstrap 5 dropdown shim replacing fg.menu plugin */
+            $.fn.menu = function(opts) {
+                return this.each(function() {
+                    var $trigger = $(this);
+                    if (!opts || !opts.content) return;
+                    var $wrapper = $('<div class="dropdown d-inline-block"></div>');
+                    $trigger.wrap($wrapper);
+                    $trigger.attr({'data-bs-toggle': 'dropdown', 'role': 'button'}).css('cursor', 'pointer');
+                    var $menu = $('<ul class="dropdown-menu"></ul>');
+                    $(opts.content).find('a').each(function() {
+                        var $a = $(this).clone().addClass('dropdown-item');
+                        $menu.append($('<li></li>').append($a));
+                    });
+                    $trigger.after($menu);
+                });
+            };
+        </script>
 
 
         <script>

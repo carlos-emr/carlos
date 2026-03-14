@@ -41,8 +41,6 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
             <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-    <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery.form.js"></script>
 
 </head>
 <%

@@ -789,7 +789,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/DT_bootstrap.js"></script>
     <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
 
@@ -854,12 +854,12 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
         });
 
-        $('#measurementTbl').dataTable({
-            "aaSorting": [[1, "asc"]],
-            "iDisplayLength": 25,
-            "aoColumnDefs": [{ //remove sorting from batch column
-                bSortable: false,
-                aTargets: [0]
+        $('#measurementTbl').DataTable({
+            "order": [[1, "asc"]],
+            "pageLength": 25,
+            "columnDefs": [{
+                orderable: false,
+                targets: [0]
             }]
         });
 
