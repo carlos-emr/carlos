@@ -538,132 +538,58 @@
                     });
                 }
             }
-	var VACCINE_BRANDS_DEFAULT = [
-{name:"OtherA", value:"IXCHIQ not less than 3.0 log10 TCID50 per 0.5 milliliter powder for solution for injection", manufacture:"Valneva Austria GmbH", dose:"0.5", units:"mL", route:"IM", din:"2548984"},
-{name:"Chol-Ecol-O", value:"DUKORAL oral suspension", manufacture:"Valneva Sweden AB", dose:"", units:"DOSE", route:"PO", din:"2247208"},
-{name:"Chol-O", value:"VAXCHORA 400000000 to 2000000000 colony forming units per sachet powder for oral suspension", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"PO", din:"2538164"},
-{name:"OtherA", value:"Cytogam 50 milligrams per milliliter solution for infusion", manufacture:"KI BioPharma LLC", dose:"50", units:"mL", route:"IV", din:"2231962"},
-{name:"OtherA", value:"Cytogam 50 milligrams per milliliter solution for infusion", manufacture:"Saol Therapeutics Research Limited", dose:"50", units:"mL", route:"IV", din:"2231962"},
-{name:"COVID-19", value:"COMIRNATY messenger ribonucleic acid 10 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541858"},
-{name:"COVID-19", value:"COMIRNATY messenger ribonucleic acid 30 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2552035"},
-{name:"COVID-19", value:"COMIRNATY Omicron XBB.1.5 messenger ribonucleic acid 10 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541858"},
-{name:"COVID-19", value:"COMIRNATY Omicron XBB.1.5 messenger ribonucleic acid 30 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541823"},
-{name:"COVID-19", value:"SPIKEVAX messenger ribonucleic acid 0.10 milligrams per 1 milliliter dispersion for injection", manufacture:"Moderna Biopharma Canada Corporation", dose:"", units:"mL", route:"IM", din:"2541270"},
-{name:"COVID-19", value:"SPIKEVAX XBB.1.5 messenger ribonucleic acid 0.10 milligrams per 1 milliliter dispersion for injection", manufacture:"Moderna Biopharma Canada Corporation", dose:"", units:"mL", route:"IM", din:"2541270"},
-{name:"DTaP-HB-IPV-Hib", value:"INFANRIX hexa suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2253852"},
-{name:"HA",value:"AVAXIM 160 units per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2237792"},
-{name:"HA",value:"Havrix 1440 ELISA units per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"mL", route:"IM", din:"2187078"},
-{name:"HA",value:"Havrix 720 ELISA units per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2231056"},
-{name:"HA",value:"VAQTA 25 units per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
-{name:"HA",value:"VAQTA 50 units per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
-{name:"HAHB",value:"Twinrix 360 ELISA units HAV and 10 micrograms HBV per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2237548"},
-{name:"HAHB",value:"Twinrix 720 ELISA units HAV and 20 micrograms HBV per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"1", units:"mL", route:"IM", din:"2230578"},
-{name:"HB",value:"RECOMBIVAX HB 10 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
-{name:"HB",value:"RECOMBIVAX HB 40 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2245977"},
-{name:"HB",value:"RECOMBIVAX HB 5 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
-{name:"OtherA", value:"HepaGam B 312 international units per milliliter liquid for injection", manufacture:"KI BioPharma LLC", dose:"", units:"mL", route:"IM", din:"2290979"},
-{name:"OtherA", value:"HepaGam B 312 international units per milliliter liquid for injection", manufacture:"Saol Therapeutic Research Limited", dose:"", units:"mL", route:"IM", din:"2290979"},
-{name:"OtherA", value:"HyperHEP B 110 international units per 0.5 milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"0.5", units:"mL", route:"IM", din:"2520125"},
-{name:"OtherA", value:"HyperHEP B 220 international units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2520001"},
-{name:"Hib", value:"Act-HIB 10 micrograms per 0.5 milliliter powder and diluent for solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"1959034"},
-{name:"HPV", value:"CERVARIX 40 micrograms per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2342227"},
-{name:"HPV-9", value:"GARDASIL 9 270 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2437058"},
-{name:"OtherA", value:"GamaSTAN 15 to 18 percent solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"", route:"IM", din:"2486598"},
-{name:"Inf",value:"AREPANRIX H5N1 3.75 micrograms per 0.5 milliliter suspension and emulsion for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2401886"},
-{name:"Inf",value:"FLUAD 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Seqirus UK Limited", dose:"0.5", units:"mL", route:"IM", din:"2362384"},
-{name:"Inf",value:"FLULAVAL TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2420783"},
-{name:"Inf",value:"FLUMIST QUADRIVALENT 0.2 milliliter intranasal spray", manufacture:"AstraZeneca Canada Inc.", dose:"0.2", units:"mL", route:"Intranasal", din:"2426544"},
-{name:"Inf",value:"FLUZONE High-Dose Quadrivalent 60 micrograms per 0.7 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.7", units:"mL", route:"IM", din:"2500523"},
-{name:"Inf",value:"FLUZONE Quadrivalent 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2432730"},
-{name:"Inf",value:"INFLUVAC TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"BGP Pharma ULC", dose:"0.5", units:"mL", route:"IM", din:"2484854"},
-{name:"IPV", value:"IMOVAX Polio 80 units per 0.5 milliliter solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"SQ", din:"1959042"},
-{name:"JE", value:"IXIARO 6 micrograms per 0.5 milliliter suspension for injection", manufacture:"Valneva Austria GmbH", dose:"0.5", units:"mL", route:"IM", din:"2333279"},
-{name:"rMenB", value:"BEXSERO suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2417030"},
-{name:"rMenB", value:"Trumenba suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2468751"},
-{name:"Men-C-ACYW-135", value:"MenQuadfi solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2507161"},
-{name:"Men-C-ACYW-135", value:"Menactra solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2279924"},
-{name:"Men-C-ACYW-135", value:"Menveo powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2347393"},
-{name:"Men-C-ACYW-135", value:"NIMENRIX powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2402904"},
-{name:"Men-C-ACYW-135", value:"NIMENRIX powder and diluent for solution for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2402904"},
-{name:"Men-C-C",value:"MENJUGATE Liquid 10 micrograms suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2440709"},
-{name:"Men-C-C",value:"NeisVac-C 10 micrograms per 0.5 milliliter suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2245057"},
-{name:"MMR", value:"M-M-R II powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"", din:"466085"},
-{name:"MMR", value:"PRIORIX powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"", route:"", din:"2239208"},
-{name:"MMR-Var",value:"PRIORIX-TETRA powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"", din:"2297884"},
-{name:"MMR-Var",value:"ProQuad powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"", route:"SQ", din:"2399229"},
-{name:"Pneu-C", value:"Prevnar 13 suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2335204"},
-{name:"Pneu-C", value:"VAXNEUVANCE 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2522403"},
-{name:"Pneu-C", value:"PREVNAR 20 0.5 milliliter suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2527049"},
-{name:"Pneu-C", value:"CAPVAXIVE 0.5 milliliter solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2549891"},
-{name:"Rab",value:"Imovax Rabies 2.5 international units per milliliter powder for solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"", units:"VIAL", route:"IM", din:"1908286"},
-{name:"Rab",value:"RABAVERT 2.5 international units per milliliter powder for solution for injection", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"IM", din:"2267667"},
-{name:"OtherA", value:"HyperRAB 300 international units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2486571"},
-{name:"OtherA", value:"KamRAB 150 international units per milliliter solution for injection", manufacture:"Kamada Ltd", dose:"", units:"mL", route:"IM", din:"2482436"},
-{name:"Rota",value:"ROTARIX 1000000 units per 1.5 milliliter oral suspension", manufacture:"GlaxoSmithKline Inc.", dose:"1.5", units:"mL", route:"PO", din:"2300591"},
-{name:"Rota",value:"RotaTeq 115000000 units per 2 milliliter oral solution", manufacture:"Merck Canada Inc.", dose:"", units:"DOSE", route:"PO", din:"2284413"},
-{name:"RSV", value:"ABRYSVO 120 micrograms per 0.5 milliliter powder for suspension", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2544040"},
-{name:"RSV", value:"AREXVY 120 micrograms per 0.5 milliliter powder and suspension for suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2540207"},
-{name:"RSVAb", value:"BEYFORTUS 100 milligrams per 1 milliliter solution for injection syringe", manufacture:"Sanofi Pasteur Limited", dose:"1", units:"mL", route:"IM", din:"2537214"},
-{name:"RSVAb", value:"BEYFORTUS 50 milligrams per 0.5 milliliter solution for injection syringe", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2537206"},
-{name:"RSVAb", value:"SYNAGIS 100 milligrams per milliliter powder for solution for injection", manufacture:"Boehringer Ingelheim (BI) Pharma KG", dose:"", units:"mL", route:"IM", din:"2438364"},
-{name:"RSVAb", value:"SYNAGIS 100 milligrams per milliliter solution for injection", manufacture:"AstraZeneca Canada Inc.", dose:"", units:"mL", route:"IM", din:"2438364"},
-{name:"RZV", value:"SHINGRIX 50 micrograms per 0.5 milliliter powder and suspension for suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2468425"},
-{name:"Td", value:"Td ADSORBED 5 limit of flocculation units and 2 limit of flocculation units per 0.5 milliliter without preservative suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2528401"},
-{name:"Tdap",value:"ADACEL suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2240255"},
-{name:"Tdap",value:"BOOSTRIX suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2247600"},
-{name:"Tdap-IPV", value:"ADACEL-POLIO suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2352044"},
-{name:"Tdap-IPV", value:"BOOSTRIX-POLIO suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2312557"},
-{name:"OtherA", value:"HyperTET 250 antitoxin units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2520087"},
-{name:"Typh-I", value:"TYPHIM Vi 25 micrograms per 0.5 milliliter solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2130955"},
-{name:"Typh-O", value:"Vivotif 10 billion units enteric coated capsule", manufacture:"Bavarian Nordic AS", dose:"", units:"", route:"PO", din:"885975"},
-{name:"Var",value:"VARILRIX not less than 1995 plaque forming units per 0.5 milliliter powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"", route:"SQ", din:"2241047"},
-{name:"Var",value:"VARIVAX III 1350 plaque forming units powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"SQ", din:"2246081"},
-{name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"KI BioPharma LLC", dose:"", units:"VIAL", route:"IM", din:"2442183"},
-{name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"Saol Therapeutics Research Limited", dose:"", units:"VIAL", route:"IM", din:"2442183"},
-{name:"YF", value:"YF-VAX 109648 plaque forming units per 0.5 milliliter powder and diluent for suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"SQ", din:"428833"},
-{name:"Tuberculosis", value:"Tubersol", manufacture:"Sanofi Pasteur Limited", dose:"0.1", units:"mL", route:"Intradermal", din:"00317268"}
-  ];
-
         /* ---- Vaccine brand catalogue loading ----
          * Loads vaccine-brands.json from the eform images directory.
          * Admins can upload a customised vaccine-brands.json via the eform images
          * upload screen; the file is served via:
          *   eform/displayImage.do?imagefile=vaccine-brands.json
-         * Falls back to VACCINE_BRANDS_DEFAULT (bundled in source) if the file
-         * cannot be loaded or is absent.
+         * Falls back to the bundled oscarPrevention/vaccine-brands.json if the
+         * custom file cannot be loaded or is absent.
          */
         var tags = [];
+        function _parseVaccineBrands(data) {
+            if (!Array.isArray(data) || !data.length) return null;
+            function _toStr(v) { return (v !== null && v !== undefined) ? String(v) : ''; }
+            var parsed = data
+                .map(function(item) {
+                    if (!item) return null;
+                    var name  = _toStr(item.name).trim();
+                    var value = _toStr(item.value).trim();
+                    if (!name || !value) return null;
+                    return {
+                        name:        name,
+                        value:       value,
+                        manufacture: _toStr(item.manufacture),
+                        dose:        _toStr(item.dose),
+                        units:       _toStr(item.units),
+                        route:       _toStr(item.route),
+                        din:         _toStr(item.din)
+                    };
+                })
+                .filter(Boolean);
+            return parsed.length ? parsed : null;
+        }
         var _vaccineLoadPromise = fetch('<%=request.getContextPath()%>/eform/displayImage.do?imagefile=vaccine-brands.json')
             .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
             .then(function(data) {
-                if (!Array.isArray(data)) {
-                    tags = VACCINE_BRANDS_DEFAULT;
-                    return;
-                }
-                tags = data
-                    .filter(function(item) {
-                        return item &&
-                            typeof item.name === 'string' &&
-                            typeof item.value === 'string';
-                    })
-                    .map(function(item) {
-                        return {
-                            name:        item.name,
-                            value:       item.value,
-                            manufacture: typeof item.manufacture === 'string' ? item.manufacture : '',
-                            dose:        typeof item.dose === 'string' ? item.dose : '',
-                            units:       typeof item.units === 'string' ? item.units : '',
-                            route:       typeof item.route === 'string' ? item.route : '',
-                            din:         typeof item.din === 'string' ? item.din : ''
-                        };
-                    });
-                if (!tags.length) {
-                    tags = VACCINE_BRANDS_DEFAULT;
+                var parsed = _parseVaccineBrands(data);
+                if (parsed) {
+                    tags = parsed;
+                } else {
+                    return Promise.reject('empty or invalid');
                 }
             })
             .catch(function() {
-                console.warn('Could not load custom vaccine-brands.json, using default catalogue');
-                tags = VACCINE_BRANDS_DEFAULT;
+                console.warn('Could not load custom vaccine-brands.json, falling back to bundled catalogue');
+                return fetch('<%=request.getContextPath()%>/oscarPrevention/vaccine-brands.json')
+                    .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                    .then(function(data) {
+                        tags = _parseVaccineBrands(data) || [];
+                    })
+                    .catch(function() {
+                        console.error('Could not load bundled vaccine-brands.json');
+                        tags = [];
+                    });
             });
 
         </script>
@@ -701,6 +627,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
+                                    String displayName = StringUtils.isNotBlank(h.get("displayName")) ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
                                     if (hcType == null) {
@@ -712,7 +639,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <% } else {
                             %>
@@ -720,7 +647,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <%
                                             }
@@ -736,6 +663,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
+                                    String displayName = StringUtils.isNotBlank(h.get("displayName")) ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
                                     String ispaStr = h.get("ispa");
@@ -754,7 +682,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
+                                <%=Encode.forHtml(displayName)%><%=ispa1 %>
                             </a></li>
                             <% } else {
                             %>
@@ -762,7 +690,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
+                                <%=Encode.forHtml(displayName)%><%=ispa1 %>
                             </a></li>
                             <%
                                             }
@@ -777,6 +705,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
+                                    String displayName = StringUtils.isNotBlank(h.get("displayName")) ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
 
@@ -790,7 +719,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <% } else {
                             %>
@@ -798,7 +727,7 @@
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
-                                <%=Encode.forHtml(prevName)%>
+                                <%=Encode.forHtml(displayName)%>
                             </a></li>
                             <%
                                             }
