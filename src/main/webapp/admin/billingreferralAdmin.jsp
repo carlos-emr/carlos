@@ -123,10 +123,10 @@
             }
 
             function clearMe() {
-                $("#nameQuery").val('');
-                $("#specialtyQuery").val('');
-                $("#showHidden").prop('checked', false);
-                $("#addressQuery").val('');
+                document.getElementById('nameQuery').value = '';
+                document.getElementById('specialtyQuery').value = '';
+                document.getElementById('showHidden').checked = false;
+                document.getElementById('addressQuery').value = '';
             }
         </script>
         <link href="${request.contextPath}/css/displaytag.css" rel="stylesheet"></link>

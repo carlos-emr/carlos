@@ -257,8 +257,8 @@
 </body>
 
 <script>
-    var pageTitle = $(document).attr('title');
-    $(document).attr('title', 'Administration Panel | Lab Forwarding Rules');
+    var pageTitle = document.title;
+    document.title = 'Administration Panel | Lab Forwarding Rules';
 
     registerFormSubmit('ForwardRulesForm', 'dynamic-content');
 

@@ -198,18 +198,19 @@
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <script type="text/javascript">
         function printItem(itemValue) {
-            var billToClinic = $("input:checkbox#cbBillToClinic").is(":checked");
+            var billToClinic = document.getElementById('cbBillToClinic').checked;
             var values = itemValue.split('|');
             var selectedBillIds = [{demographicNumber: values[0], recipientId: values[1]}];
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
         function printSelected() {
-            var billToClinic = $("input:checkbox#cbBillToClinic").is(":checked");
-            var selectedBillIds = $("input:checkbox.case:checked").map(function () {
-                var values = this.value.split('|');
-                return {demographicNumber: values[0], recipientId: values[1]};
-            }).get();
+            var billToClinic = document.getElementById('cbBillToClinic').checked;
+            var selectedBillIds = [];
+            document.querySelectorAll("input.case:checked").forEach(function (el) {
+                var values = el.value.split('|');
+                selectedBillIds.push({demographicNumber: values[0], recipientId: values[1]});
+            });
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
@@ -220,37 +221,37 @@
         }
 
         function checkAllCaseCheckboxes() {
-            if ($("input:checkbox#master").is(":checked")) {
-                $("input:checkbox.case").prop("checked", true);
+            if (document.getElementById('master').checked) {
+                document.querySelectorAll("input.case").forEach(function (el) { el.checked = true; });
             } else {
-                $("input:checkbox.case").prop("checked", false);
+                document.querySelectorAll("input.case").forEach(function (el) { el.checked = false; });
             }
             enableBtnPrintSelected();
         }
 
         function checkMasterCheckbox() {
-            if ($("input:checkbox.case").length == $("input:checkbox.case:checked").length) {
-                $("#master").prop("checked", true);
+            if (document.querySelectorAll("input.case").length == document.querySelectorAll("input.case:checked").length) {
+                document.getElementById('master').checked = true;
             } else {
-                $("#master").prop("checked", false);
+                document.getElementById('master').checked = false;
             }
             enableBtnPrintSelected();
         }
 
         function enableBtnPrintSelected() {
-            if ($("input:checkbox.case:checked").length > 0) {
-                $("#btnPrintSelected").removeClass("disabled");
+            if (document.querySelectorAll("input.case:checked").length > 0) {
+                document.getElementById('btnPrintSelected').classList.remove("disabled");
             } else {
-                $("#btnPrintSelected").addClass("disabled");
+                document.getElementById('btnPrintSelected').classList.add("disabled");
             }
         }
 
         function handleFilterByProvider() {
-            var providerId = $("select#providerList").val();
+            var providerId = document.getElementById('providerList').value;
             window.location.href = "${ctx}/PrivateBillingController?action=listPrivateBills&providerId=" + providerId;
         }
 
-        $(function () {
+        document.addEventListener('DOMContentLoaded', function () {
             // after the page is loaded, see if the print button needs to be disabled
             enableBtnPrintSelected();
         });

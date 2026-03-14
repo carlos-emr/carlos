@@ -150,7 +150,7 @@
 
     <script type="text/javascript">
         //Table Display
-        jQuery("#viewSelect").on("change", function () {
+        document.getElementById('viewSelect').addEventListener('change', function () {
             updateTableDisplay();
         });
 

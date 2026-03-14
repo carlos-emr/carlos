@@ -95,17 +95,18 @@
         <script>
 
             function updateScope() {
-                if ($("#scope").val() == "clinic" || $("#scope").val() == "") {
-                    $("#providerTR").hide();
-                    $("#patientTR").hide();
+                var scopeVal = document.getElementById('scope').value;
+                if (scopeVal == "clinic" || scopeVal == "") {
+                    document.getElementById('providerTR').style.display = 'none';
+                    document.getElementById('patientTR').style.display = 'none';
                 }
-                if ($("#scope").val() == "provider") {
-                    $("#providerTR").show();
-                    $("#patientTR").hide();
+                if (scopeVal == "provider") {
+                    document.getElementById('providerTR').style.display = '';
+                    document.getElementById('patientTR').style.display = 'none';
                 }
-                if ($("#scope").val() == "patient") {
-                    $("#providerTR").hide();
-                    $("#patientTR").show();
+                if (scopeVal == "patient") {
+                    document.getElementById('providerTR').style.display = 'none';
+                    document.getElementById('patientTR').style.display = '';
                 }
             }
 
@@ -143,14 +144,14 @@
             }
 
             function updateDetails() {
-                var template = $("#template").val();
+                var template = document.getElementById('template').value;
 
                 if (template != '') {
                     jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTemplateDetails&template=" + template, {},
                         function (xml) {
-                            $("#recommendationColour").val(xml.recommendationColour);
-                            $("#warningColour").val(xml.warningColour);
-                            $("#triggers").val(xml.dxTriggers);
+                            document.getElementById('recommendationColour').value = xml.recommendationColour;
+                            document.getElementById('warningColour').value = xml.warningColour;
+                            document.getElementById('triggers').value = xml.dxTriggers;
                         });
                 }
             }
@@ -251,8 +252,8 @@
                 var oData = args[2];
                 var demographicNo = args[2][2];
                 var demographicName = args[2][0];
-                $("#demographicNo").val(demographicNo);
-                $("#demographicAC").val(demographicName);
+                document.getElementById('demographicNo').value = demographicNo;
+                document.getElementById('demographicAC').value = demographicName;
             });
             return {
                 oDS: oDS,
@@ -280,8 +281,8 @@
                 var oData = args[2];
                 var providerNo = args[2][0];
                 var providerName = args[2][2] + "," + args[2][1];
-                $("#providerNo").val(providerNo);
-                $("#providerAC").val(providerName);
+                document.getElementById('providerNo').value = providerNo;
+                document.getElementById('providerAC').value = providerName;
             });
             return {
                 oDS: oDS,

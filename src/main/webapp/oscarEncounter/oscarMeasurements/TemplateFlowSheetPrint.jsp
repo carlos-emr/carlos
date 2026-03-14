@@ -1023,7 +1023,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
         });
 
-        $(function () {
+        document.addEventListener('DOMContentLoaded', function () {
             flatpickr('[id^=dp-]', {dateFormat: "Y-m-d", allowInput: true});
         });
 

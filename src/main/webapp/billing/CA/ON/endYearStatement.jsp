@@ -49,7 +49,7 @@
         }
 
         function demographicSearch() {
-            var search_param = $('#nameForlooksOnly').val();
+            var search_param = document.getElementById('nameForlooksOnly').value;
             var url = '<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp';
             url += '?originalpage=' + escape('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
             url += '&search_mode=search_name';
@@ -78,7 +78,7 @@
         }
 
         function validateFields() {
-            if ($('#nameForlooksOnly').val() == '') {
+            if (document.getElementById('nameForlooksOnly').value == '') {
                 alert('Please select a valid patient for this report.');
                 return false;
             }

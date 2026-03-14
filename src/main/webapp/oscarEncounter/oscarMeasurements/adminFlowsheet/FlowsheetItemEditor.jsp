@@ -92,11 +92,11 @@
             function loadItem() {
                 jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheetItem&flowsheetId=<%=flowsheetId%>&measurementType=<%=measurementType%>", {},
                     function (xml) {
-                        $("#displayName").val(xml.displayName);
-                        $("#guideline").val(xml.guideline);
-                        $("#graphable").val(xml.graphable);
-                        $("#measuringInstruction").val(xml.measuringInstruction);
-                        $("#validations").val(xml.validationId);
+                        document.getElementById('displayName').value = xml.displayName;
+                        document.getElementById('guideline').value = xml.guideline;
+                        document.getElementById('graphable').value = xml.graphable;
+                        document.getElementById('measuringInstruction').value = xml.measuringInstruction;
+                        document.getElementById('validations').value = xml.validationId;
                     });
             }
 
@@ -173,7 +173,7 @@
             }
 
             function updateDetails() {
-                var template = $("#template").val();
+                var template = document.getElementById('template').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTemplateDetails', {template: template}, function (data) {
                     //  loadFlowsheet();

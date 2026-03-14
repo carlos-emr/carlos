@@ -282,12 +282,12 @@
 
         defaultPayeeSelect();
 
-        $(document).ready(function () {
+        document.addEventListener('DOMContentLoaded', function () {
 
             const defaultValue = "<%= Property.PROPERTY_VALUE.clinicdefault.name() %>";
 
-            $("#defaultBillingProvider").on("change", function () {
-                let selected = $("#defaultBillingProvider option:selected").val();
+            document.getElementById("defaultBillingProvider").addEventListener("change", function () {
+                let selected = document.getElementById("defaultBillingProvider").value;
                 disableFields(selected);
             })
 
@@ -295,31 +295,15 @@
                 // disable other settings whenever a default providers is selected to override.
                 if (selected && selected !== defaultValue) {
 
-                    // $("#referral").prop('disabled', true);
-                    // $("#autoPopulateRefer").prop('disabled', true);
-                    // $("#defaultBillingForm").prop('disabled', true);
-                    // $("#defaultServiceLocation").prop('disabled', true);
-                    // $("#payeeProviderNo").prop('disabled', true);
-                    // $("#invoicePayeeInfo").prop('disabled', true);
-                    // $("#invoicePayeeDisplayClinicInfo").prop('disabled', true);
-
-                    $("#default-providers-alert").show();
+                    document.getElementById("default-providers-alert").style.display = '';
 
                 } else {
 
-                    // $("#referral").prop('disabled', false);
-                    // $("#autoPopulateRefer").prop('disabled', false);
-                    // $("#defaultBillingForm").prop('disabled', false);
-                    // $("#defaultServiceLocation").prop('disabled', false);
-                    // $("#payeeProviderNo").prop('disabled', false);
-                    // $("#invoicePayeeInfo").prop('disabled', false);
-                    // $("#invoicePayeeDisplayClinicInfo").prop('disabled', false);
-
-                    $("#default-providers-alert").hide();
+                    document.getElementById("default-providers-alert").style.display = 'none';
                 }
             }
 
-            disableFields($("#defaultBillingProvider option:selected").val());
+            disableFields(document.getElementById("defaultBillingProvider").value);
         })
     </script>
     </body>

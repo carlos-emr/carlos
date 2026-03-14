@@ -105,25 +105,25 @@
     var editing = false;
 
     function getProviders() {
-        var programId = $("#programId").val();
+        var programId = document.getElementById('programId').value;
         //alert(programId);
-        $("#theForm").submit();
+        document.getElementById('theForm').submit();
     }
 
     function edit() {
-        $("#viewBar").hide();
-        $("#editBar").show();
+        document.getElementById('viewBar').style.display = 'none';
+        document.getElementById('editBar').style.display = '';
         return false;
     }
 
     function save() {
-        $("#method").val('save');
-        $("#theForm").submit();
+        document.getElementById('method').value = 'save';
+        document.getElementById('theForm').submit();
     }
 
     function cancel() {
-        $("#viewBar").show();
-        $("#editBar").hide();
+        document.getElementById('viewBar').style.display = '';
+        document.getElementById('editBar').style.display = 'none';
         return false;
     }
 

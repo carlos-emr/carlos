@@ -476,8 +476,8 @@
     flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
     flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
-    $(document).ready(function () {
-        parent.resizeIframe($('html').height());
+    document.addEventListener('DOMContentLoaded', function () {
+        parent.resizeIframe(document.documentElement.scrollHeight);
     });
 
 </script>

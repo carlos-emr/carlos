@@ -1360,8 +1360,8 @@
             popupPage('800', '860', 'billingON3rdPayments.do?method=listPayments&billingNo=<%= billNo %>');
         }
 
-        $(document).ready(function () {
-            parent.parent.resizeIframe($('html').height());
+        document.addEventListener('DOMContentLoaded', function () {
+            parent.parent.resizeIframe(document.documentElement.scrollHeight);
 
         });
     </script>

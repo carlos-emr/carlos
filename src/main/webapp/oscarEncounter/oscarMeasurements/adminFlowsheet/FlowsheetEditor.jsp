@@ -101,13 +101,13 @@
                 jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheet&id=<%=id%>", {},
                     function (xml) {
                         $("#itemTable tbody").empty();
-                        $("#name").html(xml.name);
-                        $("#template").html(xml.template);
-                        $("#createdBy").html(xml.createdBy);
-                        $("#createdDate").html(xml.createdDate);
-                        $("#dxCodeTriggers").html(xml.dxCodeTriggers);
-                        $("#recommendationColour").html(xml.recommendationColour);
-                        $("#warningColour").html(xml.warningColour);
+                        document.getElementById('name').innerHTML = xml.name;
+                        document.getElementById('template').innerHTML = xml.template;
+                        document.getElementById('createdBy').innerHTML = xml.createdBy;
+                        document.getElementById('createdDate').innerHTML = xml.createdDate;
+                        document.getElementById('dxCodeTriggers').innerHTML = xml.dxCodeTriggers;
+                        document.getElementById('recommendationColour').innerHTML = xml.recommendationColour;
+                        document.getElementById('warningColour').innerHTML = xml.warningColour;
 
 
                         for (var x = 0; x < xml.items.length; x++) {
@@ -164,7 +164,7 @@
 
 
             function addMeasurement() {
-                var typeId = $("#types").val();
+                var typeId = document.getElementById('types').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addMeasurement', {
                     flowsheetId:<%=id%>,
@@ -175,7 +175,7 @@
             }
 
             function addPrevention() {
-                var typeId = $("#preventionTypes").val();
+                var typeId = document.getElementById('preventionTypes').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addPrevention', {
                     flowsheetId:<%=id%>,

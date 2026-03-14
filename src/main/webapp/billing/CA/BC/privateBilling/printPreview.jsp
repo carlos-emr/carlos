@@ -503,7 +503,7 @@
 <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript">
     function handleClickBillToClinic() {
-        var billToClinic = $("input:checkbox#cbBillToClinic").is(":checked");
+        var billToClinic = document.getElementById('cbBillToClinic').checked;
         var encodedParams = encodeURIComponent('${billIds}');
         // redirect to print-ready page via controller
         window.location.href = "${ctx}/PrivateBillingController?action=printPreviewBills&billToClinic=" + billToClinic + "&billIds=" + encodedParams;

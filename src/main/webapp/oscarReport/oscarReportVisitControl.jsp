@@ -242,10 +242,10 @@
     registerFormSubmit('visitForm', 'dynamic-content');
 
     function toggleDivs() {
-        if ($('input[name=reportAction]:checked').val() == 'vr')
-            $("#providerview").removeAttr('disabled');
+        if (document.querySelector('input[name=reportAction]:checked').value == 'vr')
+            document.getElementById('providerview').disabled = false;
         else
-            $("#providerview").attr('disabled', 'disabled');
+            document.getElementById('providerview').disabled = true;
     }
 </script>
 </body>

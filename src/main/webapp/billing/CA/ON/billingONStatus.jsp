@@ -234,7 +234,7 @@
               rel="stylesheet">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
                 flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
@@ -373,8 +373,8 @@
 
 
             updateSort = function (name) {
-                var sortName = $("#sortName").val();
-                var sortOrder = $("#sortOrder").val();
+                var sortName = document.getElementById("sortName").value;
+                var sortOrder = document.getElementById("sortOrder").value;
 
                 if (sortName != name) {
                     sortName = name;
@@ -390,8 +390,8 @@
                     }
                 }
 
-                $("#sortName").val(sortName);
-                $("#sortOrder").val(sortOrder);
+                document.getElementById("sortName").value = sortName;
+                document.getElementById("sortOrder").value = sortOrder;
 
                 document.serviceform.submit();
             }

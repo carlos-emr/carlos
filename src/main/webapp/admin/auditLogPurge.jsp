@@ -77,13 +77,13 @@
 
 
         <script>
-            jQuery(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 flatpickr("#dateBegin", {dateFormat: "Y-m-d", allowInput: true});
             });
 
             function submitForm() {
 
-                if (jQuery("#dateBegin").val().length == 0) {
+                if (document.getElementById('dateBegin').value.length == 0) {
                     alert('Please fill in a date');
                     return false;
                 }
@@ -91,7 +91,7 @@
             }
 
             function resetForm() {
-                jQuery("#dateBegin").val("");
+                document.getElementById('dateBegin').value = "";
             }
 
         </SCRIPT>

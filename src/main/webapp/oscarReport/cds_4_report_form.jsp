@@ -137,27 +137,21 @@
                 </select>
                 <script type="text/javascript">
                     function showFilterCriteria() {
-                        var selection = jQuery('#filterCriteriaSelection').val();
+                        var selection = document.getElementById('filterCriteriaSelection').value;
 
                         if (selection == "PROVIDER") {
-                            jQuery('#providerText').show();
-                            jQuery('#providerOptions').show();
-                            jQuery('#programText').hide();
-                            jQuery('#programOptions').hide();
+                            document.getElementById('providerOptions').style.display = '';
+                            document.getElementById('programOptions').style.display = 'none';
                         } else if (selection == "PROGRAM") {
-                            jQuery('#providerText').hide();
-                            jQuery('#providerOptions').hide();
-                            jQuery('#programText').show();
-                            jQuery('#programOptions').show();
+                            document.getElementById('providerOptions').style.display = 'none';
+                            document.getElementById('programOptions').style.display = '';
                         } else {
-                            jQuery('#providerText').hide();
-                            jQuery('#providerOptions').hide();
-                            jQuery('#programText').hide();
-                            jQuery('#programOptions').hide();
+                            document.getElementById('providerOptions').style.display = 'none';
+                            document.getElementById('programOptions').style.display = 'none';
                         }
                     }
 
-                    $(document).ready(function () {
+                    document.addEventListener('DOMContentLoaded', function () {
                         showFilterCriteria();
                     });
                 </script>

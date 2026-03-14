@@ -380,12 +380,9 @@
 </div>
 
 <script>
-    $(function () {
+    document.addEventListener('DOMContentLoaded', function () {
         flatpickr('#BillDate', {dateFormat: "Y-m-d", allowInput: true});
-    });
-
-    $(document).ready(function () {
-        parent.parent.resizeIframe($('html').height() + 300);
+        parent.parent.resizeIframe(document.documentElement.scrollHeight + 300);
     });
 
 </script>

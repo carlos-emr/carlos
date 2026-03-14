@@ -794,7 +794,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
     <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
 
     <script>
-        $(function () {
+        document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
         });
 

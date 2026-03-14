@@ -377,7 +377,7 @@
 
     </body>
     <script type="text/javascript">
-        $(function () {
+        document.addEventListener('DOMContentLoaded', function () {
             flatpickr('#billingservice_date', {dateFormat: "Y-m-d", allowInput: true});
         });
     </script>

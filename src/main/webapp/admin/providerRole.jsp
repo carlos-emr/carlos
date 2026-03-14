@@ -429,13 +429,13 @@
 }
 %>
 
-        $(document).ready(function () {
-            $("#primaryRoleProvider").val("");
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('primaryRoleProvider').value = "";
         });
 
         function primaryRoleChooseProvider() {
             $("#primaryRoleRole").find('option').remove();
-            var provider = $("#primaryRoleProvider").val();
+            var provider = document.getElementById('primaryRoleProvider').value;
             for (var i = 0; i < items.length; i++) {
                     if(items[i].providerNo === provider && items[i].role_id !== "") {
                     $("#primaryRoleRole").append('<option value="' + items[i].roleName + '">' + items[i].roleName + '</option>');
@@ -444,8 +444,8 @@
         }
 
         function setPrimaryRole() {
-            var providerNo = $("#primaryRoleProvider").val();
-            var roleName = $("#primaryRoleRole").val();
+            var providerNo = document.getElementById('primaryRoleProvider').value;
+            var roleName = document.getElementById('primaryRoleRole').value;
             if(providerNo !== '' && roleName !== '') {
                 return true;
             } else {

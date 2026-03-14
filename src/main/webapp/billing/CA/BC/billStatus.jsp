@@ -129,21 +129,25 @@
 
     <script>
         function checkChecked() {
-            if ($('input[name^="billCheck"]:checked').length > 0) {
-                $('#resubmitButton').attr("disabled", false);
-                $('#settleButton').attr("disabled", false);
+            if (document.querySelectorAll('input[name^="billCheck"]:checked').length > 0) {
+                document.getElementById('resubmitButton').disabled = false;
+                document.getElementById('settleButton').disabled = false;
             } else {
-                $('#resubmitButton').attr("disabled", true);
-                $('#settleButton').attr("disabled", true);
+                document.getElementById('resubmitButton').disabled = true;
+                document.getElementById('settleButton').disabled = true;
             }
         }
 
-        $(document).ready(function () {
-            $(document).on("click", "input[name^='billCheck']", function () {
-                checkChecked()
+        document.addEventListener('DOMContentLoaded', function () {
+            document.addEventListener("click", function (e) {
+                if (e.target && e.target.matches("input[name^='billCheck']")) {
+                    checkChecked();
+                }
             });
-            $(document).on("change", "#checkAll", function () {
-                checkChecked()
+            document.addEventListener("change", function (e) {
+                if (e.target && e.target.id === "checkAll") {
+                    checkChecked();
+                }
             });
             checkChecked();
         })
@@ -208,8 +212,13 @@
             document.serviceform.elements[showEle].checked = true;
         }
 
-        $(document).on('click', '#checkAll', function () {
-            $("input[name^='billCheck']").prop('checked', $(this).is(':checked'));
+        document.addEventListener('click', function (e) {
+            if (e.target && e.target.id === 'checkAll') {
+                var isChecked = e.target.checked;
+                document.querySelectorAll("input[name^='billCheck']").forEach(function (el) {
+                    el.checked = isChecked;
+                });
+            }
         })
 
         function setOperation(value) {

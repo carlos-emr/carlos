@@ -99,13 +99,13 @@
 
         <script>
             function changeGroup() {
-                $("#method").val('setGroupNo');
-                $("#myform").submit();
+                document.getElementById('method').value = 'setGroupNo';
+                document.getElementById('myform').submit();
             }
 
             function save_acl() {
-                $("#method").val('save');
-                $("#myform").submit();
+                document.getElementById('method').value = 'save';
+                document.getElementById('myform').submit();
             }
         </script>
     </head>

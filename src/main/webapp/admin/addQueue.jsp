@@ -112,8 +112,8 @@
 
 <script type="text/javascript">
 
-    var pageTitle = $(document).attr('title');
-    $(document).attr('title', 'Administration Panel | Add New Inbox Queue');
+    var pageTitle = document.title;
+    document.title = 'Administration Panel | Add New Inbox Queue';
 
     $(document).ready(function ($) {
 
