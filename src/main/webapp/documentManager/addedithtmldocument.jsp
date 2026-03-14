@@ -28,6 +28,29 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    addedithtmldocument.jsp
+
+    Purpose: Provides a form for creating and editing HTML-based documents in the Document Manager.
+
+    Features:
+    - Bootstrap 5 styled form with validation
+    - Dynamic population of document types, classes, and subclasses from database
+    - HTML content editing via textarea
+    - Reviewed button for existing documents (oldDoc=true)
+    - OWASP-encoded outputs to prevent XSS
+
+    Parameters:
+    - editDocumentNo: Document ID for edit mode (optional; omit for new document)
+    - function / functionid: Module context (demographic/provider) and entity ID
+    - mode: Operation mode
+
+    Security:
+    - Requires _edoc write privilege
+    - All user-visible outputs OWASP-encoded
+
+    @since CARLOS 2026.03
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -281,7 +304,7 @@
     <% if (EDocUtil.isProviderModule(module)) {%>
     <div class="form-check mb-2">
         <input type="checkbox" class="form-check-input" name="docPublic" id="docPublic"
-            <%=formdata.getDocPublic() + " "%> value="checked">
+            <%=Encode.forHtmlAttribute(formdata.getDocPublic() + " ")%> value="checked">
         <label class="form-check-label small" for="docPublic">Public</label>
     </div>
     <% } %>

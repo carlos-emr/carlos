@@ -556,7 +556,7 @@
     });
 </script>
 
-<div class="container">
+<div class="container d-print-none">
     <div class="mt-3 mb-3 text-end">
         <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>

@@ -28,6 +28,30 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    addDocument.jsp
+
+    Purpose: Provides "Add Document" and "Add Link" panel forms included within documentReport.jsp.
+    This page is not intended to be accessed directly — it is embedded via jsp:include.
+
+    Features:
+    - Bootstrap 5 styled panels for uploading a file or adding a URL link
+    - Client-side validation for type, description, file/link, and observation date
+    - OWASP-encoded hidden inputs and onclick attributes (XSS prevention)
+    - Panels toggle via showhide() — only one panel is open at a time
+
+    Parameters (from documentReport.jsp include or direct request):
+    - function / functionid: Module context (e.g. demographic, provider) and entity ID
+    - appointmentNo: Optional appointment reference
+    - curUser: Current logged-in user
+    - mode: If "add", the Add Document panel is auto-opened on load
+
+    Security:
+    - Requires _edoc write privilege
+    - All user-visible outputs OWASP-encoded
+
+    @since CARLOS 2026.03
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -174,31 +198,26 @@
         {div: "addLinkDiv", btn: "plusminusLinkA"}
     ];
 
-    function showhide(hideelement, button) {
-        var plusIcon = document.createElement('i');
-        plusIcon.className = 'fa-solid fa-plus';
-        var minusIcon = document.createElement('i');
-        minusIcon.className = 'fa-solid fa-minus';
-        var el = document.getElementById(hideelement);
-        var btn = document.getElementById(button);
-        if (!el || !btn) return;
-        if (el.style.display === 'none') {
-            el.style.display = 'block';
+    function showhide(targetDivId, targetBtnId) {
+        allPanels.forEach(function(panel) {
+            var panelDiv = document.getElementById(panel.div);
+            var btn = document.getElementById(panel.btn);
+            if (!panelDiv || !btn) return;
             var icon = btn.querySelector('i.fa-solid');
-            if (icon) { icon.className = 'fa-solid fa-minus'; }
-            for (var i = 0; i < allPanels.length; i++) {
-                if (allPanels[i].div !== hideelement) {
-                    var otherEl = document.getElementById(allPanels[i].div);
-                    if (otherEl && otherEl.style.display !== 'none') {
-                        showhide(allPanels[i].div, allPanels[i].btn);
-                    }
+            if (panel.div === targetDivId && panel.btn === targetBtnId) {
+                // Toggle the requested panel
+                var isHidden = panelDiv.style.display === 'none' ||
+                    window.getComputedStyle(panelDiv).display === 'none';
+                panelDiv.style.display = isHidden ? 'block' : 'none';
+                if (icon) {
+                    icon.className = isHidden ? 'fa-solid fa-minus' : 'fa-solid fa-plus';
                 }
+            } else {
+                // Close all other panels
+                panelDiv.style.display = 'none';
+                if (icon) { icon.className = 'fa-solid fa-plus'; }
             }
-        } else {
-            el.style.display = 'none';
-            var icon = btn.querySelector('i.fa-solid');
-            if (icon) { icon.className = 'fa-solid fa-plus'; }
-        }
+        });
     }
 
     function submitUpload(object) {
@@ -212,28 +231,28 @@
         if (!typeEl || typeEl.value === "") {
             errors.push("- Document type is required");
             if (typeEl) typeEl.classList.add('is-invalid');
-        } else if (typeEl) {
+        } else {
             typeEl.classList.remove('is-invalid');
         }
 
         if (!descEl || descEl.value.trim() === "" || descEl.value === "Enter Title") {
             errors.push("- Description is required");
             if (descEl) descEl.classList.add('is-invalid');
-        } else if (descEl) {
+        } else {
             descEl.classList.remove('is-invalid');
         }
 
         if (!fileEl || fileEl.value === "") {
             errors.push("- Please select a file to upload");
             if (fileEl) fileEl.classList.add('is-invalid');
-        } else if (fileEl) {
+        } else {
             fileEl.classList.remove('is-invalid');
         }
 
         if (!dateEl || dateEl.value.trim() === "") {
             errors.push("- Observation date is required");
             if (dateEl) dateEl.classList.add('is-invalid');
-        } else if (dateEl) {
+        } else {
             dateEl.classList.remove('is-invalid');
         }
 
@@ -255,21 +274,21 @@
         if (!typeEl || typeEl.value === "") {
             errors.push("- Link type is required");
             if (typeEl) typeEl.classList.add('is-invalid');
-        } else if (typeEl) {
+        } else {
             typeEl.classList.remove('is-invalid');
         }
 
         if (!descEl || descEl.value.trim() === "" || descEl.value === "Enter Title") {
             errors.push("- Description is required");
             if (descEl) descEl.classList.add('is-invalid');
-        } else if (descEl) {
+        } else {
             descEl.classList.remove('is-invalid');
         }
 
         if (!linkEl || linkEl.value.trim() === "") {
             errors.push("- Link URL is required");
             if (linkEl) linkEl.classList.add('is-invalid');
-        } else if (linkEl) {
+        } else {
             linkEl.classList.remove('is-invalid');
         }
 
@@ -432,7 +451,7 @@
                         <input type="submit" name="Submit" value="Add" class="btn btn-primary">
                         <input type="button" name="Button" class="btn btn-error"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
-                               onclick="window.location='documentReport.jsp?function=<%=Encode.forJavaScript(module)%>&functionid=<%=Encode.forJavaScript(moduleid)%>'">
+                               onclick="window.location='documentReport.jsp?function=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(moduleid))%>'">
 
                     </div>
                 </div>
@@ -531,7 +550,7 @@
                     <input class="btn btn-primary" type="SUBMIT" name="Submit" value="Add">
                     <input class="btn" type="button" name="Button"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
-                           onclick="window.location='documentReport.jsp?function=<%=Encode.forJavaScript(module)%>&functionid=<%=Encode.forJavaScript(moduleid)%>'">
+                           onclick="window.location='documentReport.jsp?function=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(moduleid))%>'">
                 </div>
             </div>
             </form>

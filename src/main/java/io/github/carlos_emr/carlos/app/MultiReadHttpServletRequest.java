@@ -149,6 +149,8 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
                     temp.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>())
                             .add(item.getString(encoding));
                 }
+                // Delete the item to release any temp files, regardless of whether it is a form field
+                item.delete();
             }
             for (Map.Entry<String, List<String>> entry : temp.entrySet()) {
                 multipartParams.put(entry.getKey(), entry.getValue().toArray(new String[0]));
@@ -173,11 +175,20 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         return (values != null && values.length > 0) ? values[0] : null;
     }
 
+    /**
+     * Returns a combined parameter map of query-string/standard parameters merged with multipart
+     * form fields. Query-string parameters take precedence: if the same key appears in both
+     * the query string and the multipart body, the query-string values are kept. This is the
+     * correct behaviour for CSRF validation — a token supplied on the query string (e.g. via a
+     * redirect) is never silently replaced by a value from the request body.
+     */
     @Override
     public Map<String, String[]> getParameterMap() {
         Map<String, String[]> combined = new HashMap<>(super.getParameterMap());
         parseMultipartParams();
         for (Map.Entry<String, String[]> entry : multipartParams.entrySet()) {
+            // Query-string values take precedence; multipart values are only added when the
+            // key is absent from the query string.
             combined.putIfAbsent(entry.getKey(), entry.getValue());
         }
         return Collections.unmodifiableMap(combined);

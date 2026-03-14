@@ -28,6 +28,32 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    documentReport.jsp
+
+    Purpose: Main Document Manager page; lists all documents associated with a patient
+    or provider module in a searchable, filterable DataTable.
+
+    Features:
+    - Bootstrap 5 page-header-bar with FontAwesome icons and patient info bar
+    - DataTables integration with merged Category/Type column and date sorting
+    - Action buttons: Edit, Annotate, Delete/Undelete (CSRF-protected dynamic forms)
+    - Inline "Add Document" and "Add Link" panels (from addDocument.jsp include)
+    - OWASP-encoded JS string contexts and onclick attributes to prevent XSS
+    - NumberFormatException guard on appointmentNo parameter
+
+    Request Parameters:
+    - function: Module context (demographic / provider)
+    - functionid: Module entity ID
+    - appointmentNo: Optional appointment reference (invalid values default to 0)
+    - parentAjaxId: Optional encounter navbar AJAX refresh target
+
+    Security:
+    - Requires _edoc read privilege
+    - CSRF token injected into all dynamic POST forms
+
+    @since CARLOS 2026.03
+--%>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>

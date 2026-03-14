@@ -28,6 +28,29 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    editDocument.jsp
+
+    Purpose: Provides a compact Bootstrap 5 form for editing an existing document's metadata
+    in the CARLOS Document Manager.
+
+    Features:
+    - Client-side validation for type, description, and observation date
+    - Dynamic subclass population from database
+    - Optional file replacement when ALLOW_UPDATE_DOCUMENT_CONTENT property is enabled
+    - OWASP-encoded hidden inputs, displayed values, and attributes to prevent XSS
+
+    Request Parameters:
+    - editDocumentNo: ID of the document to edit
+    - function / functionid: Module context (demographic/provider) and entity ID
+
+    Security:
+    - Requires _edoc write privilege
+    - All user-visible outputs OWASP-encoded
+    - CSRF-protected form POST
+
+    @since CARLOS 2026.03
+--%>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -164,21 +187,21 @@
             if (!typeEl || typeEl.value === "") {
                 errors.push("- Document type is required");
                 if (typeEl) typeEl.classList.add('is-invalid');
-            } else if (typeEl) {
+            } else {
                 typeEl.classList.remove('is-invalid');
             }
 
             if (!descEl || descEl.value.trim() === "") {
                 errors.push("- Description is required");
                 if (descEl) descEl.classList.add('is-invalid');
-            } else if (descEl) {
+            } else {
                 descEl.classList.remove('is-invalid');
             }
 
             if (!dateEl || dateEl.value.trim() === "") {
                 errors.push("- Observation date is required");
                 if (dateEl) dateEl.classList.add('is-invalid');
-            } else if (dateEl) {
+            } else {
                 dateEl.classList.remove('is-invalid');
             }
 
