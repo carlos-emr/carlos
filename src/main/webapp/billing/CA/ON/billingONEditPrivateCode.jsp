@@ -352,7 +352,7 @@
 
                 Issued Date <small>(effective date)</small><br>
 
-                <div class="input-group date" id="billingservice_date" data-date="" data-date-format="yyyy-mm-dd">
+                <div class="input-group date" data-date="">
                     <input style="width:90px" name="billingservice_date" id="billingservice_date" size="16" type="text"
                            value="" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" readonly>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>

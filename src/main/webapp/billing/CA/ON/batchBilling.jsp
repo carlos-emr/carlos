@@ -341,7 +341,7 @@
                         <div class="input-group">
                             <input type="text" name="BillDate" id="BillDate"
                                    value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
-                                   data-date-format="yyyy-m-d" style="width:90px" autocomplete="off" readonly/>
+                                   style="width:90px" autocomplete="off" readonly/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>

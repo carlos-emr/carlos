@@ -637,17 +637,17 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                             <div class="range-<%=measure%>" style="display:none">
                                 <div class="input-group date" id="dp-startDate-<%=measure%>" data-date="<%=date%>"
-                                     data-date-format="yyyy-mm-dd" title="Start Date">
+                                     title="Start Date">
                                     <input style="width:90px" name="sDate<%=measure%>" id="sDate-<%=measure%>" size="16"
-                                           type="text" value="" placeholder="start"
+                                           type="text" value="" placeholder="start" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
 
                                 <div class="input-group date" id="dp-endDate-<%=measure%>" data-date="<%=date%>"
-                                     data-date-format="yyyy-mm-dd" title="End Date">
+                                     title="End Date">
                                     <input style="width:90px" name="eDate<%=measure%>" id="eDate-<%=measure%>" size="16"
-                                           type="text" value="" placeholder="end"
+                                           type="text" value="" placeholder="end" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
@@ -1024,7 +1024,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
         });
 
         document.addEventListener('DOMContentLoaded', function () {
-            flatpickr('[id^=dp-]', {dateFormat: "Y-m-d", allowInput: true});
+            flatpickr('[id^=dp-]', {dateFormat: "Y-m-d", allowInput: true, wrap: true});
         });
 
         $(document).ready(function () {
