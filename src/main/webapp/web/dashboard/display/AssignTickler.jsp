@@ -119,7 +119,7 @@
 
             <label for="datePickerServiceDate" class="form-label">Service
                 Date:</label>
-            <div class="controls">
+            <div>
                 <div class="input-group">
                     <input name="serviceDate" id="datePickerServiceDate" type="text"
                            class="date-picker form-control required"/>
@@ -132,7 +132,7 @@
 
         <div class="col-6">
             <label for="ticklerTime" class="form-label"> Time:</label>
-            <div class="controls">
+            <div>
                 <div class="input-group">
                     <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required"/>
                     <label for="ticklerTime" class="input-group-text btn">

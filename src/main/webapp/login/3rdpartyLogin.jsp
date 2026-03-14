@@ -282,14 +282,14 @@
                         <c:forEach var="perm" items="${oauthData.permissions}">
                             <div class="mb-3">
                             <div>
-                                <label class="form-check">
-                                <input type="checkbox" checked="checked" disabled="disabled">
-                                <e:forHtmlContent value='${perm}' />
+                                <div class="form-check">
+                                <input type="checkbox" class="form-check-input" checked="checked" disabled="disabled">
+                                <label class="form-check-label"><e:forHtmlContent value='${perm}' />
                                 <c:if test="${empty fn:trim(perm)}">
                                     <em>(no description)</em>
                                 </c:if>
                                 </label>
-                            </div>
+                                </div>
                             </div>
                         </c:forEach>
 

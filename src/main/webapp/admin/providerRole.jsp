@@ -493,7 +493,7 @@
     <% } %>
     <div class="card card-body bg-body-tertiary">
 
-        <div class="controls">
+        <div>
             <div class="input-group">
                 <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
                        value="<%=Encode.forHtmlAttribute(keyword)%>"/>

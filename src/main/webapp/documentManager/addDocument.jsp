@@ -308,7 +308,7 @@
             </div>
             <div class="mb-3">
                 <label for="observationDate" title="Observation Date">Observation Date</label>
-                <input class="col-md-2 form-control" type="date" name="observationDate" id="observationDate"
+                <input class="form-control" type="date" name="observationDate" id="observationDate"
                        value="<%=formdata.getObservationDate()%>"
                        onclick="checkDefaultDate(this, '<%=UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>')">
             </div>

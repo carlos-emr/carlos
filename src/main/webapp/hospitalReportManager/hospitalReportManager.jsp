@@ -90,9 +90,9 @@
             String statement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
         %>
         <form action="<%=request.getContextPath() %>/hospitalReportManager/Statement.do" method="post">
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label">Provider Confidentiality Statement</label>
-                <div class="controls">
+                <div>
                     <textarea name="statement"><%= Encode.forHtml(statement != null ? statement : "") %></textarea>
                 </div>
             </div>

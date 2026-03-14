@@ -342,11 +342,11 @@
         <form id="reportForm">
 
             <div>
-                <div class="controls controls-row">
-                    <div class="control-group col-md-8" id="group1">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-8" id="group1">
                         <label class="form-label" for="eformReportToolEformId">Choose
                             EForm:</label>
-                        <div class="controls">
+                        <div>
                             <select id="eformReportToolEformId"
                                     name="eformReportTool.eformId">
                                 <option></option>
@@ -354,10 +354,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="controls controls-row">
-                    <div class="control-group col-md-8" id="group2">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-8" id="group2">
                         <label class="form-label" for="eformReportToolName">Name:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="eformReportTool.name"
                                    id="eformReportToolName"/>
                         </div>
@@ -365,12 +365,12 @@
 
 
                 </div>
-                <div class="controls controls-row">
+                <div class="d-flex gap-2">
 
-                    <div class="control-group col-md-8" id="group3">
+                    <div class="mb-3 col-md-8" id="group3">
                         <label class="form-label" for="eformExpiryDate">Expiry
                             Date:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="eformReportTool.expiryDate"
                                    id="eformExpiryDate" value=""/>
                         </div>

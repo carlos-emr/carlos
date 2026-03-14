@@ -295,7 +295,7 @@
                 <legend>Search Faxes</legend>
                 <div class="input-group col-md-3">
 
-                    <input class="col-md-2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                    <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="From" id="dateBegin" name="dateBegin" required/>
                     <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
@@ -304,14 +304,14 @@
 
                 <div class="input-group col-md-3">
 
-                    <input class="col-md-2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                    <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="To" id="dateEnd" name="dateEnd" required/>
                     <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
                 <div class="col-md-6">
-                    <input class="col-md-6" type="text" placeholder="Pt. Name (last, first)" id="autocompletedemo"/>
+                    <input class="form-control" type="text" placeholder="Pt. Name (last, first)" id="autocompletedemo"/>
                     <input type="hidden" id="demographic_no" name="demographic_no" value="">
                 </div>
 
@@ -319,7 +319,7 @@
 
             <div class="row">
                 <div class="col-md-5">
-                    <select class="col-md-5" name="oscarUser">
+                    <select class="form-select" name="oscarUser">
                         <option value="-1">Provider</option>
 
                         <%
@@ -338,7 +338,7 @@
                     </select>
                 </div>
                 <div class="col-md-5">
-                    <select class="col-md-5" name="team">
+                    <select class="form-select" name="team">
                         <option value="-1">Team</option>
                         <%
                             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
@@ -354,7 +354,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <select class="col-md-2" name="status">
+                    <select class="form-select" name="status">
                         <option value="-1">Status</option>
 
                         <%

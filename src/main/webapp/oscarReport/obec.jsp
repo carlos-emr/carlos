@@ -114,25 +114,25 @@
             date and number of days.</small>
         </h4>
         <div class="row">
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label">Begin Date</label>
-                <div class="controls">
+                <div>
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
                            value="<%=xml_vdate%>" placeholder="Service Begin Date">
                 </div>
             </div>
-            <div class="control-group" id="providerDiv">
+            <div class="mb-3" id="providerDiv">
                 <label class="form-label">Days</label>
 
-                <div class="controls">
+                <div>
 
                     <input type="text" id="numDays" name="numDays" value="<%=numDays%>"
                            class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <input type="submit" name="Submit" value="Create Report"
                            class="btn btn-primary">
                 </div>

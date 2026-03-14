@@ -84,22 +84,22 @@
                 program of type bed or service.</small>
         </h4>
         <div class="row">
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label">Start Date</label>
-                <div class="controls">
+                <div>
                     <input id="startDate" name="startDate" class="form-control form-control-sm d-inline-block w-auto" size="7"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label">EndDate (inclusive)</label>
-                <div class="controls">
+                <div>
                     <input id="endDate" name="endDate" class="form-control form-control-sm d-inline-block w-auto" size="7"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <button type="submit" class="btn btn-primary">
                         <i class="fa-solid fa-download"></i> Export
                     </button>

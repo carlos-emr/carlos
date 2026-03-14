@@ -117,7 +117,7 @@
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="col-md-4" id="nameForlooksOnly" type="text" value="<%=name%>">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=name%>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>

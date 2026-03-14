@@ -143,7 +143,7 @@
 
     <div class="noprint form-actions">
 
-        <div style="margin-bottom:15px;" class="controls controls-row">
+        <div style="margin-bottom:15px;" class="d-flex gap-2">
             <input type="button" class="btn btn-primary" value="Back"
                    onclick="document.location='reportConfiguration.jsp?templateid=${ reportobject.templateId }'">
             <input type="button" class="btn btn-primary" value="Print" onclick="window.print();">

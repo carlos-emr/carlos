@@ -121,8 +121,8 @@
                         <s:actionmessage/>
                     </div>
                 </s:if>
-                <div class="control-group">
-                    <div class="controls">
+                <div class="mb-3">
+                    <div>
                         <label class="form-label" for="zippedForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgFileName"/></label>
                         <input type="file" name="image" id="image" class="check" size="40" required>
                         <span style="color:red;">

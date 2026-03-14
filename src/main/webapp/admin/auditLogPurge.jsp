@@ -156,7 +156,7 @@
                     chosen date.
                 </p>
 
-                Most Recent Day to purge: <input class="col-md-4" type="text" id="dateBegin" name="dateBegin" value=""/>
+                Most Recent Day to purge: <input class="form-control" type="text" id="dateBegin" name="dateBegin" value=""/>
 
                 <br/>
 

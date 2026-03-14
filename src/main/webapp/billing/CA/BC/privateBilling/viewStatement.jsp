@@ -73,9 +73,8 @@
             </div>
             <div class="btn-group me-2" role="group" arial-label="Button group 2">
                 <div class="form-check">
-                    <label>
-                        <input style="margin-top:0px;" type="checkbox" id="cbBillToClinic" checked> Bill To Clinic
-                    </label>
+                    <input class="form-check-input" type="checkbox" id="cbBillToClinic" checked>
+                    <label class="form-check-label" for="cbBillToClinic">Bill To Clinic</label>
                 </div>
             </div>
         </div>

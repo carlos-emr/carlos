@@ -234,21 +234,21 @@
         <p class="validateTips"></p>
         <form>
             <fieldset>
-                <div class="control-group">
+                <div class="mb-3">
                     <label class="form-label" for="clientName">Name:</label>
-                    <div class="controls">
+                    <div>
                         <input type="text" name="clientName" id="clientName"/>
                     </div>
                 </div>
-                <div class="control-group">
+                <div class="mb-3">
                     <label class="form-label" for="clientURI">URI:</label>
-                    <div class="controls">
+                    <div>
                         <input type="text" name="clientURI" id="clientURI"/>
                     </div>
                 </div>
-                <div class="control-group">
+                <div class="mb-3">
                     <label class="form-label" for="lifetime">Token Lifetime (seconds):</label>
-                    <div class="controls">
+                    <div>
                         <input type="text" name="lifetime" id="lifetime"/>
                     </div>
                 </div>

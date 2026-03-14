@@ -455,7 +455,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label for="providerType">Fax Provider</label>
-                                <select class="col-md-6" id="providerType" name="providerType">
+                                <select class="form-select" id="providerType" name="providerType">
                                     <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>>Middleware Relay (faxws)</option>
                                     <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>>SRFax Direct API</option>
                                 </select>
@@ -474,7 +474,7 @@
                                 </div>
                                 <div class="col-md-12">
                                     <label for="faxUrl"><i class="fas fa-link"></i> Middleware Relay URL</label>
-                                    <input class="col-md-12" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
+                                    <input class="form-control" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
                                            value="<%=Encode.forHtmlAttribute(faxUrl)%>"/>
                                     <small class="fax-muted">URL of your middleware relay server</small>
                                 </div>
@@ -482,13 +482,13 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <label for="faxServiceUser"><i class="fas fa-user"></i> Middleware Username</label>
-                                    <input class="col-md-6" id="faxServiceUser" type="text" name="siteUser"
+                                    <input class="form-control" id="faxServiceUser" type="text" name="siteUser"
                                            value="<%=Encode.forHtmlAttribute(siteUser)%>"/>
                                     <small class="fax-muted">Username for middleware relay server</small>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="faxServicePasswd"><i class="fas fa-key"></i> Middleware Password</label>
-                                    <input class="col-md-6" id="faxServicePasswd" type="password" name="sitePasswd"
+                                    <input class="form-control" id="faxServicePasswd" type="password" name="sitePasswd"
                                            value="<%=Encode.forHtmlAttribute(sitePasswd)%>"/>
                                     <small class="fax-muted">Password for middleware relay server</small>
                                 </div>
@@ -501,7 +501,7 @@
                                 <div class="col-md-12">
                                     <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax API Endpoint</h6>
                                     <label><i class="fas fa-link"></i> API URL</label>
-                                    <input class="col-md-12" type="text" readonly
+                                    <input class="form-control" type="text" readonly
                                            value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                     <small class="fax-muted"><i class="fas fa-lock"></i> Default endpoint &mdash; override via <code>srfax.api.url</code> in carlos.properties only</small>
@@ -519,13 +519,13 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="faxUser">SRFax Username</label>
-                                <input class="col-md-6" type="text" id="faxUser" name="faxUser"
+                                <input class="form-control" type="text" id="faxUser" name="faxUser"
                                        value="<%=Encode.forHtmlAttribute(faxUser)%>"/>
                                 <input type="hidden" id="id" name="id" value="<%=Encode.forHtmlAttribute(configId)%>"/>
                             </div>
                             <div class="col-md-6">
                                 <label for="faxPasswd">SRFax Password</label>
-                                <input class="col-md-6" type="password" id="faxPasswd" name="faxPassword"
+                                <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
                                        value="<%=Encode.forHtmlAttribute(faxPassword)%>"/>
                             </div>
                         </div>
@@ -534,12 +534,12 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label for="faxNumber">Fax Number</label>
-                                <input class="col-md-6" type="text" id="faxNumber" name="faxNumber"
+                                <input class="form-control" type="text" id="faxNumber" name="faxNumber"
                                        value="<%=Encode.forHtmlAttribute(faxNumber)%>"/>
                             </div>
                             <div class="col-md-6">
                                 <label for="senderEmail">Email</label>
-                                <input class="col-md-6" type="email" id="senderEmail" name="senderEmail"
+                                <input class="form-control" type="email" id="senderEmail" name="senderEmail"
                                        placeholder="Account email"
                                        value="<%=Encode.forHtmlAttribute(senderEmail)%>"/>
                             </div>
@@ -547,7 +547,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label>Inbox Queue</label>
-                                <input class="col-md-6" type="text" readonly
+                                <input class="form-control" type="text" readonly
                                        value="<%=Encode.forHtmlAttribute(queueMap.getOrDefault(queueId, "default"))%>"
                                        style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                 <input type="hidden" name="inboxQueue" value="<%=queueId%>"/>
@@ -555,7 +555,7 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="accountName">Account Name</label>
-                                <input class="col-md-6" type="text" name="accountName" id="accountName"
+                                <input class="form-control" type="text" name="accountName" id="accountName"
                                        value="<%=Encode.forHtmlAttribute(accountName)%>"/>
                             </div>
                         </div>

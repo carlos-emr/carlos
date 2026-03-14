@@ -287,16 +287,18 @@
                         <div class="tab-pane active" id="local-contacts">
                             <c:forEach items="${ localContacts }" var="contact" varStatus="count">
                                 <div class="row contact-entry">
-                                    <label class="form-check">
-                                        <input type="checkbox" value="${ contact.id.compositeId }"
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" value="${ contact.id.compositeId }"
                                             ${ contact.member ? 'checked="checked"' : '' } />
+                                        <label class="form-check-label">
                                         <span id="${ contact.id.compositeId }" class="provider-name">
 									<c:out value="${ contact.lastName }"/>, <c:out value="${ contact.firstName }"/>
 								</span>
                                         <span class="text-muted">
 									<c:out value="${ contact.providerType }"/>
 								</span>
-                                    </label>
+                                        </label>
+                                    </div>
                                 </div>
                             </c:forEach>
                         </div>
@@ -327,7 +329,7 @@
                                 <div id="group-member-list-${ group.key.id }">
                                     <c:forEach items="${ group.value }" var="member">
                                         <div class="row contact-entry">
-                                            <label class="form-check">
+                                            <div class="form-check">
                                                 <i class="fa-solid fa-trash group-member"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
                                                    title="Remove Contact"
@@ -339,11 +341,11 @@
                                                 <span class="text-muted">
 											<c:out value="${ member.providerType }"/>
 										</span>
-                                            </label>
+                                            </div>
                                         </div>
                                     </c:forEach>
                                 </div>
-                                <div class="control-group contact-group-buttons">
+                                <div class="mb-3 contact-group-buttons">
                                     <div class="input-group">
                                         <div class="autocomplete">
                                             <input type='text' placeholder="Last, First" id="${ group.key.id }"
@@ -363,7 +365,7 @@
                         </c:forEach>
 
                         <div class="tab-pane form-check" id="new-group">
-                            <div class="control-group">
+                            <div class="mb-3">
                                 <div class="input-group">
                                     <input type='text' placeholder="Group Name" class="group-name-input"
                                            id="new-group-name"/>

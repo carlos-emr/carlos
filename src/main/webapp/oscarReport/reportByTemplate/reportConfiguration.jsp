@@ -152,14 +152,14 @@
                     step++;
                     Parameter curparam = (Parameter) parameters.get(i);
             %>
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label" for="<%=curparam.getParamId()%>"><strong>Step <%=step%>
                     : </strong> <%=curparam.getParamDescription()%>
                 </label>
 
                     <%-- If LIST field --%>
                 <%if (curparam.getParamType().equals(curparam.LIST)) {%>
-                <div class="controls">
+                <div>
                     <select name="<%=curparam.getParamId()%>" id="<%=curparam.getParamId()%>">
                         <%
                             ArrayList paramChoices = curparam.getParamChoices();
@@ -174,13 +174,13 @@
 
                     <%--If TEXT field --%>
                 <% } else if (curparam.getParamType().equals(curparam.TEXT)) {%>
-                <div class="controls">
+                <div>
                     <input type="text" name="<%=curparam.getParamId()%>" id="<%=curparam.getParamId()%>"/>
                 </div>
 
                     <%--If DATE field --%>
                 <% } else if (curparam.getParamType().equals(curparam.DATE)) {%>
-                <div class="controls">
+                <div>
                     <div class="input-group" id="<%=curparam.getParamId()%>">
                         <input type="text" class="datefield" id="datefield<%=i%>" name="<%=curparam.getParamId()%>"/>
                         <span class="input-group-text">
@@ -204,7 +204,7 @@
                     <%--If CHECK field --%>
                 <% } else if (curparam.getParamType().equals(curparam.CHECK)) {%>
                 <input type="hidden" name="<%=curparam.getParamId()%>:check" value=""/>
-                <div class="controls">
+                <div>
 
                     <input type="checkbox" name="mastercheck" id="mastercheck"
                            onclick="checkAll(this, 'enclosingCol<%=i%>', 'checkclass<%=i%>')"/>
@@ -223,7 +223,7 @@
                     <%}%>
                 </div>
                 <% } else if (curparam.getParamType().equals(curparam.TEXTLIST)) {%>
-                <div class="controls">
+                <div>
                     <input type="text" placeholder="Comma Separated" name="<%=curparam.getParamId()%>:list"
                            id="<%=curparam.getParamId()%>"/>
                 </div>
@@ -233,9 +233,9 @@
 
             <%} %> <%--end for loop --%>
 
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label"><strong>Step <%=step + 1%>:</strong></label>
-                <div class="controls">
+                <div>
                     <input type="submit" class="btn btn-primary" name="submitButton" value="Run Query"/>
                 </div>
             </div>

@@ -91,8 +91,8 @@
                 <input type="file" name="content" id="content"/>
             </div>
 
-            <div class="control-group" style="margin-top: 1em;">
-                <div class="controls">
+            <div class="mb-3" style="margin-top: 1em;">
+                <div>
                     <button class="btn btn-primary" onclick="return update(this);">Update</button>
                     <button class="btn btn-secondary" onclick="return cancel(this);">Cancel</button>
                 </div>

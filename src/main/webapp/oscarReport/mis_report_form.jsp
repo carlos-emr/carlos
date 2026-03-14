@@ -80,9 +80,9 @@
 
 <form action="${ctx}/oscarReport/mis_report_form.jsp" class="card card-body bg-body-tertiary" id="misForm">
 
-    <div class="control-group">
+    <div class="mb-3">
         <label class="form-label">Report By</label>
-        <div class="controls">
+        <div>
             <label class="radio inline">
                 <input
                         type="radio" id="reportByFn" name="reportBy" value="functionalCentre"
@@ -96,9 +96,9 @@
             </label>
         </div>
     </div>
-    <div class="control-group">
+    <div class="mb-3">
         <label class="form-label"></label>
-        <div class="controls">
+        <div>
             <div class="toggleDiv">
 
                 <%if (functionalCentres.size() > 0) {%>
@@ -133,17 +133,18 @@
                         }
                     %>
                 </select>
-                <label class="form-check">
-                    <input type="checkbox" name="reportProgramsIndividually"> Report Programs Separately
-                </label>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" name="reportProgramsIndividually" id="reportProgramsIndividually">
+                    <label class="form-check-label" for="reportProgramsIndividually">Report Programs Separately</label>
+                </div>
 
             </div>
         </div>
     </div>
     <hr style="border-bottom:1px solid #e5e5e5; width:100%;">
-    <div class="control-group">
+    <div class="mb-3">
         <label class="form-label">Date Range Start</label>
-        <div class="controls">
+        <div>
             <select name="startYear" class="form-select d-inline-block w-auto">
                 <%
                     GregorianCalendar cal = new GregorianCalendar();
@@ -171,9 +172,9 @@
             </select>
         </div>
     </div>
-    <div class="control-group">
+    <div class="mb-3">
         <label class="form-label">Date Range End (inclusive)</label>
-        <div class="controls">
+        <div>
             <select name="endYear" class="form-select d-inline-block w-auto">
                 <%
                     for (int i = 0; i < 10; i++) {
@@ -195,8 +196,8 @@
         </select>
         </div>
     </div>
-    <div class="control-group">
-        <div class="controls">
+    <div class="mb-3">
+        <div>
             <input type="submit" value="View Report" class="btn btn-primary"/>
         </div>
     </div>

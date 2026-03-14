@@ -93,7 +93,7 @@
             <!--ADD GROUP-->
             <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="post" id="addGroupForm"
                   class="d-flex flex-wrap align-items-center gap-2">
-                <div class="controls">
+                <div>
                     <div class="input-group">
                         <input type="text" name="groupName" class="check"
                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addGroup"/>">

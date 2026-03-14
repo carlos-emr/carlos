@@ -42,10 +42,10 @@
             the provider and appointment date from &amp; to.</small>
         </h4>
         <div class="row">
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label">Doctor</label>
-                <div class="controls">
-                    <select name="provider_no" class="col-md-3">
+                <div>
+                    <select name="provider_no" class="form-select">
                         <option value="all">All Doctors</option>
                         <%
                             ArrayList<ProviderNameBean> dnl = new DoctorList().getDoctorNameList();
@@ -60,22 +60,22 @@
                     </select>
                 </div>
             </div>
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label">Date From</label>
-                <div class="controls">
+                <div>
                     <input id="date_from" name="date_from" size="10"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label">Date To</label>
-                <div class="controls">
+                <div>
                     <input id="date_to" name="date_to" size="10"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <button type="submit" class="btn btn-primary">
                         <i class="fa-solid fa-download"></i> Export
                     </button>

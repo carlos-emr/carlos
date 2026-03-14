@@ -200,31 +200,36 @@
                 </display:table>
             </div>
             <div class="row">
-                <label class="form-check">
-                    <input type="radio" name="SearchBy" value="patientRegistedDistincted"
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedDistincted"
                            id="SearchBy_Distincted" <c:if test="${radiostatus == 'patientRegistedDistincted'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedDistincted'">
-                    ALL(distincted)</label>
-                <label class="form-check">
-                    <input type="radio" name="SearchBy" value="patientRegistedAll"
+                    <label class="form-check-label" for="SearchBy_Distincted">ALL(distincted)</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedAll"
                            id="SearchBy_All" <c:if test="${radiostatus == 'patientRegistedAll'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedAll'">
-                    ALL</label>
-                <label class="form-check">
-                    <input type="radio" name="SearchBy" value="patientRegistedActive"
+                    <label class="form-check-label" for="SearchBy_All">ALL</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedActive"
                            id="SearchBy_Active" <c:if test="${radiostatus == 'patientRegistedActive'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedActive'">
-                    Active</label>
-                <label class="form-check">
-                    <input type="radio" name="SearchBy" value="patientRegistedDeleted"
+                    <label class="form-check-label" for="SearchBy_Active">Active</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedDeleted"
                            id="SearchBy_Deleted" <c:if test="${radiostatus == 'patientRegistedDeleted'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedDeleted'">
-                    Deleted</label>
-                <label class="form-check">
-                    <input type="radio" name="SearchBy" value="patientRegistedResolve"
+                    <label class="form-check-label" for="SearchBy_Deleted">Deleted</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedResolve"
                            id="SearchBy_Resolved" <c:if test="${radiostatus == 'patientRegistedResolve'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedResolve'">
-                    Resolved</label>
+                    <label class="form-check-label" for="SearchBy_Resolved">Resolved</label>
+                </div>
 
 
                 <select id="provider_no" name="provider_no" class="sel">

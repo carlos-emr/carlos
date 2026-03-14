@@ -133,9 +133,9 @@
 <form class="card card-body bg-body-tertiary " action="setProviderAvailability.jsp" id="theForm" method="post">
     <input type="hidden" name="method" id="method" value=""/>
 
-    <div id="programOptions" class="control-group">
+    <div id="programOptions" class="mb-3">
         <label class="form-label">Program:</label>
-        <div class="controls">
+        <div>
             <select name="programId" id="programId" class="form-select" onChange="getProviders()">
                 <option value=""></option>
                 <%
@@ -157,7 +157,7 @@
         </div>
     </div>
 
-    <div class="control-group">
+    <div class="mb-3">
         <%
             if (providers.size() > 0) {
         %>

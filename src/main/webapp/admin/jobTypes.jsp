@@ -231,11 +231,11 @@
                     <input class="form-control" type="text" name="jobType.className" id="jobTypeClassName"
                            value=""/>
                 </div>
-                <div class="control-group">
+                <div class="mb-3">
                     <label class="form-label" for="jobTypeEnabled">Enabled: <input type="checkbox"
                                                                                       name="jobType.enabled"
                                                                                       id="jobTypeEnabled"/></label>
-                    <div class="controls">
+                    <div>
 
                     </div>
                 </div>

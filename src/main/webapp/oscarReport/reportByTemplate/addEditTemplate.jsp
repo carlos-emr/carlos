@@ -138,9 +138,9 @@
                         enctype="multipart/form-data">
         <div class="row">
         <div class="card card-body bg-body-tertiary">
-        <div class="control-group">
+        <div class="mb-3">
         <label class="form-label" for="uploadReportXml">Select template</label>
-        <div class="controls">
+        <div>
         <input type="file" id="uploadReportXml" class="input-file" name="templateFile" title="Upload a formatted template file. The extension is usually xml or txt">
         </div>
         </div>
@@ -148,8 +148,8 @@
         <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
         <input type="hidden" name="templateid" value="${ templateid }">
         <input type="hidden" name="uuid" value="${ curreport.uuid }">
-        <div class="control-group">
-        <div class="controls">
+        <div class="mb-3">
+        <div>
         <input type="submit" class="btn btn-primary float-end" value="Upload & <%=StringUtils.capitalize(action)%>">
         </div>
         </div>
@@ -160,9 +160,9 @@
                    method="post" enctype="multipart/form-data" onsubmit="return validateFileUpload()">
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
-                    <div class="control-group">
+                    <div class="mb-3">
                         <label class="form-label" for="uploadReportXml">Select template</label>
-                        <div class="controls">
+                        <div>
                             <input type="file" id="uploadReportXml" class="input-file" name="templateFile"
                                    title="Upload a formatted template file. The extension is usually xml or txt">
                         </div>
@@ -171,8 +171,8 @@
                     <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
                     <input type="hidden" name="templateid" value="${ templateid }">
                     <input type="hidden" name="uuid" value="${ curreport.uuid }">
-                    <div class="control-group">
-                        <div class="controls">
+                    <div class="mb-3">
+                        <div>
                             <input type="submit" class="btn btn-primary float-end"
                                    value="Upload & <%=StringUtils.capitalize(action)%>">
                         </div>

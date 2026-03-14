@@ -137,9 +137,9 @@
             <br> <small>Please select the report type, provider and
             service begin and end dates.</small>
         </h4>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Select Report</label>
-            <div class="controls">
+            <div>
                 <label class="radio inline"> <input type="radio"
                                                     name="reportAction" onClick="toggleDivs();" value="lk"
                     <%=reportAction.equals("lk")?"checked":""%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgLarryKainReport"/>
@@ -150,10 +150,10 @@
             </label>
             </div>
         </div>
-        <div class="control-group" id="providerDiv">
+        <div class="mb-3" id="providerDiv">
             <label class="form-label">Provider</label>
 
-            <div class="controls">
+            <div>
                 <select id="providerview" name="providerview"
                         <%=reportAction.equals("lk") ? "disabled" : ""%>>
                     <option value="%">
@@ -176,23 +176,23 @@
 
         </div>
 
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Service Date Begin</label>
-            <div class="controls">
+            <div>
                 <input type="text" id="xml_vdate" name="xml_vdate"
                        value="<%=xml_vdate%>">
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Service Date End</label>
-            <div class="controls">
+            <div>
 
                 <input type="text" id="xml_appointment_date"
                        name="xml_appointment_date" value="<%=xml_appointment_date%>">
             </div>
         </div>
-        <div class="control-group">
-            <div class="controls">
+        <div class="mb-3">
+            <div>
                 <button type="submit" class="btn btn-primary">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.btnCreateReport"/>
                 </button>

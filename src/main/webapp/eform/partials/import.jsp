@@ -100,8 +100,8 @@
     </div>
     <%}%>
 
-    <div class="control-group">
-        <div class="controls">
+    <div class="mb-3">
+        <div>
             <label class="form-label" for="zippedForm">Import eForm:</label>
             <input type="file" class="input-file" id="zippedForm" name="zippedForm" size="50" required/>
             <span style="color:red;">

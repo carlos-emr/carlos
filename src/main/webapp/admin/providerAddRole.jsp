@@ -261,9 +261,9 @@
     <br><br>
     <div class="card card-body bg-body-tertiary">
         <form method="post" name="baseurl" action="providerAddRole.jsp" class="">
-            <div class="control-group">
+            <div class="mb-3">
                 <label class="form-label" for="role_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.rolename"/></label>
-                <div class="controls">
+                <div>
                     <input type="text" name="role_name" id="role_name"
                            value="<%=Encode.forHtmlAttribute(prop.getProperty("role_name", ""))%>"
                            maxlength='30'>
@@ -271,8 +271,8 @@
                            onclick="javascript:return onSearch();">
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <input
                             type="hidden" name="action" value='<%=action%>'/> <% if (!"search".equals(action)) {%>
                     <input type="submit" name="submit" class="btn btn-primary"

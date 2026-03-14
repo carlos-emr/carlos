@@ -509,20 +509,20 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                  style="margin:0px;padding-top:2px;padding-bottom:2px;background-color:#c6c6c6;overflow: hidden">
 
                 <%if (!printView) {%>
-                <div class="controls">
+                <div>
                     <input type="checkbox" name="select-all-chk" id="select-all-chk" class="css-checkbox"
                            value="select-all"/>
                     <label for="select-all-chk" class="css-label">Select All</label>
                 </div>
 
-                <div class="controls">
+                <div>
                     <input type="checkbox" name="print-comments-chk" id="print-comments-chk" class="css-checkbox"
                            value="print"/>
                     <label for="print-comments-chk" class="css-label">Print Comments <a href="#comments-list"><span
                             class="badge bg-info">view</span></a></label>
                 </div>
 
-                <div class="controls">
+                <div>
                     <input type="checkbox" name="print-recommendation-chk" id="print-recommendation-chk"
                            class="css-checkbox" value="print"/>
                     <label for="print-recommendation-chk" class="css-label">Print Recommendations <a
@@ -531,7 +531,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 <%}%>
 
 
-                <div class="controls DoNotPrint" style="float:right">
+                <div class="DoNotPrint" style="float:right">
 
                     <%if (printView) {%>
                     <a href="JavaScript:void(0);" class="btn btn-small back loading" title="Cancel"

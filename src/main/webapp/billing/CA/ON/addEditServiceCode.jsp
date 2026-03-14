@@ -503,7 +503,7 @@
 
             <div class="col-md-10">
                 Style<br>
-                <select id="servicecode_style" name="servicecode_style" class="col-md-2"
+                <select id="servicecode_style" name="servicecode_style" class="form-select"
                         onchange="displayStyleText(this.options[this.selectedIndex].value);" title="CSS Style Viewer">
                     <option value="-1,None">None</option>
                     <%

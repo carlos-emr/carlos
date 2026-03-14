@@ -172,7 +172,7 @@
 
             <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/><br>
-                <select name="providers" class="col-md-2" onChange="jumpMenu('window',this)">
+                <select name="providers" class="form-select" onChange="jumpMenu('window',this)">
                     <option value="#"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/></b></option>
                     <option value="all"
                             <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgAllProvider"/></option>
@@ -196,7 +196,7 @@
 
             <div class="col-md-3">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceCode"/>:
-                <select id="service_code" class="col-md-3" name="service_code">
+                <select id="service_code" class="form-select" name="service_code">
                     <option value="all" <%=servicecode.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgAllServiceCode"/></option>
                     <%
                         List<String> serviceCodes = batchBillingDAO.findDistinctServiceCodes();
@@ -212,7 +212,7 @@
 
             <div class="col-md-4">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgClinicLocation"/>:
-                <select name="clinic_view" class="col-md-4">
+                <select name="clinic_view" class="form-select">
                     <%
                         String clinic_location = "", clinic_code = "";
                         List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);

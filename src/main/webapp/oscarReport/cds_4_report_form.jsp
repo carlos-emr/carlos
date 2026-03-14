@@ -84,9 +84,9 @@
         <!-- Form Name -->
         <legend>CDS-MH 4.05</legend>
 
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Functional Centre</label>
-            <div class="controls">
+            <div>
                 <select id="functionalCentreId" name="functionalCentreId" class="form-select">
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
@@ -99,9 +99,9 @@
                 </select>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Date Start</label>
-            <div class="controls">
+            <div>
                 <input type="text" name="startDate" id="startDate"/>
                 <script type="text/javascript">
                     (function() {
@@ -118,18 +118,18 @@
                 </script>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Date End (inclusive)</label>
-            <div class="controls">
+            <div>
                 <input type="text" name="endDate" id="endDate"/>
                 <script type="text/javascript">
                     flatpickr('#endDate', {dateFormat: 'Y-m-d', defaultDate: new Date(), allowInput: true});
                 </script>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Filter By</label>
-            <div class="controls">
+            <div>
                 <select id="filterCriteriaSelection" onchange="showFilterCriteria()">
                     <option value="">None</option>
                     <option value="PROVIDER">Provider</option>
@@ -163,13 +163,13 @@
                 </script>
             </div>
         </div>
-        <div id="providerOptions" class="control-group">
+        <div id="providerOptions" class="mb-3">
             <label class="form-label">Providers to include
                 <small>
                     (multi select is allowed)
                 </small>
             </label>
-            <div class="controls">
+            <div>
                 <select name="providerIds" class="form-select d-inline-block w-auto" multiple="multiple">
                     <%
                         // null for both active and inactive because the report might be for a providers who's just left in the current reporting period.
@@ -189,13 +189,13 @@
             </div>
         </div>
 
-        <div id="programOptions" class="control-group">
+        <div id="programOptions" class="mb-3">
             <label class="form-label">Programs to include
                 <small>
                     (multi select is allowed)
                 </small>
             </label>
-            <div class="controls">
+            <div>
                 <select name="programIds" class="form-select d-inline-block w-auto" multiple="multiple">
                     <%
                         List<Program> programs = programManager.getPrograms(loggedInInfo.getCurrentFacility().getId());
@@ -211,8 +211,8 @@
             </div>
         </div>
 
-        <div class="control-group">
-            <div class="controls">
+        <div class="mb-3">
+            <div>
                 <button type="submit" class="btn btn-primary">View Report</button>
             </div>
         </div>

@@ -89,17 +89,17 @@
             View Server Log <br>
             <small>Please select the date to view report on and log type.</small>
         </h4>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Date</label>
-            <div class="controls">
-                <input type="text" id="reportDate" name="reportDate" class="col-md-3"
+            <div>
+                <input type="text" id="reportDate" name="reportDate" class="form-control"
                        size="10" value="<%=reportDate%>">
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Select Report to view</label>
-            <div class="controls">
-                <select name="reportType" id="reportType" class="col-md-3">
+            <div>
+                <select name="reportType" id="reportType" class="form-select">
                     <option value="general" <%if (reportType.equals("general")) {%>
                             selected <%}%>>General Report
                     </option>
@@ -109,8 +109,8 @@
                 </select>
             </div>
         </div>
-        <div class="control-group">
-            <div class="controls">
+        <div class="mb-3">
+            <div>
                 <button type="submit" class="btn btn-primary">
                     <i class="fa-solid fa-download"></i> Get Report
                 </button>

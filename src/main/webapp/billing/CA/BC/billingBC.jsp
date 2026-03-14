@@ -2191,11 +2191,10 @@
                                     <td style="height:100%;vertical-align: bottom;">
                                         <div class="row float-end ">
                                             <div id="ignoreWarningsButton">
-                                                <label class="form-check" for="ignoreWarn"
-                                                       title="Check to ignore validation warnings">
-                                                    <input type="checkbox" name="ignoreWarn" id="ignoreWarn"/>
-                                                    Ignore Warnings
-                                                </label>
+                                                <div class="form-check" title="Check to ignore validation warnings">
+                                                    <input type="checkbox" class="form-check-input" name="ignoreWarn" id="ignoreWarn"/>
+                                                    <label class="form-check-label" for="ignoreWarn">Ignore Warnings</label>
+                                                </div>
                                             </div>
                                             <div id="buttonRow" class="button-bar">
                                                 <input class="btn btn-md btn-primary" type="submit" name="Submit"
@@ -2250,10 +2249,10 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist1[i].getServiceCode() + "')"; %>
                                                 <td width="25%" valign="middle">
-                                                    <label class="form-check">
-                                                        <input type="checkbox" name="service" value="<%=billlist1[i].getServiceCode()%>" onclick="<%=svcCall%>" />
+                                                    <div class="form-check"><label class="form-check-label">
+                                                        <input type="checkbox" class="form-check-input" name="service" value="<%=billlist1[i].getServiceCode()%>" onclick="<%=svcCall%>" />
                                                         <%=billlist1[i].getServiceCode()%>
-                                                    </label>
+                                                    </label></div>
                                                 </td>
                                                 <td width="61%">
                                                     <%=billlist1[i].getDescription()%>
@@ -2289,10 +2288,10 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist2[i].getServiceCode() + "')"; %>
                                                 <td width="25%">
-                                                    <label class="form-check">
-                                                        <input type="checkbox" name="service" value="<%=billlist2[i].getServiceCode()%>" onclick="<%=svcCall%>"/>
+                                                    <div class="form-check"><label class="form-check-label">
+                                                        <input type="checkbox" class="form-check-input" name="service" value="<%=billlist2[i].getServiceCode()%>" onclick="<%=svcCall%>"/>
                                                         <%=billlist2[i].getServiceCode()%>
-                                                    </label>
+                                                    </label></div>
                                                 </td>
                                                 <td width="61%">
                                                     <%=billlist2[i].getDescription()%>
@@ -2325,10 +2324,10 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist3[i].getServiceCode() + "')"; %>
                                                 <td width="25%">
-                                                    <label class="form-check">
-                                                        <input type="checkbox" name="service" value="<%=billlist3[i].getServiceCode()%>"/>
+                                                    <div class="form-check"><label class="form-check-label">
+                                                        <input type="checkbox" class="form-check-input" name="service" value="<%=billlist3[i].getServiceCode()%>"/>
                                                         <%=billlist3[i].getServiceCode()%>
-                                                    </label>
+                                                    </label></div>
                                                 </td>
                                                 <td width="61%">
                                                     <%=billlist3[i].getDescription()%>

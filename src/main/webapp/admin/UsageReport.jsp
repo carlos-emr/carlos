@@ -99,9 +99,9 @@
             Usage Report <br> <small>Please select the provider,
             service begin and end dates.</small>
         </h4>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Provider</label>
-            <div class="controls">
+            <div>
 
                 <select name="providerNo">
                     <%
@@ -120,25 +120,25 @@
                 </select>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Start Date</label>
-            <div class="controls">
+            <div>
                 <input type="text" id="startDate" name="startDate"
                        value="<%=request.getParameter("startDate") != null ? request
 					.getParameter("startDate") : ""%>"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">End Date</label>
-            <div class="controls">
+            <div>
                 <input type="text" id="endDate" name="endDate"
                        value="<%=request.getParameter("endDate") != null ? request
 					.getParameter("endDate") : ""%>"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <hr>
-            <div class="controls">
+            <div>
                 <button type="submit" class="btn btn-primary">Run Report</button>
             </div>
         </div>

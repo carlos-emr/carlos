@@ -530,10 +530,10 @@
             <input type="hidden" name="product.id" id="productId" value="0"/>
 
             <div>
-                <div class="controls controls-row">
-                    <div class="control-group col-md-6" id="productNameTemplateGroup">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-6" id="productNameTemplateGroup">
                         <label class="form-label" for="productNameTemplate">Choose Existing:</label>
-                        <div class="controls">
+                        <div>
                             <select id="productNameTemplate" name="productNameTemplate"
                                     onChange="copyNameFromTemplate()">
                                 <option>&nbsp;</option>
@@ -541,64 +541,64 @@
                         </div>
                     </div>
                 </div>
-                <div class="controls controls-row">
-                    <div class="control-group col-md-3" id="productNameGroup">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-3" id="productNameGroup">
                         <label class="form-label" for="productName">Name:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="product.name" id="productName" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
-                    <div class="control-group col-md-3" id="productCodeGroup">
+                    <div class="mb-3 col-md-3" id="productCodeGroup">
                         <label class="form-label" for="productCode">Code:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="product.code" id="productCode" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
 
                 </div>
-                <div class="controls controls-row">
+                <div class="d-flex gap-2">
 
-                    <div class="control-group col-md-3" id="productLotGroup">
+                    <div class="mb-3 col-md-3" id="productLotGroup">
                         <label class="form-label" for="productLot">Lot:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="product.lotNumber" id="productLot" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
 
-                    <div class="control-group col-md-3" id="productExpiryDateGroup">
+                    <div class="mb-3 col-md-3" id="productExpiryDateGroup">
                         <label class="form-label" for="productExpiryDate">Expiry Date:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="product.expiryDate" id="productExpiryDate" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
 
                 </div>
-                <div class="controls controls-row">
-                    <div class="control-group col-md-3" id="productAmountGroup">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-3" id="productAmountGroup">
                         <label class="form-label" for="productAmount">Amount:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="product.amount" id="productAmount" value=""/>
                             <span class="help-inline">Required (number)</span>
                         </div>
                     </div>
 
-                    <div class="control-group col-md-3" id="totalEntriesToCreateGroup">
+                    <div class="mb-3 col-md-3" id="totalEntriesToCreateGroup">
                         <label class="form-label" for="productExpiryDate">Total Entries to create:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="productBulkTotal" id="productBulkTotal" value="1"/>
                         </div>
                     </div>
 
                 </div>
 
-                <div class="controls controls-rw">
-                    <div class="control-group col-md-3">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-3">
                         <label class="form-label" for="productLocation">Location:</label>
-                        <div class="controls">
+                        <div>
                             <select name="product.location" id="productLocation">
                             </select>
                         </div>

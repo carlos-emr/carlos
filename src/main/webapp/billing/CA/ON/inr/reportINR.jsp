@@ -114,7 +114,7 @@
     <form name="serviceform" method="post"
           action="<%=oscarVariables.getProperty("isNewONbilling","").equals("true")? "onGenINRbilling.jsp":"genINRbilling.jsp" %>">
         Select provider
-        <select name="provider" onChange="jumpMenu('parent',this,0)" class="col-md-2">
+        <select name="provider" onChange="jumpMenu('parent',this,0)" class="form-select">
             <option value="#">Select Provider</option>
             <option value="reportINR.jsp?provider_no=all"
                     <%=providerview.equals("all") ? "selected" : ""%>><b>All
@@ -156,7 +156,7 @@
         </select>
         Clinic Location:
         <input type="hidden" name="billcenter" value="G">
-        <select name="xml_location" datafld='xml_location' class="col-md-4">
+        <select name="xml_location" datafld='xml_location' class="form-select">
             <% ResultSet rsclinic = null;
                 String clinic_location = "", clinic_code = "";
                 List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);

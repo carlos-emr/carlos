@@ -558,10 +558,10 @@
         jQuery.validator.setDefaults({
             debug: true,
             highlight: function (element) {
-                $(element).closest('.control-group').removeClass('success').addClass('error');
+                $(element).closest('.mb-3').removeClass('success').addClass('error');
             },
             success: function (element) {
-                element.closest('.control-group').removeClass('error').addClass('success');
+                element.closest('.mb-3').removeClass('error').addClass('success');
             }
         });
 
