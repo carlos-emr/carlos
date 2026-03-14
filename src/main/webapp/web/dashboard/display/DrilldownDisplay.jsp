@@ -65,8 +65,7 @@
             src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.js"></script>
-    <script type="text/javascript" src="${ pageContext.request.contextPath }/library/moment.js"></script>
-    <script type="text/javascript" src="${ pageContext.request.contextPath }/library/datetime-moment.js"></script>
+    <script type="text/javascript" src="${ pageContext.request.contextPath }/library/datetime-sort.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/drilldownDisplayController.js"></script>
 </head>
