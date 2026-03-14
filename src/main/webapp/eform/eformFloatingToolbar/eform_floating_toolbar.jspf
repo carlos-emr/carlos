@@ -45,7 +45,7 @@
 %>
 
 <div id="eform_floating_toolbar" class="no-print DoNotPrint d-print-none">
-	<nav id="eform_floating_toolbar_nav" class="navbar navbar-light bg-light no-print DoNotPrint d-print-none">
+	<nav id="eform_floating_toolbar_nav" class="navbar bg-light no-print DoNotPrint d-print-none" data-bs-theme="light">
 		<form class="d-flex" >
 			<div class="input-group">
 		  		<input type="text" class="form-control" aria-label="Subject" name="remote_eform_subject" id="remote_eform_subject" placeholder="Subject" required/>

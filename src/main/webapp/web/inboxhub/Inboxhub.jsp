@@ -58,7 +58,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <input type="hidden" id="ctx" value="<e:forHtmlAttribute value='${pageContext.request.contextPath}' />";/>
 <div class="container-fluid overflow-hidden">
     <div class="row">
-        <nav class="navbar navbar-light d-flex justify-content-center" style="background-color: #e3f2fd;">
+        <nav class="navbar d-flex justify-content-center" data-bs-theme="light" style="background-color: #e3f2fd;">
             <jsp:include page="InboxhubTopbar.jsp"/>
         </nav>
     </div>
