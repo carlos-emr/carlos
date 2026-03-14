@@ -36,14 +36,20 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.dashboard.display.beans.GraphPlot;
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
+import io.github.carlos_emr.carlos.managers.DashboardManager;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Unit tests for {@link IndicatorQueryHandler}.
@@ -83,9 +89,22 @@ class IndicatorQueryHandlerUnitTest {
     private static IndicatorQueryHandler indicatorQueryHandler;
     private static String altQueryString;
     private static List<GraphPlot[]> graphPlotList;
+    private static MockedStatic<SpringUtils> springUtilsMock;
+
+    @AfterAll
+    static void tearDownAfterAll() {
+        if (springUtilsMock != null) {
+            springUtilsMock.close();
+        }
+    }
 
     @BeforeAll
     static void setUpBeforeAll() throws IOException {
+        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(DashboardManager.class))
+                .thenReturn(Mockito.mock(DashboardManager.class));
+        springUtilsMock.when(() -> SpringUtils.getBean(DemographicExtDao.class))
+                .thenReturn(Mockito.mock(DemographicExtDao.class));
         URL url = Thread.currentThread().getContextClassLoader()
                 .getResource("indicatorXMLTemplates/diabetes_hba1c_in_range_test.xml");
         byte[] byteArray;

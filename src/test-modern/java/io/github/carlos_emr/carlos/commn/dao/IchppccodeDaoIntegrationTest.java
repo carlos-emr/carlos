@@ -30,6 +30,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
@@ -52,6 +55,9 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private IchppccodeDao ichppccodeDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     private static int counter = 1;
 
     private Ichppccode createIchppccode() {
@@ -71,7 +77,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist ichppccode with manual ID")
         void shouldPersistIchppccode_whenValidDataProvided() {
             Ichppccode entity = createIchppccode();
-            ichppccodeDao.persist(entity);
+            entityManager.merge(entity);
             assertThat(entity.getId()).isNotNull();
         }
 
@@ -80,7 +86,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find ichppccode by ID")
         void shouldFindIchppccode_whenValidIdProvided() {
             Ichppccode saved = createIchppccode();
-            ichppccodeDao.persist(saved);
+            entityManager.merge(saved);
             Ichppccode found = ichppccodeDao.find(saved.getId());
             assertThat(found).isNotNull();
             assertThat(found.getId()).isEqualTo(saved.getId());
@@ -96,7 +102,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all ichppccode records")
         void shouldCountAllIchppccodes() {
             Ichppccode entity = createIchppccode();
-            ichppccodeDao.persist(entity);
+            entityManager.merge(entity);
             long count = ichppccodeDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }

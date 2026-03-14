@@ -190,3 +190,13 @@ CREATE TABLE IF NOT EXISTS app_lookuptable_fields (
     fieldlength INT,
     PRIMARY KEY (tableid, fieldname)
 );
+
+-- Fix wcb table: dual entity mapping (Wcb + WCB) causes hbm2ddl to create
+-- the id column without IDENTITY when primitive int id (from WCB.java) is processed last.
+-- This ALTER ensures auto-increment works for both entity types.
+ALTER TABLE wcb ALTER COLUMN id INT AUTO_INCREMENT;
+
+-- Insert default secrole record for FK constraints (program_provider.role_id -> secrole.role_no).
+-- The secrole table is managed by Secrole.hbm.xml so hbm2ddl drops and recreates it empty.
+MERGE INTO secrole (role_no, role_name, description) KEY(role_no) VALUES (1, 'doctor', 'Doctor role');
+

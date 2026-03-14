@@ -38,6 +38,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -84,6 +87,9 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
     @Autowired
     @Qualifier("programProviderDAO")
     private ProgramProviderDAO programProviderDAO;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private Integer oscarProgramID;
     private Date referenceDate;
@@ -165,6 +171,11 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
     }
 
     private ProgramProvider createProgramProvider(Provider provider) {
+        // Ensure secrole record exists for FK constraint on role_id
+        entityManager.createNativeQuery(
+                "MERGE INTO secrole (role_no, role_name) KEY(role_no) VALUES (1, 'test_role')")
+                .executeUpdate();
+
         ProgramProvider pp = new ProgramProvider();
         pp.setProgramId(Long.valueOf(oscarProgramID));
         pp.setProviderNo(provider.getProviderNo());

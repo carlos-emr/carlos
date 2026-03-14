@@ -59,6 +59,7 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
         CtlDocument doc = new CtlDocument();
         doc.getId().setDocumentNo(documentNo);
         doc.getId().setModule(module);
+        doc.getId().setModuleId(0);
         doc.setStatus(status);
         ctlDocumentDao.persist(doc);
         return doc;

@@ -41,12 +41,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.dashboard.query.DrillDownAction;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface.Limit;
+import io.github.carlos_emr.carlos.managers.DashboardManager;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Unit tests for {@link IndicatorTemplateXML}.
@@ -66,9 +71,15 @@ class IndicatorTemplateXMLUnitTest {
 
     private static IndicatorTemplateXML indicatorTemplateXML;
     private static Document xmlDocument;
+    private static MockedStatic<SpringUtils> springUtilsMock;
 
     @BeforeAll
     static void setUpBeforeAll() throws ParserConfigurationException, SAXException, IOException {
+        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(DashboardManager.class))
+                .thenReturn(Mockito.mock(DashboardManager.class));
+        springUtilsMock.when(() -> SpringUtils.getBean(DemographicExtDao.class))
+                .thenReturn(Mockito.mock(DemographicExtDao.class));
         URL url = Thread.currentThread().getContextClassLoader()
                 .getResource("indicatorXMLTemplates/diabetes_hba1c_test.xml");
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -82,6 +93,9 @@ class IndicatorTemplateXMLUnitTest {
     static void tearDownAfterAll() {
         indicatorTemplateXML = null;
         xmlDocument = null;
+        if (springUtilsMock != null) {
+            springUtilsMock.close();
+        }
     }
 
     /** Tests for heading element parsing. */

@@ -40,12 +40,17 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 import io.github.carlos_emr.carlos.dashboard.display.beans.DashboardBean;
 import io.github.carlos_emr.carlos.dashboard.factory.DashboardBeanFactory;
+import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Unit tests for {@link DashboardBeanFactory}, {@link Dashboard} entity,
@@ -68,9 +73,15 @@ class DashboardBeanFactoryUnitTest {
     private static DashboardBeanFactory dashboardBeanFactory;
     private static Dashboard dashboard;
     private static DashboardBean dashboardBean;
+    private static MockedStatic<SpringUtils> springUtilsMock;
 
     @BeforeAll
     static void setUpBeforeAll() throws IOException {
+        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(DashboardManager.class))
+                .thenReturn(Mockito.mock(DashboardManager.class));
+        springUtilsMock.when(() -> SpringUtils.getBean(DemographicExtDao.class))
+                .thenReturn(Mockito.mock(DemographicExtDao.class));
         URL url = Thread.currentThread().getContextClassLoader()
                 .getResource("indicatorXMLTemplates/diabetes_hba1c_test.xml");
         byte[] byteArray;
@@ -107,6 +118,9 @@ class DashboardBeanFactoryUnitTest {
         dashboardBeanFactory = null;
         dashboard = null;
         dashboardBean = null;
+        if (springUtilsMock != null) {
+            springUtilsMock.close();
+        }
     }
 
     @Test

@@ -33,13 +33,19 @@ import java.io.InputStream;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
+import io.github.carlos_emr.carlos.managers.DashboardManager;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.io.IOUtils;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.w3c.dom.Document;
 
 /**
@@ -61,9 +67,22 @@ import org.w3c.dom.Document;
 class IndicatorTemplateHandlerUnitTest {
 
     private static IndicatorTemplateHandler templateHandler;
+    private static MockedStatic<SpringUtils> springUtilsMock;
+
+    @AfterAll
+    static void tearDownAfterAll() {
+        if (springUtilsMock != null) {
+            springUtilsMock.close();
+        }
+    }
 
     @BeforeAll
     static void setUpBeforeAll() throws IOException {
+        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(DashboardManager.class))
+                .thenReturn(Mockito.mock(DashboardManager.class));
+        springUtilsMock.when(() -> SpringUtils.getBean(DemographicExtDao.class))
+                .thenReturn(Mockito.mock(DemographicExtDao.class));
         URL url = Thread.currentThread().getContextClassLoader()
                 .getResource("indicatorXMLTemplates/diabetes_hba1c_test.xml");
         try (InputStream is = url.openStream()) {

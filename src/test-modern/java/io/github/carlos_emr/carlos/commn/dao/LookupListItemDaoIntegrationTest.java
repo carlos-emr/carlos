@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.model.LookupList;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -53,6 +55,21 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private LookupListItemDao lookupListItemDao;
 
+    @Autowired
+    private LookupListDao lookupListDao;
+
+    private Integer parentListId;
+
+    @BeforeEach
+    void createParentLookupList() {
+        LookupList parent = new LookupList();
+        parent.setName("TestList");
+        parent.setListTitle("Test List");
+        parent.setDescription("Parent list for FK");
+        lookupListDao.persist(parent);
+        parentListId = parent.getId();
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -63,6 +80,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistLookupListItem_whenValidDataProvided() throws Exception {
             LookupListItem entity = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setLookupListId(parentListId);
             lookupListItemDao.persist(entity);
             assertThat(entity.getId()).isPositive();
         }
@@ -73,6 +91,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         void shouldFindLookupListItem_whenValidIdProvided() throws Exception {
             LookupListItem saved = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setLookupListId(parentListId);
             lookupListItemDao.persist(saved);
             LookupListItem found = lookupListItemDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
@@ -89,6 +108,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllRecords() throws Exception {
             LookupListItem entity = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setLookupListId(parentListId);
             lookupListItemDao.persist(entity);
             long count = lookupListItemDao.getCountAll();
             assertThat(count).isEqualTo(1);

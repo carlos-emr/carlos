@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -63,7 +64,10 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistRemoteAttachments_whenValidDataProvided() throws Exception {
             RemoteAttachments entity = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDate(new Date());
+            entity.setTime(new Date());
             remoteAttachmentsDao.persist(entity);
+            hibernateTemplate.flush();
             assertThat(entity.getId()).isPositive();
         }
 
@@ -73,8 +77,12 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         void shouldFindRemoteAttachments_whenValidIdProvided() throws Exception {
             RemoteAttachments saved = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setDate(new Date());
+            saved.setTime(new Date());
             remoteAttachmentsDao.persist(saved);
+            hibernateTemplate.flush();
             RemoteAttachments found = remoteAttachmentsDao.find(saved.getId());
+            assertThat(found).isNotNull();
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -89,7 +97,10 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllRemoteAttachmentss() throws Exception {
             RemoteAttachments entity = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDate(new Date());
+            entity.setTime(new Date());
             remoteAttachmentsDao.persist(entity);
+            hibernateTemplate.flush();
             long count = remoteAttachmentsDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }

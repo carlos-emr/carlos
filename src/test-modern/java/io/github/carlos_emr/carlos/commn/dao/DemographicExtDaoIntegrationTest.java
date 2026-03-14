@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.HashMap;
 import java.util.List;
 
@@ -55,8 +57,22 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DemographicExtDao demographicExtDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     private static final int DEMO_1 = 70001;
     private static final int DEMO_2 = 70002;
+
+    @BeforeEach
+    void createParentDemographics() {
+        String sql = "MERGE INTO demographic (demographic_no, first_name, last_name, sex, year_of_birth, month_of_birth, date_of_birth) KEY(demographic_no) VALUES (?, 'Test', 'Patient', 'M', '1990', '01', '15')";
+        for (int demoNo : new int[]{DEMO_1, DEMO_2}) {
+            entityManager.createNativeQuery(sql)
+                    .setParameter(1, demoNo)
+                    .executeUpdate();
+        }
+        entityManager.flush();
+    }
 
     private DemographicExt createExt(int demographicNo, String key, String value) {
         DemographicExt ext = new DemographicExt();

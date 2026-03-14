@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.hospitalReportManager.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -50,12 +54,22 @@ public class HRMDocumentToDemographicDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private HRMDocumentToDemographicDao hrmDocumentToDemographicDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     @Test
     @Tag("create")
     @DisplayName("should persist HRM document to demographic mapping with generated ID")
     void shouldPersistHrmDocumentToDemographic_whenValidDataProvided() throws Exception {
+        HRMDocument parentDoc = new HRMDocument();
+        parentDoc.setReportType("test");
+        parentDoc.setReportStatus("A");
+        entityManager.persist(parentDoc);
+        hibernateTemplate.flush();
+
         HRMDocumentToDemographic entity = new HRMDocumentToDemographic();
         EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setHrmDocumentId(parentDoc.getId());
         hrmDocumentToDemographicDao.persist(entity);
         hibernateTemplate.flush();
 

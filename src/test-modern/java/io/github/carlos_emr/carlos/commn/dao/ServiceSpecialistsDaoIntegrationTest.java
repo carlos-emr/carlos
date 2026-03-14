@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
 import io.github.carlos_emr.carlos.commn.model.ServiceSpecialistsPK;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -31,6 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,7 +60,22 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ServiceSpecialistsDao dao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    /**
+     * Creates a ProfessionalSpecialist record with the given ID to satisfy FK constraints.
+     */
+    private void ensureSpecialistExists(int specId) {
+        String sql = "MERGE INTO professionalSpecialists (specId, fName, lName) KEY(specId) VALUES (?, 'Test', 'Specialist')";
+        entityManager.createNativeQuery(sql)
+                .setParameter(1, specId)
+                .executeUpdate();
+        entityManager.flush();
+    }
+
     private ServiceSpecialists createServiceSpecialist(int serviceId, int specId) {
+        ensureSpecialistExists(specId);
         ServiceSpecialists entity = new ServiceSpecialists();
         entity.setId(new ServiceSpecialistsPK(serviceId, specId));
         dao.persist(entity);

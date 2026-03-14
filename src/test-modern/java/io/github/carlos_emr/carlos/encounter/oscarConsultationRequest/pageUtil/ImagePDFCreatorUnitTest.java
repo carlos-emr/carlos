@@ -63,9 +63,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("ImagePDFCreator Unit Tests")
 class ImagePDFCreatorUnitTest {
 
+    static {
+        System.setProperty("java.awt.headless", "true");
+    }
+
     @BeforeAll
     static void setUpHeadless() {
-        System.setProperty("java.awt.headless", "true");
+        // Headless property set in static initializer above to ensure it runs
+        // before any AWT class loading
     }
 
     @TempDir

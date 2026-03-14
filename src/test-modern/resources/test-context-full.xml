@@ -52,7 +52,7 @@
             <props>
                 <prop key="db_driver">org.h2.Driver</prop>
                 <prop key="db_uri">jdbc:h2:mem:testdb</prop>
-                <prop key="db_name">;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;IGNORECASE=TRUE</prop>
+                <prop key="db_name">;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;IGNORECASE=TRUE;NON_KEYWORDS=VALUE,VIEW,HOUR,KEY,TYPE,FILE,USER,YEAR,MONTH,DAY,COMMENT,ORDER</prop>
                 <prop key="db_username">sa</prop>
                 <prop key="db_password"></prop>
                 <prop key="db_max_active">10</prop>
@@ -678,6 +678,18 @@
     <bean id="rolesManager" class="io.github.carlos_emr.carlos.services.security.RolesManagerImpl" autowire="byName">
         <property name="secroleDao" ref="secroleDao" />
         <property name="secobjprivilegeDao" ref="secobjprivilegeDao" />
+    </bean>
+
+    <!-- Mock beans needed to avoid static initialization failures in production classes.
+         Uses MockBeanFactory since Mockito.mock() factory-method doesn't work with constructor-arg in newer Mockito. -->
+    <bean id="dashboardManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.DashboardManager" />
+    </bean>
+    <bean id="demographicManager" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.managers.DemographicManager" />
+    </bean>
+    <bean id="defaultNoteService" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">
+        <property name="mockType" value="io.github.carlos_emr.carlos.casemgmt.service.impl.DefaultNoteService" />
     </bean>
 
     <bean id="caseManagementManager" class="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl" autowire="byName">

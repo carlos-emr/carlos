@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Favorites;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -31,6 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -52,6 +55,19 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private FavoritesDao favoritesDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    /**
+     * Sets default for dispenseInternal column which is NOT NULL due to
+     * Favorite entity (singular) mapping to the same 'favorites' table.
+     */
+    @BeforeEach
+    void setColumnDefault() {
+        entityManager.createNativeQuery("ALTER TABLE favorites ALTER COLUMN dispenseInternal SET DEFAULT FALSE")
+                .executeUpdate();
+    }
 
     @Nested
     @DisplayName("CRUD operations")

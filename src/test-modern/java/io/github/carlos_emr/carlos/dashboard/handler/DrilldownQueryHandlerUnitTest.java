@@ -34,15 +34,21 @@ import java.net.URL;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.dashboard.query.DrillDownAction;
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
+import io.github.carlos_emr.carlos.managers.DashboardManager;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Unit tests for {@link DrilldownQueryHandler}.
@@ -65,6 +71,7 @@ class DrilldownQueryHandlerUnitTest {
     private static List<RangeInterface> ranges;
     private static List<DrillDownAction> actions;
     private static DrilldownQueryHandler drilldownQueryHandler;
+    private static MockedStatic<SpringUtils> springUtilsMock;
 
     private static final String FINAL_QUERY_STRING = "SELECT d.demographic_no AS 'Patient Id',d.first_name "
             + "AS 'First Name',d.last_name AS 'Last Name',CONCAT( month_of_birth, '-', date_of_birth, '-', year_of_birth ) "
@@ -82,8 +89,20 @@ class DrilldownQueryHandlerUnitTest {
             + "DATE( now() ) ) / 365.25 ) ) AND 75 >= ROUND( ABS( DATEDIFF( DATE( CONCAT(d.year_of_birth,\"-\",d.month_of_birth,\"-\",d.date_of_birth) ), "
             + "DATE( now() ) ) / 365.25 ) ) )";
 
+    @AfterAll
+    static void tearDownAfterAll() {
+        if (springUtilsMock != null) {
+            springUtilsMock.close();
+        }
+    }
+
     @BeforeAll
     static void setUpBeforeAll() throws IOException {
+        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(DashboardManager.class))
+                .thenReturn(Mockito.mock(DashboardManager.class));
+        springUtilsMock.when(() -> SpringUtils.getBean(DemographicExtDao.class))
+                .thenReturn(Mockito.mock(DemographicExtDao.class));
         URL url = Thread.currentThread().getContextClassLoader()
                 .getResource("indicatorXMLTemplates/diabetes_hba1c_in_range_test.xml");
         byte[] byteArray;

@@ -22,10 +22,10 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -64,6 +64,20 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingONCHeader1Dao cHeader1Dao;
 
+    /** Parent header record satisfying the FK constraint on BillingONPayment.billingNo. */
+    private BillingONCHeader1 parentHeader;
+
+    @BeforeEach
+    void createParentHeader() {
+        parentHeader = new BillingONCHeader1();
+        parentHeader.setHeaderId(0);
+        parentHeader.setDemographicNo(1);
+        parentHeader.setProviderNo("111111");
+        parentHeader.setStatus("O");
+        cHeader1Dao.persist(parentHeader);
+        hibernateTemplate.flush();
+    }
+
     // --- getPayment tests ---
 
     @Test
@@ -71,16 +85,17 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return valid payment amount when matching ext record exists")
     void shouldReturnPayment_whenValidDataProvided() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
-        paymentRecord.setBillingNo(1);
+        paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
+        paymentDao.persist(paymentRecord);
+        hibernateTemplate.flush();
 
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setKeyVal("payment");
         extraBillingPayment.setValue("10");
-        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setPaymentId(paymentRecord.getId());
 
-        paymentDao.persist(paymentRecord);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
@@ -93,15 +108,16 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return zero when no matching payment ext records exist")
     void shouldReturnZeroPayment_whenNoMatchingRecordsExist() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
-        paymentRecord.setBillingNo(1);
+        paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
+        paymentDao.persist(paymentRecord);
+        hibernateTemplate.flush();
 
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setPaymentId(2);
-        extraBillingPayment.setBillingNo(2);
+        extraBillingPayment.setPaymentId(paymentRecord.getId());
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setKeyVal("notpayment");
 
-        paymentDao.persist(paymentRecord);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
@@ -114,16 +130,17 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return zero when payment value is not a valid number")
     void shouldReturnZeroPayment_whenValueIsInvalid() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
-        paymentRecord.setBillingNo(1);
+        paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
+        paymentDao.persist(paymentRecord);
+        hibernateTemplate.flush();
 
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setKeyVal("payment");
         extraBillingPayment.setValue("abc123");
-        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setPaymentId(paymentRecord.getId());
 
-        paymentDao.persist(paymentRecord);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
@@ -138,16 +155,17 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return valid refund amount when matching ext record exists")
     void shouldReturnRefund_whenValidDataProvided() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
-        paymentRecord.setBillingNo(1);
+        paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
+        paymentDao.persist(paymentRecord);
+        hibernateTemplate.flush();
 
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setKeyVal("refund");
         extraBillingPayment.setValue("10");
-        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setPaymentId(paymentRecord.getId());
 
-        paymentDao.persist(paymentRecord);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
@@ -160,15 +178,16 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return zero refund when no matching refund ext records exist")
     void shouldReturnZeroRefund_whenNoMatchingRecordsExist() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
-        paymentRecord.setBillingNo(1);
+        paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
+        paymentDao.persist(paymentRecord);
+        hibernateTemplate.flush();
 
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setPaymentId(2);
-        extraBillingPayment.setBillingNo(2);
+        extraBillingPayment.setPaymentId(paymentRecord.getId());
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setKeyVal("notpayment");
 
-        paymentDao.persist(paymentRecord);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
@@ -181,16 +200,17 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return zero refund when refund value is not a valid number")
     void shouldReturnZeroRefund_whenValueIsInvalid() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
-        paymentRecord.setBillingNo(1);
+        paymentRecord.setBillingNo(parentHeader.getId());
         paymentRecord.setPaymentDate(new Date());
+        paymentDao.persist(paymentRecord);
+        hibernateTemplate.flush();
 
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setKeyVal("refund");
         extraBillingPayment.setValue("abc123");
-        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setPaymentId(paymentRecord.getId());
 
-        paymentDao.persist(paymentRecord);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
@@ -204,20 +224,15 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should return remitTo ext record when matching active record exists")
     void shouldReturnRemitTo_whenValidDataProvided() throws Exception {
-        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
-
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setStatus('1');
         extraBillingPayment.setKeyVal("remitTo");
-        extraBillingPayment.setPaymentId(1);
 
-        cHeader1Dao.persist(cHeader1);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BillingONExt billingRecord = dao.getRemitTo(cHeader1);
+        BillingONExt billingRecord = dao.getRemitTo(parentHeader);
         assertThat(billingRecord).isEqualTo(extraBillingPayment);
     }
 
@@ -225,20 +240,15 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should return null remitTo when status does not match active")
     void shouldReturnNullRemitTo_whenStatusIsNotActive() throws Exception {
-        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
-
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
-        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setStatus('A');
         extraBillingPayment.setKeyVal("remitTo");
 
-        cHeader1Dao.persist(cHeader1);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BillingONExt billingRecord = dao.getRemitTo(cHeader1);
+        BillingONExt billingRecord = dao.getRemitTo(parentHeader);
         assertThat(billingRecord).isNull();
     }
 
@@ -248,20 +258,15 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should return billTo ext record when matching active record exists")
     void shouldReturnBillTo_whenValidDataProvided() throws Exception {
-        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
-
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setStatus('1');
         extraBillingPayment.setKeyVal("billTo");
-        extraBillingPayment.setPaymentId(1);
 
-        cHeader1Dao.persist(cHeader1);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BillingONExt billingRecord = dao.getBillTo(cHeader1);
+        BillingONExt billingRecord = dao.getBillTo(parentHeader);
         assertThat(billingRecord).isEqualTo(extraBillingPayment);
     }
 
@@ -269,20 +274,15 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should return null billTo when status does not match active")
     void shouldReturnNullBillTo_whenStatusIsNotActive() throws Exception {
-        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
-
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
-        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setStatus('A');
         extraBillingPayment.setKeyVal("billTo");
 
-        cHeader1Dao.persist(cHeader1);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BillingONExt billingRecord = dao.getBillTo(cHeader1);
+        BillingONExt billingRecord = dao.getBillTo(parentHeader);
         assertThat(billingRecord).isNull();
     }
 
@@ -292,20 +292,15 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should return inactive billTo ext record when matching inactive record exists")
     void shouldReturnBillToInactive_whenValidDataProvided() throws Exception {
-        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
-
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setStatus('0');
         extraBillingPayment.setKeyVal("billTo");
-        extraBillingPayment.setPaymentId(1);
 
-        cHeader1Dao.persist(cHeader1);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BillingONExt billingRecord = dao.getBillToInactive(cHeader1);
+        BillingONExt billingRecord = dao.getBillToInactive(parentHeader);
         assertThat(billingRecord).isEqualTo(extraBillingPayment);
     }
 
@@ -313,20 +308,15 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should return null billToInactive when status does not match inactive")
     void shouldReturnNullBillToInactive_whenStatusIsNotInactive() throws Exception {
-        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
-
         BillingONExt extraBillingPayment = new BillingONExt();
-        extraBillingPayment.setBillingNo(1);
-        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setBillingNo(parentHeader.getId());
         extraBillingPayment.setStatus('A');
         extraBillingPayment.setKeyVal("billTo");
 
-        cHeader1Dao.persist(cHeader1);
         dao.persist(extraBillingPayment);
         hibernateTemplate.flush();
 
-        BillingONExt billingRecord = dao.getBillToInactive(cHeader1);
+        BillingONExt billingRecord = dao.getBillToInactive(parentHeader);
         assertThat(billingRecord).isNull();
     }
 

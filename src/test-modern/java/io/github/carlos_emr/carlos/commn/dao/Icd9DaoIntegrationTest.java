@@ -57,15 +57,18 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    private static int synonymIdCounter = 1;
+
     /**
      * Creates a parent Icd9Synonym record to satisfy FK constraint,
      * then persists the Icd9 entity.
      */
     private Icd9 createIcd9(String code, String description) {
         entityManager.createNativeQuery(
-                "MERGE INTO Icd9Synonym (dxCode, patientFriendly) KEY(dxCode) VALUES (?, ?)")
-                .setParameter(1, code)
-                .setParameter(2, description)
+                "MERGE INTO Icd9Synonym (id, dxCode, patientFriendly) KEY(dxCode) VALUES (?, ?, ?)")
+                .setParameter(1, synonymIdCounter++)
+                .setParameter(2, code)
+                .setParameter(3, description)
                 .executeUpdate();
         entityManager.flush();
 

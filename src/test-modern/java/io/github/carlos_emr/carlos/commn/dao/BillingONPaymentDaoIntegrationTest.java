@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -67,32 +66,34 @@ public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return 3rd party pay records sorted by payment date")
     void shouldReturnPayRecordsSortedByDate_whenSearchingByBill() throws Exception {
         BillingONCHeader1 bONCHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(bONCHeader1);
+        bONCHeader1.setHeaderId(0);
+        bONCHeader1.setDemographicNo(1);
+        bONCHeader1.setProviderNo("111111");
+        bONCHeader1.setStatus("O");
+        daoBONCH.persist(bONCHeader1);
+        hibernateTemplate.flush();
 
-        int billingNo = 1;
+        int billingNo = bONCHeader1.getId();
 
         BillingONPayment bONPayment1 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment1);
         Date date1 = new Date(dfm.parse("20110101").getTime());
         bONPayment1.setBillingNo(billingNo);
         bONPayment1.setPaymentDate(date1);
 
         BillingONPayment bONPayment2 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment2);
         Date date2 = new Date(dfm.parse("20110701").getTime());
         bONPayment2.setBillingNo(billingNo);
         bONPayment2.setPaymentDate(date2);
 
         BillingONPayment bONPayment3 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment3);
         Date date3 = new Date(dfm.parse("20110301").getTime());
         bONPayment3.setBillingNo(billingNo);
         bONPayment3.setPaymentDate(date3);
 
-        daoBONCH.persist(bONCHeader1);
         dao.persist(bONPayment1);
         dao.persist(bONPayment2);
         dao.persist(bONPayment3);
+        hibernateTemplate.flush();
 
         List<BillingONPayment> result = dao.find3rdPartyPayRecordsByBill(bONCHeader1);
         List<BillingONPayment> expectedResult = Arrays.asList(
@@ -107,44 +108,36 @@ public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return 3rd party pay records within date range sorted by payment date")
     void shouldReturnPayRecordsInDateRange_whenSearchingByBillAndDates() throws Exception {
         BillingONCHeader1 bONCHeader1 = new BillingONCHeader1();
-        EntityDataGenerator.generateTestDataForModelClass(bONCHeader1);
+        bONCHeader1.setHeaderId(0);
+        bONCHeader1.setDemographicNo(1);
+        bONCHeader1.setProviderNo("111111");
+        bONCHeader1.setStatus("O");
+        daoBONCH.persist(bONCHeader1);
+        hibernateTemplate.flush();
+
+        int billingNo = bONCHeader1.getId();
         Date startDate = new Date(dfm.parse("20101230").getTime());
         Date endDate = new Date(dfm.parse("20120101").getTime());
 
         BillingONPayment bONPayment1 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment1);
         Date date1 = new Date(dfm.parse("20110102").getTime());
-        bONPayment1.setBillingNo(1);
+        bONPayment1.setBillingNo(billingNo);
         bONPayment1.setPaymentDate(date1);
 
         BillingONPayment bONPayment2 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment2);
         Date date2 = new Date(dfm.parse("20110302").getTime());
-        bONPayment2.setBillingNo(1);
+        bONPayment2.setBillingNo(billingNo);
         bONPayment2.setPaymentDate(date2);
 
         BillingONPayment bONPayment3 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment3);
         Date date3 = new Date(dfm.parse("20110502").getTime());
-        bONPayment3.setBillingNo(1);
+        bONPayment3.setBillingNo(billingNo);
         bONPayment3.setPaymentDate(date3);
 
-        BillingONPayment bONPayment4 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment4);
-        Date date4 = new Date(dfm.parse("20090502").getTime());
-        bONPayment4.setBillingNo(1);
-        bONPayment4.setPaymentDate(date4);
-
-        BillingONPayment bONPayment5 = new BillingONPayment();
-        EntityDataGenerator.generateTestDataForModelClass(bONPayment5);
-        Date date5 = new Date(dfm.parse("20130502").getTime());
-        bONPayment5.setBillingNo(1);
-        bONPayment5.setPaymentDate(date5);
-
-        daoBONCH.persist(bONCHeader1);
         dao.persist(bONPayment1);
         dao.persist(bONPayment2);
         dao.persist(bONPayment3);
+        hibernateTemplate.flush();
 
         List<BillingONPayment> result = dao.find3rdPartyPayRecordsByBill(bONCHeader1, startDate, endDate);
         List<BillingONPayment> expectedResult = Arrays.asList(
