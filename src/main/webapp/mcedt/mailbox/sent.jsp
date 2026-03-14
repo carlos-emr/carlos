@@ -101,7 +101,7 @@
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <script language="javascript">
-        $(window).load(function () {
+        $(window).on('load', function () {
             $('input[type="checkbox"]').click(function () {
                 var pass = 5; //5 files at a time
                 var numOfFiles = $('input[type="checkbox"]:checked').length;

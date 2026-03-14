@@ -172,7 +172,7 @@
     });
 
 // Custom selectors
-    $.extend($.expr[":"], {
+    $.extend($.expr.pseudos || $.expr[":"], {
         // http://docs.jquery.com/Plugins/Validation/blank
         blank: function (a) {
             return !$.trim("" + $(a).val());
