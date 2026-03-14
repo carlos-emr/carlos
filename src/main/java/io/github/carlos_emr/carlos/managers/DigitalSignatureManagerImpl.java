@@ -29,7 +29,9 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,8 +40,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.FileInputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.Date;
@@ -68,8 +71,9 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         try {
             digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
         } catch (Exception e) {
+            logger.warn("Decryption failed for signature ID {} — attempting legacy re-encryption", id, e);
 
-            // the data is not encrypted, fetching attached entity, encrypt and save it for future use
+            // The data is not encrypted (legacy record). Re-attach, encrypt, and persist for future access.
             try {
                 digitalSignature.setSignatureImage(EncryptionUtils.encrypt(digitalSignature.getSignatureImage()));
                 this.digitalSignatureDao.merge(digitalSignature);
@@ -78,7 +82,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                 this.digitalSignatureDao.detach(digitalSignature);
                 digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
             } catch (Exception ex) {
-                return digitalSignature;
+                logger.error("Re-encryption and decryption both failed for signature ID {} — returning null to avoid corrupted data", id, ex);
+                return null;
             }
         }
 
@@ -123,32 +128,71 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             Path filePath = validatedFile.toPath();
 
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-                logger.debug("Signature file not found or not a regular file: " + filePath);
+                logger.debug("Signature file not found or not a regular file: {}", filePath);
                 return null;
             }
 
-            try (FileInputStream fileInputStream = new FileInputStream(filePath.toFile())) {
-                byte[] image = new byte[1024 * 256];
-                int readBytes = fileInputStream.read(image);
-                if (readBytes <= 0) {
-                    logger.debug("Signature file is empty: " + filePath);
-                    return null;
-                }
-
-                return this.saveDigitalSignature(
-                        loggedInInfo.getCurrentFacility().getId(),
-                        loggedInInfo.getLoggedInProviderNo(),
-                        demographicNo, 
-                        image, 
-                        moduleType
-                );
+            byte[] image = Files.readAllBytes(filePath);
+            if (image.length == 0) {
+                logger.debug("Signature file is empty: {}", filePath);
+                return null;
             }
+
+            return this.saveDigitalSignature(
+                    loggedInInfo.getCurrentFacility().getId(),
+                    loggedInInfo.getLoggedInProviderNo(),
+                    demographicNo,
+                    image,
+                    moduleType
+            );
         } catch (FileNotFoundException e) {
             logger.debug("Signature file not found. User probably didn't collect a signature.", e);
         } catch (SecurityException e) {
             logger.warn("Blocked unsafe file access attempt.", e);
         } catch (Exception e) {
             logger.error("Unexpected error processing digital signature.", e);
+        }
+
+        return null;
+    }
+
+    @Override
+    public DigitalSignature saveStampSignature(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo, ModuleType moduleType) {
+        if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
+            logger.debug("Digital signatures disabled for facility — stamp not saved");
+            return null;
+        }
+
+        // Prevent provider impersonation: the stamp must belong to the logged-in user
+        String loggedInProvider = loggedInInfo.getLoggedInProviderNo();
+        if (!loggedInProvider.equals(providerNo)) {
+            logger.warn("Provider {} attempted to use stamp signature of provider {} — denied",
+                    loggedInProvider, providerNo);
+            return null;
+        }
+
+        String stampFilename = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
+
+        try {
+            File stampFile = PathValidationUtils.validatePath(stampFilename, imageFolder);
+
+            if (!stampFile.exists()) {
+                logger.debug("Stamp signature file not found: {}", stampFilename);
+                return null;
+            }
+
+            byte[] imageData = Files.readAllBytes(stampFile.toPath());
+            return this.saveDigitalSignature(
+                    loggedInInfo.getCurrentFacility().getId(),
+                    providerNo, demographicNo, imageData, moduleType
+            );
+        } catch (SecurityException e) {
+            logger.warn("Blocked unsafe file access attempt for stamp signature.", e);
+        } catch (IOException e) {
+            logger.error("Error reading stamp signature file: {}", stampFilename, e);
+        } catch (RuntimeException e) {
+            logger.error("Error persisting stamp signature for provider {}: {}", providerNo, e.getMessage(), e);
         }
 
         return null;

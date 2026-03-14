@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
+
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -249,21 +249,6 @@ public class Resource2Action extends ActionSupport {
 
     public void setDetail(Detail detail) {
         this.detail = detail;
-    }
-
-    public void removeResource(BigInteger resourceId) {
-        if (resourceId == null) {
-            return;
-        }
-
-        Iterator<DetailData> it = getDetail().getData().iterator();
-        while (it.hasNext()) {
-            DetailData d = it.next();
-
-            if (resourceId.equals(d.getResourceID())) {
-                it.remove();
-            }
-        }
     }
 
     public String getResourceType() {

@@ -103,8 +103,6 @@ public interface TicklerManager {
 
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
-    public void activateTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
-
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString);
 
@@ -146,10 +144,6 @@ public interface TicklerManager {
     public List<Tickler> search_tickler(LoggedInInfo loggedInInfo, Integer demographicNo, Date endDate);
 
     public List<TicklerTextSuggest> getActiveTextSuggestions(LoggedInInfo loggedInInfo);
-
-    public List<TicklerTextSuggest> getAllTextSuggestions(LoggedInInfo loggedInInfo, int offset, int itemsToReturn);
-
-    public List<Tickler> sortTicklerList(Boolean isSortAscending, String sortColumn, List<Tickler> ticklers);
 
     /**
      * Returns paginated tickler data as lightweight DTOs for server-side DataTables.

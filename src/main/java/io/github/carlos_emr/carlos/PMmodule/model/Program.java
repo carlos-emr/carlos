@@ -118,8 +118,6 @@ public class Program extends AbstractModel<Integer> {
     private Boolean enableEncounterTransportationTime = false;
     private String emailNotificationAddressesCsv = null;
     private Date lastReferralNotification = null;
-    private boolean enableOCAN;
-
     //these are all transient - these need to be removed, we shouldn't be having fields like this in JPA model objects.
     private Integer noOfVacancy = 0;
     private String vacancyName;
@@ -1258,24 +1256,6 @@ public class Program extends AbstractModel<Integer> {
      */
     public void setVacancyTemplateName(String vacancyTemplateName) {
         this.vacancyTemplateName = vacancyTemplateName;
-    }
-
-    /**
-     * Checks if OCAN (Ontario Common Assessment of Need) is enabled for this program.
-     * 
-     * @return true if OCAN is enabled, false otherwise
-     */
-    public boolean isEnableOCAN() {
-        return enableOCAN;
-    }
-
-    /**
-     * Sets whether OCAN (Ontario Common Assessment of Need) is enabled for this program.
-     * 
-     * @param enableOCAN true if OCAN is enabled, false otherwise
-     */
-    public void setEnableOCAN(boolean enableOCAN) {
-        this.enableOCAN = enableOCAN;
     }
 
 }

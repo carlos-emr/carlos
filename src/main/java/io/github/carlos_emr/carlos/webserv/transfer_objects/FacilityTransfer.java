@@ -51,9 +51,7 @@ public final class FacilityTransfer {
     private Integer sectorId;
     private boolean enableHealthNumberRegistry;
     private boolean enableDigitalSignatures;
-    private boolean enableOcanForms;
     private boolean enableAnonymous;
-    private String ocanServiceOrgNumber;
     private boolean enableGroupNotes;
     private boolean enableEncounterTime;
     private boolean enableEncounterTransportationTime;
@@ -156,28 +154,12 @@ public final class FacilityTransfer {
         this.enableDigitalSignatures = enableDigitalSignatures;
     }
 
-    public boolean isEnableOcanForms() {
-        return (enableOcanForms);
-    }
-
-    public void setEnableOcanForms(boolean enableOcanForms) {
-        this.enableOcanForms = enableOcanForms;
-    }
-
     public boolean isEnableAnonymous() {
         return (enableAnonymous);
     }
 
     public void setEnableAnonymous(boolean enableAnonymous) {
         this.enableAnonymous = enableAnonymous;
-    }
-
-    public String getOcanServiceOrgNumber() {
-        return (ocanServiceOrgNumber);
-    }
-
-    public void setOcanServiceOrgNumber(String ocanServiceOrgNumber) {
-        this.ocanServiceOrgNumber = ocanServiceOrgNumber;
     }
 
     public boolean isEnableGroupNotes() {

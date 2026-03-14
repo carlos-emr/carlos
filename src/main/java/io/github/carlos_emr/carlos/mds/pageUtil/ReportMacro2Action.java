@@ -37,6 +37,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -81,8 +82,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         String name = request.getParameter("name");
 
-        logger.info("RunMacro called with name = " + name);
-
+        logger.info("RunMacro called with name = {}", Encode.forJava(StringUtils.defaultString(name)));
         if (name == null) {
             result.put("success", false);
             result.put("error", "No macro name provided");
@@ -120,9 +120,11 @@ public class ReportMacro2Action extends ActionSupport {
     }
 
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
-        logger.info("running macro " + macro.get("name").asText());
+        logger.info("running macro {}", Encode.forJava(macro.get("name").asText("")));
         String segmentID = request.getParameter("segmentID");
         String labType = request.getParameter("labType");
+        final String safeSegmentID = Encode.forJava(StringUtils.defaultString(segmentID));
+        final String safeLabType = Encode.forJava(StringUtils.defaultString(labType));
         String demographicNo = request.getParameter("demographicNo");
 
         // Use session-derived provider ID for security (prevent impersonation)
@@ -130,18 +132,18 @@ public class ReportMacro2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (macro.has("acknowledge")) {
-            logger.info("Acknowledging lab " + labType + ":" + segmentID);
+            logger.info("Acknowledging lab {}:{}", safeLabType, safeSegmentID);
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
             if (StringUtils.isBlank(segmentID)) {
-                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType=" + labType);
+                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", safeLabType);
                 return false;
             }
             final int segmentInt;
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
-                logger.error("Cannot acknowledge lab: non-numeric segmentID='" + segmentID + "' for labType=" + labType, e);
+                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", safeSegmentID, safeLabType, e);
                 return false;
             }
             CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));
