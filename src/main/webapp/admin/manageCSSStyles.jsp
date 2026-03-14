@@ -238,7 +238,7 @@
         }
 
     </script>
-
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 </head>
 <body>

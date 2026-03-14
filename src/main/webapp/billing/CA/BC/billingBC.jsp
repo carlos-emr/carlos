@@ -1033,7 +1033,8 @@
                     noCalendar: true,
                     dateFormat: 'H:i',
                     time_24hr: true,
-                    allowInput: true
+                    allowInput: true,
+                    wrap: true
                 });
             });
 
@@ -1588,7 +1589,7 @@
                                         <label for="serviceStartTime">Start</label>
                                         <div class='input-group date datetimepicker'>
 
-                                            <input type='text' id="serviceStartTime" class="form-control"/>
+                                            <input type='text' id="serviceStartTime" class="form-control" data-input/>
                                             <input type=hidden id="xml_starttime_hr" name="xml_starttime_hr"/>
                                             <input type=hidden id="xml_starttime_min" name="xml_starttime_min"/>
                                             <span class="input-group-text">
@@ -1601,7 +1602,7 @@
                                     <div class="mb-3">
                                         <label for="serviceEndTime">End</label>
                                         <div class='input-group date datetimepicker'>
-                                            <input type='text' id="serviceEndTime" class="form-control"/>
+                                            <input type='text' id="serviceEndTime" class="form-control" data-input/>
                                             <input type=hidden id="xml_endtime_hr" name="xml_endtime_hr"/>
                                             <input type=hidden id="xml_endtime_min" name="xml_endtime_min"/>
                                             <span class="input-group-text">
