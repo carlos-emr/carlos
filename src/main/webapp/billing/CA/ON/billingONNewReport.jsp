@@ -354,6 +354,7 @@
     <title>Ontario Billing Report</title>
 
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 
     <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 
@@ -408,12 +409,14 @@
 
     <form name="serviceform" method="post" action="billingONReport.jsp">
         <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
-            <label class="form-check form-check-inline">
-                <input type="radio" name="reportAction" value="unbilled" <%="unbilled".equals(action)? "checked" : "" %>> Unbilled
-            </label>
-            <label class="form-check form-check-inline">
-                <input type="radio" name="reportAction" value="billed" <%="billed".equals(action)? "checked" : "" %>> Billed
-            </label>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="unbilled" <%="unbilled".equals(action)? "checked" : "" %>>
+                <label class="form-check-label">Unbilled</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="billed" <%="billed".equals(action)? "checked" : "" %>>
+                <label class="form-check-label">Billed</label>
+            </div>
 
             &nbsp;&nbsp;Provider
             <% if (bMultisites) { // multisite start ==========================================

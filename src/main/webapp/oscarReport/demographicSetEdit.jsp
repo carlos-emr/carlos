@@ -264,10 +264,10 @@
         </section>
     </div>
 
-    <div id="delete-set-confirm" class="modal fade" tabindex="-1">
+    <div id="delete-set-confirm" class="modal fade" tabindex="-1" aria-labelledby="deleteSetTitle">
         <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header">
-            <h3>Delete Set</h3>
+            <h3 id="deleteSetTitle">Delete Set</h3>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">

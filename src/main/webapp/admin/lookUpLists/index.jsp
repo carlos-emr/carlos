@@ -218,9 +218,6 @@
             border: none;
         }
 
-        .clearfix {
-            clear: both;
-        }
 
         footer {
             height: 25px;

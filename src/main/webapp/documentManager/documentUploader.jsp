@@ -337,9 +337,10 @@
               role="progressbar"
               aria-valuemin="0"
               aria-valuemax="100"
+              aria-valuenow="0"
             >
               <div
-                class="progress-bar progress-bar bg-success"
+                class="progress-bar bg-success"
                 style="width: 0%;"
               ></div>
             </div>
@@ -371,7 +372,7 @@
               </td>
               <td>
                   <p class="size"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.processing" />...</p>
-                  <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar progress-bar bg-success" style="width:0%;"></div></div>
+                  <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar bg-success" style="width:0%;"></div></div>
               </td>
               <td>
                   {% if (!o.options.autoUpload && o.options.edit ) { %}

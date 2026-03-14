@@ -91,6 +91,8 @@
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+        <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/js/dataTables.responsive.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/js/responsive.jqueryui.min.js"></script>

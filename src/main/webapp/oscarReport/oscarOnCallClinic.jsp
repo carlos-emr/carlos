@@ -181,11 +181,11 @@
 <body>
 <div id="calendar" class="calendar" oncontextmenu="return false;">
 </div>
-<div id="modal" class="modal fade">
+<div id="modal" class="modal fade" aria-labelledby="onCallModalTitle">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h4 class="modal-title">Instructions For Using CARLOS On-Call Calendar</h4>
+                <h4 class="modal-title" id="onCallModalTitle">Instructions For Using CARLOS On-Call Calendar</h4>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">

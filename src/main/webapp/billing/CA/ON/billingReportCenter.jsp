@@ -113,24 +113,29 @@
 
     <form name="serviceform" method="post" action="billingReportControl.jsp">
         <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
-            <label class="form-check form-check-inline">
-                <input type="radio" name="reportAction" value="unbilled" checked> Unbilled
-            </label>
-            <label class="form-check form-check-inline">
-                <input type="radio" name="reportAction" value="billed"> Billed
-            </label>
-            <label class="form-check form-check-inline">
-                <input type="radio" name="reportAction" value="unsettled"> Unsettled
-            </label>
-            <label class="form-check form-check-inline">
-                <input type="radio" name="reportAction" value="billob"> OB
-            </label>
-            <label class="form-check form-check-inline">
-                <input type="radio" name="reportAction" value="flu"> FLU
-            </label>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="unbilled" checked>
+                <label class="form-check-label">Unbilled</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="billed">
+                <label class="form-check-label">Billed</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="unsettled">
+                <label class="form-check-label">Unsettled</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="billob">
+                <label class="form-check-label">OB</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="flu">
+                <label class="form-check-label">FLU</label>
+            </div>
 
             &nbsp;&nbsp;Provider
-            <select name="providerview" class="form-control form-control-sm" style="width:auto; display:inline-block;">
+            <select name="providerview" class="form-select form-select-sm" style="width:auto; display:inline-block;">
                 <%
                     String proFirst = "";
                     String proLast = "";

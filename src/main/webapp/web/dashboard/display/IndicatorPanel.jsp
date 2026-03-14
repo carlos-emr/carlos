@@ -76,12 +76,12 @@
 
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade">
+    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" aria-labelledby="indicatorTitle_${ indicatorPanel.id }">
         <div class="modal-dialog">
 
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title">
+                    <h4 class="modal-title" id="indicatorTitle_${ indicatorPanel.id }">
                         <c:out value="${ indicatorPanel.name }"/>
                     </h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
