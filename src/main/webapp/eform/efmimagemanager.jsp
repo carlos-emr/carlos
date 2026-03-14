@@ -59,7 +59,8 @@
                 }
             }
         </script>
-
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body topmargin="0" leftmargin="0" rightmargin="0">

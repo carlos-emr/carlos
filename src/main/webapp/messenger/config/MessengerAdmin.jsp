@@ -79,7 +79,9 @@
                     src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
             <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.min.css" rel="stylesheet"
                   type="text/css"/>
+            <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
             <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+            <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
             <style type="text/css">
                 summary {
                     cursor: pointer;
