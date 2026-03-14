@@ -60,7 +60,7 @@
     - DemographicData: Patient information retrieval
 
     Frontend Dependencies:
-    - Bootstrap 5.0.2 (responsive layout)
+    - Bootstrap 5.3.3 (responsive layout)
     - Font Awesome 6.x (icons)
     - Toast UI Editor 3.x (WYSIWYG/Markdown rich text editor with i18n)
     - No jQuery dependency (uses native DOMContentLoaded)

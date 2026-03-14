@@ -387,9 +387,7 @@
             }
 
             .btn-primary.active.focus, .btn-primary.active:focus, .btn-primary.active:hover,
-            .btn-primary:active.focus, .btn-primary:active:focus, .btn-primary:active:hover,
-            .open > .dropdown-toggle.btn-primary.focus:focus,
-            .open > .dropdown-toggle.btn-primary:hover {
+            .btn-primary:active.focus, .btn-primary:active:focus, .btn-primary:active:hover {
                 color: #fff;
                 background-color: #3f9336;
                 border-color: #3f9336;

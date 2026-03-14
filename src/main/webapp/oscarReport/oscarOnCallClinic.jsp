@@ -174,7 +174,7 @@
                 $('#calendar').data('calendar').setDataSource(data);
             });
 
-            new bootstrap.Modal(document.getElementById('modal'));
+            new bootstrap.Modal(document.getElementById('modal')).show();
         });
     </script>
 </head>
@@ -185,8 +185,8 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true">�</button>
-                <h4 class="modal-title">Instructions For Using OSCAR On-Call Calendar</h4>
+                <h4 class="modal-title">Instructions For Using CARLOS On-Call Calendar</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p>To set a date for the On-Call Clinic Calendar click on the date in the calendar and the date will

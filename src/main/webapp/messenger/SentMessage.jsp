@@ -52,7 +52,7 @@
   - SentMessageProvs: Request attribute containing comma-separated recipient names
 
   Frontend Dependencies:
-  - Bootstrap 5.0.2 (alert component, button styling)
+  - Bootstrap 5.3.3 (alert component, button styling)
   - Font Awesome 3.x (compose, inbox, exit icons)
   - global.js (popupPage utility)
 

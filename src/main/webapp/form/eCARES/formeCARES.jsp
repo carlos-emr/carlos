@@ -262,8 +262,8 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
                     <h4 class="modal-title">Please confirm</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p><span class="fa-solid fa-circle-check text-success"></span> All information entered on
@@ -289,8 +289,8 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
                     <h4 class="modal-title" id="ticklerModalTitle"></h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                 </div>
@@ -311,8 +311,8 @@
     <div class="modal-dialog modal-lg" style="width:60%;">
         <div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true">&times;</button>
                 <h4 class="modal-title">eFI - Frailty Index</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div id="chart" style="width:90%;margin:auto"></div>

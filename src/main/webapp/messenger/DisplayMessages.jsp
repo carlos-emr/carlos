@@ -58,7 +58,7 @@
     - orderby: Stored sort preference (persisted across requests)
 
     Frontend Dependencies:
-    - Bootstrap 5.0.2 (responsive layout, navigation tabs, table styling)
+    - Bootstrap 5.3.3 (responsive layout, navigation tabs, table styling)
     - Font Awesome 6 (action icons: trash, folder, undo, search, caret)
 
     Form Routing:

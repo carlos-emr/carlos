@@ -323,12 +323,10 @@
             <div class="modal-content">
 
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                            aria-hidden="true">&times;
-                    </button>
                     <h4 class="modal-title">
                         <c:out value="${ drilldown.name }"/>
                     </h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
@@ -386,10 +384,8 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                            aria-hidden="true">&times;
-                    </button>
                     <h4>Assign Tickler</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body"></div>
                 <div class="modal-footer">
@@ -406,10 +402,8 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                            aria-hidden="true">&times;
-                    </button>
                     <h4>Verify ICD9 Code For Addition To Disease Registry</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <c:if test="${not empty preferredProvider}">
@@ -438,10 +432,8 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                            aria-hidden="true">&times;
-                    </button>
                     <h4>Verify Patient Exclusion</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <c:if test="${not empty preferredProvider}">
@@ -471,10 +463,8 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                            aria-hidden="true">&times;
-                    </button>
                     <h4>Verify Patient Status Update</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <c:if test="${not empty preferredProvider}">

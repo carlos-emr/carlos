@@ -56,7 +56,7 @@
   - demographic_no: Associated patient ID if applicable
 
   Frontend Dependencies:
-  - Bootstrap 5.0.2 (responsive layout and button styles)
+  - Bootstrap 5.3.3 (responsive layout and button styles)
   - Font Awesome 6.x (icons for reply, forward, delete, etc.)
   - Toast UI Editor 3.x (viewer mode for markdown-formatted message bodies)
 
