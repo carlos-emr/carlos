@@ -169,30 +169,76 @@
         }
     }
 
-    function showhide(hideelement, button) {
-        var plus = '<i class="fa-solid fa-plus"></i>';
-        var minus = '<i class="fa-solid fa-minus"></i>';
-        if (document.getElementById) { // DOM3 = IE5, NS6
-            if (document.getElementById(hideelement).style.display === 'none') {
-                document.getElementById(hideelement).style.display = 'block';
-                document.getElementById(button).innerHTML = document.getElementById(button).innerHTML.replace(plus, minus);
-                if ((hideelement === "addDocDiv") && (document.getElementById("addLinkDiv").style.display !== "none")) {
-                    showhide("addLinkDiv", "plusminusLinkA");
-                } else if ((hideelement === "addLinkDiv") && (document.getElementById("addDocDiv").style.display !== "none")) {
-                    showhide("addDocDiv", "plusminusAddDocA");
-                }
-            } else {
-                document.getElementById(hideelement).style.display = 'none';
-                document.getElementById(button).innerHTML = document.getElementById(button).innerHTML.replace(minus, plus);
+    var allPanels = [
+        {div: "addDocDiv", btn: "plusminusAddDocA"},
+        {div: "addLinkDiv", btn: "plusminusLinkA"}
+    ];
 
+    function showhide(hideelement, button) {
+        var plusIcon = document.createElement('i');
+        plusIcon.className = 'fa-solid fa-plus';
+        var minusIcon = document.createElement('i');
+        minusIcon.className = 'fa-solid fa-minus';
+        var el = document.getElementById(hideelement);
+        var btn = document.getElementById(button);
+        if (!el || !btn) return;
+        if (el.style.display === 'none') {
+            el.style.display = 'block';
+            var icon = btn.querySelector('i.fa-solid');
+            if (icon) { icon.className = 'fa-solid fa-minus'; }
+            for (var i = 0; i < allPanels.length; i++) {
+                if (allPanels[i].div !== hideelement) {
+                    var otherEl = document.getElementById(allPanels[i].div);
+                    if (otherEl && otherEl.style.display !== 'none') {
+                        showhide(allPanels[i].div, allPanels[i].btn);
+                    }
+                }
             }
+        } else {
+            el.style.display = 'none';
+            var icon = btn.querySelector('i.fa-solid');
+            if (icon) { icon.className = 'fa-solid fa-plus'; }
         }
     }
 
     function submitUpload(object) {
         object.Submit.disabled = true;
-        if (!validDate("observationDate")) {
-            alert("Invalid Date: must be in format: yyyy-mm-dd");
+        var errors = [];
+        var typeEl = document.getElementById('docType');
+        var descEl = document.getElementById('docDesc');
+        var fileEl = document.getElementById('docFile');
+        var dateEl = document.getElementById('observationDate');
+
+        if (!typeEl || typeEl.value === "") {
+            errors.push("- Document type is required");
+            if (typeEl) typeEl.classList.add('is-invalid');
+        } else if (typeEl) {
+            typeEl.classList.remove('is-invalid');
+        }
+
+        if (!descEl || descEl.value.trim() === "" || descEl.value === "Enter Title") {
+            errors.push("- Description is required");
+            if (descEl) descEl.classList.add('is-invalid');
+        } else if (descEl) {
+            descEl.classList.remove('is-invalid');
+        }
+
+        if (!fileEl || fileEl.value === "") {
+            errors.push("- Please select a file to upload");
+            if (fileEl) fileEl.classList.add('is-invalid');
+        } else if (fileEl) {
+            fileEl.classList.remove('is-invalid');
+        }
+
+        if (!dateEl || dateEl.value.trim() === "") {
+            errors.push("- Observation date is required");
+            if (dateEl) dateEl.classList.add('is-invalid');
+        } else if (dateEl) {
+            dateEl.classList.remove('is-invalid');
+        }
+
+        if (errors.length > 0) {
+            alert("Please fix the following:\n\n" + errors.join("\n"));
             object.Submit.disabled = false;
             return false;
         }
@@ -201,6 +247,37 @@
 
     function submitUploadLink(object) {
         object.Submit.disabled = true;
+        var errors = [];
+        var typeEl = document.getElementById('docType1');
+        var descEl = document.getElementById('docDesc2');
+        var linkEl = document.getElementById('html');
+
+        if (!typeEl || typeEl.value === "") {
+            errors.push("- Link type is required");
+            if (typeEl) typeEl.classList.add('is-invalid');
+        } else if (typeEl) {
+            typeEl.classList.remove('is-invalid');
+        }
+
+        if (!descEl || descEl.value.trim() === "" || descEl.value === "Enter Title") {
+            errors.push("- Description is required");
+            if (descEl) descEl.classList.add('is-invalid');
+        } else if (descEl) {
+            descEl.classList.remove('is-invalid');
+        }
+
+        if (!linkEl || linkEl.value.trim() === "") {
+            errors.push("- Link URL is required");
+            if (linkEl) linkEl.classList.add('is-invalid');
+        } else if (linkEl) {
+            linkEl.classList.remove('is-invalid');
+        }
+
+        if (errors.length > 0) {
+            alert("Please fix the following:\n\n" + errors.join("\n"));
+            object.Submit.disabled = false;
+            return false;
+        }
         return true;
     }
 
@@ -254,10 +331,6 @@
         <a class="btn" id="plusminusLinkA" href="javascript: showhide('addLinkDiv', 'plusminusLinkA')">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.AddLink"/>
         </a>
-        <a class="btn" href="javascript:void(0);"
-           onclick="popup1(450, 600, 'addedithtmldocument.jsp?function=<%=module%>&functionid=<%=moduleid%>&mode=addHtml', 'addhtml')">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.AddHTML"/>
-        </a>
     </div>
 
     <div id="addDocDiv" class="addDocDiv well form-inline" style="display: none; padding:5px;">
@@ -304,12 +377,12 @@
                        class="form-control <c:if test='${ docerrors["descmissing"] != null}' >alert-danger</c:if>"
                        id="docDesc" name="docDesc" value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>"
                        onfocus="checkDefaultValue(this)"/>
-                <input type="hidden" name="docCreator" value="<%=formdata.getDocCreator()%>"/>
+                <input type="hidden" name="docCreator" value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>"/>
             </div>
             <div class="form-group">
                 <label for="observationDate" title="Observation Date">Observation Date</label>
                 <input class="span2 form-control" type="date" name="observationDate" id="observationDate"
-                       value="<%=formdata.getObservationDate()%>"
+                       value="<%=Encode.forHtmlAttribute(formdata.getObservationDate())%>"
                        onclick="checkDefaultDate(this, '<%=UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>')">
             </div>
 
@@ -325,7 +398,7 @@
                                 consult1Shown = true;
                             }
                     %>
-                    <option value="<%=reportClass%>"><%=reportClass%>
+                    <option value="<%=Encode.forHtmlAttribute(reportClass)%>"><%=Encode.forHtmlContent(reportClass)%>
                     </option>
                     <% } %>
                 </select>
@@ -359,7 +432,7 @@
                         <input type="submit" name="Submit" value="Add" class="btn btn-primary">
                         <input type="button" name="Button" class="btn btn-error"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
-                               onclick="window.location='documentReport.jsp?function=<%=module%>&functionid=<%=moduleid%>'">
+                               onclick="window.location='documentReport.jsp?function=<%=Encode.forJavaScript(module)%>&functionid=<%=Encode.forJavaScript(moduleid)%>'">
 
                     </div>
                 </div>
@@ -380,11 +453,11 @@
             </div>
         </c:forEach>
 
-        <input type="hidden" name="function" value="<%=formdata.getFunction()%>">
-        <input type="hidden" name="functionId" value="<%=formdata.getFunctionId()%>">
-        <input type="hidden" name="functionid" value="<%=moduleid%>">
-        <input type="hidden" name="observationDate" value="<%=formdata.getObservationDate()%>">
-        <input type="hidden" name="appointmentNo" value="<%=formdata.getAppointmentNo()%>"/>
+        <input type="hidden" name="function" value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>">
+        <input type="hidden" name="functionId" value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>">
+        <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>">
+        <input type="hidden" name="observationDate" value="<%=Encode.forHtmlAttribute(formdata.getObservationDate())%>">
+        <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
 
         <div class="form-group">
             <label for="docType1">Link Type</label>
@@ -394,8 +467,8 @@
                     <%
                         for (int i1 = 0; i1 < doctypes.size(); i1++) {
                             String doctype = (String) doctypes.get(i1); %>
-                    <option value="<%= doctype%>"
-                            <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%= doctype%>
+                    <option value="<%=Encode.forHtmlAttribute(doctype)%>"
+                            <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%>
                     </option>
                     <%}%>
                 </select>
@@ -412,7 +485,7 @@
             <label for="docDesc2">Description</label>
             <input type="text" name="docDesc" id="docDesc2"
                    class="form-control <c:if test="${ linkhtmlerrors['descmissing'] != null }">alert-danger</c:if>"
-                   value="<%=formdata.getDocDesc()%>" onfocus="checkDefaultValue(this)">
+                   value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>" onfocus="checkDefaultValue(this)">
         </div>
 
         <div class="form-group">
@@ -427,7 +500,7 @@
                             consult2Shown = true;
                         }
                 %>
-                <option value="<%=reportClass%>"><%=reportClass%>
+                <option value="<%=Encode.forHtmlAttribute(reportClass)%>"><%=Encode.forHtmlContent(reportClass)%>
                 </option>
                 <% } %>
             </select>
@@ -449,21 +522,22 @@
             <label for="html">Link</label>
             <div class="input-group">
                 <input type="text" id="html" name="html" class="form-control"
-                       value="<%=formdata.getHtml()%>" onfocus="checkDefaultValue(this)">
+                       value="<%=Encode.forHtmlAttribute(formdata.getHtml())%>" onfocus="checkDefaultValue(this)">
                 <input type="hidden" name="docCreator"
-                       value="<%=formdata.getDocCreator()%>">
-                <input type="hidden" name="appointmentNo" value="<%=formdata.getAppointmentNo()%>"/>
+                       value="<%=Encode.forHtmlAttribute(formdata.getDocCreator())%>">
+                <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
                 <div class="input-group-btn">
                     <input type="hidden" name="mode" value="addLink">
                     <input class="btn btn-primary" type="SUBMIT" name="Submit" value="Add">
                     <input class="btn" type="button" name="Button"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
-                           onclick="window.location='documentReport.jsp?function=<%=module%>&functionid=<%=moduleid%>'">
+                           onclick="window.location='documentReport.jsp?function=<%=Encode.forJavaScript(module)%>&functionid=<%=Encode.forJavaScript(moduleid)%>'">
                 </div>
             </div>
             </form>
 
         </div>
     </div>
+
 
 </div>

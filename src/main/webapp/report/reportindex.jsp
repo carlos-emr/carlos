@@ -283,6 +283,11 @@
 
         </table>
     </form>
+    <div class="mt-3 mb-3 text-end">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>
+        </button>
+    </div>
     </div>
     </div>
     </body>

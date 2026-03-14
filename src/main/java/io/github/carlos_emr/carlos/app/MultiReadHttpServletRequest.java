@@ -28,7 +28,13 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 import javax.servlet.ReadListener;
@@ -40,12 +46,26 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * HttpServletRequestWrapper that allows for multiple reads of multipart/form-data
+ * and exposes multipart form fields via {@link #getParameter(String)} so that
+ * CSRFGuard can extract the CSRF token from multipart POST requests.
  */
 public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MultiReadHttpServletRequest.class);
+
     private ByteArrayOutputStream cachedBytes;
+
+    /** Parsed multipart form field parameters (lazy-initialized, null until parsed). */
+    private Map<String, String[]> multipartParams;
 
     /** Maximum request body size (500 MB) to prevent memory exhaustion. Matches struts.multipart.maxSize. */
     static final long MAX_BODY_SIZE = 500L * 1024 * 1024;
@@ -105,6 +125,77 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             cachedBytes = null;
             throw e;
         }
+    }
+
+    /**
+     * Parses multipart form fields from the cached request body so that
+     * {@link #getParameter(String)} can return values embedded in the multipart stream.
+     * File upload items are skipped — only simple form fields are extracted.
+     */
+    private void parseMultipartParams() {
+        if (multipartParams != null) {
+            return;
+        }
+        multipartParams = new HashMap<>();
+        try {
+            DiskFileItemFactory factory = new DiskFileItemFactory();
+            factory.setSizeThreshold(8192);
+            ServletFileUpload upload = new ServletFileUpload(factory);
+            List<FileItem> items = upload.parseRequest(this);
+            Map<String, List<String>> temp = new HashMap<>();
+            for (FileItem item : items) {
+                if (item.isFormField()) {
+                    String encoding = getCharacterEncoding() != null ? getCharacterEncoding() : "UTF-8";
+                    temp.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>())
+                            .add(item.getString(encoding));
+                }
+            }
+            for (Map.Entry<String, List<String>> entry : temp.entrySet()) {
+                multipartParams.put(entry.getKey(), entry.getValue().toArray(new String[0]));
+            }
+        } catch (FileUploadException | IOException e) {
+            LOGGER.warn("Failed to parse multipart form fields for CSRF token extraction — "
+                    + "getParameter() will fall back to query string only", e);
+            multipartParams = new HashMap<>();
+        }
+    }
+
+    @Override
+    public String getParameter(String name) {
+        // Try the original (query string) first
+        String value = super.getParameter(name);
+        if (value != null) {
+            return value;
+        }
+        // Fall back to multipart form fields
+        parseMultipartParams();
+        String[] values = multipartParams.get(name);
+        return (values != null && values.length > 0) ? values[0] : null;
+    }
+
+    @Override
+    public Map<String, String[]> getParameterMap() {
+        Map<String, String[]> combined = new HashMap<>(super.getParameterMap());
+        parseMultipartParams();
+        for (Map.Entry<String, String[]> entry : multipartParams.entrySet()) {
+            combined.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        return Collections.unmodifiableMap(combined);
+    }
+
+    @Override
+    public Enumeration<String> getParameterNames() {
+        return Collections.enumeration(getParameterMap().keySet());
+    }
+
+    @Override
+    public String[] getParameterValues(String name) {
+        String[] values = super.getParameterValues(name);
+        if (values != null) {
+            return values;
+        }
+        parseMultipartParams();
+        return multipartParams.get(name);
     }
 
     /* An inputstream which reads the cached request body */

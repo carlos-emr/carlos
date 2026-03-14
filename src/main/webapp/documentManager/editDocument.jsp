@@ -148,131 +148,83 @@
     }
 %>
 
-<!DOCTYPE HTML>
-
 <html>
 <head>
     <title>Edit Document</title>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/scriptaculous.js"></script>
-
-    <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/share/css/niftyCorners.css"/>
-    <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
-
-    <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-    <style type="text/css">
-        .autocomplete_style {
-            background: #fff;
-            text-align: left;
-        }
-
-        .autocomplete_style ul {
-            border: 1px solid #aaa;
-            margin: 0px;
-            padding: 2px;
-            list-style: none;
-        }
-
-        .autocomplete_style ul li.selected {
-            background-color: #ffa;
-            text-decoration: underline;
-        }
-    </style>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-    <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <%@ include file="/includes/global-head.jspf" %>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript">
-        window.onload = function () {
-            new Autocompleter.Local('docSubClass', 'docSubClass_list', docSubClassList);
-            if (!NiftyCheck())
-                return;
-            //Rounded("div.leftplane","top", "transparent", "#CCCCFF","small border #ccccff");
-            //Rounded("div.leftplane","bottom","transparent","#EEEEFF","small border #ccccff");
-        }
-
-        function submitUpload(object) {
+        function submitEdit(object) {
             object.Submit.disabled = true;
-            var ans = true;
-            if (object.reviewerId.value != "") {
-                ans = confirm("Updating this document will remove reviewer information. Confirm?");
-            }
-            if (ans && !validDate("observationDate")) {
-                alert("Invalid Date: must be in format yyyy/mm/dd");
-                ans = false;
-            }
-            object.Submit.disabled = false;
-            return ans;
-        }
+            var errors = [];
+            var typeEl = document.getElementById('docType');
+            var descEl = document.getElementById('docDesc');
+            var dateEl = document.getElementById('observationDate');
 
-        function reviewed(ths) {
-            if (ths.form.reviewerId.value == 'null') {
-                thisForm = ths.form;
-                thisForm.reviewerId.value = <%=user_no%>;
-                thisForm.reviewDoc.value = true;
-                thisForm.submit();
-            } else {
-                alert('set extra');
-                thisForm = ths.form;
-                thisForm.extraReviewerId.value = <%=user_no%>;
-                thisForm.extraReviewDoc.value = true;
-                thisForm.submit();
+            if (!typeEl || typeEl.value === "") {
+                errors.push("- Document type is required");
+                if (typeEl) typeEl.classList.add('is-invalid');
+            } else if (typeEl) {
+                typeEl.classList.remove('is-invalid');
             }
-        }
 
-        var docSubClassList = [
-            <% for (int i=0; i<subClasses.size(); i++) { %>
-            "<%=subClasses.get(i)%>"<%=(i<subClasses.size()-1)?",":""%>
-            <% } %>
-        ];
+            if (!descEl || descEl.value.trim() === "") {
+                errors.push("- Description is required");
+                if (descEl) descEl.classList.add('is-invalid');
+            } else if (descEl) {
+                descEl.classList.remove('is-invalid');
+            }
+
+            if (!dateEl || dateEl.value.trim() === "") {
+                errors.push("- Observation date is required");
+                if (dateEl) dateEl.classList.add('is-invalid');
+            } else if (dateEl) {
+                dateEl.classList.remove('is-invalid');
+            }
+
+            if (errors.length > 0) {
+                alert("Please fix the following:\n\n" + errors.join("\n"));
+                object.Submit.disabled = false;
+                return false;
+            }
+            return true;
+        }
     </script>
 </head>
-<body class="mainbody">
-<div class="maindiv">
-    <div class="maindivheading">Edit Document</div>
-    <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
-    <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST"
-                       enctype="multipart/form-data" onsubmit="return submitUpload(this);">
-    <input type="hidden" name="function"
-           value="<%=formdata.getFunction()%>" size="20"/>
-    <input type="hidden" name="functionId"
-           value="<%=formdata.getFunctionId()%>" size="20"/>
-    <input type="hidden" name="functionid" value="<%=moduleid%>" size="20"/>
-    <input type="hidden" name="mode" value="<%=editDocumentNo%>"/>
-    <input type="hidden" name="reviewerId" value="<%=formdata.getReviewerId()%>"/>
-    <input type="hidden" name="reviewDateTime" value="<%=formdata.getReviewDateTime()%>"/>
-    <input type="hidden" name="reviewDoc" value="false"/>
+<body style="padding: 10px;">
 
+    <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
+    <div class="alert alert-danger">
+        <strong>Error:</strong> <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/>
+    </div>
+    <% } %>
+
+    <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST"
+          enctype="multipart/form-data" onsubmit="return submitEdit(this);">
+    <input type="hidden" name="function" value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>"/>
+    <input type="hidden" name="functionId" value="<%=Encode.forHtmlAttribute(formdata.getFunctionId())%>"/>
+    <input type="hidden" name="functionid" value="<%=Encode.forHtmlAttribute(moduleid)%>"/>
+    <input type="hidden" name="mode" value="<%=Encode.forHtmlAttribute(editDocumentNo)%>"/>
+    <input type="hidden" name="reviewerId" value="<%=Encode.forHtmlAttribute(formdata.getReviewerId())%>"/>
+    <input type="hidden" name="reviewDateTime" value="<%=Encode.forHtmlAttribute(formdata.getReviewDateTime())%>"/>
+    <input type="hidden" name="reviewDoc" value="false"/>
     <input type="hidden" name="extraReviewerId" value=""/>
     <input type="hidden" name="extraReviewDoc" value="false"/>
 
-    <table class="layouttable">
-        <tr>
-            <td><label for="docType">Type:</label></td>
-            <td><select name="docType" id="docType"
-                    <% if (docerrors.containsKey("typemissing")) {%> class="warning"
-                    <%}%>>
+    <div class="row g-2 mb-2">
+        <div class="col-auto">
+            <label for="docType" class="form-label mb-0 small fw-bold">Type</label>
+            <select name="docType" id="docType" class="form-select form-select-sm<% if (docerrors.containsKey("typemissing")) {%> is-invalid<%}%>">
                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
-                <%
-                    for (int i = 0; i < doctypes.size(); i++) {
-                        String doctype = (String) doctypes.get(i);
-                %>
-                <option value="<%=Encode.forHtmlAttribute(doctype)%>"
-                        <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%= Encode.forHtmlContent(doctype)%>
-                </option>
+                <% for (int i = 0; i < doctypes.size(); i++) {
+                    String doctype = (String) doctypes.get(i); %>
+                <option value="<%=Encode.forHtmlAttribute(doctype)%>" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtmlContent(doctype)%></option>
                 <%}%>
-            </select></td>
-        </tr>
-        <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/>:</td>
-            <td><select name="docClass" id="docClass">
+            </select>
+        </div>
+        <div class="col-auto">
+            <label for="docClass" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/></label>
+            <select name="docClass" id="docClass" class="form-select form-select-sm">
                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
                 <% boolean consultShown = false;
                     for (String reportClass : reportClasses) {
@@ -282,193 +234,66 @@
                             consultShown = true;
                         }
                 %>
-                <option value="<%=Encode.forHtmlAttribute(reportClass)%>" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><%=Encode.forHtmlContent(reportClass)%>
-                </option>
+                <option value="<%=Encode.forHtmlAttribute(reportClass)%>" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><%=Encode.forHtmlContent(reportClass)%></option>
                 <% } %>
             </select>
-            </td>
-        </tr>
-        <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
-            <td><input type="text" name="docSubClass" id="docSubClass"
-                       value="<%=Encode.forHtmlAttribute(formdata.getDocSubClass())%>" style="width:330px">
-                <div class="autocomplete_style" id="docSubClass_list"></div>
-            </td>
-        </tr>
-        <tr>
-            <td>Description:</td>
-            <td><input <% if (docerrors.containsKey("descmissing")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" size="30"
-                    value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>">
-            <td>
-        </tr>
-        <tr>
-            <td>Observation Date:</td>
-            <td><input id="observationDate" name="observationDate"
-                       type="text" value="<%=Encode.forHtmlAttribute(formdata.getObservationDate())%>"><a
-                    id="obsdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
-                                      alt="Calendar" border="0"/></a></td>
-        </tr>
-        <tr>
-            <td>Added By:</td>
-            <td><%=Encode.forHtmlAttribute(EDocUtil.getProviderName(formdata.getDocCreator()))%>
-            </td>
-        </tr>
-        <tr>
-            <td>Responsible Provider:</td>
-            <td>
-                <select name="responsibleId">
-                    <option value="">---</option>
-                    <% for (Map<String, String> pd : pdList) {
-                        String selected = "";
-                        if (formdata.getResponsibleId().equals(pd.get("providerNo"))) selected = "selected";
-                    %>
-                    <option value="<%=pd.get("providerNo")%>" <%=selected%>><%=Encode.forHtmlContent(pd.get("lastName"))%>
-                        , <%=Encode.forHtmlContent(pd.get("firstName"))%>
-                    </option>
-                    <% } %>
-                </select>
-            </td>
-        </tr>
-        <tr>
-            <td>Date Added/Updated:</td>
-            <td><%=Encode.forHtmlContent(lastUpdate)%>
-            </td>
-        </tr>
-        <tr>
-            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
-            <td><%=Encode.forHtmlContent(formdata.getContentDateTime())%>
-            </td>
-        </tr>
-        <tr>
-            <td><label for="source">Source Author:</label></td>
-            <td><input type="text" id="source" name="source" size="15"
-                       value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(formdata.getSource()))%>"/></td>
-        </tr>
-        <tr>
-            <td>Source Facility:</td>
-            <td><input type="text" name="sourceFacility" size="15"
-                       value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(formdata.getSourceFacility()))%>"/>
-            </td>
-        </tr>
-        <% if (EDocUtil.isProviderModule(module)) {%>
-        <tr>
-            <td>Public?</td>
-            <td><input type="checkbox" name="docPublic"
-                    <%=Encode.forHtmlAttribute(formdata.getDocPublic() + " ")%> value="checked"></td>
-        </tr>
-        <%}%>
-        <tr>
-            <td>File Name:</td>
-            <td>
-                <div style="width: 300px; overflow: hidden; text-overflow: ellipsis;"><%=Encode.forHtmlContent(fileName)%>
-                </div>
-        </tr>
-        <tr>
-            <td>Restricted to program:</td>
-            <td>
-                <%=formdata.isRestrictToProgram()%>
-            </td>
-        </tr>
+        </div>
+        <div class="col-auto">
+            <label for="docSubClass" class="form-label mb-0 small fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/></label>
+            <input type="text" name="docSubClass" id="docSubClass" class="form-control form-control-sm"
+                   value="<%=Encode.forHtmlAttribute(formdata.getDocSubClass())%>">
+        </div>
+    </div>
 
-        <tr>
-            <td>Date Received:</td>
-            <td><input id="receivedDate" name="receivedDate"
-                       type="text" value="<%=Encode.forHtmlAttribute(formdata.getReceivedDate())%>"><a
-                    id="rdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
-                                    alt="Calendar" border="0"/></a></td>
-        </tr>
+    <div class="row g-2 mb-2">
+        <div class="col-auto">
+            <label for="docDesc" class="form-label mb-0 small fw-bold">Description</label>
+            <input type="text" name="docDesc" id="docDesc" class="form-control form-control-sm<% if (docerrors.containsKey("descmissing")) {%> is-invalid<%}%>"
+                   value="<%=Encode.forHtmlAttribute(formdata.getDocDesc())%>">
+        </div>
+        <div class="col-auto">
+            <label for="observationDate" class="form-label mb-0 small fw-bold">Observation Date</label>
+            <input type="date" name="observationDate" id="observationDate" class="form-control form-control-sm"
+                   value="<%=Encode.forHtmlAttribute(formdata.getObservationDate().replace("/", "-"))%>">
+        </div>
+    </div>
 
-        <tr>
-            <td>Abnormal Result(s):</td>
-            <td><input type="checkbox" name="abnormal"
-                    <%=Encode.forHtmlAttribute(formdata.getAbnormal() + " ")%> value="checked"></td>
-        </tr>
+    <div class="row g-2 mb-2">
+        <div class="col-auto">
+            <label class="form-label mb-0 small fw-bold">File</label>
+            <div class="form-text small text-truncate" style="max-width: 300px;"><%=Encode.forHtml(fileName)%></div>
+        </div>
+        <div class="col-auto">
+            <label class="form-label mb-0 small fw-bold">Added By</label>
+            <div class="form-text small"><%=Encode.forHtml(EDocUtil.getProviderName(formdata.getDocCreator()))%></div>
+        </div>
+    </div>
 
-        <tr>
-            <% boolean updatableContent = false; %>
-            <oscar:oscarPropertiesCheck property="ALLOW_UPDATE_DOCUMENT_CONTENT" value="true" defaultVal="false">
-                <% updatableContent = true; %>
-            </oscar:oscarPropertiesCheck>
+    <% if (EDocUtil.isProviderModule(module)) {%>
+    <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" name="docPublic" id="docPublic"
+            <%=Encode.forHtmlAttribute(formdata.getDocPublic() + " ")%> value="checked">
+        <label class="form-check-label small" for="docPublic">Public</label>
+    </div>
+    <%}%>
 
-            <td>
-                <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    File: <font class="comment">(blank to keep file)</font>
-                </div>
-            </td>
-            <td>
-                <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    <input type="file" name="docFile" size="20"
-                            <% if (docerrors.containsKey("uploaderror")) {%> class="warning"
-                            <%}%>>
-                </div>
-            </td>
+    <% boolean updatableContent = false; %>
+    <oscar:oscarPropertiesCheck property="ALLOW_UPDATE_DOCUMENT_CONTENT" value="true" defaultVal="false">
+        <% updatableContent = true; %>
+    </oscar:oscarPropertiesCheck>
+    <% if (updatableContent) { %>
+    <div class="mb-2">
+        <label class="form-label mb-0 small fw-bold">Replace File <span class="fw-normal text-muted">(blank to keep current)</span></label>
+        <input type="file" name="docFile" class="form-control form-control-sm<% if (docerrors.containsKey("uploaderror")) {%> is-invalid<%}%>">
+    </div>
+    <% } %>
 
-        </tr>
-        <tr>
-            <td colspan=2>
-                <%
-                    boolean reviewedByMe = false;
-                    if (formdata.getReviewerId() != null && !formdata.getReviewerId().equals("")) {
-                        if (formdata.getReviewerId().equals(user_no)) {
-                            reviewedByMe = true;
-                        }
-                %>
-                Reviewed: &nbsp; <%=Encode.forHtmlContent(EDocUtil.getProviderName(formdata.getReviewerId()))%>
-                &nbsp; [<%=formdata.getReviewDateTime()%>]
-                <% } %>
-                <%
-                    for (DocumentExtraReviewer der : extraReviewers) {
-                        if (der.getReviewerProviderNo().equals(user_no)) {
-                            reviewedByMe = true;
-                        }
-                %>
-                <br/>
-                Reviewed: &nbsp; <%=Encode.forHtmlContent(EDocUtil.getProviderName(der.getReviewerProviderNo()))%>
-                &nbsp; [<%=der.getReviewDateTime()%>]
-                <% } %>
+    <div class="d-flex gap-2">
+        <input class="btn btn-primary btn-sm" type="submit" name="Submit" value="Update" <%=("".equals(editDocumentNo) ? "disabled" : "") %>>
+        <input class="btn btn-outline-secondary btn-sm" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+               onclick="window.close();">
+    </div>
 
-                <%if (!reviewedByMe) { %>
-                <br/>
-                <input type="button" value="Reviewed" title="Click to set Reviewed" onclick="reviewed(this);"/>
-                <% } %>
-            </td>
-        </tr>
-        <tr>
-            <td colspan=2>
-                <input type="button" value="Annotation"
-                       onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=annotation_tableid%>&demo=<%=moduleid%>','anwin','width=400,height=500');"/>
-            </td>
-        </tr>
-        <tr>
-            <td colspan=2>
-                <p>&nbsp;</p>
-                <center>
-                    <input type="submit" name="Submit" value="Update" <%=("".equals(editDocumentNo)?"disabled":"") %>>
-                    <input type="button" value="Cancel" onclick="window.close();">
-                </center>
-            </td>
-        </tr>
-    </table>
-</form>
-    <script type="text/javascript">
-        Calendar.setup({
-            inputField: "observationDate",
-            ifFormat: "%Y/%m/%d",
-            showsTime: false,
-            button: "obsdate",
-            singleClick: true,
-            step: 1
-        });
-        Calendar.setup({
-            inputField: "receivedDate",
-            ifFormat: "%Y/%m/%d",
-            showsTime: false,
-            button: "rdate",
-            singleClick: true,
-            step: 1
-        });
-    </script>
-</div>
+    </form>
 </body>
 </html>

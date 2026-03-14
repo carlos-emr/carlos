@@ -48,7 +48,11 @@
     String appointment = request.getParameter("appointmentNo");
     int appointmentNo = 0;
     if (appointment != null && !appointment.isEmpty()) {
-        appointmentNo = Integer.parseInt(appointment);
+        try {
+            appointmentNo = Integer.parseInt(appointment);
+        } catch (NumberFormatException e) {
+            appointmentNo = 0;
+        }
     }
 
 %>
@@ -200,7 +204,7 @@
             $(function () {
                 var docSubClassList = [
                     <% for (int i=0; i<subClasses.size(); i++) { %>
-                    "<%=subClasses.get(i)%>"<%=(i<subClasses.size()-1)?",":""%>
+                    "<%=Encode.forJavaScript(subClasses.get(i))%>"<%=(i<subClasses.size()-1)?",":""%>
                     <% } %>
                 ];
                 $("#docSubClass").autocomplete({
@@ -233,6 +237,10 @@
                 fields['function'] = func;
                 fields['functionid'] = funcId;
                 fields['viewstatus'] = viewStatus;
+                var existingToken = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (existingToken) {
+                    fields['CSRF-TOKEN'] = existingToken.value;
+                }
                 for (var key in fields) {
                     var input = document.createElement('input');
                     input.type = 'hidden';
@@ -242,51 +250,6 @@
                 }
                 document.body.appendChild(form);
                 form.submit();
-            }
-
-            function selectAll(checkboxId, parentEle, className) {
-                var f = document.getElementById(checkboxId);
-                var val = f.checked;
-                var chkList = document.getElementsByClassName(className, parentEle);
-                for (i = 0; i < chkList.length; i++) {
-                    chkList[i].checked = val;
-                }
-            }
-
-            function submitForm(actionPath) {
-
-                var form = document.forms[2];
-                if (verifyChecks(form)) {
-                    form.action = actionPath;
-                    form.submit();
-                    return true;
-                } else
-                    return false;
-            }
-
-            function verifyChecks(t) {
-
-                if (t.docNo == null) {
-                    alert("No documents selected");
-                    return false;
-                } else {
-                    var oneChecked = 0;
-                    if (t.docNo.length) {
-                        for (i = 0; i < t.docNo.length; i++) {
-                            if (t.docNo[i].checked) {
-                                ++oneChecked;
-                                break;
-                            }
-                        }
-                    } else
-                        oneChecked = t.docNo.checked ? 1 : 0;
-
-                    if (oneChecked === 0) {
-                        alert("No documents selected");
-                        return false;
-                    }
-                }
-                return true;
             }
 
             function popup1(height, width, url, windowName) {
@@ -302,8 +265,8 @@
             }
 
             function setup() {
-                var update = "<%=updateParent%>";
-                var parentId = "<%=parentAjaxId%>";
+                var update = "<%=Encode.forJavaScript(updateParent)%>";
+                var parentId = "<%=Encode.forJavaScript(parentAjaxId)%>";
                 var Url = window.opener.URLs;
 
                 if (update === "true" && !window.opener.closed) {
@@ -326,12 +289,12 @@
             jQuery(document).ready(function () {
                 jQuery("table[id^='tblDocs']").DataTable({
                     ordering: true,
-                    columnDefs: [{orderable: false, targets: [0, 8]}],
+                    columnDefs: [{orderable: false, targets: [4]}],
                     lengthMenu: [
                         [-1, 10, 20, 50, 100, 200],
                         ['All', 10, 20, 50, 100, 200]
                     ],
-                    order: [[6, 'dsc']],
+                    order: [[3, 'dsc']],
                     "language": {
                         "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
                     }
@@ -340,54 +303,74 @@
         </script>
 
         <style>
-            :root *:not(h2) {
-                font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
-                font-size: 12px;
-                overscroll-behavior: none;
-                -webkit-font-smoothing: antialiased;
-                -moz-osx-font-smoothing: grayscale;
+            .filter-bar {
+                background: var(--carlos-bg-light);
+                border: 1px solid var(--carlos-border);
+                border-radius: 4px;
+                padding: 10px 15px;
+                margin-bottom: 12px;
             }
-
-            .panel-body {
-                overflow: auto;
+            .patient-info-bar {
+                background: #fff;
+                border-bottom: 1px solid var(--carlos-border);
+                padding: 8px 15px;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 8px;
             }
-
-            a {
-                color: blue;
+            .doc-table td a {
+                word-break: break-word;
+                overflow-wrap: anywhere;
             }
-            .panel-body table tr td a {
-	            text-wrap: auto;
-	            word-wrap: anywhere;
-	            word-break: break-word;
+            .doc-table th, .doc-table td {
+                vertical-align: middle;
             }
-
+            .doc-actions {
+                white-space: nowrap;
+            }
+            .doc-actions .btn-link {
+                font-size: 14px;
+            }
+            .col-actions {
+                width: 1%;
+                white-space: nowrap;
+            }
+            .col-date {
+                white-space: nowrap;
+            }
         </style>
 
     </head>
     <body>
 
-    <div class="container" style="margin-bottom: 25px">
-        <h2>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                 class="bi bi-file-earmark" viewBox="0 0 16 16">
-                <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
-            </svg>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager
-        </h2>
+    <div class="container-fluid p-0">
 
-        <% if ("demographic".equals(module)) { %>
-        <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(moduleid)%>"/>
-        <%} %>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <i class="fas fa-file-lines me-2"></i>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager
+            </h4>
+        </div>
+
+        <div class="px-3">
+
+        <div class="patient-info-bar">
+            <div>
+                <% if ("demographic".equals(module)) { %>
+                <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(moduleid)%>"/>
+                <%} %>
+            </div>
+        </div>
 
         <jsp:include page="addDocument.jsp">
             <jsp:param name="appointmentNo" value="<%=appointmentNo%>"/>
-            <jsp:param name="addDocument" value="${param.mode}"/>
+            <jsp:param name="addDocument" value="<%=Encode.forHtmlAttribute(request.getParameter(\"mode\") != null ? request.getParameter(\"mode\") : \"\")%>"/>
         </jsp:include>
 
 
-        <form action="${pageContext.request.contextPath}/documentManager/combinePDFs.do" method="post">
-            <input type="hidden" name="curUser" value="<%=curUser%>">
-            <input type="hidden" name="demoId" value="<%=Encode.forHtmlAttribute(moduleid)%>">
             <div class="documentLists"><%-- STUFF TO DISPLAY --%> <%
                 ArrayList categories = new ArrayList();
                 ArrayList categoryKeys = new ArrayList();
@@ -408,89 +391,71 @@
                     String currentkey = (String) categoryKeys.get(i);
                     ArrayList category = (ArrayList) categories.get(i);
             %>
-                <div class="doclist panel panel-default">
-                    <div class="headerline panel-heading">
-                        <div class="container">
-                            <div class="form-inline">
-                                <div class="form-group" style="margin-right: 10px;">
-                                    <%= Encode.forHtmlContent(currentkey) %>
-                                </div>
-
-                                <% if (i == 0) {%>
-                                <div class="form-group">
-                                        <%--      <label for="viewstatus"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
-                                    <select class="form-control" id="viewstatus" name="viewstatus"
-                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
-                                        <option value="all"
-                                                <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAll"/></option>
-                                        <option value="deleted"
-                                                <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDeleted"/></option>
-                                        <option value="active"
-                                                <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgPublished"/></option>
-                                    </select>
-                                </div>
-                                <%}%>
-                                <div class="form-group">
-                                        <%--          <label for="view"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgView"/></label>--%>
-                                    <select id="viewdoctype<%=i%>" name="view" id="view"
-                                            class="input-medium form-control"
-                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
-                                        <option value="">All</option>
-                                        <%
-                                            for (int i3 = 0; i3 < doctypes.size(); i3++) {
-                                                String doctype = (String) doctypes.get(i3); %>
-                                        <option value="<%= Encode.forHtmlAttribute(doctype)%>"
-                                                <%=(view.equalsIgnoreCase(doctype)) ? "selected" : ""%>><%= Encode.forHtmlContent(doctype)%>
-                                        </option>
-                                        <%}%>
-
-                                    </select>
-                                </div>
-                                <%if (DocumentBrowserLink) {%>
-                                <div class="form-group">
-                                    <a class="btn btn-link form-control"
-                                        href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>
-                                    </a>
-                                </div>
-                                <%}%>
+                <div class="doclist mb-3">
+                    <div class="filter-bar">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-auto fw-bold">
+                                <%= Encode.forHtmlContent(currentkey) %>
                             </div>
+
+                            <% if (i == 0) {%>
+                            <div class="col-auto">
+                                <select class="form-select form-select-sm" id="viewstatus" name="viewstatus"
+                                        onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
+                                    <option value="all"
+                                            <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAll"/></option>
+                                    <option value="deleted"
+                                            <%=viewstatus.equalsIgnoreCase("deleted") ? "selected" : ""%>>
+                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDeleted"/></option>
+                                    <option value="active"
+                                            <%=viewstatus.equalsIgnoreCase("active") ? "selected" : ""%>>
+                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgPublished"/></option>
+                                </select>
+                            </div>
+                            <%}%>
+                            <div class="col-auto">
+                                <select id="viewdoctype<%=i%>" name="view"
+                                        class="form-select form-select-sm"
+                                        onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
+                                    <option value="">All</option>
+                                    <%
+                                        for (int i3 = 0; i3 < doctypes.size(); i3++) {
+                                            String doctype = (String) doctypes.get(i3); %>
+                                    <option value="<%= Encode.forHtmlAttribute(doctype)%>"
+                                            <%=(view.equalsIgnoreCase(doctype)) ? "selected" : ""%>><%= Encode.forHtmlContent(doctype)%>
+                                    </option>
+                                    <%}%>
+
+                                </select>
+                            </div>
+                            <%if (DocumentBrowserLink) {%>
+                            <div class="col-auto">
+                                <a class="btn btn-outline-secondary btn-sm"
+                                    href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>
+                                </a>
+                            </div>
+                            <%}%>
                         </div>
                     </div>
 
-                    <div id="documentsInnerDiv<%=i%>" class="panel-body">
-                        <table id="tblDocs<%=i%>" class="table table-condensed table-striped">
-                            <thead>
+                    <div id="documentsInnerDiv<%=i%>" class="table-responsive">
+                        <table id="tblDocs<%=i%>" class="table table-hover table-sm table-bordered doc-table">
+                            <thead class="table-light">
                             <tr>
                                 <th>
-                                    <input class="tightCheckbox" type="checkbox" id="pdfCheck<%=i%>"
-                                           onclick="selectAll('pdfCheck<%=i%>','privateDocsDiv', 'tightCheckbox<%=i%>');"/>
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocDesc"/>
                                 </th>
                                 <th>
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgContent"/>
                                 </th>
                                 <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocDesc"/>
-                                </th>
-                                <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>
-                                </th>
-                                <th>
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgCreator"/>
                                 </th>
-                                <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgResponsible"/>
-                                </th>
-                                <th>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.observationDate"/>
-                                </th>
-                                <th>
+                                <th class="col-date">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDate"/>
                                 </th>
-
-                                <th>&nbsp;</th>
+                                <th class="col-actions text-end">Actions</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -528,70 +493,71 @@
                             %>
                             <tr>
                                 <td>
-                                    <% if (curdoc.isPDF()) {%>
-                                    <input class="tightCheckbox<%=i%>" type="checkbox" name="docNo"
-                                           id="docNo<%=curdoc.getDocId()%>" value="<%=curdoc.getDocId()%>"
-                                           style="margin: 0; padding: 0;"/>
-                                    <%}%>
-                                </td>
-                                <td><%=curdoc.getType() == null ? "N/A" : Encode.forHtmlContent(curdoc.getType())%>
-                                </td>
-
-                                <td>
                                     <%
                                         String url = "ManageDocument.do?method=display&doc_no=" + curdoc.getDocId() + "&providerNo=" + user_no;
                                     %>
-                                    <a <%=curdoc.getStatus() == 'D' ? "style='text-decoration:line-through'" : ""%>
+                                    <a class="<%=curdoc.getStatus() == 'D' ? "text-decoration-line-through" : "text-decoration-none"%>"
                                             href="javascript:void(0);"
                                             title="<%=Encode.forHtmlAttribute(curdoc.getDescription())%>"
-                                            style="word-break: break-word;overflow-wrap: anywhere;overflow: hidden;text-overflow: ellipsis;text-decoration: none;"
                                             onclick="popupFocusPage(500,700,'<%=url%>','demographic_document');">
                                         <%=Encode.forHtml(curdoc.getDescription())%>
                                     </a>
                                 </td>
                                 <td>
-                                    <div style="overflow:hidden; text-overflow: ellipsis;"
-                                         title="<%=Encode.forHtmlAttribute(contentType)%>">
-                                        <%=Encode.forHtmlContent(contentType)%>
-                                    </div>
+                                    <%=curdoc.getType() == null ? "N/A" : Encode.forHtmlContent(curdoc.getType())%>
+                                    <% if (contentType != null && !contentType.isEmpty()) { %>
+                                    <span class="text-muted small">(<%=Encode.forHtmlContent(contentType)%>)</span>
+                                    <% } %>
                                 </td>
-
                                 <td><%=Encode.forHtml(curdoc.getCreatorName())%>
                                 </td>
-                                <td><%=Encode.forHtml(curdoc.getResponsibleName())%>
-                                </td>
-                                <td><%=Encode.forHtml(curdoc.getObservationDate())%>
-                                </td>
-                                <td><%=curdoc.getContentDateTime()%>
-                                </td>
+                                <td class="col-date"><fmt:formatDate value="<%=curdoc.getContentDateTime()%>" pattern="yyyy-MM-dd"/></td>
 
-                                <td style="text-align: right;">
-                                    <div style="white-space: nowrap;">
+                                <td class="text-end">
+                                    <div class="doc-actions">
+                                        <%-- Edit button (first - most common action) --%>
+                                        <% if (curdoc.getStatus() != 'D') {
+                                            if (curdoc.getStatus() == 'H') { %>
+                                        <a href="javascript:void(0)"
+                                           onclick="popup1(450, 600, 'addedithtmldocument.jsp?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
+                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
+                                           class="btn btn-link p-0">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </a>
+                                        <%} else {%>
+                                        <a href="javascript:void(0)"
+                                           onclick="popup1(350, 500, 'editDocument.jsp?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
+                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
+                                           class="btn btn-link p-0">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </a>
+                                        <% } %>
+                                        <% } %>
+
+                                        <%-- Annotate button --%>
+                                        <% if ("demographic".equals(module)) {%>
+                                        <a href="javascript:void(0)" title="Annotation"
+                                           onclick="window.open('${ pageContext.request.contextPath }/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&demo=<%=Encode.forUriComponent(moduleid)%>','anwin','width=400,height=500');"
+                                           class="btn btn-link p-0">
+                                            <i class="fas fa-clipboard"></i>
+                                        </a>
+                                        <% } %>
+
+                                        <%-- Delete/Undelete button (last - destructive action) --%>
                                         <%
                                                 if (curdoc.getCreatorId().equalsIgnoreCase(user_no)) {
                                                     if (curdoc.getStatus() == 'D') { %>
                                         <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>');"
-                                           class="btn btn-link" style="padding:0;"
+                                           class="btn btn-link p-0"
                                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                 fill="currentColor" class="bi bi-arrow-counterclockwise"
-                                                 viewBox="0 0 16 16">
-                                                <path fill-rule="evenodd"
-                                                      d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"></path>
-                                                <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"></path>
-                                            </svg>
+                                            <i class="fas fa-undo"></i>
                                         </a>
                                         <%
                                         } else { // curdoc get status
                                         %>
-                                        <a style="color:red; padding:0;"
-                                           href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
-                                           class="btn btn-link" title="Delete">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                 fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"></path>
-                                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"></path>
-                                            </svg>
+                                        <a href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
+                                           class="btn btn-link p-0 text-danger" title="Delete">
+                                            <i class="fas fa-trash"></i>
                                         </a>
                                         <% } %>
                                         <%} else { // curdoc get creator id %>
@@ -601,87 +567,19 @@
                                             <% if (curdoc.getStatus() == 'D') {%>
                                             <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>');"
                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>"
-                                               class="btn btn-link" style="padding:0;">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                     fill="currentColor" class="bi bi-arrow-counterclockwise"
-                                                     viewBox="0 0 16 16">
-                                                    <path fill-rule="evenodd"
-                                                          d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2z"></path>
-                                                    <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"></path>
-                                                </svg>
+                                               class="btn btn-link p-0">
+                                                <i class="fas fa-undo"></i>
                                             </a>
                                             <% } else { // curdoc get status %>
-                                            <a style="color:red;padding:0;"
-                                                href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
-                                                class="btn btn-link" title="Delete">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                     fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"></path>
-                                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"></path>
-                                                </svg>
+                                            <a href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
+                                                class="btn btn-link p-0 text-danger" title="Delete">
+                                                <i class="fas fa-trash"></i>
                                             </a>
                                             <% } %>
                                         </security:oscarSec>
 
                                         <% } // curdoc get creator id %>
-
-                                        <% if (curdoc.getStatus() != 'D') {
-                                            if (curdoc.getStatus() == 'H') { %>
-                                        <a href="javascript:void(0)"
-                                           onclick="popup1(450, 600, 'addedithtmldocument.jsp?editDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
-                                           class="btn btn-link" style="padding:0;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                 fill="currentColor" class="bi bi-pencil-square"
-                                                 viewBox="0 0 16 16">
-                                                <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"></path>
-                                                <path fill-rule="evenodd"
-                                                      d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"></path>
-                                            </svg>
-                                        </a>
-                                        <%} else {%>
-                                        <a href="javascript:void(0)"
-                                           onclick="popup1(350, 500, 'editDocument.jsp?editDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>', 'EditDoc')"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnEdit"/>"
-                                           class="btn btn-link" style="padding:0;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                 fill="currentColor" class="bi bi-pencil-square"
-                                                 viewBox="0 0 16 16">
-                                                <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"></path>
-                                                <path fill-rule="evenodd"
-                                                      d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"></path>
-                                            </svg>
-                                        </a>
-                                        <% } %>
-
-                                        <% } %>
-
-                                        <% if ("demographic".equals(module)) {%>
-                                        <a href="javascript:void(0)" title="Annotation"
-                                           onclick="window.open('${ pageContext.request.contextPath }/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&table_id=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&demo=<%=Encode.forUriComponent(moduleid)%>','anwin','width=400,height=500');"
-                                           class="btn btn-link" style="padding:0">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                 fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
-                                                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"></path>
-                                                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"></path>
-                                            </svg>
-                                        </a>
-                                        <% } %>
-                                        <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
-
-                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler.do?docType=DOC&docId=" + curdoc.getDocId() + "&demographic_no=" + moduleid;
-                                        %>
-                                        <a href="javascript:void(0);" title="Tickler" class="btn btn-link"
-                                           style="padding: 0;"
-                                           onclick="popup1(450,600,'<%=tickler_url%>','tickler')">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                                                 fill="currentColor" class="bi bi-feather" viewBox="0 0 16 16">
-                                                <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"></path>
-                                            </svg>
-                                        </a>
-
-                                        <% } %>
-                                    </div><!-- button grouping -->
+                                    </div>
                                 </td>
 
                             </tr>
@@ -692,17 +590,14 @@
                 </div>
                 <%}%>
             </div>
-            <div>
-                <input type="button" name="Button" class="btn btn-primary"
-                        value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
-                        onclick="window.closeWindow()"/>
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnCombinePDF"/>" class="btn"
-                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs.do"/>');"/>
-            </div>
 
-        </form>
+        <div class="mt-3 mb-3 text-end">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="window.closeWindow()">
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>
+            </button>
+        </div>
 
-
-    </div>
+        </div><!-- /px-3 -->
+    </div><!-- /container-fluid -->
     </body>
 </html>
