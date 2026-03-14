@@ -92,7 +92,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Unlock Account" tab
             WebElement unlockAccountTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("div.well.quick-links a[rel$='unLock.jsp']")));
+                    By.cssSelector("div.quick-links a[rel$='unLock.jsp']")));
             unlockAccountTab.click();
 
             check500Error(driver, "opening unlock account window");
@@ -118,7 +118,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Add a Provider" tab
             WebElement addProviderTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("div.well.quick-links a[rel$='provideraddarecordhtm.jsp']")));
+                    By.cssSelector("div.quick-links a[rel$='provideraddarecordhtm.jsp']")));
             addProviderTab.click();
 
             check500Error(driver, "opening add providers window");
@@ -144,7 +144,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Add a Login Record" tab
             WebElement addLoginRecordTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("div.well.quick-links a[rel$='securityaddarecord.jsp']")));
+                    By.cssSelector("div.quick-links a[rel$='securityaddarecord.jsp']")));
             addLoginRecordTab.click();
 
             check500Error(driver, "opening add login record window");
@@ -170,7 +170,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Manage eForms" tab
             WebElement manageEformsTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//div[@class='well quick-links']//a[contains(@href, '/eform/efmformmanager.jsp')]")));
+                    By.xpath("//div[contains(@class, 'quick-links')]//a[contains(@href, '/eform/efmformmanager.jsp')]")));
             manageEformsTab.click();
 
             check500Error(driver, "opening manage eforms window");
@@ -196,7 +196,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Schedule Setting" tab
             WebElement scheduleSettingTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("div.well.quick-links a[rel$='scheduletemplatesetting.jsp']")));
+                    By.cssSelector("div.quick-links a[rel$='scheduletemplatesetting.jsp']")));
             scheduleSettingTab.click();
 
             check500Error(driver, "opening schedule setting window");
@@ -222,7 +222,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Search/Edit/Delete Groups" tab
             WebElement searchGroupsTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("div.well.quick-links a[rel$='admindisplaymygroup.jsp']")));
+                    By.cssSelector("div.quick-links a[rel$='admindisplaymygroup.jsp']")));
             searchGroupsTab.click();
 
             check500Error(driver, "opening search groups window");
@@ -248,7 +248,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Insert a Template" tab
             WebElement insertTemplateTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("div.well.quick-links a[rel$='providertemplate.jsp']")));
+                    By.cssSelector("div.quick-links a[rel$='providertemplate.jsp']")));
             insertTemplateTab.click();
 
             check500Error(driver, "opening insert template window");
@@ -274,7 +274,7 @@ public class OpenAdminPanelTest extends BaseTest {
 
             // Click on the "Assign Role/Rights to Object" tab
             WebElement assignRoleTab = wait.until(ExpectedConditions.elementToBeClickable(
-                    By.cssSelector("div.well.quick-links a[rel$='providerPrivilege.jsp']")));
+                    By.cssSelector("div.quick-links a[rel$='providerPrivilege.jsp']")));
             assignRoleTab.click();
 
             check500Error(driver, "opening assign role window");

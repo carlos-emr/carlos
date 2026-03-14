@@ -32,7 +32,7 @@
 
     <div class="navbar">
     <div class="container-fluid">
-    <a class="brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/></a>
+    <a class="navbar-brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/></a>
     <ul class="nav">
     <li><a href="<%= request.getContextPath() %>/eform/efmformmanager.jsp" class="contentLink">eForm Library</a></li>
     <li><a href="<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.name"/></a></li>

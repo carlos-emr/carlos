@@ -128,7 +128,7 @@
             <div class="col-md-2">
                 <label>Start Date:</label>
                 <div class="input-group">
-                    <input type="text" style="width:90px" name="fromDateParam" id="fromDateParam"
+                    <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
                            value="<%= request.getAttribute("fromDateParam") != null ? request.getAttribute("fromDateParam") : "" %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
@@ -139,7 +139,7 @@
             <div class="col-md-2">
                 <label>End Date:</label>
                 <div class="input-group">
-                    <input type="text" style="width:90px" name="toDateParam" id="toDateParam"
+                    <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
                            value="<%= request.getAttribute("toDateParam") != null ? request.getAttribute("toDateParam") : "" %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>

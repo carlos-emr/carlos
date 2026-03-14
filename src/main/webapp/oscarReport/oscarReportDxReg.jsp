@@ -152,7 +152,7 @@
     <div class="container-fluid">
         <div class="navbar">
             <div class="container-fluid">
-                <a class="brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DiseaseRegistry"/></a>
+                <a class="navbar-brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DiseaseRegistry"/></a>
             </div>
         </div>
 

@@ -339,7 +339,7 @@
                     <div class="col-md-3">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceDate"/>
                         <div class="input-group">
-                            <input type="text" name="BillDate" id="BillDate"
+                            <input type="text" class="form-control" name="BillDate" id="BillDate"
                                    value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
                                    style="width:90px" autocomplete="off" readonly/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>

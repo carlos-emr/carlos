@@ -362,7 +362,7 @@
 
 <% if(demographic == null || "null".equalsIgnoreCase(demographic)){ %>
 	<div class="navbar" id="demoHeader"><div class="container-fluid">
-		<a class="brand" href="javascript:void(0)">Edit Flowsheet</a>
+		<a class="navbar-brand" href="javascript:void(0)">Edit Flowsheet</a>
 	</div></div>
 <% }%>
 <% if(demographic != null) { %>
@@ -465,7 +465,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
             <%}%>
 
             <div class="tab-content">
-                <div class="tab-pane active" id="home">
+                <div class="tab-pane show active" id="home">
 
 		<!-- Flowsheet Measurement List -->
 		<table class="table table-striped table-bordered table-sm" id="measurementTbl">

@@ -241,7 +241,7 @@
             <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
                 <div class="input-group">
-                    <input type="text" style="width:90px" name="startDateText" id="startDateText"
+                    <input type="text" class="form-control" style="width:90px" name="startDateText" id="startDateText"
                            value="<%=DateUtils.formatDate(startDate,locale)%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
@@ -251,7 +251,7 @@
             <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
                 <div class="input-group">
-                    <input type="text" style="width:90px" name="endDateText" id="endDateText"
+                    <input type="text" class="form-control" style="width:90px" name="endDateText" id="endDateText"
                            value="<%=DateUtils.formatDate(endDate,locale)%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>

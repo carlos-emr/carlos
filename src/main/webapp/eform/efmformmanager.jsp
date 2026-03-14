@@ -46,6 +46,11 @@
     <title>E-Form Manager</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
@@ -142,12 +147,12 @@
 
 
     <ul class="nav nav-pills" id="eformOptions">
-        <li class="nav-item"><a class="nav-link" href="#upload">Upload</a></li>
-        <li class="nav-item"><a class="nav-link" href="#import">Import</a></li>
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#upload">Upload</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#import">Import</a></li>
     </ul>
 
     <div class="tab-content">
-        <div class="tab-pane" id="upload">
+        <div class="tab-pane show active" id="upload">
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
 
@@ -241,16 +246,13 @@
     <%@ include file="efmFooter.jspf" %>
 
     <script>
-        $('#eformOptions a').click(function (e) {
-            e.preventDefault();
-            bootstrap.Tab.getOrCreateInstance(this).show();
-        });
+        if (typeof registerFormSubmit === 'function') {
+            registerFormSubmit('eformImportForm', 'dynamic-content');
+        }
 
-        registerFormSubmit('eformImportForm', 'dynamic-content');
-
-        $('#eformTbl').dataTable({
-            "bPaginate": false,
-            "aoColumnDefs": [{"bSortable": false, "aTargets": [0]}]
+        $('#eformTbl').DataTable({
+            "paging": false,
+            "columnDefs": [{"orderable": false, "targets": [0]}]
         });
     </script>
     </body>

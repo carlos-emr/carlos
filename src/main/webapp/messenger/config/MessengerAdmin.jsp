@@ -259,7 +259,7 @@
 
             <div class="navbar">
                 <div class="container-fluid">
-                    <a class="brand" href="#">
+                    <a class="navbar-brand" href="#">
                         Messenger Group Admin
                     </a>
                     <ul class="nav nav-tabs">

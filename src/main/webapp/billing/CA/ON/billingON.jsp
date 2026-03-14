@@ -1314,7 +1314,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                         </b>
                             <%if (appt_no.compareTo("0") == 0) {%>
                             <span class="input-group">
-								<input type="text" id="service_date" name="service_date" readonly
+								<input type="text" class="form-control" id="service_date" name="service_date" readonly
                                        value="<%=request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday%>"
                                        style="width: 80px; height:14px;  vertical-align: bottom;">
                                 <img src="${ pageContext.request.contextPath }/images/cal.gif" id="service_date_cal"

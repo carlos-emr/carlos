@@ -1806,12 +1806,10 @@
                                                     <div class="input-group">
                                                         <input type="text" class="form-control" name="xml_refer1"
                                                                    onkeypress="return grabEnter(event,'ReferralScriptAttach1()')"/>
-                                                        <span class="input-group">
-		                     	<button type="button" class="btn btn-primary"
-                                        onclick="ReferralScriptAttach('xml_refer1')">
-	                            	<span class="fa-solid fa-magnifying-glass"></span>
-	                          	</button>
-                          	</span>
+                                                        <button type="button" class="btn btn-primary"
+                                                                onclick="ReferralScriptAttach('xml_refer1')">
+                                                            <span class="fa-solid fa-magnifying-glass"></span>
+                                                        </button>
                                                     </div>
                                                 </td>
                                                 <td>
@@ -1828,12 +1826,10 @@
                                                     <div class="input-group">
                                                         <input type="text" class="form-control" name="xml_refer2"
                                                                    onkeypress="return grabEnter(event,'ReferralScriptAttach2()')"/>
-                                                        <span class="input-group">
-			                     	<button type="button" class="btn btn-primary"
-                                            onclick="ReferralScriptAttach('xml_refer2')">
-		                            	<span class="fa-solid fa-magnifying-glass"></span>
-		                          	</button>
-	                          	</span>
+                                                        <button type="button" class="btn btn-primary"
+                                                                onclick="ReferralScriptAttach('xml_refer2')">
+                                                            <span class="fa-solid fa-magnifying-glass"></span>
+                                                        </button>
                                                     </div>
                                                 </td>
                                                 <td>
@@ -1952,22 +1948,18 @@
                                             <input type="text" class="form-control" name="xml_other1"
                                                        onblur="checkSelectedCodes()"
                                                        onkeypress="return grabEnter(event,'OtherScriptAttach()')"/>
-                                            <span class="input-group">
-		                     	<button type="button" class="btn btn-primary" title="Search code"
-                                        onclick="OtherScriptAttach('xml_other1')">
-	                            	<span class="fa-solid fa-magnifying-glass"></span>
-	                          	</button>
-                          	</span>
+                                            <button type="button" class="btn btn-primary" title="Search code"
+                                                    onclick="OtherScriptAttach('xml_other1')">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                     <td style="width:40%;">
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other1_unit" size="6"
                                                        maxlength="6" id="xml_other1_unit"/>
-                                            <span class="input-group">
-                            	<button type="button" class="btn btn-primary" value=".5"
-                                        onClick="$('xml_other1_unit').value = '0.5'">.5</button>
-                            </span>
+                                            <button type="button" class="btn btn-primary" value=".5"
+                                                    onClick="$('xml_other1_unit').value = '0.5'">.5</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -1980,22 +1972,18 @@
                                             <input type="text" class="form-control" name="xml_other2"
                                                        onblur="checkSelectedCodes()"
                                                        onkeypress="return grabEnter(event,'OtherScriptAttach()')"/>
-                                            <span class="input-group">
-		                     	<button type="button" class="btn btn-primary" title="Search code"
-                                        onclick="OtherScriptAttach('xml_other2')">
-	                            	<span class="fa-solid fa-magnifying-glass"></span>
-	                          	</button>
-                          	</span>
+                                            <button type="button" class="btn btn-primary" title="Search code"
+                                                    onclick="OtherScriptAttach('xml_other2')">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other2_unit" size="6"
                                                        maxlength="6" id="xml_other2_unit"/>
-                                            <span class="input-group">
-                             	<button type="button" class="btn btn-primary" value=".5"
-                                        onClick="$('xml_other2_unit').value = '0.5'">.5</button>
-                             </span>
+                                            <button type="button" class="btn btn-primary" value=".5"
+                                                    onClick="$('xml_other2_unit').value = '0.5'">.5</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -2008,22 +1996,18 @@
                                             <input type="text" class="form-control" name="xml_other3"
                                                        onblur="checkSelectedCodes()"
                                                        onkeypress="return grabEnter(event,'OtherScriptAttach()')"/>
-                                            <span class="input-group">
-		                     	<button type="button" class="btn btn-primary" title="Search code"
-                                        onclick="OtherScriptAttach('xml_other3')">
-	                            	<span class="fa-solid fa-magnifying-glass"></span>
-	                          	</button>
-                          	</span>
+                                            <button type="button" class="btn btn-primary" title="Search code"
+                                                    onclick="OtherScriptAttach('xml_other3')">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other3_unit"
                                                        id="xml_other3_unit"/>
-                                            <span class="input-group">
-                            	<button type="button" class="btn btn-primary" value=".5"
-                                        onClick="$('xml_other3_unit').value = '0.5'">.5</button>
-                            </span>
+                                            <button type="button" class="btn btn-primary" value=".5"
+                                                    onClick="$('xml_other3_unit').value = '0.5'">.5</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -2094,12 +2078,10 @@
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
                                                        id="jsonDxSearchInput-1" name="xml_diagnostic_detail1"/>
-                                            <span class="input-group">
-		                     		<button type="button" title="Search diagnostic code"
-                                            class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-1">
-	                            		<span class="fa-solid fa-magnifying-glass"></span>
-		                          	</button>
-	                          	</span>
+                                            <button type="button" title="Search diagnostic code"
+                                                    class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-1">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
 
@@ -2112,12 +2094,10 @@
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
                                                        id="jsonDxSearchInput-2" name="xml_diagnostic_detail2"/>
-                                            <span class="input-group">
-		                     		<button type="button" title="Search Dx Description"
-                                            class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-2">
-	                            		<span class="fa-solid fa-magnifying-glass"></span>
-	                          		</button>
-	                          	</span>
+                                            <button type="button" title="Search Dx Description"
+                                                    class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-2">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -2129,12 +2109,10 @@
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
                                                        id="jsonDxSearchInput-3" name="xml_diagnostic_detail3"/>
-                                            <span class="input-group">
-		                     		<button type="button" title="Search Dx Description"
-                                            class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-3">
-	                            		<span class="fa-solid fa-magnifying-glass"></span>
-	                          		</button>
-	                          	</span>
+                                            <button type="button" title="Search Dx Description"
+                                                    class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-3">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>

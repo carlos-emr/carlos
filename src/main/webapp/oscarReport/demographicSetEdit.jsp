@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
@@ -147,7 +148,7 @@
             <div class="alert alert-success fade show">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <h4 class="alert-heading">Success!</h4>
-                <p>Patient set "${requestScope.setname}" has been successfully deleted.</p>
+                <p>Patient set "<c:out value="${requestScope.setname}"/>" has been successfully deleted.</p>
             </div>
             <% } %>
             <div class="row">

@@ -234,7 +234,7 @@
 
         <div class="dropdown">
             <!-- Link or button to toggle dropdown -->
-            <a href="#" class="dropdown-archive">Show Archive</a>
+            <a href="#" class="dropdown-archive dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Show Archive</a>
             <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
                 <%for (int i = 0; i < 5; i++) { %>
                 <li><a class="dropdown-item" href="billingONMRI.jsp?year=<%=yearArray[i]%>">YEAR <%=yearArray[i]%>
@@ -469,7 +469,7 @@
 </div><!--container-->
 
 <script>
-    document.querySelectorAll('.dropdown-archive').forEach(function(el) { new bootstrap.Dropdown(el); });
+    /* dropdown-archive auto-initialized via data-bs-toggle="dropdown" */
 
     flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
     flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});

@@ -134,7 +134,7 @@
 
 <div class="container-fluid">
 <div class="navbar" id="demoHeader"><div class="container-fluid">
-	<a class="brand" href="javascript:void(0)">Flowsheets</a>
+	<a class="navbar-brand" href="javascript:void(0)">Flowsheets</a>
 </div></div>
 
 			<table class="table table-striped table-sm table-hover">

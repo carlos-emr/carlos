@@ -566,7 +566,7 @@
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
                         <div class="input-group">
-                            <input type="text" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
+                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -581,7 +581,7 @@
                                 days back
                             </small></label>
                         <div class="input-group">
-                            <input type="text" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
+                            <input type="text" class="form-control" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
                                    value="<%=endDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
@@ -662,14 +662,14 @@
                         </select>
                         <label for="paymentStartDate">Payment Start:</label>
                         <div class="input-group">
-                            <input type="text" name="paymentStartDate" id="paymentStartDate" style="width:90px"
+                            <input type="text" class="form-control" name="paymentStartDate" id="paymentStartDate" style="width:90px"
                                    value="<%=paymentStartDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
                         <div class="input-group">
-                            <input type="text" name="paymentEndDate" id="paymentEndDate" style="width:90px"
+                            <input type="text" class="form-control" name="paymentEndDate" id="paymentEndDate" style="width:90px"
                                    value="<%=paymentEndDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>

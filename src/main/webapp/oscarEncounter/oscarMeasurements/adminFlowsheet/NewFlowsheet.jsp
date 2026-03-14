@@ -76,7 +76,7 @@
 </head>
 <body>
     <div class="navbar" id="demoHeader"><div class="container-fluid">
-        <a class="brand" href="javascript:void(0)">New Flowsheet</a>
+        <a class="navbar-brand" href="javascript:void(0)">New Flowsheet</a>
     </div></div>
 <form action="FlowSheetCustomAction.do" method="post" onsubmit="return checkForm()">
     <input type="hidden" name="method" value="createNewFlowSheet"/>
