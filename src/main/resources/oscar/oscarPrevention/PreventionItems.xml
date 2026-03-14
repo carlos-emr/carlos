@@ -299,11 +299,11 @@
 
 	<item
 			resultDesc=""
-			desc="Pneu-C=Pneumococcal Multi Valent Conjugate (generic/7-valent) eg Prevnar 7"
+			desc="Pneu-C=Pneumococcal Multi Valent Conjugate generic"
 			name="Pneu-C"
 			headingName="Immunizations"
-			healthCanadaType="Pneu-C-7"
-			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#PneuC"
+			healthCanadaType="Pneu-C"
+			link="https://nvc-cnv.canada.ca/en/generic-immunizing-agent/1801000221105"
 			layout="injection"
       atc="J07AL02" minAge="0" maxAge="2"
 			showIfMinRecordNum="1" />
