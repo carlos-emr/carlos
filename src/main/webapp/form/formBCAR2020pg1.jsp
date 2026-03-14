@@ -89,8 +89,8 @@
               href="<%=request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/bootstrap-select.min.css"/>
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.theme-1.12.1.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.theme-1.14.2.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/formBCAR2020.css">
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -107,7 +107,7 @@
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath() %>/js/bootstrap-select.min.js" type="text/javascript"></script>
 
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"
                 type="text/javascript"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery.are-you-sure.js"></script>
 

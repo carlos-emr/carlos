@@ -513,9 +513,9 @@
         </script>
 
         <script type="text/javascript"
-                src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+                src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery_oscar_defaults.js"></script>
-        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet"
+        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet"
               media="screen"/>
 
         <!-- Instead of importing conreq.js using the CME tag (as done in Oscar19/OscarPro), we are opting to directly import conreq.js without utilizing the CME tag. -->

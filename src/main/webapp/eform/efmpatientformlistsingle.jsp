@@ -68,7 +68,7 @@
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
 
-		<script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
+		<script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
 		<script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
 		<script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 

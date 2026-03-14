@@ -138,10 +138,10 @@
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%= context %>/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="<%= context %>/library/jquery/jquery-compat.js"></script>
-        <script src="<%= context %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="<%= context %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.css" media="screen"/>
-        <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.12.1.min.css">
+        <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.14.2.min.css">
         <script>
             /* Bootstrap 5 dropdown shim replacing fg.menu plugin */
             $.fn.menu = function(opts) {

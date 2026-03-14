@@ -69,11 +69,11 @@
 <html>
 <head>
     <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.css"/>
+          href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+            src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
     <script>
         jQuery(document).ready(function () {

@@ -123,11 +123,11 @@
     <head>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script>
             jQuery.noConflict();
         </script>
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css">
 
         <script>
             document.addEventListener('DOMContentLoaded', function () {

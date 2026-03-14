@@ -68,7 +68,7 @@
           media="screen"/>
     <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/css/quickBillingBC.css" />" type="text/css"
           media="screen"/>
-    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.12.1.min.css" />"
+    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.14.2.min.css" />"
           type="text/css"/>
     <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/library/flatpickr/flatpickr.min.css" />"
           type="text/css"/>
@@ -82,7 +82,7 @@
     <script type="text/javascript" src="<c:out value="${ oscar_context_path }/library/jquery/jquery-3.6.4.min.js" />"></script>
     <script src="<c:out value="${ oscar_context_path }/library/jquery/jquery-compat.js"/>"></script>
     <script type="text/javascript"
-            src="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.12.1.min.js" />"></script>
+            src="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.14.2.min.js" />"></script>
     <script type="text/javascript"
             src="<c:out value="${ oscar_context_path }/library/flatpickr/flatpickr.min.js" />"></script>
 
