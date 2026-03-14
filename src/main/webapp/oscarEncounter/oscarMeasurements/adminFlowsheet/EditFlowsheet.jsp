@@ -821,7 +821,6 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
             });
 
             <%if(request.getParameter("add")!=null){%>
-//$('#addModal').modal('show');
             bootstrap.Tab.getOrCreateInstance(document.querySelector('#myTab a[href="#add"]')).show();
             <%}%>
 

@@ -233,7 +233,7 @@
     <dl class="row">
         <dt>Practice Size</dt>
         <dd>
-            <span class="badge"><%=demoList.size()%></span>
+            <span class="badge text-bg-secondary"><%=demoList.size()%></span>
         </dd>
     </dl>
 

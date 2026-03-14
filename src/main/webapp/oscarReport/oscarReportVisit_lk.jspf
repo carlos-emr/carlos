@@ -112,11 +112,11 @@ if(!authed) {
 	</dl>
 	<dl class="row">
 		<dt>Clinic Visits</dt>
-		<dd><span class="badge"><%=cTotal%></span></dd>
+		<dd><span class="badge text-bg-secondary"><%=cTotal%></span></dd>
 		<dt>HHS Visits</dt>
-		<dd><span class="badge"><%=hTotal%></span></dd>
+		<dd><span class="badge text-bg-secondary"><%=hTotal%></span></dd>
 		<dt>All Other Visists</dt>
-		<dd><span class="badge"><%=oTotal%></span></dd>
+		<dd><span class="badge text-bg-secondary"><%=oTotal%></span></dd>
 		<dt>Total</dt>
 		<dd><span class="badge text-bg-success"><%=BigTotal%></span></dd>
 	</dl>
