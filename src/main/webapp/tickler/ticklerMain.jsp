@@ -437,10 +437,10 @@
                         if (data != null) {
                             document.getElementById('tickler_note_noteId').value = data.noteId;
                             document.getElementById('tickler_note').value = data.note;
-                            document.getElementById('tickler_note_revision').innerHTML = data.revision;
+                            document.getElementById('tickler_note_revision').textContent = data.revision;
                             document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open(" + ctx + "'/CaseManagementEntry.do?method=notehistory&noteId='+data.noteId')')");
-                            document.getElementById('tickler_note_editor').innerHTML = data.editor;
-                            document.getElementById('tickler_note_obsDate').innerHTML = data.obsDate;
+                            document.getElementById('tickler_note_editor').textContent = data.editor;
+                            document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
                         }
                     },
                     error: function (jqXHR, textStatus, errorThrown) {

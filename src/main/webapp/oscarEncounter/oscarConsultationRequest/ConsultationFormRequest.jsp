@@ -1032,7 +1032,7 @@
                 var data = new Object();
                 var target = "#" + this.id.split("_")[1];
                 data.method = this.id.split("_")[0];
-                data.demographicNo = <%= demo %>;
+                data.demographicNo = <%= Encode.forJavaScript(demo) %>;
                 getClinicalData(data, target)
             });
 
@@ -1041,7 +1041,7 @@
                 var target = "#" + this.id.split("_")[1];
                 data.method = "fetchIssueNote";
                 data.issueType = this.id.split("_")[0];
-                data.demographicNo = <%= demo %>;
+                data.demographicNo = <%= Encode.forJavaScript(demo) %>;
                 getClinicalData(data, target)
             });
 
@@ -1916,7 +1916,7 @@ if (userAgent != null) {
         <% if (!props.isConsultationFaxEnabled() || !OscarProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
-        <input type="hidden" name="demographicNo" id="demographicNo" value="<%=demo%>">
+        <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demo)%>">
         <input type="hidden" name="requestId" id="requestId" value="<%=requestId%>">
         <input type="hidden" name="ext_appNo" value="<%=request.getParameter("appNo") %>">
         <input type="hidden" name="source"

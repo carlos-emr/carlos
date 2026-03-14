@@ -101,13 +101,13 @@
                 jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheet&id=<%=id%>", {},
                     function (xml) {
                         $("#itemTable tbody").empty();
-                        document.getElementById('name').innerHTML = xml.name;
-                        document.getElementById('template').innerHTML = xml.template;
-                        document.getElementById('createdBy').innerHTML = xml.createdBy;
-                        document.getElementById('createdDate').innerHTML = xml.createdDate;
-                        document.getElementById('dxCodeTriggers').innerHTML = xml.dxCodeTriggers;
-                        document.getElementById('recommendationColour').innerHTML = xml.recommendationColour;
-                        document.getElementById('warningColour').innerHTML = xml.warningColour;
+                        document.getElementById('name').textContent = xml.name;
+                        document.getElementById('template').textContent = xml.template;
+                        document.getElementById('createdBy').textContent = xml.createdBy;
+                        document.getElementById('createdDate').textContent = xml.createdDate;
+                        document.getElementById('dxCodeTriggers').textContent = xml.dxCodeTriggers;
+                        document.getElementById('recommendationColour').textContent = xml.recommendationColour;
+                        document.getElementById('warningColour').textContent = xml.warningColour;
 
 
                         for (var x = 0; x < xml.items.length; x++) {
