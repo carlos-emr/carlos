@@ -463,7 +463,7 @@
 
 	<item
 			resultDesc="Shingrix"
-    	displayName="Zostavax"
+			displayName="Shingrix"
 			desc="RZV=Recombinant Herpes Zoster (Subunit) Vaccine eg Shingrix (2 doses)"
 			name="RZV"
 			headingName="Immunizations"
@@ -761,8 +761,12 @@
 			desc="TdP-IPV-Hib=Legacy combination vaccine (similar to DTaP-IPV-Hib); combination given at 2, 4, 18 months and 4-6 years"
 			name="TdP-IPV-Hib"
 			headingName="Immunizations"
+			healthCanadaType="TdP-IPV-Hib"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html"
-			layout="injection" atc="J07CA06" minAge="0" maxAge="6"
+			layout="injection"
+			atc="J07CA06"
+			minAge="0"
+			maxAge="6"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -771,7 +775,10 @@
 			name="DTaP-Hib"
 			headingName="Immunizations"
 			healthCanadaType="DTaP-Hib"
-			layout="injection" atc=""
+			layout="injection"
+			atc=""
+			minAge="0"
+			maxAge="6"
 			showIfMinRecordNum="1"/>
 
 	<item
@@ -779,8 +786,9 @@
 			desc="HBTmf=Hepatitis B Thimerosal-free formulation"
 			name="HBTmf"
 			headingName="Immunizations"
-			healthCanadaType="HB"
-			layout="injection" atc="J07BC"
+			healthCanadaType="HBTmf"
+			layout="injection"
+			atc="J07BC"
 			showIfMinRecordNum="1" />
 
 	<!-- ============================================================ -->
