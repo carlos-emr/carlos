@@ -70,6 +70,8 @@
           media="screen"/>
     <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.12.1.min.css" />"
           type="text/css"/>
+    <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/library/flatpickr/flatpickr.min.css" />"
+          type="text/css"/>
 
     <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/css/jquery.ui.autocomplete.css" />"
           type="text/css"/>
@@ -81,6 +83,8 @@
     <script src="<c:out value="${ oscar_context_path }/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
             src="<c:out value="${ oscar_context_path }/library/jquery/jquery-ui-1.12.1.min.js" />"></script>
+    <script type="text/javascript"
+            src="<c:out value="${ oscar_context_path }/library/flatpickr/flatpickr.min.js" />"></script>
 
     <script type="text/javascript">
 
@@ -110,33 +114,28 @@
 
             // date picker function. Don't want it to run
             // until other elements are chosen.
-            $('#visitDate').datepicker({
-                dateFormat: "dd-mm-yy",
-                beforeShow: function (input, inst) {
+            flatpickr('#visitDate', {
+                dateFormat: "d-m-Y",
+                allowInput: true,
+                onOpen: function (selectedDates, dateStr, instance) {
                     if ($("#providers :selected").val() == "empty") {
-
-                        //$(this).datepicker( "hide" )
+                        instance.close();
                         alert("Select Billing Physician");
                         $("#providers").focus();
-
                     } else if ($("#visitLocation :selected").val() == "empty") {
-
-                        //$(this).datepicker( "hide" )
+                        instance.close();
                         alert("Select Service Location");
                         $("#visitLocation").focus();
                     }
                 },
-                onClose: function (input, inst) {
-
+                onClose: function () {
                     $("#apeture").slideDown("fast");
 
                     if ($("#saved").is(":visible")) {
-
                         $("#saved").slideUp("fast");
                     }
 
                     $("#ptName").focus();
-
                 }
             });
 

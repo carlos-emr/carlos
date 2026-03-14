@@ -126,7 +126,6 @@
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-compat.js");
 
     eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.3/css/bootstrap.min.css", "all");
-    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js");
 
     eForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     eForm.addBodyJavascript(request.getContextPath()+"/js/oscar-alert.js");
@@ -157,4 +156,3 @@
 
     out.print(eForm.getFormHtml());
 %>
-<script type="text/javascript" src="<%= request.getContextPath() %>/library/moment.js"></script>

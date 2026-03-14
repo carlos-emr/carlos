@@ -60,6 +60,9 @@
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
+<link rel="stylesheet" href="${ctx}/library/flatpickr/flatpickr.min.css" type="text/css"/>
+<script src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
+<script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
 <%
     FunctionalCentreDao functionalCentreDao = (FunctionalCentreDao) SpringUtils.getBean(FunctionalCentreDao.class);
@@ -101,19 +104,17 @@
             <div class="controls">
                 <input type="text" name="startDate" id="startDate"/>
                 <script type="text/javascript">
-                    jQuery('#startDate').datepicker({dateFormat: 'yy-mm-dd'});
-
-                    var d = new Date();
-                    var month = d.getMonth();
-                    if (month > 0) {
-                        d.setMonth(month - 1);
-                    } else {
-                        d.setMonth(11);
-                        d.setYear(d.getYear() - 1);
-                    }
-
-                    jQuery('#startDate').datepicker("setDate", d);
-                    jQuery('#startDate').attr("readonly", true);
+                    (function() {
+                        var d = new Date();
+                        var month = d.getMonth();
+                        if (month > 0) {
+                            d.setMonth(month - 1);
+                        } else {
+                            d.setMonth(11);
+                            d.setFullYear(d.getFullYear() - 1);
+                        }
+                        flatpickr('#startDate', {dateFormat: 'Y-m-d', defaultDate: d, allowInput: true});
+                    })();
                 </script>
             </div>
         </div>
@@ -122,9 +123,7 @@
             <div class="controls">
                 <input type="text" name="endDate" id="endDate"/>
                 <script type="text/javascript">
-                    jQuery('#endDate').datepicker({dateFormat: 'yy-mm-dd'});
-                    jQuery('#endDate').datepicker("setDate", new Date());
-                    jQuery('#endDate').attr("readonly", true);
+                    flatpickr('#endDate', {dateFormat: 'Y-m-d', defaultDate: new Date(), allowInput: true});
                 </script>
             </div>
         </div>

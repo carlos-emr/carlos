@@ -106,9 +106,8 @@
 
      <!-- Bootstrap -->
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-    <!--<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">-->
 
-    <!-- styles to alter add files button and adjust bootstrap 3 progress bar -->
+    <!-- styles to alter add files button and adjust progress bar -->
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/documentUploader/style.css">
 
     <!-- tested with jQuery 1.12.3 and jQuery 3.6.4 -->

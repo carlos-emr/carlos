@@ -73,8 +73,8 @@ int curDay = cal.get(Calendar.DAY_OF_MONTH);
 <head>
 <title>OSCAR</title>
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-<link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-<link href="<%=request.getContextPath() %>/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
+
+
 
 <style>
 body{background-color: #fff /*#f3f3f3*/;}
