@@ -58,7 +58,7 @@
         <title>HRM Document List</title>
 
         <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
+        <!-- Bootstrap -->
         <link href="${ pageContext.request.contextPath }/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
         <link href="${ pageContext.request.contextPath }/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
               rel="stylesheet">
