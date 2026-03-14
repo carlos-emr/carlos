@@ -146,20 +146,17 @@
                 <label>Message:</label>
                 <div class="input-group">
                     <input type="text" id="message" name="message" class="form-control" aria-label="..." required/>
-                    <div class="input-group">
-                        <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
-                                aria-haspopup="true" aria-expanded="false">
-
-                        </button>
-                        <ul class="dropdown-menu" style="height:300px;overflow-y:scroll;">
-                            <c:forEach items="${ textSuggestions }" var="textSuggestion">
-                                <li>
-                                    <a class="dropdown-item select-tickler-message" href="#"><c:out
-                                            value="${ textSuggestion.suggestedText }"/></a>
-                                </li>
-                            </c:forEach>
-                        </ul>
-                    </div>
+                    <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                    </button>
+                    <ul class="dropdown-menu" style="height:300px;overflow-y:scroll;">
+                        <c:forEach items="${ textSuggestions }" var="textSuggestion">
+                            <li>
+                                <a class="dropdown-item select-tickler-message" href="#"><c:out
+                                        value="${ textSuggestion.suggestedText }"/></a>
+                            </li>
+                        </c:forEach>
+                    </ul>
                 </div>
             </div>
         </div>
