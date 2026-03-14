@@ -58,8 +58,8 @@ function sendData(path, param, target) {
             if (target == "close") {
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
             } else if (target == "modal") {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
                 $('#assignTickler').find('.modal-body').html(data);
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
             } else {
                 document.open();
                 document.write(data);

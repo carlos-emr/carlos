@@ -250,7 +250,7 @@ function displayMessage(type, text) {
 
     //close alert if user dosen't do it manually
     setTimeout(function () {
-        document.querySelectorAll('.alert').forEach(function(el) { var a = bootstrap.Alert.getInstance(el); if (a) { a.close(); } else { el.remove(); } });
+        document.querySelectorAll('.alert').forEach(function(el) { bootstrap.Alert.getOrCreateInstance(el).close(); });
     }, 5000);
 
 }
