@@ -130,7 +130,7 @@
             </label>
 
             &nbsp;&nbsp;Provider
-            <select name="providerview" class="form-control input-sm" style="width:auto; display:inline-block;">
+            <select name="providerview" class="form-control form-control-sm" style="width:auto; display:inline-block;">
                 <%
                     String proFirst = "";
                     String proLast = "";
@@ -155,10 +155,10 @@
             <input type="hidden" name="verCode" value="V03">
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+                <input type="date" name="xml_vdate" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
+                <input type="date" name="xml_appointment_date" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

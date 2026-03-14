@@ -157,7 +157,7 @@
                         <div class="input-group">
                             <input type="text" name="keyword" class="form-control" maxlength="100"
                                    style="height:24px">
-                            <button type="submit" name="button" class="btn add-on" style="height:24px"><i
+                            <button type="submit" name="button" class="btn btn-secondary" style="height:24px"><i
                                     class="fa-solid fa-magnifying-glass" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.btnSubmit"/>"></i>
                             </button>
                         </div>

@@ -218,7 +218,7 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<%=Dcode%>|<%=DcodeDesc%>')"><%=Dcode%>
                 </a></td>
-                <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
+                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%=Dcode%>"
                                              value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
@@ -246,7 +246,7 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<%=Dcode%>|<%=DcodeDesc%>')"><%=Dcode%>
                 </a></td>
-                <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
+                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%=Dcode%>"
                                              value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
@@ -273,7 +273,7 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<%=Dcode2%>|<%=DcodeDesc2%>')"><%=Dcode2%>
                 </a></td>
-                <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
+                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%=Dcode2%>"
                                              value="<%=DcodeDesc2%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                   name="update"
