@@ -319,7 +319,7 @@
 								</div>
 								<div class="col-sm-2 mb-3">
 									<label for="additionalRecipient_fax_btn">&nbsp;</label>
-							        <button class="btn btn-primary form-control" id="additionalRecipient_fax_btn" title="Add recipient to list" type="button">
+							        <button class="btn btn-primary" id="additionalRecipient_fax_btn" title="Add recipient to list" type="button">
 							        	<span class="fa-solid fa-plus"></span>
 							        </button>
 							   </div>

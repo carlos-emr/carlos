@@ -462,7 +462,7 @@
                     sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                 }
             </script>
-            <select id="site" name="site" class="form-control form-control-sm" style="width:auto; display:inline-block;" onchange="changeSite(this)">
+            <select id="site" name="site" class="form-select form-select-sm" style="width:auto; display:inline-block;" onchange="changeSite(this)">
                 <option value="none" style="background-color:white">---select clinic---</option>
                 <%
                     for (int i = 0; i < sites.size(); i++) {
@@ -473,7 +473,7 @@
                 </option>
                 <% } %>
             </select>
-            <select id="providerview" name="providerview" class="form-control form-control-sm" style="width:auto; display:inline-block;"></select>
+            <select id="providerview" name="providerview" class="form-select form-select-sm" style="width:auto; display:inline-block;"></select>
             <% if (request.getParameter("providerview") != null) { %>
             <script>
                 changeSite(document.getElementById("site"));
@@ -482,7 +482,7 @@
             <% } // multisite end ==========================================
             } else {
             %>
-            <select name="providerview" class="form-control form-control-sm" style="width:auto; display:inline-block;">
+            <select name="providerview" class="form-select form-select-sm" style="width:auto; display:inline-block;">
                 <%
                     String proFirst = "";
                     String proLast = "";
@@ -506,10 +506,10 @@
             <% } %>
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" id="xml_vdate" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+                <input type="date" name="xml_vdate" id="xml_vdate" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
+                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

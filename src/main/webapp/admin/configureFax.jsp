@@ -564,14 +564,14 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <label>Enable Fax Gateway</label>
-                                <label class="radio inline form-label">
-                                    <input type="radio" id="on" name="active" value="true" <%=isActive ? "checked" : ""%> />
-                                    Enabled
-                                </label>
-                                <label class="radio inline form-label">
-                                    <input type="radio" id="of" name="active" value="false" <%=!isActive ? "checked" : ""%> />
-                                    Disabled
-                                </label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" id="on" name="active" value="true" <%=isActive ? "checked" : ""%> />
+                                    <label class="form-check-label" for="on">Enabled</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" id="of" name="active" value="false" <%=!isActive ? "checked" : ""%> />
+                                    <label class="form-check-label" for="of">Disabled</label>
+                                </div>
                                 <input type="hidden" id="activeState" name="activeState" value="<%=isActive%>"/>
                                 <br/>
                                 <small class="fax-muted"><i class="fas fa-info-circle"></i> Turn the selected fax gateway on or off for sending and receiving</small>

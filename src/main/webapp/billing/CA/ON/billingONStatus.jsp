@@ -678,30 +678,59 @@
                         <!--</div>-->
                         <!--<div class="row" >-->
                         <div class="col-md-12">
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="%" <%=statusType.equals("%")?"checked":""%>>All</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="_" <%=statusType.equals("_")?"checked":""%>>Rejected</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="H" <%=statusType.equals("H")?"checked":""%>>Capitated</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="O" <%=statusType.equals("O")?"checked":""%>>Invoiced</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="P" <%=statusType.equals("P")?"checked":""%>>Bill
-                                Patient</label>
-                            <!--li><label class="radio inline"><input type="radio" name="statusType" value="N" <%=statusType.equals("N")?"checked":""%>>Do Not Bill</label>
-                                    <label class="radio inline"><input type="radio" name="statusType" value="W" <%=statusType.equals("W")?"checked":""%>>WCB</label>-->
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="B" <%=statusType.equals("B")?"checked":""%>>Submmitted
-                                OHIP</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="S" <%=statusType.equals("S")?"checked":""%>>Settled/Paid</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="X" <%=statusType.equals("X")?"checked":""%>>Bad
-                                Debt</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="D" <%=statusType.equals("D")?"checked":""%>>Deleted
-                                Bill</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeAll"
+                                       value="%" <%=statusType.equals("%")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeAll">All</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeRejected"
+                                       value="_" <%=statusType.equals("_")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeRejected">Rejected</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeCapitated"
+                                       value="H" <%=statusType.equals("H")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeCapitated">Capitated</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeInvoiced"
+                                       value="O" <%=statusType.equals("O")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeInvoiced">Invoiced</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeBillPatient"
+                                       value="P" <%=statusType.equals("P")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeBillPatient">Bill Patient</label>
+                            </div>
+                            <!--<div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeDoNotBill" value="N" <%=statusType.equals("N")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeDoNotBill">Do Not Bill</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeWCB" value="W" <%=statusType.equals("W")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeWCB">WCB</label>
+                            </div>-->
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeSubmittedOHIP"
+                                       value="B" <%=statusType.equals("B")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeSubmittedOHIP">Submitted OHIP</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeSettled"
+                                       value="S" <%=statusType.equals("S")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeSettled">Settled/Paid</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeBadDebt"
+                                       value="X" <%=statusType.equals("X")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeBadDebt">Bad Debt</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeDeleted"
+                                       value="D" <%=statusType.equals("D")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeDeleted">Deleted Bill</label>
+                            </div>
                         </div>
                         <!--</div>-->
                         <!-- row -->

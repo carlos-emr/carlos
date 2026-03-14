@@ -1427,12 +1427,13 @@
                                                                                    size="9"><a id="nextDateCal"><img
                                         title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 </div>
-                                <div>
-                                    <label for="neverWarn" class="form-check-label">Never Remind:</label><input type="checkbox"
-                                                                                                        name="neverWarn"
-                                                                                                        id="neverWarn"
-                                                                                                        value="neverRemind"
-                                                                                                        onchange="disableifchecked(this,'nextDate');"  <%=completed(never)%>/>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="neverWarn"
+                                           id="neverWarn"
+                                           value="neverRemind"
+                                           onchange="disableifchecked(this,'nextDate');"  <%=completed(never)%>/>
+                                    <label for="neverWarn" class="form-check-label">Never Remind:</label>
                                     Reason: <input type="text" name="neverReason"
                                                    value="<%=str((extraData.get("neverReason")),"")%>"/>
                                 </div>

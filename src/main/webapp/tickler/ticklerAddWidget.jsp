@@ -67,7 +67,7 @@
         <div class="col-12">
             <div class="mb-3">
                 <label>Action:</label>
-                <select class="form-control required" name="categoryId" required="true">
+                <select class="form-select required" name="categoryId" required="true">
                     <option value="" selected></option>
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
                         <option title="${ ticklerCategory.description }" value="${ ticklerCategory.id }">
@@ -83,7 +83,7 @@
         <div class="col-6">
             <div class="mb-3">
                 <label>Assign to:</label>
-                <select class="form-control required" name="taskAssignedTo" required="true">
+                <select class="form-select required" name="taskAssignedTo" required="true">
                     <option value=""></option>
                     <c:forEach items="${ providers }" var="provider">
                         <option value="${ provider.providerNo }">
@@ -97,7 +97,7 @@
         <div class="col-6">
             <div class="mb-3">
                 <label>Priority:</label>
-                <select class="form-control required" name="priority" required="true">
+                <select class="form-select required" name="priority" required="true">
                     <option value="Low">Low</option>
                     <option value="Normal" selected>Normal</option>
                     <option value="High">High</option>

@@ -398,7 +398,7 @@
                     <%}%>
                 </select>
                 <div class="input-group btn-group">
-                    <input id="docTypeinput1" type="button" class="btn btn-secondary form-control"
+                    <input id="docTypeinput1" type="button" class="btn btn-secondary"
                            onClick="newDocTypeLink();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/>"/>
                 </div>

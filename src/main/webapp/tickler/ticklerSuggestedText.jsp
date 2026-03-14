@@ -167,7 +167,7 @@
             </tr>
             <tr>
                 <td style="vertical-align: top">
-                    <select class="form-control text-selection" name="activeText" multiple="true"
+                    <select class="form-select text-selection" name="activeText" multiple="true"
                                  size="10">
                         <% java.util.List<TicklerTextSuggest> activeTexts = ticklerTextSuggestDao.getActiveTicklerTextSuggests();
                             if (activeTexts.isEmpty()) {
@@ -193,7 +193,7 @@
                            onclick="swap('inactiveText','activeText')"/>
                 </td>
                 <td style="vertical-align: top">
-                    <select class="form-control text-selection" name="inactiveText" multiple="true"
+                    <select class="form-select text-selection" name="inactiveText" multiple="true"
                                  size="10">
                         <%
                             java.util.List<TicklerTextSuggest> inactiveTexts = ticklerTextSuggestDao.getInactiveTicklerTextSuggests();
