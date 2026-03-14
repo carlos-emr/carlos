@@ -29,28 +29,33 @@
 
 --%>
 
-<%@page import="java.text.ParseException" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.DemographicData,java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="java.text.ParseException" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="java.text.SimpleDateFormat" %>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -260,16 +265,20 @@
     DemographicData demoData = new DemographicData();
     String[] demoInfo = demoData.getNameAgeSexArray(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.valueOf(demographic_no));
     String nameage = demoInfo[0] + ", " + demoInfo[1] + " " + demoInfo[2] + " " + age;
-
     HashMap<String, String> genders = new HashMap<String, String>();
     genders.put("M", "Male");
     genders.put("F", "Female");
     genders.put("U", "Unknown");
+
+    String pBrand = request.getParameter("brandName") || "";
+    String pDIN = request.getParameter("din") || "";
+    String pDose = request.getParameter("dose") || "";
+    String pRoute = request.getParameter("route") || "";
+    String pUnit = request.getParameter("doseUnit") || "";
+    String pMaker = request.getParameter("manufacture") || "";
+
 %>
-
-
 <html>
-
     <head>
         <title>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
@@ -909,17 +918,18 @@
                             <br/>
                             <span id="unknownName" style="display:block"><label for="name">Name</label> <input
                                     type="text" id="name" name="name"
-                                    value="<%=str((extraData.get("name")),"")%>"/> <br/><br/></span>
+                                    value="<%=str((extraData.get("name")),Encode.forHtmlAttribute(pBrand)%>"/> <br/><br/></span>
                             <%
+
                             } else {
                             %> <label for="name">Name:</label> <input type="text" id="name" name="name"
-                                                                      value="<%=str((extraData.get("name")),"")%>"/>
+                                                                      value="<%=str((extraData.get("name")),Encode.forHtmlAttribute(pBrand)%>"/>
                             <br/> <%
                             }
 
                         } else {
                         %> <label for="name">Name:</label> <input type="text" id="name" name="name"
-                                                                  value="<%=str((extraData.get("name")),prevention)%>"/>
+                                                                  value="<%=str((extraData.get("name")),Encode.forHtmlAttribute(pBrand)%>"/>
                             <br/>
 
                             <% } %>
@@ -1011,32 +1021,30 @@
 
                             <br/>
                             <label for="route">Route:</label>
-
                             <select name="route" id="route">
                                 <option value=""></option>
                                 <%
                                     String routeSelected = " selected=\"selected\" ";
                                 %>
-                                <option value="ID" <%="ID".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="ID" <%="ID".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
                                     Intradermal: ID
                                 </option>
-                                <option value="IM" <%="IM".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="IM" <%="IM".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
                                     Intramuscular: IM
                                 </option>
-                                <option value="IN" <%="IN".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="IN" <%="IN".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
                                     Intranasal: IN
                                 </option>
-                                <option value="PO" <%="PO".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="PO" <%="PO".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
                                     Oral: PO
                                 </option>
-                                <option value="SC" <%="SC".equals(str((extraData.get("route")), "")) ? routeSelected : "" %>>
+                                <option value="SC" <%="SC".equals(str((extraData.get("route")), Encode.forHtmlAttribute(pRoute))) ? routeSelected : "" %>>
                                     Subcutaneous: SC
                                 </option>
                             </select>
                             <br/>
-
                             <label for="route">DIN:</label>
-                            <input type="text" name="din" id="din" value="<%=str((extraData.get("din")),"")%>"/>
+                            <input type="text" name="din" id="din" value="<%=str((extraData.get("din")),Encode.forHtmlAttribute(pDIN))%>"/>
                             <br/>
                             <%
                                 String dose = str((extraData.get("dose")), "");
@@ -1058,18 +1066,19 @@
                                     d2 = "mL";
                                 }
                             %>
-                            <label for="dose">Dose:</label> <input type="text" name="dose" value="<%=d1%>"/>
+
+                            <label for="dose">Dose:</label> <input type="text" name="dose" id="dose" value="<%=d1% || Encode.forHtmlAttribute(pDose)>"/>
                             <br>
                             <label for="doseUnit">Dose Unit:</label>
                             <select name="doseUnit">
                                 <option value="" <%="".equals(d2) ? "selected=\"selected\" " : "" %>></option>
-                                <option value="mL" <%="mL".equals(d2) ? "selected=\"selected\" " : "" %>>mL</option>
-                                <option value="mg" <%="mg".equals(d2) ? "selected=\"selected\" " : "" %>>mg</option>
-                                <option value="g" <%="g".equals(d2) ? "selected=\"selected\" " : "" %>>g</option>
-                                <option value="capsule" <%="capsule".equals(d2) ? "selected=\"selected\" " : "" %>>
+                                <option value="mL" <%="mL".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>mL</option>
+                                <option value="mg" <%="mg".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>mg</option>
+                                <option value="g" <%="g".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>g</option>
+                                <option value="capsule" <%="capsule".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>
                                     capsule
                                 </option>
-                                <option value="vial" <%="vial".equals(d2) ? "selected=\"selected\" " : "" %>>vial
+                                <option value="vial" <%="vial".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>vial
                                 </option>
 
                             </select>
@@ -1102,7 +1111,7 @@
                             <% } %>
                             <label for="manufacture">Manufacture:</label> <input type="text" name="manufacture"
                                                                                  id="manufacture"
-                                                                                 value="<%=str((extraData.get("manufacture")),"")%>"/><br/>
+                                                                                 value="<%=str((extraData.get("manufacture")),Encode.forHtmlAttribute(pMaker))%>"/><br/>
                         </fieldset>
                         <fieldset>
                             <legend>Comments</legend>
