@@ -376,8 +376,8 @@
                 <div class="col-md-2">
                     From:<br>
                     <div class="input-group">
-                        <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>" style="width:90px"
-                               autocomplete="off"/>
+                        <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
+                               value="<%=xml_vdate%>" style="width:90px" autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
@@ -387,7 +387,8 @@
                     To:<br>
                     <div class="input-group">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=xml_appointment_date%>" style="width:90px" autocomplete="off"/>
+                               class="form-control" value="<%=xml_appointment_date%>" style="width:90px"
+                               autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>

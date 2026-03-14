@@ -1317,8 +1317,9 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
 								<input type="text" class="form-control" id="service_date" name="service_date" readonly
                                        value="<%=request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday%>"
                                        style="width: 80px; height:14px;  vertical-align: bottom;">
-                                <img src="${ pageContext.request.contextPath }/images/cal.gif" id="service_date_cal"
-                                     style="height:14px;  vertical-align: bottom;" class="input-group-text" alt="cal"></span>
+                                <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
+                                    <img src="${ pageContext.request.contextPath }/images/cal.gif"
+                                         style="height:14px;" alt="cal"></span></span>
                             <%} else {%>
                                 <input type="text" id="service_date" name="service_date" readonly
 								value="<%=request.getParameter("appointment_date")%>"
@@ -1755,8 +1756,10 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
 											<span class="input-group">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
                                                value="<%=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate%>"
-											class="form-control form-control-sm d-inline-block w-auto" style="height: 14px; margin-top:4px;" readonly> <img alt="cal" class="input-group-text" style="height:14px;  margin-top:4px;"
-											src="${ pageContext.request.contextPath }/images/cal.gif" id="xml_vdate_cal">
+											class="form-control form-control-sm d-inline-block w-auto" style="height: 14px; margin-top:4px;" readonly>
+											<span class="input-group-text" id="xml_vdate_cal" style="cursor:pointer; margin-top:4px;">
+											    <img alt="cal" style="height:14px;"
+											         src="${ pageContext.request.contextPath }/images/cal.gif"></span>
 											</span>
                                             <span id="duration_display"></span>
                                     </td>

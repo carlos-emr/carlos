@@ -538,7 +538,7 @@
                 <label>Issued Date</label>
                 <div class="input-group">
                     <input type="text" name="billingservice_date" id="billingservice_date"
-                           value="<%=prop.getProperty("billingservice_date", "")%>"
+                           class="form-control" value="<%=prop.getProperty("billingservice_date", "")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -548,7 +548,7 @@
                 <label>Termination Date</label>
                 <div class="input-group">
                     <input type="text" name="termination_date" id="termination_date"
-                           value="<%=prop.getProperty("termination_date", "9999-12-31")%>"
+                           class="form-control" value="<%=prop.getProperty("termination_date", "9999-12-31")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>

@@ -898,7 +898,7 @@
                             <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnBillingDate"/>:</label>
                             <div class="input-group">
                                 <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                                       value="<%=BillDate%>" style="width:90px"
+                                       class="form-control" value="<%=BillDate%>" style="width:90px"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                                 <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                             </div>
@@ -1038,7 +1038,8 @@
                         <div class="col-md-4" style="margin-left:0px;">
                             <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnAdmissionDate"/>:</label>
                             <div class="input-group">
-                                <input type="text" name="xml_vdate" id="xml_vdate" value="<%=visitdate%>"
+                                <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
+                                       value="<%=visitdate%>"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" style="width:90px"
                                        autocomplete="off"/>
                                 <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
@@ -1291,7 +1292,8 @@
                             <div class="col-md-2">
                                 <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.dueDate"/>:</label>
                                 <div class="input-group">
-                                    <input type="text" name="invoiceDueDate" id="invoiceDueDate" value="<%=dueDateStr%>"
+                                    <input type="text" name="invoiceDueDate" id="invoiceDueDate" class="form-control"
+                                           value="<%=dueDateStr%>"
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"
                                            style="width:90px"/>
                                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
