@@ -115,15 +115,13 @@
         </div>
 
         <div class='uploadEformTitle'>
-            <div>
-                <label class="checkbox">
-                    <input type="checkbox" name="showLatestFormOnly" value="true"/><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/>
-                </label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="showLatestFormOnly" id="showLatestFormOnly" value="true"/>
+                <label class="form-check-label" for="showLatestFormOnly"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/></label>
             </div>
-            <div>
-                <label class="checkbox">
-                    <input type="checkbox" name="patientIndependent" value="true"/><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/>
-                </label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="patientIndependent" id="patientIndependent" value="true"/>
+                <label class="form-check-label" for="patientIndependent"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/></label>
             </div>
         </div>
 

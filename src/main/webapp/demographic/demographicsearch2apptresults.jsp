@@ -197,7 +197,7 @@
         <div id="demographicSearch" class="searchBox input-group select-group" style="margin-bottom:10px;">
             <%--    <ul style="display: flex;">--%>
             <%--        <li>--%>
-            <select class="wideInput form-control input-group-text" name="search_mode">
+            <select class="wideInput form-select" name="search_mode">
                 <option value="search_name" <%=request.getParameter("search_mode").equals("search_name") ? "selected" : ""%>>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.optName"/>
                 </option>

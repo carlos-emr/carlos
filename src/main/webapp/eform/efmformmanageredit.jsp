@@ -214,7 +214,7 @@
 
             <br/>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditHtml"/>:<br/>
-            <textarea wrap="off" name="formHtml" style="" class="col-md-12" rows="40"><%= formHtml%></textarea><br/>
+            <textarea wrap="off" name="formHtml" style="" class="form-control" rows="40"><%= formHtml%></textarea><br/>
 
             <p>
             <div id="panelDisplay">

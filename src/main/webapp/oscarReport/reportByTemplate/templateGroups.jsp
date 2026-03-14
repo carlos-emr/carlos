@@ -247,7 +247,7 @@
     <div id="selectTemplatesModal" class="modal fade" tabindex="-1"
          aria-labelledby="selectTemplatesModal" aria-hidden="true">
         <div class="modal-dialog">
-            <div class="modal-content" role="dialog">
+            <div class="modal-content">
                 <div class="modal-header">
                     <h3 class="modal-title">Select templates for group: <c:out
                             value="${templatesInGroup[0].groupName}"/></h3>

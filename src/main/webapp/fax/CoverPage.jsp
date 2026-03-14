@@ -379,15 +379,17 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
-                                    <label class="form-check form-check-inline" for="coverpageyes">
-                                        <input type="radio" name="coverpage" id="coverpageyes" value="true"
-                                               onchange="document.getElementById('comments_container').style.display = 'block';"/>Yes
-                                    </label>
-                                    <label class="form-check form-check-inline" for="coverpageno">
-                                        <input type="radio" checked="checked" name="coverpage" id="coverpageno"
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="coverpage" id="coverpageyes" value="true"
+                                               onchange="document.getElementById('comments_container').style.display = 'block';"/>
+                                        <label class="form-check-label" for="coverpageyes">Yes</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" checked="checked" name="coverpage" id="coverpageno"
                                                value="false"
-                                               onchange="document.getElementById('comments_container').style.display = 'none';"/>No
-                                    </label>
+                                               onchange="document.getElementById('comments_container').style.display = 'none';"/>
+                                        <label class="form-check-label" for="coverpageno">No</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="row" id="comments_container" style="display:none;">

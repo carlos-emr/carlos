@@ -76,7 +76,7 @@
 
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" role="dialog">
+    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade">
         <div class="modal-dialog">
 
             <div class="modal-content">

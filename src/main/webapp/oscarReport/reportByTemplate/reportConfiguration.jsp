@@ -214,12 +214,12 @@
                         for (int i2 = 0; i2 < paramChoices.size(); i2++) {
                             Choice curchoice = (Choice) paramChoices.get(i2);
                     %>
-                    <label class="checkbox form-label" for="<%=curparam.getParamId() + curchoice.getChoiceId()%>">
-                        <input type="checkbox" name="<%=curparam.getParamId()%>"
-                               id="<%=curparam.getParamId() + curchoice.getChoiceId()%>" class="checkclass<%=i%>"
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input checkclass<%=i%>" name="<%=curparam.getParamId()%>"
+                               id="<%=curparam.getParamId() + curchoice.getChoiceId()%>"
                                value="<%=curchoice.getChoiceId()%>"/>
-                        <%=curchoice.getChoiceText()%>
-                    </label>
+                        <label class="form-check-label" for="<%=curparam.getParamId() + curchoice.getChoiceId()%>"><%=curchoice.getChoiceText()%></label>
+                    </div>
                     <%}%>
                 </div>
                 <% } else if (curparam.getParamType().equals(curparam.TEXTLIST)) {%>

@@ -324,7 +324,7 @@
 
                     <div class="tab-content">
                         <c:forEach items="${ groups }" var="group" varStatus="count">
-                            <div class="tab-pane form-check ${ count.index eq 0 ? 'active' : '' }"
+                            <div class="tab-pane ${ count.index eq 0 ? 'active' : '' }"
                                  id="group-${ group.key.id }">
                                 <div id="group-member-list-${ group.key.id }">
                                     <c:forEach items="${ group.value }" var="member">
@@ -364,7 +364,7 @@
                             </div>
                         </c:forEach>
 
-                        <div class="tab-pane form-check" id="new-group">
+                        <div class="tab-pane" id="new-group">
                             <div class="mb-3">
                                 <div class="input-group">
                                     <input type='text' placeholder="Group Name" class="group-name-input"

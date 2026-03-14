@@ -445,31 +445,31 @@
                 %>
                 <div class="row">
                     <div class="col-md-12">
-                        <label class="checkbox inline"><input type="checkbox" name="billTypeAll" id="ALL" value="ALL"
-                                                              checked onclick="changeStatus();">ALL</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="HCP" <%=tmpStrBillType.indexOf("HCP")>=0?"checked":""%>>Bill
-                            OHIP</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="RMB" <%=tmpStrBillType.indexOf("RMB")>=0?"checked":""%>>RMB</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="WCB" <%=tmpStrBillType.indexOf("WCB")>=0?"checked":""%>>WCB</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="NOT" <%=tmpStrBillType.indexOf("NOT")>=0?"checked":""%>>Not
-                            Bill</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="PAT" <%=tmpStrBillType.indexOf("PAT")>=0?"checked":""%>>Bill
-                            Patient</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="OCF" <%=tmpStrBillType.indexOf("OCF")>=0?"checked":""%>>OCF</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="ODS" <%=tmpStrBillType.indexOf("ODS")>=0?"checked":""%>>ODSP</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="CPP" <%=tmpStrBillType.indexOf("CPP")>=0?"checked":""%>>CPP</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="STD" <%=tmpStrBillType.indexOf("STD")>=0?"checked":""%>>STD/LTD</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="IFH" <%=tmpStrBillType.indexOf("IFH")>=0?"checked":""%>>IFH</label>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billTypeAll" id="ALL" value="ALL"
+                                                              checked onclick="changeStatus();"><label class="form-check-label" for="ALL">ALL</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_HCP"
+                                                              value="HCP" <%=tmpStrBillType.indexOf("HCP")>=0?"checked":""%>><label class="form-check-label" for="billType_HCP">Bill
+                            OHIP</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_RMB"
+                                                              value="RMB" <%=tmpStrBillType.indexOf("RMB")>=0?"checked":""%>><label class="form-check-label" for="billType_RMB">RMB</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_WCB"
+                                                              value="WCB" <%=tmpStrBillType.indexOf("WCB")>=0?"checked":""%>><label class="form-check-label" for="billType_WCB">WCB</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_NOT"
+                                                              value="NOT" <%=tmpStrBillType.indexOf("NOT")>=0?"checked":""%>><label class="form-check-label" for="billType_NOT">Not
+                            Bill</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_PAT"
+                                                              value="PAT" <%=tmpStrBillType.indexOf("PAT")>=0?"checked":""%>><label class="form-check-label" for="billType_PAT">Bill
+                            Patient</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_OCF"
+                                                              value="OCF" <%=tmpStrBillType.indexOf("OCF")>=0?"checked":""%>><label class="form-check-label" for="billType_OCF">OCF</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_ODS"
+                                                              value="ODS" <%=tmpStrBillType.indexOf("ODS")>=0?"checked":""%>><label class="form-check-label" for="billType_ODS">ODSP</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_CPP"
+                                                              value="CPP" <%=tmpStrBillType.indexOf("CPP")>=0?"checked":""%>><label class="form-check-label" for="billType_CPP">CPP</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_STD"
+                                                              value="STD" <%=tmpStrBillType.indexOf("STD")>=0?"checked":""%>><label class="form-check-label" for="billType_STD">STD/LTD</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_IFH"
+                                                              value="IFH" <%=tmpStrBillType.indexOf("IFH")>=0?"checked":""%>><label class="form-check-label" for="billType_IFH">IFH</label></div>
                     </div>
                     <!--</div>-->
                     <!--<div class="row">-->

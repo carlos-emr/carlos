@@ -66,8 +66,8 @@
 <table
         class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
-        <col class="col-md-7"></col>
-        <col class="col-md-2"></col>
+        <col style="width:58.333%">
+        <col style="width:16.667%">
     </colgroup>
     <thead>
     <tr>
@@ -90,8 +90,8 @@
 <table
         class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
-        <col class="col-md-7"></col>
-        <col class="col-md-2"></col>
+        <col style="width:58.333%">
+        <col style="width:16.667%">
     </colgroup>
     <caption>Homeless Shelter Population</caption>
     <tbody>
@@ -110,8 +110,8 @@
 <table
         class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
-        <col class="col-md-4"></col>
-        <col class="col-md-4"></col>
+        <col style="width:33.333%">
+        <col style="width:33.333%">
     </colgroup>
     <caption>Intensity of Shelter Use</caption>
     <tbody>
@@ -135,8 +135,8 @@
     <table
             class="table table-bordered table-striped table-sm table-hover">
         <colgroup>
-            <col class="col-md-5"></col>
-            <col class="col-md-4"></col>
+            <col style="width:41.667%">
+            <col style="width:33.333%">
         </colgroup>
         <caption>Mortality In Shelters</caption>
         <tbody>
@@ -157,9 +157,9 @@
         class="table table-bordered table-striped table-sm table-hover">
     <caption>Major Medical Condition</caption>
     <colgroup>
-        <col class="col-md-2"></col>
-        <col class="col-md-3"></col>
-        <col class="col-md-4"></col>
+        <col style="width:16.667%">
+        <col style="width:25%">
+        <col style="width:33.333%">
     </colgroup>
     <thead>
     <tr>
@@ -191,9 +191,9 @@
         class="table table-bordered table-striped table-sm table-hover">
     <caption>Major Mental Illness</caption>
     <colgroup>
-        <col class="col-md-2"></col>
-        <col class="col-md-3"></col>
-        <col class="col-md-4"></col>
+        <col style="width:16.667%">
+        <col style="width:25%">
+        <col style="width:33.333%">
     </colgroup>
     <thead>
     <tr>
@@ -227,9 +227,9 @@
         Conditions
     </caption>
     <colgroup>
-        <col class="col-md-2"></col>
-        <col class="col-md-3"></col>
-        <col class="col-md-4"></col>
+        <col style="width:16.667%">
+        <col style="width:25%">
+        <col style="width:33.333%">
     </colgroup>
     <thead>
     <tr>
@@ -261,7 +261,7 @@
         class="table table-bordered table-striped table-sm table-hover">
     <caption>Notes on the Data</caption>
     <colgroup>
-        <col class="col-md-9"></col>
+        <col style="width:75%">
     </colgroup>
     <tbody>
     <tr>
@@ -306,8 +306,8 @@
             <c:out value="${categoryCodeDescription.key}"></c:out>
         </caption>
         <colgroup>
-            <col class="col-md-2"></col>
-            <col class="col-md-7"></col>
+            <col style="width:16.667%">
+            <col style="width:58.333%">
         </colgroup>
         <thead>
         <tr>

@@ -498,7 +498,7 @@
 
             <div class="col-md-10">
                 Description <small>50 Characters</small><br>
-                <textarea name="description" class="col-md-6"><%=prop.getProperty("description", "")%></textarea>
+                <textarea name="description" class="form-control"><%=prop.getProperty("description", "")%></textarea>
             </div>
 
             <div class="col-md-10">
@@ -517,7 +517,7 @@
                     %>
                 </select>
                 <br>
-                <textarea id="displayStyle" readonly="readonly" class="col-md-6"></textarea>
+                <textarea id="displayStyle" readonly="readonly" class="form-control"></textarea>
             </div>
 
             <div class="col-md-2">

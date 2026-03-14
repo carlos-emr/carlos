@@ -243,7 +243,7 @@
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
         <form action="${pageContext.request.contextPath}/eform/addToGroup.do" method="post" id="eformToGroupForm">
-        <div id="myModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+        <div id="myModal" class="modal fade" tabindex="-1" aria-labelledby="myModalLabel"
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header">

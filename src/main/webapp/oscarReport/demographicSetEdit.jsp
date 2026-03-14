@@ -264,7 +264,7 @@
         </section>
     </div>
 
-    <div id="delete-set-confirm" class="modal fade" tabindex="-1" role="dialog">
+    <div id="delete-set-confirm" class="modal fade" tabindex="-1">
         <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header">
             <h3>Delete Set</h3>

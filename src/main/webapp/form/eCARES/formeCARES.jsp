@@ -257,7 +257,7 @@
     </form>
 
     <!-- Modal -->
-    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+    <div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel"
          aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -284,7 +284,7 @@
 
 
     <!-- Modal -->
-    <div class="modal fade" id="ticklerModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+    <div class="modal fade" id="ticklerModal" tabindex="-1" aria-labelledby="myModalLabel"
          aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -306,7 +306,7 @@
 </div><!-- /.modal -->
 
 <!-- Modal -->
-<div class="modal fade" id="chartModal" tabindex="-1" role="dialog" aria-labelledby="chartModalLabel"
+<div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel"
      aria-hidden="true">
     <div class="modal-dialog modal-lg" style="width:60%;">
         <div class="modal-content">

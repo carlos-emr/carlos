@@ -335,17 +335,15 @@
                 <input type="text" name="docSubClass" id="docSubClass" class="form-control">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
             </div>
-            <div class="checkbox">
-                <label>
-                    <input type="checkbox" id="restrictToProgram" name="restrictToProgram">
-                    Restrict to current program</label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="restrictToProgram" name="restrictToProgram">
+                <label class="form-check-label" for="restrictToProgram">Restrict to current program</label>
             </div>
             <% if (EDocUtil.isProviderModule(module)) {%>
-            <div class="checkbox">
-                <label>
-                    <input type="checkbox" id="docPublic" name="docPublic" <%=formdata.getDocPublic() + " "%>
-                           value="checked">
-                    Public</label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="docPublic" name="docPublic" <%=formdata.getDocPublic() + " "%>
+                       value="checked">
+                <label class="form-check-label" for="docPublic">Public</label>
             </div>
             <% } %>
             <div class="mb-3">
@@ -438,10 +436,9 @@
             <div class="autocomplete_style" id="docSubClass_list2"></div>
         </div>
         <% if (EDocUtil.isProviderModule(module)) {%>
-        <div class="checkbox">
-            <label>
-                <input type="checkbox" name="docPublic" <%=formdata.getDocPublic() + " "%> value="checked">
-                Public</label>
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" name="docPublic" <%=formdata.getDocPublic() + " "%> value="checked">
+            <label class="form-check-label">Public</label>
         </div>
         <% } %>
 

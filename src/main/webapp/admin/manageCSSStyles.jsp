@@ -362,7 +362,7 @@
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
-                <textarea rows="8" class="col-md-6" readonly="true" id="styleText" name="styleText"></textarea>
+                <textarea rows="8" class="form-control" readonly="true" id="styleText" name="styleText"></textarea>
                 <input class="btn btn-secondary" id="apply-btn" type="button"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
                        style="display:none"/>

@@ -318,7 +318,7 @@
     </div> <!--  end main content row -->
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo" class="modal fade" role="dialog">
+    <div id="indicatorInfo" class="modal fade">
         <div class="modal-dialog">
             <div class="modal-content">
 
@@ -380,7 +380,7 @@
     <!--  end indicator modal  -->
 
     <!-- modal panel for tickler assignment -->
-    <div id="assignTickler" class="modal fade" role="dialog">
+    <div id="assignTickler" class="modal fade">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -398,7 +398,7 @@
     <!-- End Tickler assignment modal panel -->
 
     <!-- modal panel for bulk addition to disease registry -->
-    <div id="modalConfirmAddToDiseaseRegistry" class="modal fade" role="dialog">
+    <div id="modalConfirmAddToDiseaseRegistry" class="modal fade">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -428,7 +428,7 @@
     <!-- End bulk addition to disease registry modal panel -->
 
     <!-- modal panel for patient exclusion -->
-    <div id="modalConfirmPatientExclusion" class="modal fade" role="dialog">
+    <div id="modalConfirmPatientExclusion" class="modal fade">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -459,7 +459,7 @@
     <!-- End patient exclusion modal panel -->
 
     <!-- modal panel for patient status update -->
-    <div id="modalConfirmPatientStatusUpdate" class="modal fade" role="dialog">
+    <div id="modalConfirmPatientStatusUpdate" class="modal fade">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">

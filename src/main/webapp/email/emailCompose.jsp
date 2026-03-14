@@ -272,9 +272,9 @@
                     </div>
                 </div>
 
-                <div class="modal fade" id="errorMessageModal" tabindex="-1" role="dialog"
+                <div class="modal fade" id="errorMessageModal" tabindex="-1"
                      aria-labelledby="errorMessageModalLabel" aria-hidden="true">
-                    <div class="modal-dialog" role="document">
+                    <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="errorMessageModalLabel"><c:out
@@ -459,20 +459,16 @@
                                 <div class="col-sm-12">
                                     <label>Chart options</label>
                                     <div class="form-check">
-                                        <div class="form-check-label">
 											<input class="form-check-input" type="radio" name="patientChartOption" id="doNotAddAsNoteOption" value="doNotAddAsNote" onClick="toggleInternalTextArea()">
                                             <label class="form-check-label" for="doNotAddAsNoteOption">
                                                 Do not add to patient chart
                                             </label>
-                                        </div>
                                     </div>
                                     <div class="form-check">
-                                        <div class="form-check-label">
 											<input class="form-check-input" type="radio" name="patientChartOption" id="addFullNoteOption" value="addFullNote" checked onClick="toggleInternalTextArea()">
                                             <label class="form-check-label" for="addFullNoteOption">
                                                 Chart as new note in patient's chart
                                             </label>
-										</div>
 										<div id="internalCommentContainer" class="d-none">
 											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="Internal comment to include" rows="3"><c:out value="${ not empty param.internalComment ? param.internalComment : internalComment }" /></textarea>
                                         </div>

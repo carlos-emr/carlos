@@ -142,7 +142,7 @@
 
 <form action="PreventionListManager.jsp?formAction=update" method="post">
     <!-- Modal -->
-    <div id="modalConfirm" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="modalConfirmLabel"
+    <div id="modalConfirm" class="modal fade" tabindex="-1" aria-labelledby="modalConfirmLabel"
          aria-hidden="true">
         <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header" style="background-color:#fbb450;">

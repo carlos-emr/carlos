@@ -162,12 +162,12 @@
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formTemplateName"/>:<br>
                         <input type="text" name="name" pattern="^[a-zA-Z0-9\s]+$" value="<%=bEdit?tName:""%>"
-                               class="col-md-10" maxlength="50"> <!-- match the definition in the schema -->
+                               class="form-control" maxlength="50"> <!-- match the definition in the schema -->
 
                         <br><br>
 
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.formTemplateText"/>:<br>
-                        <textarea name="value" rows="20" class="col-md-10"><%=bEdit ? tValue : ""%></textarea>
+                        <textarea name="value" rows="20" class="form-control"><%=bEdit ? tValue : ""%></textarea>
 
                         <br>
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.btnDelete"/>"
