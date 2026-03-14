@@ -23,7 +23,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
-    <link href="${ctx}/css/datepicker.css" rel="stylesheet" type="text/css"/>
+    <link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
@@ -32,7 +32,7 @@
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="${ctx}/js/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
     <style type="text/css">
         .search-email-menu {
@@ -326,12 +326,7 @@
 </div> <!-- body row -->
 
 <script language="javascript">
-    var startDate = $("#dateBegin").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDate = $("#dateEnd").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#dateBegin", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#dateEnd", {dateFormat: "Y-m-d", allowInput: true});
 </script>
 </body>

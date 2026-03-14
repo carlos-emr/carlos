@@ -48,7 +48,7 @@
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"/>
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/library/bootstrap2-datepicker/datepicker3.css"/>
+          href="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.css"/>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/css/bootstrap-timepicker.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
@@ -64,7 +64,7 @@
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/bootstrap2-datepicker/bootstrap-datepicker.js"></script>
+            src="${ pageContext.request.contextPath }/library/flatpickr/flatpickr.min.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/js/bootstrap-timepicker.min.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/moment.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/datetime-moment.js"></script>

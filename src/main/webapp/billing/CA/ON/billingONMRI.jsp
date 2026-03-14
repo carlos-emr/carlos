@@ -98,10 +98,10 @@
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <%
@@ -481,13 +481,8 @@
 <script>
     document.querySelectorAll('.dropdown-archive').forEach(function(el) { new bootstrap.Dropdown(el); });
 
-    var startDate = $("#xml_vdate").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDate = $("#xml_appointment_date").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
     $(document).ready(function () {
         parent.resizeIframe($('html').height());

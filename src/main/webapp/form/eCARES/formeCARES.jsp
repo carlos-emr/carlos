@@ -53,7 +53,7 @@
     <title>Community Comprehensive Geriatric Assessment Form</title>
     <meta name="viewport" content="width=device-width, user-scalable=false;">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap2-datepicker/datepicker3.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/js/jqplot/jquery.jqplot.min.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/eCARES/eCARES_v1.css">
 </head>
@@ -349,7 +349,7 @@
         integrity="sha512-Br5bdkAjeKASBYCbM5qNfb5DB7tGLX3OSwYlDQxKKPNPWmKEcChhEpk7kIEhFLUjTxw0FdGkB/uJNEzbfYFxWkA=="
         crossorigin="anonymous"></script>
 <script type="text/javascript"
-        src="${pageContext.request.contextPath}/library/bootstrap2-datepicker/bootstrap-datepicker.js"></script>
+        src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
 <!--jqplot js includes-->
 <script class="include" type="text/javascript"

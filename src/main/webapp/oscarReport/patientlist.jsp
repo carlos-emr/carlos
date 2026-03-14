@@ -25,6 +25,8 @@
 <head>
     <title>Patient List Report</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
 
@@ -84,13 +86,8 @@
 </form>
 
 <script>
-    var startDt = $("#date_from").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDt = $("#date_to").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#date_from", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#date_to", {dateFormat: "Y-m-d", allowInput: true});
 
     $(document).ready(function () {
         $('#plForm').validate({

@@ -402,11 +402,11 @@ $(document).ready(function ($) {
         window.open(contextPath + "/formeCARES.do?method=export&demographicNo=" + demographicNo + "&formId=" + formId)
     })
 
-    $('.date').datepicker({
-        format: 'yyyy-mm-dd',
-        autoclose: true
+    flatpickr('.date', {
+        dateFormat: 'Y-m-d',
+        allowInput: true,
+        defaultDate: new Date()
     });
-    $(".date").datepicker("setDate", new Date());
 
     $(".closeWindowButton").on('click', function () {
         saveForm().done(function () {

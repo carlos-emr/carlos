@@ -64,7 +64,7 @@
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
         <title>OSCAR Products</title>
         <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath()%>/css/datepicker.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
@@ -74,18 +74,15 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
 
         <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath()%>/js/bootstrap-datepicker.js"></script>
+        <script src="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.js"></script>
         <script src="<%=request.getContextPath()%>/js/jquery.validate.js"></script>
 
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
 
         <link
-                href="<%=request.getContextPath()%>/library/bootstrap2-datepicker/datepicker3.css"
+                href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css"
                 rel="stylesheet">
-
-        <script
-                src="<%=request.getContextPath()%>/library/bootstrap2-datepicker/bootstrap-datepicker.js"></script>
 
 
         <script>
@@ -388,12 +385,7 @@
 
 
     <script>
-        $('#eformExpiryDate').datepicker({
-            format: "yyyy-mm-dd",
-            todayBtn: "linked",
-            autoclose: true,
-            todayHighlight: true
-        });
+        flatpickr('#eformExpiryDate', {dateFormat: "Y-m-d", allowInput: true});
     </script>
 
     </body>

@@ -31,26 +31,25 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/library/moment.js"></script>
-
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
+        src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
 
 <script type="text/javascript">
 
     //--> Date picker
     jQuery(function () {
-        jQuery('.date-picker').datetimepicker({
-            format: 'YYYY-MM-DD',
-            useStrict: true,
-            minDate: new Date()
+        flatpickr('.date-picker', {
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            minDate: 'today'
         });
 
 // --> Time picker
-        jQuery('.time-picker').datetimepicker({
-            format: 'hh:mm a',
-            useStrict: true,
-            useCurrent: false
+        flatpickr('.time-picker', {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: 'h:i K',
+            allowInput: true
         });
     });
 

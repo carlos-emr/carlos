@@ -52,6 +52,8 @@
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
     <script src="<%=request.getContextPath()%>/js/jquery.validate.min.js"></script>
+    <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
 
@@ -108,17 +110,8 @@
 </form>
 
 <script>
-    var startDt = $("#startDate").datepicker({
-        format: "mm/yyyy",
-        viewMode: "months",
-        minViewMode: "months"
-    });
-
-    var endDt = $("#endDate").datepicker({
-        format: "mm/yyyy",
-        viewMode: "months",
-        minViewMode: "months"
-    });
+    flatpickr("#startDate", {dateFormat: "m/Y", allowInput: true});
+    flatpickr("#endDate", {dateFormat: "m/Y", allowInput: true});
 
     $(document).ready(function () {
         $('#psrForm').validate({

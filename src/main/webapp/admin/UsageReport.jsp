@@ -68,6 +68,8 @@
 
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+<script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>EMR Usage Report</h4>
@@ -338,13 +340,8 @@
 %>
 
 <script>
-    var startDt = $("#startDate").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDt = $("#endDate").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#startDate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#endDate", {dateFormat: "Y-m-d", allowInput: true});
     $(document).ready(function () {
         $('#usageForm').validate({
             rules: {

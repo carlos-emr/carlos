@@ -33,14 +33,20 @@
 
     //--> Date picker
     $(function () {
-        $('.date-picker').datepicker({
-            format: 'mm-dd-yyyy'
+        flatpickr('.date-picker', {
+            dateFormat: 'm-d-Y',
+            allowInput: true
         });
     });
 
     // --> Time picker
     $(function () {
-        $('.time-picker').timepicker();
+        flatpickr('.time-picker', {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: 'h:i K',
+            allowInput: true
+        });
     });
 
 </script>

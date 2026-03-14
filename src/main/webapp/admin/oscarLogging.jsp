@@ -50,6 +50,8 @@
 <head>
     <title>Server Log Viewer</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
 
@@ -138,15 +140,8 @@
 %>
 
 <script>
-    var startDt = $("#reportDate").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDt = $("#endDate").datepicker({
-        format: "mm/yyyy",
-        viewMode: "months",
-        minViewMode: "months"
-    });
+    flatpickr("#reportDate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#endDate", {dateFormat: "m/Y", allowInput: true});
 
     $(document).ready(function () {
         $('#logForm').validate(

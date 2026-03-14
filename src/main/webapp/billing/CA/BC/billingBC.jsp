@@ -354,15 +354,13 @@
           href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
 
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker-standalone.css"/>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/flatpickr/flatpickr.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
 
-    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/moment.js"></script>
+    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/flatpickr/flatpickr.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
             <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
@@ -370,8 +368,6 @@
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <script type="text/javascript"
@@ -1032,8 +1028,12 @@
 
             /* for setting times */
             jQuery(function () {
-                jQuery('.datetimepicker').datetimepicker({
-                    format: 'HH:mm'
+                flatpickr('.datetimepicker', {
+                    enableTime: true,
+                    noCalendar: true,
+                    dateFormat: 'H:i',
+                    time_24hr: true,
+                    allowInput: true
                 });
             });
 

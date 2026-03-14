@@ -121,10 +121,10 @@
     <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
             type="text/javascript"></script>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
           type="text/css"/>
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script>
@@ -672,13 +672,8 @@
 
     <script type="text/javascript">
 
-        var startDate = $("#xml_vdate").datepicker({
-            format: "yyyy-mm-dd"
-        });
-
-        var endDate = $("#xml_appointment_date").datepicker({
-            format: "yyyy-mm-dd"
-        });
+        flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
+        flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
     </script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/commons/scripts/sort_table/css.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/commons/scripts/sort_table/common.js"></script>

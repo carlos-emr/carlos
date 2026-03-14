@@ -167,7 +167,7 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
 
@@ -373,12 +373,12 @@
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     </body>
     <script type="text/javascript">
         $(function () {
-            $('#billingservice_date').datepicker();
+            flatpickr('#billingservice_date', {dateFormat: "Y-m-d", allowInput: true});
         });
     </script>
 </html>

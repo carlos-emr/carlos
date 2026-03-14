@@ -456,25 +456,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function setupDatepicker(dateInputId, clearBtnId) {
         let dateInput = jQuery(dateInputId);
         let clearBtn = jQuery(clearBtnId);
-        
-        dateInput.datetimepicker({
-            format: 'YYYY-MM-DD',
-            useCurrent: false,
-        }).on('dp.change', function(e) {
-            clearBtn.toggle(!!dateInput.val());
-        }).on('dp.hide', function(e) {
+        let inputEl = dateInput[0];
+
+        flatpickr(inputEl, {
+            dateFormat: 'Y-m-d',
+            allowInput: false,
+            onChange: function() {
+                clearBtn.toggle(!!dateInput.val());
+            },
+            onClose: function() {
+                clearBtn.toggle(!!dateInput.val());
+            }
         });
 
-        // Disable manual typing
-        dateInput.on('keydown paste', function(e) {
-            e.preventDefault();
-        });
-
-        // Attach event listeners for input change and clear button
-        dateInput.on('input', clearBtn.toggle(!!dateInput.val()));
+        // Clear button click handler
         clearBtn.on('click', function() {
-            dateInput.val('');
-            clearBtn.toggle(!!dateInput.val());
+            inputEl._flatpickr.clear();
+            clearBtn.toggle(false);
         });
 
         // Initialize clear button visibility

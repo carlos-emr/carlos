@@ -189,10 +189,10 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <oscar:customInterface section="editInvoice"/>
@@ -1334,9 +1334,7 @@
 
         <% if (thirdParty && bCh1 != null && OscarProperties.getInstance().hasProperty("invoice_due_date")) { %>
         <script>
-            var startDate = $("#invoiceDueDate").datepicker({
-                format: "yyyy-mm-dd"
-            });
+            flatpickr("#invoiceDueDate", {dateFormat: "Y-m-d", allowInput: true});
         </script>
         <% } %>
         <%!
@@ -1349,12 +1347,8 @@
     </div>
     </body>
     <script>
-        var startDate = $("#xml_appointment_date").datepicker({
-            format: "yyyy-mm-dd"
-        });
-        var startDate = $("#xml_vdate").datepicker({
-            format: "yyyy-mm-dd"
-        });
+        flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
+        flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
 
         window.setTimeout(function () {
             $("#alert_message").fadeTo(500, 0).slideUp(500, function () {
