@@ -40,6 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("RestResponseError Unit Tests")
 @Tag("unit")
 @Tag("fast")
+@Tag("create")
+@Tag("read")
 class RestResponseErrorUnitTest {
 
     @Nested
@@ -118,11 +120,19 @@ class RestResponseErrorUnitTest {
         @Test
         @DisplayName("should not expose mutable state via getData")
         void shouldReturnConsistentData_acrossMultipleCalls() {
-            String data = "extra-context";
-            RestResponseError error = new RestResponseError("msg", data);
+            // Use a mutable Serializable payload to verify field finality.
+            // The 'data' field is final — its reference cannot be reassigned after construction.
+            StringBuilder mutableData = new StringBuilder("initial");
+            RestResponseError error = new RestResponseError("msg", mutableData);
 
-            // Data field is final — calling getData() twice must return the same reference
+            // getData() returns the same reference on every call (no defensive copy).
             assertThat(error.getData()).isSameAs(error.getData());
+
+            // External mutation via the returned reference IS visible through getData() because
+            // RestResponseError does not make a defensive copy. Callers should treat the
+            // returned value as read-only. This assertion documents the current contract.
+            ((StringBuilder) error.getData()).append("-modified");
+            assertThat(error.getData().toString()).isEqualTo("initial-modified");
         }
     }
 }

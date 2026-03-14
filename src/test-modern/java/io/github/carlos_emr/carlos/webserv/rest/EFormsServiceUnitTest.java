@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
@@ -52,7 +53,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -75,7 +75,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("EFormsService Unit Tests")
 @Tag("unit")
 @Tag("fast")
-class EFormsServiceUnitTest {
+class EFormsServiceUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private FormsManager mockFormsManager;
@@ -176,8 +176,8 @@ class EFormsServiceUnitTest {
         @DisplayName("should return list sorted by name when multiple eForms exist")
         void shouldReturnListSortedByName_whenMultipleEFormsExist() {
             when(mockSecurityInfoManager.hasPrivilege(any(), eq("_eform"), eq("r"), any())).thenReturn(true);
-            EForm b = buildEForm("Beta Form", "<html>b</html>");
             EForm a = buildEForm("Alpha Form", "<html>a</html>");
+            EForm b = buildEForm("Beta Form", "<html>b</html>");
             when(mockFormsManager.findByStatus(any(), eq(true), eq(EFormSortOrder.NAME)))
                     .thenReturn(Arrays.asList(a, b));
 
@@ -185,6 +185,8 @@ class EFormsServiceUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(ResponseStatus.SUCCESS);
             assertThat(response.getBody()).hasSize(2);
+            assertThat(response.getBody().get(0).getFormName()).isEqualTo("Alpha Form");
+            assertThat(response.getBody().get(1).getFormName()).isEqualTo("Beta Form");
         }
     }
 
@@ -198,7 +200,7 @@ class EFormsServiceUnitTest {
         @Test
         @DisplayName("should return error response when user lacks read privilege")
         void shouldReturnErrorResponse_whenUserLacksReadPrivilege() {
-            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_eform"), eq("r"), any())).thenReturn(false);
 
             RestResponse<List<String>> response = service.getEFormDatabaseTagList();
 
@@ -217,7 +219,7 @@ class EFormsServiceUnitTest {
         @Test
         @DisplayName("should return error response when user lacks read privilege")
         void shouldReturnErrorResponse_whenUserLacksReadPrivilege() {
-            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_eform"), eq("r"), any())).thenReturn(false);
 
             RestResponse<List<String>> response = service.getEFormImageList();
 

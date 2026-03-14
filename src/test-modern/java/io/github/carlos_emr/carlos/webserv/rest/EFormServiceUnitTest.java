@@ -25,7 +25,7 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
@@ -69,13 +69,12 @@ import static org.mockito.Mockito.when;
 @DisplayName("EFormService Unit Tests")
 @Tag("unit")
 @Tag("fast")
-class EFormServiceUnitTest {
+class EFormServiceUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private EFormDao mockEFormDao;
 
     private LoggedInInfo loggedInInfo;
-    private MockedStatic<LogAction> logActionMock;
     private MockedStatic<OscarProperties> oscarPropertiesMock;
 
     /**
@@ -90,8 +89,7 @@ class EFormServiceUnitTest {
         oscarPropertiesMock.when(OscarProperties::getBuildDate).thenReturn("2026-01-01");
         oscarPropertiesMock.when(OscarProperties::getBuildTag).thenReturn("test");
 
-        // Silence audit log calls
-        logActionMock = mockStatic(LogAction.class);
+        // LogAction is already silenced by CarlosUnitTestBase.setUpSpringUtilsMocking()
 
         // Build a minimal LoggedInInfo
         Provider provider = mock(Provider.class);
@@ -119,7 +117,6 @@ class EFormServiceUnitTest {
 
     @AfterEach
     void tearDown() {
-        if (logActionMock != null) logActionMock.close();
         if (oscarPropertiesMock != null) oscarPropertiesMock.close();
     }
 
@@ -248,7 +245,7 @@ class EFormServiceUnitTest {
 
         @Test
         @DisplayName("should return error for JSON when form name is already in use")
-        void shouldReturnError_forJson_whenFormNameAlreadyInUse() {
+        void shouldReturnError_whenFormNameAlreadyInUseForJson() {
             String json = "{\"formName\":\"Duplicate\",\"formHtml\":\"<html>x</html>\"}";
             when(mockEFormDao.findByName("Duplicate")).thenReturn(new EForm());
 

@@ -48,6 +48,8 @@ import static org.mockito.Mockito.mockStatic;
 @DisplayName("RestResponse / GenericRestResponse / RestResponseHeaders Unit Tests")
 @Tag("unit")
 @Tag("fast")
+@Tag("create")
+@Tag("read")
 class RestResponseUnitTest {
 
     private MockedStatic<OscarProperties> oscarPropertiesMock;
@@ -154,7 +156,7 @@ class RestResponseUnitTest {
 
         @Test
         @DisplayName("should use custom headers on error response when headers provided")
-        void shouldUseCustomHeaders_onErrorResponse_whenHeadersProvided() {
+        void shouldUseCustomHeaders_whenErrorResponseHeadersProvided() {
             RestResponseHeaders headers = new RestResponseHeaders();
             RestResponseError error = new RestResponseError("failure");
             RestResponse<String> response = RestResponse.errorResponse(headers, error);
@@ -178,7 +180,7 @@ class RestResponseUnitTest {
 
         @Test
         @DisplayName("should not include body content in toString to prevent PHI leakage")
-        void shouldNotIncludeBodyContent_inToString_toPreventPhiLeakage() {
+        void shouldNotIncludeBodyContent_whenToStringCalledToPreventPhiLeakage() {
             RestResponse<String> response = RestResponse.successResponse("sensitive-patient-data");
             assertThat(response.toString()).doesNotContain("sensitive-patient-data");
         }
