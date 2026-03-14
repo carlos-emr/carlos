@@ -290,9 +290,8 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
         </title><!--I18n-->
 
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" crossorigin="anonymous">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.7.1.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
@@ -415,11 +414,13 @@
             var warnOnWindowClose = true;
 
             function copyLot() {
-
-                var cvcName = $("#cvcName option:selected").val();
-                if (cvcName !== undefined && cvcName != -1 && $("#cvcLot").is(":visible")) {
-                    $("#lot").val($("#cvcLot").val());
-                    $("#name").val($("#cvcName option:selected").text());
+                var cvcNameEl = document.getElementById('cvcName');
+                var selectedOption = cvcNameEl ? cvcNameEl.options[cvcNameEl.selectedIndex] : null;
+                var cvcNameVal = selectedOption ? selectedOption.value : undefined;
+                var cvcLot = document.getElementById('cvcLot');
+                if (cvcNameVal !== undefined && cvcNameVal != -1 && cvcLot && cvcLot.style.display !== 'none') {
+                    document.getElementById('lot').value = cvcLot.value;
+                    document.getElementById('name').value = selectedOption.text;
                 }
             }
 
@@ -453,65 +454,73 @@
             function changeCVCName() {
                 lots = null;
 
-                var snomedId = $("#cvcName").val();
+                var snomedId = document.getElementById('cvcName').value;
+                var lot = document.getElementById('lot');
+                var cvcLot = document.getElementById('cvcLot');
+                var expiryDate = document.getElementById('expiryDate');
+                var unknownName = document.getElementById('unknownName');
+                var name = document.getElementById('name');
+
                 if (snomedId == "-1") {
-                    $("#lot").show();
-                    $("#cvcLot").hide();
-                    $("#expiryDate").val('');
-                    $("#unknownName").show();
+                    lot.style.display = '';
+                    cvcLot.style.display = 'none';
+                    if (expiryDate) expiryDate.value = '';
+                    if (unknownName) unknownName.style.display = '';
                 } else if (snomedId == "0") {
-                    $("#name").show();
+                    if (name) name.style.display = '';
                 } else {
-                    $("#unknownName").hide();
-                    $.ajax({
-                        type: "POST",
-                        url: "<%=request.getContextPath()%>/cvc.do",
-                        data: {method: "getLotNumberAndExpiryDates", snomedConceptId: snomedId},
-                        dataType: 'json',
-                        success: function (data, textStatus) {
-                            if (data != null && data instanceof Array && data.length > 0) {
-                                $("#lot").hide();
-                                $("#cvcLot").show();
-                                $("#cvcLot").find("option").remove().end();
+                    if (unknownName) unknownName.style.display = 'none';
+                    var formData = new URLSearchParams();
+                    formData.append('method', 'getLotNumberAndExpiryDates');
+                    formData.append('snomedConceptId', snomedId);
+                    fetch('<%=request.getContextPath()%>/cvc.do', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: formData.toString()
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
+                        if (data != null && Array.isArray(data) && data.length > 0) {
+                            lot.style.display = 'none';
+                            cvcLot.style.display = '';
+                            cvcLot.innerHTML = '';
+                            cvcLot.appendChild(new Option('', ''));
 
-                                $("#cvcLot").append('<option value=""></option>');
+                            for (var x = 0; x < data.length; x++) {
+                                var item = data[x];
+                                var d = new Date(data[x].expiryDate.time);
+                                var month = ((d.getMonth() + 1) > 9) ? (d.getMonth() + 1) : ("0" + (d.getMonth() + 1));
+                                var day = ((d.getDate()) > 9) ? (d.getDate()) : ("0" + (d.getDate()));
+                                var output = d.getFullYear() + "-" + month + "-" + day;
 
-                                for (var x = 0; x < data.length; x++) {
-                                    var item = data[x];
-                                    //console.log(JSON.stringify(item));
-                                    var d = new Date(data[x].expiryDate.time);
-                                    // console.log(d);
-                                    var month = ((d.getMonth() + 1) > 9) ? (d.getMonth() + 1) : ("0" + (d.getMonth() + 1));
-                                    var day = ((d.getDate()) > 9) ? (d.getDate()) : ("0" + (d.getDate()));
-                                    var output = d.getFullYear() + "-" + month + "-" + day;
+                                var opt = document.createElement('option');
+                                opt.value = escapeHtml(item.lotNumber);
+                                opt.setAttribute('expiryDate', output);
+                                opt.text = escapeHtml(item.lotNumber);
 
-
-                                    if (startup2 && escapeHtml(item.lotNumber) == '<%=addByLotNbr %>') {
-                                        $("#cvcLot").append('<option selected="selected" value="' + item.lotNumber + '" expiryDate="' + output + '">' + item.lotNumber + '</option>');
-                                        startup2 = false;
-                                    } else if (startup && escapeHtml(item.lotNumber) == '<%=(existingPrevention != null)?existingPrevention.get("lot"):"" %>') {
-                                        $("#cvcLot").append('<option selected="selected" value="' + escapeHtml(item.lotNumber) + '" expiryDate="' + output + '">' + escapeHtml(item.lotNumber) + '</option>');
-                                        startup = false;
-                                    } else {
-                                        $("#cvcLot").append('<option value="' + escapeHtml(item.lotNumber) + '" expiryDate="' + output + '">' + escapeHtml(item.lotNumber) + '</option>');
-                                    }
-                                    updateCvcLot();
+                                if (startup2 && escapeHtml(item.lotNumber) == '<%=addByLotNbr %>') {
+                                    opt.selected = true;
+                                    startup2 = false;
+                                } else if (startup && escapeHtml(item.lotNumber) == '<%=(existingPrevention != null)?existingPrevention.get("lot"):"" %>') {
+                                    opt.selected = true;
+                                    startup = false;
                                 }
-                            } else {
-                                $("#cvcLot").hide();
-                                $("#cvcLot").find("option").remove().end();
-
-                                // $("#lot").val('');
-                                $("#lot").show();
+                                cvcLot.appendChild(opt);
+                                updateCvcLot();
                             }
+                        } else {
+                            cvcLot.style.display = 'none';
+                            cvcLot.innerHTML = '';
+                            lot.style.display = '';
                         }
                     });
                 }
             }
 
             function updateCvcLot() {
-                var lotNumber = $("#cvcLot").find(":selected");
-                $("#expiryDate").val(lotNumber.attr('expiryDate'));
+                var cvcLot = document.getElementById('cvcLot');
+                var selected = cvcLot ? cvcLot.options[cvcLot.selectedIndex] : null;
+                document.getElementById('expiryDate').value = selected ? (selected.getAttribute('expiryDate') || '') : '';
             }
 
 
@@ -566,7 +575,7 @@
             <%
                 if(foundByLotNumber) {
             %>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 startup2 = true;
                 changeCVCName();
             });
@@ -577,9 +586,9 @@
 
 
             <% if(existingPrevention != null && snomedId != null && existingPrevention.get("brandSnomedId") != null) { %>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 startup = true;
-                $("#cvcName").val('<%=existingPrevention.get("brandSnomedId")%>');
+                document.getElementById('cvcName').value = '<%=existingPrevention.get("brandSnomedId")%>';
                 changeCVCName();
             });
             <% } %>
@@ -587,11 +596,13 @@
 
             function changeSite(el) {
                 var val = el.options[el.selectedIndex].value;
+                var locationDiv = document.getElementById('locationDiv');
+                var location2 = document.getElementById('location2');
                 if (val == 'Other') {
-                    $("#locationDiv").show();
+                    locationDiv.style.display = '';
                 } else {
-                    $("#locationDiv").hide();
-                    $("#location2").val('');
+                    locationDiv.style.display = 'none';
+                    location2.value = '';
                 }
             }
         </script>
@@ -687,7 +698,7 @@
                     <div class="prevention">
                         <fieldset>
                             <legend>Summary</legend>
-                            <textarea name="summary" readonly><%=summary%></textarea>
+                            <textarea class="form-control" name="summary" readonly><%=summary%></textarea>
                             <%if (hasImportExtra) { %>
                             <a href="javascript:void(0);" title="Extra data from Import"
                                onclick="window.open('<%= request.getContextPath() %>/annotation/importExtra.jsp?display=<%=annotation_display %>&amp;table_id=<%=id %>&amp;demo=<%=demographic_no %>','anwin','width=400,height=250');">
@@ -703,19 +714,19 @@
                             <legend>Prevention : <%=prevention%>
                             </legend>
                             <div>
-                                <input name="given" type="radio" value="given"      <%=checked(completed,"0")%>
-                                       onClick="$('#providerDrop').val('<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>');hideExtraName(document.getElementById('providerDrop'))">Completed</input>
+                                <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
+                                       onclick="document.getElementById('providerDrop').value='<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>';hideExtraName(document.getElementById('providerDrop'))">Completed</input>
                                 <br/>
-                                <input name="given" type="radio" value="given_ext"  <%=checked(completed,"3")%>
-                                       onClick="$('#providerDrop').val('-1');hideExtraName(document.getElementById('providerDrop'))">Completed
+                                <input name="given" type="radio" class="form-check-input" value="given_ext"  <%=checked(completed,"3")%>
+                                       onclick="document.getElementById('providerDrop').value='-1';hideExtraName(document.getElementById('providerDrop'))">Completed
                                 externally</input><br/>
-                                <input name="given" type="radio"
+                                <input name="given" type="radio" class="form-check-input"
                                        value="refused"    <%=checked(completed,"1")%>>Refused</input><br/>
-                                <input name="given" type="radio" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
+                                <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
                             </div>
                             <div>&nbsp;</div>
                             <div style="margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<%=prevDate%>"
                                                                                           size="15" required> <a
@@ -723,11 +734,11 @@
                                 <br>
                                 <div id="errorPrevDateMessage"
                                      class="alert alert-danger"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="text"
+                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -738,7 +749,7 @@
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
                                 </select>
                                 <br/>
-                                <label for="creator" class="fields">Creator:</label> <input type="text" name="creator"
+                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control" name="creator"
                                                                                             value="<%=creatorName%>"
                                                                                             readonly/> <br/>
                             </div>
@@ -752,8 +763,8 @@
                                     if (tnList != null && tnList.size() > 0) {
                             %>
 
-                            <label for="cvcName">Trade Name:</label>
-                            <select id="cvcName" name="cvcName" onChange="changeCVCName()">
+                            <label for="cvcName" class="form-label">Trade Name:</label>
+                            <select id="cvcName" name="cvcName" class="form-select" onChange="changeCVCName()">
                                 <option value="-1">Select Below</option>
                                 <%
                                     //get the tradenames associated with this generic
@@ -781,28 +792,28 @@
                             </select>
 
                             <br/>
-                            <span id="unknownName" style="display:block"><label for="name">Name</label> <input
-                                    type="text" id="name" name="name"
+                            <span id="unknownName" style="display:block"><label for="name" class="form-label">Name</label> <input
+                                    type="text" class="form-control" id="name" name="name"
                                     value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/> <br/><br/></span>
                             <%
 
                             } else {
-                            %> <label for="name">Name:</label> <input type="text" id="name" name="name"
+                            %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control" id="name" name="name"
                                                                       value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/>
                             <br/> <%
                             }
 
                         } else {
-                        %> <label for="name">Name:</label> <input type="text" id="name" name="name"
+                        %> <label for="name" class="form-label">Name:</label> <input type="text" class="form-control" id="name" name="name"
                                                                   value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/>
                             <br/>
 
                             <% } %>
 
 
-                            <label for="location">Location:</label>
+                            <label for="location" class="form-label">Location:</label>
 
-                            <select name="location" id="location" onChange="changeSite(this)">
+                            <select name="location" id="location" class="form-select" onChange="changeSite(this)">
                                 <option value=""></option>
                                 <%
                                     String locationSelected = " selected=\"selected\" ";
@@ -880,13 +891,13 @@
                             <div id="locationDiv" style="display:<%=locationDisplay%>">
                                 <label for="location2">Specify Location:</label>
 
-                                <input type="text" name="location2" id="location2"
+                                <input type="text" class="form-control" name="location2" id="location2"
                                        value="<%=str((extraData.get("location2")),"")%>"/>
                             </div>
 
                             <br/>
-                            <label for="route">Route:</label>
-                            <select name="route" id="route">
+                            <label for="route" class="form-label">Route:</label>
+                            <select name="route" id="route" class="form-select">
                                 <option value=""></option>
                                 <%
                                     String routeSelected = " selected=\"selected\" ";
@@ -908,8 +919,8 @@
                                 </option>
                             </select>
                             <br/>
-                            <label for="route">DIN:</label>
-                            <input type="text" name="din" id="din" value="<%=str((extraData.get("din")),Encode.forHtmlAttribute(pDIN))%>"/>
+                            <label for="din" class="form-label">DIN:</label>
+                            <input type="text" class="form-control" name="din" id="din" value="<%=str((extraData.get("din")),Encode.forHtmlAttribute(pDIN))%>"/>
                             <br/>
                             <%
                                 String dose = str((extraData.get("dose")), "");
@@ -932,10 +943,10 @@
                                 }
                             %>
 
-                            <label for="dose">Dose:</label> <input type="text" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/>
+                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/>
                             <br>
-                            <label for="doseUnit">Dose Unit:</label>
-                            <select name="doseUnit">
+                            <label for="doseUnit" class="form-label">Dose Unit:</label>
+                            <select name="doseUnit" class="form-select">
                                 <option value="" <%="".equals(d2) ? "selected=\"selected\" " : "" %>></option>
                                 <option value="mL" <%="mL".equals(d2) ? "selected=\"selected\" " : "" %>>mL</option>
                                 <option value="mg" <%="mg".equals(d2) ? "selected=\"selected\" " : "" %>>mg</option>
@@ -950,9 +961,9 @@
 
                             <br/>
                             <%if (!isCvc) { %>
-                            <label for="lot">Lot:</label> <input type="text" name="lot" id="lot"
+                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control" name="lot" id="lot"
                                                                  value="<%=str(lot,"")%>"/>
-                            <select onchange="javascript:updateLotNr(this);" id="lotDrop" name="lotItem">
+                            <select onchange="javascript:updateLotNr(this);" class="form-select" id="lotDrop" name="lotItem">
                                 <%
                                     for (String lotnr : lotNrList) {
                                 %>
@@ -964,23 +975,23 @@
                             <%} else { %>
                             <div id="cvcLotDiv">
                                 <label for="cvcLot">Lot:</label>
-                                <input type="text" name="lot" id="lot" value="<%=str(lot,"")%>" style="display:block"/>
+                                <input type="text" class="form-control" name="lot" id="lot" value="<%=str(lot,"")%>" style="display:block"/>
 
-                                <select onchange="javascript:updateCvcLot();" id="cvcLot" name="cvcLot"
+                                <select onchange="javascript:updateCvcLot();" class="form-select" id="cvcLot" name="cvcLot"
                                         style="display:none;">
 
                                 </select></div>
-                            <label for="expiryDate">Expiry Date:</label> <input type="text" name="expiryDate"
+                            <label for="expiryDate" class="form-label">Expiry Date:</label> <input type="text" class="form-control" name="expiryDate"
                                                                                 id="expiryDate"
                                                                                 value="<%=str((extraData.get("expiryDate")),"")%>"/><br/>
                             <% } %>
-                            <label for="manufacture">Manufacture:</label> <input type="text" name="manufacture"
+                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control" name="manufacture"
                                                                                  id="manufacture"
                                                                                  value="<%=str((extraData.get("manufacture")),Encode.forHtmlAttribute(pMaker))%>"/><br/>
                         </fieldset>
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div>
                     <script type="text/javascript">
@@ -995,19 +1006,19 @@
                             <legend>Prevention : <%=prevention%>
                             </legend>
                             <div>
-                                <input name="given" type="radio" value="given"      <%=checked(completed,"0")%>
-                                       onClick="$('#providerDrop').val('<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>');hideExtraName(document.getElementById('providerDrop'))">Completed</input>
+                                <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
+                                       onclick="document.getElementById('providerDrop').value='<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>';hideExtraName(document.getElementById('providerDrop'))">Completed</input>
                                 <br/>
-                                <input name="given" type="radio" value="given_ext"  <%=checked(completed,"3")%>
-                                       onClick="$('#providerDrop').val('-1');hideExtraName(document.getElementById('providerDrop'))">Completed
+                                <input name="given" type="radio" class="form-check-input" value="given_ext"  <%=checked(completed,"3")%>
+                                       onclick="document.getElementById('providerDrop').value='-1';hideExtraName(document.getElementById('providerDrop'))">Completed
                                 externally</input><br/>
-                                <input name="given" type="radio"
+                                <input name="given" type="radio" class="form-check-input"
                                        value="refused"    <%=checked(completed,"1")%>>Refused</input><br/>
-                                <input name="given" type="radio" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
+                                <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
                             </div>
                             <div>&nbsp;</div>
                             <div style="margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<%=prevDate%>"
                                                                                           size="15" required> <a
@@ -1015,11 +1026,11 @@
                                 <br>
                                 <div id="errorPrevDateMessage"
                                      class="alert alert-danger"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="text"
+                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -1030,30 +1041,30 @@
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
                                 </select>
                                 <br/>
-                                <label for="creator" class="fields">Creator:</label> <input type="text" name="creator"
+                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control" name="creator"
                                                                                             value="<%=creatorName%>"
                                                                                             readonly/> <br/>
                             </div>
                         </fieldset>
                         <fieldset>
                             <legend>Result</legend>
-                            <label for="location">Location:</label> <input type="text" name="location"
+                            <label for="location" class="form-label">Location:</label> <input type="text" class="form-control" name="location"
                                                                            value="<%=str((extraData.get("location")),"")%>"/>
                             <br/>
-                            <label for="location">Other Location:</label> <input type="text" name="location2"
+                            <label for="location2" class="form-label">Other Location:</label> <input type="text" class="form-control" name="location2"
                                                                                  value="<%=str((extraData.get("location2")),"")%>"/>
                             <br/>
-                            <label for="route">Route:</label> <input type="text" name="route"
+                            <label for="route" class="form-label">Route:</label> <input type="text" class="form-control" name="route"
                                                                      value="<%=str((extraData.get("route")),"")%>"/><br/>
-                            <label for="dose">Dose:</label> <input type="text" name="dose"
+                            <label for="dose" class="form-label">Dose:</label> <input type="text" class="form-control" name="dose"
                                                                    value="<%=str((extraData.get("dose")),"")%>"/><br/>
-                            <label for="dose1">Dose 1:</label> <input type="checkbox" name="dose1"
+                            <label for="dose1" class="form-label">Dose 1:</label> <input type="checkbox" class="form-check-input" name="dose1"
                                                                       value="true" <%=checked(str((extraData.get("dose1")), ""), "true")%>/><br/>
-                            <label for="dose2">Dose 2:</label> <input type="checkbox" name="dose2"
+                            <label for="dose2" class="form-label">Dose 2:</label> <input type="checkbox" class="form-check-input" name="dose2"
                                                                       value="true" <%=checked(str((extraData.get("dose2")), ""), "true")%>/><br/>
-                            <label for="lot">Lot:</label> <input type="text" name="lot"
+                            <label for="lot" class="form-label">Lot:</label> <input type="text" class="form-control" name="lot"
                                                                  value="<%=str((extraData.get("lot")),"")%>"/><br/>
-                            <label for="manufacture">Manufacture:</label> <input type="text" name="manufacture"
+                            <label for="manufacture" class="form-label">Manufacture:</label> <input type="text" class="form-control" name="manufacture"
                                                                                  value="<%=str((extraData.get("manufacture")),"")%>"/><br/>
                         </fieldset>
                         <fieldset>
@@ -1064,11 +1075,11 @@
                                 }
 
                             %>
-                            <label for="gender">Gender:</label> <input type="text" name="gender" readonly
+                            <label for="gender" class="form-label">Gender:</label> <input type="text" class="form-control" name="gender" readonly
                                                                        value="<%=gender%>"/> <br/>
-                            <label for="age">Age:</label> <input type="text" name="age" readonly value="<%=age%>"/><br/>
-                            <label for="chronic">Chronic Condition:</label>
-                            <select name="chronic">
+                            <label for="age" class="form-label">Age:</label> <input type="text" class="form-control" name="age" readonly value="<%=age%>"/><br/>
+                            <label for="chronic" class="form-label">Chronic Condition:</label>
+                            <select name="chronic" class="form-select">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("chronic")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
                                     Yes
@@ -1101,12 +1112,12 @@
                                     Children/Adolescent with Longterm Acetylsalicylic Acid
                                 </option>
                             </select><br/>
-                            <label for="pregnant">Pregnant:</label> <input type="checkbox" name="pregnant"
+                            <label for="pregnant" class="form-label">Pregnant:</label> <input type="checkbox" class="form-check-input" name="pregnant"
                                                                            value="true" <%=checked(str((extraData.get("pregnant")), ""), "true")%>/><br/>
-                            <label for="remote">Remote Setting:</label> <input type="checkbox" name="remote"
+                            <label for="remote" class="form-label">Remote Setting:</label> <input type="checkbox" class="form-check-input" name="remote"
                                                                                value="true" <%=checked(str((extraData.get("remote")), ""), "true")%>/><br/>
-                            <label for="healthcareworker">Health Care Worker:</label>
-                            <select name="healthcareworker">
+                            <label for="healthcareworker" class="form-label">Health Care Worker:</label>
+                            <select name="healthcareworker" class="form-select">
                                 <option value="false">No</option>
                                 <option value="true" <%= str((extraData.get("healthcareworker")), "").equalsIgnoreCase("true") ? "selected" : "" %> >
                                     Yes
@@ -1137,8 +1148,8 @@
                                 </option>
                             </select><br/>
 
-                            <label for="householdcontact">Household Contact or Care Provider:</label> <input
-                                type="checkbox" name="householdcontact"
+                            <label for="householdcontact" class="form-label">Household Contact or Care Provider:</label> <input
+                                type="checkbox" class="form-check-input" name="householdcontact"
                                 value="true" <%=checked(str((extraData.get("householdcontact")), ""), "true")%>/><br/>
                             <%
                                 boolean bothfirstresponders = false;
@@ -1147,23 +1158,23 @@
                                 }
 
                             %>
-                            <label for="firstresponderpolice">First Responder Police:</label> <input type="checkbox"
+                            <label for="firstresponderpolice" class="form-label">First Responder Police:</label> <input type="checkbox" class="form-check-input"
                                                                                                      name="firstresponderpolice"
                                                                                                      value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderpolice")), ""), "true")%>/><br/>
-                            <label for="firstresponderfire">First Responder Fire:</label> <input type="checkbox"
+                            <label for="firstresponderfire" class="form-label">First Responder Fire:</label> <input type="checkbox" class="form-check-input"
                                                                                                  name="firstresponderfire"
                                                                                                  value="true" <%=bothfirstresponders == true ? "checked" : checked(str((extraData.get("firstresponderfire")), ""), "true")%>/><br/>
-                            <label for="swineworker">Swine Worker:</label> <input type="checkbox" name="swineworker"
+                            <label for="swineworker" class="form-label">Swine Worker:</label> <input type="checkbox" class="form-check-input" name="swineworker"
                                                                                   value="true" <%=checked(str((extraData.get("swineworker")), ""), "true")%>/><br/>
-                            <label for="poultryworker">Poultry Worker:</label> <input type="checkbox"
+                            <label for="poultryworker" class="form-label">Poultry Worker:</label> <input type="checkbox" class="form-check-input"
                                                                                       name="poultryworker"
                                                                                       value="true" <%=checked(str((extraData.get("poultryworker")), ""), "true")%>/><br/>
-                            <label for="firstnations">First Nations:</label> <input type="checkbox" name="firstnations"
+                            <label for="firstnations" class="form-label">First Nations:</label> <input type="checkbox" class="form-check-input" name="firstnations"
                                                                                     value="true" <%=checked(str((extraData.get("firstnations")), ""), "true")%>/><br/>
                         </fieldset>
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div>
                     <script type="text/javascript">
@@ -1175,31 +1186,31 @@
                             <legend>Prevention : <%=prevention%>
                             </legend>
                             <div>
-                                <input name="given" type="radio" value="given"      <%=checked(completed,"0")%>
-                                       onClick="$('#providerDrop').val('<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>');hideExtraName(document.getElementById('providerDrop'))">Completed</input>
+                                <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
+                                       onclick="document.getElementById('providerDrop').value='<%=LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo() %>';hideExtraName(document.getElementById('providerDrop'))">Completed</input>
                                 <br/>
-                                <input name="given" type="radio" value="given_ext"  <%=checked(completed,"3")%>
-                                       onClick="$('#providerDrop').val('-1');hideExtraName(document.getElementById('providerDrop'))">Completed
+                                <input name="given" type="radio" class="form-check-input" value="given_ext"  <%=checked(completed,"3")%>
+                                       onclick="document.getElementById('providerDrop').value='-1';hideExtraName(document.getElementById('providerDrop'))">Completed
                                 externally</input><br/>
-                                <input name="given" type="radio"
+                                <input name="given" type="radio" class="form-check-input"
                                        value="refused"    <%=checked(completed,"1")%>>Refused</input><br/>
-                                <input name="given" type="radio" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
+                                <input name="given" type="radio" class="form-check-input" value="ineligible" <%=checked(completed,"2")%>>Ineligible</input>
                             </div>
                             <div>&nbsp;</div>
                             <div style="margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
-                                                                                          id="prevDate"
-                                                                                          value="<%=prevDate%>"
-                                                                                          size="15" required> <a
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
+                                                                                                          id="prevDate"
+                                                                                                          value="<%=prevDate%>"
+                                                                                                          size="15" required> <a
                                     id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 <br>
                                 <div id="errorPrevDateMessage"
                                      class="alert alert-danger"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="text"
-                                                                                              name="providerName"
-                                                                                              id="providerName"
-                                                                                              value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                                <label for="provider" class="form-label fields">Provider:</label> <input type="text" class="form-control"
+                                                                                                              name="providerName"
+                                                                                                              id="providerName"
+                                                                                                              value="<%=providerName%>"/>
+                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -1210,7 +1221,7 @@
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> >Other</option>
                                 </select>
                                 <br/>
-                                <label for="creator" class="fields">Creator:</label> <input type="text" name="creator"
+                                <label for="creator" class="form-label fields">Creator:</label> <input type="text" class="form-control" name="creator"
                                                                                             value="<%=creatorName%>"
                                                                                             readonly/> <br/>
                             </div>
@@ -1221,22 +1232,22 @@
                                 extraData.put("result", "pending");
                             } %>
                             <%=str(prevResultDesc, "")%><br/>
-                            <input type="radio" name="result"
+                            <input type="radio" class="form-check-input" name="result"
                                    value="pending" <%=checked( (extraData.get("result")) ,"pending")%> >Pending</input>
                             <br/>
-                            <input type="radio" name="result"
+                            <input type="radio" class="form-check-input" name="result"
                                    value="normal"  <%=checked((extraData.get("result")),"normal")%> >Normal</input><br/>
-                            <input type="radio" name="result"
+                            <input type="radio" class="form-check-input" name="result"
                                    value="abnormal" <%=checked((extraData.get("result")),"abnormal")%> >Abnormal</input>
                             <br/>
-                            <input type="radio" name="result"
+                            <input type="radio" class="form-check-input" name="result"
                                    value="other" <%=checked((extraData.get("result")),"other")%> >Other</input> &nbsp;
-                            &nbsp; Reason: <input type="text" name="reason"
+                            &nbsp; Reason: <input type="text" class="form-control" name="reason"
                                                   value="<%=str((extraData.get("reason")),"")%>"/>
                         </fieldset>
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div>
                     <script type="text/javascript">
@@ -1248,15 +1259,15 @@
                             <legend>Prevention : <%=prevention%>
                             </legend>
                             <div style="float:left;">
-                                <input name="given" type="radio"
+                                <input name="given" type="radio" class="form-check-input"
                                        value="yes"      <%=checked(completed,"0")%>>Yes</input><br/>
-                                <input name="given" type="radio"
+                                <input name="given" type="radio" class="form-check-input"
                                        value="never"    <%=checked(completed,"1")%>>Never</input><br/>
-                                <input name="given" type="radio"
+                                <input name="given" type="radio" class="form-check-input"
                                        value="previous" <%=checked(completed,"2")%>>Previous</input>
                             </div>
                             <div style="float:left;margin-left:30px;">
-                                <label for="prevDate" class="fields">Date:</label> <input type="text" name="prevDate"
+                                <label for="prevDate" class="form-label fields">Date:</label> <input type="text" class="form-control" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<%=prevDate%>"
                                                                                           size="15" required> <a
@@ -1264,11 +1275,11 @@
                                 <br>
                                 <div id="errorPrevDateMessage"
                                      class="alert alert-danger"></div>
-                                <label for="provider" class="fields">Provider:</label> <input type="hidden"
+                                <label for="provider" class="form-label fields">Provider:</label> <input type="hidden"
                                                                                               name="providerName"
                                                                                               id="providerName"
                                                                                               value="<%=providerName%>"/>
-                                <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="provider">
+                                <select onchange="javascript:hideExtraName(this);" class="form-select" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
@@ -1282,7 +1293,7 @@
                         </fieldset>
                         <fieldset>
                             <legend>Comments</legend>
-                            <textarea name="comments"><%=str((extraData.get("comments")), "")%></textarea>
+                            <textarea class="form-control" name="comments"><%=str((extraData.get("comments")), "")%></textarea>
                         </fieldset>
                     </div>
                     <%} %>
@@ -1295,25 +1306,25 @@
                             </legend>
                             <div id="nextDateDiv" style="display:none;">
                                 <div>
-                                    <label for="nextDate">Next Date:</label><input type="text" name="nextDate"
+                                    <label for="nextDate" class="form-label">Next Date:</label><input type="text" class="form-control" name="nextDate"
                                                                                    value="<%=nextDate%>" id="nextDate"
                                                                                    size="9"><a id="nextDateCal"><img
                                         title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 </div>
                                 <div>
-                                    <label for="neverWarn" class="checkbox">Never Remind:</label><input type="checkbox"
+                                    <label for="neverWarn" class="form-label checkbox">Never Remind:</label><input type="checkbox" class="form-check-input"
                                                                                                         name="neverWarn"
                                                                                                         id="neverWarn"
                                                                                                         value="neverRemind"
                                                                                                         onchange="disableifchecked(this,'nextDate');"  <%=completed(never)%>/>
-                                    Reason: <input type="text" name="neverReason"
+                                    Reason: <input type="text" class="form-control" name="neverReason"
                                                    value="<%=str((extraData.get("neverReason")),"")%>"/>
                                 </div>
                             </div>
                         </fieldset>
                     </div>
                     <br/>
-                    <input type="submit" value="Save" name="action">
+                    <input type="submit" class="btn btn-primary" value="Save" name="action">
                     <%
                         ConsentDao consentDao = SpringUtils.getBean(ConsentDao.class);
                         Consent ispaConsent = consentDao.findByDemographicAndConsentType(Integer.parseInt(demographic_no), "dhir_ispa_consent");
@@ -1328,11 +1339,11 @@
                         if (dhirEnabled && isSSOLoggedIn) {
                             if ((ispa && hasIspaConsent) || (!ispa && hasNonIspaConsent)) {
                     %>
-                    <input type="submit" value="Save & Submit" name="action">
+                    <input type="submit" class="btn btn-primary" value="Save & Submit" name="action">
                     <% }
                     } %>
                     <% if (id != null) { %>
-                    <input type="submit" name="delete" value="Delete"/>
+                    <input type="submit" class="btn btn-danger" name="delete" value="Delete"/>
                     <% } %>
                 </form>
                 <% } %>
