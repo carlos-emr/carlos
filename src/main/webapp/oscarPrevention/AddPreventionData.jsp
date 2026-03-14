@@ -291,7 +291,7 @@
             <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
         </title><!--I18n-->
 
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css">
 
 
 
@@ -490,14 +490,14 @@
                                 var output = d.getFullYear() + "-" + month + "-" + day;
 
                                 var opt = document.createElement('option');
-                                opt.value = escapeHtml(item.lotNumber);
+                                opt.value = item.lotNumber;
                                 opt.setAttribute('expiryDate', output);
-                                opt.text = escapeHtml(item.lotNumber);
+                                opt.text = item.lotNumber;
 
-                                if (startup2 && escapeHtml(item.lotNumber) == '<%=Encode.forJavaScript(addByLotNbr != null ? addByLotNbr : "")%>') {
+                                if (startup2 && item.lotNumber == '<%=Encode.forJavaScript(addByLotNbr != null ? addByLotNbr : "")%>') {
                                     opt.selected = true;
                                     startup2 = false;
-                                } else if (startup && escapeHtml(item.lotNumber) == '<%=Encode.forJavaScript(existingPrevention != null && existingPrevention.get("lot") != null ? (String)existingPrevention.get("lot") : "")%>') {
+                                } else if (startup && item.lotNumber == '<%=Encode.forJavaScript(existingPrevention != null && existingPrevention.get("lot") != null ? (String)existingPrevention.get("lot") : "")%>') {
                                     opt.selected = true;
                                     startup = false;
                                 }
