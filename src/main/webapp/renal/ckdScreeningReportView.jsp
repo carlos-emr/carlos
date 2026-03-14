@@ -172,7 +172,6 @@
 
         <style title="currentStyle" type="text/css">
             @import "<%= request.getContextPath() %>/css/demo_page.css";
-            @import "<%= request.getContextPath() %>/css/demo_table.css";
         </style>
 
         <style>
