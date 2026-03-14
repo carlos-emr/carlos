@@ -178,15 +178,6 @@
         }
     }
 
-    function checkSel(sel) {
-        theForm = sel.form;
-        if ((theForm.docDesc.value === "") || (theForm.docDesc.value === "<%= defaultDesc%>")) {
-            theForm.docDesc.value = theForm.docType.value;
-            theForm.docDesc.focus();
-            theForm.docDesc.select();
-        }
-    }
-
     function checkDefaultValue(object) {
         if ((object.value === "<%= defaultDesc%>") || (object.value === "<%= defaultType%>") || (object.value === "<%= defaultHtml %>")) {
             object.value = "";
