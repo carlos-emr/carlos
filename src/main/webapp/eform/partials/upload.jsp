@@ -140,8 +140,6 @@
 
     <div style="font-size:0; line-height:0">&nbsp;</div>
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-
     <script>
         $(document).ready(function () {
             $(".check").on("change", validate).keyup(validate);

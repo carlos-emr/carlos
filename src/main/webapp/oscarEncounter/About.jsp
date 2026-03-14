@@ -133,7 +133,7 @@
                                 <br>
                             </p>
 
-                            <p class="close" align="right"><a href="javascript: self.close()"> Close| </a></p>
+                            <p align="right"><a href="javascript: self.close()"> Close| </a></p>
 
                         </td>
                     </table>

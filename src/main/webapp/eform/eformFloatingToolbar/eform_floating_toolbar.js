@@ -757,7 +757,7 @@ function addNavElement() {
     let style = document.createElement("link");
     style.setAttribute("rel", "stylesheet");
     style.setAttribute("type", "text/css");
-    style.setAttribute("href", "../library/bootstrap/3.0.0/css/eform_floating_toolbar_bootstrap_custom.min.css");
+    style.setAttribute("href", "../library/bootstrap/5.3.3/css/bootstrap.min.css");
     headelement[0].appendChild(style);
 
 }

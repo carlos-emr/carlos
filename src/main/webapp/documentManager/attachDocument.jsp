@@ -176,7 +176,7 @@
             padding: 0 0 0 20px !important;
         }
 
-        .attachmentContainer .caret {
+        .attachmentContainer .collapse-arrow {
             display: inline-block;
             width: 6px;
             height: 6px;
@@ -398,7 +398,7 @@
                                         <label for="labNo${lab.segmentID}"
                                                class="lab-date">${lab.labDateFormated}</label>
                                         <c:if test="${not empty lab.labVersionIds}">
-                                            &nbsp;<i class="caret collapse-arrow" onclick="toggleLabVersionList(this)"></i>&nbsp;
+                                            &nbsp;<i class="collapse-arrow" onclick="toggleLabVersionList(this)"></i>&nbsp;
                                         </c:if>
                                         <button class="preview-button" type="button" title="Preview"
                                                 onclick="getPdf('LAB', '${lab.segmentID}', 'method=renderLabPDF&segmentId=${lab.segmentID}')">
