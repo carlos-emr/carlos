@@ -67,7 +67,7 @@
 {"name":"RSVAb","value":"BEYFORTUS 50 mg per 0.5 ml syringe","manufacture":"Sanofi Pasteur Limited","dose":"0.5","units":"mL","route":"IM","din":"2537206"},
 {"name":"RSVAb","value":"SYNAGIS 100 mg/ml powder for solution","manufacture":"Boehringer Ingelheim (BI) Pharma KG","dose":"","units":"mL","route":"IM","din":"2438364"},
 {"name":"RSVAb","value":"SYNAGIS 100 mg/ml solution","manufacture":"AstraZeneca Canada Inc.","dose":"","units":"mL","route":"IM","din":"2438364"},
-{"name":"RZV","value":"SHINGRIX 50 mcg per 0.5 ml powder and for","manufacture":"GlaxoSmithKline Inc.","dose":"0.5","units":"mL","route":"IM","din":"2468425"},
+{"name":"RZV","value":"SHINGRIX 50 mcg per 0.5 ml powder and suspension","manufacture":"GlaxoSmithKline Inc.","dose":"0.5","units":"mL","route":"IM","din":"2468425"},
 {"name":"Td","value":"Td ADSORBED 5 limit of flocculation units and 2 limit of flocculation units per 0.5 ml without preservative","manufacture":"Sanofi Pasteur Limited","dose":"0.5","units":"mL","route":"IM","din":"2528401"},
 {"name":"Tdap","value":"ADACEL","manufacture":"Sanofi Pasteur Limited","dose":"0.5","units":"mL","route":"IM","din":"2240255"},
 {"name":"Tdap","value":"BOOSTRIX","manufacture":"GlaxoSmithKline Inc.","dose":"0.5","units":"mL","route":"IM","din":"2247600"},
