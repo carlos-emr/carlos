@@ -130,7 +130,7 @@
 
                         if (groupName.equals(groupView)) {
                 %>
-                <tr class="success">
+                <tr class="table-success">
                             <%}else{%>
                 <tr>
                     <%}%>

@@ -164,7 +164,7 @@
                 for (ProviderData provider : providerList) {
                     i++;
             %>
-            <tr class="<%=i%2==0?"":"info"%>">
+            <tr class="<%=i%2==0?"":"table-info"%>">
                 <td width="20px" ALIGN="center">
                     <input type="checkbox" name="data" value="<%=i%>">
                     <input type="hidden" name="provider_no<%=i%>" value="<%= provider.getId() %>">

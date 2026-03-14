@@ -345,7 +345,8 @@
 
 
         <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment.jsp">
-            <table class="table table-sm table-striped table-responsive">
+            <div class="table-responsive">
+            <table class="table table-sm table-striped">
                 <tr class="tableHeadings deep">
 
 
@@ -511,6 +512,7 @@
                 %>
 
             </table>
+            </div>
         </form>
         <%
             int nLastPage = 0, nNextPage = 0;

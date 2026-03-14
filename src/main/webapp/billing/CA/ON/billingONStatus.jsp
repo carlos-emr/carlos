@@ -723,7 +723,7 @@
             <!--  div class="rejected list"-->
             <table class="table" id="rejectTbl">
                 <thead>
-                <tr class="warning">
+                <tr class="table-warning">
                     <th>Insurance#</th>
                     <th>D.O.B</th>
                     <th>Invoice#</th>
@@ -1050,7 +1050,7 @@
 
                 </script>
                 <table>
-                    <tr class="warning">
+                    <tr class="table-warning">
                         <td>Count:</td>
                         <td style="text-align:center"><%=patientCount%>
                         </td>

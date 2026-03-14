@@ -122,7 +122,7 @@
                         oldNumber = myGroup.getId().getMyGroupNo();
                     }
             %>
-            <tr class="<%=toggleLine?"":"info"%>">
+            <tr class="<%=toggleLine?"":"table-info"%>">
                 <td width="20px">
                     <input type="checkbox"
                            name="<%=myGroup.getId().getMyGroupNo() + myGroup.getId().getProviderNo()%>"

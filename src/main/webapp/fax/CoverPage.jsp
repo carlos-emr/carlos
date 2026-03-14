@@ -358,7 +358,7 @@
                         <div class="card-body">
                             <div class="container">
                                 <div class="row">
-                                    <ol class="list-group col-sm-12">
+                                    <ol class="list-group list-group-numbered col-sm-12">
                                         <c:forEach items="${ documents }" var="document">
                                             <li class="list-group-item"><c:out value="${ document }"/></li>
                                             <input type="hidden" name="documents" value="<e:forHtmlAttribute value='${ document }' />"/>

@@ -947,7 +947,8 @@
 
     <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
-    <table class="table table-sm table-responsive">
+    <div class="table-responsive">
+    <table class="table table-sm">
                 <tr>
                     <td>
                         <label for="date"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>:</label>
@@ -1182,8 +1183,10 @@
                 <% } %>
 
             </table>
+    </div>
 
-    <table class="table table-sm table-responsive">
+    <div class="table-responsive">
+    <table class="table table-sm">
                 <tr>
                     <td>
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>:</label>
@@ -1368,6 +1371,7 @@
                 </tr>
                 <% }%>
             </table>
+    </div>
         </div>
         <% if (isSiteSelected) { %>
         <table class="buttonBar deep">

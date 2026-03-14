@@ -161,19 +161,21 @@
             - Integer.parseInt(strLimit2);
 %>
 
-<ul class="pager">
-    <li class="previous <%=nLastPage >= 0 ? "" : "disabled"%>"><a
+<nav>
+<ul class="pagination justify-content-between">
+    <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
             href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"
-            class="contentLink"> &larr; Previous Page
+            class="page-link contentLink"> &larr; Previous Page
     </a></li>
     <li
-            class="next <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
+            class="page-item <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
         <a
                 href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"
-                class="contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
+                class="page-link contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
         </a>
     </li>
 </ul>
+</nav>
 
 <script>
     $(document).ready(function () {
