@@ -6,7 +6,7 @@
             var size = (options && options.size) ? ' btn-' + options.size : '';
             return "<li class='dropdown'>" +
                 "<a class='btn dropdown-toggle" + size + "' data-bs-toggle='dropdown' href='#'>" +
-                "<i class='icon-font'></i>&nbsp;<span class='current-font'>" + locale.font_styles.normal + "</span>&nbsp;<b class='caret'></b>" +
+                "<i class='fa-solid fa-font'></i>&nbsp;<span class='current-font'>" + locale.font_styles.normal + "</span>&nbsp;<b class='caret'></b>" +
                 "</a>" +
                 "<ul class='dropdown-menu'>" +
                 "<li><a data-wysihtml5-command='formatBlock' data-wysihtml5-command-value='div' tabindex='-1'>" + locale.font_styles.normal + "</a></li>" +
@@ -35,10 +35,10 @@
             var size = (options && options.size) ? ' btn-' + options.size : '';
             return "<li>" +
                 "<div class='btn-group'>" +
-                "<a class='btn" + size + "' data-wysihtml5-command='insertUnorderedList' title='" + locale.lists.unordered + "' tabindex='-1'><i class='icon-list'></i></a>" +
-                "<a class='btn" + size + "' data-wysihtml5-command='insertOrderedList' title='" + locale.lists.ordered + "' tabindex='-1'><i class='icon-th-list'></i></a>" +
-                "<a class='btn" + size + "' data-wysihtml5-command='Outdent' title='" + locale.lists.outdent + "' tabindex='-1'><i class='icon-indent-right'></i></a>" +
-                "<a class='btn" + size + "' data-wysihtml5-command='Indent' title='" + locale.lists.indent + "' tabindex='-1'><i class='icon-indent-left'></i></a>" +
+                "<a class='btn" + size + "' data-wysihtml5-command='insertUnorderedList' title='" + locale.lists.unordered + "' tabindex='-1'><i class='fa-solid fa-list-ul'></i></a>" +
+                "<a class='btn" + size + "' data-wysihtml5-command='insertOrderedList' title='" + locale.lists.ordered + "' tabindex='-1'><i class='fa-solid fa-list-ol'></i></a>" +
+                "<a class='btn" + size + "' data-wysihtml5-command='Outdent' title='" + locale.lists.outdent + "' tabindex='-1'><i class='fa-solid fa-outdent'></i></a>" +
+                "<a class='btn" + size + "' data-wysihtml5-command='Indent' title='" + locale.lists.indent + "' tabindex='-1'><i class='fa-solid fa-indent'></i></a>" +
                 "</div>" +
                 "</li>";
         },
@@ -46,41 +46,49 @@
         "link": function (locale, options) {
             var size = (options && options.size) ? ' btn-' + options.size : '';
             return "<li>" +
-                "<div class='bootstrap-wysihtml5-insert-link-modal modal hide fade'>" +
+                "<div class='bootstrap-wysihtml5-insert-link-modal modal fade'>" +
+                "<div class='modal-dialog'>" +
+                "<div class='modal-content'>" +
                 "<div class='modal-header'>" +
-                "<a class='btn-close' data-bs-dismiss='modal'>&times;</a>" +
-                "<h3>" + locale.link.insert + "</h3>" +
+                "<h5 class='modal-title'>" + locale.link.insert + "</h5>" +
+                "<button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>" +
                 "</div>" +
                 "<div class='modal-body'>" +
-                "<input value='http://' class='bootstrap-wysihtml5-insert-link-url input-xlarge'>" +
-                "<label class='checkbox'> <input type='checkbox' class='bootstrap-wysihtml5-insert-link-target' checked>" + locale.link.target + "</label>" +
+                "<input value='http://' class='bootstrap-wysihtml5-insert-link-url form-control mb-2'>" +
+                "<div class='form-check'><input type='checkbox' class='form-check-input bootstrap-wysihtml5-insert-link-target' checked><label class='form-check-label'>" + locale.link.target + "</label></div>" +
                 "</div>" +
                 "<div class='modal-footer'>" +
-                "<a href='#' class='btn' data-bs-dismiss='modal'>" + locale.link.cancel + "</a>" +
+                "<a href='#' class='btn btn-secondary' data-bs-dismiss='modal'>" + locale.link.cancel + "</a>" +
                 "<a href='#' class='btn btn-primary' data-bs-dismiss='modal'>" + locale.link.insert + "</a>" +
                 "</div>" +
                 "</div>" +
-                "<a class='btn" + size + "' data-wysihtml5-command='createLink' title='" + locale.link.insert + "' tabindex='-1'><i class='icon-share'></i></a>" +
+                "</div>" +
+                "</div>" +
+                "<a class='btn" + size + "' data-wysihtml5-command='createLink' title='" + locale.link.insert + "' tabindex='-1'><i class='fa-solid fa-link'></i></a>" +
                 "</li>";
         },
 
         "image": function (locale, options) {
             var size = (options && options.size) ? ' btn-' + options.size : '';
             return "<li>" +
-                "<div class='bootstrap-wysihtml5-insert-image-modal modal hide fade'>" +
+                "<div class='bootstrap-wysihtml5-insert-image-modal modal fade'>" +
+                "<div class='modal-dialog'>" +
+                "<div class='modal-content'>" +
                 "<div class='modal-header'>" +
-                "<a class='btn-close' data-bs-dismiss='modal'>&times;</a>" +
-                "<h3>" + locale.image.insert + "</h3>" +
+                "<h5 class='modal-title'>" + locale.image.insert + "</h5>" +
+                "<button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>" +
                 "</div>" +
                 "<div class='modal-body'>" +
-                "<input value='http://' class='bootstrap-wysihtml5-insert-image-url input-xlarge'>" +
+                "<input value='http://' class='bootstrap-wysihtml5-insert-image-url form-control'>" +
                 "</div>" +
                 "<div class='modal-footer'>" +
-                "<a href='#' class='btn' data-bs-dismiss='modal'>" + locale.image.cancel + "</a>" +
+                "<a href='#' class='btn btn-secondary' data-bs-dismiss='modal'>" + locale.image.cancel + "</a>" +
                 "<a href='#' class='btn btn-primary' data-bs-dismiss='modal'>" + locale.image.insert + "</a>" +
                 "</div>" +
                 "</div>" +
-                "<a class='btn" + size + "' data-wysihtml5-command='insertImage' title='" + locale.image.insert + "' tabindex='-1'><i class='icon-picture'></i></a>" +
+                "</div>" +
+                "</div>" +
+                "<a class='btn" + size + "' data-wysihtml5-command='insertImage' title='" + locale.image.insert + "' tabindex='-1'><i class='fa-solid fa-image'></i></a>" +
                 "</li>";
         },
 
@@ -88,7 +96,7 @@
             var size = (options && options.size) ? ' btn-' + options.size : '';
             return "<li>" +
                 "<div class='btn-group'>" +
-                "<a class='btn" + size + "' data-wysihtml5-action='change_view' title='" + locale.html.edit + "' tabindex='-1'><i class='icon-pencil'></i></a>" +
+                "<a class='btn" + size + "' data-wysihtml5-action='change_view' title='" + locale.html.edit + "' tabindex='-1'><i class='fa-solid fa-pencil'></i></a>" +
                 "</div>" +
                 "</li>";
         },
@@ -135,7 +143,7 @@
         $('iframe.wysihtml5-sandbox').each(function (i, el) {
             $(el.contentWindow).off('focus.wysihtml5').on({
                 'focus.wysihtml5': function () {
-                    $('li.dropdown').removeClass('open');
+                    $('li.dropdown').removeClass('show');
                 }
             });
         });
@@ -247,20 +255,28 @@
                 self.editor.composer.commands.exec("insertImage", url);
             };
 
+            var imageModalInstance = null;
+            var getImageModal = function() {
+                if (!imageModalInstance) {
+                    imageModalInstance = new bootstrap.Modal(insertImageModal[0]);
+                }
+                return imageModalInstance;
+            };
+
             urlInput.keypress(function (e) {
                 if (e.which == 13) {
                     insertImage();
-                    insertImageModal.modal('hide');
+                    getImageModal().hide();
                 }
             });
 
             insertButton.click(insertImage);
 
-            insertImageModal.on('shown.bs.modal', function () {
+            insertImageModal[0].addEventListener('shown.bs.modal', function () {
                 urlInput.focus();
             });
 
-            insertImageModal.on('hide.bs.modal', function () {
+            insertImageModal[0].addEventListener('hide.bs.modal', function () {
                 self.editor.currentView.element.focus();
             });
 
@@ -270,10 +286,8 @@
                 if (!activeButton) {
                     self.editor.currentView.element.focus(false);
                     caretBookmark = self.editor.composer.selection.getBookmark();
-                    insertImageModal.appendTo('body').modal('show');
-                    insertImageModal.on('click.dismiss.modal', '[data-bs-dismiss="modal"]', function (e) {
-                        e.stopPropagation();
-                    });
+                    insertImageModal.appendTo('body');
+                    getImageModal().show();
                     return false;
                 } else {
                     return true;
@@ -308,20 +322,28 @@
             };
             var pressedEnter = false;
 
+            var linkModalInstance = null;
+            var getLinkModal = function() {
+                if (!linkModalInstance) {
+                    linkModalInstance = new bootstrap.Modal(insertLinkModal[0]);
+                }
+                return linkModalInstance;
+            };
+
             urlInput.keypress(function (e) {
                 if (e.which == 13) {
                     insertLink();
-                    insertLinkModal.modal('hide');
+                    getLinkModal().hide();
                 }
             });
 
             insertButton.click(insertLink);
 
-            insertLinkModal.on('shown.bs.modal', function () {
+            insertLinkModal[0].addEventListener('shown.bs.modal', function () {
                 urlInput.focus();
             });
 
-            insertLinkModal.on('hide.bs.modal', function () {
+            insertLinkModal[0].addEventListener('hide.bs.modal', function () {
                 self.editor.currentView.element.focus();
             });
 
@@ -331,10 +353,8 @@
                 if (!activeButton) {
                     self.editor.currentView.element.focus(false);
                     caretBookmark = self.editor.composer.selection.getBookmark();
-                    insertLinkModal.appendTo('body').modal('show');
-                    insertLinkModal.on('click.dismiss.modal', '[data-bs-dismiss="modal"]', function (e) {
-                        e.stopPropagation();
-                    });
+                    insertLinkModal.appendTo('body');
+                    getLinkModal().show();
                     return false;
                 } else {
                     return true;

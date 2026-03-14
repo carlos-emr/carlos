@@ -359,6 +359,8 @@
           href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+    <link rel="stylesheet" type="text/css" media="all"
+          href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/moment.js"></script>
     <script type="text/javascript"
@@ -386,7 +388,7 @@
     <style>
 
         :root * {
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif, 'Glyphicons Halflings';
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 
             line-height: 1 !important;
         }
