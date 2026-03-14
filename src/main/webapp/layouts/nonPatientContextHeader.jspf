@@ -188,18 +188,7 @@ label.error {
 	  #dynamic-content{margin-left:260px;}
 }
 
-.visible-print {
-  display: none !important;
-}  
 
-@media print {
-  .visible-print {
-    display: inherit !important;
-  }
-  .hidden-print {
-    display: none !important;
-  }
-}
 </style>
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>

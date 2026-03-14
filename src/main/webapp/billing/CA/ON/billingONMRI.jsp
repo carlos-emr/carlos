@@ -212,14 +212,6 @@
         }
 
         @media print {
-            .visible-print {
-                display: inherit !important;
-            }
-
-            .d-print-none {
-                display: none !important;
-            }
-
             /*this is so the link locatons don't display*/
             a:link:after, a:visited:after {
                 content: "";

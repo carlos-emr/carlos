@@ -330,11 +330,6 @@
                 border-color: #3f9336;
             }
 
-            .btn-block {
-                display: block;
-                width: 100%;
-            }
-
             button, html input[type=button], input[type=reset], input[type=submit] {
                 -webkit-appearance: button;
                 cursor: pointer;
@@ -374,20 +369,16 @@
                 border-color: #3f9336;
             }
 
-            .btn-primary.active, .btn-primary:active, .open > .dropdown-toggle.btn-primary {
+            .btn-primary.active, .btn-primary:active {
                 color: #fff;
                 background-color: #3f9336;
                 border-color: #3f9336;
             }
 
-            .btn-primary.active, .btn-primary:active, .open > .dropdown-toggle.btn-primary {
+            .btn-primary.active, .btn-primary:active {
                 background-image: none;
             }
 
-            input[type=button].btn-block, input[type=reset].btn-block, input[type=submit].btn-block {
-                width: 100%;
-                margin-bottom: 10px;
-            }
 
             .btn.active.focus, .btn.active:focus, .btn.focus, .btn:active.focus,
             .btn:active:focus, .btn:focus {
@@ -397,7 +388,7 @@
 
             .btn-primary.active.focus, .btn-primary.active:focus, .btn-primary.active:hover,
             .btn-primary:active.focus, .btn-primary:active:focus, .btn-primary:active:hover,
-            .open > .dropdown-toggle.btn-primary.focus, .open > .dropdown-toggle.btn-primary:focus,
+            .open > .dropdown-toggle.btn-primary.focus:focus,
             .open > .dropdown-toggle.btn-primary:hover {
                 color: #fff;
                 background-color: #3f9336;
@@ -677,14 +668,14 @@ body {
                             <div id="buttonContainer">
                                 <c:choose>
                                     <c:when test="${ isMobileDevice }">
-                                        <input class="btn btn-oscar btn-primary btn-block" name="submit" id="fullSubmit"
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit" id="fullSubmit"
                                                type="submit" onclick="enhancedOrClassic('C');" value="Full">
-                                        <input class="btn btn-oscar btn-primary btn-block" name="submit"
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit"
                                                id="mobileSubmit" type="submit" onclick="enhancedOrClassic('C');"
                                                value="Mobile">
                                     </c:when>
                                     <c:otherwise>
-                                        <input class="btn btn-oscar btn-primary btn-block" name="submit" type="submit"
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit" type="submit"
                                                onclick="enhancedOrClassic('C');" value="<fmt:message key="index.btnSignIn"/>">
                                     </c:otherwise>
                                 </c:choose>

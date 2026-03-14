@@ -93,7 +93,6 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script>
         $(function () {
-            $(document).tooltip();
         });
     </script>
 

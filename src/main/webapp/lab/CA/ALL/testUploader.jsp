@@ -156,7 +156,6 @@
 
     <script>
         $(function () {
-            $(document).tooltip();
         });
 
         function selectOther() {

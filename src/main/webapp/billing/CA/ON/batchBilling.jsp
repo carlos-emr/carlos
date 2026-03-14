@@ -155,17 +155,6 @@
         //-->
     </script>
 
-    <style>
-        @media print {
-            .visible-print {
-                display: inherit !important;
-            }
-
-            .d-print-none {
-                display: none !important;
-            }
-        }
-    </style>
 </head>
 
 <body>

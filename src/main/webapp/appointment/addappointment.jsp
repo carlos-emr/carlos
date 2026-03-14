@@ -532,7 +532,6 @@ Ontario, Canada
 
 
             $(document).ready(function () {
-		// $( document ).tooltip();
 
                 var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
 

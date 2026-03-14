@@ -263,10 +263,6 @@
             color: #bd362f !important;
         }
 
-        .visible-print {
-            display: none !important;
-        }
-
         .dynamic-content, .dynamic-iframe-content {
             position: relative;
             overflow: hidden;
@@ -292,14 +288,6 @@
         }
 
         @media print {
-            .visible-print {
-                display: inherit !important;
-            }
-
-            .d-print-none {
-                display: none !important;
-            }
-
             /*this is so the link locatons don't display*/
             a:link:after, a:visited:after {
                 content: "";
