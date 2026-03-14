@@ -283,14 +283,17 @@
 
     <script type="text/javascript">
 
-        $(document).ready(function () {
+        document.addEventListener('DOMContentLoaded', function () {
 
-            $("#templateToGroup-btn").on("click", function () {
-                $("#templateToGroupForm").trigger("submit");
+            document.getElementById('templateToGroup-btn').addEventListener('click', function () {
+                document.getElementById('templateToGroupForm').submit();
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('selectTemplatesModal')).hide();
             });
 
-            $(".check").on("change", validate).keyup(validate);
+            document.querySelectorAll('.check').forEach(function (el) {
+                el.addEventListener('change', validate);
+                el.addEventListener('keyup', validate);
+            });
 
         });
 
@@ -298,23 +301,23 @@
         // Function ensures that no duplicate groups can be added
         // Variable v - user entered group name to be compared
         function validate() {
-            var value = $(this).val();
+            var value = this.value;
             value = value.trim();
-            var id = $(this).attr("id");
+            var id = this.getAttribute("id");
             var inputCheck = checkRow(value);
 
             if (value != "" && inputCheck == "") {
-                $('.groupAdd').removeAttr("disabled");
-                $('.groupAdd').addClass("btn-success");
-                $('.textExists').hide();
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.removeAttribute("disabled"); });
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.add("btn-success"); });
+                document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = 'none'; });
             } else if (inputCheck == "exists") {
-                $('.groupAdd').attr("disabled", "disabled");
-                $('.groupAdd').removeClass("btn-success");
-                $('.textExists').show();
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.setAttribute("disabled", "disabled"); });
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.remove("btn-success"); });
+                document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = ''; });
             } else {
-                $('.groupAdd').attr("disabled", "disabled");
-                $('.groupAdd').removeClass("btn-success");
-                $('.textExists').hide();
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.setAttribute("disabled", "disabled"); });
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.remove("btn-success"); });
+                document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = 'none'; });
             }
         }
 

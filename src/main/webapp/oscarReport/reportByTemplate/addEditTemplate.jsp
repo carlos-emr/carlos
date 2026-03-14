@@ -66,7 +66,7 @@
 
 
         <script>
-            $(function () {
+            document.addEventListener('DOMContentLoaded', function () {
             });
         </script>
 
@@ -211,8 +211,8 @@
     </c:if>
 
     <script type="text/javascript">
-        jQuery("#xmltext").on("keyup", function () {
-            jQuery(".alert").hide();
+        document.getElementById('xmltext')?.addEventListener('keyup', function () {
+            document.querySelectorAll('.alert').forEach(function (el) { el.style.display = 'none'; });
         });
     </script>
 
@@ -226,8 +226,8 @@
             return true;
         }
 
-        jQuery("#xmltext").on("keyup", function () {
-            jQuery(".alert").hide();
+        document.getElementById('xmltext')?.addEventListener('keyup', function () {
+            document.querySelectorAll('.alert').forEach(function (el) { el.style.display = 'none'; });
         });
     </script>
 

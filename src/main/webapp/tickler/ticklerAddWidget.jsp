@@ -37,7 +37,7 @@
 <script type="text/javascript">
 
     //--> Date picker
-    jQuery(function () {
+    document.addEventListener('DOMContentLoaded', function () {
         flatpickr('.date-picker', {
             dateFormat: 'Y-m-d',
             allowInput: true,
@@ -51,13 +51,14 @@
             dateFormat: 'h:i K',
             allowInput: true
         });
+
+        // --> Message pre-select list action
+        document.querySelectorAll('.select-tickler-message').forEach(function (el) {
+            el.addEventListener('click', function () {
+                document.getElementById('message').value = this.textContent;
+            });
+        });
     });
-
-    // --> Message pre-select list action
-
-    jQuery(".select-tickler-message").on("click", function () {
-        jQuery("#message").val(jQuery(this).text());
-    })
 
 </script>
 <form name="ticklerAddForm" id="ticklerAddForm">

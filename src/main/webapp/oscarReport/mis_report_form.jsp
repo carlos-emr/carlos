@@ -276,13 +276,15 @@
 %>
 
 <script type="text/javascript">
-    var oldRadioVal = $("input:radio[name=reportBy]:checked").val();
+    var oldRadioVal = document.querySelector("input[type=radio][name=reportBy]:checked").value;
 
     function toggleDivs() {
-        var newVal = $("input:radio[name=reportBy]:checked").val();
+        var newVal = document.querySelector("input[type=radio][name=reportBy]:checked").value;
 
         if (oldRadioVal != newVal)
-            $(".toggleDiv").toggle();
+            document.querySelectorAll('.toggleDiv').forEach(function (el) {
+                el.style.display = el.style.display === 'none' ? '' : 'none';
+            });
 
         oldRadioVal = newVal;
     }

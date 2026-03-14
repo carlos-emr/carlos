@@ -73,7 +73,7 @@
             String id = request.getParameter("id");
         %>
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 loadFlowsheet();
                 loadTypes();
                 loadPreventionTypes();

@@ -67,7 +67,7 @@
 
 
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 listSystemFlowsheets();
                 listFlowsheets1();
             });

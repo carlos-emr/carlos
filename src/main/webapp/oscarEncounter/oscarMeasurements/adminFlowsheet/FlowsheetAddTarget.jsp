@@ -74,7 +74,7 @@
             String measurementType = request.getParameter("measurementType");
         %>
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 loadIndicators();
             });
 

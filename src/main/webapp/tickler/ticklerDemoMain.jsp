@@ -130,7 +130,7 @@
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.css">
 
         <script>
-            jQuery(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
                     autoOpen: false,
                     height: 340,

@@ -241,13 +241,13 @@
                         url: ctx + '/tickler/ListTicklers.do',
                         type: 'GET',
                         data: function(d) {
-                            d.status = jQuery('#ticklerview').val() || 'A';
-                            d.provider = jQuery('#providerview').length ? jQuery('#providerview').val() : '';
-                            d.assignee = jQuery('#assignedTo').length ? jQuery('#assignedTo').val() : '';
-                            d.mrp = jQuery('#mrpview').length ? jQuery('#mrpview').val() : '';
-                            d.startDate = jQuery('#xml_vdate').length ? jQuery('#xml_vdate').val() : '';
-                            d.endDate = jQuery('#xml_appointment_date').length ? jQuery('#xml_appointment_date').val() : '';
-                            d.demographicNo = jQuery('input[name=demoview]').val() || '';
+                            d.status = document.getElementById('ticklerview').value || 'A';
+                            d.provider = document.getElementById('providerview') ? document.getElementById('providerview').value : '';
+                            d.assignee = document.getElementById('assignedTo') ? document.getElementById('assignedTo').value : '';
+                            d.mrp = document.getElementById('mrpview') ? document.getElementById('mrpview').value : '';
+                            d.startDate = document.getElementById('xml_vdate') ? document.getElementById('xml_vdate').value : '';
+                            d.endDate = document.getElementById('xml_appointment_date') ? document.getElementById('xml_appointment_date').value : '';
+                            d.demographicNo = (document.querySelector('input[name=demoview]') || {}).value || '';
                             if (d.provider === 'all') d.provider = '';
                             if (d.assignee === 'all') d.assignee = '';
                             if (d.mrp === 'all') d.mrp = '';
