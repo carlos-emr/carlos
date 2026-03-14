@@ -25,6 +25,7 @@
 <%@ taglib uri="/WEB-INF/struts-bean.tld" prefix="bean"%>
 <%@ taglib uri="/WEB-INF/struts-html.tld" prefix="html"%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed=true;
@@ -98,6 +99,113 @@ FOR STAND ALONE USE
         console.info("Run as standalone version: " + runStandaloneVersion);
     </script>
 
+<fmt:setBundle basename="oscarResources"/>
+<script>
+/* i18n strings for Visual eForm Editor - populated server-side */
+var EFORM_I18N = {
+    alertTitle: '<fmt:message key="eform.visual.editor.dialog.alertTitle"/>',
+    noMessage: '<fmt:message key="eform.visual.editor.dialog.noMessage"/>',
+    buttonOk: '<fmt:message key="eform.visual.editor.button.ok"/>',
+    buttonCancel: '<fmt:message key="eform.visual.editor.button.cancel"/>',
+    buttonClose: '<fmt:message key="eform.visual.editor.button.close"/>',
+    buttonDelete: '<fmt:message key="eform.visual.editor.button.delete"/>',
+    buttonClear: '<fmt:message key="eform.visual.editor.button.clear"/>',
+    buttonAddPage: '<fmt:message key="eform.visual.editor.button.addPage"/>',
+    buttonRemovePage: '<fmt:message key="eform.visual.editor.button.removePage"/>',
+    buttonSubmit: '<fmt:message key="eform.visual.editor.button.submit"/>',
+    buttonPrint: '<fmt:message key="eform.visual.editor.button.print"/>',
+    buttonPrintAndSubmit: '<fmt:message key="eform.visual.editor.button.printAndSubmit"/>',
+    buttonViewSource: '<fmt:message key="eform.visual.editor.button.viewEformSource"/>',
+    buttonDownload: '<fmt:message key="eform.visual.editor.button.downloadAsFile"/>',
+    buttonPrintPreview: '<fmt:message key="eform.visual.editor.button.printPreview"/>',
+    buttonLoadEForm: '<fmt:message key="eform.visual.editor.button.loadSelectedEForm"/>',
+    buttonAttachFunction: '<fmt:message key="eform.visual.editor.button.attachFunction"/>',
+    buttonAllNo: '<fmt:message key="eform.visual.editor.button.allNo"/>',
+    buttonGroupYellowRadios: '<fmt:message key="eform.visual.editor.button.groupYellowRadios"/>',
+    buttonResetYellowRadios: '<fmt:message key="eform.visual.editor.button.resetYellowRadios"/>',
+    buttonGroupNoRadios: '<fmt:message key="eform.visual.editor.button.groupNoRadioButtons"/>',
+    buttonGroupCompleted: '<fmt:message key="eform.visual.editor.button.groupCompletedStartNew"/>',
+    buttonLinkOrangeBoxes: '<fmt:message key="eform.visual.editor.button.linkOrangeBoxes"/>',
+    buttonResetOrangeBoxes: '<fmt:message key="eform.visual.editor.button.resetOrangeBoxes"/>',
+    labelSubject: '<fmt:message key="eform.visual.editor.label.subject"/>',
+    labelSelectEForm: '<fmt:message key="eform.visual.editor.label.selectEForm"/>',
+    labelSelectBgImage: '<fmt:message key="eform.visual.editor.label.selectBackgroundImage"/>',
+    labelWidth: '<fmt:message key="eform.visual.editor.label.width"/>',
+    labelHeight: '<fmt:message key="eform.visual.editor.label.height"/>',
+    labelPageDimensions: '<fmt:message key="eform.visual.editor.label.pageDimensions"/>',
+    labelCustomTitle: '<fmt:message key="eform.visual.editor.label.customTitle"/>',
+    labelLinkTo: '<fmt:message key="eform.visual.editor.label.linkTo"/>',
+    labelTemplateSize: '<fmt:message key="eform.visual.editor.label.templateSize"/>',
+    labelTemplateWidth: '<fmt:message key="eform.visual.editor.label.templateWidth"/>',
+    labelTemplateHeight: '<fmt:message key="eform.visual.editor.label.templateHeight"/>',
+    labelPreCheck: '<fmt:message key="eform.visual.editor.label.preCheck"/>',
+    labelAllNoFunction: '<fmt:message key="eform.visual.editor.label.allNoFunction"/>',
+    labelPreCheckByGender: '<fmt:message key="eform.visual.editor.label.preCheckByGender"/>',
+    labelCheckWhen: '<fmt:message key="eform.visual.editor.label.checkWhen"/>',
+    labelAddFunction: '<fmt:message key="eform.visual.editor.label.addFunction"/>',
+    labelAddSideBar: '<fmt:message key="eform.visual.editor.label.addSideBar"/>',
+    labelShowRulerMarks: '<fmt:message key="eform.visual.editor.label.showRulerMarks"/>',
+    labelEnableSnapGuides: '<fmt:message key="eform.visual.editor.label.enableSnapGuides"/>',
+    labelTextBorders: '<fmt:message key="eform.visual.editor.label.textBorders"/>',
+    labelXboxBorders: '<fmt:message key="eform.visual.editor.label.xboxBorders"/>',
+    labelEformName: '<fmt:message key="eform.visual.editor.label.eformName"/>',
+    labelIncludeFaxControls: '<fmt:message key="eform.visual.editor.label.includeFaxControls"/>',
+    labelDefaultFaxNo: '<fmt:message key="eform.visual.editor.label.defaultFaxNo"/>',
+    labelIncludeSetTickler: '<fmt:message key="eform.visual.editor.label.includeSetTickler"/>',
+    labelStandAloneTesting: '<fmt:message key="eform.visual.editor.label.standAloneTesting"/>',
+    labelTriggeringEvent: '<fmt:message key="eform.visual.editor.label.triggeringEventName"/>',
+    labelFunctionParams: '<fmt:message key="eform.visual.editor.label.functionParameters"/>',
+    headingLoadEForm: '<fmt:message key="eform.visual.editor.heading.loadExistingEForm"/>',
+    headingPageSetup: '<fmt:message key="eform.visual.editor.heading.pageSetup"/>',
+    headingFormBuilding: '<fmt:message key="eform.visual.editor.heading.formBuilding"/>',
+    headingFormStylization: '<fmt:message key="eform.visual.editor.heading.formStylization"/>',
+    headingFinalize: '<fmt:message key="eform.visual.editor.heading.finalize"/>',
+    tabCheckbox: '<fmt:message key="eform.visual.editor.tab.checkbox"/>',
+    tabTextBox: '<fmt:message key="eform.visual.editor.tab.textBox"/>',
+    tabLabel: '<fmt:message key="eform.visual.editor.tab.label"/>',
+    tabShapes: '<fmt:message key="eform.visual.editor.tab.shapes"/>',
+    tabImages: '<fmt:message key="eform.visual.editor.tab.images"/>',
+    tabSignature: '<fmt:message key="eform.visual.editor.tab.signature"/>',
+    optPortrait: '<fmt:message key="eform.visual.editor.option.portrait"/>',
+    optLandscape: '<fmt:message key="eform.visual.editor.option.landscape"/>',
+    optCustom: '<fmt:message key="eform.visual.editor.option.custom"/>',
+    optAlwaysVisible: '<fmt:message key="eform.visual.editor.option.alwaysVisible"/>',
+    optInvisibleOnPrint: '<fmt:message key="eform.visual.editor.option.invisibleOnPrint"/>',
+    optAlwaysInvisible: '<fmt:message key="eform.visual.editor.option.alwaysInvisible"/>',
+    tooltipDragActivate: '<fmt:message key="eform.visual.editor.tooltip.dragActivate"/>',
+    tooltipXBoxActivate: '<fmt:message key="eform.visual.editor.tooltip.xBoxActivate"/>',
+    tooltipRadioBoxActivate: '<fmt:message key="eform.visual.editor.tooltip.radioBoxActivate"/>',
+    tooltipButtonFrameActivate: '<fmt:message key="eform.visual.editor.tooltip.buttonFrameActivate"/>',
+    tooltipNotInUse: '<fmt:message key="eform.visual.editor.tooltip.notInUse"/>',
+    dialogAttachNewFunction: '<fmt:message key="eform.visual.editor.dialog.attachNewFunction"/>',
+    dialogFunctionParticularsPrefix: '<fmt:message key="eform.visual.editor.dialog.functionParticularsPrefix"/>',
+    dialogFunctionParticularsSuffix: '<fmt:message key="eform.visual.editor.dialog.functionParticularsSuffix"/>',
+    dialogConfirmPageRemoval: '<fmt:message key="eform.visual.editor.dialog.confirmPageRemoval"/>',
+    dialogConfirmPageRemovalMsg: '<fmt:message key="eform.visual.editor.dialog.confirmPageRemovalMessage"/>',
+    dialogSaveAsNewEform: '<fmt:message key="eform.visual.editor.dialog.saveAsNewEform"/>',
+    dialogUpdateEform: '<fmt:message key="eform.visual.editor.dialog.updateEform"/>',
+    alertSaveSuccessful: '<fmt:message key="eform.visual.editor.alert.saveSuccessful"/>',
+    alertSaveFailure: '<fmt:message key="eform.visual.editor.alert.saveFailure"/>',
+    alertOnlyOneMasterBox: '<fmt:message key="eform.visual.editor.alert.onlyOneMasterBox"/>',
+    alertSelectMasterCheckbox: '<fmt:message key="eform.visual.editor.alert.selectMasterCheckbox"/>',
+    alertWouldSubmitEform: '<fmt:message key="eform.visual.editor.alert.wouldSubmitEform"/>',
+    alertActLikeCheckbox: '<fmt:message key="eform.visual.editor.alert.actLikeCheckbox"/>',
+    alertBrowserNotSupported: '<fmt:message key="eform.visual.editor.alert.browserNotSupported"/>',
+    confirmRadioboxGrouping: '<fmt:message key="eform.visual.editor.confirm.completedRadioboxGrouping"/>',
+    confirmUnsavedChanges: '<fmt:message key="eform.visual.editor.confirm.unsavedChanges"/>',
+    helpAltResize: '<fmt:message key="eform.visual.editor.help.altDraggableResize"/>',
+    helpShiftAspectRatio: '<fmt:message key="eform.visual.editor.help.shiftAspectRatio"/>',
+    helpCtrlCVCopy: '<fmt:message key="eform.visual.editor.help.ctrlCVCopy"/>',
+    noteCustomScripts: '<fmt:message key="eform.visual.editor.note.customScriptsNotPreserved"/>',
+    textTextBox: '<fmt:message key="eform.visual.editor.text.textBox"/>',
+    textCheckbox: '<fmt:message key="eform.visual.editor.text.checkbox"/>',
+    textTrash: '<fmt:message key="eform.visual.editor.text.trash"/>',
+    textAddWetSignature: '<fmt:message key="eform.visual.editor.text.addWetSignature"/>',
+    textControls: '<fmt:message key="eform.visual.editor.text.controls"/>',
+    textGuideOptions: '<fmt:message key="eform.visual.editor.text.guideOptions"/>'
+};
+</script>
+
     <script>
        //for a unique identifier
 	   //myunique = prompt("Enter Unique Identifier","")  //2021-Jan-10 commented out May-01-2024
@@ -112,20 +220,20 @@ FOR STAND ALONE USE
 
         function custom_alert( message, title ) {
             if ( !title )
-                title = 'Alert';
+                title = EFORM_I18N.alertTitle;
 
             if ( !message )
-                message = 'No Message to Display.';
+                message = EFORM_I18N.noMessage;
 
+            var buttons = {};
+            buttons[EFORM_I18N.buttonOk] = function() {
+                $( this ).dialog( 'close' );
+            };
             $('<div></div>').text( message ).dialog({
                 title: title,
                 resizable: true,
                 modal: true,
-                buttons: {
-                    'Ok': function()  {
-                        $( this ).dialog( 'close' );
-                    }
-                }
+                buttons: buttons
             });
         }
 
@@ -1824,7 +1932,7 @@ FOR STAND ALONE USE
                     console.info(data);
                     var status = data.status;
                     if (status === "SUCCESS") {
-                        custom_alert("EForm Save Successful!");
+                        custom_alert(EFORM_I18N.alertSaveSuccessful);
                         setEformId(data.body.id);
                     } else {
                         custom_alert(data.error.message);
@@ -1832,7 +1940,7 @@ FOR STAND ALONE USE
                 },
                 failure: function(data) {
                     console.error(data);
-                    custom_alert("EForm save failure!");
+                    custom_alert(EFORM_I18N.alertSaveFailure);
                 }
             });
         }
@@ -3846,7 +3954,7 @@ FOR STAND ALONE USE
 
         function init_input_controls($element) {
 
-            var tabNames = ["Checkbox", "Text Box", "Label", "Shapes", "Images", "Signature"];
+            var tabNames = [EFORM_I18N.tabCheckbox, EFORM_I18N.tabTextBox, EFORM_I18N.tabLabel, EFORM_I18N.tabShapes, EFORM_I18N.tabImages, EFORM_I18N.tabSignature];
             var $tabs = addTabs($element, "control_menu_1-placement-tabs", tabNames);
             /* tab 0 -- Checkbox */
             initCheckboxTemplateTab($tabs[0]);
@@ -3868,13 +3976,13 @@ FOR STAND ALONE USE
             /* input common footer */
             var $footer = createFieldset("form-building-controls", "Controls")
                 .append($("<div>")).append($("<label>", {
-                    text: "* Hold Alt to enable Draggable Resize"
+                    text: EFORM_I18N.helpAltResize
                 }))
                 .append($("<div>")).append($("<label>", {
-                    text: "* Hold Shift when resizing to maintain aspect ratio"
+                    text: EFORM_I18N.helpShiftAspectRatio
                 }))
                 .append($("<div>")).append($("<label>", {
-                    text: "* Use Ctrl+C while mousing over an existing widget, then make copies using Ctrl+V"
+                    text: EFORM_I18N.helpCtrlCVCopy
                 }));
             var $control_fieldset = createFieldset("grid-guide_options", "Guide Options");
             var $trash_box = createTrashFrame();
@@ -3892,7 +4000,7 @@ FOR STAND ALONE USE
             //$trash_box.appendTo($rootElement);
             var $guideRulerEnabled = $("<div>")
                 .append($("<label>", {
-                    text: "Show Ruler Marks",
+                    text: EFORM_I18N.labelShowRulerMarks,
                     for: "toggleRuler"
                 }))
                 .append($("<input>", {
@@ -3909,7 +4017,7 @@ FOR STAND ALONE USE
             $(".gen-snapGuide").find(".handle").toggleClass("ruler", defaultShowRuler); //initialize
             var $guideToggleCheckbox = $("<div>")
                 .append($("<label>", {
-                    text: "Enable Snap-to Guides",
+                    text: EFORM_I18N.labelEnableSnapGuides,
                     for: "toggleSnapGuides"
                 }))
                 .append($("<input>", {
@@ -4063,7 +4171,7 @@ FOR STAND ALONE USE
 
             $element.append($('<button>', {
                     id: "showSource",
-                    text: "View Eform Source",
+                    text: EFORM_I18N.buttonViewSource,
                     click: function(event) {
                         showSource($toggleFaxControls.is(':checked'));
                         event.preventDefault();
@@ -4073,7 +4181,7 @@ FOR STAND ALONE USE
                 }))
                 .append($('<button>', {
                     id: "downloadSource",
-                    text: "Download As File",
+                    text: EFORM_I18N.buttonDownload,
                     click: function(event) {
                         downloadSource($toggleFaxControls.is(':checked'));
                         event.preventDefault();
@@ -4083,7 +4191,7 @@ FOR STAND ALONE USE
                 }))
                 .append($('<button>', {
                     id: "printPreview",
-                    text: "Print A Preview",
+                    text: EFORM_I18N.buttonPrintPreview,
                     click: function(event) {
                         onEformPrint();
                         event.preventDefault();
@@ -4984,40 +5092,40 @@ FOR STAND ALONE USE
                 <form id="inputForm" action="get">
                     <div id="BottomButtons" class="DoNotPrint">
                         <!-- Form Control Buttons -->
-						<label for="subject">Subject:</label>
+						<label for="subject"><fmt:message key="eform.visual.editor.label.subject"/></label>
                         <input id="subject" name="subject" style="width: 220px;" type="text">
-                        <input id="SubmitButton" name="SubmitButton" onclick="onEformSubmit();" type="button" value="Submit">
-                        <input id="PrintButton" name="PrintButton" onclick="onEformPrint()" type="button" value="Print">
-                        <input id="PrintSubmitButton" name="PrintSubmitButton" onclick="onEformPrintSubmit();" type="button" value="Print &amp; Submit">
+                        <input id="SubmitButton" name="SubmitButton" onclick="onEformSubmit();" type="button" value="<fmt:message key="eform.visual.editor.button.submit"/>">
+                        <input id="PrintButton" name="PrintButton" onclick="onEformPrint()" type="button" value="<fmt:message key="eform.visual.editor.button.print"/>">
+                        <input id="PrintSubmitButton" name="PrintSubmitButton" onclick="onEformPrintSubmit();" type="button" value="<fmt:message key="eform.visual.editor.button.printAndSubmit"/>">
                     </div>
                 </form>
             </div>
         </div>
         <div id="control">
             <div id="control_menu_1">
-                <h3>Load Existing E-form</h3>
+                <h3><fmt:message key="eform.visual.editor.heading.loadExistingEForm"/></h3>
                 <div id="control_menu_1-load" class="flexV">
                 </div>
-                <h3>Page Setup</h3>
+                <h3><fmt:message key="eform.visual.editor.heading.pageSetup"/></h3>
                 <div id="control_menu_1-page_setup" class="flexV">
                 </div>
-                <h3>Form Building</h3>
+                <h3><fmt:message key="eform.visual.editor.heading.formBuilding"/></h3>
                 <div id="control_menu_1-placement" class="flexV gen-allow_drag">
                 </div>
-                <h3>Form Stylization</h3>
+                <h3><fmt:message key="eform.visual.editor.heading.formStylization"/></h3>
                 <div id="control_menu_1-stylize">
                 </div>
-                <h3>Finalize</h3>
+                <h3><fmt:message key="eform.visual.editor.heading.finalize"/></h3>
                 <div id="control_menu_1-finalize">
                 </div>
             </div>
         </div>
     </div>
-<div id="dialog-form" title="Attach New Function">
-  <p class="validateTips">Enter the particulars for the <span id="typeFlag"></span> function.  In most cases the defaults are what you want.</p>
+<div id="dialog-form" title="<fmt:message key="eform.visual.editor.dialog.attachNewFunction"/>">
+  <p class="validateTips"><fmt:message key="eform.visual.editor.dialog.functionParticularsPrefix"/><span id="typeFlag"></span><fmt:message key="eform.visual.editor.dialog.functionParticularsSuffix"/></p>
   <form>
     <fieldseter>
-      <label for="event_name">Triggering Event Name</label>
+      <label for="event_name"><fmt:message key="eform.visual.editor.label.triggeringEventName"/></label>
       <select name="event_name" id="event_name" style="width:100%; padding: 0.4em; height:2em; background-color: white;">
 	  <option val="onclick">onclick</option>
 	  <option val="onblur">onblur</option>
@@ -5027,7 +5135,7 @@ FOR STAND ALONE USE
 	  <option val="oninput">oninput</option>
 	  <option val="onfocus">onfocus</option>
 	  </select><br><br>
-      <label for="parameters">Function &amp; Parameters</label>
+      <label for="parameters"><fmt:message key="eform.visual.editor.label.functionParameters"/></label>
       <input type="text" name="parameters" id="parameters" value="this" style="width:100%; padding: 0.4em; height:1em;">
         <br><br>
         <pre id="daFcn"></pre>
