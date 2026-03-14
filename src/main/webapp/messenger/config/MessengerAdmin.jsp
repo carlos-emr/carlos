@@ -261,11 +261,11 @@
                         Messenger Group Admin
                     </a>
                     <ul class="nav nav-tabs">
-                        <li class="active">
-                            <a href="#addContacts" data-bs-toggle="tab">Manage Contacts</a>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#addContacts" data-bs-toggle="tab">Manage Contacts</a>
                         </li>
-                        <li>
-                            <a href="#manageGroups" data-bs-toggle="tab">Manage Contact Groups</a>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#manageGroups" data-bs-toggle="tab">Manage Contact Groups</a>
                         </li>
                     </ul>
                 </div>
@@ -276,8 +276,8 @@
                     <p>Enable or disable (check or uncheck) clinic providers as a contact in the
                         Messenger address book.</p>
                     <ul class="nav nav-tabs">
-                        <li class="active">
-                            <a data-bs-toggle="tab" href="#local-contacts">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#local-contacts">
                                 Local Providers
                             </a>
                         </li>
@@ -307,14 +307,14 @@
                     <p>Manage Oscar Messenger contact groups</p>
                     <ul class="nav nav-tabs">
                         <c:forEach items="${ groups }" var="group" varStatus="count">
-                            <li ${ count.index eq 0 ? 'class="active"' : '' } >
-                                <a data-bs-toggle="tab" href="#group-${ group.key.id }">
+                            <li class="nav-item">
+                                <a class="nav-link${ count.index eq 0 ? ' active' : '' }" data-bs-toggle="tab" href="#group-${ group.key.id }">
                                     <c:out value="${ group.key.groupDesc }"/>
                                 </a>
                             </li>
                         </c:forEach>
-                        <li>
-                            <a data-bs-toggle="tab" href="#new-group" class="muted">
+                        <li class="nav-item">
+                            <a data-bs-toggle="tab" href="#new-group" class="nav-link muted">
                                 <i class="fa-solid fa-plus add-group-tab" title="New Group"></i>
                             </a>
                         </li>

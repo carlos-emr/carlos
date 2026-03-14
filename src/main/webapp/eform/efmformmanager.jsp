@@ -141,8 +141,8 @@
 
 
     <ul class="nav nav-pills" id="eformOptions">
-        <li><a href="#upload">Upload</a></li>
-        <li><a href="#import">Import</a></li>
+        <li class="nav-item"><a class="nav-link" href="#upload">Upload</a></li>
+        <li class="nav-item"><a class="nav-link" href="#import">Import</a></li>
     </ul>
 
     <div class="tab-content">

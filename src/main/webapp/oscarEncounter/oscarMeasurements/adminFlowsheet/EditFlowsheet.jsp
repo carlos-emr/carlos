@@ -429,9 +429,9 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
             <ul class="nav nav-tabs" id="myTab">
                 <li class="list-title">Measurements:</li>
-                <li class="active"><a href="#home" data-bs-toggle="tab">All</a></li>
-                <li><a href="#custom" data-bs-toggle="tab">Custom</a></li>
-                <li><a href="#add" data-bs-toggle="tab"><i class="fa-solid fa-circle-plus"></i> Add</a></li>
+                <li class="nav-item"><a class="nav-link active" href="#home" data-bs-toggle="tab">All</a></li>
+                <li class="nav-item"><a class="nav-link" href="#custom" data-bs-toggle="tab">Custom</a></li>
+                <li class="nav-item"><a class="nav-link" href="#add" data-bs-toggle="tab"><i class="fa-solid fa-circle-plus"></i> Add</a></li>
             </ul>
 
             <% if (request.getAttribute("errorMessage") != null) { %>
