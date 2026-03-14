@@ -85,7 +85,7 @@
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
+        <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
         <script>
