@@ -220,7 +220,7 @@
             </tbody>
         </table>
         <br>
-        <a class="btn"
+        <a class="btn btn-secondary"
            href="${pageContext.request.contextPath}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
 
     </div>

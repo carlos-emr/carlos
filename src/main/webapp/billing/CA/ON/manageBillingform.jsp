@@ -184,7 +184,7 @@
                             </select></div>
                     </td>
                     <td style="width:30%;">
-                        <input type="submit" name="Submit" class="btn"
+                        <input type="submit" name="Submit" class="btn btn-secondary"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.btnManage"/>">
                     </td>
                 </tr>

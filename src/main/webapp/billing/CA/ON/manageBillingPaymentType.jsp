@@ -102,7 +102,7 @@
     </table>
     <p>
     <hr/>
-    <a class="btn"
+    <a class="btn btn-secondary"
        href="<%=request.getContextPath()%>/billing/CA/ON/editBillingPaymentType.jsp">Create
         a new payment type</a>
 

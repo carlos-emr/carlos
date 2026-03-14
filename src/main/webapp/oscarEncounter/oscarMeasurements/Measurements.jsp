@@ -317,7 +317,7 @@
                                             </div> <!-- card card-body bg-body-tertiary -->
                                             <table>
                                                 <tr>
-                                                    <td><input type="button" name="Button" class="btn"
+                                                    <td><input type="button" name="Button" class="btn btn-secondary"
                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="button" name="Button" class="btn btn-primary"

@@ -118,7 +118,7 @@
                 <option value="9">900-999</option>
             </select> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgOR"/> <br/>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgDescription"/>: <input
-                    type="text" name="codedesc" value=""> <input type="submit" class="btn"
+                    type="text" name="codedesc" value=""> <input type="submit" class="btn btn-secondary"
                                                                  name="search1"
                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnSearch"/>"/>
         </p>
@@ -220,7 +220,7 @@
                 </a></td>
                 <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
                                              name="<%=Dcode%>"
-                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn"
+                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
                                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode%>">
                 </td>
@@ -248,7 +248,7 @@
                 </a></td>
                 <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
                                              name="<%=Dcode%>"
-                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn"
+                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
                                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode%>">
                 </td>
@@ -275,7 +275,7 @@
                 </a></td>
                 <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
                                              name="<%=Dcode2%>"
-                                             value="<%=DcodeDesc2%>">&nbsp;<input type="submit" class="btn"
+                                             value="<%=DcodeDesc2%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                   name="update"
                                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode2%>">
                 </td>

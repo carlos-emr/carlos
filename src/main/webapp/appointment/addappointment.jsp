@@ -1442,7 +1442,7 @@ Ontario, Canada
                                 numSameDayGroupApptsPaste = appts.size() > 0 ? new Long(appts.size()) : 0;
                             }
                     %>
-                    <input type="button" id="pasteButton" value="Paste" class="btn"
+                    <input type="button" id="pasteButton" value="Paste" class="btn btn-secondary"
                            onclick="pasteAppt(<%=(numSameDayGroupApptsPaste > 0)%>);">
                     <% }%>
 
