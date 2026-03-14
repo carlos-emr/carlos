@@ -270,12 +270,18 @@
     genders.put("F", "Female");
     genders.put("U", "Unknown");
 
-    String pBrand = request.getParameter("brandName") || "";
-    String pDIN = request.getParameter("din") || "";
-    String pDose = request.getParameter("dose") || "";
-    String pRoute = request.getParameter("route") || "";
-    String pUnit = request.getParameter("doseUnit") || "";
-    String pMaker = request.getParameter("manufacture") || "";
+    String pBrand = request.getParameter("brandName");
+    if (pBrand == null) pBrand = "";
+    String pDIN = request.getParameter("din");
+    if (pDIN == null) pDIN = "";
+    String pDose = request.getParameter("dose");
+    if (pDose == null) pDose = "";
+    String pRoute = request.getParameter("route");
+    if (pRoute == null) pRoute = "";
+    String pUnit = request.getParameter("doseUnit");
+    if (pUnit == null) pUnit = "";
+    String pMaker = request.getParameter("manufacture");
+    if (pMaker == null) pMaker = "";
 
 %>
 <html>
@@ -283,7 +289,7 @@
         <title>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
         </title><!--I18n-->
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
+
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.7.1.min.js"></script>
@@ -292,66 +298,7 @@
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
-        <style type="text/css">
-            div.ImmSet {
-                background-color: #ffffff;
-            }
 
-            div.ImmSet h2 {
-            }
-
-            div.ImmSet ul {
-            }
-
-            div.ImmSet li {
-            }
-
-            div.ImmSet li a {
-                text-decoration: none;
-                color: blue;
-            }
-
-            div.ImmSet li a:hover {
-                text-decoration: none;
-                color: red;
-            }
-
-            div.ImmSet li a:visited {
-                text-decoration: none;
-                color: blue;
-            }
-
-
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-            div.prevention {
-                background-color: #999999;
-            }
-
-            div.prevention fieldset {
-                width: 35em;
-                font-weight: bold;
-            }
-
-            div.prevention legend {
-                font-weight: bold;
-            }
-
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-            /
-        </style>
 
         <SCRIPT LANGUAGE="JavaScript">
 
@@ -393,88 +340,6 @@
 
         </SCRIPT>
 
-        <style type="text/css">
-            table.outline {
-                margin-top: 50px;
-                border-bottom: 1pt solid #888888;
-                border-left: 1pt solid #888888;
-                border-top: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-            }
-
-            table.grid {
-                border-bottom: 1pt solid #888888;
-                border-left: 1pt solid #888888;
-                border-top: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-            }
-
-            td.gridTitles {
-                border-bottom: 2pt solid #888888;
-                font-weight: bold;
-                text-align: center;
-            }
-
-            td.gridTitlesWOBottom {
-                font-weight: bold;
-                text-align: center;
-            }
-
-            td.middleGrid {
-                border-left: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-                text-align: center;
-            }
-
-
-            label {
-                float: left;
-                width: 120px;
-                font-weight: bold;
-            }
-
-            label.checkbox {
-                float: left;
-                width: 116px;
-                font-weight: bold;
-            }
-
-            label.fields {
-                float: left;
-                width: 80px;
-                font-weight: bold;
-            }
-
-            span.labelLook {
-                font-weight: bold;
-
-            }
-
-            input, textarea, select {
-
-            / / margin-bottom: 5 px;
-            }
-
-            textarea {
-                width: 450px;
-                height: 100px;
-            }
-
-
-            .boxes {
-                width: 1em;
-            }
-
-            #submitbutton {
-                margin-left: 120px;
-                margin-top: 5px;
-                width: 90px;
-            }
-
-            br {
-                clear: left;
-            }
-        </style>
 
         <script type="text/javascript">
             function hideExtraName(ele) {
@@ -783,7 +648,7 @@
 
                     if (dhirEnabled && session.getAttribute("oneIdEmail") == null) {
                 %>
-                <div style="width:100%;background-color:pink;text-align:center;font-weight:bold;font-size:13pt">
+                <div class="alert alert-danger">
                     Warning: You are not logged into OneId and will not be able to submit data to DHIR
                 </div>
                 <% } %>
@@ -792,7 +657,7 @@
                     if (request.getAttribute("errors") != null) {
                         List<String> errorList = (List<String>) request.getAttribute("errors");
                 %>
-                <ul style="color:red"><%
+                <ul class="alert alert-danger"><%
                     for (String error : errorList) {
                 %>
                     <li><%=error %>
@@ -806,7 +671,7 @@
                 %>
 
                 <% if (prevHash == null) { %>
-                <h3 style="color:red">Prevention not found!</h3>
+                <h3 class="alert alert-danger">Prevention not found!</h3>
                 <%} else { %>
                 <form action="${pageContext.request.contextPath}/oscarPrevention/AddPrevention.do" method="post" onsubmit="return handleFormSubmission()">
                     <input type="hidden" name="prevention" value="<%=prevention%>"/>
@@ -857,7 +722,7 @@
                                     id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 <br>
                                 <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
+                                     class="alert alert-danger"></div>
                                 <label for="provider" class="fields">Provider:</label> <input type="text"
                                                                                               name="providerName"
                                                                                               id="providerName"
@@ -918,18 +783,18 @@
                             <br/>
                             <span id="unknownName" style="display:block"><label for="name">Name</label> <input
                                     type="text" id="name" name="name"
-                                    value="<%=str((extraData.get("name")),Encode.forHtmlAttribute(pBrand)%>"/> <br/><br/></span>
+                                    value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/> <br/><br/></span>
                             <%
 
                             } else {
                             %> <label for="name">Name:</label> <input type="text" id="name" name="name"
-                                                                      value="<%=str((extraData.get("name")),Encode.forHtmlAttribute(pBrand)%>"/>
+                                                                      value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/>
                             <br/> <%
                             }
 
                         } else {
                         %> <label for="name">Name:</label> <input type="text" id="name" name="name"
-                                                                  value="<%=str((extraData.get("name")),Encode.forHtmlAttribute(pBrand)%>"/>
+                                                                  value="<%=str((extraData.get("name")),"")+Encode.forHtmlAttribute(pBrand)%>"/>
                             <br/>
 
                             <% } %>
@@ -1048,8 +913,8 @@
                             <br/>
                             <%
                                 String dose = str((extraData.get("dose")), "");
-                                String d1 = "";
-                                String d2 = "";
+                                String d1 = pDose;
+                                String d2 = pUnit;
                                 if (dose.split(" ").length == 2) {
                                     String d3 = dose.split(" ")[1];
                                     if (!d3.equals("mL") && !d3.equals("mg") && !d3.equals("g") && !d3.equals("capsule") && !d3.equals("vial")) {
@@ -1059,7 +924,7 @@
                                         d2 = dose.split(" ")[1];
                                     }
                                 } else {
-                                    d1 = dose;
+                                    d1 = pDose;
                                 }
 
                                 if ("".equals(dose)) {
@@ -1067,18 +932,18 @@
                                 }
                             %>
 
-                            <label for="dose">Dose:</label> <input type="text" name="dose" id="dose" value="<%=d1% || Encode.forHtmlAttribute(pDose)>"/>
+                            <label for="dose">Dose:</label> <input type="text" name="dose" id="dose" value="<%=Encode.forHtmlAttribute(d1)%>"/>
                             <br>
                             <label for="doseUnit">Dose Unit:</label>
                             <select name="doseUnit">
                                 <option value="" <%="".equals(d2) ? "selected=\"selected\" " : "" %>></option>
-                                <option value="mL" <%="mL".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>mL</option>
-                                <option value="mg" <%="mg".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>mg</option>
-                                <option value="g" <%="g".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>g</option>
-                                <option value="capsule" <%="capsule".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>
+                                <option value="mL" <%="mL".equals(d2) ? "selected=\"selected\" " : "" %>>mL</option>
+                                <option value="mg" <%="mg".equals(d2) ? "selected=\"selected\" " : "" %>>mg</option>
+                                <option value="g" <%="g".equals(d2) ? "selected=\"selected\" " : "" %>>g</option>
+                                <option value="capsule" <%="capsule".equals(d2) ? "selected=\"selected\" " : "" %>>
                                     capsule
                                 </option>
-                                <option value="vial" <%="vial".equals(d2 || Encode.forHtmlAttribute(pUnit) ) ? "selected=\"selected\" " : "" %>>vial
+                                <option value="vial" <%="vial".equals(d2) ? "selected=\"selected\" " : "" %>>vial
                                 </option>
 
                             </select>
@@ -1149,7 +1014,7 @@
                                     id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 <br>
                                 <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
+                                     class="alert alert-danger"></div>
                                 <label for="provider" class="fields">Provider:</label> <input type="text"
                                                                                               name="providerName"
                                                                                               id="providerName"
@@ -1329,7 +1194,7 @@
                                     id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 <br>
                                 <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
+                                     class="alert alert-danger"></div>
                                 <label for="provider" class="fields">Provider:</label> <input type="text"
                                                                                               name="providerName"
                                                                                               id="providerName"
@@ -1398,7 +1263,7 @@
                                     id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 <br>
                                 <div id="errorPrevDateMessage"
-                                     style="color: red;margin-left: 80px;font-weight: normal;"></div>
+                                     class="alert alert-danger"></div>
                                 <label for="provider" class="fields">Provider:</label> <input type="hidden"
                                                                                               name="providerName"
                                                                                               id="providerName"
