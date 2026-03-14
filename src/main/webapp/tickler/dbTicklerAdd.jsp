@@ -138,18 +138,8 @@
     if (rowsAffected) {
 %>
 <script type="text/javascript">
-    var parentId = "<%=Encode.forJavaScript(parentAjaxId != null ? parentAjaxId : "")%>";
-    var updateParent = "<%=Encode.forJavaScript(updateParent != null ? updateParent : "")%>" === "true";
-    var demo = "<%=Encode.forJavaScript(module_id)%>";
-    var updateTicklerNav = "<%=Encode.forJavaScript(updateTicklerNav != null ? updateTicklerNav : "")%>" === "true";
-
-    try {
-        if (window.opener && !window.opener.closed) {
-            window.opener.location.reload();
-        }
-    } catch (e) {
-        // opener may be cross-origin or closed
-    }
-    setTimeout(function() { self.close(); }, 500);
+    // Tickler saved successfully.
+    // Refresh is handled by the iframe.onload callback in ticklerAdd.jsp or ticklerEdit.jsp
+    // via BroadcastChannel('carlos_tickler_refresh') and window.opener.reloadNav().
 </script>
 <%}%>

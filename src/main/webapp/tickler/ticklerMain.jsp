@@ -146,7 +146,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.title"/> Manager</title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript"
@@ -602,13 +602,17 @@
                 });
             }
 
-            // Listen for tickler refresh broadcasts from edit popup
+            // Listen for tickler refresh broadcasts from edit/add popup
             try {
                 var ticklerChannel = new BroadcastChannel('carlos_tickler_refresh');
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
-                    if (data === 'refresh' || (data && data.action === 'refresh')) {
-                        location.reload();
+                    if (data && (data === 'refresh' || data.action === 'refresh')) {
+                        if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
+                            ticklerResultsTable.ajax.reload(null, false);
+                        } else {
+                            location.reload();
+                        }
                     }
                 };
             } catch (e) {}
@@ -627,7 +631,7 @@
                          viewBox="0 0 16 16">
                         <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"/>
                     </svg>
-                    &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgTickler"/> Manager
+                    &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.managerHeading"/>
                 </h4>
             </div>
 
@@ -640,10 +644,10 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/></label>
                         <a href="javascript:void(0)" onClick="allYear()" style="font-size:11px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/></a>
 
-                        <label>From:</label>
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.labelFrom"/></label>
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
                                value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
-                        <label>To:</label>
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.labelTo"/></label>
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
                                value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
 
@@ -684,7 +688,7 @@
                         <script>
                             let _providers = [];
                             <%for (int i=0; i<sites.size(); i++) {%>
-                            _providers["<%=sites.get(i).getSiteId()%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
+                            _providers["<%=Encode.forJavaScript(String.valueOf(sites.get(i).getSiteId()))%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
                             while (iter.hasNext()) {
                                 Provider p=iter.next();
                                 if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forHtmlAttribute(p.getProviderNo())%>'><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option><%}%>";
@@ -739,7 +743,7 @@
                             }
                         %>
 
-                        <label>Status</label>
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.status"/></label>
                         <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
                             <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
@@ -753,7 +757,7 @@
                     </div>
                 <% } else { %>
                     <div class="tickler-filters d-flex flex-wrap align-items-center gap-2">
-                        <label>Status</label>
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.status"/></label>
                         <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
                             <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
@@ -821,7 +825,7 @@
                            value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
                            onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
                     <input type="button" class="btn btn-sm btn-secondary"
-                           value="Back" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()">
+                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnBack'/>" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()">
                 </div>
             </div>
         </form>
@@ -837,27 +841,27 @@
                 <input type="hidden" name="tickler_note_noteId" id="tickler_note_noteId" value=""/>
 
                 <div style="margin-bottom:8px;">
-                    <label for="tickler_note">Tickler Note</label>
+                    <label for="tickler_note"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteTitle"/></label>
                     <textarea class="form-control" id="tickler_note" rows="5" name="tickler_note"
                               style="width:100%;"
                               oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'
                               onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'></textarea>
                 </div>
                 <div style="font-size:12px; color:#666; margin-bottom:8px;">
-                    <label for="tickler_note_obsDate">Date:</label>
+                    <label for="tickler_note_obsDate"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteDate"/></label>
                     <span id="tickler_note_obsDate"></span>
                     &nbsp;
-                    <label for="tickler_note_revision_url">Rev:</label>
+                    <label for="tickler_note_revision_url"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteRev"/></label>
                     <a id="tickler_note_revision_url" href="javascript:void(0)" onClick="">
                         <span id="tickler_note_revision"></span>
                     </a>
                     &nbsp;
-                    <label for="tickler_note_editor">Editor:</label>
+                    <label for="tickler_note_editor"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteEditor"/></label>
                     <span id="tickler_note_editor"></span>
                 </div>
                 <div style="text-align:right;">
-                    <button class="btn btn-sm btn-primary" onclick="saveNoteDialog()">Save</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="closeNoteDialog()">Exit</button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="saveNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/></button>
                 </div>
             </form>
         </div>

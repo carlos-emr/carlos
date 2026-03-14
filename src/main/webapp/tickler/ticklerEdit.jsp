@@ -310,27 +310,33 @@
 
             function validate(form) {
                 if (validateDate(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
-                    var iframe = document.createElement('iframe');
-                    iframe.name = 'ticklerEditFrame';
-                    iframe.style.display = 'none';
-                    document.body.appendChild(iframe);
+                    // Reuse existing iframe to prevent duplicate creation on re-submit
+                    var iframe = document.getElementById('ticklerEditFrame');
+                    if (!iframe) {
+                        iframe = document.createElement('iframe');
+                        iframe.id = 'ticklerEditFrame';
+                        iframe.name = 'ticklerEditFrame';
+                        iframe.style.display = 'none';
+                        document.body.appendChild(iframe);
+                        iframe.onload = function() {
+                            try {
+                                if (iframe.contentWindow.location.href === 'about:blank') return;
+                            } catch (e) {}
+                            try {
+                                if (window.opener && !window.opener.closed &&
+                                    typeof window.opener.reloadNav === 'function') {
+                                    window.opener.reloadNav('tickler');
+                                }
+                            } catch (e) {}
+                            try {
+                                var bc = new BroadcastChannel('carlos_tickler_refresh');
+                                bc.postMessage({ action: 'refresh' });
+                                bc.close();
+                            } catch (e) {}
+                            setTimeout(function() { window.close(); }, 500);
+                        };
+                    }
                     form.target = 'ticklerEditFrame';
-                    iframe.onload = function() {
-                        try {
-                            if (iframe.contentWindow.location.href === 'about:blank') return;
-                        } catch (e) {}
-                        try {
-                            if (window.opener && !window.opener.closed) {
-                                window.opener.location.reload();
-                            }
-                        } catch (e) {}
-                        try {
-                            var bc = new BroadcastChannel('carlos_tickler_refresh');
-                            bc.postMessage({ action: 'refresh' });
-                            bc.close();
-                        } catch (e) {}
-                        setTimeout(function() { window.close(); }, 500);
-                    };
                     form.submit();
                     return true;
                 }
@@ -489,7 +495,7 @@
                         <input name="xml_appointment_date" class="form-control" id="xml_appointment_date" type="date"
                                maxlength="10" value="<%=strDate%>"/>
 
-                        <div id="todayButton" class="today-button mt-2" onclick="addTime(0, 'days')">Today</div>
+                        <div id="todayButton" class="today-button mt-2" onclick="addTime(0, 'days')"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.btnToday"/></div>
                         <div id="quickPickDateOptions" class="grid"></div>
                     </div>
                 </div>
@@ -506,7 +512,7 @@
                 <input type="button" class="btn btn-primary" name="updateTickler"
                        value="<fmt:message key="tickler.ticklerEdit.update"/>" onClick="validate(this.form)"/>
                 <input type="button" class="btn btn-secondary" name="cancelChangeTickler"
-                       value="Back" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()"/>
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()"/>
             </div>
         </form>
     </div>

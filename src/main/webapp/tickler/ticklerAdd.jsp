@@ -125,6 +125,7 @@
         demoName = "";
     }
 
+    Boolean writeToEncounter = false;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Boolean caisiEnabled = OscarProperties.getInstance().isPropertyActive("caisi");
     Integer defaultProgramId = null;
@@ -419,33 +420,58 @@
             if (newHeight > 50) messageBox.style.height = newHeight + "px";
         }
 
-        function validate(form) {
+        function validate(form, writeToEncounter) {
+            writeToEncounter = writeToEncounter || false;
             if (validateDemoNo()<%= caisiEnabled ? " && validateSelectedProgram()" : "" %>) {
-                // Submit form into a hidden iframe so the page stays here
-                var iframe = document.createElement('iframe');
-                iframe.name = 'ticklerSubmitFrame';
-                iframe.style.display = 'none';
-                document.body.appendChild(iframe);
-                form.target = 'ticklerSubmitFrame';
-                iframe.onload = function() {
-                    // Skip the initial about:blank load
-                    try {
-                        if (iframe.contentWindow.location.href === 'about:blank') return;
-                    } catch (e) {}
-                    // Notify opener to refresh via multiple methods
-                    try {
-                        if (window.opener && !window.opener.closed) {
-                            window.opener.location.reload();
+                // Reuse existing iframe to prevent duplicate creation on re-submit
+                var iframe = document.getElementById('ticklerSubmitFrame');
+                if (!iframe) {
+                    iframe = document.createElement('iframe');
+                    iframe.id = 'ticklerSubmitFrame';
+                    iframe.name = 'ticklerSubmitFrame';
+                    iframe.style.display = 'none';
+                    document.body.appendChild(iframe);
+                    iframe.onload = function() {
+                        // Skip the initial about:blank load
+                        try {
+                            if (iframe.contentWindow.location.href === 'about:blank') return;
+                        } catch (e) {}
+                        if (writeToEncounter) {
+                            // Write to encounter: navigate the opener window with updateParent flag
+                            try {
+                                if (window.opener && !window.opener.closed) {
+                                    var ref = window.opener.location.href;
+                                    if (ref.indexOf("updateParent") === -1) {
+                                        ref = ref + (ref.indexOf("?") > -1 ? "&" : "?") + "updateParent=true";
+                                    }
+                                    window.opener.location = ref;
+                                }
+                            } catch (e) {}
+                        } else {
+                            // Regular save: partial reload via reloadNav
+                            try {
+                                if (window.opener && !window.opener.closed &&
+                                    typeof window.opener.reloadNav === 'function') {
+                                    window.opener.reloadNav('tickler');
+                                }
+                            } catch (e) {}
                         }
-                    } catch (e) {}
-                    // Use BroadcastChannel for cross-window communication
-                    try {
-                        var bc = new BroadcastChannel('carlos_tickler_refresh');
-                        bc.postMessage({ action: 'refresh' });
-                        bc.close();
-                    } catch (e) {}
-                    setTimeout(function() { window.close(); }, 500);
-                };
+                        // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
+                        try {
+                            var bc = new BroadcastChannel('carlos_tickler_refresh');
+                            bc.postMessage({ action: 'refresh' });
+                            bc.close();
+                        } catch (e) {}
+                        setTimeout(function() { window.close(); }, 500);
+                    };
+                }
+                // Set form action based on mode
+                if (writeToEncounter) {
+                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
+                } else {
+                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp";
+                }
+                form.target = 'ticklerSubmitFrame';
                 form.submit();
             }
         }
@@ -611,7 +637,7 @@
         <form name="serviceform" method="post" action="<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp">
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
-            <input type="hidden" name="updateTicklerNav" value="true">
+            <input type="hidden" name="writeToEncounter" value="<%=Encode.forHtmlAttribute(writeToEncounter.toString())%>">
             <input type="hidden" name="user_no" value="<%=Encode.forHtmlAttribute(user_no)%>">
 
             <table class="table table-sm">
@@ -822,8 +848,11 @@
                 <input type="button" name="Button" class="btn btn-primary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
                        onclick="validate(this.form);">
-<input type="button" name="Button" class="btn btn-secondary"
-                       value="Back"
+                <input type="button" name="Button" class="btn btn-secondary"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
+                       onclick="validate(this.form, true)">
+                <input type="button" name="Button" class="btn btn-danger"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
                        onclick="window.close()">
             </div>
         </form>

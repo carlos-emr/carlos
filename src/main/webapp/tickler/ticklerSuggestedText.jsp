@@ -149,7 +149,7 @@
 </head>
 <body>
 <div class="container">
-    <h3>Tickler <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
+    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/> <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
     <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest.do" method="post">
         <input type="hidden" name="method" value="updateTextSuggest">
         <table style="display: flex;justify-content: space-evenly;align-items: stretch;">
@@ -224,9 +224,9 @@
                     <div class="float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
-                               onclick="doSelect('activeText');doSelect('inactiveText');document.tsTicklerForm.submit();"/>
+                               onclick="doSelect('activeText');doSelect('inactiveText');this.form.submit();"/>
                         <input type="button" class="btn btn-secondary" name="cancelTextChanges"
-                               value="Back"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
                                onclick="window.close()"/>
                     </div>
                 </td>
