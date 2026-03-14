@@ -40,7 +40,7 @@
 <p></p>
 </div>
 <div class="modal-footer">
-<button class="btn" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
 <a href="" class="btn btn-danger contentLink" id="dataConfirmed">Delete</a>
 </div>
 </div></div></div>

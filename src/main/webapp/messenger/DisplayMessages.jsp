@@ -281,7 +281,7 @@
                             <button name="btnSearch" type="submit" class="btn btn-outline-secondary"  title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"><i class="fa-solid fa-magnifying-glass fa-lg"></i></button>
                             <input name="searchString" type="text" class="form-control h-50"  value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
 
-                            <button name="btnClearSearch" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="fa-solid fa-xmark fa-lg"></i></button>
+                            <button name="btnClearSearch" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="fa-solid fa-xmark fa-lg"></i></button>
 </div>
                             </form>
 
@@ -370,11 +370,11 @@
                     <tr>
                         <td style="padding: 10px;" ><span>
                             <%if (pageType == 0){%>
-                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
-                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
-                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="fa-solid fa-envelope"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                                    <button name="btnDelete" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="fa-solid fa-envelope"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="fa-solid fa-box-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="fa-solid fa-box-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">
@@ -557,11 +557,11 @@
                             <tr><td colspan="6">
                         <span>
                             <%if (pageType == 0){%>
-                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
-                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
-                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="fa-solid fa-envelope"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                                    <button name="btnDelete" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="fa-solid fa-envelope"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="fa-solid fa-box-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn btn-secondary" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="fa-solid fa-box-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">

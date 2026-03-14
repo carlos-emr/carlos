@@ -114,7 +114,7 @@
             </td>
             <td><%=(p != null) ? p.getFormattedName() : "N/A" %>
             </td>
-            <td><input class="btn" type="button"
+            <td><input class="btn btn-secondary" type="button"
                        onClick="window.open('<%=request.getContextPath()%>/renal/preImplementationView.jsp?id=<%=report.getId()%>')"
                        value="View"/></td>
 

@@ -104,7 +104,7 @@
         <h4>Success!</h4>
         You have successfully <%=state%> the decision support!
 
-        <div style="width:100%;text-align:right;margin-top:10px"><a class="btn" onclick="window.close();">Done</a> <a
+        <div style="width:100%;text-align:right;margin-top:10px"><a class="btn btn-secondary" onclick="window.close();">Done</a> <a
                 href="SetupGroupList.do" class="btn btn-info">Modify another group</a></div>
 
     </div>

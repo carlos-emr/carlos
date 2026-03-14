@@ -94,7 +94,7 @@
             <div class="control-group" style="margin-top: 1em;">
                 <div class="controls">
                     <button class="btn btn-primary" onclick="return update(this);">Update</button>
-                    <button class="btn" onclick="return cancel(this);">Cancel</button>
+                    <button class="btn btn-secondary" onclick="return cancel(this);">Cancel</button>
                 </div>
             </div>
             </form>

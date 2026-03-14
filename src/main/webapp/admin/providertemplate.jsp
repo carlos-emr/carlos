@@ -137,7 +137,7 @@
                         </select>
                         <input type="hidden" value="Edit" name="dboperation">
                         <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.btnEdit"/>"
-                               name="dboperation" class="btn"
+                               name="dboperation" class="btn btn-secondary"
                                onclick="document.forms['edittemplate'].dboperation.value='Edit'; document.forms['edittemplate'].submit();">
                     </form>
 
@@ -181,7 +181,7 @@
 
 
                         <input type="button" name="Button" id="exit-btn"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.btnExit"/>" class="btn"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providertemplate.btnExit"/>" class="btn btn-secondary"
                                onClick="window.close();">
 
                     </form>

@@ -61,7 +61,7 @@
 
                 <table border="0" class="lab-test-table">
 					<tr>
-						<td  class="input-append"><label>Date:</label><input type="text" name="test_<%=id%>.valDate" id="test_<%=id%>.valDate" class="input-medium" required><img src="<%=request.getContextPath()%>/images/cal.gif" id="test_<%=id%>.valDate_cal" class="add-on" required></td>
+						<td  class="input-group"><label>Date:</label><input type="text" name="test_<%=id%>.valDate" id="test_<%=id%>.valDate" class="form-control" required><img src="<%=request.getContextPath()%>/images/cal.gif" id="test_<%=id%>.valDate_cal" class="input-group-text" required></td>
 						<td><label>Flag:</label>
                  		<select name="test_<%=id%>.flag" id="test_<%=id%>.flag">
                         	<option value="">None</option>

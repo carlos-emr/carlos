@@ -95,7 +95,7 @@
     <h4>
         Overnight Batch Eligibility Checking Report
         <div class="float-end">
-            <button name="print" onclick="window.print()" class="btn">
+            <button name="print" onclick="window.print()" class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
@@ -126,7 +126,7 @@
                 <div class="controls">
 
                     <input type="text" id="numDays" name="numDays" value="<%=numDays%>"
-                           class="input-mini">
+                           class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>
             <div class="control-group">

@@ -779,9 +779,9 @@
                             <td>
 
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgDoctorNo"/>:
-                                <div class="input-append">
+                                <div class="input-group">
                                     <input type="text" name="rdohip" value="<%=r_doctor_ohip%>" class="col-md-2" readonly/>
-                                    <a href="javascript:referralScriptAttach2('rdohip','rd')" class="btn"><i
+                                    <a href="javascript:referralScriptAttach2('rdohip','rd')" class="btn btn-secondary"><i
                                             class="fa-solid fa-magnifying-glass"></i></a>
                                 </div>
                             </td>
@@ -895,11 +895,11 @@
 
                         <div class="col-md-4" style="margin-left:0px;">
                             <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnBillingDate"/>:</label>
-                            <div class="input-append">
+                            <div class="input-group">
                                 <input type="text" name="xml_appointment_date" id="xml_appointment_date"
                                        value="<%=BillDate%>" style="width:90px"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                                <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                                <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                             </div>
                         </div><!--cal col-md-2-->
 
@@ -1036,11 +1036,11 @@
                         <input type="hidden" name="xml_visitdate" value="<%=visitdate%>"/>
                         <div class="col-md-4" style="margin-left:0px;">
                             <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnAdmissionDate"/>:</label>
-                            <div class="input-append">
+                            <div class="input-group">
                                 <input type="text" name="xml_vdate" id="xml_vdate" value="<%=visitdate%>"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" style="width:90px"
                                        autocomplete="off"/>
-                                <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                                <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                             </div>
                         </div><!--date span-->
                         <br>
@@ -1224,9 +1224,9 @@
                     <input type="hidden" name="xml_diagnostic_code" value="<%=diagCode%>">
                     <input type="hidden" name="xml_dig_search1">
 
-                    <div class="input-append">
+                    <div class="input-group">
                         <input type="text" name="xml_diagnostic_detail" value="<%=diagCode%>" class="col-md-8">
-                        <a href="javascript:ScriptAttach()" class="btn"><i class="fa-solid fa-magnifying-glass"></i></a>
+                        <a href="javascript:ScriptAttach()" class="btn btn-secondary"><i class="fa-solid fa-magnifying-glass"></i></a>
                     </div>
 
                 </div>
@@ -1245,21 +1245,21 @@
                     <%} else {%>
                     <input class="btn btn-primary" type="submit" name="submit" onclick="return validateAllItems();"
                            value="Save">
-                    <input class="btn" type="submit" name="submit" onclick="return validateAllItems();"
+                    <input class="btn btn-secondary" type="submit" name="submit" onclick="return validateAllItems();"
                            value="Save&Correct Another">
                     <%}%>
                     <%}%>
 
                     <%if (billNo != null) {%>
 
-                    <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%=billNo%>" class="btn"><i
+                    <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%=billNo%>" class="btn btn-secondary"><i
                             class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"
-                       class="btn">Rebill OHIP</a>
+                       class="btn btn-secondary">Rebill OHIP</a>
                     <a id="settleLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'S';document.getElementsByName(&quot;submit&quot;)[1].click();"
-                       class="btn">Settle All</a>
+                       class="btn btn-secondary">Settle All</a>
                     <%}%>
 
 
@@ -1289,11 +1289,11 @@
                     -->
                             <div class="col-md-2">
                                 <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.dueDate"/>:</label>
-                                <div class="input-append">
+                                <div class="input-group">
                                     <input type="text" name="invoiceDueDate" id="invoiceDueDate" value="<%=dueDateStr%>"
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"
                                            style="width:90px"/>
-                                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
                             </div>
                             <% } %>

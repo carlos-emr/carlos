@@ -135,7 +135,7 @@
     <div id="programOptions" class="control-group">
         <label class="form-label">Program:</label>
         <div class="controls">
-            <select name="programId" id="programId" class="input-medium" onChange="getProviders()">
+            <select name="programId" id="programId" class="form-select" onChange="getProviders()">
                 <option value=""></option>
                 <%
                     List<Program> programs = programManager.getPrograms(loggedInInfo.getCurrentFacility().getId());
@@ -161,7 +161,7 @@
             if (providers.size() > 0) {
         %>
         <div id="viewBar">
-            <button id="editBtn" class="btn" onClick="return edit();">Edit Mode</button>
+            <button id="editBtn" class="btn btn-secondary" onClick="return edit();">Edit Mode</button>
             <br/>
 
             <table class="table table-striped  table-sm">
@@ -190,8 +190,8 @@
 
 
         <div id="editBar" style="display:none">
-            <button id="cancelBtn" class="btn" onClick="return cancel()">Cancel</button>
-            <button id="saveBtn" class="btn" onClick="save()">Save</button>
+            <button id="cancelBtn" class="btn btn-secondary" onClick="return cancel()">Cancel</button>
+            <button id="saveBtn" class="btn btn-secondary" onClick="save()">Save</button>
             <br/>
 
             <br/>

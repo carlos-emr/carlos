@@ -263,11 +263,11 @@
                                                                     </td>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <td><input type="text" class="input-small" name="inputValue-${ctr.index}" id="inputValue-${ctr.index}"/></td>
+                                                                    <td><input type="text" class="form-control form-control-sm" name="inputValue-${ctr.index}" id="inputValue-${ctr.index}"/></td>
                                                                 </c:otherwise>
                                                             </c:choose>
 
-                                                            <td><input type="text" class="input-medium" name="date-${ctr.index}" id="date-${ctr.index}"/></td>
+                                                            <td><input type="text" class="form-control" name="date-${ctr.index}" id="date-${ctr.index}"/></td>
                                                             <script>
                                                                 Calendar.setup({
                                                                     inputField: "date-${ctr.index}",
@@ -276,7 +276,7 @@
                                                                 });
                                                             </script>
 
-                                                            <td><input type="text" class="input-large" name="comments-${ctr.index}" id="comments-${ctr.index}"/></td>
+                                                            <td><input type="text" class="form-control" name="comments-${ctr.index}" id="comments-${ctr.index}"/></td>
                                                             <td>
                                                                 <input type="hidden" name="inputType-${ctr.index}" value="${measurementType.type}"/>
                                                                 <input type="hidden" name="inputTypeDisplayName-${ctr.index}" value="${measurementType.typeDisplayName}"/>

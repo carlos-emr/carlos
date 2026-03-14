@@ -186,10 +186,10 @@
                     </select>
                 </td>
                 <td>
-                    <input type="button" class="btn" name="movetoInactive" value=">>"
+                    <input type="button" class="btn btn-secondary" name="movetoInactive" value=">>"
                            onclick="swap('activeText','inactiveText')"/>
                     <br/>
-                    <input type="button" class="btn" name="movetoActive" value="<<"
+                    <input type="button" class="btn btn-secondary" name="movetoActive" value="<<"
                            onclick="swap('inactiveText','activeText')"/>
                 </td>
                 <td style="vertical-align: top">

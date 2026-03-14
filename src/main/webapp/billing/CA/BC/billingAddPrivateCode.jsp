@@ -104,7 +104,7 @@
             Price:<br>
             <input type="text" name="value" id="value" /><br>
 
-            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="billingPrivateCodeAdjust.jsp" class="btn">Cancel</a>
+            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="billingPrivateCodeAdjust.jsp" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
     </body>

@@ -101,7 +101,7 @@
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
                         <label class="form-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
-                        <div class="controls">
+                        <div>
                             <select name="selectedWL" id="selectedWL">
                                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%
@@ -115,8 +115,8 @@
                                 </option>
                                 <%}%>
                             </select>
-                            <input type="text" class="input-medium" name="wlChangedName" placeholder="" value="">
-                            <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                            <input type="text" class="form-control d-inline-block w-auto" name="wlChangedName" placeholder="" value="">
+                            <input type="submit" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('change');document.forms[0].actionChosen.value='change'">
                         </div> <!-- class="controls" -->
                     </fieldset>
@@ -125,9 +125,9 @@
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
                         <label class="form-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
-                        <div class="controls">
-                            <input type="text" class="input-medium" name="wlNewName" id="wlNewName" placeholder="" value="">
-                            <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                        <div>
+                            <input type="text" class="form-control d-inline-block w-auto" name="wlNewName" id="wlNewName" placeholder="" value="">
+                            <input type="submit" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('create');document.forms[0].actionChosen.value='create'">
                         </div> <!-- class="controls" -->
                     </fieldset>
@@ -136,7 +136,7 @@
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/></legend>
                         <label class="form-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
-                        <div class="controls">
+                        <div>
                             <select name="selectedWL2" id="selectedWL2">
                                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%

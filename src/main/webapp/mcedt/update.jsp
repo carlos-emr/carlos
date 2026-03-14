@@ -98,10 +98,10 @@
                             </td>
                             <td><c:choose>
                                 <c:when test="${empty d.modifyTimestamp}">
-                                    <button class="btn" onclick="return modifyResource(${d.resourceID})">Modify</button>
+                                    <button class="btn btn-secondary" onclick="return modifyResource(${d.resourceID})">Modify</button>
                                 </c:when>
                                 <c:otherwise>
-                                    <button class="btn" disabled="disabled">Modify</button>
+                                    <button class="btn btn-secondary" disabled="disabled">Modify</button>
                                 </c:otherwise>
                             </c:choose></td>
                         </tr>
@@ -110,7 +110,7 @@
 
                 <div>
                     <button class="btn btn-primary" onclick="modify(this)">Save Changes</button>
-                    <button class="btn" onclick="return cancel(this)">Cancel</button>
+                    <button class="btn btn-secondary" onclick="return cancel(this)">Cancel</button>
                 </div>
 
             </form>

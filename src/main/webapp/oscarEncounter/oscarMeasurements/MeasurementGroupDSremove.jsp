@@ -101,7 +101,7 @@
         </strong></em> decision support. To remove this association please click on the remove button.
 
             <div style="width:100%;text-align:right;margin-top:10px">
-                <button class="btn" onclick="window.close();">Cancel</button>
+                <button class="btn btn-secondary" onclick="window.close();">Cancel</button>
                 <button type="submit" name="remove" class="btn btn-danger">Remove</button>
             </div>
 

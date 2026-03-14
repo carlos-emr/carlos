@@ -404,7 +404,7 @@
                 <% } %></th>
             <th style="width: 600px">Object Name/Role Name: <input type="text" name="keyword"
                                                                    value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
-                    type="submit" name="search" class="btn"
+                    type="submit" name="search" class="btn btn-secondary"
                     value="Filter"></th>
         </tr>
     </table>
@@ -488,8 +488,8 @@
                         type="hidden" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
                         type="hidden" name="objectName" value="<%=obj %>"> <input
                         type="hidden" name="roleUserGroup" value="<%=roleUser %>"> <input
-                        type="submit" name="buttonUpdate" value="Update" class="btn"> <input
-                        type="submit" name="submit" value="Delete" class="btn"> <% } %>
+                        type="submit" name="buttonUpdate" value="Update" class="btn btn-secondary"> <input
+                        type="submit" name="submit" value="Delete" class="btn btn-secondary"> <% } %>
                 </td>
             </tr>
         </form>
@@ -592,7 +592,7 @@
                 </select></td>
                 <td>
                     <input type="submit"
-                           name="submit" value="Add" class="btn"></td>
+                           name="submit" value="Add" class="btn btn-secondary"></td>
             </tr>
             <% }%>
 
@@ -630,7 +630,7 @@
                     <% }%>
                 </select></td>
                 <td><input type="submit"
-                           name="submit" value="Add" class="btn"></td>
+                           name="submit" value="Add" class="btn btn-secondary"></td>
 
             </tr>
             </tbody>

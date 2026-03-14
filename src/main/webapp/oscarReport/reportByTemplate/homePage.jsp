@@ -79,8 +79,8 @@
     %>
     <div class="row">
         <form class="form-inline">
-            <div class="input-prepend">
-                <span class="add-on">Group</span>
+            <div class="input-group">
+                <span class="input-group-text">Group</span>
                 <select name="templates" id="viewSelect">
                     <option value="all">All Templates</option>
 

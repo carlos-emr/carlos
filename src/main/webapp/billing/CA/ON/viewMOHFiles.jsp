@@ -87,7 +87,7 @@
     <% } %>
 
         <% if (folder == EDTFolder.INBOX) {%>
-        <input type="submit" value="Archive" class="btn">
+        <input type="submit" value="Archive" class="btn btn-secondary">
         <% } %>
 
         View:
@@ -171,7 +171,7 @@
         <% if (contents.length > 20) { %>
 
         <% if (folder == EDTFolder.INBOX) {%>
-        <input type="submit" value="Archive" class="btn">
+        <input type="submit" value="Archive" class="btn btn-secondary">
         <% } %>
 
         <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+this.options[selectedIndex].value">

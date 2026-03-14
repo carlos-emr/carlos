@@ -55,7 +55,7 @@
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/>
         <div class="float-end">
-            <button name='print' onClick='window.print()' class="btn">
+            <button name='print' onClick='window.print()' class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>

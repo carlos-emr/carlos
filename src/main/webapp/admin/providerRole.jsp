@@ -494,7 +494,7 @@
     <div class="card card-body bg-body-tertiary">
 
         <div class="controls">
-            <div class="input-append">
+            <div class="input-group">
                 <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
                        value="<%=Encode.forHtmlAttribute(keyword)%>"/>
                 <input type="submit" class="btn btn-primary" name="search" value="Filter" >

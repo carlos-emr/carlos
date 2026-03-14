@@ -289,7 +289,7 @@
 
 
             <c:if test="${ not empty listview and not empty listview.strCode }">
-                <input type="button" class="btn" value="Download Excel"
+                <input type="button" class="btn btn-secondary" value="Download Excel"
                        onclick="javascript:this.form.action='${pageContext.servletContext.contextPath}/report/DxresearchReport.do?method=patientExcelReport';this.form.submit()">
             </c:if>
 

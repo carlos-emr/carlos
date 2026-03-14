@@ -84,7 +84,7 @@
         <div class="control-group">
             <label class="form-label">Functional Centre</label>
             <div class="controls">
-                <select id="functionalCentreId" name="functionalCentreId" class="input-large">
+                <select id="functionalCentreId" name="functionalCentreId" class="form-select">
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
@@ -171,7 +171,7 @@
                 </small>
             </label>
             <div class="controls">
-                <select name="providerIds" class="input-medium" multiple="multiple">
+                <select name="providerIds" class="form-select d-inline-block w-auto" multiple="multiple">
                     <%
                         // null for both active and inactive because the report might be for a providers who's just left in the current reporting period.
                         List<Provider> providers = providerManager.getProviders(loggedInInfo, null);
@@ -197,7 +197,7 @@
                 </small>
             </label>
             <div class="controls">
-                <select name="programIds" class="input-medium" multiple="multiple">
+                <select name="programIds" class="form-select d-inline-block w-auto" multiple="multiple">
                     <%
                         List<Program> programs = programManager.getPrograms(loggedInInfo.getCurrentFacility().getId());
 

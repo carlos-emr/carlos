@@ -156,9 +156,9 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn" name="csv" value="<%=StringEscapeUtils.escapeHtml4(csvList.get(x))%>">
-                <input type="submit" class="btn" name="getCSV" value="Export to CSV">
-                <input type="submit" class="btn" name="getXLS" value="Export to XLS">
+                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=StringEscapeUtils.escapeHtml4(csvList.get(x))%>">
+                <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
+                <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
             </form>
 
             <% } %>

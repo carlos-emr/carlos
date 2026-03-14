@@ -288,9 +288,9 @@
                 </c:forEach>
             </select>
 
-            <input class="btn" type="button" onclick="edit();return false;"
+            <input class="btn btn-secondary" type="button" onclick="edit();return false;"
                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Edit"/>"/>
-            <input type="submit" name="submit" value="Delete" class="btn" onclick="return deleteStyle();"/>
+            <input type="submit" name="submit" value="Delete" class="btn btn-secondary" onclick="return deleteStyle();"/>
 
 
         </div>
@@ -378,7 +378,7 @@
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
                 <textarea rows="8" class="col-md-6" readonly="true" id="styleText" name="styleText"></textarea>
-                <input class="btn" id="apply-btn" type="button"
+                <input class="btn btn-secondary" id="apply-btn" type="button"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
                        style="display:none"/>
 

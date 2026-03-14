@@ -408,7 +408,7 @@
                     <td colspan="2" rowspan="7" style="border: none;">
                         <textarea class="form-control" rows="23" style="width:100%;" id="newMessage"
                                   name="newMessage"></textarea>
-                        <input type="button" class="btn" name="pasteMessage" onclick="pasteMessageText()"
+                        <input type="button" class="btn btn-secondary" name="pasteMessage" onclick="pasteMessageText()"
                                value="<fmt:message key="tickler.ticklerEdit.pasteMessage"/>"/>
                     </td>
 
@@ -505,7 +505,7 @@
 
                         <input type="button" class="btn btn-primary" name="updateTickler"
                                value="<fmt:message key="tickler.ticklerEdit.update"/>" onClick="validate(this.form, false)"/>
-                        <input type="button" class="btn" name="cancelChangeTickler"
+                        <input type="button" class="btn btn-secondary" name="cancelChangeTickler"
                                value="<fmt:message key="tickler.ticklerEdit.cancel"/>" onClick="window.close()"/>
 
                     </td>

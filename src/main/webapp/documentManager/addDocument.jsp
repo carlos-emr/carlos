@@ -248,13 +248,13 @@
 <div class="add-document-wrapper">
 
     <div class="docHeading btn-group">
-        <a class="btn" id="plusminusAddDocA" href="javascript: showhide('addDocDiv', 'plusminusAddDocA');">
+        <a class="btn btn-secondary" id="plusminusAddDocA" href="javascript: showhide('addDocDiv', 'plusminusAddDocA');">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgAddDocument"/>
         </a>
-        <a class="btn" id="plusminusLinkA" href="javascript: showhide('addLinkDiv', 'plusminusLinkA')">
+        <a class="btn btn-secondary" id="plusminusLinkA" href="javascript: showhide('addLinkDiv', 'plusminusLinkA')">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.AddLink"/>
         </a>
-        <a class="btn" href="javascript:void(0);"
+        <a class="btn btn-secondary" href="javascript:void(0);"
            onclick="popup1(450, 600, 'addedithtmldocument.jsp?function=<%=module%>&functionid=<%=moduleid%>&mode=addHtml', 'addhtml')">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.AddHTML"/>
         </a>
@@ -456,7 +456,7 @@
                 <div class="input-group">
                     <input type="hidden" name="mode" value="addLink">
                     <input class="btn btn-primary" type="SUBMIT" name="Submit" value="Add">
-                    <input class="btn" type="button" name="Button"
+                    <input class="btn btn-secondary" type="button" name="Button"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
                            onclick="window.location='documentReport.jsp?function=<%=module%>&functionid=<%=moduleid%>'">
                 </div>

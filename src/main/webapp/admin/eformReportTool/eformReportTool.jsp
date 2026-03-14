@@ -334,7 +334,7 @@
     </table>
 
     <!-- button to add new  -->
-    <button id="btnAdd" class="btn">Add New</button>
+    <button id="btnAdd" class="btn btn-secondary">Add New</button>
 
     <!-- add new should show form with name, eform name, and expiry date -->
 

@@ -97,7 +97,7 @@
 </div>
 
 <form action="${ctx}/oscarReport/oscarReportFluBilling.jsp" class="card card-body bg-body-tertiary form-inline" id="fluForm">
-    <select name="numMonth" class="input-small">
+    <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
             for (int i = curYear - 2; i <= curYear + 2; i++) {
         %>
@@ -107,7 +107,7 @@
             }
         %>
 
-    </select> <select name="proNo" class="input-large">
+    </select> <select name="proNo" class="form-select">
     <option value="-1" <%=selled("-1", pros)%>>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgAllProviders"/>
     </option>

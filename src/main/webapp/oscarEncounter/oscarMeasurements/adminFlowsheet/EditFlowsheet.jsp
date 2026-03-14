@@ -833,7 +833,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                 }
             });
 
-            //$('<a href="#" class="btn" id="add-new" title="Add Measurement" style="margin-left:15px"><i class="fa-solid fa-plus"></i> Add</a>').appendTo('div.dataTables_filter label');
+            //$('<a href="#" class="btn btn-secondary" id="add-new" title="Add Measurement" style="margin-left:15px"><i class="fa-solid fa-plus"></i> Add</a>').appendTo('div.dataTables_filter label');
 
             $("#add-new").click(function () {
                 $('#addModal').modal('show');

@@ -291,7 +291,7 @@
             </select>
 
             Resource Type:
-            <select name="resourceType" id="resourceType" class="input-xxlarge">
+            <select name="resourceType" id="resourceType" class="form-select w-auto d-inline-block">
                 <option value="" ${resourceType == '' ? 'selected="selected"' : ''}> - All - </option>
                 <c:forEach var="r" items="${mcedtTypeList.data}">
                     <option value="${r.resourceType}" ${r.resourceType == resourceType ? 'selected="selected"' : ''}>

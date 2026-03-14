@@ -1024,11 +1024,11 @@
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
-                            <input type="submit" name="button" value="Back to Edit" class="btn" style="width: 120px;"/>
+                            <input type="submit" name="button" value="Back to Edit" class="btn btn-secondary" style="width: 120px;"/>
                                 <% if (codeValid && !dupServiceCode) { %>
                             <input type="submit" name="submit" value="Save" class="btn btn-primary"
                                    style="width: 120px;" onClick="onClickSave();"/>
-                            <input type="submit" name="submit" value="Save & Add Another Bill" class="btn"
+                            <input type="submit" name="submit" value="Save & Add Another Bill" class="btn btn-secondary"
                                    onClick="onClickSave();"/>
                                 <% }else if (dupServiceCode){%>
                         <td>
@@ -1219,7 +1219,7 @@
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
-            <input type="submit" name="submit" value="Save & Print Invoice" class="btn"
+            <input type="submit" name="submit" value="Save & Print Invoice" class="btn btn-secondary"
                    style="width: 150px;"/>
             <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
                    value="Settle & Print Invoice"
@@ -1393,7 +1393,7 @@
                     <jsp:param name="demographicNo" value="<%=demo_no%>"/>
                 </jsp:include>
             </div>
-            <input type="button" value="Add To Disease Registry" class="btn" onclick="addToDiseaseRegistry()"/>
+            <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
         </form>
     </div>
 

@@ -87,7 +87,7 @@
                 <label class="form-label" for="resourceType">Resource
                     Type</label>
 
-                <select name="resourceType" id="resourceType" class="input-xxlarge">
+                <select name="resourceType" id="resourceType" class="form-select w-auto d-inline-block">
                     <c:forEach var="r" items="${mcedtTypeList.data}">
                         <option value="${r.resourceType}">
                             <c:out value="${r.resourceType}"/> -
@@ -103,8 +103,8 @@
                 <input type="file" name="content" id="content" style="content"/>
 
                 <div style="margin-top: 1em;">
-                    <button class="btn" onclick="return create();">Create</button>
-                    <button class="btn" onclick="return cancel();">Cancel</button>
+                    <button class="btn btn-secondary" onclick="return create();">Create</button>
+                    <button class="btn btn-secondary" onclick="return cancel();">Cancel</button>
                 </div>
                 </form>
             </div>

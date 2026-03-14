@@ -154,7 +154,7 @@
             <div class="card card-body bg-body-tertiary" id="modalItems"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn" data-bs-dismiss="modal" aria-hidden="true">No, don't save</button>
+            <button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">No, don't save</button>
             <button type="submit" class="btn btn-danger">Yes, please save</button>
         </div>
     </div></div></div>

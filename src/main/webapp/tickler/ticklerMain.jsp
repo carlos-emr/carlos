@@ -846,7 +846,7 @@
                         <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>">
                         <label for="saveViewButton"> </label>
-                        <input type="button" class="btn" id="saveViewButton"
+                        <input type="button" class="btn btn-secondary" id="saveViewButton"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgSaveView"/>" onclick="saveView();">
                     </div>
 
@@ -916,13 +916,13 @@
                         <%
                             if (ticklerview.compareTo("D") == 0) {
                         %>
-                        <input type="button" class="btn"
+                        <input type="button" class="btn btn-secondary"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
                                onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
                         <%
                         } else {
                         %>
-                        <input type="button" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnComplete"/>"
+                        <input type="button" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnComplete"/>"
                                class="sbttn"
                                onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
                         <input type="button" class="btn btn-danger"

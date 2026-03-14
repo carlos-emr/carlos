@@ -96,7 +96,7 @@
         </select>
 
         <button type="submit" name="add" class="btn btn-primary" style="margin-top:-10px">Add</button>
-        <a href="SetupGroupList.do" class="btn" style="margin-top:-10px">Cancel</a>
+        <a href="SetupGroupList.do" class="btn btn-secondary" style="margin-top:-10px">Cancel</a>
     </form>
 
 </div><!-- container -->

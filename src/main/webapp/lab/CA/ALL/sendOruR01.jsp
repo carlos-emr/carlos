@@ -101,15 +101,15 @@ for pre-populating data.
 <form method="post" enctype="multipart/form-data" action="oruR01Upload.do" onsubmit="return checkRequiredFields()"
       class="card card-body bg-body-tertiary">
     <fieldset>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">From Provider:</label>
-            <div class="controls">
+            <div>
                 <%=SendOruR01UIBean.getLoggedInProviderDisplayLine(loggedInInfo)%>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">To Provider / Specialist:</label>
-            <div class="controls">
+            <div>
                 <select name="professionalSpecialistId" id="professionalSpecialistId">
                     <option value="">--- none selected ---</option>
                     <%
@@ -123,33 +123,33 @@ for pre-populating data.
                 </select>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label"><strong>For Client</strong></label>
-            <div class="controls">&nbsp;</div>
+            <div>&nbsp;</div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">First Name</label>
-            <div class="controls">
+            <div>
                 <input type="text" id="clientFirstName" name="clientFirstName"
                        value="<%=sendOruR01UIBean.getClientFirstName()%>"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Last Name</label>
-            <div class="controls">
+            <div>
                 <input type="text" id="clientLastName" name="clientLastName"
                        value="<%=sendOruR01UIBean.getClientLastName()%>"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Health Number<br/>(excluding version code)</label>
-            <div class="controls">
+            <div>
                 <input type="text" name="clientHealthNumber" value="<%=sendOruR01UIBean.getClientHin()%>"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">BirthDay</label>
-            <div class="controls">
+            <div>
                 <input type="text" id="clientBirthDay" name="clientBirthDay"
                        value="<%=sendOruR01UIBean.getClientBirthDate()%>"/>
                 <script>
@@ -160,9 +160,9 @@ for pre-populating data.
                 </script>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Gender</label>
-            <div class="controls">
+            <div>
                 <select name="clientGender">
                     <option value="">--- none selected ---</option>
                     <%
@@ -177,30 +177,30 @@ for pre-populating data.
             </div>
         </div>
         <hr/>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Subject</label>
-            <div class="controls">
+            <div>
                 <input type="text" id="subject" name="subject" value="<%=sendOruR01UIBean.getSubject()%>"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Text Message</label>
-            <div class="controls">
+            <div>
                 <textarea id="textMessage" name="textMessage"
                           style="width:40em;height:8em"><%=sendOruR01UIBean.getTextMessage()%></textarea>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">Upload File</label>
-            <div class="controls">
+            <div>
                 <input type="file" id="uploadFile" name="uploadFile"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <label class="form-label">&nbsp;</label>
-            <div class="controls">
+            <div>
                 <input type="submit" class="btn btn-primary" value="Electronically Send Data"/>&nbsp;<input
-                    type="button" class="btn" value="close" onclick='window.close()'/>
+                    type="button" class="btn btn-secondary" value="close" onclick='window.close()'/>
             </div>
         </div>
     </fieldset>

@@ -293,20 +293,20 @@
 
             <div class="row">
                 <legend>Search Faxes</legend>
-                <div class="input-append col-md-3">
+                <div class="input-group col-md-3">
 
                     <input class="col-md-2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="From" id="dateBegin" name="dateBegin" required/>
-                    <span class="add-on">
+                    <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
 
-                <div class="input-append col-md-3">
+                <div class="input-group col-md-3">
 
                     <input class="col-md-2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="To" id="dateEnd" name="dateEnd" required/>
-                    <span class="add-on">
+                    <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>

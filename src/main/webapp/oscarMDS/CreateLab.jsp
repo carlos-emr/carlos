@@ -230,8 +230,8 @@
                         </tr>
                         <tr>
                             <td><label>Lab Req Date/Time:</label></td>
-                            <td class="input-append"><input type="text" class="input-medium" name="lab_req_date" id="lab_req_date" required><img
-                                    src="<%=request.getContextPath()%>/images/cal.gif" id="lab_req_date_cal" class="add-on"></td>
+                            <td class="input-group"><input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required><img
+                                    src="<%=request.getContextPath()%>/images/cal.gif" id="lab_req_date_cal" class="input-group-text"></td>
                         </tr>
                         </table>
                     </fieldset>
@@ -277,8 +277,8 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="input-append"><label>DOB:</label><input type="text" class="input-medium" required name="dob" id="dob"/><img src="<%=request.getContextPath()%>/images/cal.gif"
-                                                                     id="dob_cal" class="add-on"></td>
+                    <td class="input-group"><label>DOB:</label><input type="text" class="form-control" required name="dob" id="dob"/><img src="<%=request.getContextPath()%>/images/cal.gif"
+                                                                     id="dob_cal" class="input-group-text"></td>
                     <td><label>HIN:</label><input type="text" name="hin" id="hin"/></td>
                     <td><label>Phone:</label><input type="text" name="phone" id="phone"/></td>
                 </tr>

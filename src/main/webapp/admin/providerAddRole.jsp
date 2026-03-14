@@ -266,7 +266,7 @@
                     <input type="text" name="role_name" id="role_name"
                            value="<%=Encode.forHtmlAttribute(prop.getProperty("role_name", ""))%>"
                            maxlength='30'>
-                    <input type="submit" name="submit" value="Search" class="btn"
+                    <input type="submit" name="submit" value="Search" class="btn btn-secondary"
                            onclick="javascript:return onSearch();">
                 </div>
             </div>

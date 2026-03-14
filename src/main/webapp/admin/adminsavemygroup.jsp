@@ -105,7 +105,7 @@
 
     <a href="admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
 
-    <a href="adminnewgroup.jsp" class="btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+    <a href="adminnewgroup.jsp" class="btn btn-secondary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
 

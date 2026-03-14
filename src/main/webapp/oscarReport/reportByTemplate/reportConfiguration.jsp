@@ -180,9 +180,9 @@
                     <%--If DATE field --%>
                 <% } else if (curparam.getParamType().equals(curparam.DATE)) {%>
                 <div class="controls">
-                    <div class="input-append" id="<%=curparam.getParamId()%>">
+                    <div class="input-group" id="<%=curparam.getParamId()%>">
                         <input type="text" class="datefield" id="datefield<%=i%>" name="<%=curparam.getParamId()%>"/>
-                        <span class="add-on">
+                        <span class="input-group-text">
 									<a id="obsdate<%=i%>">
 										<img title="Calendar" src="${pageContext.request.contextPath}/images/cal.gif"
                                              alt="Calendar">

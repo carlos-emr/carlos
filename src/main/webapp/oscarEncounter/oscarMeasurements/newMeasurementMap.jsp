@@ -126,7 +126,7 @@
                 <td class="MainTableTopRow" colspan="9" align="left">
                     <table style="width:100%">
                         <tr>
-                            <td><input type="button" class="btn"
+                            <td><input type="button" class="btn btn-secondary"
                                        value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
                                        onClick="window.close()"></td>
                             <td style="text-align:right"><a
@@ -155,7 +155,7 @@
                 </tr>
                 <tr>
                     <td><input
-                            type="submit" class="btn" value=" Add Loinc Code " onclick="return addLoinc()">
+                            type="submit" class="btn btn-secondary" value=" Add Loinc Code " onclick="return addLoinc()">
                     </td>
                 </tr>
                 <tr>

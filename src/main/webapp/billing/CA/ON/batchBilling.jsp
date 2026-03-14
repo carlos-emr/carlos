@@ -350,18 +350,18 @@
                 <td colspan="7">
                     <div class="col-md-3">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceDate"/>
-                        <div class="input-append">
+                        <div class="input-group">
                             <input type="text" name="BillDate" id="BillDate"
                                    value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
                                    data-date-format="yyyy-m-d" style="width:90px" autocomplete="off" readonly/>
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
 
                     <div class="col-md-4">
                         <input type="button" class="btn btn-primary" onclick="return setMethod('doBatchBill');"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.btnSubmit"/>">
-                        <input type="button" class="btn" onclick="return askFirst('remove');"
+                        <input type="button" class="btn btn-secondary" onclick="return askFirst('remove');"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.btnRemove"/>">
                     </div>
                 </td>

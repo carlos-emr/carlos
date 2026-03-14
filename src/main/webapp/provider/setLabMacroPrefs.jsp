@@ -494,7 +494,7 @@ String rawPanelStyle = (submittedJSON != null) ? "display:block;" : "display:non
 %>
 <div class="form-group row" style="<%=rawPanelStyle%>" id="raw">
     <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><%=Encode.forHtml(rawJsonValue)%></textarea>
-    <input type="submit" class="btn" value="<fmt:message key="global.btnSave" />" />
+    <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnSave" />" />
 </div>
 </div>
 </form>

@@ -1297,7 +1297,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                 <input type="submit"
                        name="submit" value="Next" style="width: 120px;" class="btn btn-primary"/>
                 <input
-                        type="button" class="btn" name="button" value="Exit" style="width: 120px;" class="btn"
+                        type="button" class="btn btn-secondary" name="button" value="Exit" style="width: 120px;" class="btn btn-secondary"
                         onclick="self.close();"/> &nbsp;
             </td>
         </tr>
@@ -1312,12 +1312,12 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                 demographicNo="<%=demo_no%>"/> <%=roster_status%>
                         </b>
                             <%if (appt_no.compareTo("0") == 0) {%>
-                            <span class="input-append">
+                            <span class="input-group">
 								<input type="text" id="service_date" name="service_date" readonly
                                        value="<%=request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday%>"
                                        style="width: 80px; height:14px;  vertical-align: bottom;">
                                 <img src="${ pageContext.request.contextPath }/images/cal.gif" id="service_date_cal"
-                                     style="height:14px;  vertical-align: bottom;" class="add-on" alt="cal"></span>
+                                     style="height:14px;  vertical-align: bottom;" class="input-group-text" alt="cal"></span>
                             <%} else {%>
                                 <input type="text" id="service_date" name="service_date" readonly
 								value="<%=request.getParameter("appointment_date")%>"
@@ -1361,7 +1361,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                                 <td><a href="javascript:void(0);"
                                                        onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;">Dx</a>
                                                 </td>
-                                                <td><input type="text" name="dxCode" class="input-mini"
+                                                <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5" ondblClick="dxScriptAttach('dxCode')"
                                                            onchange="changeCodeDesc();"
                                                            value="<%=request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode%>"/>
@@ -1370,7 +1370,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             </tr>
                                             <tr>
                                                 <td>dx1</td>
-                                                <td><input type="text" name="dxCode1" class="input-mini"
+                                                <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5" ondblClick="dxScriptAttach('dxCode1')"
                                                            value="<%=request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):""%>"/>
                                                     <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode1')">Search</a>
@@ -1378,7 +1378,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             </tr>
                                             <tr>
                                                 <td>dx2</td>
-                                                <td><input type="text" name="dxCode2" class="input-mini"
+                                                <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5" ondblClick="dxScriptAttach('dxCode2')"
                                                            value="<%=request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):""%>"/>
                                                     <a href="javascript:void(0);" onclick="dxScriptAttach('dxCode2')">Search</a>
@@ -1406,14 +1406,14 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                     %> <input type="checkbox" name="rfcheck" value="checked"
                                             <%=checkRefBox%> onclick="onClickRefDoc()"/><br/>
                                         <input
-                                                type="text" name="referralCode" class="input-mini" maxlength="6"
+                                                type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
                                                 value="<%=refNo%>">&nbsp;
                                         <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgType"/>"
-                                               name="referralSpet" class="input-small" maxlength="2"
+                                               name="referralSpet" class="form-control form-control-sm d-inline-block w-auto" maxlength="2"
                                                value="<%=referSpet==null?"":referSpet%>"><br/>
                                         <input placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
-                                               type="text" name="referralDocName" class="input-medium" maxlength="30"
+                                               type="text" name="referralDocName" class="form-control" maxlength="30"
                                                value="<%=refName%>">
                                     </td>
                                 </tr>
@@ -1421,7 +1421,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b>Code
                                         &nbsp; Time
                                         &nbsp;%</b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
-                                        <input type="text" name="serviceCode<%=i%>" class="input-mini"
+                                        <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
 
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
                                                onDblClick="scScriptAttach(this)" onBlur="upCaseCtrl(this)"/>x
@@ -1435,7 +1435,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b>Code
                                         &nbsp; Time
                                         &nbsp;%</b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
-                                        <input type="text" name="serviceCode<%=i%>" class="input-mini"
+                                        <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
 
                                                value="<%=request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):""%>"
                                                onDblClick="scScriptAttach(this)" onBlur="upCaseCtrl(this)"/>x
@@ -1751,17 +1751,17 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                             if (visitType.startsWith("02") || visitType.startsWith("04"))
                                                 admDate = getDefaultValue(request.getParameter("visitdate"), vecHist, "visitdate");
                                         %>
-											<span class="input-append">
+											<span class="input-group">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
                                                value="<%=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate%>"
-											class="input-small" style="height: 14px; margin-top:4px;" readonly> <img alt="cal" class="add-on" style="height:14px;  margin-top:4px;"
+											class="form-control form-control-sm d-inline-block w-auto" style="height: 14px; margin-top:4px;" readonly> <img alt="cal" class="input-group-text" style="height:14px;  margin-top:4px;"
 											src="${ pageContext.request.contextPath }/images/cal.gif" id="xml_vdate_cal">
 											</span>
                                             <span id="duration_display"></span>
                                     </td>
                                     <td colspan="2"><a href="javascript:void(0);"
                                                        onclick="showHideLayers('Layer1','','show');return false;">
-                                        Billing form</a>: <input type="text" name="billFormName" class="input-large"
+                                        Billing form</a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
                                                                  value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
                                         <input type="hidden" name="billForm" id="billForm"
@@ -2106,7 +2106,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         <tr style="background-color: silver;">
             <td><%=Encode.forHtml(demoname)%> - <b>Billing History</b> (last 5 records)</td>
             <td style="width: 20%; text-align: right">Last <input type="text"
-                                                                  name="day" value="365" class="input-small"/> days
+                                                                  name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> days
                 <input type="button"
                        name="buttonDay" value="Go" onClick="onHistory(); return false;"/>
             </td>

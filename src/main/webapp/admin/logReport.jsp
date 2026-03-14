@@ -180,19 +180,19 @@
 
             <div class="col-md-4">
                 <label>Start Date: </label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="startDate" id="startDate1" value="<%=startDate!=null?startDate:""%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
             <div class="col-md-4">
                 <label>End Date: </label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="endDate" id="endDate1" value="<%=endDate!=null?endDate:""%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 

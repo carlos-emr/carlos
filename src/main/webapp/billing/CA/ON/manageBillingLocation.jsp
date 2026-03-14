@@ -179,7 +179,7 @@
                                 </td>
                                 <td><%=clinicLocation.getClinicLocationName()%>
                                 </td>
-                                <td align="center"><input class="btn" type="submit" name="submit"
+                                <td align="center"><input class="btn btn-secondary" type="submit" name="submit"
                                                           value="Delete"/> <input type="hidden" name="location_no"
                                                                                   value="<%=clinicLocation.getClinicLocationNo()%>"/>
                                 </td>

@@ -222,14 +222,14 @@
                     <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
                     <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
                 </a>
-                <input type="button" class="btn"
+                <input type="button" class="btn btn-secondary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgPreviewLast"/>" <% if (curform.get("fid") == null) {%>
                        disabled    <%}%> name="previewlast" onclick="openLastSaved()">
                 <a href="<%=request.getContextPath()%>/eform/efmformmanageredit.jsp?fid=<%= curform.get("fid") %>"
                    class="btn contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.cancelChanges"/></a>
             </div>
 
-            <a href="#" class="btn" id="popupDisplay" onClick="window.close()">
+            <a href="#" class="btn btn-secondary" id="popupDisplay" onClick="window.close()">
                 <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
             </a>

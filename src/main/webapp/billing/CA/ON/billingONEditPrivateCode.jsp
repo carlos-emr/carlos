@@ -315,7 +315,7 @@
                     %>
                 </select>
                 <input type="hidden" name="submit" value="Search">
-                <input class="btn" type="submit" name="action" value="Edit">
+                <input class="btn btn-secondary" type="submit" name="action" value="Edit">
             </form>
         </div><!--select code to edit well-->
 
@@ -327,7 +327,7 @@
                 </div>
 
                 Private Code_ <small>(e.g. O001A)</small><br>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="service_code"
                            value="<%=prop.getProperty("service_code", "?").substring(1)%>" class="col-md-2" maxlength='10'
                            onblur="upCaseCtrl(this)" required/>
@@ -355,14 +355,14 @@
                 <div class="input-append date" id="billingservice_date" data-date="" data-date-format="yyyy-mm-dd">
                     <input style="width:90px" name="billingservice_date" id="billingservice_date" size="16" type="text"
                            value="" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" readonly>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
 
 
                 <br>
-                <input class="btn" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
+                <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
                 <input type="hidden" name="action" value='<%=action%>'>
-                <input class="btn" type="submit" name="submit"
+                <input class="btn btn-secondary" type="submit" name="submit"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="javascript:return onSave();">
             </form>

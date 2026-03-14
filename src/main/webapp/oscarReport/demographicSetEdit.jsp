@@ -156,7 +156,7 @@
                         <option value="<%=s%>"><%=s%>
                         </option>
                         <%}%>
-                    </select> <input type="submit" class="btn"
+                    </select> <input type="submit" class="btn btn-secondary"
                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDisplaySet"/>"/>
                     </div>
 
@@ -164,11 +164,11 @@
                    List<Map<String,String>> list = (List<Map<String,String>>) request.getAttribute("SET");
                    String setName = (String) request.getAttribute("setname");%>
                     <div><form action="${pageContext.request.contextPath}/report/SetEligibility.do" method="post">
-                        <input type="button" class="btn" data-bs-toggle="tooltip"
+                        <input type="button" class="btn btn-secondary" data-bs-toggle="tooltip"
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgIneligible"/>"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnSetIneligible"/>"
                                onclick="submit();">
-                        <input type="submit" class="btn" name="delete"
+                        <input type="submit" class="btn btn-secondary" name="delete"
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDelete"/>"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDelete"/>"/>
                         <input type="hidden" name="setName" value="<%=setName%>">
@@ -276,7 +276,7 @@
         </div>
         <div class="modal-footer">
             <a href="javascript:onDeleteConfirm();" class="btn btn-danger">Yes</a>
-            <button type="button" class="btn" data-bs-dismiss="modal">No</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
         </div>
     </div></div></div>
 

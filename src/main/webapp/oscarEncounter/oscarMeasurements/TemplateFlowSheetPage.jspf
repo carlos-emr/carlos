@@ -514,11 +514,11 @@ div.recommendations ul{
                         </div>
                         <div class="button-group">
                             <label>&nbsp;</label>
-                    <input type="button" class="btn" value="go" onclick="loadDifferentElements()"/>
+                    <input type="button" class="btn btn-secondary" value="go" onclick="loadDifferentElements()"/>
                         </div>
                         <div class="button-group">
                             <label>&nbsp;</label>
-                    <input type="button" class="btn" value="clear" onclick="clearDifferentElements()"/>
+                    <input type="button" class="btn btn-secondary" value="clear" onclick="clearDifferentElements()"/>
                         </div>
 
                     </div>
@@ -660,7 +660,7 @@ div.recommendations ul{
     <% } %>
 <div id="print_box">
    <input type="button" class="DoNotPrint btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.print"/>" onclick="javascript:window.print()">
-    <a class="btn" href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>">Custom Print</a>
+    <a class="btn btn-secondary" href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>">Custom Print</a>
 &nbsp;
 
 </div>

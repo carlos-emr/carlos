@@ -147,7 +147,7 @@
                 %>
             </select>
             <input type="hidden" name="dboperation" value=" Edit ">
-            <input type="submit" class="btn" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
+            <input type="submit" class="btn btn-secondary" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
         </form>
     </div>
 
@@ -193,12 +193,12 @@
             <div class="control-group">
                 <label class="form-label" for="color"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formColor"/>:</label>
                 <div class="controls">
-                    <div class="input-append">
+                    <div class="input-group">
                         <input type="text" name="color" id="color" maxlength="10"
                                style="width: 178px; background-color:<%=bEdit?(dataBean.getProperty("color")):"white"%>;"
                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.msgColorExample"/>"
                                 <%=bEdit?("value='"+dataBean.getProperty("color")+"'"):"value=''"%>>
-                        <span class="add-on"><a
+                        <span class="input-group-text"><a
                                 href="javascript:TCP.popup(document.forms['addtemplatecode'].elements['color']);"><img
                                 width="15" height="13" border="0"
                                 src="${pageContext.request.contextPath}/images/sel.gif"
@@ -236,7 +236,7 @@
                 </div>
                 <div style="text-align:right">
                     <br>
-                    <input type="button" class="btn"
+                    <input type="button" class="btn btn-secondary"
                            onclick="document.forms['addtemplatecode'].dboperation.value='Delete'; document.forms['addtemplatecode'].submit();"
                            value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.btnDelete"/>'>
                     <input type="button" class="btn btn-primary"

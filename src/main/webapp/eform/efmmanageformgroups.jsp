@@ -94,7 +94,7 @@
             <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="post" id="addGroupForm"
                   class="form-inline">
                 <div class="controls">
-                    <div class="input-append">
+                    <div class="input-group">
                         <input type="text" name="groupName" class="check"
                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addGroup"/>">
                         <input type="submit" name="subm" class="btn btn-primary groupAdd"
@@ -274,7 +274,7 @@
 
             </div>
             <div class="modal-footer">
-                <button class="btn" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
 
                 <input type="submit" name="subm" id="eformToGroup-btn" class="btn btn-primary"
                        value="Add eForm to Group">

@@ -154,8 +154,8 @@
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formInactiveStatus"/>
                     </td>
                     <td style="vertical-align:middle; text-align:left" rowspan="2">
-                        <div class="input-append">
-                            <input type="text" name="keyword" class="input input-large" maxlength="100"
+                        <div class="input-group">
+                            <input type="text" name="keyword" class="form-control" maxlength="100"
                                    style="height:24px">
                             <button type="submit" name="button" class="btn add-on" style="height:24px"><i
                                     class="fa-solid fa-magnifying-glass" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.btnSubmit"/>"></i>

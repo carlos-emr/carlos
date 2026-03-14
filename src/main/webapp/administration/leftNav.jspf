@@ -42,7 +42,7 @@ String curProvider_no = (String)session.getAttribute("user");
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request" />
 
-<div class="span3 hidden-print" id="side">
+<div class="col-3 d-print-none" id="side">
    
     <!--Sidebar content--> 
 		<div class="accordion" id="adminNav">

@@ -118,24 +118,24 @@
         <div class="col-md-2">Date: <%=DateUtils.sumDate("yyyy-MM-dd", "0")%>
         </div>
         <div class="col-md-2 float-end">
-            <button class="btn" type="button" value="Print" onclick="window.print()"/>
+            <button class="btn btn-secondary" type="button" value="Print" onclick="window.print()"/>
             <i class="fa-solid fa-print icon-white"></i> Print</button></div>
 
         <div class="col-md-12">
             <div class="col-md-2">
                 Start:
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="xml_vdate" id="xml_vdate" value="<%=startDate%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
             <div class="col-md-2">
                 End:
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<%=endDate%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 

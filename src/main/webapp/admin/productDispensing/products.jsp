@@ -507,8 +507,8 @@
 
 
     <div id="paginationControls">
-        <button class="btn" id="btnPrevPage" onClick="loadPreviousResults();">Prev</button>
-        <button class="btn" id="btnNextPage" onClick="loadNextResults()">Next</button>
+        <button class="btn btn-secondary" id="btnPrevPage" onClick="loadPreviousResults();">Prev</button>
+        <button class="btn btn-secondary" id="btnNextPage" onClick="loadNextResults()">Next</button>
         &nbsp;&nbsp;&nbsp;
         <select id="selPageSize" onChange="updatePageSize()">
             <option value="10">10</option>

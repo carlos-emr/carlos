@@ -220,8 +220,8 @@
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">
         <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
 
-        <INPUT class="btn" TYPE="SUBMIT" NAME="button" VALUE="Search">
-        <input class="btn" type="submit" name="mergebutton" value="Search Merged Records" onclick="searchMerged()">
+        <INPUT class="btn btn-secondary" TYPE="SUBMIT" NAME="button" VALUE="Search">
+        <input class="btn btn-secondary" type="submit" name="mergebutton" value="Search Merged Records" onclick="searchMerged()">
     </form>
 </div><!--well-->
 

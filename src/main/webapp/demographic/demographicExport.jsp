@@ -415,7 +415,7 @@
             <div id="exportErrorMessage" class="alert alert-danger">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportError"/>
                 <br/><br/>
-                <button type="button" class="btn" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
+                <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">

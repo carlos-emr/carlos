@@ -102,7 +102,7 @@
             <div class="toggleDiv">
 
                 <%if (functionalCentres.size() > 0) {%>
-                <select id="functionalCentreId" name="functionalCentreId" class="input-medium">
+                <select id="functionalCentreId" name="functionalCentreId" class="form-select d-inline-block w-auto">
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
@@ -121,7 +121,7 @@
 
             </div>
             <div class="toggleDiv" style="display: none;">
-                <select id="programIds" name="programIds" multiple='multiple' class="input">
+                <select id="programIds" name="programIds" multiple='multiple' class="form-select">
                     <%
                         for (Program program : programs) {
                             if ("Service".equalsIgnoreCase(program.getType())) {
@@ -144,7 +144,7 @@
     <div class="control-group">
         <label class="form-label">Date Range Start</label>
         <div class="controls">
-            <select name="startYear" class="input-medium">
+            <select name="startYear" class="form-select d-inline-block w-auto">
                 <%
                     GregorianCalendar cal = new GregorianCalendar();
                     int year = cal.get(GregorianCalendar.YEAR);
@@ -156,7 +156,7 @@
                     }
                 %>
             </select>
-            <select name="startMonth" class="input-mini">
+            <select name="startMonth" class="form-select form-select-sm d-inline-block w-auto">
                 <%
                     DateFormatSymbols dateFormatSymbols = DateFormatSymbols.getInstance();
                     String[] months = dateFormatSymbols.getShortMonths();
@@ -174,7 +174,7 @@
     <div class="control-group">
         <label class="form-label">Date Range End (inclusive)</label>
         <div class="controls">
-            <select name="endYear" class="input-medium">
+            <select name="endYear" class="form-select d-inline-block w-auto">
                 <%
                     for (int i = 0; i < 10; i++) {
                 %>
@@ -183,7 +183,7 @@
                 <%
                     }
                 %>
-            </select> <select name="endMonth" class="input-mini">
+            </select> <select name="endMonth" class="form-select form-select-sm d-inline-block w-auto">
             <%
                 for (int i = 1; i < 13; i++) {
             %>

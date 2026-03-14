@@ -467,7 +467,7 @@
 
             <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="service_code" value="<%=prop.getProperty("service_code", "")%>"
                            class="col-md-2" maxlength='5' onblur="upCaseCtrl(this)"/>
                     <button class="btn btn-primary" type="submit" name="submitFrm" value="Search"
@@ -535,21 +535,21 @@
 
             <div class="col-md-2">
                 <label>Issued Date</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="billingservice_date" id="billingservice_date"
                            value="<%=prop.getProperty("billingservice_date", "")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
             <div class="col-md-2">
                 <label>Termination Date</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="termination_date" id="termination_date"
                            value="<%=prop.getProperty("termination_date", "9999-12-31")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
@@ -564,7 +564,7 @@
 
             <div class="col-md-10">
                 <br>
-                <input type="hidden" id="action" name="action" value=''> <input class="btn" type="submit"
+                <input type="hidden" id="action" name="action" value=''> <input class="btn btn-secondary" type="submit"
                                                                                 name="submitFrm"
                                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
                                                                                 onclick="document.getElementById('action').value='<%=action%>';return onSave();">
@@ -572,7 +572,7 @@
                 <%
                     if (!action2.equals("")) {
                 %>
-                <input class="btn" type="submit" name="submitFrm"
+                <input class="btn btn-secondary" type="submit" name="submitFrm"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnAdd"/>"
                        onclick="document.getElementById('action').value='<%=action2%>';return onSave();">
                 <%}%>

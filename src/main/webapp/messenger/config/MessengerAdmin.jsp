@@ -344,7 +344,7 @@
                                     </c:forEach>
                                 </div>
                                 <div class="control-group contact-group-buttons">
-                                    <div class="input-append">
+                                    <div class="input-group">
                                         <div class="autocomplete">
                                             <input type='text' placeholder="Last, First" id="${ group.key.id }"
                                                    class="search-provider"/>
@@ -364,10 +364,10 @@
 
                         <div class="tab-pane form-check" id="new-group">
                             <div class="control-group">
-                                <div class="input-append">
+                                <div class="input-group">
                                     <input type='text' placeholder="Group Name" class="group-name-input"
                                            id="new-group-name"/>
-                                    <button id="add-group-btn" class="btn">
+                                    <button id="add-group-btn" class="btn btn-secondary">
                                         add
                                     </button>
                                 </div>

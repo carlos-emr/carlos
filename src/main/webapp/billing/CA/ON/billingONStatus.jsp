@@ -509,7 +509,7 @@
                         </script>
                         <label>
                             Site:
-                            <select id="site" name="site" class="input-large" onchange="changeSite(this)">
+                            <select id="site" name="site" class="form-select" onchange="changeSite(this)">
                                 <option value="none" style="background-color:white">---select clinic---</option>
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
@@ -522,7 +522,7 @@
                             </select>
                         </label>
                         <label>Provider:
-                            <select id="providerview" class="input-large" name="providerview"
+                            <select id="providerview" class="form-select" name="providerview"
                                     onchange="changeProvider(true);"></select></label>
                         <% if (request.getParameter("providerview") != null) { %>
                         <script>
@@ -536,7 +536,7 @@
                         %>
                         <label>
                             Provider:
-                            <select name="providerview" class="input-large" onchange="changeProvider(false);">
+                            <select name="providerview" class="form-select" onchange="changeProvider(false);">
                                 <%
                                     if (pList.size() == 1) {
                                         String temp[] = (pList.get(0)).split("\\|");
@@ -560,14 +560,14 @@
                         <% } %>
                         <label>
                             OHIP No.:
-                            <input type="text" class="input-small" name="provider_ohipNo" readonly value="<%=ohipNo%>"></label>
+                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<%=ohipNo%>"></label>
                     </div>
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
-                        <div class="input-append">
+                        <div class="input-group">
                             <input type="text" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="xml_appointment_date">End:
                             <small>
@@ -579,11 +579,11 @@
                                    onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-90")%>')">90</a>
                                 days back
                             </small></label>
-                        <div class="input-append">
+                        <div class="input-group">
                             <input type="text" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
                                    value="<%=endDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
                 </div>
@@ -591,18 +591,18 @@
                 <div class="row">
                     <div class="col-md-12">
                         <label>Dx:
-                            <input type="text" name="dx" class="input-mini" placeholder="123" value="<%=dx%>"></label>
+                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<%=dx%>"></label>
                         <label>Serv. Code:
-                            <input type="text" name="serviceCode" class="input-mini" placeholder="A123A"
+                            <input type="text" name="serviceCode" class="form-control form-control-sm d-inline-block w-auto" placeholder="A123A"
                                    value="<%=serviceCode%>"></label>
                         <label>Demographic:
-                            <input type="text" name="demographicNo" class="input-mini" placeholder="1234"
+                            <input type="text" name="demographicNo" class="form-control form-control-sm d-inline-block w-auto" placeholder="1234"
                                    value="<%=demoNo%>"></label>
                         <label>RA Code:
-                            <input type="text" name="raCode" class="input-mini" placeholder=""
+                            <input type="text" name="raCode" class="form-control form-control-sm d-inline-block w-auto" placeholder=""
                                    value="<%=raCode%>"></label>
                         <label>Claim No (% for any):
-                            <input type="text" name="claimNo" class="input-small" value="<%=claimNo%>"></label>
+                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<%=claimNo%>"></label>
                         <label>
                             Visit Type:
                             <select name="visitType" style="background-color:white;">
@@ -643,7 +643,7 @@
                             </select>
                         </label>
                         <label for="xml_location">Visit Location:</label>
-                        <select name="xml_location" id="xml_location" class="input-large">
+                        <select name="xml_location" id="xml_location" class="form-select">
                             <% //
                                 JdbcBillingPageUtil tdbObj = new JdbcBillingPageUtil();
 
@@ -660,18 +660,18 @@
                             <% } %>
                         </select>
                         <label for="paymentStartDate">Payment Start:</label>
-                        <div class="input-append">
+                        <div class="input-group">
                             <input type="text" name="paymentStartDate" id="paymentStartDate" style="width:90px"
                                    value="<%=paymentStartDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
-                        <div class="input-append">
+                        <div class="input-group">
                             <input type="text" name="paymentEndDate" id="paymentEndDate" style="width:90px"
                                    value="<%=paymentEndDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <!--</div>-->
                         <!--<div class="row" >-->
@@ -706,7 +706,7 @@
                         <!--<div class="row">-->
                         <div class="col-md-4" style="padding-top:10px;">
                             <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
-                            <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
+                            <button class="btn btn-secondary" type='button' name='print' value='Print' onClick='window.print()'><i
                                     class="fa-solid fa-print"></i> Print
                             </button>
                         </div>

@@ -115,7 +115,7 @@
 
             <div class="col-md-5">
                 Patient Name: <br>
-                <div class="input-append">
+                <div class="input-group">
                     <input class="col-md-4" id="nameForlooksOnly" type="text" value="<%=name%>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
@@ -128,30 +128,30 @@
 
             <div class="col-md-2">
                 <label>Start Date:</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" style="width:90px" name="fromDateParam" id="fromDateParam"
                            value="<%= request.getAttribute("fromDateParam") != null ? request.getAttribute("fromDateParam") : "" %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
 
             <div class="col-md-2">
                 <label>End Date:</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" style="width:90px" name="toDateParam" id="toDateParam"
                            value="<%= request.getAttribute("toDateParam") != null ? request.getAttribute("toDateParam") : "" %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
             <div class="col-md-10">
-                <input class="btn" type="submit" name="search" value="Create Statement"
+                <input class="btn btn-secondary" type="submit" name="search" value="Create Statement"
                        onclick="return validateFields();">
 
-                <input class="btn" type="submit" name="pdf" value="Print PDF"
+                <input class="btn btn-secondary" type="submit" name="pdf" value="Print PDF"
                        <c:if test="${empty result}">disabled="disabled"</c:if> >
             </div>
         </form>
