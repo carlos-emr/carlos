@@ -627,7 +627,7 @@
 			name="Typh-O"
 			headingName="Immunizations"
 			healthCanadaType="Typh-O"
-			layout="oral" atc="J07AP"
+			layout="injection" atc="J07AP"
 			showIfMinRecordNum="1"/>
 
 	<item
