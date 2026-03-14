@@ -834,7 +834,8 @@
             <%=OscarProperties.getConfidentialityStatement()%>
         </p>
 
-        <div id="note-form" title="Edit Tickler Note" style="display:none;">
+        <fmt:setBundle basename="oscarResources"/>
+        <div id="note-form" title="<fmt:message key="tickler.ticklerMain.noteTitle"/>" style="display:none;">
             <form>
                 <input type="hidden" name="tickler_note_demographicNo" id="tickler_note_demographicNo" value=""/>
                 <input type="hidden" name="tickler_note_ticklerNo" id="tickler_note_ticklerNo" value=""/>
