@@ -549,23 +549,24 @@
         var tags = [];
         function _parseVaccineBrands(data) {
             if (!Array.isArray(data) || !data.length) return null;
+            function _toStr(v) { return (v !== null && v !== undefined) ? String(v) : ''; }
             var parsed = data
-                .filter(function(item) {
-                    return item &&
-                        typeof item.name === 'string' &&
-                        typeof item.value === 'string';
-                })
                 .map(function(item) {
+                    if (!item) return null;
+                    var name  = _toStr(item.name).trim();
+                    var value = _toStr(item.value).trim();
+                    if (!name || !value) return null;
                     return {
-                        name:        item.name,
-                        value:       item.value,
-                        manufacture: typeof item.manufacture === 'string' ? item.manufacture : '',
-                        dose:        typeof item.dose === 'string' ? item.dose : '',
-                        units:       typeof item.units === 'string' ? item.units : '',
-                        route:       typeof item.route === 'string' ? item.route : '',
-                        din:         typeof item.din === 'string' ? item.din : ''
+                        name:        name,
+                        value:       value,
+                        manufacture: _toStr(item.manufacture),
+                        dose:        _toStr(item.dose),
+                        units:       _toStr(item.units),
+                        route:       _toStr(item.route),
+                        din:         _toStr(item.din)
                     };
-                });
+                })
+                .filter(Boolean);
             return parsed.length ? parsed : null;
         }
         var _vaccineLoadPromise = fetch('<%=request.getContextPath()%>/eform/displayImage.do?imagefile=vaccine-brands.json')
@@ -626,7 +627,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
-                                    String displayName = h.get("displayName") != null ? h.get("displayName") : prevName;
+                                    String displayName = StringUtils.isNotBlank(h.get("displayName")) ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
                                     if (hcType == null) {
@@ -662,7 +663,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
-                                    String displayName = h.get("displayName") != null ? h.get("displayName") : prevName;
+                                    String displayName = StringUtils.isNotBlank(h.get("displayName")) ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
                                     String ispaStr = h.get("ispa");
@@ -704,7 +705,7 @@
                                 for (int i = 0; i < prevList.size(); i++) {
                                     HashMap<String, String> h = prevList.get(i);
                                     String prevName = h.get("name");
-                                    String displayName = h.get("displayName") != null ? h.get("displayName") : prevName;
+                                    String displayName = StringUtils.isNotBlank(h.get("displayName")) ? h.get("displayName") : prevName;
                                     String snomedId = h.get("snomedConceptCode") != null ? h.get("snomedConceptCode") : null;
                                     String hcType = h.get("healthCanadaType");
 
