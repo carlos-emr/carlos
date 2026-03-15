@@ -573,17 +573,17 @@ function checkFav(){
 }
 
 function renderRxStage() {
-	$('rxText').show();
-	$('prescriptionStageSet').show();
+	document.getElementById('rxText').style.display = '';
+	document.getElementById('prescriptionStageSet').style.display = '';
 }
 
      //not used , represcribe a drug
     function represcribeOnLoad(drugId){
         var data="method=saveReRxDrugIdToStash&drugId="+encodeURIComponent(drugId) + "&rand=" + Math.floor(Math.random()*10001);
         var url= ctx + "/oscarRx/rePrescribe2.do";
-        new Ajax.Updater('rxText',url, {method:'POST',parameters:data,
+        CarlosAjax.updater('rxText',url, {method:'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
-          evalScripts:true,insertion: Insertion.Bottom,
+          evalScripts:true,insertion: 'bottom',
             onSuccess:function(transport){
 	            renderRxStage();
 					}
@@ -593,7 +593,7 @@ function renderRxStage() {
 
 
     function moveDrugDown(drugId,swapDrugId,demographicNo) {
-    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+    	CarlosAjax.request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
   		  method: 'post',
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
@@ -605,7 +605,7 @@ function renderRxStage() {
     }
 
     function moveDrugUp(drugId,swapDrugId,demographicNo) {
-    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+    	CarlosAjax.request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
     		  method: 'post',
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
@@ -651,7 +651,7 @@ function renderRxStage() {
    	 if(ok) {
 					var url = ctx + "/oscarRx/completeMedRec.jsp";
    		 var data="demographicNo=<%=rxSessionBean.getDemographicNo()%>";
-   		 new Ajax.Request(url,{method: 'post',parameters:data,onSuccess:function(transport){
+   		 CarlosAjax.request(url,{method: 'post',parameters:data,onSuccess:function(transport){
                 alert('Completed.')
             }});
    	 }
@@ -877,7 +877,7 @@ function renderRxStage() {
                                                     <a href="javascript:void(0)" onClick="printDrugProfile();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Print"/></a>
                                                     &nbsp;
 													<%if(securityManager.hasWriteAccess("_rx",roleName2$,true)) {%>
-                                                    <a href="#" onclick="$('reprint').toggle();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>
+                                                    <a href="#" onclick="var rp=document.getElementById('reprint');rp.style.display=(rp.style.display==='none')?'':'none';return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>
                                                     &nbsp;
                                                     <a href="javascript:void(0);" id="cmdRePrescribe" onclick="RePrescribeLongTerm();" style="width: 200px" ><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribeLongTermMed"/></a>
                                                     &nbsp;

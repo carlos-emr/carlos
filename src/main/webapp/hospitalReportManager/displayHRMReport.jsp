@@ -366,7 +366,7 @@
 
         function popupPatient(height, width, url, windowName, docId, d) {
             if (!d) {
-                d = $('demofind' + docId + 'hrm').value;
+                d = document.getElementById('demofind' + docId + 'hrm').value;
             }
             urlNew = url + d;
             return popup2(height, width, 0, 0, urlNew, windowName);
@@ -374,7 +374,7 @@
 
         function popupPatientTickler(height, width, url, windowName, docId, d, n) {
             if (!d) {
-                d = $('demofind' + docId + 'hrm').value;
+                d = document.getElementById('demofind' + docId + 'hrm').value;
             }
             urlNew = url + "method=edit&tickler.demographic_webName=" + n + "&tickler.demographicNo=" + d + "&docType=HRM&docId=" + docId;
             return popup2(height, width, 0, 0, urlNew, windowName);
@@ -940,7 +940,7 @@
                 idoc.setAttribute("value", oData[0]);
                 adoc.appendChild(idoc);
 
-                var providerList = $('providerList<%=hrmReportId%>hrm');
+                var providerList = document.getElementById('providerList<%=hrmReportId%>hrm');
                 providerList.appendChild(adoc);
 
                 myAC.getInputEl().value = '';//;oData.fname + " " + oData.lname ;

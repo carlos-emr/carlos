@@ -496,8 +496,8 @@
                                                 oscarLog(str);
                                                 oscarLog(args[2]);
                                                 var oData = args[2];
-                                                $(str).value = args[2][0];//li.id;
-                                                oscarLog("str value=" + $(str).value);
+                                                document.getElementById(str).value = args[2][0];//li.id;
+                                                oscarLog("str value=" + document.getElementById(str).value);
                                                 oscarLog(args[2][1] + "--" + args[2][0]);
                                                 myAC.getInputEl().value = args[2][2] + "," + args[2][1];
                                                 oscarLog("--" + args[0].getInputEl().value);
@@ -525,7 +525,7 @@
                                                 adoc.appendChild(idoc);
 
                                                 adoc.appendChild(bdoc);
-                                                var providerList = $('providerList<%=docId%>');
+                                                var providerList = document.getElementById('providerList<%=docId%>');
                                                 //    console.log('Now HERE'+providerList);
                                                 providerList.appendChild(adoc);
 
@@ -546,21 +546,29 @@
                                             var num = formid.split("_");
                                             var doclabid = num[1];
                                             if (doclabid) {
-                                                var demoId = $('demofind' + doclabid).value;
-                                                var saved = $('saved' + doclabid).value;
+                                                var demoId = document.getElementById('demofind' + doclabid).value;
+                                                var saved = document.getElementById('saved' + doclabid).value;
                                                 if (demoId == '-1' || saved == 'false' || saved == false) {
                                                     alert('Document is not assigned to a patient,please file it');
                                                 } else {
                                                     var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do";
-                                                    var data = $(formid).serialize(true);
+                                                    var formEl = document.getElementById(formid);
+                                                    var data = new URLSearchParams(new FormData(formEl)).toString();
+                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                    var csrfToken = csrfEl ? csrfEl.value : '';
 
-                                                    new Ajax.Request(url, {
-                                                        method: 'post',
-                                                        parameters: data,
-                                                        onSuccess: function (transport) {
-                                                            refreshParent();
-                                                            window.close();
-                                                        }
+                                                    fetch(url, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                                            'X-Requested-With': 'XMLHttpRequest',
+                                                            'CSRF-TOKEN': csrfToken
+                                                        },
+                                                        credentials: 'same-origin',
+                                                        body: data
+                                                    }).then(function() {
+                                                        refreshParent();
+                                                        window.close();
                                                     });
                                                 }
                                             }
@@ -570,8 +578,8 @@
                                             if (docId) {
                                                 docId = docId.replace(/\s/, '');
                                                 if (docId.length > 0) {
-                                                    var demoId = $('demofind' + docId).value;
-                                                    var saved = $('saved' + docId).value;
+                                                    var demoId = document.getElementById('demofind' + docId).value;
+                                                    var saved = document.getElementById('saved' + docId).value;
                                                     var isFile = true;
                                                     if (demoId == '-1' || saved == 'false' || saved == false) {
                                                         isFile = confirm('Document is not assigned and saved to any patient, do you still want to file it?');
@@ -581,13 +589,20 @@
                                                         if (type) {
                                                             var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
                                                             var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                                                            new Ajax.Request(url, {
-                                                                method: 'post',
-                                                                parameters: data,
-                                                                onSuccess: function (transport) {
-                                                                    refreshParent();
-                                                                    window.close();
-                                                                }
+                                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                            var csrfToken = csrfEl ? csrfEl.value : '';
+                                                            fetch(url, {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                                    'CSRF-TOKEN': csrfToken
+                                                                },
+                                                                credentials: 'same-origin',
+                                                                body: data
+                                                            }).then(function() {
+                                                                refreshParent();
+                                                                window.close();
                                                             });
                                                         }
                                                     }

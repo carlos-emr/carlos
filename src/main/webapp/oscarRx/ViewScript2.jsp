@@ -267,7 +267,7 @@
             function onPrint2(method, scriptId) {
                 var useSC = false;
                 var scAddress = "";
-                var rxPageSize = $('printPageSize').value;
+                var rxPageSize = document.getElementById('printPageSize').value;
                 console.log("rxPagesize  " + rxPageSize);
 
                 <% if(vecAddressName != null) { %>

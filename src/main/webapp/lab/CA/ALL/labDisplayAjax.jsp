@@ -300,24 +300,27 @@
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do?method=addComment";
         var status = "status_" + labid;
 
-        if ($F(status) == "") {
-            $(status).value = "N";
+        var statusEl = document.getElementById(status);
+        if (statusEl.value == "") {
+            statusEl.value = "N";
         }
-        var data = $(formid).serialize(true);
+        var data = new URLSearchParams(new FormData(document.getElementById(formid))).toString();
 
-        var label = "V" + <%=version%> +"commentLabel" + labid + $F("providerNo");
-        var text = "V" + <%=version%> +"commentText" + labid + $("providerNo").value;
+        var label = "V" + <%=version%> +"commentLabel" + labid + document.getElementById("providerNo").value;
+        var text = "V" + <%=version%> +"commentText" + labid + document.getElementById("providerNo").value;
         var commentID = "comment_" + labid;
         var newComment;
 
-        new Ajax.Request(url, {
-            method: 'post', parameters: data, onSuccess: function (transport) {
-                if ($(label) != null && $(text) != null) {
-                    newComment = $(commentID).value;
-                    $(label).update("comment: ");
-                    $(text).update(newComment);
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data, onSuccess: function (transport) {
+                var labelEl = document.getElementById(label);
+                var textEl = document.getElementById(text);
+                if (labelEl != null && textEl != null) {
+                    newComment = document.getElementById(commentID).value;
+                    labelEl.textContent = "comment: ";
+                    textEl.textContent = newComment;
                 } else {
-                    alert("Comment '" + $(commentID).value + "' added!\nThis lab has been forwarded to you.");
+                    alert("Comment '" + document.getElementById(commentID).value + "' added!\nThis lab has been forwarded to you.");
                 }
             }
         });
@@ -336,13 +339,14 @@
     }
     updateStatus = function (formid) {
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do";
-        var data = $(formid).serialize(true);
+        var data = new URLSearchParams(new FormData(document.getElementById(formid))).toString();
 
-        new Ajax.Request(url, {
-            method: 'post', parameters: data, onSuccess: function (transport) {
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data, onSuccess: function (transport) {
                 var num = formid.split("_");
                 if (num[1]) {
-                    Effect.BlindUp('labdoc_' + num[1]);
+                    var labEl = document.getElementById('labdoc_' + num[1]);
+                    if (labEl) { labEl.classList.add('carlos-collapsed'); }
                     //updateDocLabData(num[1]);
                     refreshCategoryList();
 
@@ -359,15 +363,18 @@
             labForm.label.value = ackForm.label.value;
         }
         var url = '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabLabel.do";
-        var data = $(labFormId).serialize(true);
-        new Ajax.Request(url, {
-            method: 'post', parameters: data
+        var data = new URLSearchParams(new FormData(document.getElementById(labFormId))).toString();
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data
 
         });
         var labelSpanEl = document.getElementById(labelspanid);
         var labelEl = document.getElementById(labelid);
         if (labelSpanEl && labelEl) {
-            labelSpanEl.innerHTML = "<i> Label: " + labelEl.value + "</i>";
+            labelSpanEl.textContent = "";
+            var italicEl = document.createElement("i");
+            italicEl.textContent = " Label: " + labelEl.value;
+            labelSpanEl.appendChild(italicEl);
             labelEl.value = "";
         }
     };

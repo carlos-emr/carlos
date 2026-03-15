@@ -1427,8 +1427,6 @@
     </div>
 </div>
 
-<!-- Prototype.js for Ajax auto-save (legacy dependency) -->
-<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 
 <script>
 /**
@@ -1544,7 +1542,7 @@ function closePreferences() {
 
 // ── Auto-save listeners ───────────────────────────────────────────────
 // These two fields save immediately on change without requiring the main
-// form submission, using Prototype.js Ajax.Request for backward compat.
+// form submission, using fetch() with CSRF token.
 
 function flashAutoSave(el, success) {
     el.style.borderColor = success ? '#00A488' : '#dc3545';

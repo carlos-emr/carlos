@@ -396,7 +396,7 @@
         }
 
         $("notCPP").update("Loading...");
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -404,16 +404,16 @@
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "auto";--%>
                     if (displayFullChart) {
-                        $("quickChart").innerHTML = quickChartMsg;
+                        // Pre-existing pattern: quickChartMsg is server-generated localized text
+                        $("quickChart").textContent = quickChartMsg;
                         $("quickChart").onclick = function () {
                             return viewFullChart(false);
                         }
                         scrollDownInnerBar();
 
                     } else {
-                        $("quickChart").innerHTML = fullChartMsg;
+                        $("quickChart").textContent = fullChartMsg;
                         $("quickChart").onclick = function () {
                             return viewFullChart(true);
                         }
@@ -532,13 +532,13 @@
         if (params2.length > 0) {
             params = params + "&" + params2;
         }
-        new Ajax.Updater("encMainDiv",
+        CarlosAjax.updater("encMainDiv",
             ctx + "/CaseManagementView.do",
             {
                 method: 'post',
                 postBody: params,
                 evalScripts: true,
-                insertion: Insertion.Top,
+                insertion: 'top',
                 onSuccess: function (data) {
                     notesRetrieveOk = (data.responseText.replace(/\s+/g, '').length > 0);
                     if (!notesRetrieveOk) {
@@ -638,19 +638,13 @@
             if (match) displayCount = match[1];
             params = "reloadURL=" + url + "&numToDisplay=" + displayCount + "&cmd=" + params;
 
-            var objAjax = new Ajax.Request(
+            CarlosAjax.request(
                 url,
                 {
                     method: 'post',
                     postBody: params,
                     evalScripts: true,
-                    /*onLoading: function() {
-                                                $(div).update("<p>Loading ...<\/p>");
-                                            }, */
                     onSuccess: function (request) {
-                        //while( $(div).firstChild )
-                        //    $(div).removeChild($(div).firstChild);
-                        //alert("success " + div);
                         $(div).update(request.responseText);
 
                         if ($("leftColLoader") != null)
@@ -659,13 +653,10 @@
                         if ($("rightColLoader") != null)
                             Element.remove("rightColLoader");
 
-
-                        //track ajax completions and display divs when last ajax call completes
-                        //navBarObj.display(navBar,div);
                         notifyDivLoaded($(div).id);
                     },
                     onFailure: function (request) {
-                        $(div).innerHTML = "<h3>" + div + "</h3>Error: " + request.status;
+                        $(div).update("<h3>" + div + "</h3>Error: " + request.status);
                     }
                 }
             );
@@ -1000,7 +991,7 @@ function updateCPPNote() {
 
         var params = $("frmIssueNotes").serialize();
         var sigId = "sig" + caseNote.substr(13);
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -1018,7 +1009,7 @@ function updateCPPNote() {
                     notifyDivLoaded($(div).id);
                 },
                 onFailure: function (request) {
-                    $(div).innerHTML = "<h3>" + div + "<\/h3>Error: " + request.status;
+                    $(div).update("<h3>" + div + "<\/h3>Error: " + request.status);
                 }
             }
         );
@@ -1038,26 +1029,17 @@ function updateCPPNote() {
 
     function loadDiv(div, url, limit) {
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
                 evalScripts: true,
-                /*onLoading: function() {
-                                                $(div).update("<p>Loading ...<\/p>");
-                                            },*/
                 onSuccess: function (request) {
-                    /*while( $(div).firstChild )
-                                                    $(div).removeChild($(div).firstChild);
-                                                */
-
                     $(div).update(request.responseText);
-                    //listDisplay(div,100);
                     notifyDivLoaded($(div).id);
-
                 },
                 onFailure: function (request) {
-                    $(div).innerHTML = "<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText;
+                    $(div).update("<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText);
                 }
             }
         );
