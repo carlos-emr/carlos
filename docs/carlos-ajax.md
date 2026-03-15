@@ -69,6 +69,10 @@ CarlosAjax.request('saveNote.do', {
 
 Makes an AJAX request and inserts the response HTML into a DOM element. Replacement for `Ajax.Updater`.
 
+**First argument** can be:
+- **String** (`'divId'`): Always updates the target element, regardless of success/failure
+- **Object** (`{success: 'divId'}`): Only updates the target on HTTP 2xx. On failure, no DOM update occurs. This two-target form is used in `newCaseManagementView.js.jsp` for note saving and issue updating.
+
 **Additional parameters** (beyond those in `request()`):
 
 | Option | Type | Default | Description |

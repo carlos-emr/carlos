@@ -37,11 +37,16 @@ if (!HTMLElement.prototype.show) {
     HTMLElement.prototype.show = function() { this.style.display = ''; return this; };
 }
 // .insert(), .setStyle(), .getHeight(), .getWidth(), etc.
-// bindAsEventListener (used 15+ times in encounter/casemgmt)
+// .up(selector, level), .down(selector) — DOM traversal (lines 1888-1891, 3394, 3496, 3547)
+// .toggle() — alternates display (lines 1077, 2132, 2157, 2160, 2163, 2744)
+// bindAsEventListener (used 12 times in encounter/casemgmt — 9 in newCaseMgmt, 3 in encounter.js)
 // Element.observe / Element.stopObserving (82 calls across 6 files)
+// Element.toggle (standalone function form)
 // Event.stop, Event.element
 // String.prototype.evalJSON (19 calls across 8 files — replace with JSON.parse())
 // Form.serialize (replace with new FormData() or URLSearchParams)
+// HTMLFormElement.prototype.serialize — instance method form: $("formId").serialize()
+//   (line 997 in newCaseManagementView.js.jsp — different from Form.serialize() static call)
 // Position.page, Position.positionedOffset (replace with getBoundingClientRect())
 ```
 
@@ -104,6 +109,11 @@ const CarlosAjax = {
         //   3. Insert into element using insertion strategy or innerHTML
         //   4. THEN call onComplete
         // Supports: insertion: 'bottom'|'top'|'before'|'after' (replaces Insertion.* enum)
+        //
+        // IMPORTANT: Must support two target forms:
+        //   - String: CarlosAjax.updater('divId', url, opts) — always update
+        //   - Object: CarlosAjax.updater({success: 'divId'}, url, opts) — only update on success
+        // The {success: id} form is used in newCaseManagementView.js.jsp (lines 2399, 2840)
     }
 };
 ```
@@ -414,9 +424,9 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 
 | Location | Pattern | Why Synchronous | Migration |
 |---|---|---|---|
-| Line 186 | `releaseNoteLock` on `beforeunload` | Lock must release before page unloads | `navigator.sendBeacon()` |
-| Line 1912 | `NoteisLocked()` returns lock status | Caller uses return value immediately | Refactor caller to `async/await`, or `XMLHttpRequest` sync interim |
-| Line 3022 | `autoSave(async)` — accepts sync flag | Dead code: only ever called as `autoSave(true)` | Remove `async` parameter, always use `fetch()` |
+| Line 181 | `releaseNoteLock` in `onClosing()` | Lock must release before page unloads | `navigator.sendBeacon()` via `visibilitychange`. **Note**: `onClosing()` is NOT wired to `beforeunload` in this JS file — it must be called from the surrounding JSP (likely `newEncounterLayout.jsp`). Migration must trace and update the wiring in the JSP. |
+| Line 1912 | `NoteisLocked()` returns lock status | Caller uses return value immediately | Refactor caller to `async/await`, or `XMLHttpRequest` sync interim. **Note**: also has `evalScripts: true` — unusual for a JSON-returning endpoint. CarlosAjax sync mode must handle evalScripts. |
+| Line 3013 | `autoSave(async)` — accepts sync flag | Dead code: only ever called as `autoSave(true)` | Remove `async` parameter, always use `fetch()`. **Also**: line 3020 uses deprecated `escape()` for encoding — replace with `encodeURIComponent()`. |
 | Line 2840 | `ajaxUpdateIssues` with `Form.serialize()` | Sequential issue update | `fetch()` + `new FormData()` (already async, just needs API swap) |
 
 **Strategy for this file**:
@@ -702,8 +712,10 @@ Or use `new FormData()` only with `multipart/form-data` (file uploads). Do NOT r
 
 **Prototype behavior**: `Form.serialize(formElement)` returns a URL-encoded query string: `field1=value1&field2=value2`. This string is used as `postBody` or concatenated with `params +=`.
 
-**Files affected** (13+ calls):
-- `js/newCaseManagementView.js.jsp` (lines 2241, 2242, 2396, 2489, 2838, 3006) — string concatenation with `params +=`
+**Files affected** (14+ calls):
+- `js/newCaseManagementView.js.jsp` (lines 997, 2241, 2242, 2396, 2489, 2838, 3006) — string concatenation with `params +=`
+  - **Line 997**: Uses instance method form `$("frmIssueNotes").serialize()` (not `Form.serialize(el)`)
+  - **Line 2838**: `p.note_edit = ''` after `Form.serialize(frm)` — this is a **no-op** because `p` is a string, and property assignment on a string wrapper is discarded. This is a latent bug in the existing code. During migration, if `p` becomes a `URLSearchParams` or object, this would start working (different behavior). Review whether `note_edit` exclusion is intentional.
 - `oscarEncounter/Index.jsp` (lines 783, 808) — used as `postBody`
 - `oscarRx/SearchDrug3.jsp` (lines 2663, 2696)
 - `oscarMDS/SelectProviderAltView.jsp` (line 82) — cross-window form access
@@ -737,7 +749,22 @@ window.Form = {
 
 **Files**: `js/newCaseManagementView.js.jsp` (398 `$()` calls), `oscarEncounter/js/encounter.js` (~20), `oscarEncounter/LeftNavBarDisplay.jsp`, `oscarEncounter/Index.jsp`
 
-**Migration rule (compat shim)**: The shim's `$()` must return a plain element — all chained methods must be added to `HTMLElement.prototype`. The shim must provide: `.update()`, `.hide()`, `.show()`, `.observe()`, `.stopObserving()`, `.getHeight()`, `.getWidth()`, `.addClassName()`, `.removeClassName()`, `.insert()`, `.setStyle()`.
+**Migration rule (compat shim)**: The shim's `$()` must return a plain element — all chained methods must be added to `HTMLElement.prototype`. The shim must provide: `.update()`, `.hide()`, `.show()`, `.toggle()`, `.observe()`, `.stopObserving()`, `.getHeight()`, `.getWidth()`, `.addClassName()`, `.removeClassName()`, `.insert()`, `.setStyle()`, `.up(selector, level)`, `.down(selector)`.
+
+The `.up()` and `.down()` traversal methods are used for DOM navigation:
+```javascript
+// .up('div', 2) — find 2nd ancestor matching 'div'
+HTMLElement.prototype.up = function(selector, level) {
+    var el = this; level = level || 0;
+    for (var i = 0; i <= level; i++) el = el.closest(selector + ':not(:scope)');
+    // OR iterate parentElement.closest() level+1 times
+    return el;
+};
+// .down('div') — find first descendant matching 'div'
+HTMLElement.prototype.down = function(selector) { return this.querySelector(selector); };
+```
+
+The shim must also add `.serialize()` to `HTMLFormElement.prototype` (instance method form used at line 997: `$("frmIssueNotes").serialize()`).
 
 ### Contract 5: `Element.observe()` / `Element.stopObserving()` — Function Reference Identity
 
@@ -777,6 +804,8 @@ el.removeEventListener('click', storedHandlers[name]);
 
 The compat shim must implement `bindAsEventListener`, `Element.observe`, and `Element.stopObserving` using this stored-reference pattern.
 
+**Known leak**: `newCaseManagementView.js.jsp` line 813 passes `openAnnotation.bindAsEventListener(...)` directly as a listener argument without storing the reference. The listener is never removed, so it stacks on repeated `showEdit()` calls. This is a pre-existing bug — consider fixing during migration by storing the reference and removing the previous listener before adding a new one.
+
 ### Contract 6: `Insertion.Bottom` / `Insertion.Top` — Content Accumulation
 
 **Prototype behavior**: `Insertion.Bottom` appends HTML to an element WITHOUT replacing existing content. `Insertion.Top` prepends. This is critical for building up drug rows, notes, etc.
@@ -805,6 +834,13 @@ The compat shim must implement `bindAsEventListener`, `Element.observe`, and `El
 **Files affected**: `js/newCaseManagementView.js.jsp`, `oscarMDS/documentsInQueues.jsp` (15+ calls), `share/javascript/controls.js`
 
 **Migration rule**: Direct replacement is safe — `el.style.display = ''` and `el.style.display = 'none'` match Prototype behavior exactly. Do NOT use jQuery's `.show()` which tries to restore previous display values. Alternatively, use Bootstrap's `.d-none` class for toggle patterns.
+
+**`.toggle()`**: Used at lines 1077, 2132, 2157, 2160, 2163, 2744 in `newCaseManagementView.js.jsp`. Alternates between `show()` and `hide()`. Replace with:
+```javascript
+el.style.display = (el.style.display === 'none') ? '' : 'none';
+// Or: el.classList.toggle('d-none');
+```
+The compat shim must also provide `Element.toggle()` (standalone function form) and `.toggle()` (element instance method).
 
 ### Contract 8: `$F()` — Form Field Value Access
 
