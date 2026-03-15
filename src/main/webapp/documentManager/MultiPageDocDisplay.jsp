@@ -328,8 +328,6 @@
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
                                     <script type="text/javascript">
-                                        jQuery.noConflict();
-
 
                                         function addDocComment(docId, status) {
                                             var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do";

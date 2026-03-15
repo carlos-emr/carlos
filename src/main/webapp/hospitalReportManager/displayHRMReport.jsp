@@ -208,6 +208,7 @@
             src="${pageContext.request.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <script type="text/javascript">jQuery.noConflict();</script>
     <script language="javascript" type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/prototype.js"></script>

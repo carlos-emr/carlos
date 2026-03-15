@@ -623,7 +623,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 </style>
 
 <script type="text/javascript">
-       jQuery("document").ready(function() {
+       jQuery(document).ready(function() {
     	   
 
                 jQuery('#rx_save_updates_<%=rand%>').hide();
@@ -662,7 +662,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        				jQuery( "#jsonDxSearch" + idindex ).val(ui.item.label);
        				jQuery( '#codeTxt' + idindex ).val(ui.item.value);
        			},
-       			focus: function(event, ui, idindex) {
+       			focus: function(event, ui) {
        		        event.preventDefault();
        		        jQuery( "#jsonDxSearch" + idindex ).val(ui.item.label);
        		    },
