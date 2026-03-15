@@ -306,12 +306,10 @@ The `visibilitychange` event fires in all the same scenarios as `beforeunload` (
       credentials: 'same-origin',   // REQUIRED — ensures session cookie is sent
       headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'CSRF-TOKEN': getCsrfToken()   // REQUIRED as HEADER for POST/PUT/DELETE/PATCH
       },
-      body: new URLSearchParams({
-          ...params,
-          'CSRF-TOKEN': getCsrfToken()   // REQUIRED for POST/PUT/DELETE/PATCH
-      })
+      body: new URLSearchParams(params)
   });
   // Check for CSRF redirect failure BEFORE using the response
   if (response.redirected && response.url.includes('errorpage.jsp')) {

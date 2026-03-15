@@ -2,7 +2,7 @@
 
 ## Context
 
-CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across **72 JSP/JSPF files** (plus 5 additional files that use Prototype APIs without loading the library directly). These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
+CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across **~84 files** (72 that load the library directly, plus files that use Prototype APIs via transitive dependencies, shared JS includes, or AJAX-loaded contexts). These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
 
 **Goal**: Remove Prototype.js, Scriptaculous, and all dependent code (LightWindow, legacy jQuery versions) — replacing with vanilla JS + Bootstrap 5.3 + CSS transitions. jQuery 3.6.4 remains as-is (separate future initiative).
 
@@ -231,7 +231,7 @@ These files already use `fetch()` for POST requests today but are **missing CSRF
 | `oscarRx/EditFavorites2.jsp` | `fetch()` POST without CSRF token |
 | `share/javascript/oscarMDSIndex.js` (`postForm()`) | `fetch()` POST without CSRF token |
 
-Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-origin'`, and `'CSRF-TOKEN': getCsrfToken()` to the request body on each of these calls. These fixes are independent of the Prototype migration and should be merged first.
+Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-origin'`, and `'CSRF-TOKEN': getCsrfToken()` as a request **header** on each of these calls. These fixes are independent of the Prototype migration and should be merged first.
 
 ### Verification
 - Load any page → confirm no console errors
@@ -392,7 +392,7 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 
 ## Phase 4: Encounter + Case Management — Shim-First (Largest Scope)
 
-**6 files, 215+ Prototype API calls. Very high complexity — core patient chart UI.**
+**29 files (across sub-phases 4a-4f), 215+ Prototype API calls. Very high complexity — core patient chart UI.**
 **Strategy**: Use `prototype-compat.js` shim first for safe swap, then progressively rewrite to vanilla JS.
 
 ### 4a. `encounter.js` migration
