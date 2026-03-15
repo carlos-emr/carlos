@@ -641,6 +641,7 @@
                 border-top: 2px dotted tomato;
                 margin: 0;
                 padding: 0;
+                opacity: 1;
             }
 
             /* Clickable Date for Calendar Popup */
