@@ -300,23 +300,6 @@ function onUnbilled(url) {
 // ============================================================
 function urlencode(str) {
     return encodeURIComponent(str);
-    // Legacy implementation below kept for reference only
-    var ms = "%25#23 20+2B?3F<3C>3E{7B}7D[5B]5D|7C^5E~7E`60";
-    var msi = 0;
-    var i, c, rs, ts;
-    while (msi < ms.length) {
-        c = ms.charAt(msi);
-        rs = ms.substring(++msi, msi + 2);
-        msi += 2;
-        i = 0;
-        while (true) {
-            i = str.indexOf(c, i);
-            if (i == -1) break;
-            ts = str.substring(0, i);
-            str = ts + "%" + rs + str.substring(++i, str.length);
-        }
-    }
-    return str;
 }
 
 // ============================================================
