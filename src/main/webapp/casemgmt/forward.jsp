@@ -30,28 +30,11 @@
 
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ page import="java.util.ArrayList" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 
-<!-- logic:redirect forward="/admissionListAction.admit" / -->
-
 <%
-    String useNewCaseMgmt;
-    if ((useNewCaseMgmt = request.getParameter("newCaseManagement")) != null) {
-        session.setAttribute("newCaseManagement", useNewCaseMgmt);
-        ArrayList<String> users = (ArrayList<String>) session.getServletContext().getAttribute("CaseMgmtUsers");
-        if (users != null) {
-            users.add(request.getParameter("providerNo"));
-            session.getServletContext().setAttribute("CaseMgmtUsers", users);
-        }
-    } else {
-        useNewCaseMgmt = (String) session.getAttribute("newCaseManagement");
-    }
-
-    String redirectURL;
-    if ("true".equals(useNewCaseMgmt)) {
-        redirectURL = request.getContextPath() +
+    String redirectURL = request.getContextPath() +
         "/CaseManagementEntry.do?method=setUpMainEncounter&from=casemgmt&chain=list" +
         "&demographicNo=" + request.getParameter("demographicNo") +
         "&providerNo=" + request.getParameter("providerNo") +
@@ -64,8 +47,5 @@
         "&providerview=" + (request.getParameter("providerview") != null ? URLEncoder.encode(request.getParameter("providerview"), StandardCharsets.UTF_8) : "") +
         "&OscarMsgTypeLink=" + (request.getParameter("OscarMsgTypeLink") != null ? URLEncoder.encode(request.getParameter("OscarMsgTypeLink"), StandardCharsets.UTF_8) : "") +
         "&msgType=" + (request.getParameter("msgType") != null ? URLEncoder.encode(request.getParameter("msgType"), StandardCharsets.UTF_8) : "");
-    } else {
-        redirectURL = request.getContextPath() + "/CaseManagementView.do";
-    }
     response.sendRedirect(redirectURL);
 %>
