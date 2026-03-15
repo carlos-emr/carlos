@@ -16,34 +16,26 @@
 | JUnit 4 | 4.13.2 | **remove** | — |
 | JUnit 5 | 5.10.1 | 5.11.x+ | — |
 
-## Pre-requisites (already met)
+## Pre-requisites
 
-- Java 21 (Spring 7 requires 17+, Tomcat 11 requires 17+)
-- Jakarta EE namespace migration complete (all `javax.*` → `jakarta.*`)
-- Struts 7.1.1 already uses `org.apache.struts2.*` namespace
+- **Already met:**
+  - Java 21 (Spring 7 requires 17+, Tomcat 11 requires 17+)
+  - Jakarta EE namespace migration complete (all `javax.*` → `jakarta.*`)
+  - Struts 7.1.1 already uses `org.apache.struts2.*` namespace
+
+- **Must complete before Spring 7 upgrade:**
+  - **Migrate 362 legacy JUnit 4 tests to JUnit 5.** Spring 7 drops JUnit 4 support entirely (removes `SpringJUnit4ClassRunner`, `SpringClassRule`, etc.). All 362 files in `src/test/java/` using JUnit 4 imports must be converted:
+    - `org.junit.Test` → `org.junit.jupiter.api.Test`
+    - `org.junit.Assert.*` → `org.junit.jupiter.api.Assertions.*` (or AssertJ)
+    - `@Before`/`@After` → `@BeforeEach`/`@AfterEach`
+    - `@RunWith` → `@ExtendWith`
+    - `@Rule`/`@ClassRule` → `@ExtendWith` or `@RegisterExtension`
+  - Remove `junit:junit:4.13.2` dependency from `pom.xml`
+  - Verify all tests pass with `make install --run-tests`
 
 ## Migration Steps
 
-### Phase 1: JUnit 4 Legacy Test Migration (BLOCKER)
-
-**Why first**: Spring 7 drops JUnit 4 support entirely. 362 legacy test files in `src/test/` use JUnit 4. This is the single largest blocker.
-
-**Work**:
-1. Audit all 362 files in `src/test/java/` — categorize by complexity (simple assertion tests vs. Spring context tests)
-2. Migrate tests to JUnit 5 in `src/test-modern/` or convert in-place:
-   - `org.junit.Test` → `org.junit.jupiter.api.Test`
-   - `org.junit.Assert.*` → `org.junit.jupiter.api.Assertions.*` (or AssertJ)
-   - `@Before`/`@After` → `@BeforeEach`/`@AfterEach`
-   - `@RunWith` → `@ExtendWith`
-   - `@Rule`/`@ClassRule` → `@ExtendWith` or `@RegisterExtension`
-3. Remove `junit:junit:4.13.2` dependency from `pom.xml`
-4. Verify all tests pass with `make install --run-tests`
-
-**Alternative**: Add `junit-vintage-engine` as a temporary bridge to run JUnit 4 tests on JUnit 5 platform. This defers migration but unblocks Spring 7. Spring 7 removes its own JUnit 4 test utilities (`SpringJUnit4ClassRunner`, etc.), but vintage-engine still runs pure JUnit 4 tests. Any test using `SpringJUnit4ClassRunner` must be migrated regardless.
-
-**Recommendation**: Use vintage-engine bridge initially, then migrate tests incrementally.
-
-### Phase 2: Jakarta EE 11 API Version Bumps
+### Phase 1: Jakarta EE 11 API Version Bumps
 
 Update `pom.xml` dependency versions:
 
@@ -69,7 +61,7 @@ Update `pom.xml` dependency versions:
 
 **Risk**: JSP 4.0 may have breaking changes in EL expression handling. All JSPs need smoke testing.
 
-### Phase 3: Spring Framework 7.0.6
+### Phase 2: Spring Framework 7.0.6
 
 1. Update BOM in `pom.xml`:
    ```xml
@@ -84,24 +76,23 @@ Update `pom.xml` dependency versions:
 3. Check for removed/changed Spring APIs:
    - `PersistenceAnnotationBeanPostProcessor` (already removed in our codebase ✓)
    - Any deprecated Spring 6.x APIs that are removed in 7.0
-   - `SpringJUnit4ClassRunner` → `SpringExtension` (test migration)
 4. Update JUnit 5 to 5.11.x+ for Spring 7 compatibility
 5. Build and fix compilation errors
 
-### Phase 4: Tomcat 11 Container
+### Phase 3: Tomcat 11 Container
 
 1. Update Dockerfile base image:
    ```dockerfile
    FROM tomcat:11.0-jdk21-temurin
    ```
 2. Review Tomcat `server.xml` for:
-   - `maxParameterCount` default changed from 10,000 → 1,000 (may need explicit override)
+   - `maxParameterCount` default changed from 10,000 → 1,000 (may need explicit override for healthcare forms with many fields)
    - SecurityManager removal (no action needed)
    - Cookie parsing changes (RFC 6265 stricter)
 3. Update `pom.xml` Tomcat embed dependencies if any exist
 4. Test deployment in devcontainer
 
-### Phase 5: Verification & Testing
+### Phase 4: Verification & Testing
 
 1. `make clean && make install --run-tests` — all tests must pass
 2. Run UI test suite: `/test-fullsuite` (all 9 Playwright tests)
@@ -115,7 +106,6 @@ Update `pom.xml` dependency versions:
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| 362 JUnit 4 tests break | **High** | vintage-engine bridge first, then migrate |
 | JSP 4.0 EL breaking changes | **Medium** | Full JSP smoke test suite |
 | Spring Security 7.x API changes | **Medium** | Only using `spring-security-crypto`, low surface |
 | CXF 4.1.5 incompatibility | **Medium** | May need CXF 4.2.x+ |
@@ -131,8 +121,8 @@ Update `pom.xml` dependency versions:
 
 ## Estimated Effort
 
-- **Phase 1 (JUnit 4)**: Largest effort — 362 files, but many are simple. Bridge approach makes this non-blocking.
-- **Phase 2 (API bumps)**: Small — `pom.xml` changes + JSP smoke testing
-- **Phase 3 (Spring 7)**: Medium — BOM update + fix any removed API usage
-- **Phase 4 (Tomcat 11)**: Small — Dockerfile change + config review
-- **Phase 5 (Verification)**: Medium — comprehensive testing across all modules
+- **Pre-req (JUnit 4→5)**: Must be done first — 362 files, mostly mechanical conversion
+- **Phase 1 (API bumps)**: Small — `pom.xml` changes + JSP smoke testing
+- **Phase 2 (Spring 7)**: Medium — BOM update + fix any removed API usage
+- **Phase 3 (Tomcat 11)**: Small — Dockerfile change + config review
+- **Phase 4 (Verification)**: Medium — comprehensive testing across all modules
