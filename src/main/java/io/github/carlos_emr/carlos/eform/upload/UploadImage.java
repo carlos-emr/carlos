@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -28,34 +28,28 @@
  */
 
 
-/*
- *
- */
-
-
 package io.github.carlos_emr.carlos.eform.upload;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
-import java.util.Iterator;
-import java.util.List;
+import java.nio.file.Files;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 
-import org.apache.commons.fileupload.DiskFileUpload;
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileUploadException;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.OscarProperties;
 
 public class UploadImage extends HttpServlet {
-    final static int BUFFER = 2048;
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         String foldername = "", fileheader = "";
@@ -63,43 +57,33 @@ public class UploadImage extends HttpServlet {
         Properties ap = OscarProperties.getInstance();
         foldername = ap.getProperty("EFORM_IMAGES_DIR");
 
-        //		 Create a new file upload handler
-        DiskFileUpload upload = new DiskFileUpload();
+        File imageDir = new File(foldername);
 
         try {
-            //		 Parse the request
-            List items = upload.parseRequest(request);
-            //Process the uploaded items
-            Iterator iter = items.iterator();
-            while (iter.hasNext()) {
-                FileItem item = (FileItem) iter.next();
+            for (Part part : request.getParts()) {
+                String submittedFilename = part.getSubmittedFileName();
+                if (submittedFilename == null || submittedFilename.isEmpty()) {
+                    continue;
+                }
 
-                if (item.isFormField()) {
-                    //String name = item.getFieldName();
-                    //String value = item.getString(); 
+                File savedFile = PathValidationUtils.validatePath(submittedFilename, imageDir);
+                fileheader = savedFile.getName();
 
-                } else {
-                    String pathName = item.getName();
-                    String[] fullFile = pathName.split("[/|\\\\]");
-                    File savedFile = new File(foldername, fullFile[fullFile.length - 1]);
+                MiscUtils.getLogger().debug(fileheader + " uploaded to " + foldername);
 
-                    fileheader = fullFile[fullFile.length - 1];
-                    MiscUtils.getLogger().debug(fileheader + "uploaded to \n" +
-                            foldername);
-                    item.write(savedFile);
+                try (InputStream in = part.getInputStream()) {
+                    Files.copy(in, savedFile.toPath());
                 }
             }
-        } catch (FileUploadException e) {
-            // TODO Auto-generated catch block
-            MiscUtils.getLogger().error("Error", e);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Path validation failed for uploaded image", e);
         } catch (Exception e) {
-            // TODO Auto-generated catch block
             MiscUtils.getLogger().error("Error", e);
         }
 
-        // Call the output page.
+        response.setContentType("text/html");
         PrintWriter out = response.getWriter();
-        String contextPath = request.getContextPath();
+        String contextPath = Encode.forJavaScript(request.getContextPath());
         out.println("<head>");
         out.println("<script language=\"JavaScript\">");
         out.println("setTimeout(\"top.location.href = '" + contextPath + "/eform/uploadimages.jsp'\",1000);");

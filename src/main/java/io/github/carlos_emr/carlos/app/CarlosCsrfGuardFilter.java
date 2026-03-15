@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.app;
 
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.owasp.csrfguard.CsrfGuard;
 import org.owasp.csrfguard.CsrfValidator;
 import org.owasp.csrfguard.http.InterceptRedirectResponse;
@@ -110,7 +109,7 @@ public class CarlosCsrfGuardFilter implements Filter {
         }
 
         // Wrap multipart requests so the input stream can be read by both CsrfValidator and downstream servlets
-        if (ServletFileUpload.isMultipartContent(httpRequest)) {
+        if (isMultipartContent(httpRequest)) {
             // Reject oversized requests before buffering the entire body into memory.
             // When Content-Length is absent (-1), this check is bypassed; cacheInputStream()
             // enforces the limit during streaming as a second line of defense.
@@ -170,6 +169,20 @@ public class CarlosCsrfGuardFilter implements Filter {
 
         // Validation passed — continue the filter chain
         filterChain.doFilter(httpRequest, interceptResponse);
+    }
+
+    /**
+     * Checks whether the request content type indicates multipart/form-data.
+     *
+     * <p>Replaces {@code org.apache.commons.fileupload.servlet.ServletFileUpload.isMultipartContent()}
+     * to eliminate the commons-fileupload dependency.</p>
+     *
+     * @param request the HTTP servlet request to check
+     * @return {@code true} if the request content type starts with "multipart/"
+     */
+    private static boolean isMultipartContent(HttpServletRequest request) {
+        String contentType = request.getContentType();
+        return contentType != null && contentType.toLowerCase().startsWith("multipart/");
     }
 
     @Override

@@ -285,6 +285,11 @@
 		<servlet-name>UploadDocument</servlet-name>
 		<servlet-class>io.github.carlos_emr.DocumentMgtUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
+		<multipart-config>
+			<max-file-size>52428800</max-file-size>
+			<max-request-size>52428800</max-request-size>
+			<file-size-threshold>1048576</file-size-threshold>
+		</multipart-config>
 	</servlet>
 	<servlet>
 		<servlet-name>pdfCreator</servlet-name>
@@ -325,6 +330,11 @@
 		<servlet-name>UploadTeleplanServlet</servlet-name>
 		<servlet-class>io.github.carlos_emr.carlos.billings.ca.bc.MSP.DocumentTeleplanReportUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
+		<multipart-config>
+			<max-file-size>52428800</max-file-size>
+			<max-request-size>52428800</max-request-size>
+			<file-size-threshold>1048576</file-size-threshold>
+		</multipart-config>
 	</servlet>
 	<servlet>
 		<servlet-name>ScatterPlotChartServlet</servlet-name>
@@ -334,6 +344,11 @@
 		<servlet-name>DocumentUploadServlet</servlet-name>
 		<servlet-class>io.github.carlos_emr.DocumentUploadServlet</servlet-class>
 		<load-on-startup>0</load-on-startup>
+		<multipart-config>
+			<max-file-size>52428800</max-file-size>
+			<max-request-size>52428800</max-request-size>
+			<file-size-threshold>1048576</file-size-threshold>
+		</multipart-config>
 	</servlet>
 	<servlet>
 		<servlet-name>PatientListByAppt</servlet-name>
