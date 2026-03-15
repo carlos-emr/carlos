@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests that verify every production DRL file modified during the
- * Drools 2.0 &rarr; 7.74.1 KIE API migration compiles successfully.
+ * Drools 2.0 &rarr; 10.0.0 KIE API migration compiles successfully.
  *
  * <p><strong>This is the single most critical test class for the migration.</strong>
  * DRL files underwent significant syntax changes (e.g., removing deprecated Drools 2.0

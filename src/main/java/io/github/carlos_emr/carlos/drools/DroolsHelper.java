@@ -190,7 +190,16 @@ public final class DroolsHelper {
         }
 
         KieContainer kContainer = ks.newKieContainer(releaseId);
-        return kContainer.getKieBase();
+        KieBase kieBase = kContainer.getKieBase();
+
+        // Dispose the container and remove the KieModule from the global repository
+        // to prevent unbounded metadata growth in long-running server processes.
+        // The KieBase remains usable after disposal as it is a self-contained
+        // compiled representation independent of the container.
+        kContainer.dispose();
+        ks.getRepository().removeKieModule(releaseId);
+
+        return kieBase;
     }
 
     /**

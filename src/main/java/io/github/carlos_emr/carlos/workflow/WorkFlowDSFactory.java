@@ -74,7 +74,7 @@ import io.github.carlos_emr.OscarProperties;
  *
  * <h3>Migration Note</h3>
  * <p>Migrated from legacy Drools 2.0 {@code RuleBase} / {@code RuleBaseLoader} API to the
- * modern KIE API (Drools 7.74.1). Rule loading now delegates to
+ * modern KIE API (Drools 10.0.0). Rule loading now delegates to
  * {@link DroolsHelper#loadFromInputStream(java.io.InputStream)} and
  * {@link DroolsHelper#loadFromUrl(URL)} instead of the removed
  * {@code org.drools.io.RuleBaseLoader}.</p>

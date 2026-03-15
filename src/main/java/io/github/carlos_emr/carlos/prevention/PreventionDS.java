@@ -40,7 +40,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>The default implementation, {@link PreventionDSImpl}, supports a three-tier rule loading
  * strategy (filesystem, database {@link io.github.carlos_emr.carlos.commn.model.ResourceStorage},
- * and classpath fallback) and uses the KIE API (Drools 7.74.1) for rule evaluation.</p>
+ * and classpath fallback) and uses the KIE API (Drools 10.0.0) for rule evaluation.</p>
  *
  * <h3>Usage</h3>
  * <p>Inject this interface via Spring and call {@link #getMessages(Prevention)} with a

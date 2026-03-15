@@ -190,7 +190,7 @@ public class RuleBaseCreator {
             KieBase kieBase = RuleBaseFactory.getRuleBase(cacheKey);
             if (kieBase != null) return kieBase;
 
-            // Cache miss: compile the DRL via KieHelper and store the result.
+            // Cache miss: compile the DRL via DroolsHelper and store the result.
             // DroolsHelper throws DroolsCompilationException if the DRL contains
             // compilation errors.
             kieBase = DroolsHelper.createKieBaseFromDrl(drlString);
