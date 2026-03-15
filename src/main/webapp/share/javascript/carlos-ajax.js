@@ -193,7 +193,7 @@ var CarlosAjax = (function () {
             var errorTransport = makeTransport(0, 'Network error: ' + e.message);
             if (options.onFailure) options.onFailure(errorTransport);
             if (options.onComplete) options.onComplete(errorTransport);
-            return;
+            return errorTransport;
         }
 
         var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL);
@@ -204,7 +204,7 @@ var CarlosAjax = (function () {
             transport.responseText = 'CSRF validation failed — request was rejected by the server.';
             if (options.onFailure) options.onFailure(transport);
             if (options.onComplete) options.onComplete(transport);
-            return;
+            return transport;
         }
 
         if (isSuccess(xhr.status)) {
@@ -377,6 +377,7 @@ var CarlosAjax = (function () {
             while ((match = scriptPattern.exec(html)) !== null) {
                 scripts.push(match[1]);
             }
+            scriptPattern.lastIndex = 0;
             var cleanHtml = html.replace(scriptPattern, '');
 
             if (insertion) {
