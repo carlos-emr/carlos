@@ -968,13 +968,25 @@ $(document).ready(function(){
 		$("#collapse"+show).collapse('show');	
 
 		//load request page or load default
-		$("#dynamic-content").load(pageToLoad, 
+		$("#dynamic-content").load(pageToLoad,
 				function(response, status, xhr) {
 			  		if (status == "error") {
 				    	var msg = "Sorry but there was an error: ";
 				    	$("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
 					}
-		});	
+					// Re-append forms so CSRFGuard MutationObserver injects CSRF tokens
+					// (same fix as contentLink handler — see index.jsp)
+					$("#dynamic-content").find("form").each(function () {
+						var parent = this.parentNode;
+						var next = this.nextSibling;
+						parent.removeChild(this);
+						if (next) {
+							parent.insertBefore(this, next);
+						} else {
+							parent.appendChild(this);
+						}
+					});
+		});
 		
 		}
 	  }

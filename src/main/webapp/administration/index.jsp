@@ -43,7 +43,10 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
 
     UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
@@ -453,6 +456,22 @@
                         var msg = "Sorry but there was an error: ";
                         $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
                     }
+
+                    // CSRFGuard 4.5 MutationObserver only checks top-level added nodes,
+                    // not descendants. jQuery .load() uses innerHTML which creates
+                    // top-level records for wrapper divs but not nested forms inside them.
+                    // Re-append each form so MutationObserver sees it as a direct addedNode
+                    // and injects the CSRF hidden field.
+                    $("#dynamic-content").find("form").each(function () {
+                        var parent = this.parentNode;
+                        var next = this.nextSibling;
+                        parent.removeChild(this);
+                        if (next) {
+                            parent.insertBefore(this, next);
+                        } else {
+                            parent.appendChild(this);
+                        }
+                    });
 
                     // Re-initialize Bootstrap dropdowns for dynamically loaded content
                     $("#dynamic-content .dropdown-toggle").dropdown();
