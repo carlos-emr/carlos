@@ -1781,7 +1781,10 @@ function popForm2(scriptId){
                         var closeBtn = document.getElementById('carlosModalCloseBtn');
                         closeBtn.textContent = editRxMsg;
                         closeBtn.onclick = updateDeleteOnCloseRxBox;
-                        new bootstrap.Modal(document.getElementById('carlosModal')).show();
+                        var modalEl = document.getElementById('carlosModal');
+                        var existingModal = bootstrap.Modal.getInstance(modalEl);
+                        if (existingModal) existingModal.dispose();
+                        new bootstrap.Modal(modalEl).show();
                     });
             }});
 

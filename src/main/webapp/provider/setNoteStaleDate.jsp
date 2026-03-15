@@ -112,7 +112,7 @@
 
                     <input type="submit"
                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnSubmit"/>"/>
-                    <input type="submit" onclick="$('method').value='remove';"
+                    <input type="submit" onclick="document.getElementById('method').value='remove';"
                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnReset"/>"/>
                 </form> <%
             } else {
