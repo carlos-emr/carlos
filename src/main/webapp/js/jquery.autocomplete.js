@@ -81,8 +81,9 @@
 
         var blockSubmit;
 
-        // prevent form submit in opera when selecting with return key
-        $.browser.opera && $(input.form).bind("submit.autocomplete", function () {
+        // prevent form submit in opera when selecting with return key (Opera legacy — no longer needed)
+        var isOpera = !!window.opera || navigator.userAgent.indexOf('OPR/') >= 0;
+        isOpera && $(input.form).bind("submit.autocomplete", function () {
             if (blockSubmit) {
                 blockSubmit = false;
                 return false;
@@ -90,7 +91,7 @@
         });
 
         // only opera doesn't trigger keydown multiple times while pressed, others don't work with keypress at all
-        $input.bind(($.browser.opera ? "keypress" : "keydown") + ".autocomplete", function (event) {
+        $input.bind((isOpera ? "keypress" : "keydown") + ".autocomplete", function (event) {
             // a keypress means the input has focus
             // avoids issue where input had focus before the autocomplete was applied
             hasFocus = 1;
@@ -651,8 +652,8 @@
         function movePosition(step) {
             active += step;
             if (active < 0) {
-                active = listItems.size() - 1;
-            } else if (active >= listItems.size()) {
+                active = listItems.length - 1;
+            } else if (active >= listItems.length) {
                 active = 0;
             }
         }
@@ -706,8 +707,8 @@
                 }
             },
             pageDown: function () {
-                if (active != listItems.size() - 1 && active + 8 > listItems.size()) {
-                    moveSelect(listItems.size() - 1 - active);
+                if (active != listItems.length - 1 && active + 8 > listItems.length) {
+                    moveSelect(listItems.length - 1 - active);
                 } else {
                     moveSelect(8);
                 }
@@ -737,7 +738,7 @@
                         overflow: 'auto'
                     });
 
-                    if ($.browser.msie && typeof document.body.style.maxHeight === "undefined") {
+                    if (false /* IE6 maxHeight workaround — no longer needed */) {
                         var listHeight = 0;
                         listItems.each(function () {
                             listHeight += this.offsetHeight;

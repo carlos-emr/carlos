@@ -262,8 +262,9 @@
             var id = 'jqFormIO' + $.fn.ajaxSubmit.counter++;
             var $io = $('<iframe id="' + id + '" name="' + id + '" />');
             var io = $io[0];
-            var op8 = $.browser.opera && window.opera.version() < 9;
-            if ($.browser.msie || op8) io.src = 'javascript:false;document.write("");';
+            var isOldOpera = !!window.opera && window.opera.version && window.opera.version() < 9;
+            var isIE = /*@cc_on!@*/false || !!document.documentMode;
+            if (isIE || isOldOpera) io.src = 'about:blank';
             $io.css({position: 'absolute', top: '-1000px', left: '-1000px'});
 
             var xhr = { // mock object
@@ -742,7 +743,7 @@
                 var op = ops[i];
                 if (op.selected) {
                     // extra pain for IE...
-                    var v = $.browser.msie && !(op.attributes['value'].specified) ? op.text : op.value;
+                    var v = (!!document.documentMode && !(op.attributes['value'].specified)) ? op.text : op.value;
                     if (one) return v;
                     a.push(v);
                 }
