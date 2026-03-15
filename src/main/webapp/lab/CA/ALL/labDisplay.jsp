@@ -624,9 +624,12 @@ input[id^='acklabel_']{
         function handleLab(formid, labid, action) {
             var url = '<%= request.getContextPath() %>/documentManager/inboxManage.do';
             var data = 'method=isLabLinkedToDemographic&labid=' + labid;
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken = csrfEl ? csrfEl.value : '';
             fetch(url, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                 body: data
             })
             .then(function(response) { return response.json(); })
@@ -717,9 +720,12 @@ input[id^='acklabel_']{
 
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic.do";
             var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + labNo;
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken = csrfEl ? csrfEl.value : '';
             fetch(urlStr, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                 body: dataStr
             })
             .then(function(response) { return response.json(); })
@@ -749,9 +755,12 @@ input[id^='acklabel_']{
             var data = new URLSearchParams(new FormData(formEl)).toString();
             console.log(url);
             console.log(data);
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken = csrfEl ? csrfEl.value : '';
             fetch(url, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                credentials: 'same-origin',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                 body: data
             })
             .then(function() {
@@ -829,9 +838,12 @@ input[id^='acklabel_']{
                 if (accNum) params.append('accessionNum', accNum.value);
                 if (labelInput) params.append('label', labelInput.value);
                 params.append('ajaxcall', 'true');
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                     body: params.toString()
                 });
                 var spanI = document.querySelector('#labelspan_<%=Encode.forJavaScript(segmentID)%> i');
@@ -852,9 +864,12 @@ input[id^='acklabel_']{
     function runMacro(name, formid, closeOnSuccess) {
         var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
         var data = 'method=isLabLinkedToDemographic&labid=<%= Encode.forJavaScript(segmentID) %>';
+        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        var csrfToken = csrfEl ? csrfEl.value : '';
         fetch(url, {
             method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
             body: data
         })
         .then(function(response) { return response.json(); })
@@ -874,10 +889,12 @@ input[id^='acklabel_']{
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + name + (demographicNo.length > 0 ? "&demographicNo=" + demographicNo : "");
         var formEl = document.getElementById(formid);
         var data = new URLSearchParams(new FormData(formEl)).toString();
-
+        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        var csrfToken = csrfEl ? csrfEl.value : '';
         fetch(url, {
             method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
             body: data
         })
         .then(function() {

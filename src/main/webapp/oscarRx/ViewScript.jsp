@@ -172,6 +172,8 @@
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css"/>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <script type="text/javascript">
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken = csrfEl ? csrfEl.value : '';
 
             function setComment() {
                 frames['preview'].document.getElementById('additNotes').textContent = '<%=comment%>';
@@ -184,7 +186,7 @@
                 var params = "addr=" + addr + "&rand=" + ran_number;
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: params
                 });
@@ -200,7 +202,7 @@
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: params
                 });

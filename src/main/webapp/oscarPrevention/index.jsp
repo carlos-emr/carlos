@@ -493,9 +493,12 @@
         <script>
             function disableSSOWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfToken = csrfEl ? csrfEl.value : '';
                     fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        headers: {'Content-Type': 'application/json', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                         body: JSON.stringify({key: 'prevention_sso_warning', value: 'true'})
                     }).then(function(response) {
                         if (response.ok) {
@@ -509,9 +512,12 @@
 
             function disableISPAWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfToken = csrfEl ? csrfEl.value : '';
                     fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        headers: {'Content-Type': 'application/json', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                         body: JSON.stringify({key: 'prevention_ispa_warning', value: 'true'})
                     }).then(function(response) {
                         if (response.ok) {
@@ -525,9 +531,12 @@
 
             function disableNonISPAWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfToken = csrfEl ? csrfEl.value : '';
                     fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        headers: {'Content-Type': 'application/json', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                         body: JSON.stringify({key: 'prevention_non_ispa_warning', value: 'true'})
                     }).then(function(response) {
                         if (response.ok) {

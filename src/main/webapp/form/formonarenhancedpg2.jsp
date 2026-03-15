@@ -1008,10 +1008,15 @@
                         adjustDynamicListTotals();
 
                         try {
+                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                            var csrfToken = csrfEl ? csrfEl.value : '';
                             const response = await fetch('<%= context %>/Pregnancy.do?method=saveFormAjax', {
                                 method: 'POST',
+                                credentials: 'same-origin',
                                 headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                    'CSRF-TOKEN': csrfToken,
+                                    'X-Requested-With': 'XMLHttpRequest'
                                 },
                                 body: $("form").serialize()
                             });
@@ -1553,9 +1558,12 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=' + demographic + '&formId=0&provNo=' + user + '&fromSession=true';
 
                             try {
+                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                var csrfToken = csrfEl ? csrfEl.value : '';
                                 const response = await fetch('<%= context %>/Pregnancy.do', {
                                     method: 'POST',
-                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                    credentials: 'same-origin',
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                                     body: 'method=createGBSLabReq&demographicNo=' + encodeURIComponent(demographic) + '&penicillin=' + encodeURIComponent(penicillin)
                                 });
                                 if (!response.ok) {
@@ -1873,9 +1881,12 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var pregBody = 'method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + encodeURIComponent(gct_hb) + '&urine=' + encodeURIComponent(gct_urine) + '&antibody=' + encodeURIComponent(gct_ab) + '&glucose=' + encodeURIComponent(gct_glu);
 
                             try {
+                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                var csrfToken = csrfEl ? csrfEl.value : '';
                                 const response = await fetch(pregUrl, {
                                     method: 'POST',
-                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                    credentials: 'same-origin',
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                                     body: pregBody
                                 });
                                 if (!response.ok) {
@@ -1912,9 +1923,12 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var pregBody = 'method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + encodeURIComponent(gtt_glu);
 
                             try {
+                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                var csrfToken = csrfEl ? csrfEl.value : '';
                                 const response = await fetch(pregUrl, {
                                     method: 'POST',
-                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                    credentials: 'same-origin',
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                                     body: pregBody
                                 });
                                 if (!response.ok) {

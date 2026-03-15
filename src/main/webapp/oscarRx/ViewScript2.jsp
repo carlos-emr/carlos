@@ -240,11 +240,14 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <script type="text/javascript">
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken = csrfEl ? csrfEl.value : '';
+
             function resetStash() {
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/deleteRx.do?parameterValue=clearStash";
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: ''
                 }).then(function() {
@@ -257,7 +260,7 @@
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/deleteRx.do?parameterValue=clearReRxDrugList";
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: ''
                 });
@@ -300,7 +303,7 @@
                 var params = "addr=" + addr + "&rand=" + ran_number;
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: params
                 });
@@ -316,7 +319,7 @@
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
                 fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: params
                 });
@@ -435,7 +438,7 @@
 			var prefPharmacy = "<%=prefPharmacy != null ? Encode.forJavaScriptBlock(prefPharmacy) : ""%>";
 			fetch(url, {
 				method: 'POST',
-				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
 				credentials: 'same-origin',
 				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&additionalNotes=" +
@@ -590,7 +593,7 @@
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 	fetch('<%=request.getContextPath() %>/oscarRx/saveDigitalSignature.do', {
 		method: 'POST',
-		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
 		credentials: 'same-origin',
 		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
 	});
