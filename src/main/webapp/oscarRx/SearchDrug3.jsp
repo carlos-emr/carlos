@@ -205,6 +205,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/animation-min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/datasource-min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/autocomplete-min.js"/>"></script>
+		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+		<link rel="stylesheet" type="text/css" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.12.1.min.css"/>
 
         <script type="text/javascript">
@@ -1551,11 +1553,9 @@ function renderRxStage() {
    function checkAllergy(id,atcCode){
         const url = ctx + "/oscarRx/showAllergy.do"
         const data="method=allergyData&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
-     console.log(url + data);
      CarlosAjax.request(url,{method: 'post',postBody:data,
        requestHeaders: { 'Accept': 'application/json' },
        onSuccess:function(transport){
-         console.log(transport.responseText);
          var json = JSON.parse(transport.responseText);
          if (json != null && json.results && json.results.length > 0) {
            // Pick the first allergy warning found
@@ -1738,7 +1738,6 @@ function popForm2(scriptId){
             var url1=ctx+"/oscarRx/WriteScript.do";
             var data="parameterValue=checkNoStashItem&rand="+ Math.floor(Math.random()*10001);
             var h=900;
-					console.log(url1);
             CarlosAjax.request(url1, {method: 'post',parameters:data, onSuccess:function(transport){
                 //output default instructions
                 var json=JSON.parse(transport.responseText);
@@ -1899,9 +1898,6 @@ function popForm2(scriptId){
 
 						jQuery.each(cache, function (key, data) {
 							if (term.indexOf(key) === 0 && data.length > 0) {
-
-								alert(term.indexOf(key));
-
 								response(jQuery.map(cache.results, function (item) {
 									return {
 										label: item.name,
@@ -1925,7 +1921,6 @@ function popForm2(scriptId){
 							+ jQuery('#searchParamSet').serialize()
 							+ "&query="
 							+ request.term.toUpperCase();
-console.log(param);
 						jQuery.ajax({
 							url: "${ctx}/oscarRx/searchDrug.do",
 							type: 'POST',
@@ -1956,7 +1951,6 @@ console.log(param);
 						event.preventDefault();
 					},
 					select: function (event, ui) {
-            console.log(ui.item);
 						event.preventDefault();
 						searchResultsHandler(null, ui.item);
 						jQuery('#searchString').val("");
@@ -2172,9 +2166,9 @@ function represcribe(element, toArchive){
     var ar=elemId.split("_");
     var drugId=ar[1];
     if(drugId!=null && document.getElementById("reRxCheckBox_"+drugId).checked === true){
-    	        	
+
         var url= ctx + "/oscarRx/rePrescribe2.do";
-        data += "&method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
+        var data = "method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
         CarlosAjax.updater('rxText',url, {method:'post',parameters:data,synchronous:true,evalScripts:true,
             insertion: 'bottom',onSuccess:function(transport){
 		        renderRxStage();
@@ -2209,13 +2203,13 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
     }
 
     if (element.checked === true) {
-        this.addDrugToReRxList(uiRefId, drugId);
+        addDrugToReRxList(uiRefId, drugId);
         selectedReRxIDs.push(drugId);
     } else {
-        this.removeDrugFromReRxList(uiRefId, drugId);
+        removeDrugFromReRxList(uiRefId, drugId);
         selectedReRxIDs = selectedReRxIDs.filter(id => id !== drugId);
     }
-    this.updateReRxStageConfirmBoxVisibility();
+    updateReRxStageConfirmBoxVisibility();
 }
 
     function updateReRxStageConfirmBoxVisibility() {
@@ -2233,13 +2227,13 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
     function cancelAndClearSelection() {
         selectedReRxIDs.forEach(drugId => uncheckReRxForExistingPrescribedDrug(drugId));
         selectedReRxIDs = [];
-        this.updateReRxStageConfirmBoxVisibility();
+        updateReRxStageConfirmBoxVisibility();
     }
 
     function stageSelectedReRxMedications() {
-        this.rePrescribeMulti();
+        rePrescribeMulti();
         selectedReRxIDs = [];
-        this.updateReRxStageConfirmBoxVisibility();
+        updateReRxStageConfirmBoxVisibility();
 }
 
 /**
@@ -2251,7 +2245,7 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
 function addDrugToReRxList(uiRefId, drugId) {
     skipParseInstr = true;
 
-    this.addDrugToReRxListInSession(uiRefId, drugId);
+    addDrugToReRxListInSession(uiRefId, drugId);
 }
 
 /**
@@ -2301,8 +2295,8 @@ function addDrugToReRxListInSession(uiRefId, drugId) {
  * @param drugId The ID of the drug to remove.
  */
 function removeDrugFromReRxList(uiRefId, drugId) {
-    this.removeElementFromUI(this.getPrescribingDrugCardByUiRefId(uiRefId));
-    this.removeReRxDrugId(drugId);
+    removeElementFromUI(getPrescribingDrugCardByUiRefId(uiRefId));
+    removeReRxDrugId(drugId);
 }
 
 /**
@@ -2312,8 +2306,8 @@ function removeDrugFromReRxList(uiRefId, drugId) {
  */
 function removePrescribingDrug(cardId, drugId) {
     const uiRefId = cardId.id.split('_')[1];
-    this.deletePrescribingDrugFromUI(uiRefId, drugId);
-    this.uncheckReRxForExistingPrescribedDrug(drugId)
+    deletePrescribingDrugFromUI(uiRefId, drugId);
+    uncheckReRxForExistingPrescribedDrug(drugId)
 }
 
 /**
@@ -2322,8 +2316,8 @@ function removePrescribingDrug(cardId, drugId) {
  * @param drugId The id of the drug to delete.
  */
 function deletePrescribingDrugFromUI(uiRefId, drugId) {
-    this.removeElementFromUI(this.getPrescribingDrugCardByUiRefId(uiRefId));
-    this.deletePrescribe(drugId);
+    removeElementFromUI(getPrescribingDrugCardByUiRefId(uiRefId));
+    deletePrescribe(drugId);
 }
 
 /**
@@ -2341,10 +2335,10 @@ function removeElementFromUI(element) {
  * @param drugId The ID of the drug.
  */
 function uncheckReRxForExistingPrescribedDrug(drugId) {
-    const checkbox = this.getReRxCheckboxByUiRefId(drugId);
+    const checkbox = getReRxCheckboxByUiRefId(drugId);
     if (checkbox)
         checkbox.checked = false;
-    this.removeReRxDrugId(drugId);
+    removeReRxDrugId(drugId);
 }
 
 /**
