@@ -340,9 +340,8 @@ function clickLoadDiv(e) {
 function loadDiv(div, url) {
     CarlosAjax.request(url, {
         method: 'post',
-        evalScripts: true,
         onSuccess: function (request) {
-            setTrustedHtml(document.getElementById(div), request.responseText);
+            carlosExtractAndExecScripts(document.getElementById(div), request.responseText);
         },
         onFailure: function (request) {
             setTrustedHtml(document.getElementById(div), "<h3>" + div + "<\/h3>Error: " + request.status);
@@ -356,12 +355,11 @@ function popLeftColumn(url, div, params) {
     CarlosAjax.request(url, {
         method: 'post',
         postBody: params,
-        evalScripts: true,
         onSuccess: function (request) {
             var el = document.getElementById(div);
             while (el.firstChild)
                 el.removeChild(el.firstChild);
-            setTrustedHtml(el, request.responseText);
+            carlosExtractAndExecScripts(el, request.responseText);
             listDisplay(params);
         },
         onFailure: function (request) {
@@ -472,12 +470,11 @@ function navBarLoader() {
         CarlosAjax.request(url, {
             method: 'post',
             postBody: params,
-            evalScripts: true,
             onSuccess: function (request) {
                 var el = document.getElementById(div);
                 while (el.firstChild)
                     el.removeChild(el.firstChild);
-                setTrustedHtml(el, request.responseText);
+                carlosExtractAndExecScripts(el, request.responseText);
             },
             onFailure: function (request) {
                 setTrustedHtml(document.getElementById(div), "<h3>Error:<\/h3>" + request.status);
