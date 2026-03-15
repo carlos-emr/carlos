@@ -68,17 +68,12 @@
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/yahoo-dom-event.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/connection-min.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/animation-min.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/datasource-min.js"></script>
-        <script src="<%=request.getContextPath()%>/share/yui/js/autocomplete-min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/js/demographicProviderAutocomplete.js"></script>
 
         <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/css/bootstrap-responsive.css" rel="stylesheet">
-        <link href="<%=request.getContextPath()%>/share/yui/css/fonts-min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath()%>/share/yui/css/autocomplete.css" rel="stylesheet">
+        <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/css/demographicProviderAutocomplete.css" media="all"
               rel="stylesheet">
 
@@ -232,62 +227,59 @@
 
     <script>
 
-        YAHOO.example.BasicRemote = function () {
-            var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
-            var oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponses'});
-            oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;
-            oDS.responseSchema = {
-                resultsList: "results",
-                fields: ["formattedName", "fomattedDob", "demographicNo", "status"]
-            };
-            oDS.maxCacheEntries = 0;
-            var oAC = new YAHOO.widget.AutoComplete("demographicAC", "demographic_choices", oDS);
-            oAC.queryMatchSubset = true;
-            oAC.minQueryLength = 3;
-            oAC.maxResultsDisplayed = 25;
-            oAC.formatResult = resultFormatter2;
-            oAC.queryMatchContains = true;
-            oAC.itemSelectEvent.subscribe(function (type, args) {
-                var oData = args[2];
-                var demographicNo = args[2][2];
-                var demographicName = args[2][0];
-                $("#demographicNo").val(demographicNo);
-                $("#demographicAC").val(demographicName);
-            });
-            return {
-                oDS: oDS,
-                oAC: oAC
-            };
-        }();
+        $("#demographicAC").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "<%= request.getContextPath() %>/demographic/SearchDemographic.do",
+                    type: "POST",
+                    data: { query: request.term },
+                    dataType: "json",
+                    success: function(data) {
+                        var items = (data.results || []).slice(0, 25);
+                        response($.map(items, function(item) {
+                            return {
+                                label: item.formattedName + " (" + item.fomattedDob + ") - " + item.status,
+                                value: item.formattedName,
+                                demographicNo: item.demographicNo
+                            };
+                        }));
+                    }
+                });
+            },
+            minLength: 3,
+            select: function(event, ui) {
+                $("#demographicNo").val(ui.item.demographicNo);
+                $("#demographicAC").val(ui.item.value);
+                return false;
+            }
+        });
 
-
-        YAHOO.example.BasicRemote = function () {
-            var url = "<%= request.getContextPath() %>/provider/SearchProvider.do";
-            var oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponses'});
-            oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;
-            oDS.responseSchema = {
-                resultsList: "results",
-                fields: ["providerNo", "firstName", "lastName"]
-            };
-            oDS.maxCacheEntries = 0;
-            var oAC = new YAHOO.widget.AutoComplete("providerAC", "provider_choices", oDS);
-            oAC.queryMatchSubset = true;
-            oAC.minQueryLength = 3;
-            oAC.maxResultsDisplayed = 25;
-            oAC.formatResult = resultFormatter3;
-            oAC.queryMatchContains = true;
-            oAC.itemSelectEvent.subscribe(function (type, args) {
-                var oData = args[2];
-                var providerNo = args[2][0];
-                var providerName = args[2][2] + "," + args[2][1];
-                $("#providerNo").val(providerNo);
-                $("#providerAC").val(providerName);
-            });
-            return {
-                oDS: oDS,
-                oAC: oAC
-            };
-        }();
+        $("#providerAC").autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "<%= request.getContextPath() %>/provider/SearchProvider.do",
+                    type: "POST",
+                    data: { query: request.term },
+                    dataType: "json",
+                    success: function(data) {
+                        var items = (data.results || []).slice(0, 25);
+                        response($.map(items, function(item) {
+                            return {
+                                label: item.lastName + ", " + item.firstName,
+                                value: item.lastName + "," + item.firstName,
+                                providerNo: item.providerNo
+                            };
+                        }));
+                    }
+                });
+            },
+            minLength: 3,
+            select: function(event, ui) {
+                $("#providerNo").val(ui.item.providerNo);
+                $("#providerAC").val(ui.item.value);
+                return false;
+            }
+        });
 
     </script>
     </body>

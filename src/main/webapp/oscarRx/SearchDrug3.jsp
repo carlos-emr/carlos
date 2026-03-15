@@ -208,12 +208,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="<c:out value="${ctx}/js/checkDate.js"/>"></script>
 
 
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}/share/yui/css/autocomplete.css"/>">
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/yahoo-dom-event.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/connection-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/animation-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/datasource-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/autocomplete-min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/js/checkDate.js"/>"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.12.1.min.css"/>
 
@@ -739,7 +733,7 @@ function renderRxStage() {
 
 
 
-    <body onload="checkFav();iterateStash();rxPageSizeSelect();checkReRxLongTerm();load()" class="yui-skin-sam">
+    <body onload="checkFav();iterateStash();rxPageSizeSelect();checkReRxLongTerm();load()">
 
     <div id="searchDrug3Wrapper">
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
@@ -1802,28 +1796,6 @@ function popForm2(scriptId){
 			//callReplacementWebService("InteractionDisplay.jsp",'interactionsRx');
 			callReplacementWebService("ListDrugs.jsp", 'drugProfile');
 
-<%--YAHOO.example.FnMultipleFields = function(){--%>
-<%--    var url = "<c:out value="${ctx}"/>" + "/oscarRx/searchDrug.do?method=jsonSearch";--%>
-<%--    var oDS = new YAHOO.util.XHRDataSource(url,{connMethodPost:true,connXhrMode:'ingoreStaleResponse'});--%>
-<%--    oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType--%>
-<%--    // Define the schema of the delimited results--%>
-<%--    oDS.responseSchema = {--%>
-<%--        resultsList : "results",--%>
-<%--        fields : ["name", "id","isInactive"]--%>
-<%--    };--%>
-<%--    // Enable caching--%>
-<%--    oDS.maxCacheEntries =0;--%>
-<%--    oDS.connXhrMode ="cancelStaleRequests";--%>
-<%--    // Instantiate AutoComplete--%>
-<%--    var oAC = new YAHOO.widget.AutoComplete("searchString", "autocomplete_choices", oDS);--%>
-<%--    oAC.useShadow = true;--%>
-<%--    oAC.resultTypeList = false;--%>
-<%--    oAC.queryMatchSubset = true;--%>
-<%--    oAC.minQueryLength = 3;--%>
-<%--    oAC.maxResultsDisplayed = 40;--%>
-<%--    oAC.formatResult = resultFormatter2;--%>
-<%--    --%>
-<%--    --%>
 
 			function searchResultsHandler(type, args) {
 

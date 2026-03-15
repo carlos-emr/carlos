@@ -250,17 +250,14 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/controls.js"></script>
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/datasource-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <script type="text/javascript">jQuery.noConflict();</script>
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/documentDescriptionTypeahead.js"></script>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.css"/>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css"/>
     <script type="text/javascript">
@@ -1157,52 +1154,42 @@
             </td>
         </tr>
         <script type="text/javascript">
-            YAHOO.example.BasicRemote = function () {
-                var url = "<%= request.getContextPath()%>/provider/SearchProvider.do";
-                var oDS = new YAHOO.util.XHRDataSource(url, {
-                    connMethodPost: true,
-                    connXhrMode: 'ignoreStaleResponses'
-                });
-                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
+            jQuery("#autocompleteprov").autocomplete({
+                source: function(request, response) {
+                    jQuery.ajax({
+                        url: "<%= request.getContextPath()%>/provider/SearchProvider.do",
+                        type: "POST",
+                        data: { query: request.term },
+                        dataType: "json",
+                        success: function(data) {
+                            var items = (data.results || []).slice(0, 25);
+                            response(jQuery.map(items, function(item) {
+                                return {
+                                    label: item.lastName + ", " + item.firstName,
+                                    value: "",
+                                    providerNo: item.providerNo,
+                                    firstName: item.firstName,
+                                    lastName: item.lastName
+                                };
+                            }));
+                        }
+                    });
+                },
+                minLength: 3,
+                select: function(event, ui) {
+                    event.preventDefault();
+                    var provfindEl = document.getElementById("provfind");
+                    if (provfindEl) provfindEl.value = ui.item.providerNo;
 
-                // Define the schema of the delimited results
-                oDS.responseSchema = {
-                    resultsList: "results",
-                    fields: ["providerNo", "firstName", "lastName"]
-                };
+                    addflagprovider(ui.item.firstName, ui.item.lastName, ui.item.providerNo);
 
-                // Enable caching
-                oDS.maxCacheEntries = 0;
-
-                // Instantiate the AutoComplete
-                var oAC = new YAHOO.widget.AutoComplete("autocompleteprov", "autocomplete_choicesprov", oDS);
-                oAC.queryMatchSubset = true;
-                oAC.minQueryLength = 3;
-                oAC.maxResultsDisplayed = 25;
-                oAC.formatResult = resultFormatter3;
-
-                oAC.queryMatchContains = true;
-
-                oAC.itemSelectEvent.subscribe(function (type, args) {
-
-                    var myAC = args[0];
-                    var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
-                    var oData = args[2];
-                    $(str).value = args[2][0];
-                    myAC.getInputEl().value = args[2][2] + "," + args[2][1];
-
-                    addflagprovider(oData[2], oData[1], oData[0]);
-
-                    myAC.getInputEl().value = '';
-
-                });
-
-
-                return {
-                    oDS: oDS,
-                    oAC: oAC
-                };
-            }();
+                    jQuery("#autocompleteprov").val('');
+                    return false;
+                },
+                focus: function(event) {
+                    event.preventDefault();
+                }
+            });
 
             function addflagprovider(pfirstname, plastname, provider_no) {
                 //enable Save button whenever a selection is made
@@ -1242,49 +1229,42 @@
 
             }
 
-            YAHOO.example.BasicRemote = function () {
-                if ($("autocompletedemo") && $("autocomplete_choices")) {
+            if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {
+                jQuery("#autocompletedemo").autocomplete({
+                    source: function(request, response) {
+                        jQuery.ajax({
+                            url: "<%=request.getContextPath()%>/demographic/SearchDemographic.do",
+                            type: "POST",
+                            data: { query: request.term },
+                            dataType: "json",
+                            success: function(data) {
+                                var items = (data.results || []).slice(0, 25);
+                                response(jQuery.map(items, function(item) {
+                                    return {
+                                        label: item.formattedName + " (" + item.fomattedDob + ") - " + item.status,
+                                        value: item.formattedName + " (" + item.fomattedDob + ")",
+                                        demographicNo: item.demographicNo,
+                                        providerNo: item.providerNo || "",
+                                        providerName: item.providerName || ""
+                                    };
+                                }));
+                            }
+                        });
+                    },
+                    minLength: 3,
+                    select: function(event, ui) {
+                        event.preventDefault();
+                        var demofindEl = document.getElementById("demofind");
+                        if (demofindEl) demofindEl.value = ui.item.demographicNo;
 
-                    var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
-                    var oDS = new YAHOO.util.XHRDataSource(url, {
-                        connMethodPost: true,
-                        connXhrMode: 'ignoreStaleResponses'
-                    });
-                    oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
+                        document.getElementById('MRPNo').value = ui.item.providerNo;
+                        document.getElementById('MRPName').value = ui.item.providerName;
 
-                    // Define the schema of the delimited results
-                    oDS.responseSchema = {
-                        resultsList: "results",
-                        fields: ["formattedName", "fomattedDob", "demographicNo", "status", "providerNo", "providerName"]
-                    };
+                        jQuery("#autocompletedemo").val(ui.item.value);
+                        selectedDemos.push(ui.item.value);
 
-                    // Enable caching
-                    oDS.maxCacheEntries = 0;
-
-                    var oAC = new YAHOO.widget.AutoComplete("autocompletedemo", "autocomplete_choices", oDS);
-
-                    oAC.queryMatchSubset = true;
-                    oAC.minQueryLength = 3;
-                    oAC.maxResultsDisplayed = 25;
-                    oAC.formatResult = resultFormatter2;
-                    oAC.queryMatchContains = true;
-
-                    oAC.itemSelectEvent.subscribe(function (type, args) {
-
-                        var str = args[0].getInputEl().id.replace("autocompletedemo", "demofind");
-
-
-                        document.getElementById('MRPNo').value = args[2][4];
-                        document.getElementById('MRPName').value = args[2][5];
-
-                        $(str).value = args[2][2];
-
-                        args[0].getInputEl().value = args[2][0] + " (" + args[2][1] + ")";
-
-                        selectedDemos.push(args[0].getInputEl().value);
-
-                        //enable Save button whenever a selection is made
-                        $('save').enable();
+                        var saveEl = document.getElementById('save');
+                        if (saveEl) saveEl.removeAttribute('disabled');
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
                             var MRPName = document.getElementById('MRPName').value;
@@ -1293,15 +1273,10 @@
                                 addflagprovider(MRPName, "(<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.MRP"/>)", MRPNo);
                             }
                         }
-                    });
-
-
-                    return {
-                        oDS: oDS,
-                        oAC: oAC
-                    };
-                }
-            }();
+                        return false;
+                    }
+                });
+            }
         </script>
     </table>
 </div>

@@ -143,17 +143,12 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/controls.js"></script>
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/animation-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/datasource-min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <script type="text/javascript">jQuery.noConflict();</script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
-    <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery-1.4.2.js"></script>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.css"/>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
 
     <style type="text/css">
@@ -463,85 +458,55 @@
                                             oscarLog(windowprops);
                                             var popup = window.open(varpage, windowname, windowprops);
                                         }
-                                        YAHOO.example.BasicRemote = function () {
-                                            var url = "<%= request.getContextPath() %>/provider/SearchProvider.do";
-                                            var oDS = new YAHOO.util.XHRDataSource(url, {
-                                                connMethodPost: true,
-                                                connXhrMode: 'ignoreStaleResponses'
-                                            });
-                                            oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-                                            // Define the schema of the delimited resultsTEST, PATIENT(1985-06-15)
-                                            oDS.responseSchema = {
-                                                resultsList: "results",
-                                                fields: ["providerNo", "firstName", "lastName"]
-                                            };
-                                            // Enable caching
-                                            oDS.maxCacheEntries = 0;
-                                            //oDS.connXhrMode ="cancelStaleRequests";
-                                            //oscarLog("autocompleteprov<%=docId%>");
-                                            //oscarLog("autocomplete_choicesprov<%=docId%>");
-                                            //oscarLog($("autocompleteprov<%=docId%>"));
-                                            //oscarLog($("autocomplete_choicesprov<%=docId%>"));
-                                            // Instantiate the AutoComplete
-                                            var oAC = new YAHOO.widget.AutoComplete("autocompleteprov<%=docId%>", "autocomplete_choicesprov<%=docId%>", oDS);
-                                            oAC.queryMatchSubset = true;
-                                            oAC.minQueryLength = 3;
-                                            oAC.maxResultsDisplayed = 25;
-                                            oAC.formatResult = resultFormatter3;
-                                            //oAC.typeAhead = true;
-                                            oAC.queryMatchContains = true;
-                                            oscarLog(oAC);
-                                            oscarLog(oAC.itemSelectEvent);
-                                            oAC.itemSelectEvent.subscribe(function (type, args) {
-                                                oscarLog(args);
-                                                var myAC = args[0];
-                                                var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
-                                                oscarLog(str);
-                                                oscarLog(args[2]);
-                                                var oData = args[2];
-                                                $(str).value = args[2][0];//li.id;
-                                                oscarLog("str value=" + $(str).value);
-                                                oscarLog(args[2][1] + "--" + args[2][0]);
-                                                myAC.getInputEl().value = args[2][2] + "," + args[2][1];
-                                                oscarLog("--" + args[0].getInputEl().value);
-                                                //selectedDemos.push(args[0].getInputEl().value);
+                                        jQuery("#autocompleteprov<%=docId%>").autocomplete({
+                                            source: function(request, response) {
+                                                jQuery.ajax({
+                                                    url: "<%= request.getContextPath() %>/provider/SearchProvider.do",
+                                                    type: "POST",
+                                                    data: { query: request.term },
+                                                    dataType: "json",
+                                                    success: function(data) {
+                                                        var items = (data.results || []).slice(0, 25);
+                                                        response(jQuery.map(items, function(item) {
+                                                            return {
+                                                                label: item.lastName + ", " + item.firstName,
+                                                                value: "",
+                                                                providerNo: item.providerNo,
+                                                                firstName: item.firstName,
+                                                                lastName: item.lastName
+                                                            };
+                                                        }));
+                                                    }
+                                                });
+                                            },
+                                            minLength: 3,
+                                            select: function(event, ui) {
+                                                event.preventDefault();
+                                                var provfindEl = document.getElementById("provfind<%=docId%>");
+                                                if (provfindEl) provfindEl.value = ui.item.providerNo;
 
-                                                //enable Save button whenever a selection is made
                                                 var bdoc = document.createElement('a');
                                                 bdoc.setAttribute("id", "removeProv<%=docId%>");
                                                 bdoc.setAttribute("onclick", "removeProv(this);");
                                                 bdoc.appendChild(document.createTextNode(" -remove- "));
-                                                oscarLog("--");
                                                 var adoc = document.createElement('div');
-                                                adoc.appendChild(document.createTextNode(oData[2] + " " + oData[1]));
-                                                oscarLog("--==");
+                                                adoc.appendChild(document.createTextNode(ui.item.lastName + " " + ui.item.firstName));
                                                 var idoc = document.createElement('input');
                                                 idoc.setAttribute("type", "hidden");
                                                 idoc.setAttribute("name", "flagproviders");
-                                                idoc.setAttribute("value", oData[0]);
-                                                //console.log(oData[0]);
-                                                //console.log(myAC);
-                                                //   console.log(elLI);
-                                                //   console.log(oData);
-                                                //   console.log(aArgs);
-                                                //   console.log(sType);
+                                                idoc.setAttribute("value", ui.item.providerNo);
                                                 adoc.appendChild(idoc);
-
                                                 adoc.appendChild(bdoc);
-                                                var providerList = $('providerList<%=docId%>');
-                                                //    console.log('Now HERE'+providerList);
-                                                providerList.appendChild(adoc);
+                                                var providerList = document.getElementById('providerList<%=docId%>');
+                                                if (providerList) providerList.appendChild(adoc);
 
-                                                myAC.getInputEl().value = '';//;oData.fname + " " + oData.lname ;
-
-                                            });
-
-
-                                            return {
-                                                oDS: oDS,
-                                                oAC: oAC
-                                            };
-                                        }();
+                                                jQuery("#autocompleteprov<%=docId%>").val('');
+                                                return false;
+                                            },
+                                            focus: function(event) {
+                                                event.preventDefault();
+                                            }
+                                        });
                                         refreshParent = function () {
                                             window.opener.location.reload();
                                         }
@@ -637,67 +602,39 @@
                                             });
                                         }
 
-                                        YAHOO.example.BasicRemote = function () {
-                                            if ($("autocompletedemo<%=docId%>") && $("autocomplete_choices<%=docId%>")) {
-                                                oscarLog('in basic remote');
-                                                //var oDS = new YAHOO.util.XHRDataSource("http://localhost:8080/drugref2/test4.jsp");
-                                                var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
-                                                var oDS = new YAHOO.util.XHRDataSource(url, {
-                                                    connMethodPost: true,
-                                                    connXhrMode: 'ignoreStaleResponses'
-                                                });
-                                                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-                                                // Define the schema of the delimited resultsTEST, PATIENT(1985-06-15)
-                                                oDS.responseSchema = {
-                                                    resultsList: "results",
-                                                    fields: ["formattedName", "fomattedDob", "demographicNo", "status"]
-                                                };
-                                                // Enable caching
-                                                oDS.maxCacheEntries = 0;
-                                                //oDS.connXhrMode ="cancelStaleRequests";
-                                                //oscarLog("autocompletedemo<%=docId%>");
-                                                //oscarLog("autocomplete_choices<%=docId%>");
-
-                                                //var elinput=window.frames[0].document.getElementById("autocompletedemo<%=docId%>");
-                                                //var elcontainer=window.frames[0].document.getElementById("autocomplete_choices<%=docId%>");
-                                                //oscarLog('elinput='+elinput+';elcontainer='+elcontainer);
-                                                // Instantiate the AutoComplete
-                                                //var oAC = new YAHOO.widget.AutoComplete("autocompletedemo<%=docId%>", "autocomplete_choices<%=docId%>", oDS);
-                                                var oAC = new YAHOO.widget.AutoComplete("autocompletedemo<%=docId%>", "autocomplete_choices<%=docId%>", oDS);
-                                                //oscarLog('oAc='+oAC);
-                                                //oscarLog('oDs='+oDS);
-                                                //oscarLog('resultFormatter2='+resultFormatter2);
-                                                oAC.queryMatchSubset = true;
-                                                oAC.minQueryLength = 3;
-                                                oAC.maxResultsDisplayed = 25;
-                                                oAC.formatResult = resultFormatter2;
-                                                //oAC.typeAhead = true;
-                                                oAC.queryMatchContains = true;
-                                                //oscarLog(oAC);
-                                                //oscarLog(oAC.itemSelectEvent);
-                                                oAC.itemSelectEvent.subscribe(function (type, args) {
-                                                    //oscarLog(args);
-                                                    //oscarLog(args[0].getInputEl().id);
-                                                    var str = args[0].getInputEl().id.replace("autocompletedemo", "demofind");
-                                                    //oscarLog(str);
-                                                    $(str).value = args[2][2];//li.id;
-                                                    //oscarLog("str value="+$(str).value);
-                                                    //oscarLog(args[2][1]+"--"+args[2][0]);
-                                                    args[0].getInputEl().value = args[2][0] + "(" + args[2][1] + ")";
-                                                    //oscarLog("--"+args[0].getInputEl().value);
-                                                    selectedDemos.push(args[0].getInputEl().value);
-                                                    //enable Save button whenever a selection is made
-                                                    $('save<%=docId%>').enable();
-
-                                                });
-
-
-                                                return {
-                                                    oDS: oDS,
-                                                    oAC: oAC
-                                                };
-                                            }
-                                        }();
+                                        if (document.getElementById("autocompletedemo<%=docId%>") && document.getElementById("autocomplete_choices<%=docId%>")) {
+                                            jQuery("#autocompletedemo<%=docId%>").autocomplete({
+                                                source: function(request, response) {
+                                                    jQuery.ajax({
+                                                        url: "<%=request.getContextPath()%>/demographic/SearchDemographic.do",
+                                                        type: "POST",
+                                                        data: { query: request.term },
+                                                        dataType: "json",
+                                                        success: function(data) {
+                                                            var items = (data.results || []).slice(0, 25);
+                                                            response(jQuery.map(items, function(item) {
+                                                                return {
+                                                                    label: item.formattedName + " (" + item.fomattedDob + ") - " + item.status,
+                                                                    value: item.formattedName + "(" + item.fomattedDob + ")",
+                                                                    demographicNo: item.demographicNo
+                                                                };
+                                                            }));
+                                                        }
+                                                    });
+                                                },
+                                                minLength: 3,
+                                                select: function(event, ui) {
+                                                    event.preventDefault();
+                                                    var demofindEl = document.getElementById("demofind<%=docId%>");
+                                                    if (demofindEl) demofindEl.value = ui.item.demographicNo;
+                                                    jQuery("#autocompletedemo<%=docId%>").val(ui.item.value);
+                                                    selectedDemos.push(ui.item.value);
+                                                    var saveEl = document.getElementById('save<%=docId%>');
+                                                    if (saveEl) saveEl.removeAttribute('disabled');
+                                                    return false;
+                                                }
+                                            });
+                                        }
 
                                         updateDocument = function (eleId) {
                                             if (!checkObservationDate(eleId)) {
