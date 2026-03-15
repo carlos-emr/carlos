@@ -2747,7 +2747,7 @@ function updateCPPNote() {
         if (!found) {
             var node = document.createElement("LI");
 
-            var html = "<input type='checkbox' id='issueId' name='issue_id' checked value='" + nodeId + "'>" + listItem.innerHTML;
+            var html = "<input type='checkbox' id='issueId' name='issue_id' checked value='" + nodeId + "'>" + listItem.textContent;
             $(node).insertAdjacentHTML('afterbegin', html);
 
             $("issueIdList").appendChild(node);

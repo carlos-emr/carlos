@@ -12,6 +12,8 @@
         <link rel="stylesheet" type="text/css" href="${ctx}/oscarEncounter/encounterStyles.css">
         <link rel="stylesheet" type="text/css" href="${ctx}/oscarEncounter/css/encounter-page.css">
 
+        <script type="text/javascript">jQuery.noConflict();</script>
+        <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() for jQuery calls -->
         <script src="${ctx}/share/javascript/prototype-compat.js" type="text/javascript"></script>
 
         <%-- Popup menu scripts --%>
