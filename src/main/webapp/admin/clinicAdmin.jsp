@@ -50,7 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Clinic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     Clinic clinic = (Clinic) request.getAttribute("clinicForm");
     if (clinic == null) {

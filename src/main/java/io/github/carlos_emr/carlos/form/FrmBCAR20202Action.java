@@ -54,8 +54,8 @@ import io.github.carlos_emr.carlos.form.model.FormBCAR2020Data;
 import io.github.carlos_emr.carlos.form.model.FormBCAR2020Text;
 import io.github.carlos_emr.carlos.form.util.LanguageUtil;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
@@ -69,7 +69,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class FrmBCAR20202Action extends ActionSupport {

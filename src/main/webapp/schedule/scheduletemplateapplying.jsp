@@ -31,7 +31,7 @@
 <!DOCTYPE html>
 <%@ page import="java.util.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.lang.*" %>
 <jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>

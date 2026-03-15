@@ -47,8 +47,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;

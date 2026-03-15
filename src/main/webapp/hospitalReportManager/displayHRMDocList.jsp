@@ -18,7 +18,7 @@
 <%@page import="java.util.*, io.github.carlos_emr.carlos.hospitalReportManager.*,io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

@@ -56,7 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
     SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);

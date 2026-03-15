@@ -38,7 +38,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ include file="/admin/dbconnection.jsp" %>

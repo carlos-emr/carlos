@@ -80,7 +80,7 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 

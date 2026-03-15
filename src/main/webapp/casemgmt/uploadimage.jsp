@@ -53,9 +53,9 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 
 <%
-    if (application.getAttribute("javax.servlet.context.tempdir") == null) {
+    if (application.getAttribute("jakarta.servlet.context.tempdir") == null) {
         String tmpDir = System.getProperty("java.io.tmpdir");
-        application.setAttribute("javax.servlet.context.tempdir", new java.io.File(tmpDir));
+        application.setAttribute("jakarta.servlet.context.tempdir", new java.io.File(tmpDir));
     }
 %>
 <html>

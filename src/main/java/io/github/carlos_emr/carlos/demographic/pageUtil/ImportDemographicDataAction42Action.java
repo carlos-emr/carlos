@@ -65,7 +65,7 @@ import cdsDt.DiabetesComplicationScreening.ExamCode;
 import cdsDt.DiabetesMotivationalCounselling.CounsellingPerformed;
 import cdsDt.PersonNameStandard.LegalName;
 import cdsDt.PersonNameStandard.OtherNames;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
@@ -123,9 +123,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.awt.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -238,7 +238,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         ServletContext servletContext = ServletActionContext.getServletContext();
 
         // Validate the paths using PathValidationUtils
-        File safeDir = (File) servletContext.getAttribute("javax.servlet.context.tempdir"); // Use a safe directory
+        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         try {
             PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir);
         } catch (SecurityException e) {

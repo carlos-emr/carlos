@@ -27,7 +27,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;

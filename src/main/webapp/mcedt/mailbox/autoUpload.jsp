@@ -30,12 +30,12 @@
 --%>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page
         import="java.io.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils, java.math.BigInteger,ca.ontario.health.edt.ResponseResult" errorPage="/errorpage.jsp" %>

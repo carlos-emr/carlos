@@ -86,7 +86,7 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>

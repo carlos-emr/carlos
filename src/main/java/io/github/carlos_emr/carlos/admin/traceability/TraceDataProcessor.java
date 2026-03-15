@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.zip.GZIPOutputStream;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Build 'trace' map and send it to serialized compressed stream

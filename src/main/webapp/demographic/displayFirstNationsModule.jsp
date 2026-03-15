@@ -47,7 +47,7 @@
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <%
     String demographic_no = request.getParameter("demo");

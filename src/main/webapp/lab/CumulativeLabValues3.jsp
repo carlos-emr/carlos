@@ -31,7 +31,7 @@
 
 <%@page
         import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,java.sql.Connection,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*,io.github.carlos_emr.carlos.lab.ca.all.util.CumulativeLabValuesComparator,org.jdom2.*,io.github.carlos_emr.carlos.db.*,org.jdom2.input.*,java.io.InputStream" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

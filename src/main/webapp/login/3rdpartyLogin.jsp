@@ -31,13 +31,13 @@
 --%>
 
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ page import="com.github.scribejava.core.model.OAuth1RequestToken" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.login.OAuthSessionMerger" %>
 <%@ page import="java.util.*" %>
-<%@ page import="javax.servlet.http.*" %>
+<%@ page import="jakarta.servlet.http.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.login.OAuthData" %>
 <%@ page import="io.github.carlos_emr.carlos.login.OOBAuthorizationResponse" %>

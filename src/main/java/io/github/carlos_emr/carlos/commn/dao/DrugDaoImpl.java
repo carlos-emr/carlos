@@ -35,8 +35,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;

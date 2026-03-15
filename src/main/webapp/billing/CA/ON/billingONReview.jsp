@@ -32,11 +32,11 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ page errorPage="/errorpage.jsp"
          import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>

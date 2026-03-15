@@ -52,7 +52,7 @@
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 

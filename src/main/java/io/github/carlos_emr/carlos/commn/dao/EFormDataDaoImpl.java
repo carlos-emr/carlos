@@ -38,7 +38,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;

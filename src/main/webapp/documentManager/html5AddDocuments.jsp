@@ -53,7 +53,7 @@
 -->
 <%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 

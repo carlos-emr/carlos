@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.prevention;
 
 import java.util.*;
 
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.commn.model.Prevention;

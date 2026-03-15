@@ -40,9 +40,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.Vector;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -54,7 +54,7 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.JsonUtil;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 

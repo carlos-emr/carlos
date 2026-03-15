@@ -29,7 +29,7 @@
 
 package io.github.carlos_emr.carlos.email.core;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Data Transfer Object to encapsulate email attachment settings and IDs.

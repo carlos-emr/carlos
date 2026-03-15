@@ -36,7 +36,7 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.GroupMembers;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.Collections;
 import java.util.List;
 

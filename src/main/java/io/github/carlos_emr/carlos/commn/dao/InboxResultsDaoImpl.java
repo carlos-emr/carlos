@@ -23,9 +23,9 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.http.impl.cookie.DateUtils;

@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.form.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -39,10 +39,10 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
@@ -71,7 +71,7 @@ public class FrmXmlUpload2Action extends ActionSupport {
         ServletContext servletContext = ServletActionContext.getServletContext();
 
         // Validate the paths
-        File safeDir = (File) servletContext.getAttribute("javax.servlet.context.tempdir"); // Use a safe directory
+        File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         
         if (safeDir == null) {
             throw new IllegalStateException("Temporary directory attribute is not set.");

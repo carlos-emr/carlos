@@ -29,7 +29,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <c:set var="roleName" value='${sessionScope.userrole}, ${sessionScope.user}'/>
 <c:set var="authenticated" value="false"/>

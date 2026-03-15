@@ -44,7 +44,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.MailException;
 import org.springframework.beans.factory.annotation.Required;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 import org.springframework.stereotype.Service;
 

@@ -30,7 +30,7 @@
 --%>
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%

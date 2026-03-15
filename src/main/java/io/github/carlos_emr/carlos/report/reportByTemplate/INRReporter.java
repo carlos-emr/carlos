@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.sql.ResultSet;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Demographic;

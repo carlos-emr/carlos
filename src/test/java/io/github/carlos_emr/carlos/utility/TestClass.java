@@ -25,7 +25,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.util.Date;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 
 public class TestClass {
 

@@ -1,7 +1,7 @@
 package io.github.carlos_emr.carlos.email.admin;
 
 import io.github.carlos_emr.carlos.managers.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
@@ -19,8 +19,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;

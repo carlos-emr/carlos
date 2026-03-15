@@ -35,7 +35,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;

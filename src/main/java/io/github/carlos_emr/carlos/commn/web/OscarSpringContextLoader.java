@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.commn.web;
 
 import java.util.ArrayList;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;

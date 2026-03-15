@@ -31,14 +31,14 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
 
-import javax.persistence.EntityManager;
-import javax.persistence.Query;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ServletActionContext;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;

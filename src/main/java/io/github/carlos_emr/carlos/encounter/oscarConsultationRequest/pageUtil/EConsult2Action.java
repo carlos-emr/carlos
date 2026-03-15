@@ -37,8 +37,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.regex.Pattern;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -47,7 +47,7 @@ import io.github.carlos_emr.OscarProperties;
 /**
  * Class for use with the Ontario MD / eHealth eConsult project
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EConsult2Action extends ActionSupport {

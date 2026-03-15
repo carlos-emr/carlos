@@ -33,14 +33,14 @@ import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.getResou
 import java.math.BigInteger;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.EDTDelegate;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Info2Action extends ActionSupport {

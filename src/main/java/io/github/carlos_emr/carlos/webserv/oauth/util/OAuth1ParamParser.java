@@ -46,7 +46,7 @@ package io.github.carlos_emr.carlos.webserv.oauth.util;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import org.springframework.stereotype.Component;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.*;
 

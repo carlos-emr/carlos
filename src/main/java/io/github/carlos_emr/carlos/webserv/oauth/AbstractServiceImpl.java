@@ -60,7 +60,7 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import org.apache.cxf.message.Message;

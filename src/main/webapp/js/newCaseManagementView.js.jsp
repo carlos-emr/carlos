@@ -34,7 +34,7 @@
     <%@page import="io.github.carlos_emr.OscarProperties"%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
-    <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+    <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
     var numNotes = 0;   //How many saved notes do we have?
     var ctx;        //url context

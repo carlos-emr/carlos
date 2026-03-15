@@ -33,8 +33,8 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 
 import java.util.Date;
-import javax.persistence.NoResultException;
-import javax.persistence.Query;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;

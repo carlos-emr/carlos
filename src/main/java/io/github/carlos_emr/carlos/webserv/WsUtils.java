@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.webserv;
 import java.lang.management.ManagementFactory;
 import java.util.Date;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;

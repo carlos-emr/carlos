@@ -41,7 +41,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import io.github.carlos_emr.OscarProperties;
 import org.apache.commons.io.FilenameUtils;

@@ -26,7 +26,7 @@
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.report.data.*, java.util.Properties, io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

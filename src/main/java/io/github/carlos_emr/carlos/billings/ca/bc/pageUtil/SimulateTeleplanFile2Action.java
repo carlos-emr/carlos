@@ -40,8 +40,8 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanSubmission;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**
@@ -49,7 +49,7 @@ import java.util.List;
  *
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class SimulateTeleplanFile2Action extends ActionSupport {

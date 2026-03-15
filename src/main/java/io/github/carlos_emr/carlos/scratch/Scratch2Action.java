@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.codehaus.jettison.json.JSONObject;
 import org.owasp.encoder.Encode;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 /**

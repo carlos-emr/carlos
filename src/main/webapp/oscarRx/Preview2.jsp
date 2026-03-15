@@ -29,9 +29,9 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData, io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>

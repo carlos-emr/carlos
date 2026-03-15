@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 import java.util.function.Consumer;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 import org.springframework.stereotype.Repository;

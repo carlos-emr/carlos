@@ -31,8 +31,8 @@ package io.github.carlos_emr.carlos.renal;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSeeAlso;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
 
 @XmlRootElement(name = "CkdScreeningReport")
 @XmlSeeAlso(CKDReportContainer.class)

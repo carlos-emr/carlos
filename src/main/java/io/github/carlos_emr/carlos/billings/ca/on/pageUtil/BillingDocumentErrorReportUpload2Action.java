@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
@@ -52,9 +52,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpeci
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimsErrorReportBeanHandlerSave;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.ArrayList;

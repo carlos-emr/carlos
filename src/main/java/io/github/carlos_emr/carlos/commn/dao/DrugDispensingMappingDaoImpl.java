@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.DrugDispensingMapping;
 import org.springframework.stereotype.Repository;

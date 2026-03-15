@@ -33,8 +33,8 @@ package io.github.carlos_emr.carlos.commn.web;
 import java.util.Hashtable;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 /**
  * @author jackson
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class SearchProviderAutoComplete2Action extends ActionSupport {

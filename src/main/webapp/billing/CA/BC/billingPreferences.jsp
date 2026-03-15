@@ -1,5 +1,5 @@
 <%@ taglib prefix="oscar" uri="/oscarPropertiestag" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="java.util.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>

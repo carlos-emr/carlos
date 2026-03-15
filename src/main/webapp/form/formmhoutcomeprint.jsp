@@ -46,7 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <html>
     <head>

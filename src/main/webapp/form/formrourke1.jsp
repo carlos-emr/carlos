@@ -51,7 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 

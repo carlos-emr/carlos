@@ -36,7 +36,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Fetch;

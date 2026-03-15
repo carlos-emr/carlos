@@ -28,10 +28,10 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList" %>
 
 <link rel="stylesheet" type="text/css" href="encounterStyles.css">

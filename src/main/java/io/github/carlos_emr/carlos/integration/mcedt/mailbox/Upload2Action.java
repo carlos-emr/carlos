@@ -29,7 +29,7 @@
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import ca.ontario.health.edt.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.cxf.helpers.FileUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -39,8 +39,8 @@ import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.OscarProperties;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;

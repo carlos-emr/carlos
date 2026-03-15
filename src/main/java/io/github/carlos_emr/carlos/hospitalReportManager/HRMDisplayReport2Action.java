@@ -14,7 +14,7 @@
 
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
@@ -23,8 +23,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
-import com.opensymphony.xwork2.ModelDriven;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ModelDriven;
 import org.apache.struts2.ServletActionContext;
 
 public class HRMDisplayReport2Action extends ActionSupport implements ModelDriven<HRMReportCriteria> {

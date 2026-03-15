@@ -21,7 +21,7 @@ import java.io.OutputStream;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Iterator;
 
 import org.apache.logging.log4j.Logger;

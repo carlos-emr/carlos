@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.cxf.message.Message;

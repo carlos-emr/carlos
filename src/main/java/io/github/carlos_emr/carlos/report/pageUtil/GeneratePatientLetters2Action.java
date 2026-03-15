@@ -36,9 +36,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.OscarProperties;
 import net.sf.jasperreports.engine.JREmptyDataSource;
@@ -67,7 +67,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * @author jay
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GeneratePatientLetters2Action extends ActionSupport {

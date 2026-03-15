@@ -923,7 +923,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
             assertThatThrownBy(() ->
                 scheduleManager.listProviderAppointmentCounts(
                     mockLoggedInInfo, "not-a-date", "also-not-a-date"))
-                .isInstanceOf(javax.ws.rs.WebApplicationException.class);
+                .isInstanceOf(jakarta.ws.rs.WebApplicationException.class);
         }
     }
 

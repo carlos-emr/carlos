@@ -42,7 +42,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.*;
 
 @Repository

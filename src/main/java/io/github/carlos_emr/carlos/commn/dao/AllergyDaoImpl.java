@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.Date;
 import java.util.List;
 

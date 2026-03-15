@@ -80,7 +80,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 

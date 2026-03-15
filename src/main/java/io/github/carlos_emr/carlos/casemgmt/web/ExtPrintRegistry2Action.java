@@ -30,14 +30,14 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrintRegistry;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ExtPrintRegistry2Action extends ActionSupport {

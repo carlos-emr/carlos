@@ -35,9 +35,9 @@ import java.util.Date;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class EctSaveEncounter2Action extends ActionSupport {

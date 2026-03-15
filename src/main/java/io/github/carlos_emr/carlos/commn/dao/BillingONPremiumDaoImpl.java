@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
 import java.util.Locale;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;

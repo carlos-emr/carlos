@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 
 import java.util.Date;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 @Entity
 public class DigitalSignature extends AbstractModel<Integer> {

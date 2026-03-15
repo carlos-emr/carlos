@@ -14,7 +14,7 @@
 package io.github.carlos_emr.carlos.hospitalReportManager.dao;
 
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMProviderConfidentialityStatement;

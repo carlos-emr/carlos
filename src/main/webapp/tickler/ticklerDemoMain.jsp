@@ -117,7 +117,7 @@
     String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? "8888-12-31" : request.getParameter("xml_appointment_date");
 %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>

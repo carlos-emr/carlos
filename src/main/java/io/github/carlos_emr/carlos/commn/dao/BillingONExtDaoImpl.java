@@ -36,9 +36,9 @@ import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
-import javax.persistence.NoResultException;
-import javax.persistence.NonUniqueResultException;
+import jakarta.persistence.Query;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.NonUniqueResultException;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;

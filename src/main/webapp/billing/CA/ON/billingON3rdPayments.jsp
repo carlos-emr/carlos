@@ -47,8 +47,8 @@
 */
 -->
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*,java.text.*"
          errorPage="/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site,io.github.carlos_emr.carlos.commn.dao.SiteDao" %>

@@ -27,8 +27,8 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.tagext.TagSupport;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.OscarProperties;
 

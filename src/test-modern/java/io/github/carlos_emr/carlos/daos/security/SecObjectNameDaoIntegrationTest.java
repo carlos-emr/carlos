@@ -29,8 +29,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -109,7 +109,7 @@ public class SecObjectNameDaoIntegrationTest extends CarlosTestBase {
      * reached the database -- it could be served from Hibernate's first-level
      * cache.</p>
      *
-     * @see javax.persistence.PersistenceContext
+     * @see jakarta.persistence.PersistenceContext
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;

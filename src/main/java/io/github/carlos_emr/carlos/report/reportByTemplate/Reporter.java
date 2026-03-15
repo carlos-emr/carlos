@@ -28,7 +28,7 @@
 
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * @author rjonasz

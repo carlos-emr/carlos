@@ -44,7 +44,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;

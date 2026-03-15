@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.List;
 import java.util.ListIterator;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.JointAdmission;
 import org.springframework.stereotype.Repository;

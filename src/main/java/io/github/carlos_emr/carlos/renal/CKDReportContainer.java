@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.renal;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 

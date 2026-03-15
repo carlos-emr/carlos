@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-import javax.persistence.PersistenceException;
+import jakarta.persistence.PersistenceException;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utils.Utility;

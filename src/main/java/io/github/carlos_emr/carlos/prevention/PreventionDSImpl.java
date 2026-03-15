@@ -33,7 +33,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.net.URL;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;

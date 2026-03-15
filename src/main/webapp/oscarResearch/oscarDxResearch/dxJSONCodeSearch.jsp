@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <style type="text/css">
     .ui-autocomplete-loading {
         background: white url('<%= request.getContextPath() %>/images/ui-anim_basic_16x16.gif') right center no-repeat;

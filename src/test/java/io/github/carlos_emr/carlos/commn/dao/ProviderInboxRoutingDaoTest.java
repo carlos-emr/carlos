@@ -26,7 +26,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
-import javax.persistence.PersistenceException;
+import jakarta.persistence.PersistenceException;
 
 import org.junit.Before;
 import org.junit.Test;

@@ -1,9 +1,9 @@
 package io.github.carlos_emr.carlos.ws;
 
-import javax.xml.bind.annotation.XmlSeeAlso;
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlSeeAlso;
+import jakarta.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
 /**
@@ -53,8 +53,8 @@ import java.io.Serializable;
  *
  * @since 2026-01-18
  * @see Client
- * @see javax.xml.bind.annotation.XmlAccessorType
- * @see javax.xml.bind.annotation.XmlType
+ * @see jakarta.xml.bind.annotation.XmlAccessorType
+ * @see jakarta.xml.bind.annotation.XmlType
  * @see java.io.Serializable
  */
 @XmlAccessorType(XmlAccessType.FIELD)

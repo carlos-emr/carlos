@@ -60,7 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.Numerator" %>
 <%@ page import="io.github.carlos_emr.carlos.report.ClinicalReports.Denominator" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 

@@ -34,12 +34,12 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
@@ -61,10 +61,10 @@ public class WCB {
     int demographic_no;
     private //    | int(10) unsigned ||
     String provider_no;
-    @Temporal(value = javax.persistence.TemporalType.TIMESTAMP)
+    @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
     private //    | int(10) unsigned ||
     Date formCreated;
-    @Temporal(value = javax.persistence.TemporalType.TIMESTAMP)
+    @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
     private //   | datetime         ||
     Date formEdited;
     private //  | datetime         ||
@@ -79,7 +79,7 @@ public class WCB {
     String w_mname;
     private //         | char(1)          ||
     String w_gender;
-    @Temporal(value = javax.persistence.TemporalType.DATE)
+    @Temporal(value = jakarta.persistence.TemporalType.DATE)
     private //         | char(1)          ||
     Date w_dob;
     private //       | date             ||
@@ -112,7 +112,7 @@ public class WCB {
     int w_duration;
     private //  | int(1)           || 
     String w_problem;
-    @Temporal(value = javax.persistence.TemporalType.TIMESTAMP)
+    @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
     private //   | varchar(160)     ||
     Date w_servicedate;
     private //    | date             ||
@@ -127,7 +127,7 @@ public class WCB {
     String w_noi;
     private //     | varchar(5)       ||
     String w_work;
-    @Temporal(value = javax.persistence.TemporalType.DATE)
+    @Temporal(value = jakarta.persistence.TemporalType.DATE)
     private //     | char(1)          ||
     Date w_workdate;
     private //   | date             ||
@@ -146,7 +146,7 @@ public class WCB {
     String w_wcbadvisor;
     private //  | char(1)          ||
     String w_ftreatment;
-    @Temporal(value = javax.persistence.TemporalType.TIMESTAMP)
+    @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
     private //  | varchar(25)      ||
     Date w_estimatedate;
     private // | date             ||
@@ -155,7 +155,7 @@ public class WCB {
     String w_payeeno;
     private //   | varchar(10)      ||
     String w_pracno;
-    @Temporal(value = javax.persistence.TemporalType.DATE)
+    @Temporal(value = jakarta.persistence.TemporalType.DATE)
     private //   | varchar(10)      ||
     Date w_doi;
     private // | date             ||

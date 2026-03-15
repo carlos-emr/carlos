@@ -52,7 +52,7 @@
 <%@ page
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager,io.github.carlos_emr.carlos.demographic.data.*,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>

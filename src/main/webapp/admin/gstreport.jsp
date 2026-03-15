@@ -29,7 +29,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

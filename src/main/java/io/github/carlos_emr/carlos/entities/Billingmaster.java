@@ -33,15 +33,15 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EntityResult;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.SqlResultSetMapping;
-import javax.persistence.Table;
-import javax.persistence.Temporal;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityResult;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.SqlResultSetMapping;
+import jakarta.persistence.Table;
+import jakarta.persistence.Temporal;
 
 import io.github.carlos_emr.carlos.util.UtilMisc;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -82,7 +82,7 @@ public class Billingmaster {
     private int billingmasterNo;
     @Column(name = "billing_no")
     private int billingNo;
-    @Temporal(value = javax.persistence.TemporalType.DATE)
+    @Temporal(value = jakarta.persistence.TemporalType.DATE)
     private Date createdate;
     private String billingstatus;
     @Column(name = "demographic_no")

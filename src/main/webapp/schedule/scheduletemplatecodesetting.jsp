@@ -35,7 +35,7 @@
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <jsp:useBean id="dataBean" class="java.util.Properties" scope="page"/>

@@ -43,9 +43,9 @@
     }
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>

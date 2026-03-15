@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.sql.Timestamp;
 import java.util.List;
 

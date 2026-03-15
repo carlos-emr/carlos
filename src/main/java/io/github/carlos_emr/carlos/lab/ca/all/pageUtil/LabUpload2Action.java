@@ -39,7 +39,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
@@ -64,8 +64,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.spec.SecretKeySpec;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
 import java.security.KeyFactory;

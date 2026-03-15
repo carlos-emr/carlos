@@ -24,7 +24,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils,io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="java.util.Properties,java.util.Date,java.util.List,java.util.ArrayList,java.math.BigDecimal" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao,io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
@@ -46,7 +46,7 @@
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%

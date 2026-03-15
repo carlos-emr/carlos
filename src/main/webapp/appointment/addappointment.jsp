@@ -103,10 +103,10 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <fmt:setBundle basename="oscarResources"/>

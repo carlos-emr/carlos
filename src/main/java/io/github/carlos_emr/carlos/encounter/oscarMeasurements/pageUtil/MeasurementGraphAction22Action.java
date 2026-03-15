@@ -42,8 +42,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -93,7 +93,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
 /**
  * @author jaygallagher
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class MeasurementGraphAction22Action extends ActionSupport {

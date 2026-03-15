@@ -33,7 +33,7 @@ package io.github.carlos_emr;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;

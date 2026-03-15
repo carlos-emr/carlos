@@ -39,11 +39,11 @@
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.Choice" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.Parameter" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">

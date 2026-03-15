@@ -51,7 +51,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>

@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.provider.web;
 
 import java.util.*;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ViewDao;
 import io.github.carlos_emr.carlos.commn.model.View;
@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * @author rjonasz
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class ProviderView2Action extends ActionSupport {

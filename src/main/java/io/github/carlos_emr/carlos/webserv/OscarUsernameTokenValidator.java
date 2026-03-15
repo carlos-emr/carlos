@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;

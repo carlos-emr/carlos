@@ -37,7 +37,7 @@ v<%
 
 <%@ page
         import="io.github.carlos_emr.carlos.form.*, java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>

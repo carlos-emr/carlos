@@ -25,5 +25,5 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-@javax.xml.bind.annotation.XmlSchema(namespace = "http://caisi.org/wl/")
+@jakarta.xml.bind.annotation.XmlSchema(namespace = "http://caisi.org/wl/")
 package io.github.carlos_emr.carlos.wl;

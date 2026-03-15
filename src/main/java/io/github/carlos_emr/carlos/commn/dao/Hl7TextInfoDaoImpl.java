@@ -39,7 +39,7 @@ import java.util.Date;
 import java.util.List;
 import java.text.SimpleDateFormat;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.commn.NativeSql;
