@@ -7,7 +7,7 @@ function addComment(reportId) {
         data: data,
         success: function (data) {
             if (data != null)
-                document.getElementById("commentstatus" + reportId).innerHTML = data;
+                document.getElementById("commentstatus" + reportId).textContent = data;
         }
     });
 }
@@ -19,7 +19,7 @@ function deleteComment(commentId, reportId) {
         data: "method=deleteComment&commentId=" + commentId,
         success: function (data) {
             if (data != null)
-                document.getElementById("commentstatus" + reportId).innerHTML = data;
+                document.getElementById("commentstatus" + reportId).textContent = data;
         }
     });
 }
@@ -123,7 +123,7 @@ function addProvToHrm(reportId, providerNo) {
         data: "method=assignProvider&reportId=" + reportId + "&providerNo=" + providerNo,
         success: function (data) {
             if (data != null)
-                document.getElementById("provstatus" + reportId).innerHTML = data;
+                document.getElementById("provstatus" + reportId).textContent = data;
         }
     });
 }
@@ -135,7 +135,7 @@ function removeProvFromHrm(mappingId, reportId) {
         data: "method=removeProvider&providerMappingId=" + mappingId,
         success: function (data) {
             if (data != null)
-                document.getElementById("provstatus" + reportId).innerHTML = data;
+                document.getElementById("provstatus" + reportId).textContent = data;
         }
     });
 }
@@ -147,7 +147,7 @@ function makeActiveSubClass(reportId, subClassId) {
         data: "method=makeActiveSubClass&reportId=" + reportId + "&subClassId=" + subClassId,
         success: function (data) {
             if (data != null)
-                document.getElementById("subclassstatus" + reportId).innerHTML = data;
+                document.getElementById("subclassstatus" + reportId).textContent = data;
         }
     });
 
@@ -168,7 +168,7 @@ function setDescription(reportId) {
         data: data,
         success: function (data) {
             if (data != null)
-                document.getElementById("descriptionstatus" + reportId).innerHTML = data;
+                document.getElementById("descriptionstatus" + reportId).textContent = data;
         }
     });
 }
@@ -198,7 +198,7 @@ function updateCategory(reportId) {
             success: function (data) {
                 if (data != null) {
                     if (data.indexOf('Success') !== -1) {
-                        document.getElementById('hrmCategory_' + reportId).innerHTML = document.getElementById('selectedCategory_' + reportId).innerHTML = categoryName;
+                        document.getElementById('hrmCategory_' + reportId).textContent = document.getElementById('selectedCategory_' + reportId).textContent = categoryName;
                         document.getElementById('chooseCategory_' + reportId).style.display = 'none';
                         document.getElementById('showCategory_' + reportId).style.display = '';
                         toggleButtonBar(false, reportId);

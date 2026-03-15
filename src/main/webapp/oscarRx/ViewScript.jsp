@@ -206,7 +206,7 @@
                     credentials: 'same-origin',
                     body: params
                 });
-                frames['preview'].document.getElementById('additNotes').innerHTML = document.getElementById('additionalNotes').value;
+                frames['preview'].document.getElementById('additNotes').textContent = document.getElementById('additionalNotes').value;
             }
 
 

@@ -93,9 +93,9 @@
                         document.getElementById('statusDisplay').style.display = 'none';
                         document.getElementById('updateButton').style.display = 'none';
                     } else {
-                        document.getElementById('dbDateTime').innerHTML = json.lastUpdate;
-                        document.getElementById('drugDatabaseVersion').innerHTML = json.version;
-                        document.getElementById('drugDatabase').innerHTML = json.drugDatabase;
+                        document.getElementById('dbDateTime').textContent = json.lastUpdate;
+                        document.getElementById('drugDatabaseVersion').textContent = json.version;
+                        document.getElementById('drugDatabase').textContent = json.drugDatabase;
                         document.getElementById('dbInfo').style.display = 'none';
                         document.getElementById('statusDisplay').style.display = 'block';
                     }

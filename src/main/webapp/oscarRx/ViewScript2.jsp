@@ -323,7 +323,9 @@
                     credentials: 'same-origin',
                     body: params
                 });
-                frames['preview'].document.getElementById('additNotes').innerHTML = document.getElementById('additionalNotes').value.replace(/\n/g, "<br>");
+                var additNotesEl = frames['preview'].document.getElementById('additNotes');
+                additNotesEl.style.whiteSpace = 'pre-wrap';
+                additNotesEl.textContent = document.getElementById('additionalNotes').value;
                 frames['preview'].document.getElementsByName('additNotes')[0].value = document.getElementById('additionalNotes').value.replace(/\n/g, "\r\n");
             }
 

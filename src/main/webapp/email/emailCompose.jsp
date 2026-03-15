@@ -697,7 +697,7 @@
 
     function displayError(errorElementId, errorMessage) {
         const errorElement = document.getElementById(errorElementId);
-        errorElement.innerHTML = errorMessage;
+        errorElement.textContent = errorMessage;
         errorElement.parentNode.firstElementChild.classList.add("is-invalid");
         setTimeout(function () {
             errorElement.scrollIntoView({block: 'center'});
@@ -706,7 +706,7 @@
 
     function clearError(errorElementId) {
         const errorElement = document.getElementById(errorElementId);
-        errorElement.innerHTML = '';
+        errorElement.textContent = '';
         errorElement.parentNode.firstElementChild.classList.remove("is-invalid");
     }
 
@@ -773,7 +773,7 @@
                 attachmentSize = sizeInBytes.toFixed(1) + units[j];
             }
 
-            sizeElements[i].innerHTML = attachmentSize;
+            sizeElements[i].textContent = attachmentSize;
         }
     }
 

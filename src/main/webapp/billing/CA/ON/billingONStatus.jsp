@@ -358,7 +358,7 @@
                     //document.getElementById(ajaxFieldId).innerHTML = xmlHttp.responseText;
                     if (xmlHttp.status == 200) {
                         //alert("go 3" + xmlHttp.responseText);
-                        document.getElementById(ajaxFieldId).innerHTML = xmlHttp.responseText;
+                        document.getElementById(ajaxFieldId).textContent = xmlHttp.responseText;
                     }
                 }
             }

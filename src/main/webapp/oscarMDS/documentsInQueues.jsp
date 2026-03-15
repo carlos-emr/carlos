@@ -996,7 +996,7 @@
                 }
             }
             //update current page
-            $('currentPageNum').innerHTML = page;
+            $('currentPageNum').textContent = page;
             if (page == 1) {
                 if ($('msgPrevious')) $('msgPrevious').hide();
             } else if (page > 1) {
@@ -1398,10 +1398,10 @@
                 $('currentPageNum').innerHTML = pagenum - 1
             } else if (p == 'Next') {
                 displayCategoryPage(pagenum + 1);
-                $('currentPageNum').innerHTML = pagenum + 1
+                $('currentPageNum').textContent = pagenum + 1
             } else if (parseInt(p) > 0) {
                 displayCategoryPage(parseInt(p));
-                $('currentPageNum').innerHTML = p;
+                $('currentPageNum').textContent = p;
             }
             changeNavigationBar();
         }
@@ -1833,46 +1833,46 @@
                 updateSideNavInQueue(doclabid);
             else {
                 //oscarLog('in updatesidenav');
-                var n = $('totalNumDocs').innerHTML;
+                var n = $('totalNumDocs').textContent;
                 n = parseInt(n);
                 if (n > 0) {
                     n = n - 1;
-                    $('totalNumDocs').innerHTML = n;
+                    $('totalNumDocs').textContent = n;
                 }
                 var type = checkType(doclabid);
                 //oscarLog('type='+type);
                 if (type == 'DOC') {
-                    n = $('totalDocsNum').innerHTML;
+                    n = $('totalDocsNum').textContent;
                     //oscarLog('n='+n);
                     n = parseInt(n);
                     if (n > 0) {
                         n = n - 1;
-                        $('totalDocsNum').innerHTML = n;
+                        $('totalDocsNum').textContent = n;
                     }
                 } else if (type == 'HL7') {
-                    n = $('totalHL7Num').innerHTML;
+                    n = $('totalHL7Num').textContent;
                     n = parseInt(n);
                     if (n > 0) {
                         n = n - 1;
-                        $('totalHL7Num').innerHTML = n;
+                        $('totalHL7Num').textContent = n;
                     }
                 }
                 var ab_normal = checkAb_normal(doclabid);
                 //oscarLog('normal or abnormal?'+ab_normal);
                 if (ab_normal == 'normal') {
-                    n = $('normalNum').innerHTML;
+                    n = $('normalNum').textContent;
                     //oscarLog('normal inner='+n);
                     n = parseInt(n);
                     if (n > 0) {
                         n = n - 1;
-                        $('normalNum').innerHTML = n;
+                        $('normalNum').textContent = n;
                     }
                 } else if (ab_normal == 'abnormal') {
-                    n = $('abnormalNum').innerHTML;
+                    n = $('abnormalNum').textContent;
                     n = parseInt(n);
                     if (n > 0) {
                         n = n - 1;
-                        $('abnormalNum').innerHTML = n;
+                        $('abnormalNum').textContent = n;
                     }
                 }
 
@@ -2061,18 +2061,18 @@
 
         function increaseCount(eleId) {
             if ($(eleId)) {
-                var n = $(eleId).innerHTML;
+                var n = $(eleId).textContent;
                 if (n.length > 0) {
                     n = parseInt(n);
                     n++;
-                    $(eleId).innerHTML = n;
+                    $(eleId).textContent = n;
                 }
             }
         }
 
         function decreaseCount(eleId) {
             if ($(eleId)) {
-                var n = $(eleId).innerHTML;
+                var n = $(eleId).textContent;
                 if (n.length > 0) {
                     n = parseInt(n);
                     if (n > 0) {
@@ -2080,7 +2080,7 @@
                     } else {
                         n = 0;
                     }
-                    $(eleId).innerHTML = n;
+                    $(eleId).textContent = n;
                 }
             }
         }

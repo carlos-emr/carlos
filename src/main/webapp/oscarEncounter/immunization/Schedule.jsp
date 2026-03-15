@@ -134,7 +134,7 @@
                 }
             }
 
-            document.getElementById(nodeName + '_label').innerHTML = label;
+            document.getElementById(nodeName + '_label').textContent = label;
 
             eval('frm.' + nodeName + '_givenDate').value = givenDate;
             eval('frm.' + nodeName + '_refusedDate').value = refusedDate;

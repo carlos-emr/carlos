@@ -52,15 +52,15 @@ function populatePharmacy(data) {
 
     var json = JSON.parse(data);
 
-    document.getElementById("pharmacyName").innerHTML = json["name"];
-    document.getElementById("pharmacyAddress").innerHTML = json["address"];
-    document.getElementById("pharmacyCity").innerHTML = json["city"];
-    document.getElementById("pharmacyPostalCode").innerHTML = json["postalCode"];
-    document.getElementById("pharmacyProvince").innerHTML = json["province"];
-    document.getElementById("pharmacyPhone1").innerHTML = json["phone1"];
-    document.getElementById("pharmacyPhone2").innerHTML = json["phone2"];
-    document.getElementById("pharmacyFax").innerHTML = json["fax"];
-    document.getElementById("pharmacyNotes").innerHTML = json["notes"];
+    document.getElementById("pharmacyName").textContent = json["name"];
+    document.getElementById("pharmacyAddress").textContent = json["address"];
+    document.getElementById("pharmacyCity").textContent = json["city"];
+    document.getElementById("pharmacyPostalCode").textContent = json["postalCode"];
+    document.getElementById("pharmacyProvince").textContent = json["province"];
+    document.getElementById("pharmacyPhone1").textContent = json["phone1"];
+    document.getElementById("pharmacyPhone2").textContent = json["phone2"];
+    document.getElementById("pharmacyFax").textContent = json["fax"];
+    document.getElementById("pharmacyNotes").textContent = json["notes"];
 }
 
 function showpic(picture) {
