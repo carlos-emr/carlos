@@ -244,9 +244,9 @@ function getLabel(name) {
 }
 
 function displayMessage(type, text) {
-    alert = '<div class="alert alert-' + type + ' alert-static alert-dismissable fade in"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' + text + '</div>';
+    var alertHtml = '<div class="alert alert-' + type + ' alert-static alert-dismissable fade in"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' + text + '</div>';
 
-    $('body').append(alert);
+    $('body').append(alertHtml);
 
     //close alert if user dosen't do it manually
     setTimeout(function () {
