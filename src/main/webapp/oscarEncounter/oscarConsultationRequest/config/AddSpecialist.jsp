@@ -143,6 +143,131 @@
                 }
             }
         </script>
+        <script>
+            $(document).ready(function () {
+                var cpsoTimer = null;
+                var cpsoDelay = 1000;
+
+                function doCpsoSearch() {
+                    var lastName = $('#cpsoLastName').val().trim();
+                    var firstName = $('#cpsoFirstName').val().trim();
+
+                    if (lastName.length < 2 && firstName.length < 2) {
+                        $('#cpsoResults').hide().empty();
+                        return;
+                    }
+
+                    $('#cpsoSpinner').show();
+
+                    $.ajax({
+                        url: '${pageContext.request.contextPath}/oscarEncounter/CpsoSearch.do',
+                        method: 'GET',
+                        data: { lastName: lastName, firstName: firstName },
+                        dataType: 'json',
+                        success: function (data) {
+                            $('#cpsoSpinner').hide();
+                            renderCpsoResults(data);
+                        },
+                        error: function () {
+                            $('#cpsoSpinner').hide();
+                            $('#cpsoResults').html('<div class="p-2 text-danger">CPSO search unavailable</div>').show();
+                        }
+                    });
+                }
+
+                function renderCpsoResults(data) {
+                    var container = $('#cpsoResults');
+                    container.empty();
+
+                    if (!data || !data.results || data.results.length === 0) {
+                        container.html('<div class="p-2 text-muted">No physicians found</div>').show();
+                        return;
+                    }
+
+                    if (data.totalcount === -1) {
+                        container.html('<div class="p-2 text-warning">Too many results. Please refine your search.</div>').show();
+                        return;
+                    }
+
+                    $.each(data.results, function (i, doc) {
+                        var nameParts = doc.name.split(',');
+                        var docLastName = nameParts[0] ? nameParts[0].trim() : '';
+                        var docFirstName = nameParts[1] ? nameParts[1].trim() : '';
+
+                        var addressParts = [];
+                        if (doc.street1) addressParts.push(doc.street1);
+                        if (doc.street2) addressParts.push(doc.street2);
+                        if (doc.street3) addressParts.push(doc.street3);
+                        if (doc.city) addressParts.push(doc.city);
+                        if (doc.province) addressParts.push(doc.province);
+                        if (doc.postalcode) addressParts.push(doc.postalcode.trim());
+                        var fullAddress = addressParts.join(', ');
+
+                        var specialty = doc.specialties ? doc.specialties.trim() : '';
+                        var phone = doc.phonenumber ? doc.phonenumber.trim() : '';
+                        var fax = doc.fax ? doc.fax.trim() : '';
+                        var cpsoNum = doc.cpsonumber || '';
+                        var status = doc.registrationstatus || '';
+
+                        var statusBadge = '';
+                        if (status === 'Active') {
+                            statusBadge = '<span class="badge bg-success ms-2">' + $('<span>').text(status).html() + '</span>';
+                        } else {
+                            statusBadge = '<span class="badge bg-secondary ms-2">' + $('<span>').text(status).html() + '</span>';
+                        }
+
+                        var row = $('<div>')
+                            .addClass('cpso-result-item p-2')
+                            .css({ cursor: 'pointer', borderBottom: '1px solid #eee' })
+                            .attr('tabindex', '0')
+                            .attr('role', 'option')
+                            .data('physician', {
+                                firstName: docFirstName,
+                                lastName: docLastName,
+                                address: fullAddress,
+                                phone: phone,
+                                fax: fax,
+                                specialty: specialty,
+                                cpsoNum: cpsoNum
+                            });
+
+                        row.html(
+                            '<div><strong>' + $('<span>').text(docLastName + ', ' + docFirstName).html() + '</strong>'
+                            + statusBadge
+                            + ' <small class="text-muted">CPSO# ' + $('<span>').text(cpsoNum).html() + '</small></div>'
+                            + (specialty ? '<div><small class="text-primary">' + $('<span>').text(specialty).html() + '</small></div>' : '')
+                            + (fullAddress ? '<div><small class="text-muted">' + $('<span>').text(fullAddress).html() + '</small></div>' : '')
+                            + (phone ? '<div><small class="text-muted">Ph: ' + $('<span>').text(phone).html() + '</small>' : '')
+                            + (fax ? ' <small class="text-muted">Fax: ' + $('<span>').text(fax).html() + '</small>' : '')
+                            + '</div>'
+                        );
+
+                        row.on('mouseenter', function () { $(this).css('background-color', '#e8f0fe'); });
+                        row.on('mouseleave', function () { $(this).css('background-color', ''); });
+
+                        row.on('click keypress', function (e) {
+                            if (e.type === 'keypress' && e.which !== 13) return;
+                            var doc = $(this).data('physician');
+                            $('#firstName').val(doc.firstName);
+                            $('#lastName').val(doc.lastName);
+                            $('#address').val(doc.address);
+                            $('#phone').val(doc.phone);
+                            $('#fax').val(doc.fax);
+                            container.hide();
+                        });
+
+                        container.append(row);
+                    });
+
+                    container.show();
+                }
+
+                $('#cpsoLastName, #cpsoFirstName').on('input', function () {
+                    clearTimeout(cpsoTimer);
+                    cpsoTimer = setTimeout(doCpsoSearch, cpsoDelay);
+                });
+            });
+        </script>
     </head>
 
     <body>
@@ -395,6 +520,32 @@
                                 </option>
                             </c:forEach>
                         </select>
+                        </div>
+                    </div>
+
+                    <%-- CPSO Physician Search --%>
+                    <div class="card mb-3" style="border: 1px solid var(--carlos-primary, #337ab7);">
+                        <div class="card-header text-white py-2" style="background-color: var(--carlos-primary, #337ab7);">
+                            <strong>CPSO Search</strong>
+                            <small class="ms-2">Search Ontario physician register</small>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row mb-2">
+                                <div class="col-md-5">
+                                    <label for="cpsoLastName" class="form-label form-label-sm mb-1">Last Name</label>
+                                    <input type="text" id="cpsoLastName" class="form-control form-control-sm" placeholder="e.g. Smith" autocomplete="off"/>
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="cpsoFirstName" class="form-label form-label-sm mb-1">First Name</label>
+                                    <input type="text" id="cpsoFirstName" class="form-control form-control-sm" placeholder="e.g. John" autocomplete="off"/>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <span id="cpsoSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status" aria-label="Searching"></span>
+                                </div>
+                            </div>
+                            <div id="cpsoResults" role="listbox" aria-live="polite" aria-label="CPSO search results" style="display:none; max-height:200px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px;">
+                            </div>
+                            <small class="form-text text-muted">Type at least 2 characters. Results appear after 1 second of inactivity.</small>
                         </div>
                     </div>
 
