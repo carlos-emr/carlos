@@ -17,7 +17,7 @@
 
 // ---- $() — Element lookup by ID ----
 // Only define if Prototype's $ is not loaded
-if (typeof window.$ === 'undefined' || !window.Prototype) {
+if (typeof window.$ === 'undefined' && !window.Prototype) {
     // Multi-argument form: $(id1, id2, ...) returns Array of elements
     // Single-argument form: $(id) returns single element
     window.$ = function () {
@@ -111,15 +111,12 @@ if (!HTMLElement.prototype.show) {
     };
 }
 // Only add .toggle if not already a native method (it is on dialog elements)
-var origToggle = HTMLElement.prototype.toggle;
-HTMLElement.prototype.toggle = function () {
-    if (arguments.length > 0 && typeof arguments[0] === 'boolean') {
-        // Native toggle(force) signature — delegate
-        if (origToggle) return origToggle.apply(this, arguments);
-    }
-    this.style.display = (this.style.display === 'none') ? '' : 'none';
-    return this;
-};
+if (!HTMLElement.prototype.toggle) {
+    HTMLElement.prototype.toggle = function () {
+        this.style.display = (this.style.display === 'none') ? '' : 'none';
+        return this;
+    };
+}
 
 // .insert({bottom: html}) or .insert(html) — content insertion
 if (!HTMLElement.prototype.insert) {
@@ -246,6 +243,19 @@ if (!Element.toggle) {
         if (el) el.style.display = (el.style.display === 'none') ? '' : 'none';
     };
 }
+if (!Element.remove) {
+    Element.remove = function (el) {
+        if (typeof el === 'string') el = document.getElementById(el);
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+    };
+}
+
+// ---- getElementsBySelector (Prototype's querySelectorAll wrapper) ----
+if (!HTMLElement.prototype.getElementsBySelector) {
+    HTMLElement.prototype.getElementsBySelector = function (selector) {
+        return Array.from(this.querySelectorAll(selector));
+    };
+}
 
 // ---- Function.prototype.bindAsEventListener ----
 // CRITICAL: Prototype's bindAsEventListener prepends the EVENT as the FIRST
@@ -313,7 +323,7 @@ Position.page = function (el) {
 };
 Position.positionedOffset = function (el) {
     if (typeof el === 'string') el = document.getElementById(el);
-    return { left: el.offsetLeft, top: el.offsetTop };
+    return [el.offsetLeft, el.offsetTop];
 };
 
 // ---- Insertion helpers (legacy compatibility) ----

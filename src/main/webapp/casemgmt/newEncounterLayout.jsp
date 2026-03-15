@@ -269,26 +269,23 @@
             function popColumn(url, div, params, navBar, navBarObj) {
                 params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
 
-                var objAjax = new Ajax.Request(
-                    url,
-                    {
-                        method: 'post',
-                        postBody: params,
-                        evalScripts: true,
-                        onSuccess: function (request) {
-                            $(div).update(request.responseText);
+                CarlosAjax.request(url, {
+                    method: 'post',
+                    postBody: params,
+                    evalScripts: true,
+                    onSuccess: function (transport) {
+                        $(div).update(transport.responseText);
 
-                            if ($("leftColLoader") != null)
-                                Element.remove("leftColLoader");
+                        if ($("leftColLoader") != null)
+                            Element.remove("leftColLoader");
 
-                            if ($("rightColLoader") != null)
-                                Element.remove("rightColLoader");
-                        },
-                        onFailure: function (request) {
-                            $(div).innerHTML = "<h3>" + div + "</h3>Error: " + request.status;
-                        }
+                        if ($("rightColLoader") != null)
+                            Element.remove("rightColLoader");
+                    },
+                    onFailure: function (transport) {
+                        document.getElementById(div).textContent = div + " Error: " + transport.status;
                     }
-                );
+                });
             };
 
             function addLeftNavDiv(name) {

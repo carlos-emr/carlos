@@ -299,8 +299,8 @@ function onUnbilled(url) {
 // URL Encoding
 // ============================================================
 function urlencode(str) {
-    var ns = (navigator.appName == "Netscape") ? 1 : 0;
-    if (ns) return escape(str);
+    return encodeURIComponent(str);
+    // Legacy implementation below kept for reference only
     var ms = "%25#23 20+2B?3F<3C>3E{7B}7D[5B]5D|7C^5E~7E`60";
     var msi = 0;
     var i, c, rs, ts;
@@ -766,7 +766,7 @@ function loader() {
     document.encForm.enTextarea.scrollTop = document.encForm.enTextarea.scrollHeight;
 
     if (encounterConfig.popUrl) {
-        window.setTimeout(function () { popupPage(700, 900, encounterConfig.popUrl); }, 2);
+        window.setTimeout(function () { popupPage(700, 900, 'popUrl', encounterConfig.popUrl); }, 2);
     }
 
     initTemplateAutocompleter();

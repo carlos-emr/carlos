@@ -40,13 +40,9 @@ var CarlosAjax = (function () {
      * @returns {Object} Merged headers object
      */
     function buildHeaders(method, extraHeaders) {
-        var headers = {
-            'X-Requested-With': 'XMLHttpRequest'
-        };
-
-        if (MUTATING_METHODS.indexOf(method.toUpperCase()) !== -1) {
-            headers['CSRF-TOKEN'] = getCsrfToken();
-        }
+        // Apply caller headers first, then security headers on top
+        // so that callers cannot override security-critical headers
+        var headers = {};
 
         if (extraHeaders) {
             for (var key in extraHeaders) {
@@ -54,6 +50,13 @@ var CarlosAjax = (function () {
                     headers[key] = extraHeaders[key];
                 }
             }
+        }
+
+        // Security headers applied AFTER caller headers — cannot be overridden
+        headers['X-Requested-With'] = 'XMLHttpRequest';
+
+        if (MUTATING_METHODS.indexOf(method.toUpperCase()) !== -1) {
+            headers['CSRF-TOKEN'] = getCsrfToken();
         }
 
         return headers;
