@@ -40,6 +40,7 @@ import org.kie.api.builder.Message;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.Results;
 import org.kie.api.runtime.KieContainer;
+import org.drools.model.codegen.ExecutableModelProject;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -178,7 +179,7 @@ public final class DroolsHelper {
         kfs.write("src/main/resources/rules/generated.drl", drl);
 
         KieBuilder kb = ks.newKieBuilder(kfs);
-        kb.buildAll();
+        kb.buildAll(ExecutableModelProject.class);
 
         // Check for compilation errors (warnings are acceptable)
         Results results = kb.getResults();
