@@ -152,7 +152,7 @@
 
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.title"/> Manager</title>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.title"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript"
@@ -211,6 +211,9 @@
 
 
             const ctx = '${pageContext.request.contextPath}';
+            const i18nEditTickler = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.tooltipEdit"/>';
+            const i18nAddNote = '<fmt:message key="tickler.ticklerMain.tooltipAddNote"/>';
+            const i18nViewAttachment = '<fmt:message key="tickler.ticklerMain.tooltipViewAttachment"/>';
             let ticklerResultsTable;
             document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
@@ -277,7 +280,7 @@
                             data: 'id',
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" title="Edit Tickler" onClick="openTicklerEdit(this,' + encodeURIComponent(data) + ')"><span class="fas fa-pencil-alt"></span></a>';
+                                return '<a href="javascript:void(0)" title="' + i18nEditTickler + '" onClick="openTicklerEdit(this,' + encodeURIComponent(data) + ')"><span class="fas fa-pencil-alt"></span></a>';
                             }
                         },
                         {
@@ -345,7 +348,7 @@
                             data: null,
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="Add Encounter Note"><span class="fas fa-comment"></span></a>';
+                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="' + i18nAddNote + '"><span class="fas fa-comment"></span></a>';
                             }
                         }
                     ],
@@ -432,7 +435,7 @@
                 } else {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/labDisplay.jsp?segmentID=' + tableId + '\')';
                 }
-                return ' <a title="View attachment" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
+                return ' <a title="' + i18nViewAttachment + '" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
             }
 
             function openNoteDialog(demographicNo, ticklerNo) {
@@ -744,14 +747,14 @@
                     </div>
                 </div>
                 <div class="row mb-2">
-                    <label for="xml_vdate" class="col-sm-3 col-form-label">From</label>
+                    <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFrom"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
                     </div>
                 </div>
                 <div class="row mb-2">
-                    <label for="xml_appointment_date" class="col-sm-3 col-form-label">To</label>
+                    <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formTo"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
@@ -808,20 +811,20 @@
                                 List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
                         %>
                         <script>
-                            let _providers = [];
+                            let _providers = {};
                             <%for (int i=0; i<sites.size(); i++) {%>
                             _providers["<%=sites.get(i).getSiteId()%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
 							while (iter.hasNext()) {
 								Provider p=iter.next();
-								if ("1".equals(p.getStatus())) {%><option value='<%=p.getProviderNo()%>'><%=p.getLastName()%>, <%=p.getFirstName()%></option><%}%>";
-                            <%}}%>
+								if ("1".equals(p.getStatus())) {%><option value='<%=org.owasp.encoder.Encode.forJavaScriptAttribute(org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo()))%>'><%=org.owasp.encoder.Encode.forJavaScript(org.owasp.encoder.Encode.forHtml(p.getLastName()))%>, <%=org.owasp.encoder.Encode.forJavaScript(org.owasp.encoder.Encode.forHtml(p.getFirstName()))%></option><%}}%>";
+                            <%}%>
 
                             function changeSite(sel) {
                                 sel.form.assignedTo.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
                             }
                         </script>
                         <select id="site" class="form-select mb-1" name="site" onchange="changeSite(this)">
-                            <option value="none">---select clinic---</option>
+                            <option value="none"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.selectClinic"/></option>
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
                             %>
@@ -871,7 +874,7 @@
                     </div>
                 </div>
                 <div class="row mb-2">
-                    <label for="ticklerview" class="col-sm-3 col-form-label">Filter</label>
+                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFilter"/></label>
                     <div class="col-sm-9">
                         <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
@@ -898,7 +901,7 @@
             </c:if>
             <c:if test="${hasDemoView}">
                 <div class="row mb-3">
-                    <label for="ticklerview" class="col-sm-3 col-form-label">Filter</label>
+                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFilter"/></label>
                     <div class="col-sm-9">
                         <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
@@ -993,7 +996,7 @@
             <%=OscarProperties.getConfidentialityStatement()%>
         </p>
 
-        <div id="note-form" title="Edit Tickler Note" style="display:none;">
+        <div id="note-form" title="<fmt:message key='tickler.ticklerMain.noteDialogTitle'/>" style="display:none;">
             <form>
                 <input type="hidden" name="tickler_note_demographicNo" id="tickler_note_demographicNo" value=""/>
                 <input type="hidden" name="tickler_note_ticklerNo" id="tickler_note_ticklerNo" value=""/>
@@ -1002,7 +1005,7 @@
                 <table style="width:100%;">
                     <tr>
                         <td>
-                            <label for="tickler_note">Tickler Note</label>
+                            <label for="tickler_note"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteLabel"/></label>
                             <textarea class="form-control" id="tickler_note" rows="5" name="tickler_note"
                                       style="width:100%;"
                                       oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'
@@ -1011,23 +1014,23 @@
                     </tr>
                     <tr>
                         <td nowrap="nowrap">
-                            <label for="tickler_note_obsDate">Date:</label>
+                            <label for="tickler_note_obsDate"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteDate"/></label>
                             <span id="tickler_note_obsDate"></span>
 
-                            <label for="tickler_note_revision_url">Rev:</label>
+                            <label for="tickler_note_revision_url"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteRev"/></label>
                             <a id="tickler_note_revision_url" href="javascript:void(0)" onClick="">
                                 <span id="tickler_note_revision"></span>
                             </a>
 
-                            <label for="tickler_note_editor">Editor:</label>
+                            <label for="tickler_note_editor"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteEditor"/></label>
                             <span id="tickler_note_editor"></span>
                         </td>
                     </tr>
 
                 </table>
                 <div class="float-end">
-                    <button class="btn btn-primary" onclick="saveNoteDialog()">Save</button>
-                    <button class="btn btn-danger" onclick="closeNoteDialog()">Exit</button>
+                    <button class="btn btn-primary" onclick="saveNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.save"/></button>
+                    <button class="btn btn-danger" onclick="closeNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/></button>
                 </div>
 
             </form>
