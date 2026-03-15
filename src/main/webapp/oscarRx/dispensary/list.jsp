@@ -180,7 +180,7 @@
 
             $(document).ready(function () {
 
-                $("input[name='remove']").live('click', function () {
+                $(document).on('click', "input[name='remove']", function () {
                     clearErrors();
 
                     var hash = $(this).attr('id').substring("remove_".length);
@@ -195,7 +195,7 @@
                     }
                 });
 
-                $("input[name='add']").live('click', function () {
+                $(document).on('click', "input[name='add']", function () {
                     clearErrors();
 
                     var hash = $(this).attr('id').substring("add_".length);
