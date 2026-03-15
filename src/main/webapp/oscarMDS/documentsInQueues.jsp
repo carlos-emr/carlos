@@ -107,7 +107,14 @@
     <script type="text/javascript">
 
         /* Shim: Prototype $() -> document.getElementById (jQuery accessed via jQuery()) */
+        /* Also adds .show()/.hide() to Element prototype as Prototype did */
         function $(id) { return document.getElementById(id); }
+        if (!Element.prototype.show) {
+            Element.prototype.show = function() { this.style.display = ''; return this; };
+        }
+        if (!Element.prototype.hide) {
+            Element.prototype.hide = function() { this.style.display = 'none'; return this; };
+        }
 
         function removeLink(docType, docId, providerNo, e) {
             var url = contextpath + "/documentManager/ManageDocument.do";

@@ -188,10 +188,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 <script type="text/javascript" src="${ ctx }/library/jquery/jquery-3.6.4.min.js" ></script>
 <script type="text/javascript" src="${ ctx }/library/jquery/jquery-ui-1.12.1.min.js" ></script>
 
-		<script type="text/javascript">
-          jQuery.noConflict();
-        </script>
-
 		<link href="${ ctx }/css/searchDrug3.css" rel="stylesheet" type="text/css"/>
 
         <link rel="stylesheet" href="${ctx}/share/css/transitions.css" type="text/css" />
@@ -1506,9 +1502,9 @@ function renderRxStage() {
 	    if(skipParseInstr){
 		    return false;
 	    }
-        var dummie=parseIntr($('instructions_'+randomId));
+        var dummie=parseIntr(document.getElementById('instructions_'+randomId));
         if(dummie)
-            updateQty($('quantity_'+randomId));
+            updateQty(document.getElementById('quantity_'+randomId));
     }
    function Delete2(element){
 
@@ -1552,7 +1548,7 @@ function renderRxStage() {
            // Pick the first allergy warning found
            var allergy = json.results[0];
            var str = "<label style=\"color:red;\"> Allergy:</label> " + allergy.DESCRIPTION + " <label style=\"color:red;\">Reaction:</label> " + allergy.reaction;
-           $('alleg_' + json.id).innerHTML = str;
+           document.getElementById('alleg_' + json.id).innerHTML = str;
            document.getElementById('alleg_tbl_' + json.id).style.display = 'block';
          }
        }
@@ -1567,7 +1563,7 @@ function renderRxStage() {
 
                 if(json!=null){
                     var str = "Inactive Drug Since: "+new Date(json.vec[0].time).toDateString();
-                    $('inactive_'+json.id).innerHTML = str;
+                    document.getElementById('inactive_'+json.id).innerHTML = str;
                 }
             }});
    }
@@ -1576,9 +1572,9 @@ function renderRxStage() {
     function Discontinue(event,element){
        var id_str=(element.id).split("_");
        var id=id_str[1];
-				var widVal = (document.getElementById('drugProfile').getWidth() - 400);
+				var widVal = (document.getElementById('drugProfile').offsetWidth - 400);
        var widStr=widVal+'px';
-       var heightDrugProfile=document.getElementById('discontinueUI').getHeight();
+       var heightDrugProfile=document.getElementById('discontinueUI').offsetHeight;
        var posx=0,posy=0;
        if(event.pageX||event.pageY){
            posx=event.pageX;
@@ -1604,10 +1600,10 @@ function renderRxStage() {
        }
        var styleStr= {left: posx, top: posy,width: widStr};
 
-        var drugName = $('prescrip_'+id).innerHTML;
-       document.getElementById('discontinueUI').setStyle(styleStr);
+        var drugName = document.getElementById('prescrip_'+id).innerHTML;
+       var disUI=document.getElementById('discontinueUI'); disUI.style.left=styleStr.left; disUI.style.top=styleStr.top; disUI.style.width=styleStr.width;
        document.getElementById('disDrug').innerHTML = drugName;
-       document.getElementById('discontinueUI').show();
+       document.getElementById('discontinueUI').style.display="";
        document.getElementById('disDrugId').value=id;
 
 
@@ -1619,12 +1615,12 @@ function renderRxStage() {
         var data="drugId="+encodeURIComponent(id)+"&reason="+encodeURIComponent(reason)+"&comment="+encodeURIComponent(comment)+"&demoNo="+demoNo+"&drugSpecial="+encodeURIComponent(drugSpecial)+"&rand="+ Math.floor(Math.random()*10001);
             CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
                   var json=JSON.parse(transport.responseText);
-                  document.getElementById('discontinueUI').hide();
-                  $('rxDate_'+json.id).style.textDecoration='line-through';
-                  $('reRx_'+json.id).style.textDecoration='line-through';
-                  $('del_'+json.id).style.textDecoration='line-through';
-                  $('discont_'+json.id).innerHTML = json.reason;
-                  $('prescrip_'+json.id).style.textDecoration='line-through';
+                  document.getElementById('discontinueUI').style.display="none";
+                  document.getElementById('rxDate_'+json.id).style.textDecoration='line-through';
+                  document.getElementById('reRx_'+json.id).style.textDecoration='line-through';
+                  document.getElementById('del_'+json.id).style.textDecoration='line-through';
+                  document.getElementById('discont_'+json.id).innerHTML = json.reason;
+                  document.getElementById('prescrip_'+json.id).style.textDecoration='line-through';
 					}
 				});
 
@@ -1700,7 +1696,7 @@ function customWarning2(){
         var data="parameterValue=newCustomDrug&name=" + encodeURIComponent(searchString) + "&randomId="+randomId;
         CarlosAjax.updater('rxText',url,{method:'post',parameters:data,asynchronous:true,evalScripts:true,
             insertion: 'bottom', onComplete:function(transport){
-                updateQty($('quantity_'+randomId));
+                updateQty(document.getElementById('quantity_'+randomId));
 		            renderRxStage();
 						}
 					});
@@ -1764,7 +1760,7 @@ function popForm2(scriptId){
                     height: h
                 });
                 var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
-                document.getElementById('lightwindow_title_bar_close_link').update(editRxMsg);
+                document.getElementById('lightwindow_title_bar_close_link').textContent=editRxMsg;
                 document.getElementById('lightwindow_title_bar_close_link').onclick=updateDeleteOnCloseRxBox;
             }});
 
@@ -1781,7 +1777,7 @@ function popForm2(scriptId){
          var ran_number=Math.round(Math.random()*1000000);
          var params = "demographicNo=<%=demoNo%>&cond="+encodeURIComponent(ele.value)+"&rand="+ran_number;  //hack to get around ie caching the page
          CarlosAjax.updater(id,url, {method:'get',parameters:params,asynchronous:true});
-         document.getElementById('treatmentsMyD').toggle();
+         var tmEl=document.getElementById('treatmentsMyD'); tmEl.style.display=(tmEl.style.display==='none')?'':'none';
      }
 
      function callAdditionWebService(url,id){
@@ -1994,12 +1990,12 @@ function addFav(randomId,brandName){
         if(resHidden2 == 0){
           list.invoke('show');
           resHidden2 = 1;
-          document.getElementById('showHiddenResWord').update('hide');
+          document.getElementById('showHiddenResWord').textContent='hide';
           var url = ctx + "/oscarRx/updateHiddenResources.jsp";
           var params="hiddenResources=&rand="+ Math.floor(Math.random()*10001);
           CarlosAjax.request(url, {method: 'post',parameters:params});
         }else{
-            document.getElementById('showHiddenResWord').update('show');
+            document.getElementById('showHiddenResWord').textContent='show';
             list.invoke('hide');
             resHidden2 = 0;
         }
@@ -2020,9 +2016,9 @@ function addFav(randomId,brandName){
                 var resId=elementArr[0];
                 var resUpdated=elementArr[1];
                 var id=resId+"."+resUpdated;
-                document.getElementById(id).show();
-                $('show_'+id).hide();
-                document.getElementById('showHideWord').update('hide');
+                document.getElementById(id).style.display="";
+                document.getElementById('show_'+id).style.display="none";
+                document.getElementById('showHideWord').textContent='hide';
 
                 showOrHide=1;
                 numberOfHiddenResources++;
@@ -2037,14 +2033,14 @@ function addFav(randomId,brandName){
                 var resUpdated=elementArr[1];
                 var id=resId+"."+resUpdated;
                 oscarLog("id="+id);
-                document.getElementById(id).hide();
-                $('show_'+id).show();
-                document.getElementById('showHideWord').update('show');
+                document.getElementById(id).style.display="none";
+                document.getElementById('show_'+id).style.display="";
+                document.getElementById('showHideWord').textContent='show';
                 showOrHide=0;
                 numberOfHiddenResources++;
             }
         }
-        document.getElementById('showHideNumber').update(numberOfHiddenResources);
+        document.getElementById('showHideNumber').textContent=numberOfHiddenResources;
 
     }
    // var totalHiddenResources=0;
@@ -2055,14 +2051,14 @@ function addFav(randomId,brandName){
         var addTextId="addText_"+randId;
         var addTextWordId="addTextWord_"+randId;
         if(addTextView==0){
-            document.getElementById(addTextId).show();
+            document.getElementById(addTextId).style.display="";
             addTextView=1;
-            document.getElementById(addTextWordId).update("less")
+            document.getElementById(addTextWordId).textContent="less"
         }
         else{
-            document.getElementById(addTextId).hide();
+            document.getElementById(addTextId).style.display="none";
             addTextView=0;
-            document.getElementById(addTextWordId).update("more")
+            document.getElementById(addTextWordId).textContent="more"
         }
     }
 
@@ -2077,8 +2073,8 @@ function addFav(randomId,brandName){
 					evalScripts: true,
 					onSuccess: function (transport) {
 
-                document.getElementById(id).show();
-                $('show_'+id).hide();
+                document.getElementById(id).style.display="";
+                document.getElementById('show_'+id).style.display="none";
 
 					}
 				});
@@ -2096,8 +2092,8 @@ function addFav(randomId,brandName){
 					evalScripts: true,
 					onSuccess: function (transport) {
 
-                document.getElementById(id).hide();
-                $("show_"+id).show();
+                document.getElementById(id).style.display="none";
+                document.getElementById("show_"+id).style.display="";
 
 					}
 				});
@@ -2161,7 +2157,7 @@ function represcribe(element, toArchive){
     var elemId=element.id;
     var ar=elemId.split("_");
     var drugId=ar[1];
-    if(drugId!=null && $("reRxCheckBox_"+drugId).checked === true){
+    if(drugId!=null && document.getElementById("reRxCheckBox_"+drugId).checked === true){
     	        	
         var url= ctx + "/oscarRx/rePrescribe2.do";
         data += "&method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
@@ -2343,7 +2339,7 @@ function uncheckReRxForExistingPrescribedDrug(drugId) {
  * @returns {HTMLElement|null} The drug container element, or null if not found.
  */
 function getPrescribingDrugCardByUiRefId(uiRefId) {
-    return $('set_' + uiRefId);
+    return document.getElementById('set_' + uiRefId);
 }
 
 /**
@@ -2352,7 +2348,7 @@ function getPrescribingDrugCardByUiRefId(uiRefId) {
  * @returns {HTMLElement|null} The checkbox element, or null if not found.
  */
 function getReRxCheckboxByUiRefId(uiRefId) {
-    return $('reRxCheckBox_' + uiRefId);
+    return document.getElementById('reRxCheckBox_' + uiRefId);
 }
 
 function updateQty(element){

@@ -434,7 +434,7 @@
     </div>
 </div>
 
-<!-- jquery-1.9.1.js - in nonPatientContextHeader.jspf -->
+<!-- jQuery loaded in nonPatientContextHeader.jspf -->
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
