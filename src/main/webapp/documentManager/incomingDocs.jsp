@@ -1226,7 +1226,7 @@
                     var myAC = args[0];
                     var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
                     var oData = args[2];
-                    $(str).value = args[2][0];
+                    document.getElementById(str).value = args[2][0];
                     myAC.getInputEl().value = args[2][2] + "," + args[2][1];
 
                     addflagprovider(oData[2], oData[1], oData[0]);

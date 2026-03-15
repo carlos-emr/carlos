@@ -294,7 +294,7 @@
                 for (var elemIdx = 0; elemIdx < measurements[dateIdx].length; ++elemIdx) {
                     var elem = document.forms["frmP1"].elements[measurements[dateIdx][elemIdx]];
 
-                    if ($(elem).value.length > 0 && (isNaN($(elem).value) || $(date).value.length == 0)) {
+                    if (elem.value.length > 0 && (isNaN(elem.value) || document.getElementById(date).value.length == 0)) {
                         alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.frmError"/>');
                         return false;
                     }
@@ -445,7 +445,7 @@
             }
 
             for (var idx = 0; idx < ageElements.length; ++idx) {
-                $(ageElements[idx]).value = age;
+                document.getElementById(ageElements[idx]).value = age;
             }
         }
 

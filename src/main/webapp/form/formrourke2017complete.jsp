@@ -316,7 +316,7 @@
                 for (let elemIdx = 0; elemIdx < measurements[dateIdx].length; ++elemIdx) {
                     let elem = document.forms["frmP1"].elements[measurements[dateIdx][elemIdx]];
 
-                    if ($(elem).value.length > 0 && (isNaN($(elem).value) || $(date).value.length == 0)) {
+                    if (elem.value.length > 0 && (isNaN(elem.value) || document.getElementById(date).value.length == 0)) {
                         return false;
                     }
                 }
@@ -431,7 +431,7 @@
             }
 
             for (var idx = 0; idx < ageElements.length; ++idx) {
-                $(ageElements[idx]).value = age;
+                document.getElementById(ageElements[idx]).value = age;
             }
         }
 
