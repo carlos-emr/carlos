@@ -232,17 +232,17 @@
                 // });
                 var savedPageLength = localStorage.getItem('ticklerPageLength');
                 var parsedPageLength = savedPageLength ? parseInt(savedPageLength, 10) : 50;
-                var initialPageLength = [25, 50, 75, 100].indexOf(parsedPageLength) !== -1 ? parsedPageLength : 50;
+                var initialPageLength = [25, 50, 100].indexOf(parsedPageLength) !== -1 ? parsedPageLength : 50;
 
                 ticklerResultsTable = jQuery("#ticklerResults").DataTable({
                     serverSide: true,
                     processing: true,
-                    searching: false,
-                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.LeftNavBar.AllLabs"/>"]],
+                    searching: true,
+                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, '<fmt:message key="oscarEncounter.LeftNavBar.AllLabs"/>']],
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
                     language: {
-                        url: '<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
+                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
                         },
                     ajax: {
                         url: ctx + '/tickler/ListTicklers.do',
@@ -277,7 +277,7 @@
                             data: 'id',
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" title="Edit Tickler" onClick="window.open(\'' + ctx + '/tickler/ticklerEdit.jsp?tickler_no=' + encodeURIComponent(data) + '\', \'edit_tickler\', \'width=800, height=650\')"><span class="fas fa-pencil-alt"></span></a>';
+                                return '<a href="javascript:void(0)" title="Edit Tickler" onClick="openTicklerEdit(this,' + encodeURIComponent(data) + ')"><span class="fas fa-pencil-alt"></span></a>';
                             }
                         },
                         {
@@ -395,6 +395,20 @@
                 });
 
             });
+
+            /**
+             * Opens the tickler edit popup and toggles the row's pencil icon to a
+             * checkmark so the user has a visual cue that this tickler has been opened.
+             */
+            function openTicklerEdit(link, ticklerNo) {
+                window.open(ctx + '/tickler/ticklerEdit.jsp?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
+                var icon = link.querySelector('span');
+                if (icon) {
+                    icon.classList.remove('fa-pencil-alt');
+                    icon.classList.add('fa-check');
+                    icon.style.color = '#198754'; // Bootstrap success green
+                }
+            }
 
             function escapeHtml(text) {
                 if (!text) return '';
