@@ -1591,7 +1591,7 @@ function renderRxStage() {
            posx = posx+'px';
            posy = posy+'px';
        }else{
-           var xy = Position.page(document.getElementById('drugProfile'));
+           var rect = document.getElementById('drugProfile').getBoundingClientRect(); var xy = [rect.left + window.scrollX, rect.top + window.scrollY];
            posx = (xy[0]+200)+'px';
            if(xy[1]>=0)
                posy = xy[1]+'px';
@@ -1986,9 +1986,9 @@ function addFav(randomId,brandName){
 
     var resHidden2 = 0;
     function showHiddenRes(){
-        var list = $document.getElementById('div.hiddenResource');
+        var list = document.querySelectorAll('div.hiddenResource');
         if(resHidden2 == 0){
-          list.invoke('show');
+          list.forEach(function(el) { el.style.display = ''; });
           resHidden2 = 1;
           document.getElementById('showHiddenResWord').textContent='hide';
           var url = ctx + "/oscarRx/updateHiddenResources.jsp";
@@ -1996,7 +1996,7 @@ function addFav(randomId,brandName){
           CarlosAjax.request(url, {method: 'post',parameters:params});
         }else{
             document.getElementById('showHiddenResWord').textContent='show';
-            list.invoke('hide');
+            list.forEach(function(el) { el.style.display = 'none'; });
             resHidden2 = 0;
         }
     }
@@ -2662,7 +2662,7 @@ function updateQty(element){
 		}
 		<%}%>
 		setPharmacyId();
-        var data=Form.serialize(document.getElementById('drugForm'));
+        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'));
         var url= ctx + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,asynchronous:false,
@@ -2695,7 +2695,7 @@ function updateQty(element){
 		}
 		<%}%>		
 		setPharmacyId();
-        var data=Form.serialize(document.getElementById('drugForm'));
+        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'));
         var url= ctx + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,asynchronous:false,
