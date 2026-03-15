@@ -695,6 +695,40 @@ Beyond the three HTTP header-based filters above, several server-side 2Actions u
 
 These parameter-based detections are independent of HTTP headers and will continue working after migration without any changes. However, they are important context: the server-side code was designed for AJAX from the start, and the header-based detection is the critical contract to preserve.
 
+### CSRFGuard Token Path Switching (`Ajax=true` mode)
+
+**Critical nuance**: With `org.owasp.csrfguard.Ajax=true` (line 171 of `Owasp.CsrfGuard.properties`), CSRFGuard's JavaScript patches XHR to inject the CSRF token as a **request header** (not a form parameter). When CSRFGuard receives a request with `X-Requested-With: XMLHttpRequest`, it validates the token from the **header**. Without that header, it falls back to validating from the **POST body parameter**.
+
+`CarlosAjax` injects the token as a POST body parameter (via `URLSearchParams`). This works because: (a) the `X-Requested-With` header is present, so CSRFGuard enters AJAX mode, but (b) if CSRFGuard also checks the parameter path as fallback, both paths succeed. However, this dual-path behavior must be verified during Phase 0 testing. If CSRFGuard only checks headers in AJAX mode and we send the token as a parameter, validation would fail.
+
+### Server-Side Response Format Dependencies
+
+**All AJAX-targeted actions read parameters via `request.getParameter()`** — none parse the request body directly (no `getInputStream()` or `getReader()` usage). This means the `Content-Type: application/x-www-form-urlencoded` requirement is absolute. Switching to `application/json` bodies would silently break ALL parameter reads.
+
+**5 actions return `text/javascript` content type** (legacy pattern — actual content is JSON):
+- `DocumentPreview2Action.generateResponse()`
+- `ImportDemographicDataAction42Action.generateResponse()`
+- `ConsultationAttachDocs2Action.generateResponse()`
+- `ConsultationClinicalData2Action` (4 response paths)
+- `EctConsultationFormRequest2Action.generateResponse()`
+
+These work today because Prototype treats the response as text regardless. With `fetch()`, callers using `response.json()` will still work, but `Content-Type` sniffing would be wrong. Not a breaking issue, but worth noting for future cleanup.
+
+**4 actions write JSON without setting Content-Type** (defaults to container default):
+- `CaseManagementEntry2Action.isNoteEdited()`, `.ajaxsave()`
+- `CaseManagementView2Action.listNotes()`
+- `DmsInboxManage2Action.isDocumentLinkedToDemographic()`, `.isLabLinkedToDemographic()`
+
+Callers must parse via `JSON.parse(responseText)` (not `response.json()` which may fail on wrong content-type).
+
+### JSP Fragments with Inline Scripts (`evalScripts: true` Critical)
+
+**`casemgmt/unlockAjax.jsp`** (line 153-156) contains:
+```html
+<script>$('passwd').focus()</script>
+```
+This script executes today because `evalScripts: true` is set on the `Ajax.Updater` call. If `evalScripts` support is removed or broken, this focus call will **silently stop working** — the password field won't receive focus after unlock. `CarlosAjax.updater()` must extract and execute this script after DOM insertion.
+
 ### Contract 2: `Content-Type: application/x-www-form-urlencoded` Default
 
 **Prototype behavior**: Default `contentType` is `'application/x-www-form-urlencoded'` (prototype.js line 1005). Parameters are encoded as `key=value&key2=value2`.
