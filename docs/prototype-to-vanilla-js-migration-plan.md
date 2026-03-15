@@ -520,9 +520,20 @@ src/main/webapp/share/javascript/jquery/jquery-1.4.2.js ← DELETE
 Update any JSP files that reference these old versions to use the standard `global-head.jspf` include instead.
 
 ### 5c. Remove all `jQuery.noConflict()` calls
-**27 JSP/JSPF files** call `jQuery.noConflict()` plus 1 file uses `jQuery.noConflict(true)` (deep mode). Remove the calls from all files. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references. All other files call `jQuery.noConflict()` without storing the return value.
+**29 files** contain `jQuery.noConflict()` calls. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references across the entire codebase.
 
-After Prototype removal, `$` will be jQuery by default, and `jQuery.noConflict()` calls are unnecessary. One exception: `js/jquery.fileDownload.js` uses `var $ = jQuery.noConflict()` as a file-local alias — this can be kept as-is (it's a third-party plugin pattern).
+**Removal groups** (after Prototype is removed from each page):
+
+| Group | Files | Action |
+|-------|-------|--------|
+| **A: No Prototype, no $j** (20 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographic*.jsp` (4), `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `SegmentDisplay.jsp`, `ChartNotes.jsp` | Safe to remove immediately — dead calls |
+| **B: Prototype loaded, no $() in JSP** (5 files) | `dxResearch.jsp`, `demographiceditdemographic.jsp`, `UserPreferences.jsp`, `manageFlowsheets.jsp` | Remove after Prototype `<script>` tag removed |
+| **C: Active Prototype $() usage** (5 files) | `encounter-head.jspf`, `newEncounterLayout.jsp`, `billingBC.jsp`, `SearchDrug3.jsp`, `MultiPageDocDisplay.jsp` | Remove ONLY after Prototype code migrated (Phases 1-4) |
+| **D: Third-party plugin** (1 file) | `js/jquery.fileDownload.js` — `var $ = jQuery.noConflict()` as module-local pattern | Leave as-is |
+
+**ACTIVE BUG — `demographicMeasurementModal.jsp`**: Uses `jQuery.noConflict(true)` (deep release) at line 50, which destroys BOTH `$` AND `jQuery` globals. This modal is included by `formrourke2020complete.jsp` and `formBCAR2020pg1.jsp` — after the include fires, the `jQuery` global is gone, breaking any deferred `jQuery(...)` callbacks on the parent page. Fix: change to `jQuery.noConflict()` (without `true`) or restructure the include ordering. This is a pre-existing bug independent of the Prototype migration.
+
+**`MultiPageDocDisplay.jsp` anomaly**: Calls `jQuery.noConflict()` inside a JSP `<c:forEach>` loop — invoked once per document row rendered. Functionally harmless (idempotent) but should be moved outside the loop during cleanup.
 
 ### 5d. Graduate encounter module from compat shim
 Once Phase 4 encounter/case management code is fully migrated to native APIs, remove `prototype-compat.js` and the HTMLElement.prototype extensions. This can be done incrementally — each function in `newCaseManagementView.js.jsp` can be rewritten to vanilla JS and the shim method removed once no callers remain.
