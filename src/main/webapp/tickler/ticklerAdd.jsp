@@ -574,7 +574,7 @@
                 </tr>
             </table>
         </form>
-        <form name="serviceform" method="post">
+        <form name="serviceform" method="post" action="<%=request.getContextPath()%>/tickler/dbTicklerAdd.jsp">
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
             <input type="hidden" name="user_no" value="<%=Encode.forHtmlAttribute(user_no)%>">
