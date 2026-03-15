@@ -169,8 +169,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Edit Document</title>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/scriptaculous.js"></script>
+    <!-- Prototype.js/Scriptaculous removed — using vanilla JS (Phase 1c migration) -->
 
     <link rel="stylesheet" type="text/css"
           href="<%= request.getContextPath() %>/share/css/niftyCorners.css"/>

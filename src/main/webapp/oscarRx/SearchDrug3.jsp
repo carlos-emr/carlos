@@ -1225,23 +1225,25 @@ function renderRxStage() {
         }
     }
     function changeContainerHeight(ele){
-        var ss=$('searchString').value;
-        ss=trim(ss);
+        var ss=document.getElementById('searchString').value;
+        ss=ss.trim();
         if(ss.length==0)
-            $('autocomplete_choices').setStyle({height:'0%'});
+            document.getElementById('autocomplete_choices').style.height='0%';
         else
-            $('autocomplete_choices').setStyle({height:'100%'});
+            document.getElementById('autocomplete_choices').style.height='100%';
     }
     function addInstruction(content,randomId){
-        $('instructions_'+randomId).value=content;
-        parseIntr($('instructions_'+randomId));
+        document.getElementById('instructions_'+randomId).value=content;
+        parseIntr(document.getElementById('instructions_'+randomId));
     }
     function addSpecialInstruction(content,randomId){
-                if($('siAutoComplete_'+randomId).getStyle('display')=='none'){
-                  Effect.BlindDown('siAutoComplete_'+randomId);
-                }else{}
-                $('siInput_'+randomId).value=content;
-                $('siInput_'+randomId).setStyle({color:'black'});
+                var siEl = document.getElementById('siAutoComplete_'+randomId);
+                if(siEl.style.display === 'none' || getComputedStyle(siEl).display === 'none'){
+                  siEl.style.display = '';
+                  siEl.classList.remove('carlos-collapsed');
+                }
+                document.getElementById('siInput_'+randomId).value=content;
+                document.getElementById('siInput_'+randomId).style.color='black';
    }
    function hideMedHistory(){
        mb.hide();
@@ -1271,20 +1273,22 @@ function renderRxStage() {
            this.waitifrm.style.display="block";
            this.waitifrm.style.height=H;
 
-           $("dragifm").appendChild(this.waitifrm);
-           Effect.Appear('xmaskframe');
+           document.getElementById("dragifm").appendChild(this.waitifrm);
+           document.getElementById('xmaskframe').style.display = '';
+           document.getElementById('xmaskframe').classList.remove('carlos-fade-out');
        };
         this.hide=function()
             {
-                Effect.Fade('xmaskframe');
+                var frame = document.getElementById('xmaskframe');
+                if (frame) { frame.classList.add('carlos-fade-out'); setTimeout(function(){ frame.style.display = 'none'; }, 300); }
 
             };
     }
     var mb=new modalBox();
     function displayMedHistory(randomId){
            var data="randomId="+randomId;
-           new Ajax.Request(ctx + "/oscarRx/WriteScript.do?parameterValue=listPreviousInstructions",
-           {method: 'post',parameters:data,asynchronous:false,onSuccess:function(transport){
+           CarlosAjax.request(ctx + "/oscarRx/WriteScript.do?parameterValue=listPreviousInstructions",
+           {method: 'post',parameters:data,synchronous:true,onSuccess:function(transport){
                  mb.show(randomId, ctx + '/oscarRx/displayMedHistory', '200px');
                 }});
     }
@@ -1299,15 +1303,16 @@ function renderRxStage() {
          var randomId=elementId.split("_")[1];
          if(randomId!=null){
              var url=ctx + "/oscarRx/WriteScript.do?parameterValue=updateProperty";
+             var el=document.getElementById(elementId);
              var data="";
              if(elementId.match("prnVal_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent($(elementId).value);
+                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
              else if(elementId.match("repeats_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent($(elementId).value);
+                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
              else
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent($(elementId).innerHTML);
+                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.innerHTML);
              data = data + "&rand="+Math.floor(Math.random()*10001);
-             new Ajax.Request(url, {method: 'post',parameters:data});
+             CarlosAjax.request(url, {method: 'post',parameters:data});
          }
     }
     function lookNonEdittable(elementId){

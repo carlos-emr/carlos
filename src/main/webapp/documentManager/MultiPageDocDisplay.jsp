@@ -727,23 +727,34 @@
                                                 return false;
                                             }
                                             //save doc info
-                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do",
-                                                data = $(eleId).serialize(true);
-                                            new Ajax.Request(url, {
-                                                method: 'post', parameters: data, onSuccess: function (transport) {
-                                                    var ar = eleId.split("_");
-                                                    var num = ar[1];
-                                                    num = num.replace(/\s/g, '');
-                                                    if ($("saveSucessMsg_" + num)) $("saveSucessMsg_" + num).show();
-                                                    if ($('saved' + num)) $('saved' + num).value = 'true';
-                                                    if ($('autocompletedemo' + num))
-                                                        $('autocompletedemo' + num).disabled = true;
-                                                    if ($('removeProv' + num))
-                                                        $('removeProv' + num).remove();
+                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do";
+                                            var formEl = document.getElementById(eleId);
+                                            var data = new URLSearchParams(new FormData(formEl)).toString();
+                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                            var csrfToken = csrfEl ? csrfEl.value : '';
+                                            fetch(url, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                    'CSRF-TOKEN': csrfToken
+                                                },
+                                                credentials: 'same-origin',
+                                                body: data
+                                            }).then(function() {
+                                                var ar = eleId.split("_");
+                                                var num = ar[1];
+                                                num = num.replace(/\s/g, '');
+                                                var successMsg = document.getElementById("saveSucessMsg_" + num);
+                                                if (successMsg) successMsg.style.display = '';
+                                                var savedEl = document.getElementById('saved' + num);
+                                                if (savedEl) savedEl.value = 'true';
+                                                var autoEl = document.getElementById('autocompletedemo' + num);
+                                                if (autoEl) autoEl.disabled = true;
+                                                var removeEl = document.getElementById('removeProv' + num);
+                                                if (removeEl) removeEl.parentNode.removeChild(removeEl);
 
-                                                    refreshParent();
-
-                                                }
+                                                refreshParent();
                                             });
                                             return false;
                                         }

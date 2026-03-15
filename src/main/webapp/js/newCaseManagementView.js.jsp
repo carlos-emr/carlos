@@ -1746,7 +1746,7 @@ function updateCPPNote() {
         Element.stopObserving(txt, 'click', fullView);
 
 
-        var ajax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -1831,7 +1831,7 @@ function updateCPPNote() {
         var noteId = id.substr(1);
         var params = "method=do_unlock_ajax&noteId=" + noteId + "&password=" + $F("passwd");
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -1839,11 +1839,7 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     var html = request.responseText;
-                    //if( navigator.userAgent.indexOf("AppleWebKit") > -1 )
-                    //    $(id).updateSafari(html);
-                    //else
                     $(id).update(html);
-
                 },
                 onFailure: function (request) {
                     if (request.status == 403)
@@ -1894,15 +1890,15 @@ function updateCPPNote() {
         var url = ctx + "/CaseManagementEntry.do";
         params = "method=isNoteEdited&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
 
-        new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
                 postBody: params,
                 evalScripts: true,
-                asynchronous: false,
+                synchronous: true,
                 onSuccess: function (request) {
-                    var json = request.responseText.evalJSON();
+                    var json = JSON.parse(request.responseText);
                     noteIsLocked = json.isNoteEdited;
                 }
             }
@@ -2226,7 +2222,7 @@ function updateCPPNote() {
         params += "&" + Form.serialize(clonedForm);
         params += "&" + Form.serialize(caseMgtViewfrm);
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -2235,10 +2231,9 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "50%";--%>
                 },
                 onFailure: function (request) {
-                    $(div).innerHTML = "<h3>" + div + "</h3>Error: " + request.status;
+                    $("notCPP").update("Error: " + request.status);
                 }
             }
         );
@@ -2380,7 +2375,7 @@ function updateCPPNote() {
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURI($F(encType)) + "&noteTxt=" + encodeURI(noteTxt);
         params += "&" + Form.serialize(caseMgtEntryfrm);
 
-        var objAjax = new Ajax.Updater(
+        CarlosAjax.updater(
             {success: div},
             url,
             {
