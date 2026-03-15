@@ -125,10 +125,15 @@
                         "&duration=" + duration + "&durationUnit=" + durationUnit + "&quantity=" + quantity + "&repeat=" + repeat + "&nosubs=" + nosubs + "&prn=" + prn + "&customInstr=" + customInstr + "&special=" + special + "&dispenseInternal=" + dispenseInternal;
                     var url = "<c:out value="${ctx}"/>" + "/oscarRx/updateFavorite2.do?method=ajaxEditFavorite";
 
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfToken = csrfEl ? csrfEl.value : '';
                     fetch(url, {
                         method: "post",
+                        credentials: 'same-origin',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'CSRF-TOKEN': csrfToken
                         },
                         body: data,
                     })

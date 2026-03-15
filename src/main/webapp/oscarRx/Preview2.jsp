@@ -579,10 +579,15 @@
                                         img.src = '<%=imageUrl%>&rand=' + counter;
 
                                         // Modern fetch API
+                                        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                        var csrfToken = csrfEl ? csrfEl.value : '';
                                         fetch('<%=statusUrl%>', {
                                             method: 'POST',
+                                            credentials: 'same-origin',
                                             headers: {
-                                                'Accept': 'text/html'
+                                                'Accept': 'text/html',
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                                'CSRF-TOKEN': csrfToken
                                             }
                                         })
                                         .then(function(response) {

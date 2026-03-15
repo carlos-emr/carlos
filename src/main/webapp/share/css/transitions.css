@@ -1,0 +1,26 @@
+/*
+ * CARLOS EMR - CSS Transition Utilities
+ *
+ * Replaces Scriptaculous Effect.Fade, Effect.Appear, Effect.BlindUp/Down
+ * with CSS-only animations. Bootstrap's .collapse component can also be
+ * used where markup allows.
+ *
+ * @since 2026-03-15
+ */
+
+.carlos-fade {
+    transition: opacity 0.3s ease;
+}
+
+.carlos-fade-out {
+    opacity: 0;
+}
+
+.carlos-collapse {
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.carlos-collapsed {
+    max-height: 0 !important;
+}

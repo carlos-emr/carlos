@@ -87,9 +87,16 @@ function serializeFormToObject(form) {
  * @returns {Promise<Response>}
  */
 function postForm(url, data) {
+    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+    var csrfToken = csrfEl ? csrfEl.value : '';
     return fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'CSRF-TOKEN': csrfToken
+        },
         body: typeof data === 'string' ? data : new URLSearchParams(data).toString()
     });
 }
@@ -100,7 +107,7 @@ function postForm(url, data) {
  * @returns {Promise<Response>}
  */
 function fetchGet(url) {
-    return fetch(url, { method: 'GET' });
+    return fetch(url, { method: 'GET', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
 }
 
 /**
