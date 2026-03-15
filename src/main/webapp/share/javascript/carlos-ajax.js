@@ -284,22 +284,6 @@ var CarlosAjax = (function () {
     }
 
     /**
-     * Evaluate scripts found in a response body (used internally by updater's insertContent).
-     */
-    function evalResponseScripts(html) {
-        var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/script>/gi;
-        var match;
-        while ((match = scriptPattern.exec(html)) !== null) {
-            if (match[1].trim()) {
-                var script = document.createElement('script');
-                script.textContent = match[1];
-                document.head.appendChild(script);
-                document.head.removeChild(script);
-            }
-        }
-    }
-
-    /**
      * Run an AJAX request and update a DOM element (replaces Ajax.Updater).
      *
      * Callback order: onSuccess -> DOM update -> onComplete (same as Prototype)
