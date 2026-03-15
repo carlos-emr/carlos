@@ -2,7 +2,7 @@
 
 ## Context
 
-CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across **71 JSP/JSPF files**. These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
+CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across **72 JSP/JSPF files** (plus 5 additional files that use Prototype APIs without loading the library directly). These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
 
 **Goal**: Remove Prototype.js, Scriptaculous, and all dependent code (LightWindow, legacy jQuery versions) — replacing with vanilla JS + Bootstrap 5.3 + CSS transitions. jQuery 3.6.4 remains as-is (separate future initiative).
 
@@ -274,7 +274,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 | `documentManager/html5AddDocuments.jsp` | Remove Prototype + Scriptaculous includes |
 | `report/reportdaysheet.jsp` | Remove Prototype include |
 | `report/GenerateLetters.jsp` | `Ajax.Request` → `fetch()` |
-| `oscarReport/reportByTemplate/resultReport.jsp` | `Ajax.Request` → `fetch()` |
+| `oscarReport/reportByTemplate/resultReport.jsp` | `Ajax.Request` in `clearSession()` on `<body onunload>` → `navigator.sendBeacon()`. **No Prototype load tag** — `Ajax.Request` call is currently broken/silently fails. Fix independently of Prototype removal. |
 
 ### Verification
 - `/admin/` pages: test document description template CRUD, security update saves
@@ -293,8 +293,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 | `lab/CumulativeLabValues.jsp` | 2 `Ajax.Updater` with `evalScripts` → `CarlosAjax.updater()` |
 | `lab/CumulativeLabValues2.jsp` | 2 `Ajax.Updater` → `CarlosAjax.updater()` |
 | `lab/CumulativeLabValues3.jsp` | 2 `Ajax.Updater` → `CarlosAjax.updater()` |
-| `lab/labDisplayAjax.jsp` | 1 `Effect.BlindUp` → Bootstrap collapse or CSS transition |
-| `lab/CA/ALL/labDisplayAjax.jsp` | `.evalJSON()` → `JSON.parse()`, Effect.BlindUp → CSS transition |
+| `lab/CA/ALL/labDisplayAjax.jsp` | 1 `Effect.BlindUp` → Bootstrap collapse or CSS transition, `.evalJSON()` → `JSON.parse()` |
 | `oscarMDS/documentsInQueues.jsp` | Prototype + effects + controls, 4 `.evalJSON()` → `JSON.parse()`, `evalScripts` |
 | `oscarMDS/SelectProviderAltView.jsp` | Prototype + Scriptaculous + effects + controls (Autocompleter) |
 | `hospitalReportManager/displayHRMReport.jsp` | Prototype + effects + controls |
@@ -365,7 +364,8 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 | `oscarRx/SearchDrug.jsp` | Prototype include |
 | `oscarRx/StaticScript2.jsp` | 3 Ajax calls, `asynchronous: false` |
 | `oscarRx/SelectPharmacy2.jsp` | LightWindow + Event handling |
-| `oscarRx/prescribe.jsp` | Effect.BlindDown/BlindUp |
+| `oscarRx/prescribe.jsp` | Effect.BlindDown/BlindUp, `$().getStyle()` — loaded via AJAX into SearchDrug3.jsp's `#rxText` div. **Must migrate simultaneously with SearchDrug3.jsp** or Effects will break. |
+| `oscarRx/ShowAllergies2.jsp` | `Effect.BlindDown`/`Effect.BlindUp` inside jQuery `$.fn.toggleSection` (lines ~179, ~182). Standalone page (no Prototype load tag) — relies on parent loading Scriptaculous. Replace with CSS transitions. |
 | `oscarRx/displayMedHistory.jsp` | dragiframe.js reference |
 | `oscarRx/ListDrugs.jsp` | Element.observe (1 call) |
 
@@ -466,21 +466,30 @@ Remove `jQuery.noConflict()` — no longer needed. `$` will be provided by the c
 | `casemgmt/newEncounterLayout.jsp` | Remove Prototype includes, update inline JS, `evalScripts` |
 | `casemgmt/ChartNotes.jsp` | 6 Element.observe/stopObserving calls → addEventListener |
 | `casemgmt/ChartNotesAjax.jsp` | 5 Element.observe calls, Autocompleter.Local → vanilla autocomplete |
+| `casemgmt/noteIssueList.jsp` | Statically included by `ChartNotesAjax.jsp` (lines ~409, ~863). Contains `new Autocompleter.SelectBox(selectEnc)` (line ~533) which depends on `select.js` → `Autocompleter.Base` from `controls.js`. Must replace with vanilla autocomplete when `select.js` is rewritten. |
 | `oscarEncounter/Index.jsp` | Legacy encounter page, Prototype + Ajax.Request |
 | `oscarEncounter/LeftNavBarDisplay.jsp` | Generates `bindAsEventListener` / `Element.observe` JS dynamically from Java |
 | `oscarEncounter/oscarMeasurements/AddMeasurementData.jsp` | Remove Prototype include |
 
-### 4e. Provider settings pages (script-tag-only — no Prototype API usage)
+### 4e. Provider/demographic pages with live Prototype API usage
+These files load Prototype/Scriptaculous AND call Prototype APIs — they need both tag removal and API migration:
+
+| File | Changes |
+|------|---------|
+| `provider/providerpreference.jsp` | 2 `Ajax.Request` POST calls (lines ~1576, ~1609) for auto-save of Rx Interaction Warning Level and Review Messages Time → `fetch()`. **Patient-affecting**: controls drug interaction alert settings. |
+| `provider/appointmentprovideradminmonth.jsp` | 1 `Ajax.Updater` GET (line ~452) for loading appointment detail → `CarlosAjax.updater()` |
+| `provider/appointmentprovideradminday.jsp` | Includes `schedulePage.js.jsp` which has 1 `Ajax.Request` POST in `storeApptNo()` (line ~55) → `fetch()` |
+| `provider/schedulePage.js.jsp` | 1 `Ajax.Request` POST in `storeApptNo()` — shared JS include loaded by both appointment admin pages. Must be migrated when either appointment admin page is migrated. |
+| `provider/setDocDefaultQueue.jsp` | `Effect.BlindDown()` + `Effect.BlindUp()` (lines ~112-117) → CSS transitions or Bootstrap collapse |
+| `demographic/demographiceditdemographic.jsp` | 1 `Ajax.Request` GET (line ~5021) in `callEligibilityWebService()` for health insurance eligibility check → `fetch()` |
+
+### 4f. Provider settings pages (script-tag-only — no Prototype API usage)
 These files load Prototype/Scriptaculous but **don't call any Prototype APIs** — they just need the `<script>` tags removed:
 | File |
 |------|
 | `provider/UserPreferences.jsp` |
-| `provider/providerpreference.jsp` |
-| `provider/appointmentprovideradminday.jsp` |
-| `provider/appointmentprovideradminmonth.jsp` |
 | `provider/cpp_preferences.jsp` |
 | `provider/setGenRxProfileViewProperty.jsp` |
-| `provider/setDocDefaultQueue.jsp` |
 | `provider/setGenRxPageSizeProperty.jsp` |
 | `provider/setEncounterWindowSize.jsp` |
 | `provider/setNoteStaleDate.jsp` |
@@ -490,7 +499,6 @@ These files load Prototype/Scriptaculous but **don't call any Prototype APIs** �
 | `provider/setToUseRx3.jsp` |
 | `provider/setAppointmentCardPrefs.jsp` |
 | `provider/setGenProperty.jsp` |
-| `demographic/demographiceditdemographic.jsp` |
 
 ### Verification
 - **Critical**: This is the most-used screen in the entire EMR
@@ -540,7 +548,7 @@ Update any JSP files that reference these old versions to use the standard `glob
 | Group | Files | Action |
 |-------|-------|--------|
 | **A: No Prototype, no $j** (20 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographic*.jsp` (4), `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `SegmentDisplay.jsp`, `ChartNotes.jsp` | Safe to remove immediately — dead calls |
-| **B: Prototype loaded, no $() in JSP** (5 files) | `dxResearch.jsp`, `demographiceditdemographic.jsp`, `UserPreferences.jsp`, `manageFlowsheets.jsp` | Remove after Prototype `<script>` tag removed |
+| **B: Prototype loaded, no $() in JSP** (4 files) | `dxResearch.jsp`, `demographiceditdemographic.jsp` (also has Ajax.Request — see Phase 4e), `UserPreferences.jsp`, `manageFlowsheets.jsp` | Remove after Prototype `<script>` tag removed and Ajax calls migrated |
 | **C: Active Prototype $() usage** (5 files) | `encounter-head.jspf`, `newEncounterLayout.jsp`, `billingBC.jsp`, `SearchDrug3.jsp`, `MultiPageDocDisplay.jsp` | Remove ONLY after Prototype code migrated (Phases 1-4) |
 | **D: Third-party plugin** (1 file) | `js/jquery.fileDownload.js` — `var $ = jQuery.noConflict()` as module-local pattern | Leave as-is |
 
