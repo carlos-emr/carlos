@@ -135,6 +135,8 @@
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
 
         <script language="javascript">
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken = csrfEl ? csrfEl.value : '';
 
             function addFavorite2(drugId, brandName) {
                 var favoriteName = window.prompt('Please enter a name for the Favorite:', brandName);
@@ -146,7 +148,7 @@
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
                     fetch(url, {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                         credentials: 'same-origin',
                         body: data
                     }).then(function() {
@@ -161,7 +163,7 @@
                 var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do";
                 fetch(urlUpdateId, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: dataUpdateId + "&parameterValue=updateReRxDrug"
                 });
@@ -170,7 +172,7 @@
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/rePrescribe2.do?method=saveReRxDrugIdToStash";
                 await fetch(url, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: data
                 });

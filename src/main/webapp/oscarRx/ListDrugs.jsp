@@ -471,10 +471,12 @@
                 var element = document.getElementById('hidecpp_<%=prescriptIdInt%>');
                 if (element) {
                     element.addEventListener('change', function () {
+                        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                        var csrfToken = csrfEl ? csrfEl.value : '';
                         var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
                         fetch('<c:out value="${ctx}"/>/oscarRx/hideCpp.do', {
                             method: 'POST',
-                            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                             credentials: 'same-origin',
                             body: 'method=update&prescriptId=<%=prescriptIdInt%>&value=' + encodeURIComponent(val)
                         });

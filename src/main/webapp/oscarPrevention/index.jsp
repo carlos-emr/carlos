@@ -1522,9 +1522,12 @@
                 clearTimeout(debounceTimer);
                 var seq = ++requestSeq;
                 debounceTimer = setTimeout(function() {
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfToken = csrfEl ? csrfEl.value : '';
                     fetch('<%=request.getContextPath()%>/cvc.do?method=query', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        credentials: 'same-origin',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                         body: encodeURIComponent(q)
                     })
                     .then(function(r) {
