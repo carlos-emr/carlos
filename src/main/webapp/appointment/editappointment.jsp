@@ -1397,9 +1397,9 @@
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnNoShow"/>"
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
-                    <a class="btn" href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=appointment_no%>&amp;demo='+document.EDITAPPT.demographic_no.value,'anwin','width=400,height=500');">
-                        <i class="fa-regular fa-comment"></i>
+                    <a class="btn" href="javascript:void(0);" title="Annotation" aria-label="Annotation"
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=java.net.URLEncoder.encode(appointment_no, "UTF-8")%>&amp;demo='+document.EDITAPPT.demographic_no.value,'anwin','width=400,height=500');">
+                        <i class="fa-regular fa-comment" aria-hidden="true"></i>
                     </a>
                     <a class="btn"
                        onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent('<%=appointment_no%>')">
