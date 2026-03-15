@@ -2179,7 +2179,7 @@ function represcribe(element, toArchive){
     	        	
         var url= ctx + "/oscarRx/rePrescribe2.do";
         data += "&method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
-        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,asynchronous:false,evalScripts:true,
+        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,synchronous:true,evalScripts:true,
             insertion: 'bottom',onSuccess:function(transport){
 		        renderRxStage();
             }
