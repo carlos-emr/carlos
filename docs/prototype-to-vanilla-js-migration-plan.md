@@ -524,3 +524,338 @@ Phase 0 (foundation) ─── must complete first
 Phases 1-3 are independent and can be done in any order. Phase 4 is the highest-risk and should be done last (except cleanup). Each phase should be a separate PR for reviewability.
 
 All files from the original appendix have been incorporated into the phase definitions above.
+
+---
+
+## Behavioral Contracts — Must Preserve During Migration
+
+This section documents every behavioral contract from Prototype.js and Scriptaculous that CARLOS EMR code depends on. Violating any of these contracts will cause silent breakage. Each contract specifies the Prototype behavior, the vanilla JS replacement, and the files affected.
+
+### Contract 1: `X-Requested-With: XMLHttpRequest` Header (CRITICAL — Server-Side)
+
+**Prototype behavior**: Automatically adds `X-Requested-With: XMLHttpRequest` header to ALL Ajax requests (prototype.js line 1089).
+
+**Why it matters**: Three server-side Java servlet filters check this header to distinguish AJAX requests from page loads:
+- `PrivacyStatementAppendingFilter.java` (line 145) — skips privacy statement injection for AJAX
+- `CsrfGuardScriptInjectionFilter.java` (lines 75-76) — skips CSRF script tag injection for AJAX
+- `LogoutBroadcastFilter.java` (lines 101-102) — skips logout broadcast for AJAX
+
+**Breaking change if omitted**: AJAX responses will have privacy statements and CSRF script tags appended, corrupting JSON/HTML responses.
+
+**Migration rule**: `CarlosAjax` and ALL `fetch()` calls MUST include:
+```javascript
+headers: { 'X-Requested-With': 'XMLHttpRequest' }
+```
+
+### Contract 2: `Content-Type: application/x-www-form-urlencoded` Default
+
+**Prototype behavior**: Default `contentType` is `'application/x-www-form-urlencoded'` (prototype.js line 1005). Parameters are encoded as `key=value&key2=value2`.
+
+**Why it matters**: Server-side actions (Struts 2, servlets) expect `application/x-www-form-urlencoded` for POST body parsing via `request.getParameter()`. If Content-Type changes, parameters will be invisible to the server.
+
+**Migration rule**: When sending POST data with `fetch()`, use:
+```javascript
+headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+body: new URLSearchParams(params).toString()
+```
+Or use `new FormData()` only with `multipart/form-data` (file uploads). Do NOT rely on `fetch()` defaults.
+
+### Contract 3: `Form.serialize()` Output Format
+
+**Prototype behavior**: `Form.serialize(formElement)` returns a URL-encoded query string: `field1=value1&field2=value2`. This string is used as `postBody` or concatenated with `params +=`.
+
+**Files affected** (13+ calls):
+- `js/newCaseManagementView.js.jsp` (lines 2241, 2242, 2396, 2489, 2838, 3006) — string concatenation with `params +=`
+- `oscarEncounter/Index.jsp` (lines 783, 808) — used as `postBody`
+- `oscarRx/SearchDrug3.jsp` (lines 2663, 2696)
+- `oscarMDS/SelectProviderAltView.jsp` (line 82) — cross-window form access
+- `report/GenerateLetters.jsp` (line 291)
+- `form/formRhImmuneGlobulin.jsp` (line 653)
+
+**Breaking change**: `new FormData()` does NOT produce a string. `new URLSearchParams(new FormData(form)).toString()` does, but the concatenation pattern (`params += "&" + Form.serialize(otherForm)`) requires the string format.
+
+**Migration rule**: Replace `Form.serialize(form)` with `new URLSearchParams(new FormData(form)).toString()`. For the compat shim:
+```javascript
+window.Form = {
+    serialize: function(formOrId) {
+        var form = typeof formOrId === 'string' ? document.getElementById(formOrId) : formOrId;
+        return new URLSearchParams(new FormData(form)).toString();
+    }
+};
+```
+
+### Contract 4: `$()` Returns Prototype-Extended Element (Chaining)
+
+**Prototype behavior**: `$(id)` returns a DOM element extended with Prototype methods (`.update()`, `.hide()`, `.show()`, `.observe()`, `.addClassName()`, `.invoke()`, `.getHeight()`, etc.). Code chains these methods directly.
+
+**Chaining patterns found**:
+- `$("id").update(html)` — 55+ calls in newCaseManagementView.js.jsp
+- `$("id").hide()` / `$("id").show()` — many calls
+- `$("id").addClassName("sig")` — line 2957
+- `$(rowIDs[i]).invoke("show")` — lines 941-947 (batch operations)
+- `$("id").focus()` — lines 205-295
+- `$("id").click()` — line 277
+- `$("id").getHeight()` / `.getWidth()` — 50+ calls
+
+**Files**: `js/newCaseManagementView.js.jsp` (398 `$()` calls), `oscarEncounter/js/encounter.js` (~20), `oscarEncounter/LeftNavBarDisplay.jsp`, `oscarEncounter/Index.jsp`
+
+**Migration rule (compat shim)**: The shim's `$()` must return a plain element — all chained methods must be added to `HTMLElement.prototype`. The shim must provide: `.update()`, `.hide()`, `.show()`, `.observe()`, `.stopObserving()`, `.getHeight()`, `.getWidth()`, `.addClassName()`, `.removeClassName()`, `.insert()`, `.setStyle()`.
+
+### Contract 5: `Element.observe()` / `Element.stopObserving()` — Function Reference Identity
+
+**Prototype behavior**: `bindAsEventListener(obj, arg1, arg2)` creates a new function with bound `this` and prepended event argument. The returned reference is stored for later removal via `Element.stopObserving(el, event, storedRef)`.
+
+**Critical pattern** (encounter/casemgmt):
+```javascript
+// Store bound function reference
+imgfunc[midName] = clickListDisplay.bindAsEventListener(this, midName, topName);
+Element.observe(midImage, "click", imgfunc[midName]);
+// Later, remove using exact same reference
+Element.stopObserving(midImage, "click", imgfunc[midName]);
+// Re-bind with new arguments
+imgfunc[midName] = differentHandler.bindAsEventListener(this, newArgs);
+Element.observe(midImage, "click", imgfunc[midName]);
+```
+
+**Files affected**:
+- `js/newCaseManagementView.js.jsp` — 12 `bindAsEventListener` calls, 66 observe/stopObserving
+- `oscarEncounter/js/encounter.js` — 3 `bindAsEventListener`, 6 observe/stopObserving
+- `oscarEncounter/LeftNavBarDisplay.jsp` — dynamically generated from Java
+- `casemgmt/ChartNotesAjax.jsp` — `addIssueFunc` stored and used
+- `share/javascript/controls.js` — Autocompleter internal event handling
+
+**Breaking change**: Vanilla `addEventListener`/`removeEventListener` requires the EXACT same function reference. If `bindAsEventListener` is replaced with `fn.bind()`, each `.bind()` call creates a NEW function — `removeEventListener` will silently fail.
+
+**Migration rule**: Store bound function references in variables BEFORE adding listeners:
+```javascript
+// Correct pattern:
+const handler = fn.bind(obj, arg1, arg2);
+el.addEventListener('click', handler);
+// Store for later removal
+storedHandlers[name] = handler;
+// To remove:
+el.removeEventListener('click', storedHandlers[name]);
+```
+
+The compat shim must implement `bindAsEventListener`, `Element.observe`, and `Element.stopObserving` using this stored-reference pattern.
+
+### Contract 6: `Insertion.Bottom` / `Insertion.Top` — Content Accumulation
+
+**Prototype behavior**: `Insertion.Bottom` appends HTML to an element WITHOUT replacing existing content. `Insertion.Top` prepends. This is critical for building up drug rows, notes, etc.
+
+**Files affected** (17+ calls):
+- `oscarRx/SearchDrug3.jsp` — 15+ `Insertion.Bottom` calls accumulating drug form rows in `#rxText`
+- `js/newCaseManagementView.js.jsp` — `Insertion.Top` for notes loading (line 537)
+- `share/lightwindow/lightwindow.js` — `Insertion.After`, `Insertion.Top`
+
+**Breaking change**: Setting `innerHTML =` destroys existing content. Using `innerHTML +=` causes re-parsing and event listener loss.
+
+**Migration rule**: Replace with `insertAdjacentHTML()`:
+```javascript
+// Insertion.Bottom -> insertAdjacentHTML('beforeend', html)
+// Insertion.Top    -> insertAdjacentHTML('afterbegin', html)
+// Insertion.After  -> insertAdjacentHTML('afterend', html)
+// Insertion.Before -> insertAdjacentHTML('beforebegin', html)
+```
+
+`CarlosAjax.updater()` must support an `insertion` option that maps to these positions.
+
+### Contract 7: `Element.show()` / `Element.hide()` — Display Value Reset
+
+**Prototype behavior**: `.show()` sets `style.display = ''` (empty string, returns to CSS default). `.hide()` sets `style.display = 'none'`. `.show()` does NOT remember the previous display value.
+
+**Files affected**: `js/newCaseManagementView.js.jsp`, `oscarMDS/documentsInQueues.jsp` (15+ calls), `share/javascript/controls.js`
+
+**Migration rule**: Direct replacement is safe — `el.style.display = ''` and `el.style.display = 'none'` match Prototype behavior exactly. Do NOT use jQuery's `.show()` which tries to restore previous display values. Alternatively, use Bootstrap's `.d-none` class for toggle patterns.
+
+### Contract 8: `$F()` — Form Field Value Access
+
+**Prototype behavior**: `$F(id)` returns the `.value` property of the element with the given ID. Works on `<input>`, `<select>`, and `<textarea>`.
+
+**Files affected** (30+ calls): Primarily `js/newCaseManagementView.js.jsp`
+
+**Migration rule**: Replace with `document.getElementById(id).value`. The compat shim provides:
+```javascript
+window.$F = function(id) { return document.getElementById(id)?.value ?? ''; };
+```
+
+### Contract 9: `$A()` — Static Array Copy from Live Collections
+
+**Prototype behavior**: `$A(iterable)` creates a static `Array` copy. Critical when converting `arguments` objects or live `NodeList`s that change during iteration.
+
+**Files affected**: `oscarEncounter/js/encounter.js` (3 calls), `js/newCaseManagementView.js.jsp` (4 calls)
+
+**Migration rule**: Replace with `Array.from()`. Exact same semantics.
+
+### Contract 10: `.evalJSON()` — JSON Response Parsing
+
+**Prototype behavior**: Prototype adds `.evalJSON()` to `String.prototype`. Parses JSON string to object.
+
+**Files affected** (19 calls):
+- `oscarRx/SearchDrug3.jsp` (8 calls)
+- `oscarMDS/documentsInQueues.jsp` (4 calls)
+- `admin/displayDocumentDescriptionTemplate.jsp` (2 calls)
+- `js/newCaseManagementView.js.jsp` (1 call)
+- `lab/CA/ALL/labDisplayAjax.jsp` (1 call)
+- `billing/CA/BC/billingEditCode.jsp` (1 call)
+- `documentManager/incomingDocs.jsp` (1 call)
+- `oscarRx/ViewScript2.jsp` (1 call)
+
+**Migration rule**: Replace `transport.responseText.evalJSON()` with `JSON.parse(transport.responseText)`.
+
+### Contract 11: Effect Completion Callbacks (`afterFinish`, `afterUpdate`)
+
+**Scriptaculous behavior**: Effects accept `afterFinish` callback that fires AFTER animation completes, and `afterUpdate` that fires on each animation frame. `duration` controls timing in seconds.
+
+**Files affected**:
+- `share/lightwindow/lightwindow.js` — 7 `afterFinish` callbacks (chained animations)
+- `lab/CA/ALL/labDisplayAjax.jsp` — 1 `Effect.BlindUp`
+- `oscarMDS/documentsInQueues.jsp` — 2 `Effect.BlindUp`
+- `share/javascript/controls.js` — 2 effects (Autocompleter show/hide)
+
+**Breaking change**: CSS transitions do NOT provide automatic callbacks. Must use `transitionend` event.
+
+**Migration rule**: For effects with `afterFinish`:
+```javascript
+el.addEventListener('transitionend', function handler() {
+    el.removeEventListener('transitionend', handler);
+    // afterFinish code here
+}, { once: true });
+el.classList.add('carlos-collapsed'); // trigger transition
+```
+For simple effects without callbacks, CSS transitions suffice without `transitionend`.
+
+### Contract 12: `Autocompleter.Local` — Client-Side Autocomplete
+
+**Scriptaculous behavior**: `new Autocompleter.Local(inputId, listId, dataArray, options)` creates a dropdown autocomplete. Key options:
+- `afterUpdateElement(inputElement, selectedItem)` — callback when user selects an item
+- `colours` — custom option (used in encounter template selector)
+- `onShow` / `onHide` — visibility callbacks (default uses `Effect.Appear`/`Effect.Fade`)
+
+**Files affected**:
+- `oscarEncounter/js/encounter.js` (lines 656-659) — template autocomplete
+- `casemgmt/ChartNotesAjax.jsp` (line 1024-1027) — template autocomplete with `afterUpdateElement: menuAction`
+
+**Migration rule**: Replace with vanilla JS autocomplete using `<datalist>` element or custom dropdown. Must preserve:
+1. Keyboard navigation (up/down arrows, enter to select, escape to close)
+2. `afterUpdateElement` callback with `(input, selectedLI)` parameters
+3. Fuzzy/partial matching behavior
+
+### Contract 13: `Position.page()` / `Position.clone()` — Element Positioning
+
+**Prototype behavior**: `Position.page(el)` returns `[x, y]` coordinates relative to the page. `Position.clone(source, target, options)` copies position from one element to another.
+
+**Files affected**:
+- `oscarRx/SearchDrug3.jsp` (line 1592) — `Position.page($('drugProfile'))`
+- `share/javascript/controls.js` (lines 70, 116) — `Position.clone()` in Autocompleter positioning
+- `js/newCaseManagementView.js.jsp` — `Position.page()`, `Position.positionedOffset()`
+
+**Migration rule**: Replace with `getBoundingClientRect()`:
+```javascript
+// Position.page(el):
+const rect = el.getBoundingClientRect();
+const pos = [rect.left + window.scrollX, rect.top + window.scrollY];
+
+// Position.positionedOffset(el):
+const offset = { left: el.offsetLeft, top: el.offsetTop };
+```
+
+### Contract 14: `Element.addClassName()` / `Element.removeClassName()`
+
+**Prototype behavior**: Adds/removes CSS classes, checking for duplicates.
+
+**Files affected**: `share/javascript/controls.js` (8 calls), `share/javascript/slider.js` (2 calls), `js/newCaseManagementView.js.jsp` (1 call)
+
+**Migration rule**: Replace with `element.classList.add()` / `element.classList.remove()`. Exact same semantics — `classList.add()` also prevents duplicates.
+
+### Contract 15: Event Constants and Methods
+
+**Prototype behavior**: `Event.KEY_TAB` (9), `Event.KEY_RETURN` (13), `Event.KEY_ESC` (27), `Event.KEY_UP` (38), `Event.KEY_DOWN` (40). `Event.stop(e)` calls both `preventDefault()` and `stopPropagation()`. `Event.findElement(e, 'LI')` finds ancestor matching selector.
+
+**Files affected**: `share/javascript/controls.js` (lines 139-185 — Autocompleter keyboard handling), `js/newCaseManagementView.js.jsp` (lines 267-268)
+
+**Migration rule**:
+```javascript
+// Event.KEY_RETURN -> e.key === 'Enter' or e.keyCode === 13
+// Event.KEY_ESC    -> e.key === 'Escape' or e.keyCode === 27
+// Event.stop(e)    -> e.preventDefault(); e.stopPropagation();
+// Event.findElement(e, 'LI') -> e.target.closest('li')
+```
+
+### Contract 16: `Prototype.Browser.IE` — Browser Detection
+
+**Prototype behavior**: Boolean flag detecting Internet Explorer.
+
+**Files affected**: `js/newCaseManagementView.js.jsp` (line 802), `share/javascript/controls.js` (IE iframe fix)
+
+**Migration rule**: Remove IE-specific branches entirely. CARLOS EMR does not support Internet Explorer. Replace `if (Prototype.Browser.IE) { ... }` blocks with nothing.
+
+### Contract 17: `Object.extend()` — Object Merging
+
+**Prototype behavior**: Copies all properties from source to destination object (like `Object.assign()`).
+
+**Files affected**: `share/javascript/effects.js` (10+ calls), `share/javascript/controls.js`, `share/javascript/select.js`
+
+**Migration rule**: Replace with `Object.assign(dest, source)`. These are in library files that will be deleted — only relevant if any application code calls `Object.extend()` directly (none found).
+
+### Contract 18: `.invoke()` — Batch Method Invocation on Multiple Elements
+
+**Prototype behavior**: `$$(selector).invoke('show')` calls `.show()` on every matched element.
+
+**Files affected**: `js/newCaseManagementView.js.jsp` (lines 941-947) — batch show/hide of form row elements
+
+**Migration rule**: Replace with explicit loop:
+```javascript
+// $(rowIDs[2], rowIDs[4], rowIDs[5]).invoke("show"):
+[rowIDs[2], rowIDs[4], rowIDs[5]].forEach(id => document.getElementById(id).style.display = '');
+```
+
+Note: Prototype's multi-argument `$(id1, id2, id3)` returns an array of elements. The compat shim's `$()` must handle single-ID (returns element) vs multi-ID (returns array) cases, OR these call sites must be rewritten.
+
+### Contract 19: `postBody` vs `parameters` — Request Body Semantics
+
+**Prototype behavior**: `Ajax.Request` accepts either `postBody` (raw string body) or `parameters` (object or string, auto-encoded). When `postBody` is provided, it is sent as-is. When `parameters` is an object, Prototype serializes it to `key=value&key2=value2` and sets Content-Type to `application/x-www-form-urlencoded`.
+
+**Files affected**:
+- `oscarEncounter/Index.jsp` (lines 787, 812) — `postBody: pars` (pre-serialized Form.serialize result)
+- `js/newCaseManagementView.js.jsp` (line 3006) — `postBody: Form.serialize(frm)`
+
+**Migration rule**: Map both to `fetch()` body:
+```javascript
+// postBody: direct pass-through
+fetch(url, { method: 'POST', body: postBody, headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
+
+// parameters (object): serialize with URLSearchParams
+fetch(url, { method: 'POST', body: new URLSearchParams(params), headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
+```
+
+### Contract 20: `Element.collectTextNodes()` — DOM Text Extraction
+
+**Prototype behavior**: Extracts all text nodes from an element's children. Used in Autocompleter matching.
+
+**Files affected**: `share/javascript/controls.js` (lines 250-251)
+
+**Migration rule**: Replace with `element.textContent`. This is only used inside the Autocompleter which will be replaced entirely.
+
+---
+
+## Summary: Migration Risk by Contract
+
+| Contract | Severity | Mechanical? | Files |
+|----------|----------|-------------|-------|
+| `X-Requested-With` header | **CRITICAL** | Yes — add to all fetch calls | All AJAX files |
+| `Content-Type` default | **CRITICAL** | Yes — set explicitly | All POST requests |
+| `Form.serialize()` format | **HIGH** | Yes — URLSearchParams | 7 files, 13+ calls |
+| `observe/stopObserving` + `bindAsEventListener` | **HIGH** | No — manual refactor | 5 files, 80+ calls |
+| `Insertion.Bottom/Top` | **HIGH** | Yes — insertAdjacentHTML | 3 files, 17+ calls |
+| AJAX callback ordering | **HIGH** | No — CarlosAjax handles | All AJAX files |
+| `evalScripts: true` | **HIGH** | No — script extraction | 6 files |
+| `asynchronous: false` | **HIGH** | No — async/await refactor | 3 files |
+| `$()` element chaining | **MEDIUM** | Yes — compat shim | 5 files, 400+ calls |
+| `show()`/`hide()` display value | **MEDIUM** | Yes — style.display | 4 files |
+| `.evalJSON()` | **LOW** | Yes — JSON.parse() | 8 files, 19 calls |
+| `$F()` field access | **LOW** | Yes — .value | 2 files, 30+ calls |
+| `$A()` conversion | **LOW** | Yes — Array.from() | 2 files, 7 calls |
+| `addClassName/removeClassName` | **LOW** | Yes — classList API | 3 files |
+| Event constants | **LOW** | Yes — e.key / e.keyCode | 2 files |
+| `Prototype.Browser.IE` | **LOW** | Yes — delete | 2 files |
