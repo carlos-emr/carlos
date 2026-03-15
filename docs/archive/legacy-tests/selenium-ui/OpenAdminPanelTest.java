@@ -83,6 +83,9 @@ public class OpenAdminPanelTest extends BaseTest {
 
     // Test the open unlock account window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the "Unlock Account" window in the admin panel.
+     */
     public void testOpenUnlockAccountWindowSuccessful() throws InterruptedException {
         WebDriver driver = createHeadlessDriver();
         WebDriverWait wait = createWait(driver);
@@ -109,6 +112,9 @@ public class OpenAdminPanelTest extends BaseTest {
 
     // Test the open add providers window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the "Add a Provider" window in the admin panel.
+     */
     public void testOpenAddProviderWindowSuccessful() throws InterruptedException {
         WebDriver driver = createHeadlessDriver();
         WebDriverWait wait = createWait(driver);
@@ -135,6 +141,9 @@ public class OpenAdminPanelTest extends BaseTest {
 
     // Test the open add login record window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the "Add a Login Record" window in the admin panel.
+     */
     public void testOpenAddLoginRecordWindowSuccessful() throws InterruptedException {
         WebDriver driver = createHeadlessDriver();
         WebDriverWait wait = createWait(driver);
@@ -187,6 +196,9 @@ public class OpenAdminPanelTest extends BaseTest {
 
     // Test the open schedule setting window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the schedule setting window in the admin panel.
+     */
     public void testOpenScheduleSettingWindowSuccessful() throws InterruptedException {
         WebDriver driver = createHeadlessDriver();
         WebDriverWait wait = createWait(driver);
@@ -213,6 +225,9 @@ public class OpenAdminPanelTest extends BaseTest {
 
     // Test the open search groups window window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the "Search/Edit/Delete Groups" window in the admin panel.
+     */
     public void testOpenSearchGroupsWindowSuccessful() throws InterruptedException {
         WebDriver driver = createHeadlessDriver();
         WebDriverWait wait = createWait(driver);
@@ -239,6 +254,9 @@ public class OpenAdminPanelTest extends BaseTest {
 
     // Test the open insert template window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the "Insert a Template" window in the admin panel.
+     */
     public void testOpenInsertTemplateWindowSuccessful() throws InterruptedException {
         WebDriver driver = createHeadlessDriver();
         WebDriverWait wait = createWait(driver);
@@ -265,6 +283,9 @@ public class OpenAdminPanelTest extends BaseTest {
 
     // Test the open assign role window successful scenario
     @Test
+    /**
+     * Tests the successful opening of the "Assign Role/Rights to Object" window.
+     */
     public void testAssignRoleWindowSuccessful() throws InterruptedException {
         WebDriver driver = createHeadlessDriver();
         WebDriverWait wait = createWait(driver);
