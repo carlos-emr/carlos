@@ -850,8 +850,8 @@ input[id^='acklabel_']{
                 if (accNum) params.append('accessionNum', accNum.value);
                 if (labelInput) params.append('label', labelInput.value);
                 params.append('ajaxcall', 'true');
-                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                if (csrfEl) params.append('CSRF-TOKEN', csrfEl.value);
+                var csrfToken = getCsrfToken();
+                if (csrfToken) params.append('CSRF-TOKEN', csrfToken);
                 fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},

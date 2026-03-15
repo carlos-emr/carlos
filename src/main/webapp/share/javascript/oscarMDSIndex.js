@@ -108,7 +108,7 @@ function getCsrfToken() {
  * @returns {Promise<Response>}
  */
 function postForm(url, data) {
-    var params = typeof data === 'string' ? new URLSearchParams(data) : new URLSearchParams(data);
+    var params = new URLSearchParams(data);
     if (!params.has('CSRF-TOKEN')) {
         var token = getCsrfToken();
         if (token) {

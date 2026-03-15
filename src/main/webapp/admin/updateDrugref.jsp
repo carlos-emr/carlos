@@ -156,6 +156,8 @@
       </style>
     </head>
     <body class="mainbody">
+    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
+    <form id="csrfForm" style="display:none;"></form>
     <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
     <div class="well">
         <div id="dbInfo"></div>
