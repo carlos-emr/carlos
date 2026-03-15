@@ -49,7 +49,7 @@
 
     <!--Data Tables-->
     <link rel="stylesheet" type="text/css"
-          href="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
+          href="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap.min.css">
 
 
     <!--div.dataTables_filter input { padding:10px;width:500px}
@@ -507,7 +507,7 @@
 
 <!--Data Tables-->
 <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js"></script>
-<script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script src="<%=request.getContextPath()%>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap.min.js"></script>
 
 <script>
 
