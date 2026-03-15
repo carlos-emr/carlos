@@ -110,8 +110,8 @@ function Menu(caller, options) {
         ;
         container.parent().hide();
         menu.menuOpen = false;
-        $(document).unbind('click', killAllMenus);
-        $(document).unbind('keydown');
+        $(document).off('click', killAllMenus);
+        $(document).off('keydown');
     };
 
     this.showLoading = function () {

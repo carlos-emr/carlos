@@ -49,8 +49,8 @@ $.extend($.fn.dataTableExt.oPagination, {
                 '</ul>'
             );
             var els = $('a', nPaging);
-            $(els[0]).bind('click.DT', {action: "previous"}, fnClickHandler);
-            $(els[1]).bind('click.DT', {action: "next"}, fnClickHandler);
+            $(els[0]).on('click.DT', {action: "previous"}, fnClickHandler);
+            $(els[1]).on('click.DT', {action: "next"}, fnClickHandler);
         },
 
         "fnUpdate": function (oSettings, fnDraw) {
@@ -82,7 +82,7 @@ $.extend($.fn.dataTableExt.oPagination, {
                     sClass = (j == oPaging.iPage + 1) ? 'class="active"' : '';
                     $('<li ' + sClass + '><a href="#">' + j + '</a></li>')
                         .insertBefore($('li:last', an[i])[0])
-                        .bind('click', function (e) {
+                        .on('click', function (e) {
                             e.preventDefault();
                             oSettings._iDisplayStart = (parseInt($('a', this).text(), 10) - 1) * oPaging.iLength;
                             fnDraw(oSettings);
