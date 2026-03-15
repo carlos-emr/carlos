@@ -61,6 +61,7 @@ These replace Scriptaculous `Effect.Fade`, `Effect.Appear`, `Effect.BlindUp/Down
 
 ### 0c. Create `carlos-ajax.js` utility
 **File**: `src/main/webapp/share/javascript/carlos-ajax.js` (NEW)
+**Documentation**: `docs/carlos-ajax.md` — full API reference, usage guide, migration cheat sheet, and when NOT to use it
 
 Wraps `fetch()` / `XMLHttpRequest` in an API that **preserves the exact Prototype.js callback execution order**. This is critical — changing callback timing will break dependent code.
 
