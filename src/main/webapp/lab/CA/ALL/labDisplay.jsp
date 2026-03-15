@@ -754,7 +754,6 @@ input[id^='acklabel_']{
             var params = new URLSearchParams(new FormData(formEl));
             if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
             console.log(url);
-            console.log(params.toString());
             fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
