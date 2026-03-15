@@ -1,11 +1,13 @@
-# CarlosAjax — AJAX Utility Reference
+# CarlosAjax — AJAX Utility Design Specification
+
+> **Note**: This document is a **design specification** for a library that has not yet been implemented. `CarlosAjax`, `carlos-ajax.js`, and the `global-head.jspf` include described below do not yet exist in the codebase. This spec defines the API contract, behavioral requirements, and integration points for implementation during the Prototype.js migration (see `docs/prototype-to-vanilla-js-migration-plan.md`, Phase 0c).
 
 ## Overview
 
-`CarlosAjax` is a lightweight AJAX wrapper that replaces Prototype.js's `Ajax.Request` and `Ajax.Updater` with modern `fetch()` and `XMLHttpRequest` APIs. It exists to provide a clean, consistent AJAX interface during and after the Prototype.js migration, preserving the exact behavioral contracts that CARLOS EMR server-side code depends on.
+`CarlosAjax` is a lightweight AJAX wrapper designed to replace Prototype.js's `Ajax.Request` and `Ajax.Updater` with modern `fetch()` and `XMLHttpRequest` APIs. It will provide a clean, consistent AJAX interface during and after the Prototype.js migration, preserving the exact behavioral contracts that CARLOS EMR server-side code depends on.
 
-**File**: `src/main/webapp/share/javascript/carlos-ajax.js`
-**Loaded via**: `src/main/webapp/includes/global-head.jspf` (available on all pages)
+**File** (to create): `src/main/webapp/share/javascript/carlos-ajax.js`
+**Loaded via** (to add): `src/main/webapp/includes/global-head.jspf` (available on all pages)
 
 ---
 
@@ -536,4 +538,4 @@ Every AJAX call in CARLOS EMR must include these to work correctly with server-s
 
 ## Existing Pattern Reference
 
-The `documentManager/showDocument.js` file already uses a similar `fetch()` + script extraction pattern and serves as a proven reference implementation for the `evalScripts` behavior.
+The `share/javascript/oscarMDSIndex.js` file already uses a `fetch()` + script extraction pattern (`appendHtmlWithScripts()` function, line 114) and serves as a proven reference implementation for the `evalScripts` behavior.

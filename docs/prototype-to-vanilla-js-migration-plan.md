@@ -2,7 +2,7 @@
 
 ## Context
 
-CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across **~84 files** (72 that load the library directly, plus files that use Prototype APIs via transitive dependencies, shared JS includes, or AJAX-loaded contexts). These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
+CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across **~84 files** (71 that load the library directly, plus files that use Prototype APIs via transitive dependencies, shared JS includes, or AJAX-loaded contexts). These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
 
 **Goal**: Remove Prototype.js, Scriptaculous, and all dependent code (LightWindow, legacy jQuery versions) — replacing with vanilla JS + Bootstrap 5.3 + CSS transitions. jQuery 3.6.4 remains as-is (separate future initiative).
 
@@ -193,7 +193,7 @@ Files relying on `evalScripts: true`:
 - `oscarMDS/documentsInQueues.jsp`
 - `casemgmt/newEncounterLayout.jsp`
 
-Pattern already proven in `documentManager/showDocument.js`.
+Pattern already proven in `share/javascript/oscarMDSIndex.js` (`appendHtmlWithScripts()` function).
 
 **Critical: synchronous request support.** `CarlosAjax` must support a `synchronous: true` option that uses `XMLHttpRequest` (not `fetch()`, which has no synchronous mode). This preserves Prototype's `asynchronous: false` behavior used for:
 - Note lock release on `beforeunload` (must complete before page unloads)
@@ -253,7 +253,6 @@ These files already use `fetch()` for POST requests today but are **missing CSRF
 | File | Issue |
 |------|-------|
 | `documentManager/showDocument.jsp` | `fetch()` POST without CSRF token |
-| `lab/CA/ALL/labDisplayAjax.jsp` | `fetch()` POST without CSRF token |
 | `oscarRx/Preview2.jsp` | `fetch()` POST without CSRF token |
 | `oscarRx/EditFavorites2.jsp` | `fetch()` POST without CSRF token |
 | `share/javascript/oscarMDSIndex.js` (`postForm()`) | `fetch()` POST without CSRF token |
@@ -305,7 +304,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 |------|---------|
 | `documentManager/uploadMultiDocument.jsp` | 1 `Ajax.Request` → `fetch()`, 1 `Effect.SlideUp` → CSS transition |
 | `documentManager/incomingDocs.jsp` | 1 `Ajax.Request` → `fetch()`, `Ajax.Autocompleter` → vanilla autocomplete (pattern from `showDocument.js`) |
-| `documentManager/MultiPageDocDisplay.jsp` | Remove `jQuery.noConflict()` (in `<c:forEach>` loop — move outside); **also migrate 39 `$()` calls and 16 `.setStyle()` calls to vanilla JS** |
+| `documentManager/MultiPageDocDisplay.jsp` | Remove `jQuery.noConflict()` (in JSP scriptlet `for` loop — move outside); **also migrate 39 `$()` calls and 16 `.setStyle()` calls to vanilla JS** |
 | `documentManager/editDocument.jsp` | Remove Prototype + Scriptaculous includes; **also replace `Autocompleter.Local` with Bootstrap typeahead** (see Contract 12) |
 | `documentManager/addedithtmldocument.jsp` | Remove Prototype + Scriptaculous includes; **also replace `Autocompleter.Local` with Bootstrap typeahead** (see Contract 12) |
 | `documentManager/html5AddDocuments.jsp` | Remove Prototype + Scriptaculous includes |
@@ -357,7 +356,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 ### 3a. Replace LightWindow with Bootstrap 5 Modals
 **Files affected**: `oscarRx/SearchDrug3.jsp`, `oscarRx/ViewScript2.jsp`, `oscarRx/SelectPharmacy2.jsp`
 
-LightWindow (`share/lightwindow/lightwindow.js`, 2000 lines) is built entirely on Prototype/Scriptaculous. Replace with Bootstrap 5 Modal:
+LightWindow (`share/lightwindow/javascript/lightwindow.js`, 2000 lines) is built entirely on Prototype/Scriptaculous. Replace with Bootstrap 5 Modal:
 - Create modal markup in JSP (or dynamic modal creation via JS)
 - Replace `myLightWindow.activateWindow({href: url})` → `fetch(url)` + populate Bootstrap modal + `modal.show()`
 - Replace `parent.myLightWindow.deactivate()` → `bootstrap.Modal.getInstance(el).hide()`
@@ -444,7 +443,7 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 
 | Pattern | Count | Replacement |
 |---------|-------|-------------|
-| `$("id")` | 248 | `document.getElementById("id")` |
+| `$("id")` | ~261 | `document.getElementById("id")` |
 | `.update(html)` | 29 | See security note below |
 | `.hide()` / `.show()` | 8 | `.style.display` or `.classList.toggle('d-none')` |
 | `.toggle()` | 6 | `el.style.display = (el.style.display === 'none') ? '' : 'none'` |
@@ -580,20 +579,20 @@ src/main/webapp/share/javascript/jquery/jquery-1.4.2.js ← DELETE
 Update any JSP files that reference these old versions to use the standard `global-head.jspf` include instead.
 
 ### 5c. Remove all `jQuery.noConflict()` calls
-**30 files** contain `jQuery.noConflict()` calls. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references across the entire codebase.
+**32 files** contain `jQuery.noConflict()` calls. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references across the entire codebase.
 
 **Removal groups** (after Prototype is removed from each page):
 
 | Group | Files | Action |
 |-------|-------|--------|
-| **A: No Prototype, no $j** (21 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographic*.jsp` (4), `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `SegmentDisplay.jsp`, `ChartNotes.jsp`, `oscarMDS/Index.jsp` | Safe to remove immediately — dead calls |
+| **A: No Prototype, no $j** (23 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographic*.jsp` (4), `demographicaddarecordhtm.jsp`, `demographicappthistory.jsp`, `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `SegmentDisplay.jsp`, `ChartNotes.jsp`, `oscarMDS/Index.jsp` | Safe to remove immediately — dead calls |
 | **B: Prototype loaded, no $() in JSP** (4 files) | `dxResearch.jsp`, `demographiceditdemographic.jsp` (also has Ajax.Request — see Phase 4e), `UserPreferences.jsp`, `manageFlowsheets.jsp` | Remove after Prototype `<script>` tag removed and Ajax calls migrated |
 | **C: Active Prototype $() usage** (5 files) | `encounter-head.jspf`, `newEncounterLayout.jsp`, `billingBC.jsp`, `SearchDrug3.jsp`, `MultiPageDocDisplay.jsp` | Remove ONLY after Prototype code migrated (Phases 1-4) |
 | **D: Third-party plugin** (1 file) | `js/jquery.fileDownload.js` — `var $ = jQuery.noConflict()` as module-local pattern | Leave as-is |
 
-**ACTIVE BUG — `demographicMeasurementModal.jsp`**: Uses `jQuery.noConflict(true)` (deep release) at line 50, which destroys BOTH `$` AND `jQuery` globals. This modal is included by `formrourke2020complete.jsp` and `formBCAR2020pg1.jsp` — after the include fires, the `jQuery` global is gone, breaking any deferred `jQuery(...)` callbacks on the parent page. Fix: change to `jQuery.noConflict()` (without `true`) or restructure the include ordering. This is a pre-existing bug independent of the Prototype migration.
+**ACTIVE BUG — `form/demographicMeasurementModal.jsp`**: Uses `jQuery.noConflict(true)` (deep release) at line 50, which destroys BOTH `$` AND `jQuery` globals. This modal is included by `formrourke2020complete.jsp` and `formBCAR2020pg1.jsp` — after the include fires, the `jQuery` global is gone, breaking any deferred `jQuery(...)` callbacks on the parent page. Fix: change to `jQuery.noConflict()` (without `true`) or restructure the include ordering. This is a pre-existing bug independent of the Prototype migration.
 
-**`MultiPageDocDisplay.jsp` anomaly**: Calls `jQuery.noConflict()` inside a JSP `<c:forEach>` loop — invoked once per document row rendered. Functionally harmless (idempotent) but should be moved outside the loop during cleanup.
+**`MultiPageDocDisplay.jsp` anomaly**: Calls `jQuery.noConflict()` inside a JSP scriptlet `for` loop — invoked once per document row rendered. Functionally harmless (idempotent) but should be moved outside the loop during cleanup.
 
 ### 5d. Graduate encounter module from compat shim
 Once Phase 4 encounter/case management code is fully migrated to native APIs, remove `prototype-compat.js` and the HTMLElement.prototype extensions. This can be done incrementally — each function in `newCaseManagementView.js.jsp` can be rewritten to vanilla JS and the shim method removed once no callers remain.
@@ -1026,7 +1025,7 @@ The compat shim must implement `bindAsEventListener`, `Element.observe`, and `El
 **Files affected** (17+ calls):
 - `oscarRx/SearchDrug3.jsp` — 15+ `Insertion.Bottom` calls accumulating drug form rows in `#rxText`
 - `js/newCaseManagementView.js.jsp` — `Insertion.Top` for notes loading (line 537)
-- `share/lightwindow/lightwindow.js` — `Insertion.After`, `Insertion.Top`
+- `share/lightwindow/javascript/lightwindow.js` — `Insertion.After`, `Insertion.Top`
 
 **Breaking change**: Setting `innerHTML =` destroys existing content. Using `innerHTML +=` causes re-parsing and event listener loss.
 
@@ -1105,7 +1104,7 @@ For direct migration (non-shim): replace with `document.getElementById(id).value
 **Scriptaculous behavior**: Effects accept `afterFinish` callback that fires AFTER animation completes, and `afterUpdate` that fires on each animation frame. `duration` controls timing in seconds.
 
 **Files affected**:
-- `share/lightwindow/lightwindow.js` — 7 `afterFinish` callbacks (chained animations)
+- `share/lightwindow/javascript/lightwindow.js` — 7 `afterFinish` callbacks (chained animations)
 - `lab/CA/ALL/labDisplayAjax.jsp` — 1 `Effect.BlindUp`
 - `oscarMDS/documentsInQueues.jsp` — 2 `Effect.BlindUp`
 - `share/javascript/controls.js` — 2 effects (Autocompleter show/hide)
