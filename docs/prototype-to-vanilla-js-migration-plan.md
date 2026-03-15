@@ -2,7 +2,7 @@
 
 ## Context
 
-CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across ~42 JSP files. These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
+CARLOS EMR still loads **Prototype.js 1.5.1.1** (2007) and **Scriptaculous 1.7.1** (2007) across **71 JSP/JSPF files**. These libraries conflict with jQuery (requiring `jQuery.noConflict()` workarounds), add 200KB+ of dead weight, and use APIs incompatible with modern browsers' security policies (e.g., `evalScripts`). The project already has jQuery 3.6.4 and Bootstrap 5.3.3 loaded via `global-head.jspf`, and some files already use modern vanilla JS patterns (fetch, addEventListener, querySelector). This migration removes the legacy libraries incrementally, replacing their functionality with vanilla JS, Bootstrap 5 components, and CSS transitions.
 
 **Goal**: Remove Prototype.js, Scriptaculous, and all dependent code (LightWindow, legacy jQuery versions) — replacing with vanilla JS + Bootstrap 5.3 + CSS transitions. jQuery 3.6.4 remains as-is (separate future initiative).
 
@@ -36,7 +36,13 @@ if (!HTMLElement.prototype.hide) {
 if (!HTMLElement.prototype.show) {
     HTMLElement.prototype.show = function() { this.style.display = ''; return this; };
 }
-// .insert(), .setStyle(), .getHeight(), etc.
+// .insert(), .setStyle(), .getHeight(), .getWidth(), etc.
+// bindAsEventListener (used 15+ times in encounter/casemgmt)
+// Element.observe / Element.stopObserving (82 calls across 6 files)
+// Event.stop, Event.element
+// String.prototype.evalJSON (19 calls across 8 files — replace with JSON.parse())
+// Form.serialize (replace with new FormData() or URLSearchParams)
+// Position.page, Position.positionedOffset (replace with getBoundingClientRect())
 ```
 
 This shim lets us swap `prototype.js` → `prototype-compat.js` in the encounter module without changing the calling code, then progressively remove shim usage in later cleanup passes.
@@ -87,6 +93,24 @@ Modern replacement strategy per pattern:
 
 `navigator.sendBeacon()` is the correct modern replacement for "fire a request during page unload" — it's specifically designed for this and is supported by all modern browsers. For the synchronous-return-value pattern, the proper fix is to refactor callers to be async, but `XMLHttpRequest` sync can be used as an interim bridge in the shim.
 
+**Prototype String extension: `.evalJSON()`** — Used 19 times across 8 files (SearchDrug3.jsp alone has 8 calls). This is a Prototype extension on `String.prototype` that parses JSON. Direct replacement: `JSON.parse(responseText)`. Files affected:
+- `oscarRx/SearchDrug3.jsp` (8 calls)
+- `oscarMDS/documentsInQueues.jsp` (4 calls)
+- `admin/displayDocumentDescriptionTemplate.jsp` (2 calls)
+- `js/newCaseManagementView.js.jsp` (1 call)
+- `lab/CA/ALL/labDisplayAjax.jsp` (1 call)
+- `billing/CA/BC/billingEditCode.jsp` (1 call)
+- `documentManager/incomingDocs.jsp` (1 call)
+- `oscarRx/ViewScript2.jsp` (1 call)
+
+**`evalScripts: true` scope** — Used in more files than initially documented:
+- `lab/CumulativeLabValues*.jsp` (6 calls)
+- `oscarRx/SearchDrug3.jsp` (multiple calls)
+- `oscarEncounter/js/encounter.js` (3 calls in navBarLoader)
+- `js/newCaseManagementView.js.jsp` (multiple calls)
+- `oscarMDS/documentsInQueues.jsp`
+- `casemgmt/newEncounterLayout.jsp`
+
 ### 0d. Add `global-head.jspf` includes
 Add `transitions.css` and `carlos-ajax.js` to the global head so they're available everywhere.
 
@@ -103,8 +127,11 @@ Add `transitions.css` and `carlos-ajax.js` to the global head so they're availab
 ### 1a. Admin pages
 | File | Changes |
 |------|---------|
-| `admin/displayDocumentDescriptionTemplate.jsp` | 7 `Ajax.Request` → `fetch()` or `CarlosAjax.request()` |
+| `admin/displayDocumentDescriptionTemplate.jsp` | 7 `Ajax.Request` → `fetch()`, 2 `.evalJSON()` → `JSON.parse()` |
 | `admin/securityupdatesecurity.jsp` | 1 `Ajax.Request` → `fetch()` |
+| `admin/manageFlowsheets.jsp` | Remove Prototype include |
+| `admin/manageCSSStyles.jsp` | Remove Prototype + Scriptaculous includes |
+| `admin/sitesAdmin.jsp` | Remove Prototype include |
 
 - Remove `<script src="prototype.js">` includes
 - Replace `Ajax.Request` with `fetch()` using `CarlosAjax.request()`
@@ -115,6 +142,16 @@ Add `transitions.css` and `carlos-ajax.js` to the global head so they're availab
 |------|---------|
 | `form/formRhImmuneGlobulin.jsp` | 2 `Ajax.Updater`/`Ajax.Request` → `CarlosAjax.updater()`/`fetch()` |
 | `form/addRhInjection.jsp` | Remove commented-out `Form.Element.Observer` |
+| `form/formPositionHazard.jsp` | Remove Prototype include |
+| `form/formMentalHealthForm1.jsp` | Remove Prototype include |
+| `form/formMentalHealthForm14.jsp` | Remove Prototype include |
+| `form/formMentalHealthForm42.jsp` | Remove Prototype include |
+| `form/formlabreq.jsp` | Remove Prototype include |
+| `form/formlabreq07.jsp` | Remove Prototype include |
+| `form/formlabreq10.jsp` | Remove Prototype include |
+| `form/formrourke2009complete.jsp` | Remove Prototype include |
+| `form/formrourke2017complete.jsp` | Remove Prototype include |
+| `form/formrourke2020complete.jsp` | Remove Prototype include |
 
 ### 1c. Document Manager
 | File | Changes |
@@ -122,6 +159,12 @@ Add `transitions.css` and `carlos-ajax.js` to the global head so they're availab
 | `documentManager/uploadMultiDocument.jsp` | 1 `Ajax.Request` → `fetch()`, 1 `Effect.SlideUp` → CSS transition |
 | `documentManager/incomingDocs.jsp` | 1 `Ajax.Request` → `fetch()`, `Ajax.Autocompleter` → vanilla autocomplete (pattern from `showDocument.js`) |
 | `documentManager/MultiPageDocDisplay.jsp` | Remove `jQuery.noConflict()` if Prototype no longer loaded |
+| `documentManager/editDocument.jsp` | Remove Prototype + Scriptaculous includes |
+| `documentManager/addedithtmldocument.jsp` | Remove Prototype + Scriptaculous includes |
+| `documentManager/html5AddDocuments.jsp` | Remove Prototype + Scriptaculous includes |
+| `report/reportdaysheet.jsp` | Remove Prototype include |
+| `report/GenerateLetters.jsp` | `Ajax.Request` → `fetch()` |
+| `oscarReport/reportByTemplate/resultReport.jsp` | `Ajax.Request` → `fetch()` |
 
 ### Verification
 - `/admin/` pages: test document description template CRUD, security update saves
@@ -141,6 +184,16 @@ Add `transitions.css` and `carlos-ajax.js` to the global head so they're availab
 | `lab/CumulativeLabValues2.jsp` | 2 `Ajax.Updater` → `CarlosAjax.updater()` |
 | `lab/CumulativeLabValues3.jsp` | 2 `Ajax.Updater` → `CarlosAjax.updater()` |
 | `lab/labDisplayAjax.jsp` | 1 `Effect.BlindUp` → Bootstrap collapse or CSS transition |
+| `lab/CA/ALL/labDisplayAjax.jsp` | `.evalJSON()` → `JSON.parse()`, Effect.BlindUp → CSS transition |
+| `oscarMDS/documentsInQueues.jsp` | Prototype + effects + controls, 4 `.evalJSON()` → `JSON.parse()`, `evalScripts` |
+| `oscarMDS/SelectProviderAltView.jsp` | Prototype + Scriptaculous + effects + controls (Autocompleter) |
+| `hospitalReportManager/displayHRMReport.jsp` | Prototype + effects + controls |
+| `oscarPrevention/PreventionReporting.jsp` | Prototype + sortable.js |
+| `oscarResearch/oscarDxResearch/dxResearch.jsp` | Prototype include |
+| `billing/CA/BC/billingBC.jsp` | Prototype + Ajax.Updater |
+| `billing/CA/BC/adjustBill.jsp` | Prototype + Ajax.Updater |
+| `billing/CA/BC/billingEditCode.jsp` | Prototype + `.evalJSON()` → `JSON.parse()` |
+| `billing/CA/BC/teleplan/ManageBillingCodes.jsp` | Prototype include |
 
 **`evalScripts` handling**: The `CarlosAjax.updater()` utility will parse response HTML for `<script>` tags and execute them. This preserves existing behavior while centralizing the pattern. Long-term, server responses should avoid inline scripts.
 
@@ -192,13 +245,19 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 ### 3d. Files
 | File | Key Changes |
 |------|------------|
-| `oscarRx/SearchDrug3.jsp` | Ajax calls, Effects, LightWindow, Insertion enum |
-| `oscarRx/ViewScript2.jsp` | Ajax calls, LightWindow |
+| `oscarRx/SearchDrug3.jsp` | Ajax calls, Effects, LightWindow, Insertion enum, 8 `.evalJSON()`, `evalScripts`, dragiframe.js |
+| `oscarRx/ViewScript2.jsp` | Ajax calls, LightWindow, 1 `.evalJSON()` |
 | `oscarRx/ViewScript.jsp` | Ajax calls |
 | `oscarRx/WriteScript.jsp` | 2 Ajax.Updater (renal dosing) |
 | `oscarRx/ChooseAllergy2.jsp` | Effect.BlindDown/BlindUp |
-| `oscarRx/StaticScript2.jsp` | 3 Ajax calls |
+| `oscarRx/ChooseAllergy.jsp` | Prototype + Scriptaculous + effects |
+| `oscarRx/ChooseDrug.jsp` | Prototype include |
+| `oscarRx/SearchDrug.jsp` | Prototype include |
+| `oscarRx/StaticScript2.jsp` | 3 Ajax calls, `asynchronous: false` |
 | `oscarRx/SelectPharmacy2.jsp` | LightWindow + Event handling |
+| `oscarRx/prescribe.jsp` | Effect.BlindDown/BlindUp |
+| `oscarRx/displayMedHistory.jsp` | dragiframe.js reference |
+| `oscarRx/ListDrugs.jsp` | Element.observe (1 call) |
 
 ### Verification
 - Full prescription workflow: search drug → select → write script → view script
@@ -219,9 +278,16 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 
 | Pattern | Count | Replacement |
 |---------|-------|-------------|
-| `Element.observe(el, event, fn)` | ~20 | `el.addEventListener(event, fn)` |
+| `Element.observe(el, event, fn)` | 3 | `el.addEventListener(event, fn)` |
+| `Element.stopObserving(el, event, fn)` | 3 | `el.removeEventListener(event, fn)` |
+| `bindAsEventListener(obj, ...)` | 3 | `fn.bind(obj)` or closure |
 | `Ajax.Request` | 5 | `fetch()` / `CarlosAjax.request()` |
-| `$("id")` | many | `document.getElementById("id")` |
+| `$("id")` | ~20 | `document.getElementById("id")` |
+| `$F("id")` | 3 | `document.getElementById("id").value` |
+| `$A(nodeList)` | 3 | `Array.from(nodeList)` |
+| `Event.stop(e)` | 1 | `e.preventDefault(); e.stopPropagation()` |
+| `el.getHeight()` | 2 | `el.offsetHeight` |
+| `el.update(html)` | 3 | See security note below |
 | Autocompleter.Local (calculators) | 1 | Vanilla autocomplete or datalist |
 
 ### 4b. `newCaseManagementView.js.jsp` migration (largest single file)
@@ -230,12 +296,19 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 | Pattern | Count | Replacement |
 |---------|-------|-------------|
 | `$("id")` | 398 | `document.getElementById("id")` |
-| `.update(html)` | 55+ | `.innerHTML = html` |
+| `.update(html)` | 55+ | See security note below |
 | `.hide()` / `.show()` | many | `.style.display` or `.classList.toggle('d-none')` |
-| `Ajax.Request` / `Ajax.Updater` | 20+ | `fetch()` / `CarlosAjax` |
-| `Position.page(el)` | several | `el.getBoundingClientRect()` |
-| `Position.positionedOffset(el)` | several | `el.offsetLeft` / `el.offsetTop` |
-| `.getHeight()` | several | `el.offsetHeight` |
+| `Ajax.Request` / `Ajax.Updater` | 19 | `fetch()` / `CarlosAjax` |
+| `Element.observe` / `Element.stopObserving` | 66 | `addEventListener` / `removeEventListener` |
+| `Event.stop(e)` / `Event.element(e)` | 15 | `e.preventDefault()` / `e.target` |
+| `bindAsEventListener` | 12 | `fn.bind(obj)` or closure with extra args |
+| `Form.serialize()` | 2 | `new URLSearchParams(new FormData(form))` |
+| `.evalJSON()` | 1 | `JSON.parse()` |
+| `Position.page(el)` | 2 | `el.getBoundingClientRect()` + `window.scrollY` |
+| `Position.positionedOffset(el)` | 1 | `el.offsetLeft` / `el.offsetTop` |
+| `.getHeight()` / `.getWidth()` | 50+ | `el.offsetHeight` / `el.offsetWidth` |
+
+**Security note on `.update()` → DOM replacement:** The existing `.update()` calls set `innerHTML` with server responses from trusted internal endpoints. The encounter.js header documents this: "AJAX responses that use $(div).update() are from trusted internal server endpoints only. XSS is mitigated by server-side OWASP encoding in those response JSPs." During migration, these become direct `element.innerHTML = response` assignments, preserving the same trust model. No additional sanitization is needed because the content source (server-side JSPs with OWASP encoding) remains unchanged.
 
 **Synchronous AJAX patterns (ordering-critical — must not break):**
 
@@ -243,7 +316,7 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 |---|---|---|---|
 | Line 186 | `releaseNoteLock` on `beforeunload` | Lock must release before page unloads | `navigator.sendBeacon()` |
 | Line 1912 | `NoteisLocked()` returns lock status | Caller uses return value immediately | Refactor caller to `async/await`, or `XMLHttpRequest` sync interim |
-| Line 3022 | `autoSave(async)` — sync when closing | Save must complete before close | `navigator.sendBeacon()` for close path; `fetch()` for normal autosave |
+| Line 3022 | `autoSave(async)` — accepts sync flag | Dead code: only ever called as `autoSave(true)` | Remove `async` parameter, always use `fetch()` |
 | Line 2840 | `ajaxUpdateIssues` with `Form.serialize()` | Sequential issue update | `fetch()` + `new FormData()` (already async, just needs API swap) |
 
 **Strategy for this file**:
@@ -263,11 +336,37 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 
 Remove `jQuery.noConflict()` — no longer needed. `$` will be provided by the compat shim. `$j` references in encounter code should be changed to `$` (jQuery) or `document.getElementById`.
 
-### 4d. Other encounter files
+### 4d. Other encounter/casemgmt files
 | File | Changes |
 |------|---------|
-| `casemgmt/newEncounterLayout.jsp` | Remove Prototype includes, update inline JS |
-| `casemgmt/ChartNotes.jsp` / `ChartNotesAjax.jsp` | Ajax calls → fetch() |
+| `casemgmt/newEncounterLayout.jsp` | Remove Prototype includes, update inline JS, `evalScripts` |
+| `casemgmt/ChartNotes.jsp` | 6 Element.observe/stopObserving calls → addEventListener |
+| `casemgmt/ChartNotesAjax.jsp` | 5 Element.observe calls, Autocompleter.Local → vanilla autocomplete |
+| `oscarEncounter/Index.jsp` | Legacy encounter page, Prototype + Ajax.Request |
+| `oscarEncounter/LeftNavBarDisplay.jsp` | Generates `bindAsEventListener` / `Element.observe` JS dynamically from Java |
+| `oscarEncounter/oscarMeasurements/AddMeasurementData.jsp` | Remove Prototype include |
+
+### 4e. Provider settings pages (script-tag-only — no Prototype API usage)
+These files load Prototype/Scriptaculous but **don't call any Prototype APIs** — they just need the `<script>` tags removed:
+| File |
+|------|
+| `provider/UserPreferences.jsp` |
+| `provider/providerpreference.jsp` |
+| `provider/appointmentprovideradminday.jsp` |
+| `provider/appointmentprovideradminmonth.jsp` |
+| `provider/cpp_preferences.jsp` |
+| `provider/setGenRxProfileViewProperty.jsp` |
+| `provider/setDocDefaultQueue.jsp` |
+| `provider/setGenRxPageSizeProperty.jsp` |
+| `provider/setEncounterWindowSize.jsp` |
+| `provider/setNoteStaleDate.jsp` |
+| `provider/setShowPatientDOB.jsp` |
+| `provider/setCppSingleLine.jsp` |
+| `provider/setLabAckComment.jsp` |
+| `provider/setToUseRx3.jsp` |
+| `provider/setAppointmentCardPrefs.jsp` |
+| `provider/setGenProperty.jsp` |
+| `demographic/demographiceditdemographic.jsp` |
 
 ### Verification
 - **Critical**: This is the most-used screen in the entire EMR
@@ -290,6 +389,8 @@ src/main/webapp/share/javascript/effects.js           ← DELETE
 src/main/webapp/share/javascript/controls.js          ← DELETE
 src/main/webapp/share/javascript/builder.js           ← DELETE
 src/main/webapp/share/javascript/slider.js            ← DELETE
+src/main/webapp/share/javascript/sortable.js          ← DELETE (used by PreventionReporting.jsp)
+src/main/webapp/share/javascript/dragiframe.js        ← DELETE (used by SearchDrug3.jsp, displayMedHistory.jsp)
 src/main/webapp/share/lightwindow/lightwindow.js      ← DELETE
 src/main/webapp/share/lightwindow/lightwindow.css     ← DELETE
 ```
@@ -352,80 +453,4 @@ Phase 0 (foundation) ─── must complete first
 
 Phases 1-3 are independent and can be done in any order. Phase 4 is the highest-risk and should be done last (except cleanup). Each phase should be a separate PR for reviewability.
 
----
-
-## Appendix: Additional Modules Not Yet Categorized
-
-The full grep found **~85 JSP files** loading Prototype.js — significantly more than the initial ~42 estimate. These additional files should be folded into the phases above based on complexity:
-
-### Fold into Phase 1 (simple Ajax.Request replacements):
-| File | Prototype Usage |
-|------|----------------|
-| `admin/manageFlowsheets.jsp` | Prototype include, likely simple AJAX |
-| `admin/manageCSSStyles.jsp` | Prototype + Scriptaculous |
-| `admin/sitesAdmin.jsp` | Prototype include |
-| `form/formPositionHazard.jsp` | Prototype include |
-| `form/formMentalHealthForm1.jsp` | Prototype include |
-| `form/formMentalHealthForm14.jsp` | Prototype include |
-| `form/formMentalHealthForm42.jsp` | Prototype include |
-| `form/formlabreq.jsp` | Prototype include |
-| `form/formlabreq07.jsp` | Prototype include |
-| `form/formlabreq10.jsp` | Prototype include |
-| `form/formrourke2009complete.jsp` | Prototype include |
-| `form/formrourke2017complete.jsp` | Prototype include |
-| `form/formrourke2020complete.jsp` | Prototype include |
-| `report/reportdaysheet.jsp` | Prototype include |
-| `report/GenerateLetters.jsp` | Prototype + Ajax.Request |
-| `oscarReport/reportByTemplate/resultReport.jsp` | Prototype + Ajax.Request |
-
-### Fold into Phase 2 (medium complexity):
-| File | Prototype Usage |
-|------|----------------|
-| `oscarMDS/documentsInQueues.jsp` | Prototype + effects + controls (Autocompleter) |
-| `oscarMDS/SelectProviderAltView.jsp` | Prototype + Scriptaculous + effects + controls |
-| `hospitalReportManager/displayHRMReport.jsp` | Prototype + effects + controls |
-| `oscarPrevention/PreventionReporting.jsp` | Prototype include |
-| `oscarResearch/oscarDxResearch/dxResearch.jsp` | Prototype include |
-
-### Fold into Phase 3 (Rx):
-| File | Prototype Usage |
-|------|----------------|
-| `oscarRx/ChooseAllergy.jsp` | Prototype + Scriptaculous + effects |
-| `oscarRx/ChooseDrug.jsp` | Prototype include |
-| `oscarRx/SearchDrug.jsp` | Prototype include |
-
-### Fold into Phase 4 (encounter/provider):
-| File | Prototype Usage |
-|------|----------------|
-| `oscarEncounter/Index.jsp` | Prototype + Ajax.Request (legacy encounter page) |
-| `oscarEncounter/oscarMeasurements/AddMeasurementData.jsp` | Prototype include |
-| `provider/UserPreferences.jsp` | Prototype include |
-| `provider/providerpreference.jsp` | Prototype include |
-| `provider/appointmentprovideradminday.jsp` | Prototype include |
-| `provider/appointmentprovideradminmonth.jsp` | Prototype include |
-| `provider/cpp_preferences.jsp` | Prototype + Scriptaculous |
-| `provider/setGenRxProfileViewProperty.jsp` | Prototype + Scriptaculous |
-| `provider/setDocDefaultQueue.jsp` | Prototype + Scriptaculous |
-| `provider/setGenRxPageSizeProperty.jsp` | Prototype + Scriptaculous |
-| `provider/setEncounterWindowSize.jsp` | Prototype + Scriptaculous |
-| `provider/setNoteStaleDate.jsp` | Prototype + Scriptaculous |
-| `provider/setShowPatientDOB.jsp` | Prototype + Scriptaculous |
-| `provider/setCppSingleLine.jsp` | Prototype + Scriptaculous |
-| `provider/setLabAckComment.jsp` | Prototype + Scriptaculous |
-| `provider/setToUseRx3.jsp` | Prototype + Scriptaculous |
-| `provider/setAppointmentCardPrefs.jsp` | Prototype + Scriptaculous |
-| `provider/setGenProperty.jsp` | Prototype + Scriptaculous |
-| `demographic/demographiceditdemographic.jsp` | Prototype include |
-| `documentManager/editDocument.jsp` | Prototype + Scriptaculous |
-| `documentManager/addedithtmldocument.jsp` | Prototype + Scriptaculous |
-| `documentManager/html5AddDocuments.jsp` | Prototype + Scriptaculous |
-
-### New Phase: Billing Module (BC)
-| File | Prototype Usage |
-|------|----------------|
-| `billing/CA/BC/billingBC.jsp` | Prototype + Ajax.Updater |
-| `billing/CA/BC/adjustBill.jsp` | Prototype + Ajax.Updater |
-| `billing/CA/BC/billingEditCode.jsp` | Prototype include |
-| `billing/CA/BC/teleplan/ManageBillingCodes.jsp` | Prototype include |
-
-These should be a separate Phase 2b or folded into Phase 2, as they follow the same Ajax.Updater patterns as the lab module.
+All files from the original appendix have been incorporated into the phase definitions above.
