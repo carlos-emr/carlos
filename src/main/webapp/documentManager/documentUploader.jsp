@@ -168,13 +168,13 @@
         var destination=select.options[select.selectedIndex].value;
 		document.getElementById("destination").value = destination;
         setDropList();
-        jQuery.ajax({url:'${pageContext.request.contextPath}/documentManager/documentUpload.do?method=setUploadDestination&destination='+encodeURIComponent(destination), success:function(data) {}});
+        jQuery.ajax({type:'POST', url:'${pageContext.request.contextPath}/documentManager/documentUpload.do', data:{method:'setUploadDestination', destination:destination}, success:function(data) {}});
 	}
 
     function setDestFolder(select){
         var destFolder=select.options[select.selectedIndex].value;
 		document.getElementById("destFolder").value = destFolder;
-        jQuery.ajax({url:'${pageContext.request.contextPath}/documentManager/documentUpload.do?method=setUploadIncomingDocumentFolder&destFolder='+encodeURIComponent(destFolder), success:function(data) {}});
+        jQuery.ajax({type:'POST', url:'${pageContext.request.contextPath}/documentManager/documentUpload.do', data:{method:'setUploadIncomingDocumentFolder', destFolder:destFolder}, success:function(data) {}});
 	}
 
     function setDropList(){
