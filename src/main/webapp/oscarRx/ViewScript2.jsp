@@ -690,7 +690,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                         function clearPendingFax() {
                                             parent.window.location = "<%= request.getContextPath() %>/oscarRx/close.html";
-                                            parent.myLightWindow.deactivate();
+                                            try { var m = parent.document.getElementById('carlosModal'); if (m) { bootstrap.Modal.getInstance(m)?.hide(); } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/oscarRx/close.html'; }
                                         }
 
                                         function ShowDrugInfo(drug) {
@@ -726,16 +726,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         }
 
                                         function expandPreview(text) {
-                                            parent.document.getElementById('lightwindow_container').style.width = "1140px";
-                                            parent.document.getElementById('lightwindow_contents').style.width = "1120px";
+                                            try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.add('modal-xl'); } catch(e) {}
                                             document.getElementById('preview').style.width = "600px";
                                             frames['preview'].document.getElementById('pharmInfo').innerHTML = text;
                                             document.getElementById("selectedPharmacy").innerHTML = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
                                         }
 
                                         function reducePreview() {
-                                            parent.document.getElementById('lightwindow_container').style.width = "1000px";
-                                            parent.document.getElementById('lightwindow_contents').style.width = "980px";
+                                            try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.remove('modal-xl'); } catch(e) {}
                                             document.getElementById('preview').style.width = "460px";
                                             frames['preview'].document.getElementById('pharmInfo').innerHTML = "";
                                             document.getElementById("selectedPharmacy").innerHTML = "";
@@ -849,7 +847,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgCreateNewRx"/>"
                                                              class="ControlPushButton"
                                                              style="width: 210px"
-                                                             onClick="resetStash();resetReRxDrugList();javascript:parent.myLightWindow.deactivate();"/></span>
+                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){bootstrap.Modal.getInstance(m)?.hide();}}catch(e){}"/></span>
                                             </td>
                                         </tr>
                                         <tr>

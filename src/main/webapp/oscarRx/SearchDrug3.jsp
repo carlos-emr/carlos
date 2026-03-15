@@ -205,7 +205,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/animation-min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/datasource-min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/autocomplete-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/js/checkDate.js"/>"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.12.1.min.css"/>
 
         <script type="text/javascript">
@@ -1182,6 +1181,20 @@ function renderRxStage() {
 <%
                         }
 %>
+
+<%-- Bootstrap 5 Modal (replaces LightWindow) --%>
+<div class="modal fade" id="carlosModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" id="carlosModalCloseBtn" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+            <div class="modal-body" id="carlosModalBody"></div>
+        </div>
+    </div>
+</div>
+
 <script type="text/javascript">
         function changeLt(element, drugId) {
             if (confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') === true) {
