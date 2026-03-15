@@ -13,25 +13,18 @@
 | Hibernate | 6.6.40 | 6.6.40 (keep) | — |
 | Struts | 7.1.1 | 7.1.1 (keep) | — |
 | Java | 21 | 21 (keep) | — |
-| JUnit 4 | 4.13.2 | **remove** | — |
 | JUnit 5 | 5.10.1 | 5.11.x+ | — |
 
-## Pre-requisites
+## Pre-requisites (all met)
 
-- **Already met:**
-  - Java 21 (Spring 7 requires 17+, Tomcat 11 requires 17+)
-  - Jakarta EE namespace migration complete (all `javax.*` → `jakarta.*`)
-  - Struts 7.1.1 already uses `org.apache.struts2.*` namespace
-
-- **Must complete before Spring 7 upgrade:**
-  - **Migrate 362 legacy JUnit 4 tests to JUnit 5.** Spring 7 drops JUnit 4 support entirely (removes `SpringJUnit4ClassRunner`, `SpringClassRule`, etc.). All 362 files in `src/test/java/` using JUnit 4 imports must be converted:
-    - `org.junit.Test` → `org.junit.jupiter.api.Test`
-    - `org.junit.Assert.*` → `org.junit.jupiter.api.Assertions.*` (or AssertJ)
-    - `@Before`/`@After` → `@BeforeEach`/`@AfterEach`
-    - `@RunWith` → `@ExtendWith`
-    - `@Rule`/`@ClassRule` → `@ExtendWith` or `@RegisterExtension`
-  - Remove `junit:junit:4.13.2` dependency from `pom.xml`
-  - Verify all tests pass with `make install --run-tests`
+- Java 21 (Spring 7 requires 17+, Tomcat 11 requires 17+)
+- Jakarta EE namespace migration complete (all `javax.*` → `jakarta.*`)
+- Struts 7.1.1 already uses `org.apache.struts2.*` namespace
+- JUnit 4 → 5 migration complete (PR #591, commit e78a564b):
+  - 334 legacy tests migrated to JUnit 5 in `src/test-modern/` (now 450 files)
+  - `src/test/java/` cleared — zero Java files remain
+  - 24 deferred tests (Selenium UI, MCEDT, REST webserv) removed, tracked for future recreation
+  - `junit:junit:4.13.2` dependency to be removed from `pom.xml` as part of this migration
 
 ## Migration Steps
 
@@ -77,7 +70,8 @@ Update `pom.xml` dependency versions:
    - `PersistenceAnnotationBeanPostProcessor` (already removed in our codebase ✓)
    - Any deprecated Spring 6.x APIs that are removed in 7.0
 4. Update JUnit 5 to 5.11.x+ for Spring 7 compatibility
-5. Build and fix compilation errors
+5. Remove `junit:junit:4.13.2` dependency (no longer needed post-migration)
+6. Build and fix compilation errors
 
 ### Phase 3: Tomcat 11 Container
 
@@ -118,11 +112,11 @@ Update `pom.xml` dependency versions:
 - **Hibernate 7.x upgrade**: Not required for Spring 7 but recommended for full JPA 3.2. Separate effort due to potential schema/HQL changes.
 - **DrugRef container** (still on Tomcat 9 / Java 11): Separate migration.
 - **Struts 1.x removal**: Legacy Struts 1 dependencies still exist for Velocity Tools. Separate cleanup.
+- **Deferred test recreation**: 24 tests (Selenium UI, MCEDT, REST) removed during JUnit 5 migration, to be recreated in modern framework.
 
 ## Estimated Effort
 
-- **Pre-req (JUnit 4→5)**: Must be done first — 362 files, mostly mechanical conversion
 - **Phase 1 (API bumps)**: Small — `pom.xml` changes + JSP smoke testing
-- **Phase 2 (Spring 7)**: Medium — BOM update + fix any removed API usage
+- **Phase 2 (Spring 7)**: Medium — BOM update + fix any removed API usage + remove JUnit 4 dep
 - **Phase 3 (Tomcat 11)**: Small — Dockerfile change + config review
 - **Phase 4 (Verification)**: Medium — comprehensive testing across all modules
