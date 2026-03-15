@@ -660,6 +660,27 @@
             </exclusions>
         </dependency>
 
+        <!-- JasperReports PDF exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf</artifactId>
+            <version>7.0.3</version>
+        </dependency>
+
+        <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-jdt</artifactId>
+            <version>7.0.3</version>
+        </dependency>
+
+        <!-- JasperReports Excel/POI exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-excel-poi</artifactId>
+            <version>7.0.3</version>
+        </dependency>
+
         <!-- Jackson dependencies for JSON processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
