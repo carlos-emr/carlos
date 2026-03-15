@@ -634,9 +634,6 @@
 
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
 
-    <script type="text/javascript" language="JavaScript">
-        jQuery.noConflict();
-    </script>
     <!-- to load for example /oscar/js/custom/ocean/global.js and /oscar/js/custom/ocean/billing.js although those are not present in stock -->
     <oscar:customInterface section="billing"/>
     <script>

@@ -96,9 +96,6 @@
         }
     </SCRIPT>
     <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
 
     <oscar:customInterface section="billingONHistory"/>
 </head>

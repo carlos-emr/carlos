@@ -150,8 +150,11 @@
     jQuery.noConflict();
 </script>
 <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.12.1.min.css">
-<script src="<c:out value="${ctx}"/>/share/javascript/prototype.js" type="text/javascript"></script>
-<script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js" type="text/javascript"></script>
+<!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
+<script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
+<script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+<!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
+<script src="<c:out value="${ctx}"/>/share/javascript/select.js" type="text/javascript"></script>
 <script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>"></script>
 <script type="text/javascript">
     ctx = "<c:out value="${ctx}"/>";
@@ -560,19 +563,19 @@
                     %>
                     <input tabindex="16" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/group-gnote.png"/>" id="groupNoteImg"
-                           onclick="Event.stop(event);return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
+                           onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnGroupNote"/>'>
                     <% }
                         if (facility.isEnablePhoneEncounter()) {
                     %>
                     <input tabindex="25" type='image' src="<c:out value="${ctx}/oscarEncounter/graphics/attach.png"/>"
                            id="attachNoteImg"
-                           onclick="Event.stop(event);return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
+                           onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnAttachNote"/>'>
                     <% } %>
                     <input tabindex="17" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/media-floppy.png"/>" id="saveImg"
-                           onclick="Event.stop(event);return saveNoteAjax('save', 'list');"
+                           onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSave"/>'>
                     <input tabindex="18" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/document-new.png"/>" id="newNoteImg"
@@ -580,18 +583,18 @@
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnNew"/>'>
                     <input tabindex="19" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/note-save.png"/>" id="signSaveImg"
-                           onclick="document.forms['caseManagementEntryForm'].sign.value='on';Event.stop(event);return savePage('saveAndExit', '');"
+                           onclick="document.forms['caseManagementEntryForm'].sign.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSignSave"/>'>
                     <input tabindex="20" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/verify-sign.png"/>" id="signVerifyImg"
-                           onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';Event.stop(event);return savePage('saveAndExit', '');"
+                           onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSign"/>'>
                     <%
                         if (bean.source == null) {
                     %>
                     <input tabindex="21" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/dollar-sign-icon.png"/>"
-                           onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].toBill.value='true';Event.stop(event);return savePage('saveAndExit', '');"
+                           onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].toBill.value='true';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnBill"/>'>
                     <%
                         }

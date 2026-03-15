@@ -1369,7 +1369,7 @@ function updateCPPNote() {
         if (frm)
             Element.remove("passwdPara");
 
-        //new Insertion.Top(parent, img);
+        //$(parent).insertAdjacentHTML('afterbegin', img);
         Element.observe(parent, 'click', unlockNote);
     }
 
@@ -1438,7 +1438,7 @@ function updateCPPNote() {
         if (!saving && $("observationDate") != null) {
             var observationDate = $("observationDate").value;
 
-            new Insertion.After("observationDate", " <span id='obs" + nId + "'>" + observationDate + "</span>");
+            document.getElementById("observationDate").insertAdjacentHTML('afterend', " <span id='obs" + nId + "'>" + observationDate + "</span>");
             Element.remove("observationDate");
             Element.remove("observationDate_cal");
 
@@ -1489,7 +1489,7 @@ function updateCPPNote() {
         if (!saving) {
             if (largeNote(tmp)) {
                 var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + nId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px; ' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-                new Insertion.Before(sig, btmImg);
+                $(sig).insertAdjacentHTML('beforebegin', btmImg);
             }
 
             var printImg = "print" + nId;
@@ -1512,18 +1512,18 @@ function updateCPPNote() {
             var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/oscarEncounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
                 "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
 
-            new Insertion.Top(parent, editAnchor);
-            new Insertion.After(editId, input);
+            $(parent).insertAdjacentHTML('afterbegin', editAnchor);
+            $(editId).insertAdjacentHTML('afterend', input);
 
 
             if (nId.substr(0, 1) != "0") {
                 Element.remove(printImg);
-                new Insertion.Before(editId, printimg);
-                new Insertion.After(editId, attribAnchor);
-                new Insertion.Top(parent, img);
+                $(editId).insertAdjacentHTML('beforebegin', printimg);
+                $(editId).insertAdjacentHTML('afterend', attribAnchor);
+                $(parent).insertAdjacentHTML('afterbegin', img);
             }
 
-            new Insertion.Top(parent, img);
+            $(parent).insertAdjacentHTML('afterbegin', img);
 
             $(parent).style.height = "auto";
 
@@ -1552,7 +1552,7 @@ function updateCPPNote() {
         note = note.replace(/\n/g, "<br>");
         if (largeNote(note)) {
             var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + newId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-            new Insertion.Top(parent, btmImg);
+            $(parent).insertAdjacentHTML('afterbegin', btmImg);
         }
 
         var input = "<span id='txt" + newId + "'>" + note + "<\/span>";
@@ -1575,10 +1575,10 @@ function updateCPPNote() {
 
         var anchor = "<a title='Edit' id='edit" + newId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
 
-        new Insertion.Top(parent, input);
-        new Insertion.Top(parent, anchor);
-        new Insertion.Top(parent, printimg);
-        new Insertion.Top(parent, img);
+        $(parent).insertAdjacentHTML('afterbegin', input);
+        $(parent).insertAdjacentHTML('afterbegin', anchor);
+        $(parent).insertAdjacentHTML('afterbegin', printimg);
+        $(parent).insertAdjacentHTML('afterbegin', img);
 
         $(parent).style.height = "auto";
 
@@ -1619,11 +1619,11 @@ function updateCPPNote() {
         line = "<div id='" + date + "' style='width:10%;'><b>" + dateValue + "<\/b><\/div><div id='" + content + "' style='float:left; width:70%;'>" + line + "<\/div>";
         $("txt" + nId).hide();
         $("sig" + nId).hide();
-        new Insertion.Top(txt, line);
+        $(txt).insertAdjacentHTML('afterbegin', line);
 
 
         //img = "<img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/printer.png'>";
-        //new Insertion.Top(txt, img);
+        //$(txt).insertAdjacentHTML('afterbegin', img);
 
         var print = 'print' + nId;
         var func;
@@ -1634,11 +1634,11 @@ function updateCPPNote() {
             func = "editNote(event);";
         }
         var anchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>Edit</a>";
-        new Insertion.After(print, anchor);
+        $(print).insertAdjacentHTML('afterend', anchor);
 
 
         img = "<img title='Maximize Display' alt='Maximize Display' id='xpImg" + nId + "' name='expandViewTrigger' onclick='xpandView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_down.gif'>";
-        new Insertion.Top(txt, img);
+        $(txt).insertAdjacentHTML('afterbegin', img);
         Element.observe(txt, 'click', xpandView);
     }
 
@@ -1676,7 +1676,7 @@ function updateCPPNote() {
 
 
         $(txt).style.height = 'auto';
-        new Insertion.Top(txt, imgTag);
+        $(txt).insertAdjacentHTML('afterbegin', imgTag);
         $("txt" + nId).show();
         $("sig" + nId).show();
         Element.stopObserving(txt, 'click', xpandView);
@@ -1773,7 +1773,7 @@ function updateCPPNote() {
             jQuery(observationDivId).append(imgTag2);
             jQuery(observationDivId).css('font-size', '10px');
         } else {
-            new Insertion.Top(txt, imgTag1);
+            $(txt).insertAdjacentHTML('afterbegin', imgTag1);
         }
         Element.stopObserving(noteTxtId, 'click', fullView);
     }
@@ -1790,7 +1790,7 @@ function updateCPPNote() {
     const observationDivId = "#observation" + id;
     if (isEmailNote) {
         const maxDisplayImg = "<img title='Maximize Display' id='fullImg" + id + "' alt='Maximize Display' onclick='fullView(event)' style='float: right;' src='" + ctx + "/oscarEncounter/graphics/triangle_down.gif' />";
-        new Insertion.Top("n" + id, maxDisplayImg);
+        $("n" + id).insertAdjacentHTML('afterbegin', maxDisplayImg);
     } else {
         Element.observe(noteTxtId, 'click', fullView);
     }
@@ -1815,8 +1815,8 @@ function updateCPPNote() {
 
         payload = payload.replace(/^\s+|\s+$/g, "");
         var input = "<pre>" + payload + "\n<\/pre>";
-        new Insertion.Top(txt, input);
-        new Insertion.Top(txt, img);
+        $(txt).insertAdjacentHTML('afterbegin', input);
+        $(txt).insertAdjacentHTML('afterbegin', img);
 
         //$(txt).style.height = divHeight;
         Element.observe(txt, 'click', editNote);
@@ -1875,9 +1875,9 @@ function updateCPPNote() {
         var passwd = "passwd";
         var nId = txt.substr(1);
         var img = "<img id='quitImg" + nId + "' onclick='resetView(true, false, event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-        new Insertion.Top(txt, img);
+        $(txt).insertAdjacentHTML('afterbegin', img);
         var lockForm = "<p id='passwdPara' class='passwd'>" + msgPasswd + ":&nbsp;<input onkeypress=\"return grabEnter('btnUnlock', event);\" type='password' id='" + passwd + "' size='16'>&nbsp;<input id='btnUnlock' type='button' onclick=\"return unlock_ajax('" + txt + "');\" value='" + btnMsgUnlock + "'><\/p>";
-        new Insertion.Bottom(txt, lockForm);
+        $(txt).insertAdjacentHTML('beforeend', lockForm);
 
         $(txt).style.height = "auto";
         $(passwd).focus();
@@ -2002,12 +2002,12 @@ function updateCPPNote() {
         caseNote = "caseNote_note" + nId;
 
         var input = "<textarea tabindex='7' cols='84' rows='10' wrap='hard' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
-        new Insertion.Top(txt, input);
+        $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/oscarEncounter/graphics/printer.png'></div>";
 
         var strNid = "" + nId;
         if (strNid.substr(0, 1) != "0")
-            new Insertion.Top(txt, printimg);
+            $(txt).insertAdjacentHTML('afterbegin', printimg);
 
         if ($F(isFull) == "true") {
             //position cursor at end of text
@@ -2032,7 +2032,7 @@ function updateCPPNote() {
 
         if (passwordEnabled) {
             input = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-            new Insertion.Bottom(txt, input);
+            $(txt).insertAdjacentHTML('beforeend', input);
         }
 
         //we check if we are dealing with a new note or not
@@ -2102,7 +2102,7 @@ function updateCPPNote() {
         //$(txt).innerHTML = "<pre>" + html + "<\/pre>";
         $(txt).style.cursor = "text";
 
-        new Insertion.Top(txt, img);
+        $(txt).insertAdjacentHTML('afterbegin', img);
         Event.stopObserving(txt, 'click', viewNote);
     }
     var showIssue = false;
@@ -2473,7 +2473,7 @@ function updateCPPNote() {
 
         $("notCPP").update("Loading...");
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -2481,14 +2481,13 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "50%";--%>
                     if (fullChart == "true") {
-                        $("quickChart").innerHTML = quickChartMsg;
+                        $("quickChart").textContent = quickChartMsg;
                         $("quickChart").onclick = function () {
                             return viewFullChart(false);
                         }
                     } else {
-                        $("quickChart").innerHTML = fullChartMsg;
+                        $("quickChart").textContent = fullChartMsg;
                         $("quickChart").onclick = function () {
                             return viewFullChart(true);
                         }
@@ -2770,7 +2769,7 @@ function updateCPPNote() {
             var node = document.createElement("LI");
 
             var html = "<input type='checkbox' id='issueId' name='issue_id' checked value='" + nodeId + "'>" + listItem.innerHTML;
-            new Insertion.Top(node, html);
+            $(node).insertAdjacentHTML('afterbegin', html);
 
             $("issueIdList").appendChild(node);
             $("issueAutocompleteCPP").value = "";
@@ -2817,8 +2816,8 @@ function updateCPPNote() {
         var url = ctx + "/CaseManagementEntry.do";
         var p = Form.serialize(frm);
         p.note_edit = '';
-        ajaxRequest = new Ajax.Updater({success: div}, url, {
-            evalScripts: true, parameters: p, onSuccess: onIssueUpdate,
+        ajaxRequest = CarlosAjax.updater({success: div}, url, {
+            evalScripts: true, postBody: p, onSuccess: onIssueUpdate,
             onFailure: function (response) {
                 alert(response.status + " " + updateIssueError);
             }
@@ -2933,7 +2932,7 @@ function updateCPPNote() {
             document.forms["caseManagementEntryForm"].note_edit.value = "new";
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
-            new Insertion.Bottom("encMainDiv", div);
+            document.getElementById("encMainDiv").insertAdjacentHTML('beforeend', div);
             $(sigId).addClassName("sig");
             <%--Rounded("div#"+id,"all","transparent","#CCCCCC","big border #000000");--%>
             $(caseNote).focus();
@@ -2981,7 +2980,7 @@ function updateCPPNote() {
         var frm = document.forms["caseManagementEntryForm"];
         frm.method.value = "cancel";
 
-    new Ajax.Request( url, {
+    CarlosAjax.request( url, {
                                 method: 'post',
                                 postBody: Form.serialize(frm)
                            }
@@ -2990,32 +2989,19 @@ function updateCPPNote() {
 var month=new Array(12);
 var msgDraftSaved;
 var lostNoteLock = false;
-function autoSave(async) {
+function autoSave() {
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
     var url = ctx + "/CaseManagementEntry.do";
     var programId = case_program_id;
     var demoNo = demographicNo;
     var cmeFrm = document.forms["caseManagementEntryForm"];
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
-    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + escape($F(caseNote));
+    var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
 
-        new Ajax.Request(url, {
+        CarlosAjax.request(url, {
                 method: 'post',
                 postBody: params,
-                asynchronous: async,
-                onComplete: function (req) {
-                    if (async == false)
-                        okToClose = true;
-                },
                 onSuccess: function (req) {
-                    /*var nId = caseNote.substr(13);
-                                                var sig = "sig" + nId;
-
-                                                if( $("autosaveTime") == null )
-                                                    new Insertion.Bottom(sig, "<div id='autosaveTime' class='sig' style='text-align:center; margin:0px;'><\/div>");
-                                                    */
-
-
                     var d = new Date();
                     var min = d.getMinutes();
                     min = min < 10 ? "0" + min : min;
@@ -3025,8 +3011,6 @@ function autoSave(async) {
 
                     var fmtDate = "<i>" + msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds + "<\/i>";
                     $("autosaveTime").update(fmtDate);
-
-
                 },
                 onFailure: function (req) {
                     if (req.status == 403) {
@@ -3034,7 +3018,6 @@ function autoSave(async) {
                         var msg = "<i>Autosave cancelled due to note being edited in another window</i>";
                         $("autosaveTime").update(msg);
                     }
-
                 }
             }
         );
@@ -3613,7 +3596,7 @@ function autoSave(async) {
             if (!saving && $("observationDate") != null) {
                 var observationDate = $("observationDate").value;
 
-                new Insertion.After("observationDate", " <span id='obs" + nId + "'>" + observationDate + "</span>");
+                document.getElementById("observationDate").insertAdjacentHTML('afterend', " <span id='obs" + nId + "'>" + observationDate + "</span>");
                 Element.remove("observationDate");
                 Element.remove("observationDate_cal");
 
@@ -3664,7 +3647,7 @@ function autoSave(async) {
             if (!saving) {
                 if (largeNote(tmp)) {
                     var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + nId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px; ' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
-                    new Insertion.Before(sig, btmImg);
+                    $(sig).insertAdjacentHTML('beforebegin', btmImg);
                 }
                 var printImg = "print" + nId;
                 var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/oscarEncounter/graphics/triangle_up.gif'>";
@@ -3686,18 +3669,18 @@ function autoSave(async) {
                 var attribAnchor = "<input id='anno" + nId + "' height='10px;' width='10px' type='image' src='" + ctx + "/oscarEncounter/graphics/annotation.png' title='" + annotationLabel + "' style='float: right; margin-right: 5px; margin-bottom: 3px;'" +
                     "onclick=\"window.open('" + ctx + "/annotation/annotation.jsp?atbname=" + attribName + "&table_id=" + nId + "&display=EChartNote&demo=" + demographicNo + "','anwin','width=400,height=500');$('annotation_attribname').value='" + attribName + "'; return false;\">";
 
-                new Insertion.Top(parent, editAnchor);
-                new Insertion.After(editId, input);
+                $(parent).insertAdjacentHTML('afterbegin', editAnchor);
+                $(editId).insertAdjacentHTML('afterend', input);
 
 
                 if (nId.substr(0, 1) != "0") {
                     Element.remove(printImg);
-                    new Insertion.Before(editId, printimg);
-                    new Insertion.After(editId, attribAnchor);
-                    new Insertion.Top(parent, img);
+                    $(editId).insertAdjacentHTML('beforebegin', printimg);
+                    $(editId).insertAdjacentHTML('afterend', attribAnchor);
+                    $(parent).insertAdjacentHTML('afterbegin', img);
                 }
 
-                new Insertion.Top(parent, img);
+                $(parent).insertAdjacentHTML('afterbegin', img);
 
                 $(parent).style.height = "auto";
 
@@ -3787,7 +3770,7 @@ function autoSave(async) {
 
         $("notCPP").update("Loading...");
 
-        var objAjax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
@@ -3795,14 +3778,13 @@ function autoSave(async) {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
-                    <%--$("notCPP").style.height = "50%";--%>
                     if (fullChart == "true") {
-                        $("quickChart").innerHTML = quickChartMsg;
+                        $("quickChart").textContent = quickChartMsg;
                         $("quickChart").onclick = function () {
                             return viewFullChart(false);
                         }
                     } else {
-                        $("quickChart").innerHTML = fullChartMsg;
+                        $("quickChart").textContent = fullChartMsg;
                         $("quickChart").onclick = function () {
                             return viewFullChart(true);
                         }

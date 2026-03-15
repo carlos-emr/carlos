@@ -316,9 +316,6 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
             <%--        <oscar:customInterface section="monthview"/>--%>
 
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/3.0.0/css/bootstrap.min.css"

@@ -72,8 +72,7 @@
         const ctx = contextpath;
     </script>
 
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
+    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
     <!-- main calendar program -->
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <!-- language for the calendar -->
@@ -92,15 +91,9 @@
             src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/effects.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/controls.js"></script>
-
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
     <script type="text/javascript"
@@ -117,7 +110,7 @@
         function removeLink(docType, docId, providerNo, e) {
             var url = contextpath + "/documentManager/ManageDocument.do";
             var data = 'method=removeLinkFromDocument&docType=' + docType + '&docId=' + docId + '&providerNo=' + providerNo;
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
                     refreshView();
                 }
@@ -129,7 +122,7 @@
         function handleDocSave(docid, action) {
             var url = contextpath + "/documentManager/inboxManage.do";
             var data = 'method=isDocumentLinkedToDemographic&docId=' + docid;
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
                     var json = transport.responseText.evalJSON();
                     if (json != null) {
@@ -261,7 +254,7 @@
             if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
                 var displayDocumentAs = $('displayDocumentAs_' + id).value;
 
-                new Ajax.Request(contextpath + "/documentManager/SplitDocument.do", {
+                CarlosAjax.request(contextpath + "/documentManager/SplitDocument.do", {
                     method: 'post', parameters: "method=removeFirstPage&document=" + id, onSuccess: function (data) {
                         if (displayDocumentAs == "PDF") {
                             showPDF(id, contextpath);
@@ -287,7 +280,7 @@
             jQuery("#rotate180btn_" + id).attr('disabled', 'disabled');
             var displayDocumentAs = $('displayDocumentAs_' + id).value;
 
-            new Ajax.Request(contextpath + "/documentManager/SplitDocument.do", {
+            CarlosAjax.request(contextpath + "/documentManager/SplitDocument.do", {
                 method: 'post', parameters: "method=rotate180&document=" + id, onSuccess: function (data) {
                     jQuery("#rotate180btn_" + id).removeAttr('disabled');
                     if (displayDocumentAs == "PDF") {
@@ -303,7 +296,7 @@
             jQuery("#rotate90btn_" + id).attr('disabled', 'disabled');
             var displayDocumentAs = $('displayDocumentAs_' + id).value;
 
-            new Ajax.Request(contextpath + "/documentManager/SplitDocument.do", {
+            CarlosAjax.request(contextpath + "/documentManager/SplitDocument.do", {
                 method: 'post', parameters: "method=rotate90&document=" + id, onSuccess: function (data) {
                     jQuery("#rotate90btn_" + id).removeAttr('disabled');
                     if (displayDocumentAs == "PDF") {
@@ -620,7 +613,7 @@
                     var type = checkType(doclabid);
                     var url = contextpath + "/oscarMDS/SendMRP.do";
                     var data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
-                    new Ajax.Request(url, {
+                    CarlosAjax.request(url, {
                         method: 'post', parameters: data, onSuccess: function (transport) {
                             ele.disabled = true;
                             $('mrp_fail_' + doclabid).hide();
@@ -1551,7 +1544,7 @@
                 var url = contextpath + "/documentManager/ManageDocument.do";
                 var data = 'method=getDemoNameAjax&demo_no=' + patientId;
                 //console.log('in getp '+patientId);
-                new Ajax.Request(url, {
+                CarlosAjax.request(url, {
                     method: 'post', parameters: data, onSuccess: function (transport) {
                         var json = transport.responseText.evalJSON();
                         //console.log("onsuccess=="+json);
@@ -2011,7 +2004,7 @@
             var url = contextpath + "/documentManager/ManageDocument.do";
             var data = 'method=getDemoNameAjax&demo_no=' + patientId;
             //console.log('in cre '+patientId);
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
                     var json = transport.responseText.evalJSON();
                     //oscarLog(json);
@@ -2091,7 +2084,7 @@
         function updateDocStatusInQueue(docid) {//change status of queue document link row to I=inactive
             //console.log('in updateDocStatusInQueue, docid '+docid);
             var url = "<%=request.getContextPath()%>/documentManager/inboxManage.do", data = "docid=" + docid + "&method=updateDocStatusInQueue";
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
                 }
             });
@@ -2101,7 +2094,7 @@
 
         function updateDocument(eleId, isNext) {//save doc info
             var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do", data = $(eleId).serialize(true);
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
                     var json = transport.responseText.evalJSON();
                     var patientId;
@@ -2162,7 +2155,7 @@
                         var url = contextpath + "/oscarMDS/UpdateStatus.do";
                         var data = $(formid).serialize(true);
 
-                        new Ajax.Request(url, {
+                        CarlosAjax.request(url, {
                             method: 'post', parameters: data, onSuccess: function (transport) {
                                 //console.log('after updatestatus ,doclabid '+doclabid);
 
@@ -2200,7 +2193,7 @@
                         if (type) {
                             var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
                             var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                            new Ajax.Request(url, {
+                            CarlosAjax.request(url, {
                                 method: 'post', parameters: data, onSuccess: function (transport) {
                                     Effect.Fade('labdoc_' + docId);
                                     updateDocLabData(docId, true);
@@ -2222,7 +2215,7 @@
                     if (type) {
                         var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
                         var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                        new Ajax.Request(url, {
+                        CarlosAjax.request(url, {
                             method: 'post', parameters: data, onSuccess: function (transport) {
                                 Effect.Fade('labdoc_' + docId);
                                 updateDocLabData(docId, true);

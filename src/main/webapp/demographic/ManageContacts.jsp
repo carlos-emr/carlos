@@ -70,9 +70,6 @@
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
 
         <script src="<c:out value="../js/jquery.js"/>"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
 
 
         <script type="text/javascript">

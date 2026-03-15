@@ -213,7 +213,38 @@
         }
 
         function prepare() {
-            new Autocompleter.Local('docSubClass', 'docSubClass_list', docSubClassList);
+            // Vanilla autocomplete replacing Autocompleter.Local
+            var input = document.getElementById('docSubClass');
+            var dropdown = document.getElementById('docSubClass_list');
+            if (!input || !dropdown) return;
+            input.addEventListener('input', function() {
+                var val = input.value.toLowerCase();
+                while (dropdown.firstChild) { dropdown.removeChild(dropdown.firstChild); }
+                if (val.length === 0) { dropdown.style.display = 'none'; return; }
+                var matches = docSubClassList.filter(function(item) {
+                    return item.toLowerCase().indexOf(val) !== -1;
+                });
+                if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+                var ul = document.createElement('ul');
+                matches.forEach(function(match) {
+                    var li = document.createElement('li');
+                    li.textContent = match;
+                    li.style.cursor = 'pointer';
+                    li.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        input.value = match;
+                        dropdown.style.display = 'none';
+                    });
+                    li.addEventListener('mouseover', function() { li.classList.add('selected'); });
+                    li.addEventListener('mouseout', function() { li.classList.remove('selected'); });
+                    ul.appendChild(li);
+                });
+                dropdown.appendChild(ul);
+                dropdown.style.display = 'block';
+            });
+            input.addEventListener('blur', function() {
+                setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+            });
         }
 
         function submitUpload(object) {

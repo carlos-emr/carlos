@@ -123,9 +123,6 @@
     <head>
         <script src="<%=request.getContextPath()%>/js/jquery-1.7.1.min.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/cupertino/jquery-ui-1.8.18.custom.css">
 
         <script>

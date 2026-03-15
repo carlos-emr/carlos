@@ -219,9 +219,6 @@
         }
     </style>
     <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript">
         function submitForm(methodName) {
@@ -238,9 +235,6 @@
     </script>
     <title>Billing Invoice</title>
     <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
     <oscar:customInterface section="invoice"/>
 </head>
 <body>

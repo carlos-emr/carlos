@@ -495,9 +495,6 @@
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
 
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/provider/schedulePage.js.jsp"></script>
 

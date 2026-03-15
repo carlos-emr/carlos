@@ -1316,56 +1316,58 @@ function renderRxStage() {
          }
     }
     function lookNonEdittable(elementId){
-        $(elementId).className='';
+        document.getElementById(elementId).className='';
     }
     function lookEdittable(elementId){
-        $(elementId).className='highlight';
+        document.getElementById(elementId).className='highlight';
     }
     function setPrn(randomId){
-        var prnStr=$('prn_'+randomId).innerHTML;
-        prnStr=prnStr.strip();
-        var prnStyle=$('prn_'+randomId).getStyle('textDecoration');
+        var prnEl=document.getElementById('prn_'+randomId);
+        var prnStr=prnEl.innerHTML.trim();
+        var prnStyle=prnEl.style.textDecoration || getComputedStyle(prnEl).textDecoration;
         if(prnStr=='prn' || prnStr=='PRN'|| prnStr=='Prn'){
             if(prnStyle.match("line-through")!=null){
-                $('prn_'+randomId).setStyle({textDecoration:'none'});
-                $('prnVal_'+randomId).value=true;
+                prnEl.style.textDecoration='none';
+                document.getElementById('prnVal_'+randomId).value=true;
             }else{
-                $('prn_'+randomId).setStyle({textDecoration:'line-through'});
-                $('prnVal_'+randomId).value=false;
+                prnEl.style.textDecoration='line-through';
+                document.getElementById('prnVal_'+randomId).value=false;
             }
         }
     }
      function focusTo(elementId){
-         $(elementId).contentEditable='true';
-         $(elementId).focus();
-         //IE 6/7 bug..will this call onfocus twice?? may need to do browser check.
-		 document.getElementById(elementId).onfocus();
+         var el = document.getElementById(elementId);
+         el.contentEditable='true';
+         el.focus();
+         if (el.onfocus) el.onfocus();
 
      }
 
      function updateSpecialInstruction(elementId){
          var randomId=elementId.split("_")[1];
          var url=ctx+ "/oscarRx/WriteScript.do?parameterValue=updateSpecialInstruction";
-         var data="randomId="+randomId+"&specialInstruction="+encodeURIComponent($(elementId).value);
+         var data="randomId="+randomId+"&specialInstruction="+encodeURIComponent(document.getElementById(elementId).value);
          data = data + "&rand="+Math.floor(Math.random()*10001);
-         new Ajax.Request(url, {method: 'post',parameters:data});
+         CarlosAjax.request(url, {method: 'post',parameters:data});
      }
 
     function changeText(elementId){
-        if($(elementId).value=='Enter Special Instruction'){
-            $(elementId).value="";
-            $(elementId).setStyle({color:'black'});
-        }else if ($(elementId).value==''){
-            $(elementId).value='Enter Special Instruction';
-            $(elementId).setStyle({color:'gray'});
+        var el=document.getElementById(elementId);
+        if(el.value=='Enter Special Instruction'){
+            el.value="";
+            el.style.color='black';
+        }else if (el.value==''){
+            el.value='Enter Special Instruction';
+            el.style.color='gray';
         }
 
     }
     function updateMoreLess(elementId){
-        if($(elementId).innerHTML=='more')
-            $(elementId).innerHTML='less';
+        var el=document.getElementById(elementId);
+        if(el.textContent==='more')
+            el.textContent='less';
         else
-            $(elementId).innerHTML='more';
+            el.textContent='more';
     }
 
     function changeDrugName(randomId,origDrugName){
@@ -1378,26 +1380,27 @@ function renderRxStage() {
 
             //call another function to bring up prescribe.jsp
             var url=ctx+ "/oscarRx/WriteScript.do";
-            var customDrugName=$("drugName_"+randomId).getValue();
+            var customDrugName=document.getElementById("drugName_"+randomId).value;
             var data="parameterValue=normalDrugSetCustom&randomId="+randomId+"&customDrugName="+encodeURIComponent(customDrugName);
-            new Ajax.Updater('rxText',url,{method:'post',parameters:data,asynchronous:true,insertion: Insertion.Bottom,onSuccess:function(transport){
-                    $('set_'+randomId).remove();
+            CarlosAjax.updater('rxText',url,{method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
+                    var setEl=document.getElementById('set_'+randomId);
+                    if(setEl) setEl.remove();
 		            renderRxStage();
 						}
 					});
         }else{
-            $("drugName_"+randomId).value=origDrugName;
+            document.getElementById("drugName_"+randomId).value=origDrugName;
         }
     }
     function resetStash(){
                var url=ctx + "/oscarRx/deleteRx.do?parameterValue=clearStash";
                var data = "rand=" + Math.floor(Math.random()*10001);
-               new Ajax.Request(url, {method: 'post',parameters:data,onSuccess:function(transport){
+               CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
                             // updateCurrentInteractions();
             }});
-               $('rxText').innerHTML="";//make pending prescriptions disappear.
+               document.getElementById('rxText').innerHTML="";//make pending prescriptions disappear.
 	            renderRxStage();
-               $("searchString").focus();
+               document.getElementById("searchString").focus();
     }
 
 			/*
@@ -1407,10 +1410,10 @@ function renderRxStage() {
     function iterateStash(){
         var url=ctx + "/oscarRx/WriteScript.do";
         var data="parameterValue=iterateStash&rand="+ Math.floor(Math.random()*10001);
-        new Ajax.Updater('rxText',url, {method:'POST',parameters:data,asynchronous:true,
+        CarlosAjax.updater('rxText',url, {method:'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,
-					insertion: Insertion.Bottom, onSuccess: function (data) {
+					insertion: 'bottom', onSuccess: function (data) {
                 // updateCurrentInteractions();
 
 						// detect postback or page load.
@@ -1427,13 +1430,13 @@ function renderRxStage() {
                var ran_number=Math.round(Math.random()*1000000);
                var url=ctx + "/oscarRx/GetRxPageSizeInfo.do?method=view";
                var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
-               new Ajax.Request(url, {method: 'post',parameters:params});
+               CarlosAjax.request(url, {method: 'post',parameters:params});
     }
 
     function reprint2(scriptNo){
         var data="scriptNo="+scriptNo + "&rand=" + Math.floor(Math.random()*10001);
         var url= ctx + "/oscarRx/rePrescribe2.do?method=reprint2";
-       new Ajax.Request(url,
+       CarlosAjax.request(url,
         {method: 'post',postBody:data,
             onSuccess:function(transport){
                 popForm2(scriptNo);

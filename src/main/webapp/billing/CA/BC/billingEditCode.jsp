@@ -57,7 +57,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <title>Edit Billing Code</title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
@@ -155,42 +155,42 @@
 
                 <script type="text/javascript">
                     function editCode(id, billingserviceNo, Value, BillingserviceDate, TerminationDate) {
-                        $('val' + id).hide();
-                        $('ival' + id).show();
-                        $('billservice' + id).hide();
-                        $('ibillservice' + id).show();
-                        $('termdate' + id).hide();
-                        $('itermdate' + id).show();
-                        $('edit' + id).hide();
-                        $('save' + id).show();
+                        document.getElementById('val' + id).style.display = 'none';
+                        document.getElementById('ival' + id).style.display = '';
+                        document.getElementById('billservice' + id).style.display = 'none';
+                        document.getElementById('ibillservice' + id).style.display = '';
+                        document.getElementById('termdate' + id).style.display = 'none';
+                        document.getElementById('itermdate' + id).style.display = '';
+                        document.getElementById('edit' + id).style.display = 'none';
+                        document.getElementById('save' + id).style.display = '';
 
                     }
 
 
                     function saveCode(id, billingserviceNo, Value, BillingserviceDate, TerminationDate) {
                         var url = ('billingEditCode.do?method=ajaxCodeUpdate');
-                        $('save' + id).hide();
-                        $('working' + id).show();
+                        document.getElementById('save' + id).style.display = 'none';
+                        document.getElementById('working' + id).style.display = '';
 
                         var ran_number = Math.round(Math.random() * 1000000);
-                        var params = "&codeId=" + $('id' + id).value + "&id=" + id + "&val=" + $('ival' + id).value + "&billService=" + $('ibillservice' + id).value + "&termDate=" + $('itermdate' + id).value + "&rand=" + ran_number;
-                        new Ajax.Request(url, {
-                            method: 'post', parameters: params, evalJSON: true, onSuccess: function (transport) {
-                                var data = transport.responseText.evalJSON();
+                        var params = "&codeId=" + document.getElementById('id' + id).value + "&id=" + id + "&val=" + document.getElementById('ival' + id).value + "&billService=" + document.getElementById('ibillservice' + id).value + "&termDate=" + document.getElementById('itermdate' + id).value + "&rand=" + ran_number;
+                        CarlosAjax.request(url, {
+                            method: 'post', parameters: params, onSuccess: function (transport) {
+                                var data = JSON.parse(transport.responseText);
                                 var id = data.id;
-                                $('val' + id).innerHTML = data.value;
+                                document.getElementById('val' + id).textContent = data.value;
                                 var d = new Date(data.billingserviceDate.time);
-                                $('billservice' + id).innerHTML = d.toLocaleFormat("%Y-%m-%d");
+                                document.getElementById('billservice' + id).textContent = d.toLocaleDateString('en-CA');
                                 var t = new Date(data.terminationDate.time);
-                                $('termdate' + id).innerHTML = t.toLocaleFormat("%Y-%m-%d");
-                                $('val' + id).show();
-                                $('ival' + id).hide();
-                                $('billservice' + id).show();
-                                $('ibillservice' + id).hide();
-                                $('termdate' + id).show();
-                                $('itermdate' + id).hide();
-                                $('edit' + id).show();
-                                $('working' + id).hide();
+                                document.getElementById('termdate' + id).textContent = t.toLocaleDateString('en-CA');
+                                document.getElementById('val' + id).style.display = '';
+                                document.getElementById('ival' + id).style.display = 'none';
+                                document.getElementById('billservice' + id).style.display = '';
+                                document.getElementById('ibillservice' + id).style.display = 'none';
+                                document.getElementById('termdate' + id).style.display = '';
+                                document.getElementById('itermdate' + id).style.display = 'none';
+                                document.getElementById('edit' + id).style.display = '';
+                                document.getElementById('working' + id).style.display = 'none';
                             }
                         });
 

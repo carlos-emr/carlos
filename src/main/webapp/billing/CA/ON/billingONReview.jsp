@@ -297,9 +297,6 @@
 
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
 
     <oscar:customInterface section="billingReview"/>
     <script language="JavaScript">

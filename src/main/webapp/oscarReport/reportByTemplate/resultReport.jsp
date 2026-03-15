@@ -68,7 +68,7 @@
 
         <script>
             function clearSession() {
-                new Ajax.Request('clearSession.jsp', '{asynchronous:true}');
+                navigator.sendBeacon('clearSession.jsp');
             }
 
             jQuery(document).ready(function () {

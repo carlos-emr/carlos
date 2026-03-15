@@ -97,8 +97,9 @@
             jQuery.noConflict();
         </script>
 
-        <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js" type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js" type="text/javascript"></script>
+        <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
+        <script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
+        <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 
         <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger-theme-future.js"></script>
@@ -118,10 +119,10 @@
         <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
 
-        <!-- js window size utility funcs since prototype's funcs are buggy in ie6 -->
+        <!-- js window size utility funcs -->
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/screen.js"/>"></script>
 
-        <!-- scriptaculous based select box -->
+        <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/select.js"/>"></script>
 
         <script type="text/javascript">
