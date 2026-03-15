@@ -87,7 +87,7 @@
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
 
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript"

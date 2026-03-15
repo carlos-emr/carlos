@@ -503,7 +503,7 @@ display:inline-block;
     <div id="scrollToTop"><a href="#updateFlowsheetBody"><i class="fa-solid fa-arrow-up"></i>Top</a></div>
 
 
-    <script src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
     <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.dataTables.js"></script>
 

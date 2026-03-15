@@ -500,7 +500,7 @@
     </div>
 </div>
 
-<script type="text/javascript" src="${ctx}/js/jquery-1.12.3.js"></script>
+<script type="text/javascript" src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
 <script type="text/javascript" src="${ctx}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
 <script type="text/javascript">
     function handleClickBillToClinic() {

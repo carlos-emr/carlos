@@ -1477,11 +1477,11 @@ function renderRxStage() {
                              var del="del_"+ id;
                              var discont="discont_"+ id;
                              var prescrip="prescrip_"+id;
-                             $(rxDate).style.textDecoration='line-through';
-                             $(reRx).style.textDecoration='line-through';
-                             $(del).style.textDecoration='line-through';
-                             $(discont).style.textDecoration='line-through';
-                             $(prescrip).style.textDecoration='line-through';
+                             document.getElementById(rxDate).style.textDecoration='line-through';
+                             document.getElementById(reRx).style.textDecoration='line-through';
+                             document.getElementById(del).style.textDecoration='line-through';
+                             document.getElementById(discont).style.textDecoration='line-through';
+                             document.getElementById(prescrip).style.textDecoration='line-through';
 			     // updateCurrentInteractions();
                     }
                 }});
@@ -1525,11 +1525,11 @@ function renderRxStage() {
              var url=ctx + "/oscarRx/deleteRx.do?parameterValue=Delete2"  ;
              var data="deleteRxId="+element.id + "&rand=" +  Math.floor(Math.random()*10001);
             CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
-                  $(rxDate).style.textDecoration='line-through';
-                  $(reRx).style.textDecoration='line-through';
-                  $(del).style.textDecoration='line-through';
-                  $(discont).style.textDecoration='line-through';
-                  $(prescrip).style.textDecoration='line-through';
+                  document.getElementById(rxDate).style.textDecoration='line-through';
+                  document.getElementById(reRx).style.textDecoration='line-through';
+                  document.getElementById(del).style.textDecoration='line-through';
+                  document.getElementById(discont).style.textDecoration='line-through';
+                  document.getElementById(prescrip).style.textDecoration='line-through';
 		  // updateCurrentInteractions();
 							location.reload();
 
@@ -1776,7 +1776,7 @@ function popForm2(scriptId){
     }
 
      function callTreatments(textId,id){
-         var ele = $(textId);
+         var ele = document.getElementById(textId);
          var url = ctx + "/oscarRx/TreatmentMyD.jsp"
          var ran_number=Math.round(Math.random()*1000000);
          var params = "demographicNo=<%=demoNo%>&cond="+encodeURIComponent(ele.value)+"&rand="+ran_number;  //hack to get around ie caching the page
@@ -2020,7 +2020,7 @@ function addFav(randomId,brandName){
                 var resId=elementArr[0];
                 var resUpdated=elementArr[1];
                 var id=resId+"."+resUpdated;
-                $(id).show();
+                document.getElementById(id).show();
                 $('show_'+id).hide();
                 document.getElementById('showHideWord').update('hide');
 
@@ -2037,7 +2037,7 @@ function addFav(randomId,brandName){
                 var resUpdated=elementArr[1];
                 var id=resId+"."+resUpdated;
                 oscarLog("id="+id);
-                $(id).hide();
+                document.getElementById(id).hide();
                 $('show_'+id).show();
                 document.getElementById('showHideWord').update('show');
                 showOrHide=0;
@@ -2055,14 +2055,14 @@ function addFav(randomId,brandName){
         var addTextId="addText_"+randId;
         var addTextWordId="addTextWord_"+randId;
         if(addTextView==0){
-            $(addTextId).show();
+            document.getElementById(addTextId).show();
             addTextView=1;
-            $(addTextWordId).update("less")
+            document.getElementById(addTextWordId).update("less")
         }
         else{
-            $(addTextId).hide();
+            document.getElementById(addTextId).hide();
             addTextView=0;
-            $(addTextWordId).update("more")
+            document.getElementById(addTextWordId).update("more")
         }
     }
 
@@ -2077,7 +2077,7 @@ function addFav(randomId,brandName){
 					evalScripts: true,
 					onSuccess: function (transport) {
 
-                $(id).show();
+                document.getElementById(id).show();
                 $('show_'+id).hide();
 
 					}
@@ -2096,7 +2096,7 @@ function addFav(randomId,brandName){
 					evalScripts: true,
 					onSuccess: function (transport) {
 
-                $(id).hide();
+                document.getElementById(id).hide();
                 $("show_"+id).show();
 
 					}
@@ -2134,7 +2134,7 @@ function addFav(randomId,brandName){
 			function updateReRxDrugId(elementId) {
 				var ar = elementId.split("_");
 				var drugId = ar[1];
-				if (drugId != null && $(elementId).checked == true) {
+				if (drugId != null && document.getElementById(elementId).checked == true) {
 					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
 					var url = ctx + "/oscarRx/WriteScript.do";
 					CarlosAjax.request(url, {method: 'post', parameters: data});
@@ -2386,28 +2386,28 @@ function updateQty(element){
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
                 var json=JSON.parse(transport.responseText);
-                $(methodStr).innerHTML=json.method;
-                $(routeStr).innerHTML=json.route;
-                $(frequencyStr).innerHTML=json.frequency;
-                $(minimumStr).innerHTML=json.takeMin;
-                $(maximumStr).innerHTML=json.takeMax;
+                document.getElementById(methodStr).innerHTML=json.method;
+                document.getElementById(routeStr).innerHTML=json.route;
+                document.getElementById(frequencyStr).innerHTML=json.frequency;
+                document.getElementById(minimumStr).innerHTML=json.takeMin;
+                document.getElementById(maximumStr).innerHTML=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
-                    $(durationStr).innerHTML='';
+                    document.getElementById(durationStr).innerHTML='';
                 }else{
-                    $(durationStr).innerHTML=json.duration;
+                    document.getElementById(durationStr).innerHTML=json.duration;
                 }
-                $(durationUnitStr).innerHTML=json.durationUnit;
-                $(quantityStr).innerHTML=json.calQuantity;
+                document.getElementById(durationUnitStr).innerHTML=json.durationUnit;
+                document.getElementById(quantityStr).innerHTML=json.calQuantity;
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    $(unitNameStr).innerHTML=json.unitName;
+                    document.getElementById(unitNameStr).innerHTML=json.unitName;
                 }else{
-                    $(unitNameStr).innerHTML='';
+                    document.getElementById(unitNameStr).innerHTML='';
                 }
                 if(json.prn){
-                    $(prnStr).innerHTML="prn";
-                    $(prnVal).value=true;
+                    document.getElementById(prnStr).innerHTML="prn";
+                    document.getElementById(prnVal).value=true;
                 } else{
-                    $(prnStr).innerHTML="";$(prnVal).value=false;
+                    document.getElementById(prnStr).innerHTML="";document.getElementById(prnVal).value=false;
                 }
 
             }});
@@ -2447,45 +2447,45 @@ function updateQty(element){
                        document.getElementById("saveOnlyButton").disabled=false;
                 }
 
-                $(methodStr).innerHTML=json.method;
-                $(routeStr).innerHTML=json.route;
-                $(frequencyStr).innerHTML=json.frequency;
-                $(minimumStr).innerHTML=json.takeMin;
-                $(maximumStr).innerHTML=json.takeMax;
+                document.getElementById(methodStr).innerHTML=json.method;
+                document.getElementById(routeStr).innerHTML=json.route;
+                document.getElementById(frequencyStr).innerHTML=json.frequency;
+                document.getElementById(minimumStr).innerHTML=json.takeMin;
+                document.getElementById(maximumStr).innerHTML=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
-                    $(durationStr).innerHTML='';
+                    document.getElementById(durationStr).innerHTML='';
                 }else{
-                    $(durationStr).innerHTML=json.duration;
+                    document.getElementById(durationStr).innerHTML=json.duration;
                 }
-                $(durationUnitStr).innerHTML=json.durationUnit;
+                document.getElementById(durationUnitStr).innerHTML=json.durationUnit;
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    $(unitNameStr).innerHTML=json.unitName;
+                    document.getElementById(unitNameStr).innerHTML=json.unitName;
                 }else{
-                    $(unitNameStr).innerHTML='';
+                    document.getElementById(unitNameStr).innerHTML='';
                 }
                 if (json.calQuantity != 0) {
                     //this is oftentimes zero when re-prescribing a drug where the unitName != null.  
                     //Until a more reliable calculated quantity is being returned, don't update if the calculated quantity is 0
                     //silently changing to 0 can be problematic in situations where the quantity has already been set
                     //to an appropriate value.                 
-                    $(quantityStr).innerHTML=json.calQuantity; 
-                    if($(unitNameStr).innerHTML!='')
-                        $(quantity).value=$(quantityStr).innerHTML+" "+$(unitNameStr).innerHTML;
+                    document.getElementById(quantityStr).innerHTML=json.calQuantity; 
+                    if(document.getElementById(unitNameStr).innerHTML!='')
+                        document.getElementById(quantity).value=document.getElementById(quantityStr).innerHTML+" "+document.getElementById(unitNameStr).innerHTML;
                     else
-                        $(quantity).value=$(quantityStr).innerHTML;
+                        document.getElementById(quantity).value=document.getElementById(quantityStr).innerHTML;
                     
                 }                
                 if(json.prn){
-                    $(prnStr).innerHTML="prn";$(prnVal).value=true;
+                    document.getElementById(prnStr).innerHTML="prn";document.getElementById(prnVal).value=true;
                 } else{
-                    $(prnStr).innerHTML="";$(prnVal).value=false;
+                    document.getElementById(prnStr).innerHTML="";document.getElementById(prnVal).value=false;
                 }
             }});
         return true;
     }
 
     function addLuCode(eleId,luCode){
-        $(eleId).value = $(eleId).value +" LU Code: "+luCode;
+        document.getElementById(eleId).value = document.getElementById(eleId).value +" LU Code: "+luCode;
     }
 
          function getRenalDosingInformation(divId,atcCode){

@@ -84,7 +84,7 @@
             src="${pageContext.servletContext.contextPath}/share/calendar/calendar-setup.js"></script>
 
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script type="text/javascript"
@@ -106,6 +106,8 @@
 
     <script type="text/javascript">
 
+        /* Shim: Prototype $() -> document.getElementById (jQuery accessed via jQuery()) */
+        function $(id) { return document.getElementById(id); }
 
         function removeLink(docType, docId, providerNo, e) {
             var url = contextpath + "/documentManager/ManageDocument.do";

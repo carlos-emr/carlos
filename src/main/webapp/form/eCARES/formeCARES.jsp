@@ -340,7 +340,7 @@
     </div><!-- ./wcag-container -->
 </div>
 
-<script type="text/javascript" src="${pageContext.request.contextPath}/js/jquery-1.9.1.min.js"></script>
+<script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
 <script type="text/javascript"
         src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
 <script type="text/javascript"

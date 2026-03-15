@@ -56,7 +56,7 @@
         <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
-        <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/jquery-1.9.1.min.js"></script>
+        <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/bootstrap.min.2.js"></script>
 
     </head>

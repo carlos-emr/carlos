@@ -173,7 +173,7 @@
 <%
     }
 %>
-<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/jquery/jquery-1.4.2.js"></script>
+<script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 
 <script language="JavaScript">
     popupStart = function (vheight, vwidth, varpage, windowname) {

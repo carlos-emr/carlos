@@ -148,7 +148,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery-1.4.2.js"></script>
+            src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>

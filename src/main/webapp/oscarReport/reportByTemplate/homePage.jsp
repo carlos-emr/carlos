@@ -60,7 +60,7 @@
         <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
-        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
+        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/js/bootstrap.min.2.js"></script>
         <script src="${pageContext.servletContext.contextPath}/js/global.js"></script>
 

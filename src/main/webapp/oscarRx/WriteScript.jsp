@@ -729,18 +729,18 @@
             }
 
             function prepareOutsideProvider() {
-                if (frm.outsideProviderName.value.length > 0) $('ocheck').checked = true;
+                if (frm.outsideProviderName.value.length > 0) document.getElementById('ocheck').checked = true;
                 showHideOutsideProvider();
             }
 
             function showHideOutsideProvider() {
-                if ($('ocheck').checked) {
-                    $('otext').show();
+                if (document.getElementById('ocheck').checked) {
+                    document.getElementById('otext').style.display = '';
                     frm.outsideProviderName.focus();
                 } else {
                     frm.outsideProviderName.value = "";
                     frm.outsideProviderOhip.value = "";
-                    $('otext').hide();
+                    document.getElementById('otext').style.display = 'none';
                 }
             }
         </script>
@@ -812,15 +812,15 @@
             var resHidden2 = 0;
 
             function showHiddenRes() {
-                var list = $$('div.hiddenResource');
+                var list = document.querySelectorAll('div.hiddenResource');
 
                 if (resHidden2 == 0) {
-                    list.invoke('show');
+                    list.forEach(function(el) { el.style.display = ''; });
                     resHidden2 = 1;
-                    $('showHiddenResWord').update('hide');
+                    document.getElementById('showHiddenResWord').textContent = 'hide';
                 } else {
-                    $('showHiddenResWord').update('show');
-                    list.invoke('hide');
+                    document.getElementById('showHiddenResWord').textContent = 'show';
+                    list.forEach(function(el) { el.style.display = 'none'; });
                     resHidden2 = 0;
                 }
             }
@@ -1622,7 +1622,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
                     //alert(params);
-                    new Ajax.Updater('renalDosing', url, {method: 'get', parameters: params, asynchronous: true});
+                    CarlosAjax.updater('renalDosing', url, {method: 'GET', parameters: params});
                     //alert(origRequest.responseText);
                 }
 
@@ -1633,7 +1633,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     oscarLog("in callReplacementWebService writescript.jsp: " + url + "--" + id);
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
-                    new Ajax.Updater(id, url, {method: 'get', parameters: params, asynchronous: true});
+                    CarlosAjax.updater(id, url, {method: 'GET', parameters: params});
                 }
 
                 // callReplacementWebService("InteractionDisplay.jsp",'interactionsRx');
