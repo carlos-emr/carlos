@@ -1311,7 +1311,7 @@
             <artifactId>struts2-spring-plugin</artifactId>
             <version>7.1.1</version>
         </dependency>
-        <!-- Caffeine Cache - Required by Struts 6.x for internal caching -->
+        <!-- Caffeine Cache - Required by Struts for internal caching -->
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>

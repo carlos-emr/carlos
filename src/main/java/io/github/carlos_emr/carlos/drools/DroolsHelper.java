@@ -174,33 +174,48 @@ public final class DroolsHelper {
         ReleaseId releaseId = ks.newReleaseId("io.github.carlos_emr",
                 "drl-" + UUID.randomUUID(), "1.0.0");
 
-        KieFileSystem kfs = ks.newKieFileSystem();
-        kfs.generateAndWritePomXML(releaseId);
-        kfs.write("src/main/resources/rules/generated.drl", drl);
+        KieContainer kContainer = null;
+        try {
+            KieFileSystem kfs = ks.newKieFileSystem();
+            kfs.generateAndWritePomXML(releaseId);
+            kfs.write("src/main/resources/rules/generated.drl", drl);
 
-        KieBuilder kb = ks.newKieBuilder(kfs);
-        kb.buildAll(ExecutableModelProject.class);
+            KieBuilder kb = ks.newKieBuilder(kfs);
+            kb.buildAll(ExecutableModelProject.class);
 
-        // Check for compilation errors (warnings are acceptable)
-        Results results = kb.getResults();
-        if (results.hasMessages(Message.Level.ERROR)) {
-            List<Message> errorMessages = results.getMessages(Message.Level.ERROR);
-            log.error("DRL compilation errors: {}", errorMessages);
-            throw new DroolsCompilationException("DRL compilation failed with "
-                    + errorMessages.size() + " error(s): " + errorMessages);
+            // Check for compilation errors (warnings are acceptable)
+            Results results = kb.getResults();
+            if (results.hasMessages(Message.Level.ERROR)) {
+                List<Message> errorMessages = results.getMessages(Message.Level.ERROR);
+                log.error("DRL compilation errors: {}", errorMessages);
+                throw new DroolsCompilationException("DRL compilation failed with "
+                        + errorMessages.size() + " error(s): " + errorMessages);
+            }
+
+            kContainer = ks.newKieContainer(releaseId);
+            return kContainer.getKieBase();
+        } catch (DroolsCompilationException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new DroolsCompilationException("DRL compilation failed unexpectedly", e);
+        } finally {
+            // Always clean up the KieModule from the global repository to prevent
+            // unbounded metadata growth in long-running server processes.
+            // The KieBase remains usable after disposal as it is a self-contained
+            // compiled representation independent of the container.
+            if (kContainer != null) {
+                try {
+                    kContainer.dispose();
+                } catch (RuntimeException e) {
+                    log.warn("Failed to dispose KieContainer for releaseId {}", releaseId, e);
+                }
+            }
+            try {
+                ks.getRepository().removeKieModule(releaseId);
+            } catch (RuntimeException e) {
+                log.warn("Failed to remove KieModule for releaseId {}", releaseId, e);
+            }
         }
-
-        KieContainer kContainer = ks.newKieContainer(releaseId);
-        KieBase kieBase = kContainer.getKieBase();
-
-        // Dispose the container and remove the KieModule from the global repository
-        // to prevent unbounded metadata growth in long-running server processes.
-        // The KieBase remains usable after disposal as it is a self-contained
-        // compiled representation independent of the container.
-        kContainer.dispose();
-        ks.getRepository().removeKieModule(releaseId);
-
-        return kieBase;
     }
 
     /**

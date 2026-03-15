@@ -104,14 +104,14 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
      * Set up Struts2 ActionContext with mock servlet objects.
      * This is critical for testing 2Actions that use ServletActionContext.
      *
-     * <p>Updated for Struts 6.x API which uses fluent builder pattern:
+     * <p>Updated for Struts 7.x API which uses fluent builder pattern:
      * - ActionContext.of() instead of new ActionContext(Map)
      * - bind() instead of setContext()
      * - withServletRequest/Response() instead of contextMap.put()
      * - withParameters() instead of setParameters()
      */
     protected void setUpActionContext() {
-        // Create ActionContext using Struts 6.x API
+        // Create ActionContext using Struts 7.x API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
 
         // Also set in session map for compatibility
@@ -182,7 +182,7 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
         requestParameters.put(name, new String[]{value});
         mockRequest.setParameter(name, value);
 
-        // Update ActionContext parameters using Struts 6.x fluent API
+        // Update ActionContext parameters using Struts 7.x fluent API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
         ActionContext.getContext().withParameters(httpParameters).bind();
     }

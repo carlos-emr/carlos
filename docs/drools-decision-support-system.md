@@ -30,7 +30,7 @@ Comprehensive documentation of the Drools Rule Language (DRL) decision support s
 - [Known Bugs and Quirks](#known-bugs-and-quirks)
 - [Canadian Clinical Guidelines Referenced](#canadian-clinical-guidelines-referenced)
 - [Extending the System](#extending-the-system)
-- [Migration Notes (Drools 2.0 to 7.x)](#migration-notes-drools-20-to-7x)
+- [Migration Notes (Drools 2.0 → 7.x → 10.0)](#migration-notes-drools-20--7x--100)
 
 ---
 
@@ -46,7 +46,7 @@ The Drools system was originally written for the Drools 2.0 API (XML rule format
 
 | Class | Package | Purpose |
 |-------|---------|---------|
-| `DroolsHelper` | `c.e.c.drools` | Central utility for loading DRL files and compiling `KieBase` instances via `KieHelper` |
+| `DroolsHelper` | `c.e.c.drools` | Central utility for loading DRL files and compiling `KieBase` instances via standard KIE API |
 | `RuleBaseFactory` | `c.e.c.drools` | Thread-safe `QueueCache` of compiled `KieBase` objects with 24h TTL and `ReadWriteLock` |
 | `DroolsCompilationException` | `c.e.c.drools` | Checked exception for DRL compilation or loading failures |
 | `RuleBaseCreator` | `c.e.c.encounter.oscarMeasurements.util` | Generates DRL rule text from `DSCondition` objects and compiles/caches via `RuleBaseFactory` |
@@ -195,7 +195,7 @@ try {
 Key points:
 - **`KieBase` is thread-safe** and shared across requests. It is compiled once and cached.
 - **`KieSession` is NOT thread-safe**. A new session is created for each rule execution and disposed immediately after.
-- **`KieHelper`** (used in `DroolsHelper.createKieBaseFromDrl()`) creates self-contained compilations without installing modules in the global KIE repository, preventing unbounded metadata growth in long-running server processes.
+- **`DroolsHelper.createKieBaseFromDrl()`** uses unique `ReleaseId` per compilation with the `KieServices`/`KieFileSystem`/`KieBuilder` pipeline, followed by `KieContainer.dispose()` and `KieRepository.removeKieModule()` to prevent unbounded metadata growth in long-running server processes.
 
 ### Programmatic DRL Generation
 
@@ -212,7 +212,7 @@ Several classes generate DRL rule text at runtime from structured data (XML or J
 The programmatic DRL generation pipeline is:
 1. **Parse source** → Extract conditions/parameters into `DSCondition` objects
 2. **Generate DRL text** → `RuleBaseCreator.getRule()` or `DSGuidelineDrools.getRule()` builds DRL string with `eval()` expressions
-3. **Compile** → `DroolsHelper.createKieBaseFromDrl()` compiles via `KieHelper`
+3. **Compile** → `DroolsHelper.createKieBaseFromDrl()` compiles via standard KIE API
 4. **Cache** → `RuleBaseFactory.putRuleBase()` stores the compiled `KieBase`
 
 ---
@@ -651,7 +651,7 @@ Drools was upgraded from 7.74.1.Final to 10.0.0 for Jakarta EE compatibility. Dr
 2. **Replaced individual dependencies with `drools-engine` aggregator**: The four individual dependencies (`kie-api`, `drools-core`, `drools-compiler`, `drools-mvel`) were replaced by the single `drools-engine` aggregator dependency which includes the executable model compiler.
 3. **Removed `mvel2` override**: Drools 10 manages its own MVEL dependency; the explicit `mvel2:2.5.2.Final` override is no longer needed.
 4. **Thread safety via unique ReleaseId**: Each compilation uses a UUID-based `ReleaseId` to isolate concurrent compilations in the global KIE repository.
-5. **DRL files unchanged**: All 38 DRL files are fully backward-compatible with Drools 10.0.0 syntax.
+5. **DRL files unchanged**: All 39 DRL files are fully backward-compatible with Drools 10.0.0 syntax.
 
 ### Drools 2.0 → 7.74.1 (Original Migration, PR #423)
 
