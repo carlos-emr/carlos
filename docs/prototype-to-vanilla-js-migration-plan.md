@@ -157,12 +157,27 @@ Pattern already proven in `documentManager/showDocument.js`.
 Modern replacement strategy per pattern:
 | Synchronous Pattern | Modern Replacement |
 |---|---|
-| Lock release on `beforeunload` | `navigator.sendBeacon(url, data)` — fire-and-forget, survives page unload |
+| Lock release on page unload | `navigator.sendBeacon(url, data)` via `visibilitychange` event (NOT `beforeunload` — see note below) |
 | Synchronous return value (`NoteisLocked`) | Refactor to `async`/`await` + make callers async, or use `XMLHttpRequest` sync as interim |
 | Autosave-on-close | `navigator.sendBeacon()` for the save, set `okToClose` optimistically |
 | Sequential drug operations | `async`/`await` with `fetch()` — chain with `await` instead of blocking |
 
-`navigator.sendBeacon()` is the correct modern replacement for "fire a request during page unload" — it's specifically designed for this and is supported by all modern browsers. For the synchronous-return-value pattern, the proper fix is to refactor callers to be async, but `XMLHttpRequest` sync can be used as an interim bridge in the shim.
+`navigator.sendBeacon()` is the correct modern replacement for "fire a request during page unload" — it's specifically designed for this and is supported by all modern browsers.
+
+**Important: Use `visibilitychange`, not `beforeunload`/`unload`**: MDN and the Page Lifecycle API specification recommend using `document.addEventListener('visibilitychange', ...)` instead of `beforeunload`/`unload` for sendBeacon. The `beforeunload` and `unload` events are unreliable on mobile browsers (pages are frequently killed without firing these events) and prevent browsers from using the back-forward cache (bfcache). The correct pattern is:
+```javascript
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        navigator.sendBeacon(url, new URLSearchParams({
+            noteId: 123,
+            'CSRF-TOKEN': getCsrfToken()
+        }));
+    }
+});
+```
+The `visibilitychange` event with `document.visibilityState === 'hidden'` fires in all the same scenarios as `beforeunload` (tab close, navigation, app switch) plus additional mobile scenarios where `beforeunload` does not fire.
+
+For the synchronous-return-value pattern, the proper fix is to refactor callers to be async, but `XMLHttpRequest` sync can be used as an interim bridge in the shim.
 
 **Prototype String extension: `.evalJSON()`** — Used 19 times across 8 files (SearchDrug3.jsp alone has 8 calls). This is a Prototype extension on `String.prototype` that parses JSON. Direct replacement: `JSON.parse(responseText)`. Files affected:
 - `oscarRx/SearchDrug3.jsp` (8 calls)
@@ -185,9 +200,23 @@ Modern replacement strategy per pattern:
 ### 0d. Add `global-head.jspf` includes
 Add `transitions.css` and `carlos-ajax.js` to the global head so they're available everywhere.
 
+### 0e. Fix pre-existing CSRF bugs in existing `fetch()` calls
+These files already use `fetch()` for POST requests today but are **missing CSRF tokens** and the `X-Requested-With` header. They are broken today (CSRF validation failures silently redirect to error page). Fix them as part of Phase 0 to establish the correct patterns before the main migration:
+
+| File | Issue |
+|------|-------|
+| `documentManager/showDocument.jsp` | `fetch()` POST without CSRF token |
+| `lab/CA/ALL/labDisplayAjax.jsp` | `fetch()` POST without CSRF token |
+| `oscarRx/Preview2.jsp` | `fetch()` POST without CSRF token |
+| `admin/EditFavorites2.jsp` | `fetch()` POST without CSRF token |
+| `oscarMDS/oscarMDSIndex.js` (`postForm()`) | `fetch()` POST without CSRF token |
+
+Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-origin'`, and `'CSRF-TOKEN': getCsrfToken()` to the request body on each of these calls. These fixes are independent of the Prototype migration and should be merged first.
+
 ### Verification
 - Load any page → confirm no console errors
 - Shim file loads without conflicting with existing Prototype.js (guarded by `if` checks)
+- Verify fixed `fetch()` calls in 0e work correctly with CSRF validation
 
 ---
 
@@ -405,11 +434,12 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 + <script src="${ctx}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 ```
 
-Remove `jQuery.noConflict()` — no longer needed. `$` will be provided by the compat shim. `$j` references in encounter code should be changed to `$` (jQuery) or `document.getElementById`.
+Remove `jQuery.noConflict()` — no longer needed. `$` will be provided by the compat shim. The `$j` variable is defined on line 3 of encounter-head.jspf but is **never used anywhere in the codebase** (zero references) — it's dead code that can be safely deleted.
 
 ### 4d. Other encounter/casemgmt files
 | File | Changes |
 |------|---------|
+| `share/javascript/select.js` | Hard Prototype/Scriptaculous dependency: `Class.create()`, `Autocompleter.Base`, `Object.extend()`. Must be fully rewritten or replaced with a vanilla autocomplete component. Loaded by `casemgmt/newEncounterLayout.jsp`, lab pages, eform pages. |
 | `casemgmt/newEncounterLayout.jsp` | Remove Prototype includes, update inline JS, `evalScripts` |
 | `casemgmt/ChartNotes.jsp` | 6 Element.observe/stopObserving calls → addEventListener |
 | `casemgmt/ChartNotesAjax.jsp` | 5 Element.observe calls, Autocompleter.Local → vanilla autocomplete |
@@ -462,6 +492,7 @@ src/main/webapp/share/javascript/builder.js           ← DELETE
 src/main/webapp/share/javascript/slider.js            ← DELETE
 src/main/webapp/share/javascript/sortable.js          ← DELETE (used by PreventionReporting.jsp)
 src/main/webapp/share/javascript/dragiframe.js        ← DELETE (used by SearchDrug3.jsp, displayMedHistory.jsp)
+src/main/webapp/share/javascript/select.js            ← DELETE (rewritten in Phase 4d)
 src/main/webapp/share/lightwindow/lightwindow.js      ← DELETE
 src/main/webapp/share/lightwindow/lightwindow.css     ← DELETE
 ```
@@ -479,7 +510,9 @@ src/main/webapp/share/javascript/jquery/jquery-1.4.2.js ← DELETE
 Update any JSP files that reference these old versions to use the standard `global-head.jspf` include instead.
 
 ### 5c. Remove all `jQuery.noConflict()` calls
-Search all 30+ files with `jQuery.noConflict()` and remove the calls + rename `$j` → `jQuery` or `$` as appropriate.
+**27 JSP/JSPF files** call `jQuery.noConflict()` plus 1 file uses `jQuery.noConflict(true)` (deep mode). Remove the calls from all files. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references. All other files call `jQuery.noConflict()` without storing the return value.
+
+After Prototype removal, `$` will be jQuery by default, and `jQuery.noConflict()` calls are unnecessary. One exception: `js/jquery.fileDownload.js` uses `var $ = jQuery.noConflict()` as a file-local alias — this can be kept as-is (it's a third-party plugin pattern).
 
 ### 5d. Graduate encounter module from compat shim
 Once Phase 4 encounter/case management code is fully migrated to native APIs, remove `prototype-compat.js` and the HTMLElement.prototype extensions. This can be done incrementally — each function in `newCaseManagementView.js.jsp` can be rewritten to vanilla JS and the shim method removed once no callers remain.
@@ -578,6 +611,79 @@ navigator.sendBeacon(url, new URLSearchParams({
 ```
 
 **See**: `docs/carlos-ajax.md` for full implementation details and `docs/csrf-protection-architecture.md` for CSRFGuard architecture.
+
+### Contract 1c: CSRF Failure Redirect Detection (CRITICAL — Silent Data Corruption)
+
+**The problem**: When CSRFGuard rejects a request (missing/invalid CSRF token), it does NOT return a 403 status code. Instead, it performs a **302 redirect to `errorpage.jsp`** (configured in `Owasp.CsrfGuard.properties` line 258). The `fetch()` API follows redirects transparently by default (`redirect: 'follow'`), so the caller receives the full HTML of `errorpage.jsp` with an **HTTP 200 status**. The `onSuccess` callback fires with error page HTML as `responseText`.
+
+**Why it matters**:
+- `CarlosAjax.request()` callers will parse error page HTML as if it were valid JSON or data
+- `CarlosAjax.updater()` will **inject the error page HTML into the DOM**, replacing functional content with "Looks like something went wrong..."
+- `JSON.parse()` on error page HTML will throw, but callers may not handle exceptions
+- The failure is **silent** — no error callback fires, no console warning, no visible indication of what went wrong
+- This creates a debugging nightmare: the CSRF violation is logged server-side, but the client has no idea
+
+**How `fetch()` exposes this**: The `Response` object has two properties that detect followed redirects:
+- `response.redirected` — `true` if the response came from a redirect
+- `response.url` — the final URL after following redirects (e.g., `.../errorpage.jsp`)
+
+For synchronous `XMLHttpRequest`, the equivalent is `xhr.responseURL` which also shows the final URL after redirects.
+
+**Migration rule**: `CarlosAjax` MUST detect CSRF redirect failures and route them to `onFailure`:
+```javascript
+// In CarlosAjax.request() — after fetch() resolves:
+const response = await fetch(url, fetchOptions);
+
+// Detect CSRF rejection (redirect to error page)
+if (response.redirected && response.url.includes('errorpage.jsp')) {
+    const transport = {
+        responseText: 'CSRF validation failed — request was rejected by the server.',
+        status: 403  // Synthetic status — actual was 200 after redirect
+    };
+    if (options.onFailure) options.onFailure(transport);
+    if (options.onComplete) options.onComplete(transport);
+    return;
+}
+
+// For synchronous XHR:
+if (xhr.responseURL && xhr.responseURL.includes('errorpage.jsp')) {
+    // Same handling — treat as failure
+}
+```
+
+**Additional defense**: As a secondary check, CarlosAjax should also verify that responses expected to be JSON actually parse as JSON, and that HTML responses don't contain the error page signature (`"Looks like something went wrong"`). This catches edge cases where the redirect path changes.
+
+**Pre-existing bugs**: Several existing `fetch()` calls in the codebase already suffer from this exact problem today (they were written without CSRF tokens and without redirect detection):
+- `documentManager/showDocument.jsp` — fetch() POST without CSRF token
+- `lab/CA/ALL/labDisplayAjax.jsp` — fetch() POST without CSRF token
+- `oscarRx/Preview2.jsp` — fetch() POST without CSRF token
+- `admin/EditFavorites2.jsp` — fetch() POST without CSRF token
+- `oscarMDS/oscarMDSIndex.js` `postForm()` — fetch() POST without CSRF token
+These should be fixed as part of Phase 0 (prerequisites).
+
+### Contract 1d: `credentials: 'same-origin'` — Session Cookie Inclusion
+
+**The problem**: `fetch()` defaults to `credentials: 'same-origin'` in modern browsers, which includes cookies for same-origin requests. However, older browser versions and some configurations may default to `credentials: 'omit'`, which would NOT send the JSESSIONID session cookie — causing the server to see the request as unauthenticated.
+
+**Migration rule**: `CarlosAjax` MUST explicitly set `credentials: 'same-origin'` on all fetch() calls for defense-in-depth:
+```javascript
+fetch(url, {
+    credentials: 'same-origin',  // Explicitly include session cookies
+    // ... other options
+});
+```
+
+This ensures consistent behavior across all browser versions and configurations. `XMLHttpRequest` (used for synchronous requests) automatically includes cookies by default, so no change needed there.
+
+### Server-Side AJAX Detection Methods
+
+Beyond the three HTTP header-based filters above, several server-side 2Actions use **query/form parameters** to detect AJAX requests:
+- `EctMeasurements2Action` — checks `request.getParameter("ajax")` to return different JSP results
+- `EctSaveEncounter2Action` — checks `submitMethod=ajax` parameter
+- `CaseManagementEntry2Action` — checks `ajax` parameter, returns `"issueList_ajax"` result
+- `CreateLabLabel2Action` — checks `ajaxcall` parameter
+
+These parameter-based detections are independent of HTTP headers and will continue working after migration without any changes. However, they are important context: the server-side code was designed for AJAX from the start, and the header-based detection is the critical contract to preserve.
 
 ### Contract 2: `Content-Type: application/x-www-form-urlencoded` Default
 
@@ -876,6 +982,8 @@ fetch(url, { method: 'POST', body: new URLSearchParams(params), headers: {'Conte
 | Contract | Severity | Mechanical? | Files |
 |----------|----------|-------------|-------|
 | CSRF token injection | **CRITICAL** | Yes — CarlosAjax handles | All POST/PUT/DELETE/PATCH |
+| CSRF redirect detection | **CRITICAL** | Yes — CarlosAjax handles | All AJAX files |
+| `credentials: 'same-origin'` | **CRITICAL** | Yes — set on all fetch() | All AJAX files |
 | `X-Requested-With` header | **CRITICAL** | Yes — add to all fetch calls | All AJAX files |
 | `Content-Type` default | **CRITICAL** | Yes — set explicitly | All POST requests |
 | `Form.serialize()` format | **HIGH** | Yes — URLSearchParams | 7 files, 13+ calls |

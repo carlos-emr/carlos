@@ -160,6 +160,48 @@ The token is read from the hidden `<input name="CSRF-TOKEN">` field that CSRFGua
 
 **Important**: GET requests do NOT need CSRF tokens. CarlosAjax only injects the token for protected HTTP methods.
 
+### CSRF Failure Redirect Detection (CRITICAL)
+
+**The problem**: When CSRFGuard rejects a request (missing/invalid token), it does NOT return a 403 status code. Instead, it **redirects (302) to `errorpage.jsp`**. The `fetch()` API follows redirects transparently by default (`redirect: 'follow'`), so the caller receives the error page HTML with an **HTTP 200 status**. Without detection, `onSuccess` fires with error page content — and `CarlosAjax.updater()` would inject "Looks like something went wrong..." into the DOM.
+
+**How CarlosAjax handles this**: After every `fetch()` response, CarlosAjax checks for CSRF redirect failures:
+
+```javascript
+// After fetch() resolves:
+if (response.redirected && response.url.includes('errorpage.jsp')) {
+    // Treat as failure — invoke onFailure with synthetic 403 status
+    const transport = {
+        responseText: 'CSRF validation failed — request was rejected by the server.',
+        status: 403
+    };
+    if (options.onFailure) options.onFailure(transport);
+    if (options.onComplete) options.onComplete(transport);
+    return;
+}
+```
+
+For synchronous `XMLHttpRequest`, the equivalent check uses `xhr.responseURL`:
+```javascript
+if (xhr.responseURL && xhr.responseURL.includes('errorpage.jsp')) {
+    // Same failure handling
+}
+```
+
+**Why this matters**: Without this detection, any CSRF token issue (expired session, token not in DOM, race condition) would silently corrupt the page by injecting error page HTML where data should be. This detection ensures CSRF failures are surfaced as errors, not silent data corruption.
+
+### Session Cookie Inclusion
+
+CarlosAjax explicitly sets `credentials: 'same-origin'` on all `fetch()` calls to ensure the JSESSIONID session cookie is always sent:
+
+```javascript
+fetch(url, {
+    credentials: 'same-origin',
+    // ... other options
+});
+```
+
+While modern browsers default to `credentials: 'same-origin'`, this is set explicitly for defense-in-depth across all browser versions.
+
 ### Parameter Serialization
 
 When `parameters` is an object, it is serialized to URL-encoded form data:
@@ -212,17 +254,25 @@ Synchronous XHR is deprecated in browsers and should be replaced during migratio
 
 | Pattern | Synchronous Workaround | Modern Replacement |
 |---------|----------------------|-------------------|
-| Lock release on page unload | `synchronous: true` + `beforeunload` | `navigator.sendBeacon(url, data)` |
+| Lock release on page unload | `synchronous: true` + `beforeunload` | `navigator.sendBeacon()` via `visibilitychange` |
 | Return value from server | `synchronous: true` + assign in callback | Refactor to `async`/`await` |
-| Must-complete-before-close | `synchronous: true` + `beforeunload` | `navigator.sendBeacon()` |
+| Must-complete-before-close | `synchronous: true` + `beforeunload` | `navigator.sendBeacon()` via `visibilitychange` |
 | Sequential operations | `synchronous: true` in loop | `async`/`await` with `fetch()` |
 
-**`navigator.sendBeacon()`** is specifically designed for fire-and-forget requests during page unload. It survives page navigation and does not block the UI thread:
+**`navigator.sendBeacon()`** is specifically designed for fire-and-forget requests during page unload. It survives page navigation and does not block the UI thread.
+
+**Important: Use `visibilitychange`, not `beforeunload`/`unload`**: MDN and the Page Lifecycle API specification recommend `visibilitychange` because `beforeunload`/`unload` are unreliable on mobile browsers and prevent the back-forward cache (bfcache):
 ```javascript
-window.addEventListener('beforeunload', function() {
-    navigator.sendBeacon('releaseNoteLock.do', new URLSearchParams({ noteId: 123 }));
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        navigator.sendBeacon('releaseNoteLock.do', new URLSearchParams({
+            noteId: 123,
+            'CSRF-TOKEN': getCsrfToken()   // REQUIRED — sendBeacon sends POST
+        }));
+    }
 });
 ```
+The `visibilitychange` event fires in all the same scenarios as `beforeunload` (tab close, navigation, app switch) plus mobile scenarios where `beforeunload` does not fire.
 
 ---
 
@@ -240,6 +290,7 @@ window.addEventListener('beforeunload', function() {
 
   const response = await fetch(url, {
       method: 'POST',
+      credentials: 'same-origin',   // REQUIRED — ensures session cookie is sent
       headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-Requested-With': 'XMLHttpRequest'
@@ -249,12 +300,17 @@ window.addEventListener('beforeunload', function() {
           'CSRF-TOKEN': getCsrfToken()   // REQUIRED for POST/PUT/DELETE/PATCH
       })
   });
+  // Check for CSRF redirect failure BEFORE using the response
+  if (response.redirected && response.url.includes('errorpage.jsp')) {
+      throw new Error('CSRF validation failed — request rejected by server');
+  }
   const data = await response.text();
   ```
 
 - **JSON API calls (GET only)** — GET requests do NOT need CSRF tokens:
   ```javascript
   const response = await fetch(url, {
+      credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
   });
   const data = await response.json();
@@ -267,6 +323,7 @@ window.addEventListener('beforeunload', function() {
   const formData = new FormData(document.getElementById('uploadForm'));
   const response = await fetch(url, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
       // Do NOT set Content-Type — browser sets it with boundary for multipart
       body: formData
@@ -282,12 +339,16 @@ window.addEventListener('beforeunload', function() {
 
 ### Use `navigator.sendBeacon()` When:
 
-- **Page unload / beforeunload handlers** — Fire-and-forget requests that must survive navigation:
+- **Page unload handlers** — Fire-and-forget requests that must survive navigation. Use `visibilitychange` event (NOT `beforeunload`/`unload` — those are unreliable on mobile and block bfcache):
   ```javascript
-  navigator.sendBeacon(url, new URLSearchParams({
-      noteId: 123,
-      'CSRF-TOKEN': getCsrfToken()   // REQUIRED — sendBeacon sends POST
-  }));
+  document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden') {
+          navigator.sendBeacon(url, new URLSearchParams({
+              noteId: 123,
+              'CSRF-TOKEN': getCsrfToken()   // REQUIRED — sendBeacon sends POST
+          }));
+      }
+  });
   ```
   Note: `sendBeacon()` always sends POST, cannot read the response, and has a ~64KB payload limit. Since it sends POST, the CSRF token MUST be included.
 
@@ -412,9 +473,11 @@ Every AJAX call in CARLOS EMR must include these to work correctly with server-s
 |-------------|-------|-------------|
 | `X-Requested-With` header | `XMLHttpRequest` | ALL AJAX requests (GET and POST) |
 | `Content-Type` header | `application/x-www-form-urlencoded` | POST requests with form data |
+| `credentials` | `'same-origin'` | ALL fetch() calls (session cookie) |
 | `CSRF-TOKEN` parameter | Token from hidden form field | POST, PUT, DELETE, PATCH requests |
+| CSRF redirect detection | Check `response.redirected` + `response.url` | ALL fetch() calls |
 
-`CarlosAjax` adds these automatically. If using `fetch()` directly, add them manually.
+`CarlosAjax` handles all of these automatically. If using `fetch()` directly, add them manually. Missing any one of these will cause silent failures.
 
 ---
 
