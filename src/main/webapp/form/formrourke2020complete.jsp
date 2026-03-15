@@ -395,7 +395,7 @@
             // In Days if Baby is under 30 days old
             // In Months if Baby is under 24 months old
             // In Years if Toddler is above 24 months old
-            const birthDateStr = $("c_birthDate").value;
+            const birthDateStr = document.getElementById("c_birthDate").value;
 
             if (birthDateStr != "") {
                 const birthDateArr = birthDateStr.split("/");
@@ -419,7 +419,7 @@
                 curUnit = 0;
             }
 
-            var birthDateStr = $("c_birthDate").value;
+            var birthDateStr = document.getElementById("c_birthDate").value;
 
             if (birthDateStr != "") {
                 var birthDateArr = birthDateStr.split("/");
@@ -775,7 +775,7 @@
     function onSave() {
         if (checkMeasures()) {
             reset();
-            $("frmP1").action += "?submit=save";
+            document.getElementById("frmP1").action += "?submit=save";
             if (confirm("Are you sure you want to save this form?")) {
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();
@@ -789,7 +789,7 @@
     function onSaveExit() {
         if (checkMeasures()) {
             reset();
-            $("frmP1").action += "?submit=exit";
+            document.getElementById("frmP1").action += "?submit=exit";
             if (confirm("Are you sure you wish to save and close this window?")) {
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();

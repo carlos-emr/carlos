@@ -1274,14 +1274,14 @@
                 adoc.appendChild(idoc);
 
                 adoc.appendChild(bdoc);
-                var providerList = $('providerList');
+                var providerList = document.getElementById('providerList');
 
                 providerList.appendChild(adoc);
 
             }
 
             YAHOO.example.BasicRemote = function () {
-                if ($("autocompletedemo") && $("autocomplete_choices")) {
+                if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {
 
                     var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
                     var oDS = new YAHOO.util.XHRDataSource(url, {
@@ -1315,14 +1315,14 @@
                         document.getElementById('MRPNo').value = args[2][4];
                         document.getElementById('MRPName').value = args[2][5];
 
-                        $(str).value = args[2][2];
+                        document.getElementById(str).value = args[2][2];
 
                         args[0].getInputEl().value = args[2][0] + " (" + args[2][1] + ")";
 
                         selectedDemos.push(args[0].getInputEl().value);
 
                         //enable Save button whenever a selection is made
-                        $('save').enable();
+                        document.getElementById('save').disabled = false;
 
                         if (document.PdfInfoForm.pdfDir.value != "File") {
                             var MRPName = document.getElementById('MRPName').value;

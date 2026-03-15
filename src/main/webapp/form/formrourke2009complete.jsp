@@ -310,7 +310,7 @@
 
             if (checkMeasures()) {
                 reset();
-                $("frmP1").action += "?submit=save";
+                document.getElementById("frmP1").action += "?submit=save";
 
                 if (confirm("Are you sure you want to save this form?")) {
                     document.forms["frmP1"].submit();
@@ -325,7 +325,7 @@
 
             if (checkMeasures()) {
                 reset();
-                $("frmP1").action += "?submit=exit";
+                document.getElementById("frmP1").action += "?submit=exit";
 
                 if (confirm("Are you sure you wish to save and close this window?")) {
                     document.forms["frmP1"].submit();
@@ -422,7 +422,7 @@
                 curUnit = 0;
             }
 
-            var birthDateStr = $("c_birthDate").value;
+            var birthDateStr = document.getElementById("c_birthDate").value;
 
             if (birthDateStr != "") {
                 var birthDateArr = birthDateStr.split("/");
