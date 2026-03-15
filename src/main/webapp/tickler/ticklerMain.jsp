@@ -82,6 +82,8 @@
     if (demographic_no == null || demographic_no.isEmpty()) {
         demographic_no = "0";
     }
+    boolean hasDemoView = !"0".equals(demographic_no);
+    pageContext.setAttribute("hasDemoView", hasDemoView);
 
     Map<String, View> ticklerView = viewDao.getView("tickler", userRole, user_no);
 
@@ -712,27 +714,40 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgTickler"/> Manager
         </h2>
 
-        <form name="serviceform" method="get" action="ticklerMain.jsp" class="d-flex flex-wrap align-items-center gap-2">
+        <form name="serviceform" method="get" action="ticklerMain.jsp">
             <input type="hidden" name="Submit" value="">
-            <input type="hidden" name="demoview" value="${param.demoview}">
+            <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(hasDemoView ? demographic_no : "")%>">
 
-            <c:if test="${empty param.demoview}">
-                <div class="control-container">
-                    <label for="dateRange"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/> <a
-                            href="javascript:void(0)" id="dateRange" onClick="allYear()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/></a></label>
-                    <div class="mb-3">
-                        <label for="xml_vdate">From</label>
+            <c:if test="${not hasDemoView}">
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <label class="fw-semibold">
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/>
+                            <a href="javascript:void(0)" id="dateRange" onClick="allYear()">
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/>
+                            </a>
+                        </label>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <label for="xml_vdate" class="col-sm-3 col-form-label">From</label>
+                    <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
                     </div>
-                    <div class="mb-3">
-                        <label for="xml_appointment_date">To</label>
+                </div>
+                <div class="row mb-2">
+                    <label for="xml_appointment_date" class="col-sm-3 col-form-label">To</label>
+                    <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
                                value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
                     </div>
-
-                    <div class="mb-3">
-                        <label for="mrpview"> <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/></label>
+                </div>
+                <div class="row mb-2">
+                    <label for="mrpview" class="col-sm-3 col-form-label">
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/>
+                    </label>
+                    <div class="col-sm-9">
                         <select id="mrpview" class="form-select" name="mrpview">
                             <option value="all" <%=mrpview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
@@ -748,9 +763,12 @@
                             %>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label for="providerview"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></label>
-
+                </div>
+                <div class="row mb-2">
+                    <label for="providerview" class="col-sm-3 col-form-label">
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/>
+                    </label>
+                    <div class="col-sm-9">
                         <select id="providerview" class="form-select" name="providerview">
                             <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
@@ -764,8 +782,12 @@
                             %>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label for="assignedTo"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/></label>
+                </div>
+                <div class="row mb-2">
+                    <label for="assignedTo" class="col-sm-3 col-form-label">
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/>
+                    </label>
+                    <div class="col-sm-9">
                         <%
                             if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
                                 SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
@@ -784,7 +806,7 @@
                                 sel.form.assignedTo.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
                             }
                         </script>
-                        <select id="site" class="form-select" name="site" onchange="changeSite(this)">
+                        <select id="site" class="form-select mb-1" name="site" onchange="changeSite(this)">
                             <option value="none">---select clinic---</option>
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
@@ -795,7 +817,7 @@
                                 }
                             %>
                         </select>
-                        <select id="assignedTo" name="assignedTo" style="width:140px"></select>
+                        <select id="assignedTo" name="assignedTo" class="form-select"></select>
                         <%
                             if (request.getParameter("assignedTo") != null) {
                         %>
@@ -833,8 +855,10 @@
                             }
                         %>
                     </div>
-                    <div class="mb-3">
-					    <label for="ticklerview">Filter</label>
+                </div>
+                <div class="row mb-2">
+                    <label for="ticklerview" class="col-sm-3 col-form-label">Filter</label>
+                    <div class="col-sm-9">
                         <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
                                 <fmt:setBundle basename="oscarResources"/>
@@ -847,26 +871,28 @@
                                 <fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                         </select>
                     </div>
-                    <div class="mb-3" style="padding-top:15px;">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-9 offset-sm-3">
                         <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>">
-                        <label for="saveViewButton"> </label>
-                        <input type="button" class="btn btn-secondary" id="saveViewButton"
+                        <input type="button" class="btn btn-secondary ms-2" id="saveViewButton"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgSaveView"/>" onclick="saveView();">
                     </div>
-
                 </div>
 
             </c:if>
-            <c:if test="${not empty param.demoview}">
-            <div class="float-start" style="margin-bottom:10px;">
-                <label for="ticklerview">Filter</label>
-                <select id="ticklerview" class="form-select" name="ticklerview">
-                    <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
-                    <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
-                    <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
-                </select>
-            </div>
+            <c:if test="${hasDemoView}">
+                <div class="row mb-3">
+                    <label for="ticklerview" class="col-sm-3 col-form-label">Filter</label>
+                    <div class="col-sm-9">
+                        <select id="ticklerview" class="form-select" name="ticklerview">
+                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
+                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
+                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
+                        </select>
+                    </div>
+                </div>
             </c:if>
         </form>
 
