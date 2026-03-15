@@ -85,14 +85,14 @@
 
         <script src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
 
-        <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath()%>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
-<script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath()%>/js/bootstrap.js"></script>
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
-<script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
 
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
@@ -119,7 +119,6 @@
         <script>
             jQuery.noConflict();
             jQuery(function () {
-                jQuery(document).tooltip();
             });
         </script>
 
@@ -134,11 +133,11 @@
 </form>
 
 <div class="container-fluid">
-<div class="navbar" id="demoHeader"><div class="navbar-inner">
-	<a class="brand" href="javascript:void(0)">Flowsheets</a>
+<div class="navbar" id="demoHeader"><div class="container-fluid">
+	<a class="navbar-brand" href="javascript:void(0)">Flowsheets</a>
 </div></div>
 
-			<table class="table table-striped table-condensed table-hover">
+			<table class="table table-striped table-sm table-hover">
         <thead>
         <tr>
             <td><b>Name</b></td>
@@ -191,11 +190,11 @@
             </tbody>
 			</table>
 
-		<div class="panel panel-default">
-			<div class="panel-heading">
+		<div class="card">
+			<div class="card-header">
 				<h4>Upload Custom Flowsheet</h4>
 			</div>
-		<div class="panel-body">
+		<div class="card-body">
 			<form enctype="multipart/form-data" method="POST" action="<%=request.getContextPath()%>/admin/manageFlowsheetsUpload.jsp">
         <input type="file" name="flowsheet_file">
 				<span title="<fmt:message key="global.uploadWarningBody"/>" style="vertical-align:middle;cursor:pointer"><img alt="alert" src="<%=request.getContextPath()%>/images/icon_alertsml.gif"/></span>

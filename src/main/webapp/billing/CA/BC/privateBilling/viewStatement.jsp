@@ -27,7 +27,8 @@
     <head>
         <meta charset="utf-8">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
-        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/3.0.0/css/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" href="${ctx}/css/bootstrap-select.min.css">
         <style>
             .table > tbody > tr.highlight_pink {
                 background-color: pink;
@@ -50,12 +51,12 @@
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></h3>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <h4>Total Private Patient Bills: ${bills.size()}</h4>
 
-        <div class="btn-toolbar" role="toolbar" arial-label="Toolbar">
-            <div class="btn-group mr-2" role="group">Filter By:
+        <div class="btn-toolbar" role="toolbar" aria-label="Toolbar">
+            <div class="btn-group me-2" role="group">Filter By:
                 <select name="providerList" id="providerList" class="selectpicker" style="height:38px;margin-top:-1px;"
                         onchange="handleFilterByProvider()">
                     <option value="%">All Providers</option>
@@ -64,24 +65,23 @@
                     </c:forEach>
                 </select>
             </div>
-            <div class="btn-group mr-2" role="group" arial-label="Button group 1">
+            <div class="btn-group me-2" role="group" aria-label="Button group 1">
                 <button type="button" id="btnPrintSelected" class="btn btn-primary" onclick="printSelected();">
-                    <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+                    <span class="fa-solid fa-print" aria-hidden="true"></span>
                     Print Selected
                 </button>
             </div>
-            <div class="btn-group mr-2" role="group" arial-label="Button group 2">
-                <div class="checkbox">
-                    <label>
-                        <input style="margin-top:0px;" type="checkbox" id="cbBillToClinic" checked> Bill To Clinic
-                    </label>
+            <div class="btn-group me-2" role="group" aria-label="Button group 2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="cbBillToClinic" checked>
+                    <label class="form-check-label" for="cbBillToClinic">Bill To Clinic</label>
                 </div>
             </div>
         </div>
 
         <hr>
 
-        <table class="table table-condensed">
+        <table class="table table-sm">
             <thead>
             <tr>
                 <th>
@@ -178,10 +178,10 @@
 
                         <%-- pop up a printer-frieldy private billing statement page --%>
                     <td>
-                        <button class="btn btn-primary btn-xs"
+                        <button class="btn btn-primary btn-sm"
                                 value="${invoice.demographicNumber}|${invoice.recipientId}"
                                 onclick="printItem(this.value)">
-                            <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+                            <span class="fa-solid fa-print" aria-hidden="true"></span>
                             print
                         </button>
                     </td>
@@ -191,23 +191,26 @@
         </table>
     </div>
 
-    <script type="text/javascript" src="${ctx}/js/jquery-1.12.3.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${ctx}/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/js/bootstrap-select.min.js"></script>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <script type="text/javascript">
         function printItem(itemValue) {
-            var billToClinic = $("input:checkbox#cbBillToClinic").is(":checked");
+            var billToClinic = document.getElementById('cbBillToClinic').checked;
             var values = itemValue.split('|');
             var selectedBillIds = [{demographicNumber: values[0], recipientId: values[1]}];
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
         function printSelected() {
-            var billToClinic = $("input:checkbox#cbBillToClinic").is(":checked");
-            var selectedBillIds = $("input:checkbox.case:checked").map(function () {
-                var values = this.value.split('|');
-                return {demographicNumber: values[0], recipientId: values[1]};
-            }).get();
+            var billToClinic = document.getElementById('cbBillToClinic').checked;
+            var selectedBillIds = [];
+            document.querySelectorAll("input.case:checked").forEach(function (el) {
+                var values = el.value.split('|');
+                selectedBillIds.push({demographicNumber: values[0], recipientId: values[1]});
+            });
             generatePrintFriendlyPage(selectedBillIds, billToClinic);
         }
 
@@ -218,37 +221,37 @@
         }
 
         function checkAllCaseCheckboxes() {
-            if ($("input:checkbox#master").is(":checked")) {
-                $("input:checkbox.case").prop("checked", true);
+            if (document.getElementById('master').checked) {
+                document.querySelectorAll("input.case").forEach(function (el) { el.checked = true; });
             } else {
-                $("input:checkbox.case").prop("checked", false);
+                document.querySelectorAll("input.case").forEach(function (el) { el.checked = false; });
             }
             enableBtnPrintSelected();
         }
 
         function checkMasterCheckbox() {
-            if ($("input:checkbox.case").length == $("input:checkbox.case:checked").length) {
-                $("#master").prop("checked", true);
+            if (document.querySelectorAll("input.case").length == document.querySelectorAll("input.case:checked").length) {
+                document.getElementById('master').checked = true;
             } else {
-                $("#master").prop("checked", false);
+                document.getElementById('master').checked = false;
             }
             enableBtnPrintSelected();
         }
 
         function enableBtnPrintSelected() {
-            if ($("input:checkbox.case:checked").length > 0) {
-                $("#btnPrintSelected").removeClass("disabled");
+            if (document.querySelectorAll("input.case:checked").length > 0) {
+                document.getElementById('btnPrintSelected').classList.remove("disabled");
             } else {
-                $("#btnPrintSelected").addClass("disabled");
+                document.getElementById('btnPrintSelected').classList.add("disabled");
             }
         }
 
         function handleFilterByProvider() {
-            var providerId = $("select#providerList").val();
+            var providerId = document.getElementById('providerList').value;
             window.location.href = "${ctx}/PrivateBillingController?action=listPrivateBills&providerId=" + providerId;
         }
 
-        $(function () {
+        document.addEventListener('DOMContentLoaded', function () {
             // after the page is loaded, see if the print button needs to be disabled
             enableBtnPrintSelected();
         });

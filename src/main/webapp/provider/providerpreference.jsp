@@ -379,7 +379,7 @@
 
         /* Size variants */
         .input-xs { max-width: 70px !important; }
-        .input-sm { max-width: 120px !important; }
+        .form-control-sm { max-width: 120px !important; }
         .input-md { max-width: 200px !important; }
 
         /* ─── Toggle switches ─── */
@@ -545,7 +545,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secSchedule">
+                data-bs-toggle="collapse" data-bs-target="#secSchedule" aria-expanded="true" aria-controls="secSchedule">
             <i class="fas fa-calendar-alt section-icon"></i> Schedule &amp; Appointments
         </button>
     </h2>
@@ -580,7 +580,7 @@
                 <div class="pref-label">Group No</div>
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="mygroup_no" value="<%=Encode.forHtmlAttribute(myGroupNo != null ? myGroupNo : "")%>"
-                           class="pref-input input-sm" maxlength="10">
+                           class="pref-input form-select-sm" maxlength="10">
                     <a href="providerdisplaymygroup.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-users"></i> View Groups
                     </a>
@@ -706,7 +706,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secContact">
+                data-bs-toggle="collapse" data-bs-target="#secContact" aria-expanded="false" aria-controls="secContact">
             <i class="fas fa-address-card section-icon"></i> Contact Information
         </button>
     </h2>
@@ -733,14 +733,14 @@
             <div class="pref-row">
                 <div class="pref-label">Province</div>
                 <div class="pref-value">
-                    <input type="text" name="rxProvince" class="pref-input input-sm"
+                    <input type="text" name="rxProvince" class="pref-input form-select-sm"
                            value="<%=Encode.forHtmlAttribute(rxProvince)%>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label">Postal Code</div>
                 <div class="pref-value">
-                    <input type="text" name="rxPostal" class="pref-input input-sm"
+                    <input type="text" name="rxPostal" class="pref-input form-select-sm"
                            value="<%=Encode.forHtmlAttribute(rxPostal)%>">
                 </div>
             </div>
@@ -769,7 +769,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secRx">
+                data-bs-toggle="collapse" data-bs-target="#secRx" aria-expanded="false" aria-controls="secRx">
             <i class="fas fa-prescription-bottle-alt section-icon"></i> Prescriptions
         </button>
     </h2>
@@ -785,7 +785,7 @@
             <div class="pref-row">
                 <div class="pref-label">Rx Page Size</div>
                 <div class="pref-value">
-                    <select name="rx_page_size" class="pref-input input-sm">
+                    <select name="rx_page_size" class="pref-input form-select-sm">
                         <option value="">Default</option>
                         <option value="PageSize.A4" <%="PageSize.A4".equals(rxPageSize)?"selected":""%>>A4</option>
                         <option value="PageSize.A6" <%="PageSize.A6".equals(rxPageSize)?"selected":""%>>A6</option>
@@ -841,7 +841,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secClinical">
+                data-bs-toggle="collapse" data-bs-target="#secClinical" aria-expanded="false" aria-controls="secClinical">
             <i class="fas fa-stethoscope section-icon"></i> Clinical Settings
         </button>
     </h2>
@@ -933,7 +933,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secConsult">
+                data-bs-toggle="collapse" data-bs-target="#secConsult" aria-expanded="false" aria-controls="secConsult">
             <i class="fas fa-user-md section-icon"></i> Consultation
         </button>
     </h2>
@@ -984,7 +984,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secDisplay">
+                data-bs-toggle="collapse" data-bs-target="#secDisplay" aria-expanded="false" aria-controls="secDisplay">
             <i class="fas fa-desktop section-icon"></i> Display &amp; UI
         </button>
     </h2>
@@ -1041,7 +1041,7 @@
             <div class="pref-row">
                 <div class="pref-label">Display Document As</div>
                 <div class="pref-value">
-                    <select name="display_document_as" class="pref-input input-sm">
+                    <select name="display_document_as" class="pref-input form-select-sm">
                         <option value="">Default</option>
                         <option value="PDF" <%="PDF".equals(displayDocAs)?"selected":""%>>PDF</option>
                         <option value="Image" <%="Image".equals(displayDocAs)?"selected":""%>>Image</option>
@@ -1073,7 +1073,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secLab">
+                data-bs-toggle="collapse" data-bs-target="#secLab" aria-expanded="false" aria-controls="secLab">
             <i class="fas fa-flask section-icon"></i> Lab, Prevention &amp; Messaging
         </button>
     </h2>
@@ -1096,7 +1096,7 @@
                     <span class="badge-auto">auto-save</span>
                 </div>
                 <div class="pref-value">
-                    <select id="reviewMsg" name="reviewMsg" class="pref-input input-sm"><%
+                    <select id="reviewMsg" name="reviewMsg" class="pref-input form-select-sm"><%
                         for (int hr = 0; hr < 24; ++hr) {
                             for (int min = 0; min < 60; min += 30) {
                                 String sel = (hr == reviewH && min == reviewMins) ? "selected" : "";
@@ -1180,7 +1180,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secApptCard">
+                data-bs-toggle="collapse" data-bs-target="#secApptCard" aria-expanded="false" aria-controls="secApptCard">
             <i class="fas fa-id-card section-icon"></i> Appointment Card
         </button>
     </h2>
@@ -1228,7 +1228,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secBilling">
+                data-bs-toggle="collapse" data-bs-target="#secBilling" aria-expanded="false" aria-controls="secBilling">
             <i class="fas fa-file-invoice-dollar section-icon"></i> Billing
         </button>
     </h2>
@@ -1273,7 +1273,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secSignatureStamp">
+                data-bs-toggle="collapse" data-bs-target="#secSignatureStamp" aria-expanded="false" aria-controls="secSignatureStamp">
             <i class="fas fa-signature section-icon"></i> <fmt:message key="provider.providerpreference.signatureStamp.title"/>
         </button>
     </h2>
@@ -1350,7 +1350,7 @@
 <div class="accordion-item">
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
-                data-bs-toggle="collapse" data-bs-target="#secAccount">
+                data-bs-toggle="collapse" data-bs-target="#secAccount" aria-expanded="false" aria-controls="secAccount">
             <i class="fas fa-user-cog section-icon"></i> Account &amp; Advanced
         </button>
     </h2>

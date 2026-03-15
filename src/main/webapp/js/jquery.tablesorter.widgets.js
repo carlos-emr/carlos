@@ -150,8 +150,8 @@
                 // icon class names
                 icons: '', // add 'bootstrap-icon-white' to make them white; this icon class is added to the <i> in the header
                 iconSortNone: 'bootstrap-icon-unsorted', // class name added to icon when column is not sorted
-                iconSortAsc: 'glyphicon glyphicon-chevron-up', // class name added to icon when column has ascending sort
-                iconSortDesc: 'glyphicon glyphicon-chevron-down', // class name added to icon when column has descending sort
+                iconSortAsc: 'fa-solid fa-chevron-up', // class name added to icon when column has ascending sort
+                iconSortDesc: 'fa-solid fa-chevron-down', // class name added to icon when column has descending sort
                 filterRow: '', // filter row class
                 footerRow: '',
                 footerCells: '',

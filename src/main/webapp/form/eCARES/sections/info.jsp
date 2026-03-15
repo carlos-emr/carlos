@@ -32,7 +32,7 @@
     <li class="flex items-center mr-4">
         <label for="chief_lifelong_occupation" class="mr-2 tt" title="Occupation">Chief lifelong occupation:</label>
         <input class="ecares-input" type="text" name="chief_lifelong_occupation" id="chief_lifelong_occupation"
-               data-placement="bottom" maxlength="50">
+               data-bs-placement="bottom" maxlength="50">
     </li>
     <li class="flex items-center">
         <label for="education" class="mr-2 tt" title="Education">Education (years):</label>

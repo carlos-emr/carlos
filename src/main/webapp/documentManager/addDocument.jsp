@@ -248,19 +248,19 @@
 <div class="add-document-wrapper">
 
     <div class="docHeading btn-group">
-        <a class="btn" id="plusminusAddDocA" href="javascript: showhide('addDocDiv', 'plusminusAddDocA');">
+        <a class="btn btn-secondary" id="plusminusAddDocA" href="javascript: showhide('addDocDiv', 'plusminusAddDocA');">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgAddDocument"/>
         </a>
-        <a class="btn" id="plusminusLinkA" href="javascript: showhide('addLinkDiv', 'plusminusLinkA')">
+        <a class="btn btn-secondary" id="plusminusLinkA" href="javascript: showhide('addLinkDiv', 'plusminusLinkA')">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.AddLink"/>
         </a>
-        <a class="btn" href="javascript:void(0);"
+        <a class="btn btn-secondary" href="javascript:void(0);"
            onclick="popup1(450, 600, 'addedithtmldocument.jsp?function=<%=module%>&functionid=<%=moduleid%>&mode=addHtml', 'addhtml')">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.AddHTML"/>
         </a>
     </div>
 
-    <div id="addDocDiv" class="addDocDiv well form-inline" style="display: none; padding:5px;">
+    <div id="addDocDiv" class="addDocDiv card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" style="display: none; padding:5px;">
         <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST" enctype="multipart/form-data"
                    class="forms" onsubmit="return submitUpload(this)">
 
@@ -277,10 +277,10 @@
             <input type="hidden" name="curUser" value="<%=Encode.forHtmlAttribute(curUser)%>">
             <input type="hidden" name="appointmentNo" value="<%=Encode.forHtmlAttribute(formdata.getAppointmentNo())%>"/>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docType">Type</label>
                 <div class="input-group">
-                    <select id="docType" class="form-control" name="docType">
+                    <select id="docType" class="form-select" name="docType">
                         <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
                         <%
                             for (int i = 0; i < doctypes.size(); i++) {
@@ -290,15 +290,15 @@
                         </option>
                         <%}%>
                     </select>
-                    <div class="input-group-btn btn-group">
-                        <input id="docTypeinput" type="button" class="btn btn-default form-control"
+                    <div class="input-group btn-group">
+                        <input id="docTypeinput" type="button" class="btn btn-secondary"
                                onClick="newDocType();"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/>"/>
                     </div>
                 </div>
             </div>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docDesc">Description</label>
                 <input type="text"
                        class="form-control <c:if test='${ docerrors["descmissing"] != null}' >alert-danger</c:if>"
@@ -306,16 +306,16 @@
                        onfocus="checkDefaultValue(this)"/>
                 <input type="hidden" name="docCreator" value="<%=formdata.getDocCreator()%>"/>
             </div>
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="observationDate" title="Observation Date">Observation Date</label>
-                <input class="span2 form-control" type="date" name="observationDate" id="observationDate"
+                <input class="form-control" type="date" name="observationDate" id="observationDate"
                        value="<%=formdata.getObservationDate()%>"
                        onclick="checkDefaultDate(this, '<%=UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>')">
             </div>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docClass"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/>:</label>
-                <select name="docClass" id="docClass" class="form-control">
+                <select name="docClass" id="docClass" class="form-select">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
                     <% boolean consult1Shown = false;
                         for (String reportClass : reportClasses) {
@@ -330,32 +330,30 @@
                     <% } %>
                 </select>
             </div>
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docSubClass"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/>:</label>
                 <input type="text" name="docSubClass" id="docSubClass" class="form-control">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
             </div>
-            <div class="checkbox">
-                <label>
-                    <input type="checkbox" id="restrictToProgram" name="restrictToProgram">
-                    Restrict to current program</label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="restrictToProgram" name="restrictToProgram">
+                <label class="form-check-label" for="restrictToProgram">Restrict to current program</label>
             </div>
             <% if (EDocUtil.isProviderModule(module)) {%>
-            <div class="checkbox">
-                <label>
-                    <input type="checkbox" id="docPublic" name="docPublic" <%=formdata.getDocPublic() + " "%>
-                           value="checked">
-                    Public</label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="docPublic" name="docPublic" <%=formdata.getDocPublic() + " "%>
+                       value="checked">
+                <label class="form-check-label" for="docPublic">Public</label>
             </div>
             <% } %>
-            <div class="form-group">
+            <div class="mb-3">
                 <label for="docFile">Select Document</label>
                 <div class="input-group">
                     <input type="file" name="docFile" id="docFile" class="form-control"
                            <c:if test="${ docerrors['uploaderror'] != null }">alert-danger</c:if>">
 
                     <input type="hidden" name="mode" value="add">
-                    <div class="input-group-btn">
+                    <div class="input-group">
                         <input type="submit" name="Submit" value="Add" class="btn btn-primary">
                         <input type="button" name="Button" class="btn btn-error"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
@@ -369,7 +367,7 @@
         </form>
     </div>
 
-    <div id="addLinkDiv" class="addDocDiv form-inline well" style="display: none;">
+    <div id="addLinkDiv" class="addDocDiv d-flex flex-wrap align-items-center gap-2 card card-body bg-body-tertiary" style="display: none;">
 
         <form action="${pageContext.request.contextPath}/documentManager/addLink.do" method="POST" class="forms"
                    onsubmit="return submitUploadLink(this)">
@@ -386,10 +384,10 @@
         <input type="hidden" name="observationDate" value="<%=formdata.getObservationDate()%>">
         <input type="hidden" name="appointmentNo" value="<%=formdata.getAppointmentNo()%>"/>
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docType1">Link Type</label>
             <div class="input-group">
-                <select id="docType1" name="docType" class="form-control">
+                <select id="docType1" name="docType" class="form-select">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelect"/></option>
                     <%
                         for (int i1 = 0; i1 < doctypes.size(); i1++) {
@@ -399,8 +397,8 @@
                     </option>
                     <%}%>
                 </select>
-                <div class="input-group-btn btn-group">
-                    <input id="docTypeinput1" type="button" class="btn btn-default form-control"
+                <div class="input-group btn-group">
+                    <input id="docTypeinput1" type="button" class="btn btn-secondary"
                            onClick="newDocTypeLink();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentEdit.formAddNewDocType"/>"/>
                 </div>
@@ -408,16 +406,16 @@
         </div>
 
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docDesc2">Description</label>
             <input type="text" name="docDesc" id="docDesc2"
                    class="form-control <c:if test="${ linkhtmlerrors['descmissing'] != null }">alert-danger</c:if>"
                    value="<%=formdata.getDocDesc()%>" onfocus="checkDefaultValue(this)">
         </div>
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docClassB"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocClass"/></label>
-            <select name="docClass" id="docClassB" class="form-control">
+            <select name="docClass" id="docClassB" class="form-select">
                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.formSelectClass"/></option>
                 <% boolean consult2Shown = false;
                     for (String reportClass : reportClasses) {
@@ -432,20 +430,19 @@
                 <% } %>
             </select>
         </div>
-        <div class="form-group">
+        <div class="mb-3">
             <label for="docSubClass2"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgDocSubClass"/></label>
             <input type="text" name="docSubClass" id="docSubClass2" class="form-control">
             <div class="autocomplete_style" id="docSubClass_list2"></div>
         </div>
         <% if (EDocUtil.isProviderModule(module)) {%>
-        <div class="checkbox">
-            <label>
-                <input type="checkbox" name="docPublic" <%=formdata.getDocPublic() + " "%> value="checked">
-                Public</label>
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" name="docPublic" <%=formdata.getDocPublic() + " "%> value="checked">
+            <label class="form-check-label">Public</label>
         </div>
         <% } %>
 
-        <div class="form-group">
+        <div class="mb-3">
             <label for="html">Link</label>
             <div class="input-group">
                 <input type="text" id="html" name="html" class="form-control"
@@ -453,10 +450,10 @@
                 <input type="hidden" name="docCreator"
                        value="<%=formdata.getDocCreator()%>">
                 <input type="hidden" name="appointmentNo" value="<%=formdata.getAppointmentNo()%>"/>
-                <div class="input-group-btn">
+                <div class="input-group">
                     <input type="hidden" name="mode" value="addLink">
                     <input class="btn btn-primary" type="SUBMIT" name="Submit" value="Add">
-                    <input class="btn" type="button" name="Button"
+                    <input class="btn btn-secondary" type="button" name="Button"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
                            onclick="window.location='documentReport.jsp?function=<%=module%>&functionid=<%=moduleid%>'">
                 </div>

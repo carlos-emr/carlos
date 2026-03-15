@@ -171,7 +171,7 @@
                 <tr>
                     <td><input type="checkbox" name="xml_fu_awbv" value="checked"
                         <%=bNew?"":"datafld='xml_fu_awbv'"%>></td>
-                    <td>Additional well baby visits</td>
+                    <td>Additional card card-body bg-body-tertiary baby visits</td>
                     <td><input type="checkbox" name="xml_fu_scr" value="checked"
                         <%=bNew?"":"datafld='xml_fu_scr'"%>></td>
                     <td>Smoking cessation resources</td>

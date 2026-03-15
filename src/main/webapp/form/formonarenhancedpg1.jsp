@@ -104,13 +104,28 @@
                 src="<%= context %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
 
-        <script src="<%= context %>/js/jquery-1.7.1.min.js" type="text/javascript"></script>
-        <script src="<%= context %>/js/jquery-ui-1.8.18.custom.min.js"></script>
-        <script src="<%= context %>/js/fg.menu.js"></script>
-
-
-        <link rel="stylesheet" href="<%= context %>/css/cupertino/jquery-ui-1.8.18.custom.css">
-        <link rel="stylesheet" href="<%= context %>/css/fg.menu.css">
+        <script src="<%= context %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+        <script src="<%= context %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%= context %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.14.2.min.css">
+        <script>
+            /* Bootstrap 5 dropdown shim replacing fg.menu plugin */
+            $.fn.menu = function(opts) {
+                return this.each(function() {
+                    var $trigger = $(this);
+                    if (!opts || !opts.content) return;
+                    var $wrapper = $('<div class="dropdown d-inline-block"></div>');
+                    $trigger.wrap($wrapper);
+                    $trigger.attr({'data-bs-toggle': 'dropdown', 'role': 'button'}).css('cursor', 'pointer');
+                    var $menu = $('<ul class="dropdown-menu"></ul>');
+                    $(opts.content).find('a').each(function() {
+                        var $a = $(this).clone().addClass('dropdown-item');
+                        $menu.append($('<li></li>').append($a));
+                    });
+                    $trigger.after($menu);
+                });
+            };
+        </script>
 
 
         <script>
@@ -4025,7 +4040,7 @@
         </form>
     </div>
 
-    <div id="lab_menu_div" class="hidden">
+    <div id="lab_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)"
                    onclick="popPage('form/formlabreq<%=labReqVer%>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=eFTS','LabReq')">MOH&amp;LTC
@@ -4037,7 +4052,7 @@
         </ul>
     </div>
 
-    <div id="forms_menu_div" class="hidden">
+    <div id="forms_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="loadUltrasoundForms();">Ultrasound</a></li>
             <li><a href="javascript:void(0)" onclick="loadCustomForms();"><%=customEformGroup%>
@@ -4045,7 +4060,7 @@
         </ul>
     </div>
 
-    <div id="sickle_cell_menu_div" class="hidden">
+    <div id="sickle_cell_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="return false;">Guidelines</a></li>
             <li><a href="javascript:void(0)" onclick="return false;">Patient Handout</a></li>
@@ -4054,7 +4069,7 @@
         </ul>
     </div>
 
-    <div id="thalassemia_menu_div" class="hidden">
+    <div id="thalassemia_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="return false;">Guidelines</a></li>
             <li><a href="javascript:void(0)" onclick="return false;">Patient Handout</a></li>
@@ -4063,7 +4078,7 @@
         </ul>
     </div>
 
-    <div id="genetics_menu_div" class="hidden">
+    <div id="genetics_menu_div" class="d-none">
         <ul>
             <li><a href="http://www.sogc.org/guidelines/documents/gui217CPG0810.pdf" target="sogc">SOGC Guidelines</a>
             </li>

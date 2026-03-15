@@ -245,4 +245,4 @@ $(document).ready(function () {
     });
 });
 
-$(window).load(resizeUl);
+$(window).on('load', resizeUl);

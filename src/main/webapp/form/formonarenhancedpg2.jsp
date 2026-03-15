@@ -136,15 +136,30 @@
         <script type="text/javascript"
                 src="<%= context %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
-        <script type="text/javascript" src="<%= context %>/js/jquery-1.7.1.min.js"></script>
-        <script src="<%= context %>/js/jquery-ui-1.8.18.custom.min.js"></script>
-        <script src="<%= context %>/js/fg.menu.js"></script>
+        <script type="text/javascript" src="<%= context %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%= context %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%= context %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.css" media="screen"/>
-
-
-        <link rel="stylesheet" href="<%= context %>/css/cupertino/jquery-ui-1.8.18.custom.css">
-        <link rel="stylesheet" href="<%= context %>/css/fg.menu.css">
+        <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.14.2.min.css">
+        <script>
+            /* Bootstrap 5 dropdown shim replacing fg.menu plugin */
+            $.fn.menu = function(opts) {
+                return this.each(function() {
+                    var $trigger = $(this);
+                    if (!opts || !opts.content) return;
+                    var $wrapper = $('<div class="dropdown d-inline-block"></div>');
+                    $trigger.wrap($wrapper);
+                    $trigger.attr({'data-bs-toggle': 'dropdown', 'role': 'button'}).css('cursor', 'pointer');
+                    var $menu = $('<ul class="dropdown-menu"></ul>');
+                    $(opts.content).find('a').each(function() {
+                        var $a = $(this).clone().addClass('dropdown-item');
+                        $menu.append($('<li></li>').append($a));
+                    });
+                    $trigger.after($menu);
+                });
+            };
+        </script>
 
         <style type="text/css">
             body {
@@ -3112,7 +3127,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </form>
     </div>
 
-    <div id="lab_menu_div" class="hidden">
+    <div id="lab_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)"
                    onclick="popPage('form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AnteNatal','LabReq')">Routine
@@ -3123,7 +3138,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </ul>
     </div>
 
-    <div id="forms_menu_div" class="hidden">
+    <div id="forms_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="loadUltrasoundForms();">Ultrasound</a></li>
             <li><a href="javascript:void(0)" onclick="loadCustomForms();"><%=customEformGroup%>

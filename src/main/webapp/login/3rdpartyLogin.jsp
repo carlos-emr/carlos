@@ -95,8 +95,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Login and Authorize 3rd Party Application</title>
-    <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <style type="text/css">
         body {
             padding-top: 40px;
@@ -113,7 +112,7 @@
             box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
         }
         .form-signin .form-signin-heading,
-        .form-signin .checkbox {
+        .form-signin .form-check {
             margin-bottom: 10px;
         }
         .form-signin input[type="text"],
@@ -214,7 +213,7 @@
 <body>
 <div class="container">
     <div class="row">
-        <div class="span5">
+        <div class="col-md-5">
             <div style="margin-top:25px;">
                 <img src="${pageContext.request.contextPath}/images/OSCAR-LOGO.gif"
                      width="450" height="274" alt="OSCAR Logo">
@@ -227,26 +226,26 @@
                 </p>
             </div>
         </div>
-        <div class="span7">
+        <div class="col-md-7">
 
             <!-- Username / Password Form -->
             <div id="login_div" class="form-container">
                 <form class="form-signin">
                     <h2 class="form-signin-heading">Please sign in</h2>
-                    <input class="input-block-level" placeholder="Username"
+                    <input class="form-control mb-2" placeholder="Username"
                            type="text" id="username">
-                    <input class="input-block-level" placeholder="Password"
+                    <input class="form-control mb-2" placeholder="Password"
                            type="password" id="password">
-                    <input class="input-block-level" placeholder="Pin"
+                    <input class="form-control mb-2" placeholder="Pin"
                            type="password" id="pin">
 
-                    <div id="login_error" class="help-block" style="display:none;">
-                        <span class="text-error">
+                    <div id="login_error" class="form-text" style="display:none;">
+                        <span class="text-danger">
                             <strong>Login Failed: </strong><span></span>
                         </span>
                     </div>
 
-                    <button class="btn btn-large btn-primary"
+                    <button class="btn btn-lg btn-primary"
                             type="button"
                             onclick="submitCredentials()">
                         Sign in
@@ -281,15 +280,16 @@
                     <form id="scopeForm" method="post"
                         action="${e:forHtmlAttribute(oauthData.replyTo)};jsessionid=${pageContext.session.id}">
                         <c:forEach var="perm" items="${oauthData.permissions}">
-                            <div class="control group">
-                            <div class="controls">
-                                <label class="checkbox">
-                                <input type="checkbox" checked="checked" disabled="disabled">
-                                <e:forHtmlContent value='${perm}' />
+                            <div class="mb-3">
+                            <div>
+                                <div class="form-check">
+                                <input type="checkbox" class="form-check-input" checked="checked" disabled="disabled">
+                                <label class="form-check-label"><e:forHtmlContent value='${perm}' />
                                 <c:if test="${empty fn:trim(perm)}">
                                     <em>(no description)</em>
                                 </c:if>
                                 </label>
+                                </div>
                             </div>
                             </div>
                         </c:forEach>

@@ -57,7 +57,7 @@
 
         <script src="<c:out value="${ctx}"/>/js/global.js"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"></script>
-        <link href="<c:out value="${ctx}"/>/css/bootstrap.css" rel="stylesheet" type="text/css"><!-- Bootstrap 2.3.1 -->
+        <link href="<c:out value="${ctx}"/>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css"><!-- Bootstrap -->
 
     </head>
 

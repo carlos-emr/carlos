@@ -274,17 +274,17 @@
         };
 
         this.initEventHandlers = function () {
-            uploadHandler.downloadTable.find('a:not([target="_blank"])')
-                .live('click', uploadHandler.downloadHandler);
-            uploadHandler.downloadTable.find('.file_download_delete button')
-                .live('click', uploadHandler.deleteHandler);
+            uploadHandler.downloadTable.on('click', 'a:not([target="_blank"])',
+                uploadHandler.downloadHandler);
+            uploadHandler.downloadTable.on('click', '.file_download_delete button',
+                uploadHandler.deleteHandler);
         };
 
         this.destroyEventHandlers = function () {
-            uploadHandler.downloadTable.find('a:not([target="_blank"])')
-                .die('click', uploadHandler.downloadHandler);
-            uploadHandler.downloadTable.find('.file_download_delete button')
-                .die('click', uploadHandler.deleteHandler);
+            uploadHandler.downloadTable.off('click', 'a:not([target="_blank"])',
+                uploadHandler.downloadHandler);
+            uploadHandler.downloadTable.off('click', '.file_download_delete button',
+                uploadHandler.deleteHandler);
         };
 
         this.multiButtonHandler = function (e) {

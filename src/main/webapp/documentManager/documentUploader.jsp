@@ -104,15 +104,15 @@
 	<title><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title" /></title>
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css" />
 
-     <!-- tested with Bootstrap 2.3.1 and Bootstrap 3.0.0 -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <!--<link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">-->
+     <!-- Bootstrap -->
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
-    <!-- styles to alter add files button and adjust bootstrap 3 progress bar -->
+    <!-- styles to alter add files button and adjust progress bar -->
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/documentUploader/style.css">
 
-    <!-- tested with jQuery 1.12.3 and jQuery 3.6.4 -->
-    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <!-- tested with jQuery 1.12.3 and jQuery 3.7.1 -->
+    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-compat.js"></script>
 
     <!-- jQuery ui OR just the jQuery ui widget factory to match the jQuery above -->
     <script src="${pageContext.request.contextPath}/js/jquery.ui.widget.js"></script> <!-- 1.12.1 -->
@@ -240,11 +240,11 @@
 </head>
 <body onload="setDropList();">
     <div class="container">
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <h3 class="panel-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h3>
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.addDocument.msgManageUploadDocument" /></h3>
         </div>
-        <div class="panel-body">
+        <div class="card-body">
             <ul>
                 <li><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title" /></li>
                 <li><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUpload.onlyPdf" /></li>
@@ -263,16 +263,16 @@
 			<input type="hidden" id="provider" name="provider" value="<%= Encode.forHtmlAttribute(provider) %>" />
 		    <input type="hidden" id="queue" name="queue" value="<%=queueId%>"/>
 
-             <div class="form-group">
+             <div class="mb-3">
                 <label for="destinationDrop"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.destination" />:</label>
-                    <select onchange="javascript:setDestination(this);"  id="destinationDrop"  name="destinationDrop" class="form-control input-block-level">
+                    <select onchange="javascript:setDestination(this);"  id="destinationDrop"  name="destinationDrop" class="form-select">
                         <option value="pendingDocs" <%=( destination.equals("pendingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.pendingDocs" /></option>
                         <option value="incomingDocs" <%=( destination.equals("incomingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.incomingDocs" /></option>
                     </select>
              </div>
-             <div class="form-group" id="providerDropDiv">
+             <div class="mb-3" id="providerDropDiv">
                 <label for="providerDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.sendToProvider" />:</label>
-				<select onchange="javascript:setProvider(this);" id="providerDrop" name="providerDrop" class="form-control input-block-level">
+				<select onchange="javascript:setProvider(this);" id="providerDrop" name="providerDrop" class="form-select">
 					<option value="0" <%=("0".equals(provider) ? " selected" : "")%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.none" /></option>
 					<%
 					for (int i = 0; i < providers.size(); i++) {
@@ -284,9 +284,9 @@
 					%>
 				</select>
              </div>
-             <div class="form-group">
+             <div class="mb-3">
 				<label for="queueDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue" />:</label>
-				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-control input-block-level">
+				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-select">
 					<%
 					for (Map.Entry<Integer,String> entry : queues.entrySet()) {
 					    int key = entry.getKey();
@@ -299,9 +299,9 @@
 					%>
 				</select>
              </div>
-             <div class="form-group" id="destFolderDiv">
+             <div class="mb-3" id="destFolderDiv">
                 <label for="destFolderDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.folder" />:</label>
-                    <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-control input-block-level">
+                    <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-select">
                         <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax" /></option>
                         <option value="Mail" <%=( destFolder.equals("Mail") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail" /></option>
                         <option value="File" <%=( destFolder.equals("File") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file" /></option>
@@ -313,17 +313,17 @@
         <div class="row fileupload-buttonbar">
           <div class="col-lg-7">
             <!-- The fileinput-button span is used to style the file input field as button -->
-            <span class="btn fileinput-button btn-default">
-              <i class="glyphicon glyphicon-plus"></i>
+            <span class="btn fileinput-button btn-secondary">
+              <i class="fa-solid fa-plus"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnAdd" />...</span>
               <input type="file" name="filedata" multiple />
             </span>
             <button type="submit" class="btn btn-primary start">
-              <i class="glyphicon glyphicon-upload"></i>
+              <i class="fa-solid fa-upload"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
             </button>
             <button type="reset" class="btn cancel">
-              <i class="glyphicon glyphicon-ban-circle"></i>
+              <i class="fa-solid fa-ban"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.reset" /></span>
             </button>
             <!-- The global file processing state -->
@@ -333,13 +333,14 @@
           <div class="col-lg-5 fileupload-progress fade">
             <!-- The global progress bar -->
             <div
-              class="progress progress-striped active"
+              class="progress"
               role="progressbar"
               aria-valuemin="0"
               aria-valuemax="100"
+              aria-valuenow="0"
             >
               <div
-                class="progress-bar progress-bar-success"
+                class="progress-bar bg-success"
                 style="width: 0%;"
               ></div>
             </div>
@@ -347,9 +348,9 @@
             <div class="progress-extended">&nbsp;</div>
           </div>
         </div>
-        <div id="drop-area" > <span style="font-size:40px; color:lightblue;"><i class="glyphicon glyphicon-cloud-upload"></i></span>
+        <div id="drop-area" > <span style="font-size:40px; color:lightblue;"><i class="fa-solid fa-cloud-arrow-up"></i></span>
         <!-- The table listing the files available for upload/download -->
-            <table role="presentation" class="table table-striped table-compact">
+            <table role="presentation" class="table table-striped table-sm">
               <tbody id="tbodyid" class="files"></tbody>
             </table>
         </div>
@@ -371,24 +372,24 @@
               </td>
               <td>
                   <p class="size"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.processing" />...</p>
-                  <div class="progress progress-striped active" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar progress-bar-success" style="width:0%;"></div></div>
+                  <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar bg-success" style="width:0%;"></div></div>
               </td>
               <td>
                   {% if (!o.options.autoUpload && o.options.edit ) { %}
-                    <button class="btn btn-success edit btn-small btn-sm" data-index="{%=i%}" disabled>
-                        <i class="glyphicon glyphicon-edit"></i>
+                    <button class="btn btn-success edit btn-sm" data-index="{%=i%}" disabled>
+                        <i class="fa-solid fa-pen-to-square"></i>
                         <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update" /></span>
                     </button>
                   {% } %}
                   {% if (!i && !o.options.autoUpload) { %}
-                      <button class="btn btn-primary start btn-small btn-sm" disabled>
-                          <i class="glyphicon glyphicon-upload"></i>
+                      <button class="btn btn-primary start btn-sm" disabled>
+                          <i class="fa-solid fa-upload"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
                       </button>
                   {% } %}
                   {% if (!i) { %}
-                      <button class="btn cancel btn-small btn-sm">
-                          <i class="glyphicon glyphicon-ban-circle"></i>
+                      <button class="btn cancel btn-sm">
+                          <i class="fa-solid fa-ban"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel" /></span>
                       </button>
                   {% } %}
@@ -416,7 +417,7 @@
                       {% } %}
                   </p>
                   {% if (file.error) { %}
-                      <div><span class="label label-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.fileError" /></span> {%=file.error%}</div>
+                      <div><span class="badge bg-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.fileError" /></span> {%=file.error%}</div>
                   {% } %}
               </td>
               <td>
@@ -425,7 +426,7 @@
               <td>
                   {% if (file.deleteUrl) { %}
                       <button class="btn btn-danger delete" data-type="{%=file.deleteType%}" data-url="{%=file.deleteUrl%}"{% if (file.deleteWithCredentials) { %} data-xhr-fields='{"withCredentials":true}'{% } %}>
-                          <i class="glyphicon glyphicon-trash"></i>
+                          <i class="fa-solid fa-trash"></i>
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete" /></span>
                       </button>
                       <input type="checkbox" name="delete" value="1" class="toggle">

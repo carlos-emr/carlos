@@ -392,8 +392,8 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     </script>
     <!--<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css">-->
 <!-- Bootstrap -->
-<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
-<script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
      <style type="text/css">
 body { line-height: 12px; font-size: 12px; }

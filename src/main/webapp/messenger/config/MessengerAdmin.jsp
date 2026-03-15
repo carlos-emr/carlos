@@ -76,10 +76,12 @@
             <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.title"/></title>
 
             <script type="text/javascript"
-                    src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
-            <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.min.css" rel="stylesheet"
+                    src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+            <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet"
                   type="text/css"/>
+            <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
             <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+            <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
             <style type="text/css">
                 summary {
                     cursor: pointer;
@@ -256,28 +258,28 @@
         <div class="container-fluid">
 
             <div class="navbar">
-                <div class="navbar-inner">
-                    <a class="brand" href="#">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="#">
                         Messenger Group Admin
                     </a>
                     <ul class="nav nav-tabs">
-                        <li class="active">
-                            <a href="#addContacts" data-toggle="tab">Manage Contacts</a>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#addContacts" data-bs-toggle="tab">Manage Contacts</a>
                         </li>
-                        <li>
-                            <a href="#manageGroups" data-toggle="tab">Manage Contact Groups</a>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#manageGroups" data-bs-toggle="tab">Manage Contact Groups</a>
                         </li>
                     </ul>
                 </div>
             </div>
 
-            <div class="row-fluid tab-content">
+            <div class="row tab-content">
                 <div class="tab-pane active" id="addContacts">
                     <p>Enable or disable (check or uncheck) clinic providers as a contact in the
                         Messenger address book.</p>
                     <ul class="nav nav-tabs">
-                        <li class="active">
-                            <a data-toggle="tab" href="#local-contacts">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#local-contacts">
                                 Local Providers
                             </a>
                         </li>
@@ -286,17 +288,19 @@
                     <div class="tab-content">
                         <div class="tab-pane active" id="local-contacts">
                             <c:forEach items="${ localContacts }" var="contact" varStatus="count">
-                                <div class="row-fluid contact-entry">
-                                    <label class="checkbox">
-                                        <input type="checkbox" value="${ contact.id.compositeId }"
+                                <div class="row contact-entry">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" value="${ contact.id.compositeId }"
                                             ${ contact.member ? 'checked="checked"' : '' } />
+                                        <label class="form-check-label">
                                         <span id="${ contact.id.compositeId }" class="provider-name">
 									<c:out value="${ contact.lastName }"/>, <c:out value="${ contact.firstName }"/>
 								</span>
-                                        <span class="muted">
+                                        <span class="text-muted">
 									<c:out value="${ contact.providerType }"/>
 								</span>
-                                    </label>
+                                        </label>
+                                    </div>
                                 </div>
                             </c:forEach>
                         </div>
@@ -307,14 +311,14 @@
                     <p>Manage Oscar Messenger contact groups</p>
                     <ul class="nav nav-tabs">
                         <c:forEach items="${ groups }" var="group" varStatus="count">
-                            <li ${ count.index eq 0 ? 'class="active"' : '' } >
-                                <a data-toggle="tab" href="#group-${ group.key.id }">
+                            <li class="nav-item">
+                                <a class="nav-link${ count.index eq 0 ? ' active' : '' }" data-bs-toggle="tab" href="#group-${ group.key.id }">
                                     <c:out value="${ group.key.groupDesc }"/>
                                 </a>
                             </li>
                         </c:forEach>
-                        <li>
-                            <a data-toggle="tab" href="#new-group" class="muted">
+                        <li class="nav-item">
+                            <a data-bs-toggle="tab" href="#new-group" class="nav-link text-muted">
                                 <i class="fa-solid fa-plus add-group-tab" title="New Group"></i>
                             </a>
                         </li>
@@ -322,12 +326,12 @@
 
                     <div class="tab-content">
                         <c:forEach items="${ groups }" var="group" varStatus="count">
-                            <div class="tab-pane form-check ${ count.index eq 0 ? 'active' : '' }"
+                            <div class="tab-pane ${ count.index eq 0 ? 'active' : '' }"
                                  id="group-${ group.key.id }">
                                 <div id="group-member-list-${ group.key.id }">
                                     <c:forEach items="${ group.value }" var="member">
-                                        <div class="row-fluid contact-entry">
-                                            <label class="checkbox">
+                                        <div class="row contact-entry">
+                                            <div class="form-check">
                                                 <i class="fa-solid fa-trash group-member"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
                                                    title="Remove Contact"
@@ -336,15 +340,15 @@
 											<c:out value="${ member.lastName }"/>, <c:out
                                                         value="${ member.firstName }"/>
 										</span>
-                                                <span class="muted">
+                                                <span class="text-muted">
 											<c:out value="${ member.providerType }"/>
 										</span>
-                                            </label>
+                                            </div>
                                         </div>
                                     </c:forEach>
                                 </div>
-                                <div class="control-group contact-group-buttons">
-                                    <div class="input-append">
+                                <div class="mb-3 contact-group-buttons">
+                                    <div class="input-group">
                                         <div class="autocomplete">
                                             <input type='text' placeholder="Last, First" id="${ group.key.id }"
                                                    class="search-provider"/>
@@ -354,20 +358,20 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row-fluid" style="background-color:white;">
-                                    <button id="delete-${ group.key.id }" class="btn delete-group-btn pull-right">Delete
+                                <div class="row" style="background-color:white;">
+                                    <button id="delete-${ group.key.id }" class="btn delete-group-btn float-end">Delete
                                         Group
                                     </button>
                                 </div>
                             </div>
                         </c:forEach>
 
-                        <div class="tab-pane form-check" id="new-group">
-                            <div class="control-group">
-                                <div class="input-append">
+                        <div class="tab-pane" id="new-group">
+                            <div class="mb-3">
+                                <div class="input-group">
                                     <input type='text' placeholder="Group Name" class="group-name-input"
                                            id="new-group-name"/>
-                                    <button id="add-group-btn" class="btn">
+                                    <button id="add-group-btn" class="btn btn-secondary">
                                         add
                                     </button>
                                 </div>

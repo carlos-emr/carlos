@@ -99,7 +99,7 @@
     <body>
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
 
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnImportFormData"/></h3>
 

@@ -56,15 +56,14 @@
     <head>
         <title>Report by Template</title>
 
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
-              rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="${pageContext.request.contextPath}/js/bootstrap.min.2.js"></script>
-        <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
         <script>
             function clearSession() {
@@ -125,12 +124,12 @@
         <small><c:out value="${ reportobject.description }"/></small>
     </h3>
 
-    <div class="reportBorderDiv row-fluid">
+    <div class="reportBorderDiv row">
         <c:forEach items="${ htmlList }" var="htmlOut">
             <c:choose>
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
-                    <div class="alert alert-error">
-                        <a href="#" data-dismiss="alert" class="close">&times;</a>
+                    <div class="alert alert-danger">
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         <c:out value="${ htmlOut }"/>
                     </div>
                 </c:when>
@@ -143,7 +142,7 @@
 
     <div class="noprint form-actions">
 
-        <div style="margin-bottom:15px;" class="controls controls-row">
+        <div style="margin-bottom:15px;" class="d-flex gap-2">
             <input type="button" class="btn btn-primary" value="Back"
                    onclick="document.location='reportConfiguration.jsp?templateid=${ reportobject.templateId }'">
             <input type="button" class="btn btn-primary" value="Print" onclick="window.print();">
@@ -157,14 +156,14 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn" name="csv" value="<%=StringEscapeUtils.escapeHtml4(csvList.get(x))%>">
-                <input type="submit" class="btn" name="getCSV" value="Export to CSV">
-                <input type="submit" class="btn" name="getXLS" value="Export to XLS">
+                <input type="hidden" class="btn btn-secondary" name="csv" value="<%=StringEscapeUtils.escapeHtml4(csvList.get(x))%>">
+                <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
+                <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
             </form>
 
             <% } %>
         </div>
-        <div class="row-fluid sub-actions">
+        <div class="row sub-actions">
             <a href="#" class="showhidequery result-btn" onclick="showHideItem('sqlDiv')">
                 Show/Hide Query
             </a>

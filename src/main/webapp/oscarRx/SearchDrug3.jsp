@@ -185,8 +185,9 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" >
         	var ctx = '${ ctx }';
         </script>
-<script type="text/javascript" src="${ ctx }/library/jquery/jquery-3.6.4.min.js" ></script>
-<script type="text/javascript" src="${ ctx }/library/jquery/jquery-ui-1.12.1.min.js" ></script>
+<script type="text/javascript" src="${ ctx }/library/jquery/jquery-3.7.1.min.js" ></script>
+<script src="${ ctx }/library/jquery/jquery-compat.js"></script>
+<script type="text/javascript" src="${ ctx }/library/jquery/jquery-ui-1.14.2.min.js" ></script>
 
 		<script type="text/javascript">
           jQuery.noConflict();
@@ -215,7 +216,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/datasource-min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/autocomplete-min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/js/checkDate.js"/>"></script>
-		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.12.1.min.css"/>
+		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
 
         <script type="text/javascript">
             let selectedReRxIDs = [];

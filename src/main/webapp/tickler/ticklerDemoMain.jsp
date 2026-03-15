@@ -121,15 +121,16 @@
 
 <html>
     <head>
-        <script src="<%=request.getContextPath()%>/js/jquery-1.7.1.min.js" type="text/javascript"></script>
-        <script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script>
             jQuery.noConflict();
         </script>
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/cupertino/jquery-ui-1.8.18.custom.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css">
 
         <script>
-            jQuery(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
                     autoOpen: false,
                     height: 340,
@@ -144,23 +145,23 @@
             });
 
             function openNoteDialog(demographicNo, ticklerNo) {
-                jQuery("#tickler_note_demographicNo").val(demographicNo);
-                jQuery("#tickler_note_ticklerNo").val(ticklerNo);
+                document.getElementById('tickler_note_demographicNo').value = demographicNo;
+                document.getElementById('tickler_note_ticklerNo').value = ticklerNo;
 
                 //is there an existing note?
                 jQuery.ajax({
                     url: '<%=request.getContextPath()%>/CaseManagementEntry.do',
-                    data: {method: "ticklerGetNote", ticklerNo: jQuery('#tickler_note_ticklerNo').val()},
+                    data: {method: "ticklerGetNote", ticklerNo: document.getElementById('tickler_note_ticklerNo').value},
                     async: false,
                     dataType: 'json',
                     success: function (data) {
                         if (data != null) {
-                            jQuery("#tickler_note_noteId").val(data.noteId);
-                            jQuery("#tickler_note").val(data.note);
-                            jQuery("#tickler_note_revision").html(data.revision);
-                            jQuery("#tickler_note_revision_url").attr('onclick', 'window.open(\'<%=request.getContextPath()%>/CaseManagementEntry.do?method=notehistory&noteId=' + data.noteId + '\');return false;');
-                            jQuery("#tickler_note_editor").html(data.editor);
-                            jQuery("#tickler_note_obsDate").html(data.obsDate);
+                            document.getElementById('tickler_note_noteId').value = data.noteId;
+                            document.getElementById('tickler_note').value = data.note;
+                            document.getElementById('tickler_note_revision').textContent = data.revision;
+                            document.getElementById('tickler_note_revision_url').setAttribute('onclick', 'window.open(\'<%=request.getContextPath()%>/CaseManagementEntry.do?method=notehistory&noteId=' + data.noteId + '\');return false;');
+                            document.getElementById('tickler_note_editor').textContent = data.editor;
+                            document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
                         }
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
@@ -181,10 +182,10 @@
                     url: '<%=request.getContextPath()%>/CaseManagementEntry.do',
                     data: {
                         method: "ticklerSaveNote",
-                        noteId: jQuery("#tickler_note_noteId").val(),
-                        value: jQuery('#tickler_note').val(),
-                        demographicNo: jQuery('#tickler_note_demographicNo').val(),
-                        ticklerNo: jQuery('#tickler_note_ticklerNo').val()
+                        noteId: document.getElementById('tickler_note_noteId').value,
+                        value: document.getElementById('tickler_note').value,
+                        demographicNo: document.getElementById('tickler_note_demographicNo').value,
+                        ticklerNo: document.getElementById('tickler_note_ticklerNo').value
                     },
                     async: false,
                     success: function (data) {

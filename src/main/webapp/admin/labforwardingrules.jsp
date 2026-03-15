@@ -70,6 +70,8 @@
 <head>
 
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></title>
+    <link href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <script src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
@@ -129,7 +131,7 @@
     <input type="hidden" name="remProviderNum" value="">
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h5>Select Provider</h5>
         Please Select the provider to set fowarding rules for:
 
@@ -151,7 +153,7 @@
     </div>
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h5>Current Forwarding Rules</h5>
         <%
             String status = "N";
@@ -168,7 +170,7 @@
 
 
         <%if (frwdProviders != null && frwdProviders.size() > 0) {%>
-        <table class="table table-condensed table-striped" style="width:44%;">
+        <table class="table table-sm table-striped" style="width:44%;">
 
             <thead>
             <tr>
@@ -186,7 +188,7 @@
                 <td><%= status.equals("N") ? "New" : "Filed" %>
                 </td>
                 <td>
-                    <button type="submit" class="btn btn-small"
+                    <button type="submit" class="btn btn-sm"
                             onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')"
                             title="remove provider"><i class="fa-solid fa-trash"></i> remove
                     </button>
@@ -200,8 +202,8 @@
         <%} else {%>
 
 
-        <div class="alert alert-error">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <div class="alert alert-danger">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Warning!</strong> The incoming labs are not being forwarded.
         </div>
 
@@ -217,7 +219,7 @@
     </div>
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
 
         <h5>Update Forwarding Rules</h5>
 
@@ -257,8 +259,8 @@
 </body>
 
 <script>
-    var pageTitle = $(document).attr('title');
-    $(document).attr('title', 'Administration Panel | Lab Forwarding Rules');
+    var pageTitle = document.title;
+    document.title = 'Administration Panel | Lab Forwarding Rules';
 
     registerFormSubmit('ForwardRulesForm', 'dynamic-content');
 

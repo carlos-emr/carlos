@@ -42,7 +42,7 @@
 <html>
 <head>
         <title>Create New Flowsheet</title>
-        <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <script type="text/javascript">
         function checkForm() {
             var displayName = document.getElementById("displayName").value;
@@ -75,8 +75,8 @@
     </script>
 </head>
 <body>
-    <div class="navbar" id="demoHeader"><div class="navbar-inner">
-        <a class="brand" href="javascript:void(0)">New Flowsheet</a>
+    <div class="navbar" id="demoHeader"><div class="container-fluid">
+        <a class="navbar-brand" href="javascript:void(0)">New Flowsheet</a>
     </div></div>
 <form action="FlowSheetCustomAction.do" method="post" onsubmit="return checkForm()">
     <input type="hidden" name="method" value="createNewFlowSheet"/>

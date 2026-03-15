@@ -89,15 +89,15 @@
 %>
 
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.title"/>
         <%=years%>
     </h4>
 </div>
 
-<form action="${ctx}/oscarReport/oscarReportFluBilling.jsp" class="well form-inline" id="fluForm">
-    <select name="numMonth" class="input-small">
+<form action="${ctx}/oscarReport/oscarReportFluBilling.jsp" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
+    <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
             for (int i = curYear - 2; i <= curYear + 2; i++) {
         %>
@@ -107,7 +107,7 @@
             }
         %>
 
-    </select> <select name="proNo" class="input-large">
+    </select> <select name="proNo" class="form-select">
     <option value="-1" <%=selled("-1", pros)%>>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgAllProviders"/>
     </option>
@@ -125,7 +125,7 @@
     </button>
 </form>
 
-<table class="table table-bordered table-striped table-condensed table-hover">
+<table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
         <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgName"/></th>

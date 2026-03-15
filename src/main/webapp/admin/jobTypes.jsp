@@ -62,18 +62,18 @@
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Manage REST Clients (OAuth)</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
-        <link href="<%=request.getContextPath() %>/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <!-- Bootstrap -->
+        <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
 
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/DataTables/datatables.min.js"></script>
-        <!-- DataTables 1.13.4 -->
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
-        <script src="<%=request.getContextPath() %>/js/DT_bootstrap.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
 
@@ -130,17 +130,18 @@
 
                             for (var i = 0; i < arr.length; i++) {
                                 var job = arr[i];
-                                var html = '<tr>';
+                                var $row = $('<tr>');
+                                var $nameLink = $('<a>').attr('href', 'javascript:void(0);')
+                                    .text(job.name)
+                                    .on('click', (function(id) { return function() { editJobType(id); }; })(job.id));
+                                $row.append($('<td>').append($('<u>').append($nameLink)));
+                                $row.append($('<td>').text(job.description));
+                                $row.append($('<td>').text(job.className));
+                                $row.append($('<td>').text(job.currentlyValid));
+                                $row.append($('<td>').text(job.enabled));
+                                $row.append($('<td>').text(new Date(job.updated)));
 
-                                html += '<td><u><a href="javascript:void(0);" onclick="editJobType(' + job.id + ');">' + job.name + '</a></u></td>';
-                                html += '<td>' + job.description + '</td>';
-                                html += '<td>' + job.className + '</td>';
-                                html += '<td>' + job.currentlyValid + '</td>';
-                                html += '<td>' + job.enabled + '</td>';
-                                html += '<td>' + new Date(job.updated) + '</td>';
-                                html += '</tr>';
-
-                                $('#jobTypeTable tbody').append(html);
+                                $('#jobTypeTable tbody').append($row);
 
                             }
                             initiate();
@@ -193,7 +194,7 @@
 
     <body class="BodyStyle">
     <h4>Manage Job Types</h4>
-    <table id="jobTypeTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="jobTypeTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>Name</th>
@@ -216,31 +217,25 @@
         <form id="jobTypeForm">
             <input type="hidden" name="jobType.id" id="jobTypeId" value="0"/>
             <fieldset>
-                <div class="control-group">
-                    <label class="control-label" for="jobTypeName">Name:*</label>
-                    <div class="controls">
-                        <input class="input-block-level" type="text" name="jobType.name" id="jobTypeName" value=""/>
-                    </div>
+                <div class="mb-3">
+                    <label class="form-label" for="jobTypeName">Name:*</label>
+                    <input class="form-control" type="text" name="jobType.name" id="jobTypeName" value=""/>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="jobTypeDescription">Description:</label>
-                    <div class="controls">
-                        <textarea class="input-block-level" rows="5" name="jobType.description"
-                                  id="jobTypeDescription"></textarea>
-                    </div>
+                <div class="mb-3">
+                    <label class="form-label" for="jobTypeDescription">Description:</label>
+                    <textarea class="form-control" rows="5" name="jobType.description"
+                              id="jobTypeDescription"></textarea>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="jobTypeClassName">JAVA Class Name:</label>
-                    <div class="controls">
-                        <input class="input-block-level" type="text" name="jobType.className" id="jobTypeClassName"
-                               value=""/>
-                    </div>
+                <div class="mb-3">
+                    <label class="form-label" for="jobTypeClassName">JAVA Class Name:</label>
+                    <input class="form-control" type="text" name="jobType.className" id="jobTypeClassName"
+                           value=""/>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="jobTypeEnabled">Enabled: <input type="checkbox"
+                <div class="mb-3">
+                    <label class="form-label" for="jobTypeEnabled">Enabled: <input type="checkbox"
                                                                                       name="jobType.enabled"
                                                                                       id="jobTypeEnabled"/></label>
-                    <div class="controls">
+                    <div>
 
                     </div>
                 </div>

@@ -70,10 +70,27 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.util.*" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@page import="org.owasp.encoder.Encode" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
+<%@page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -188,6 +205,8 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css">
         <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
@@ -917,13 +936,13 @@
                                             if (mappings != null && mappings.size() > 1) {%>
                                         <a href="javascript: function myFunction() {return false; }"
                                            onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?1=1&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(h.get("name"), StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
-                                            <span title="<%=h.get("desc")%>"
+                                            <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                   style="font-weight: bold;"><%=h.get("name")%><%=ispa1%></span>
                                         </a>
                                         <% } else { %>
                                         <a href="javascript: function myFunction() {return false; }"
                                            onclick="javascript:popup(600,900,'AddPreventionData.jsp?1=1&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(h.get("name"), StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
-                                            <span title="<%=h.get("desc")%>"
+                                            <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                   style="font-weight: bold;"><%=h.get("name")%><%=ispa1 %></span>
                                         </a>
                                         <% } %>
@@ -1015,7 +1034,7 @@
                                         <div class="headPrevention">
                                             <p><a href="javascript: function myFunction() {return false; }"
                                                   onclick="javascript:popup(600,900,'AddPreventionData.jsp?2=2&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(h.get("name"), StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
-                                                <span title="<%=h.get("desc")%>"
+                                                <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                       style="font-weight: bold;"><%=h.get("name")%><%=ispa1 %></span>
                                             </a>
 
@@ -1100,7 +1119,7 @@
                                         <div class="headPrevention">
                                             <p><a href="javascript: function myFunction() {return false; }"
                                                   onclick="javascript:popup(600,900,'AddPreventionData.jsp?3=3&prevention=<%= java.net.URLEncoder.encode(h.get("name"), StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(h.get("name").hashCode())%>')">
-                                                <span title="<%=h.get("desc")%>"
+                                                <span title="<%=Encode.forHtmlAttribute(h.get("desc"))%>"
                                                       style="font-weight: bold;"><%=h.get("name")%></span>
                                             </a> <br/>
                                             </p>
@@ -1240,6 +1259,12 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/boxover.js"></script>
 
     <script type="text/javascript">
+
+        /* ---- Client-side HTML escaping ----
+         * Sanitises untrusted strings before inserting via innerHTML.
+         * Used to encode data loaded from the admin-supplied vaccine-brands.json
+         * catalogue so that a malicious JSON file cannot inject HTML/JS.
+         */
 
         /* ---- Client-side HTML escaping ----
          * Sanitises untrusted strings before inserting via innerHTML.

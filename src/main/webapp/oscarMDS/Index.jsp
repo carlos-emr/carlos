@@ -77,11 +77,11 @@
     </title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/css/showDocument.css"/>
     <link rel="stylesheet" type="text/css" media="all"
@@ -382,9 +382,10 @@
 
 
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/js/jquery.tablesorter.min.js"></script>
     <script type="text/javascript"
@@ -392,8 +393,6 @@
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
 
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/jquery/jquery.form.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript"

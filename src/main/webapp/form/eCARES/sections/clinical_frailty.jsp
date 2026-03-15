@@ -33,13 +33,13 @@
         Clinical Frailty Score
     </div>
     <div class="h-full">
-        <table id="clinical-frailty-score-table" class="h-full table table-condensed table-striped">
+        <table id="clinical-frailty-score-table" class="h-full table table-sm table-striped">
             <tr>
                 <th width="50%">Scale</th>
-                <th width="25%"><span class="mandatory tt" data-toggle="tooltip"
+                <th width="25%"><span class="mandatory tt" data-bs-toggle="tooltip"
                                       data-field-name="clinical_frailty_score_patient"
                                       title="Clinical Frailty Scale - patient">Pt.</span></th>
-                <th width="25%"><span class="tt" data-toggle="tooltip"
+                <th width="25%"><span class="tt" data-bs-toggle="tooltip"
                                       data-field-name="clinical_frailty_score_care_giver"
                                       title="Clinical Frailty Scale - caregiver" rel="cg"
                                       data-names="very_fit,well,well_w_comorbid,vulnerable,mildly_frail,moderately_frail,severely_frail,very_severely_ill,terminall_ill">CG</span>

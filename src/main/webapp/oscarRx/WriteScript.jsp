@@ -369,11 +369,11 @@
                             addWarning(frm.method.options[frm.method.selectedIndex].text + " Not Added");
                         } else { // frequency is not at the start of the line words come before
                             var beforeFirstDigit = origMinusName.substring(0, b.index);
-                            var findMethodRegExp = /(Take|Apply|Rub well in)/;
+                            var findMethodRegExp = /(Take|Apply|Rub card card-body bg-body-tertiary in)/;
                             var c = findMethodRegExp.exec(beforeFirstDigit);
                             if (c) {
                                 //regexDebug(c);
-                                beforeFirstDigit = beforeFirstDigit.replace(/(Take|Apply|Rub well in)/, frm.method.options[frm.method.selectedIndex].text);
+                                beforeFirstDigit = beforeFirstDigit.replace(/(Take|Apply|Rub card card-body bg-body-tertiary in)/, frm.method.options[frm.method.selectedIndex].text);
                             } else {
                                 if (frm.method.options[frm.method.selectedIndex].text != "") {
                                     addWarning("Could not replace word for " + frm.method.options[frm.method.selectedIndex].text);
@@ -1123,7 +1123,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                style="width:90px" onchange="calcQty();">
                                         <option value="Take">Take</option>
                                         <option value="Apply">Apply</option>
-                                        <option value="Rub">Rub well in</option>
+                                        <option value="Rub">Rub card card-body bg-body-tertiary in</option>
                                         <option value=""></option>
                                     </select></td>
                                     <td colspan=2><select name="take" style="width: 72px"

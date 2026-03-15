@@ -486,7 +486,7 @@
                                     <tr>
                                         <th class="question" width="5%">9.</th>
                                         <th class="question" colspan="3">Are the outside paths,
-                                            steps and entrances well lit at night?
+                                            steps and entrances card card-body bg-body-tertiary lit at night?
                                         </th>
                                     </tr>
                                     <tr>

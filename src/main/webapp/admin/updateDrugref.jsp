@@ -57,7 +57,7 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
-        <link href="<c:out value="${ctx}/css/bootstrap.css"/>" rel="stylesheet" type="text/css">
+        <link href="<c:out value="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>" rel="stylesheet" type="text/css">
 
         <script>
             function getUpdateTime() {
@@ -146,7 +146,7 @@
     </head>
     <body class="mainbody">
     <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <div id="dbInfo"></div>
         <div id="statusDisplay" style="display:none;">
           <div>
