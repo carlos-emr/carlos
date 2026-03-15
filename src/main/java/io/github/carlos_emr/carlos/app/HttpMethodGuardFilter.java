@@ -209,7 +209,6 @@ public class HttpMethodGuardFilter implements Filter {
             "groupnoteselectaction.jsp",
             "preference_action.jsp",
             "patientlettermanager.jsp",
-            "providercontrol.jsp",
             "providerprivilege.jsp",
             "providerrole.jsp",
             "providertemplate.jsp",
