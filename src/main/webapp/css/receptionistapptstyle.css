@@ -70,6 +70,19 @@ table {
     border-collapse: collapse;
 }
 
+/* Override Bootstrap 5 reboot that sets border-style:solid on all table elements.
+   The schedule page relies on border-collapse and specific border declarations;
+   Bootstrap's blanket border-style:solid interferes with that. */
+table#scheduleTable td,
+table#scheduleTable tr,
+table#scheduleTable th,
+table#scheduleTable thead,
+table#scheduleTable tbody,
+table#scheduleTable tfoot {
+    border-style: none;
+    border-width: 0;
+}
+
 
 #fixedHeaderWrapper {
     position: sticky;
@@ -166,6 +179,12 @@ table#scheduleNavigation tr td {
 
 .providerSchedule {
     background-color: #486ebd;
+}
+
+/* Ensure schedule table bgcolor attributes are reinforced via CSS.
+   Bootstrap 5 reboot can interfere with HTML bgcolor presentation. */
+table#scheduleTable {
+    background-color: #C0C0C0;
 }
 
 
@@ -318,6 +337,17 @@ td {
 
 hr {
     color: orange;
+    opacity: 1;
+}
+
+/* Override Bootstrap 5 reboot that sets opacity: 0.25 on <hr> elements */
+hr.timeline-marker {
+    opacity: 1;
+    color: tomato;
+    border: none;
+    border-top: 2px dotted tomato;
+    margin: 0;
+    padding: 0;
 }
 
 p {

@@ -58,7 +58,7 @@
             </c:when>
             <c:otherwise>
                 <img style="cursor: pointer;" src="${pageContext.request.contextPath}/${ClientImage.imageMissingPlaceholderUrl}"
-                    alt="No_Id_Photo" height="20" title="Click to upload a new photo."
+                    alt="No_Id_Photo" height="100" title="Click to upload a new photo."
                     OnMouseOver="window.status='Click to upload a new photo.'; return true;"
                     onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;"/>
             </c:otherwise>
