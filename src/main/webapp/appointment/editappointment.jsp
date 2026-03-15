@@ -876,7 +876,7 @@
             </div>
                     <%
 		if (appt == null) {
-%>              <div class="alert alert-danger">
+%>              <div class="alert alert-danger" role="alert">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgNoSuchAppointment"/>
                 </div>
                     <%
@@ -1398,11 +1398,11 @@
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
                     <a class="btn" href="javascript:void(0);" title="Annotation" aria-label="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=java.net.URLEncoder.encode(appointment_no, "UTF-8")%>&amp;demo='+document.EDITAPPT.demographic_no.value,'anwin','width=400,height=500');">
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&amp;table_id=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value) + '&amp;demo=' + encodeURIComponent(document.EDITAPPT.demographic_no.value),'anwin','width=400,height=500');">
                         <i class="fa-regular fa-comment" aria-hidden="true"></i>
                     </a>
                     <a class="btn"
-                       onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent('<%=appointment_no%>')">
+                       onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
                        onClick="window.open('<%=request.getContextPath() %>/demographic/demographiclabelprintsetting.jsp?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
