@@ -385,18 +385,17 @@
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
+                    var qc = $("quickChart");
                     if (displayFullChart) {
-                        // Pre-existing pattern: quickChartMsg is server-generated localized text
-                        $("quickChart").textContent = quickChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(false);
+                        if (qc) {
+                            qc.textContent = quickChartMsg;
+                            qc.onclick = function () { return viewFullChart(false); }
                         }
                         scrollDownInnerBar();
-
                     } else {
-                        $("quickChart").textContent = fullChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(true);
+                        if (qc) {
+                            qc.textContent = fullChartMsg;
+                            qc.onclick = function () { return viewFullChart(true); }
                         }
                         scrollDownInnerBar();
                     }
@@ -589,7 +588,9 @@
             for (var idx = 0; idx < leftNavBar.length; ++idx) {
                 var div = document.createElement("div");
                 div.className = "leftBox";
-                div.style.visibility = "hidden";
+                // Note: develop had div.style.visiblity (typo) which never took effect.
+                // The display() function that sets visibility:visible is commented out,
+                // so these divs were always visible by accident. Keep them visible intentionally.
                 div.id = leftNavBarTitles[idx];
                 $(navbar).appendChild(div);
                 this.arrLeftDivs.push(div);
@@ -634,7 +635,7 @@
                         if ($("rightColLoader") != null)
                             Element.remove("rightColLoader");
 
-                        notifyDivLoaded($(div).id);
+                        // notifyDivLoaded removed — was always a no-op (empty function in renal/westernu cme.js, undefined elsewhere)
                     },
                     onFailure: function (request) {
                         $(div).update("<h3>" + div + "</h3>Error: " + request.status);
@@ -982,7 +983,7 @@ function updateCPPNote() {
                         $("issueChange").value = false;
                     }
 
-                    notifyDivLoaded($(div).id);
+                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
                 },
                 onFailure: function (request) {
                     $(div).update("<h3>" + div + "<\/h3>Error: " + request.status);
@@ -1012,7 +1013,7 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $(div).update(request.responseText);
-                    notifyDivLoaded($(div).id);
+                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
                 },
                 onFailure: function (request) {
                     $(div).update("<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText);
@@ -2460,16 +2461,11 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
+                    var qc = $("quickChart");
                     if (fullChart == "true") {
-                        $("quickChart").textContent = quickChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(false);
-                        }
+                        if (qc) { qc.textContent = quickChartMsg; qc.onclick = function () { return viewFullChart(false); } }
                     } else {
-                        $("quickChart").textContent = fullChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(true);
-                        }
+                        if (qc) { qc.textContent = fullChartMsg; qc.onclick = function () { return viewFullChart(true); } }
                     }
                 },
                 onFailure: function (request) {
@@ -3760,16 +3756,11 @@ function autoSave() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
+                    var qc = $("quickChart");
                     if (fullChart == "true") {
-                        $("quickChart").textContent = quickChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(false);
-                        }
+                        if (qc) { qc.textContent = quickChartMsg; qc.onclick = function () { return viewFullChart(false); } }
                     } else {
-                        $("quickChart").textContent = fullChartMsg;
-                        $("quickChart").onclick = function () {
-                            return viewFullChart(true);
-                        }
+                        if (qc) { qc.textContent = fullChartMsg; qc.onclick = function () { return viewFullChart(true); } }
                     }
                 },
                 onFailure: function (request) {

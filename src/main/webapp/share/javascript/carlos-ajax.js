@@ -287,14 +287,29 @@ var CarlosAjax = (function () {
                         return;
                     }
 
+                    // Wrap callbacks in try-catch so that exceptions thrown inside
+                    // onSuccess do NOT propagate to the .catch() and trigger
+                    // onFailure. Prototype's Ajax.Request isolated callback errors
+                    // the same way — an error in onSuccess never fired onFailure.
                     if (isSuccess(response.status)) {
-                        if (options.onSuccess) options.onSuccess(transport);
-                        // Note: evalScripts is NOT processed here — see comment in requestSync().
+                        if (options.onSuccess) {
+                            try { options.onSuccess(transport); } catch (e) {
+                                console.error('CarlosAjax onSuccess error:', e);
+                            }
+                        }
                     } else {
-                        if (options.onFailure) options.onFailure(transport);
+                        if (options.onFailure) {
+                            try { options.onFailure(transport); } catch (e) {
+                                console.error('CarlosAjax onFailure error:', e);
+                            }
+                        }
                     }
 
-                    if (options.onComplete) options.onComplete(transport);
+                    if (options.onComplete) {
+                        try { options.onComplete(transport); } catch (e) {
+                            console.error('CarlosAjax onComplete error:', e);
+                        }
+                    }
                 });
             })
             .catch(function (err) {

@@ -285,7 +285,8 @@
                             Element.remove("rightColLoader");
                     },
                     onFailure: function (transport) {
-                        document.getElementById(div).textContent = div + " Error: " + transport.status;
+                        var el = document.getElementById(div);
+                        if (el) el.textContent = div + " Error: " + transport.status;
                     }
                 });
             };
