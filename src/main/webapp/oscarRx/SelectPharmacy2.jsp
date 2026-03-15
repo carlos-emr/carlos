@@ -65,11 +65,11 @@
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
                 type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
                 type="text/javascript"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
                 type="text/javascript"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
               type="text/css"/>
 
 
@@ -370,7 +370,9 @@
             function openCarlosModal(url) {
                 var iframe = document.getElementById('carlosModalIframe');
                 iframe.src = url;
-                jQuery('#carlosModal').modal('show');
+                var modalEl = document.getElementById('carlosModal');
+                var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
             }
 
             function addPharmacy() {
@@ -494,11 +496,12 @@
         </style>
     </head>
     <body>
-    <div class="modal fade" id="carlosModal" tabindex="-1" role="dialog" aria-label="Pharmacy Dialog">
-        <div class="modal-dialog" role="document" style="width:430px;">
+    <div class="modal fade" id="carlosModal" tabindex="-1" aria-labelledby="carlosModalLabel" aria-hidden="true">
+        <div class="modal-dialog" style="max-width:430px;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h5 class="modal-title" id="carlosModalLabel">Pharmacy</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body" style="padding:0;">
                     <iframe id="carlosModalIframe" src="" style="width:100%;height:500px;border:none;"></iframe>
