@@ -177,8 +177,8 @@
             }
 
             function showdatebox(x) {
-                document.getElementById("startdatenew" + x).show();
-                document.getElementById("startdate1st" + x).hide();
+                document.getElementById("startdatenew" + x).style.display = '';
+                document.getElementById("startdate1st" + x).style.display = 'none';
             }
 
             function update_date(did, demoNo, provNo) {

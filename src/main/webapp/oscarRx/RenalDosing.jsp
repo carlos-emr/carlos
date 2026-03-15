@@ -268,7 +268,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
     <div style="clear:left"><%=rd.getMoreinfo()%>
     </div>
     <%if (request.getParameter("divId") != null) { %>
-    <div style="float:right"><a href="javascript:void(0);" onclick="$('<%=request.getParameter("divId")%>').toggle();">hide</a>
+    <div style="float:right"><a href="javascript:void(0);" onclick="jQuery('#<%=request.getParameter("divId")%>').toggle();">hide</a>
     </div>
     <%}%>
 </div>

@@ -85,10 +85,10 @@
                         if (selected.id === "tab-all") {
                             // tab button that shows all tabs.
                             jQuery(".tab-page").show();
-                            selected.hide();
+                            jQuery(selected).hide();
                         } else {
                             jQuery(".tab-page").hide();
-                            selected.show();
+                            jQuery(selected).show();
                         }
                         adjustSizes();
                     }

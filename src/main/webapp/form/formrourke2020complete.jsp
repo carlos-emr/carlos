@@ -86,7 +86,7 @@
                             // selected.hide();
                         } else {
                             jQuery(".tab-page").hide();
-                            selected.show();
+                            jQuery(selected).show();
                         }
                         adjustSizes();
                     }
