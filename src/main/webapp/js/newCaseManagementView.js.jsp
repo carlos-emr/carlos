@@ -3004,7 +3004,7 @@ function autoSave() {
     function backup() {
 
         if (origCaseNote != $(caseNote).value || origObservationDate != $("observationDate").value) {
-            autoSave(true);
+            autoSave();
         }
 
         if (!lostNoteLock) {

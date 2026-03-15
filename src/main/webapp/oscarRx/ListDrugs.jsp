@@ -468,15 +468,15 @@
         </tr>
         <script>
             (function() {
-                var element = $('hidecpp_<%=prescriptIdInt%>');
+                var element = document.getElementById('hidecpp_<%=prescriptIdInt%>');
                 if (element) {
-                    Event.observe(element, 'change', function (event) {
-                        var val = $('hidecpp_<%=prescriptIdInt%>').checked;
-                        new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/hideCpp.do', {
-                            method: 'post',
-                            parameters: {method: 'update', prescriptId: '<%=prescriptIdInt%>', value: val},
-                            onSuccess: function (transport) {
-                            }
+                    element.addEventListener('change', function () {
+                        var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
+                        fetch('<c:out value="${ctx}"/>/oscarRx/hideCpp.do', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                            credentials: 'same-origin',
+                            body: 'method=update&prescriptId=<%=prescriptIdInt%>&value=' + encodeURIComponent(val)
                         });
                     });
                 }

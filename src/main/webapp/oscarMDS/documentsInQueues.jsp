@@ -645,7 +645,7 @@
         }
 
         function changeView() {
-            if ($('scrollNumber1').getStyle('display') == 'none') {
+            if (document.getElementById('scrollNumber1').style.display == 'none') {
                 $('scrollNumber1').show();
                 $('readerViewTable').hide();
 
@@ -1014,28 +1014,28 @@
                 //only display current page
                 for (var i = startindex; i < endindex + 1; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'table-row'});
+                    ele.style.display = 'table-row';
                 }
                 //hide previous page
                 for (var i = 0; i < startindex; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide later page
                 for (var i = endindex; i < length; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide all labs
                 eles = document.getElementsByClassName('NormalRes');
-                eles = eles.concat(document.getElementsByClassName('AbnormalRes'));
+                eles = Array.prototype.slice.call(eles).concat(Array.prototype.slice.call(document.getElementsByClassName('AbnormalRes')));
                 for (i = 0; i < eles.length; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
             } else if (type == 'H') {
                 eles = document.getElementsByClassName('NormalRes');
-                eles = eles.concat(document.getElementsByClassName('AbnormalRes'));
+                eles = Array.prototype.slice.call(eles).concat(Array.prototype.slice.call(document.getElementsByClassName('AbnormalRes')));
                 var length = eles.length;
                 var startindex = (parseInt(page) - 1) * numberPerPage;
                 var endindex = startindex + numberPerPage - 1;
@@ -1045,23 +1045,23 @@
                 //only display current page
                 for (var i = startindex; i < endindex + 1; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'table-row'});
+                    ele.style.display = 'table-row';
                 }
                 //hide previous page
                 for (var i = 0; i < startindex; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide later page
                 for (var i = endindex; i < length; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide all labs
                 eles = document.getElementsByClassName('assignedDoc');
                 for (i = 0; i < eles.length; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
             } else if (type == 'N') {
                 var eles1 = filterAb_normal('normal');
@@ -1075,24 +1075,24 @@
 
                 for (var i = startindex; i < endindex + 1; i++) {
                     var ele = eles1[i];
-                    ele.setStyle({display: 'table-row'});
+                    ele.style.display = 'table-row';
                 }
                 //hide previous page
                 for (var i = 0; i < startindex; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide later page
                 for (var i = endindex; i < length; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide all abnormals
                 var eles2 = filterAb_normal('abnormal');
                 i = 0;
                 for (i = 0; i < eles2.length; i++) {
                     var ele = eles2[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
             } else if (type == 'AB') {
                 var eles1 = filterAb_normal('abnormal');
@@ -1104,23 +1104,23 @@
                 }
                 for (var i = startindex; i < endindex + 1; i++) {
                     var ele = eles1[i];
-                    ele.setStyle({display: 'table-row'});
+                    ele.style.display = 'table-row';
                 }
                 //hide previous page
                 for (var i = 0; i < startindex; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide later page
                 for (var i = endindex; i < length; i++) {
                     var ele = eles[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
                 //hide all normals
                 var eles2 = filterAb_normal('normal');
                 for (var i = 0; i < eles2.length; i++) {
                     var ele = eles2[i];
-                    ele.setStyle({display: 'none'});
+                    ele.style.display = 'none';
                 }
             }
         }
@@ -1157,7 +1157,7 @@
         function setTotalRows() {
             var ds = document.getElementsByClassName('assignedDoc');
             var ls = document.getElementsByClassName('NormalRes');
-            ls = ls.concat(document.getElementsByClassName('AbnormalRes'));
+            ls = Array.prototype.slice.call(ls).concat(Array.prototype.slice.call(document.getElementsByClassName('AbnormalRes')));
 
             var nd = document.getElementsByClassName('notAssignedDoc');
 
@@ -1228,7 +1228,7 @@
                 current_category = new Array();
                 current_category[0] = document.getElementsByClassName('assignedDoc');
                 var labs = document.getElementsByClassName('NormalRes');
-                labs = labs.concat(document.getElementsByClassName('AbnormalRes'));
+                labs = Array.prototype.slice.call(labs).concat(Array.prototype.slice.call(document.getElementsByClassName('AbnormalRes')));
                 current_category[1] = labs;
                 current_category[2] = filterAb_normal('normal');
                 current_category[3] = filterAb_normal('abnormal');
@@ -1249,7 +1249,7 @@
                         eles.push(docs);
                     } else if (type == 'hl7') {
                         var labs = document.getElementsByClassName('NormalRes');
-                        labs = labs.concat(document.getElementsByClassName('AbnormalRes'));
+                        labs = Array.prototype.slice.call(labs).concat(Array.prototype.slice.call(document.getElementsByClassName('AbnormalRes')));
                         eles.push(labs);
                     } else if (type == 'normal') {
                         var norm = filterAb_normal('normal');
@@ -1340,7 +1340,7 @@
                 for (var i = 1; i <= current_numberofpages; i++) {
                     if ($('current_individual_pages')) html += "<a style=\"text-decoration:none;\" href=\"javascript:void(0);\" onclick=\"navigatePage(" + i + ")\"> [ " + i + " ] </a>";
                 }
-                $('current_individual_pages').update(html);
+                document.getElementById('current_individual_pages').innerHTML = html; // Safe: html built from page numbers only
             }
         }
 
@@ -2153,7 +2153,7 @@
                         alert('Document is not assigned and saved to a patient,please file it');
                     } else {
                         var url = contextpath + "/oscarMDS/UpdateStatus.do";
-                        var data = $(formid).serialize(true);
+                        var data = new URLSearchParams(new FormData(document.getElementById(formid))).toString();
 
                         CarlosAjax.request(url, {
                             method: 'post', parameters: data, onSuccess: function (transport) {
@@ -2324,27 +2324,27 @@
 
         function hidePrev(docid) {
             //disable previous link
-            $("prevP_" + docid).setStyle({display: 'none'});
-            $("firstP_" + docid).setStyle({display: 'none'});
+            document.getElementById("prevP_" + docid).style.display = 'none';
+            document.getElementById("firstP_" + docid).style.display = 'none';
         }
 
         function hideNext(docid) {
             //disable next link
-            $("nextP_" + docid).setStyle({display: 'none'});
-            $("lastP_" + docid).setStyle({display: 'none'});
+            document.getElementById("nextP_" + docid).style.display = 'none';
+            document.getElementById("lastP_" + docid).style.display = 'none';
         }
 
         function showPrev(docid) {
             //disable previous link
-            $("prevP_" + docid).setStyle({display: 'inline'});
-            $("firstP_" + docid).setStyle({display: 'inline'});
+            document.getElementById("prevP_" + docid).style.display = 'inline';
+            document.getElementById("firstP_" + docid).style.display = 'inline';
         }
 
         function showNext(docid) {
 
             //disable next link
-            $("nextP_" + docid).setStyle({display: 'inline'});
-            $("lastP_" + docid).setStyle({display: 'inline'});
+            document.getElementById("nextP_" + docid).style.display = 'inline';
+            document.getElementById("lastP_" + docid).style.display = 'inline';
         }
     </script>
     <script type="text/javascript"
@@ -2460,7 +2460,7 @@
     var types = ['DOC'];
 
     var contextpath = '${pageContext.servletContext.contextPath}';
-    Event.observe(window, 'scroll', function () {//check for scrolling
+    window.addEventListener('scroll', function () {//check for scrolling
         bufferAndShow();
     });
 

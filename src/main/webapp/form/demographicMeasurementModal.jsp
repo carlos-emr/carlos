@@ -46,8 +46,8 @@
     }
 </style>
 <script>
-    // Must include jQuery for ajax call, cannot assume the form this file will be included in has it already included
-    let local_jQuery = jQuery.noConflict(true);
+    // Local jQuery reference for ajax calls in this modal
+    let local_jQuery = jQuery;
 
     // Map of measurementTypes to corresponding name and default instructions
     let measurementTypeMap = {

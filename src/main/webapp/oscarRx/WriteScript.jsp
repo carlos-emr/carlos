@@ -70,7 +70,7 @@
 
         <link rel="stylesheet" type="text/css" href="styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <c:if test="${sessionScope.RxSessionBean == null}">
@@ -114,18 +114,18 @@
                 var addTextWordId = "addTextWord_" + randId;
                 oscarLog("randId=" + randId);
                 if (addTextView == 0) {
-                    $(addTextId).show();
+                    document.getElementById(addTextId).style.display = '';
                     addTextView = 1;
-                    $(addTextWordId).update("less")
+                    document.getElementById(addTextWordId).textContent = "less";
                 } else {
-                    $(addTextId).hide();
+                    document.getElementById(addTextId).style.display = 'none';
                     addTextView = 0;
-                    $(addTextWordId).update("more")
+                    document.getElementById(addTextWordId).textContent = "more";
                 }
             }
 
             var frm = document.forms.RxWriteScriptForm;
-            oscarLog("frm=" + frm + "$(frm)" + $(frm));
+            oscarLog("frm=" + frm);
             var freqMin;
             var freqMax;
             var orig = null;
@@ -793,15 +793,15 @@
             var resHidden = 0;
 
             function showUntrustedRes() {
-                var list = $$('div.untrustedResource');
+                var list = document.querySelectorAll('div.untrustedResource');
 
                 if (resHidden == 0) {
-                    $('showUntrustedResWord').update('hide');
-                    list.invoke('show');
+                    document.getElementById('showUntrustedResWord').textContent = 'hide';
+                    list.forEach(function(el) { el.style.display = ''; });
                     resHidden = 1;
                 } else {
-                    $('showUntrustedResWord').update('show');
-                    list.invoke('hide');
+                    document.getElementById('showUntrustedResWord').textContent = 'show';
+                    list.forEach(function(el) { el.style.display = 'none'; });
                     resHidden = 0;
                 }
             }

@@ -693,7 +693,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 
         <script type="text/javascript">
-            $('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<%=drugName%>'));
+            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<%=drugName%>'));
             calculateRxData('<%=rand%>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
@@ -751,10 +751,12 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                 }
 
                 oAC.containerCollapseEvent.subscribe(function () {
-                    $('autocomplete_choices').hide();
+                    var el = document.getElementById('autocomplete_choices');
+                    if (el) el.style.display = 'none';
                 });
                 oAC.dataRequestEvent.subscribe(function () {
-                    $('autocomplete_choices').show();
+                    var el = document.getElementById('autocomplete_choices');
+                    if (el) el.style.display = '';
                 });
                 return {
                     oDS: oDS,
@@ -777,7 +779,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                         //do nothing
                     }
                     else{
-                        $('<%=fieldSetId%>').remove();
+                        document.getElementById('<%=fieldSetId%>').remove();
                         //call java class to delete it from stash pool.
                         var randId='<%=rand%>';
                         deletePrescribe(randId);
@@ -789,10 +791,10 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             //oscarLog("counterRx="+counterRx);
            var gcn_val="<%=gcnCode%>";
            if(gcn_val === "0"){
-               $('drugName_<%=rand%>').focus();
+               document.getElementById('drugName_<%=rand%>').focus();
            } else if(counterRx==listRxDrugSize){
                //oscarLog("counterRx="+counterRx+"--listRxDrugSize="+listRxDrugSize);
-               $('instructions_<%=rand%>').focus();
+               document.getElementById('instructions_<%=rand%>').focus();
            }
         </script>
                 <%}%>

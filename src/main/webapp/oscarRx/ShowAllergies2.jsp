@@ -174,12 +174,15 @@
                     //--> Toggle search results listing.
                     $.fn.toggleSection = function (typecode) {
                         var imgsrc = document.getElementById(typecode + "_img").src;
+                        var content = document.getElementById(typecode + "_content");
                         if (imgsrc.indexOf('expander') != -1) {
                             document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/collapser.png';
-                            Effect.BlindDown(document.getElementById(typecode + "_content"), {duration: 0.1});
+                            content.classList.remove('carlos-collapsed');
+                            content.style.display = 'block';
                         } else {
                             document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/expander.png';
-                            Effect.BlindUp(document.getElementById(typecode + "_content"), {duration: 0.1});
+                            content.classList.add('carlos-collapsed');
+                            content.style.display = 'none';
                         }
                     }
 

@@ -115,7 +115,6 @@
 	</style>
 
         <script>
-            jQuery.noConflict();
             jQuery(function () {
                 jQuery(document).tooltip();
             });
