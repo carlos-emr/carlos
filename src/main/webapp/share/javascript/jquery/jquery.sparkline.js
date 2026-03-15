@@ -736,8 +736,8 @@
             },
 
             mouseenter: function (e) {
-                $(document.body).unbind('mousemove.jqs');
-                $(document.body).bind('mousemove.jqs', $.proxy(this.mousemove, this));
+                $(document.body).off('mousemove.jqs');
+                $(document.body).on('mousemove.jqs', $.proxy(this.mousemove, this));
                 this.over = true;
                 this.currentPageX = e.pageX;
                 this.currentPageY = e.pageY;
@@ -750,7 +750,7 @@
             },
 
             mouseleave: function () {
-                $(document.body).unbind('mousemove.jqs');
+                $(document.body).off('mousemove.jqs');
                 var splist = this.splist,
                     spcount = splist.length,
                     needsRefresh = false,
@@ -856,8 +856,8 @@
                 this.offsetLeft = offset.left;
                 this.offsetTop = offset.top;
                 this.hidden = true;
-                $(window).unbind('resize.jqs scroll.jqs');
-                $(window).bind('resize.jqs scroll.jqs', $.proxy(this.updateWindowDims, this));
+                $(window).off('resize.jqs scroll.jqs');
+                $(window).on('resize.jqs scroll.jqs', $.proxy(this.updateWindowDims, this));
                 this.updateWindowDims();
             },
 
@@ -932,7 +932,7 @@
                 this.tooltip.remove();
                 this.sizetip.remove();
                 this.sizetip = this.tooltip = undefined;
-                $(window).unbind('resize.jqs scroll.jqs');
+                $(window).off('resize.jqs scroll.jqs');
             }
         });
 

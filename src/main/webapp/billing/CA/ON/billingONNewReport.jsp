@@ -353,7 +353,7 @@
     <%@ include file="/includes/global-head.jspf" %>
     <title>Ontario Billing Report</title>
 
-    <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
 
     <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 

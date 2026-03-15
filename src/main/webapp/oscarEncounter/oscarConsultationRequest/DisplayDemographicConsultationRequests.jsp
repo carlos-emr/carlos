@@ -131,8 +131,8 @@
 
     <!-- css -->
     <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap 2.3.1 -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/assets/css/DT_bootstrap.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
 
     <style>
       .MainTable .dataTables_length label {

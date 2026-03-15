@@ -92,7 +92,7 @@
                 url = link.get(0).href,
                 name = decodeURIComponent(url.split('/').pop()).replace(/:/g, '-'),
                 type = 'application/octet-stream';
-            link.bind('dragstart', function (event) {
+            link.on('dragstart', function (event) {
                 try {
                     event.originalEvent.dataTransfer
                         .setData('DownloadURL', [type, name, url].join(':'));
@@ -298,14 +298,14 @@
             } else {
                 uploadHandler.multiButtons.find('.file_upload_start:first')
                     .button({icons: {primary: 'ui-icon-circle-arrow-e'}})
-                    .bind('click', {selector: '.file_upload_start'}, uploadHandler.multiButtonHandler);
+                    .on('click', {selector: '.file_upload_start'}, uploadHandler.multiButtonHandler);
             }
             uploadHandler.multiButtons.find('.file_upload_cancel:first')
                 .button({icons: {primary: 'ui-icon-cancel'}})
-                .bind('click', {selector: '.file_upload_cancel'}, uploadHandler.multiButtonHandler);
+                .on('click', {selector: '.file_upload_cancel'}, uploadHandler.multiButtonHandler);
             uploadHandler.multiButtons.find('.file_download_delete:first')
                 .button({icons: {primary: 'ui-icon-trash'}})
-                .bind('click', {selector: '.file_download_delete'}, uploadHandler.multiButtonHandler);
+                .on('click', {selector: '.file_download_delete'}, uploadHandler.multiButtonHandler);
         };
 
         this.destroyMultiButtons = function () {

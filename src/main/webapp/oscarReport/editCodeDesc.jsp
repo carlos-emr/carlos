@@ -46,9 +46,7 @@
         <title>Dx Register Report</title>
 
 
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/jquery.autocomplete.css"/>
         <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%= request.getContextPath() %>/js/jquery.autocomplete.js"></script>
 
         <style>
             input {
