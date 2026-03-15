@@ -521,7 +521,7 @@
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/>
                         <%=surname%>, <%=firstName%>
                     </span>
-                            <input type=button class="btn btn-default pull-right" onclick="returnToRx();"
+                            <input type=button class="btn btn-secondary float-end" onclick="returnToRx();"
                                    value="Return to RX"/>
                         </h2>
                     </th>
@@ -542,7 +542,7 @@
                                             href="javascript:void(0)"
                                             onclick="addPharmacy();">(add missing pharmacy
 									to clinic database)</a></span></h4>
-                                    <div class="form-inline">
+                                    <div class="d-flex flex-wrap gap-2 align-items-end">
                                         <div class="form-group"><label for="pharmacySearch">Pharmacy Name </label>
                                             <input type="text" class="form-control" id="pharmacySearch"/></div>
                                         <div class="form-group"><label

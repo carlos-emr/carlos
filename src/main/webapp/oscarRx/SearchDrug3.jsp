@@ -1690,9 +1690,11 @@ function customNoteWarning(){
 						method: 'post',
 						parameters: data,
 						evalScripts: true,
-						insertion: 'bottom'
+						insertion: 'bottom',
+						onSuccess: function() {
+							renderRxStage();
+						}
 					});
-	                renderRxStage();
     }
 }
 
@@ -1896,7 +1898,7 @@ function popForm2(scriptId){
 
 						var term = request.term.toUpperCase(),
 							element = this.element,
-							cache = this.element.data(document.body, 'autocompleteCache') || {},
+							cache = this.element.data('autocompleteCache') || {},
 							foundInCache = false;
 
 						jQuery.each(cache, function (key, data) {
@@ -1931,7 +1933,7 @@ function popForm2(scriptId){
 							dataType: "json",
 							success: function (data) {
 								cache[term] = data;
-								element.data(document.body, 'autocompleteCache', cache);
+								element.data('autocompleteCache', cache);
 
 								response(jQuery.map(data.results, function (item) {
 									return {
