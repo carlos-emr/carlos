@@ -852,8 +852,8 @@
         <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
-            <div class="header deep">
-        <div class="time" id="header"><h4>
+    <div class="page-header-bar time" id="header">
+        <h4 class="page-header-title">
                     <!-- We display a shortened title for the mobile version -->
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgMainLabel"/>
 
@@ -872,15 +872,13 @@
                     <% }
                     }
                     %>
-</h4>
-                </div>
-
+                </h4>
             </div>
-
                     <%
 		if (appt == null) {
-%>
+%>              <div class="alert alert-danger">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgNoSuchAppointment"/>
+                </div>
                     <%
 			return;
 		}
@@ -890,7 +888,7 @@
 </h4>
     </div>
 
-    </div>
+
     <%
         }
     %>
@@ -944,8 +942,7 @@
 		doctorNo = "";
     }
     %>
-
-    <div class="bg-light border rounded p-2">
+            <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
     <div class="table-responsive">
     <table class="table table-sm">
@@ -1400,25 +1397,24 @@
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnNoShow"/>"
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
-                    <a href="javascript:void(0);" title="Annotation"
+                    <a class="btn" href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=appointment_no%>&amp;demo='+document.EDITAPPT.demographic_no.value,'anwin','width=400,height=500');">
-                        <img src="<%=request.getContextPath() %>/images/notes.gif" alt="Annotation" height="16"
-                             width="13">
+                        <i class="fa-regular fa-comment"></i>
                     </a>
-                    <a class="btn btn-secondary"
+                    <a class="btn"
                        onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent('<%=appointment_no%>')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnPrintCard"/></a>
-                    <a class="btn btn-secondary"
+                    <a class="btn"
                        onClick="window.open('<%=request.getContextPath() %>/demographic/demographiclabelprintsetting.jsp?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
-                    <a class="btn btn-secondary"
+                    <a class="btn"
                        onclick="document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
                         <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentedit.cut"/></a>
-                    <a class="btn btn-secondary"
+                    <a class="btn"
                        onclick="document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
                         <i class="fa-solid fa-copy"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentedit.copy"/> </a>
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
-                    <input type="button" id="repeatButton" class="btn btn-secondary"
+                    <input type="button" id="repeatButton" class="btn"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnRepeat"/>"
                            onclick="onButRepeat()">
                     <% }%>
@@ -1551,86 +1547,6 @@
             if (numForms > 0) { %>
     </table>
     <% } %>
-
-
-        <%--<div id="viewAppointment" style="display:<%=(bFirstDisp && false) ? "block":"none"%>;">--%>
-        <%--    <%--%>
-        <%--        // Format date to be more readable--%>
-        <%--        java.text.SimpleDateFormat inform = new java.text.SimpleDateFormat ("yyyy-MM-dd");--%>
-        <%--        String strDate = bFirstDisp ? ConversionUtils.toDateString(appt.getAppointmentDate()) : request.getParameter("appointment_date");--%>
-        <%--        java.util.Date d = inform.parse(strDate);--%>
-        <%--        String formatDate = "";--%>
-        <%--        try { // attempt to change string format--%>
-        <%--        java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());--%>
-        <%--        formatDate = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(d, prop.getString("date.EEEyyyyMMdd"));--%>
-        <%--        } catch (Exception e) {--%>
-        <%--            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error", e);--%>
-        <%--            formatDate = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");--%>
-        <%--        }--%>
-        <%--    %>--%>
-        <%--    <div class="header">--%>
-        <%--        <div class="title" id="appointmentTitle">--%>
-        <%--            <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnView"/>--%>
-        <%--        </div>--%>
-        <%--        <a href=# onclick="window.close();" id="backButton" class="leftButton top"><%= strDate%></a>--%>
-        <%--        <a href="javascript:toggleView();" id="editButton" class="rightButton top">Edit</a>--%>
-        <%--    </div>--%>
-        <%--    <div id="info" class="card">--%>
-        <%--        <ul>--%>
-        <%--            <li class="mainInfo"><a href="#" onclick="demographicdetail(550,700)">--%>
-        <%--                <%--%>
-        <%--                    String apptName = (bFirstDisp ? appt.getName() : request.getParameter("name")).toString();--%>
-        <%--                    //If a comma exists, need to split name into first and last to prevent overflow--%>
-        <%--                    int comma = apptName.indexOf(",");--%>
-        <%--                    if (comma != -1)--%>
-        <%--                        apptName = apptName.substring(0, comma) + ", " + apptName.substring(comma+1);--%>
-        <%--                %>--%>
-        <%--                <%=Encode.forHtmlContent(apptName)%>--%>
-        <%--            </a></li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>: </div>--%>
-        <%--                <div class="info"><%=formatDate%></div>--%>
-        <%--            </li>--%>
-        <%--            <% // Determine appointment status from code so we can access--%>
-        <%--   // the description, colour, image, etc.--%>
-        <%--      AppointmentStatus apptStatus = (AppointmentStatus)allStatus.get(0);--%>
-        <%--      for (int i = 0; i < allStatus.size(); i++) {--%>
-        <%--            AppointmentStatus st = (AppointmentStatus) allStatus.get(i);--%>
-        <%--            if (st.getStatus().equals(statusCode)) {--%>
-        <%--                apptStatus = st;--%>
-        <%--                break;--%>
-        <%--            }--%>
-        <%--      }--%>
-        <%--%>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>: </div>--%>
-        <%--                <div class="info" style="background-color:<%=apptStatus.getColor()%>; font-weight:bold;">--%>
-        <%--                    <img src="<%=request.getContextPath() %>/images/<%=apptStatus.getIcon()%>" alt="image">--%>
-        <%--                    <%=Encode.forHtmlContent(apptStatus.getDescription())%>--%>
-        <%--                </div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgTime"/>: </div>--%>
-        <%--                <div class="info">From <%=bFirstDisp ? ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()) : request.getParameter("start_time")%>--%>
-        <%--                to <%=bFirstDisp ? ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()) : request.getParameter("end_time")%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formType"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getType() : request.getParameter("type"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getReason() : request.getParameter("reason"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getLocation() : request.getParameter("location"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getResources() : request.getParameter("resources"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li>&nbsp;</li>--%>
-        <%--            <li class="notes">--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getNotes() : request.getParameter("notes"))%></div>--%>
-        <%--                <div class="info"><%=Encode.forHtml(bFirstDisp ? appt.getNotes() : request.getParameter("notes"))%></div>--%>
-        <%--            </li>--%>
-        <%--        </ul>--%>
-        <%--    </div>--%>
-        <%--</div>--%>
 
 </div> <!-- end of edit appointment screen -->
 </form>
