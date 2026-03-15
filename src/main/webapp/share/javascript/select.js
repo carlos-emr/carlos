@@ -135,11 +135,12 @@ var CarlosAutocomplete = (function () {
         // Set up the default afterUpdateElement callback for select synchronization
         var userAfterUpdate = this.options.afterUpdateElement;
         this.options.afterUpdateElement = function (text, li) {
-            // Sync the original select element
+            // Sync the original select element and fire change event
             var opts = selectElement.getElementsByTagName('option');
             for (var j = 0; j < opts.length; j++) {
                 if (opts[j].value === li.dataset.value) {
                     selectElement.selectedIndex = j;
+                    selectElement.dispatchEvent(new Event('change', { bubbles: true }));
                     break;
                 }
             }
@@ -225,6 +226,12 @@ var CarlosAutocomplete = (function () {
         });
 
         this.dropdown.appendChild(ul);
+
+        if (this.filteredItems.length === 0) {
+            this.dropdown.style.display = 'none';
+            this.isOpen = false;
+            return;
+        }
 
         // Position dropdown below the input
         var rect = this.input.getBoundingClientRect();
@@ -312,7 +319,14 @@ var CarlosAutocomplete = (function () {
     SelectBox.prototype.scrollToActive = function () {
         var items = this.dropdown.querySelectorAll('li');
         if (this.activeIndex >= 0 && items[this.activeIndex]) {
-            items[this.activeIndex].scrollIntoView({ block: 'nearest' });
+            var li = items[this.activeIndex];
+            var dropTop = this.dropdown.scrollTop;
+            var dropBottom = dropTop + this.dropdown.clientHeight;
+            if (li.offsetTop < dropTop) {
+                this.dropdown.scrollTop = li.offsetTop;
+            } else if (li.offsetTop + li.offsetHeight > dropBottom) {
+                this.dropdown.scrollTop = li.offsetTop + li.offsetHeight - this.dropdown.clientHeight;
+            }
         }
     };
 
@@ -412,11 +426,29 @@ if (!Autocompleter.Local) {
             lis.forEach(function (li, i) {
                 if (i === idx) {
                     li.style.outline = '2px solid #316ac5';
+                    li.style.backgroundColor = colours[li.textContent] ? '#' + colours[li.textContent] : '#316ac5';
+                    li.style.color = '#fff';
                 } else {
                     li.style.outline = '';
+                    li.style.backgroundColor = colours[li.textContent] ? '#' + colours[li.textContent] : '';
+                    li.style.color = '';
                 }
             });
             activeIndex = idx;
+        }
+
+        function scrollToActive() {
+            var lis = dropdown.querySelectorAll('li');
+            if (activeIndex >= 0 && lis[activeIndex]) {
+                var li = lis[activeIndex];
+                var dropTop = dropdown.scrollTop;
+                var dropBottom = dropTop + dropdown.clientHeight;
+                if (li.offsetTop < dropTop) {
+                    dropdown.scrollTop = li.offsetTop;
+                } else if (li.offsetTop + li.offsetHeight > dropBottom) {
+                    dropdown.scrollTop = li.offsetTop + li.offsetHeight - dropdown.clientHeight;
+                }
+            }
         }
 
         function selectItem(idx) {
@@ -454,11 +486,11 @@ if (!Autocompleter.Local) {
             switch (key) {
                 case 40: // Down
                     e.preventDefault();
-                    if (activeIndex < filteredItems.length - 1) highlightItem(activeIndex + 1);
+                    if (activeIndex < filteredItems.length - 1) { highlightItem(activeIndex + 1); scrollToActive(); }
                     break;
                 case 38: // Up
                     e.preventDefault();
-                    if (activeIndex > 0) highlightItem(activeIndex - 1);
+                    if (activeIndex > 0) { highlightItem(activeIndex - 1); scrollToActive(); }
                     break;
                 case 13: // Enter
                     e.preventDefault();
