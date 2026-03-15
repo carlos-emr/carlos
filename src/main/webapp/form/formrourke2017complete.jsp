@@ -583,6 +583,10 @@
         }
 
         function adjustSizes() {
+            // Helper: get element by ID and its offsetHeight (replaces Prototype's $() and .getHeight())
+            function _el(id) { return document.getElementById(id); }
+            function _h(id) { var e = _el(id); return e ? e.offsetHeight : 0; }
+            function _sh(id, h) { var e = _el(id); if (e) e.style.height = h + 'px'; }
 
             var divs = new Array("patientInfo", "growthA", "growthB", "nutrition", "education", "development", "physicalExam", "problemsPlans", "immunization");
             var curDiv;
@@ -598,7 +602,7 @@
 
                 for (page = 1; page < 5; ++page) {
                     curDiv = divs[divIdx] + "p" + page;
-                    tmpHeight = $(curDiv).getHeight();
+                    tmpHeight = _h(curDiv);
 
                     if (tmpHeight > maxHeight) {
                         maxHeight = tmpHeight;
@@ -608,7 +612,7 @@
 
                 for (page = 1; page < 5; ++page) {
                     curDiv = divs[divIdx] + "p" + page;
-                    $(curDiv).style.height = maxHeight;
+                    _sh(curDiv, maxHeight);
                 }
             }
 
@@ -622,30 +626,30 @@
             for (var idx = 0; idx < tables.length; ++idx) {
                 for (var tableIdx = 1; tableIdx < 4; ++tableIdx) {
                     curTable = tables[idx] + tableIdx;
-                    $(curTable).style.height = $(curDiv).getHeight();
+                    _sh(curTable, _h(curDiv));
                 }
             }
 
             //set education tables height
-            let educationP1ElemHeight = $("educationp1").getHeight();
-            $("edt1").style.height = educationP1ElemHeight;
-            $("edt2").style.height = educationP1ElemHeight;
-            $("edt3").style.height = educationP1ElemHeight;
-            $("edt41").style.height = educationP1ElemHeight;
-            $("edt42").style.height = educationP1ElemHeight;
+            let educationP1ElemHeight = _h("educationp1");
+            _sh("edt1", educationP1ElemHeight);
+            _sh("edt2", educationP1ElemHeight);
+            _sh("edt3", educationP1ElemHeight);
+            _sh("edt41", educationP1ElemHeight);
+            _sh("edt42", educationP1ElemHeight);
 
             //set development tables height
-            let developmentP1ElemHeight = $("developmentp1").getHeight();
-            $("dt11").style.height = developmentP1ElemHeight;
-            $("dt12").style.height = developmentP1ElemHeight;
-            $("dt13").style.height = developmentP1ElemHeight;
-            $("dt21").style.height = developmentP1ElemHeight;
-            $("dt22").style.height = developmentP1ElemHeight;
-            $("dt23").style.height = developmentP1ElemHeight;
-            $("dt31").style.height = developmentP1ElemHeight;
-            $("dt32").style.height = developmentP1ElemHeight;
-            $("dt33").style.height = developmentP1ElemHeight;
-            $("dt41").style.height = developmentP1ElemHeight;
+            let developmentP1ElemHeight = _h("developmentp1");
+            _sh("dt11", developmentP1ElemHeight);
+            _sh("dt12", developmentP1ElemHeight);
+            _sh("dt13", developmentP1ElemHeight);
+            _sh("dt21", developmentP1ElemHeight);
+            _sh("dt22", developmentP1ElemHeight);
+            _sh("dt23", developmentP1ElemHeight);
+            _sh("dt31", developmentP1ElemHeight);
+            _sh("dt32", developmentP1ElemHeight);
+            _sh("dt33", developmentP1ElemHeight);
+            _sh("dt41", developmentP1ElemHeight);
 
             //set physical exam tables height
             tables = new Array("pt1", "pt2", "pt3", "pt4");
@@ -653,24 +657,24 @@
             for (var idx = 0; idx < tables.length; ++idx) {
                 for (var tableIdx = 1; tableIdx < 4; ++tableIdx) {
                     curTable = tables[idx] + tableIdx;
-                    $(curTable).style.height = $(curDiv).getHeight();
+                    _sh(curTable, _h(curDiv));
                 }
             }
 
             //set problems and plan tables height
-            let problemsPlansP1ElemHeight = $("problemsPlansp1").getHeight();
-            $("prbt23").style.height = problemsPlansP1ElemHeight;
-            $("prbt31").style.height = problemsPlansP1ElemHeight;
-            $("prbt32").style.height = problemsPlansP1ElemHeight;
+            let problemsPlansP1ElemHeight = _h("problemsPlansp1");
+            _sh("prbt23", problemsPlansP1ElemHeight);
+            _sh("prbt31", problemsPlansP1ElemHeight);
+            _sh("prbt32", problemsPlansP1ElemHeight);
 
             //set immunization tables height
-            let immunizationP1ElemHeight = $("immunizationp1").getHeight();
-            $("immt11").style.height = immunizationP1ElemHeight;
-            $("immt12").style.height = immunizationP1ElemHeight;
-            $("immt13").style.height = immunizationP1ElemHeight;
-            $("immt23").style.height = $("immunizationp2").getHeight();
-            $("immt31").style.height = $("immunizationp3").getHeight();
-            $("immt41").style.height = $("immunizationp4").getHeight();
+            let immunizationP1ElemHeight = _h("immunizationp1");
+            _sh("immt11", immunizationP1ElemHeight);
+            _sh("immt12", immunizationP1ElemHeight);
+            _sh("immt13", immunizationP1ElemHeight);
+            _sh("immt23", _h("immunizationp2"));
+            _sh("immt31", _h("immunizationp3"));
+            _sh("immt41", _h("immunizationp4"));
         }
 
         function init() {
