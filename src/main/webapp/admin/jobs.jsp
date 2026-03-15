@@ -320,7 +320,7 @@
                     }
                 });
 
-                $(":radio").bind('change', function () {
+                $(":radio").on('change', function () {
                     var chooser = $(this).attr('name');
 
                     var checked = $("input:radio[name=" + chooser + "]:checked").val();

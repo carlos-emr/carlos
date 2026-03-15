@@ -224,7 +224,7 @@
 
                 });
 
-                $("#quantity,#product").bind('change', function () {
+                $("#quantity,#product").on('change', function () {
                     if ($("#product").val() == '' || $("#quantity").val() == '0') {
                         $("#td_lots").html("");
                         return;

@@ -82,7 +82,7 @@
                     }
                 });
 
-                $("#search_coding_system").bind('change', function () {
+                $("#search_coding_system").on('change', function () {
                     $("#description").autocomplete("option", "source", ctx + '/CodeSearch.do?codingSystem=' + $("#search_coding_system").val());
                     $('input[name="episode.codingSystem"]').val($("#search_coding_system").val());
                 });

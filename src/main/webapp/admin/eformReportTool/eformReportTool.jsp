@@ -95,7 +95,7 @@
 
                         listReports();
 
-                        $("#btnAdd").bind('click', function () {
+                        $("#btnAdd").on('click', function () {
                             fetchEFormsAndOpenDialog();
 
                         });

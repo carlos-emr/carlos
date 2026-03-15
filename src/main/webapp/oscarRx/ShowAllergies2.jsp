@@ -136,7 +136,7 @@
                     $(".DivContentSectionHead a img").unbind("click");
 
                     //--> action for selecting from search results.
-                    $("#searchResultsContainer div[id $= '_content'] a").bind("click", function (event) {
+                    $("#searchResultsContainer div[id $= '_content'] a").on("click", function (event) {
                         event.preventDefault();
                         // override the old addReaction.do with the new addReaction2.do
                         var path = "${ pageContext.servletContext.contextPath }/oscarRx/addReaction2.do"
@@ -147,7 +147,7 @@
                     });
 
                     //--> delete allergy.
-                    $(".deleteAllergyLink").bind("click", function (event) {
+                    $(".deleteAllergyLink").on("click", function (event) {
                         var ids = this.id.split("_");
                         var action = ids[0].split(":")[1];
                         var param = ids[1].trim();
@@ -163,7 +163,7 @@
                     });
 
                     //--> modify allergy.
-                    $(".modifyAllergyLink").bind("click", function (event) {
+                    $(".modifyAllergyLink").on("click", function (event) {
                         var ids = this.id.split("_");
                         var param = ids[1].trim();
                         sendSearchRequest("${ pageContext.servletContext.contextPath }/oscarRx/addReaction2.do",

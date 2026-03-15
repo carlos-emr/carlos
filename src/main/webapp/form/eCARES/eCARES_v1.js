@@ -784,15 +784,15 @@ function load(field_name, value) {
 
 function completeForm(completed) {
     if (completed === "true") {
-        $("fieldset").attr("disabled", true);
-        $("input.save").attr("disabled", true);
-        $("input.calculate").attr("disabled", true);
-        $("input.tickler").attr("disabled", true);
+        $("fieldset").prop("disabled", true);
+        $("input.save").prop("disabled", true);
+        $("input.calculate").prop("disabled", true);
+        $("input.tickler").prop("disabled", true);
     } else {
-        $("fieldset").attr("disabled", false);
-        $("input.save").attr("disabled", false);
-        $("input.calculate").attr("disabled", false);
-        $("input.tickler").attr("disabled", false);
+        $("fieldset").prop("disabled", false);
+        $("input.save").prop("disabled", false);
+        $("input.calculate").prop("disabled", false);
+        $("input.tickler").prop("disabled", false);
     }
 }
 

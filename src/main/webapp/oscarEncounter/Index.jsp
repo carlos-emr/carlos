@@ -533,7 +533,6 @@
             }
 
 
-            if (!document.all) document.captureEvents(Event.MOUSEUP);
             document.onmouseup = getActiveText;
 
             var encTextareaFocus = false;

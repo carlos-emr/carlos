@@ -428,14 +428,14 @@ function sendMRP(ele) {
 }
 
 function rotate180(id) {
-    jQuery("#rotate180btn_" + id).attr('disabled', 'disabled');
+    jQuery("#rotate180btn_" + id).prop('disabled', true);
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
     postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate180&document=" + id)
         .then(response => response.text())
         .then(data => {
-            jQuery("#rotate180btn_" + id).removeAttr('disabled');
+            jQuery("#rotate180btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
@@ -446,14 +446,14 @@ function rotate180(id) {
 }
 
 function rotate90(id) {
-    jQuery("#rotate90btn_" + id).attr('disabled', 'disabled');
+    jQuery("#rotate90btn_" + id).prop('disabled', true);
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
     postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate90&document=" + id)
         .then(response => response.text())
         .then(data => {
-            jQuery("#rotate90btn_" + id).removeAttr('disabled');
+            jQuery("#rotate90btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
@@ -464,7 +464,7 @@ function rotate90(id) {
 }
 
 function removeFirstPage(id) {
-    jQuery("#removeFirstPagebtn_" + id).attr('disabled', 'disabled');
+    jQuery("#removeFirstPagebtn_" + id).prop('disabled', true);
     if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
         ShowSpin(true);
         const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
@@ -486,12 +486,12 @@ function removeFirstPage(id) {
                     jQuery("#removeFirstPagebtn_" + id).remove();
                 }
                 HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).removeAttr('disabled');
+                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
             })
             .catch(error => {
                 console.error('Error:', error);
                 HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).removeAttr('disabled');
+                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
             });
     }
 }

@@ -347,22 +347,22 @@
 
                 updatePage();
 
-                $('#productNameFilter').bind('change', function () {
+                $('#productNameFilter').on('change', function () {
                     currentPage = 1;
                     updatePage();
                 });
 
-                $('#productLotFilter').bind('change', function () {
+                $('#productLotFilter').on('change', function () {
                     currentPage = 1;
                     updatePage();
                 });
 
-                $('#productLocationFilter').bind('change', function () {
+                $('#productLocationFilter').on('change', function () {
                     currentPage = 1;
                     updatePage();
                 });
 
-                $('#availableOnly').bind('change', function () {
+                $('#availableOnly').on('change', function () {
                     currentPage = 1;
                     updatePage();
                 });

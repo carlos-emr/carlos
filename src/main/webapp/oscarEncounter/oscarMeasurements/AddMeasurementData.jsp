@@ -615,11 +615,11 @@
 
                 jQuery(custom_html).insertBefore(jQuery('#measurementForm'));
 
-                jQuery(wt_input).bind('keyup change', function () {
+                jQuery(wt_input).on('keyup change', function () {
                     calcBMI();
                 });
 
-                jQuery(ht_input).bind('keyup change', function () {
+                jQuery(ht_input).on('keyup change', function () {
                     calcBMI();
                 });
 
