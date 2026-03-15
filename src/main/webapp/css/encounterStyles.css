@@ -860,6 +860,7 @@ div.leftBox ul {
     flex-direction: column;
     padding: 0;
     margin: 0;
+    min-height: 18px;
     list-style: none;
     list-style-type: none;
     list-style-position: outside;
