@@ -60,10 +60,16 @@
         <link href="<c:out value="${ctx}/css/bootstrap.css"/>" rel="stylesheet" type="text/css">
 
         <script>
+            function getCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                return el ? el.value : '';
+            }
+
             function getUpdateTime() {
                 const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'verify');
+                formData.append('CSRF-TOKEN', getCsrfToken());
 
                 fetch(url, {
                     method: 'POST',
@@ -106,6 +112,7 @@
                 const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'updateDB');
+                formData.append('CSRF-TOKEN', getCsrfToken());
 
                 fetch(url, {
                     method: 'POST',

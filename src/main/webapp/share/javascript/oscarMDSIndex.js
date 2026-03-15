@@ -80,17 +80,36 @@ function serializeFormToObject(form) {
 }
 
 /**
+ * Returns the CSRF token value injected by csrfguard.js into the page.
+ * CSRFGuard 4.5 auto-patches XMLHttpRequest but NOT fetch(), so fetch-based
+ * POST requests must include the token manually.
+ * @returns {string} the CSRF-TOKEN value, or empty string if not found
+ */
+function getCsrfToken() {
+    var el = document.querySelector('input[name="CSRF-TOKEN"]');
+    return el ? el.value : '';
+}
+
+/**
  * Helper function to make a POST request with form-urlencoded data.
  * Centralizes fetch boilerplate for form submissions.
+ * Automatically includes the CSRF-TOKEN required by CSRFGuard 4.5.
  * @param {string} url - The URL to POST to
  * @param {string|Object} data - URL-encoded string or object to be converted
  * @returns {Promise<Response>}
  */
 function postForm(url, data) {
+    var params = typeof data === 'string' ? new URLSearchParams(data) : new URLSearchParams(data);
+    if (!params.has('CSRF-TOKEN')) {
+        var token = getCsrfToken();
+        if (token) {
+            params.append('CSRF-TOKEN', token);
+        }
+    }
     return fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: typeof data === 'string' ? data : new URLSearchParams(data).toString()
+        body: params.toString()
     });
 }
 

@@ -1513,10 +1513,12 @@
                 clearTimeout(debounceTimer);
                 var seq = ++requestSeq;
                 debounceTimer = setTimeout(function() {
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfVal = csrfEl ? csrfEl.value : '';
                     fetch('<%=request.getContextPath()%>/cvc.do?method=query', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        body: encodeURIComponent(q)
+                        body: encodeURIComponent(q) + '&CSRF-TOKEN=' + encodeURIComponent(csrfVal)
                     })
                     .then(function(r) {
                         if (!r.ok) return Promise.reject('CVC query returned HTTP ' + r.status);

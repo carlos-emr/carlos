@@ -1008,12 +1008,17 @@
                         adjustDynamicListTotals();
 
                         try {
+                            var formBody = $("form").serialize();
+                            if (formBody.indexOf('CSRF-TOKEN=') === -1) {
+                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                if (csrfEl) formBody += '&CSRF-TOKEN=' + encodeURIComponent(csrfEl.value);
+                            }
                             const response = await fetch('<%= context %>/Pregnancy.do?method=saveFormAjax', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/x-www-form-urlencoded'
                                 },
-                                body: $("form").serialize()
+                                body: formBody
                             });
                             if (!response.ok) {
                                 throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
@@ -1553,10 +1558,12 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=' + demographic + '&formId=0&provNo=' + user + '&fromSession=true';
 
                             try {
+                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                var csrfVal = csrfEl ? csrfEl.value : '';
                                 const response = await fetch('<%= context %>/Pregnancy.do', {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                    body: 'method=createGBSLabReq&demographicNo=' + encodeURIComponent(demographic) + '&penicillin=' + encodeURIComponent(penicillin)
+                                    body: 'method=createGBSLabReq&demographicNo=' + encodeURIComponent(demographic) + '&penicillin=' + encodeURIComponent(penicillin) + '&CSRF-TOKEN=' + encodeURIComponent(csrfVal)
                                 });
                                 if (!response.ok) {
                                     throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
@@ -1870,7 +1877,9 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var user = '<%=session.getAttribute("user")%>';
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
                             var pregUrl = '<%= context %>/Pregnancy.do';
-                            var pregBody = 'method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + encodeURIComponent(gct_hb) + '&urine=' + encodeURIComponent(gct_urine) + '&antibody=' + encodeURIComponent(gct_ab) + '&glucose=' + encodeURIComponent(gct_glu);
+                            var csrfEl2 = document.querySelector('input[name="CSRF-TOKEN"]');
+                            var csrfVal2 = csrfEl2 ? csrfEl2.value : '';
+                            var pregBody = 'method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + encodeURIComponent(gct_hb) + '&urine=' + encodeURIComponent(gct_urine) + '&antibody=' + encodeURIComponent(gct_ab) + '&glucose=' + encodeURIComponent(gct_glu) + '&CSRF-TOKEN=' + encodeURIComponent(csrfVal2);
 
                             try {
                                 const response = await fetch(pregUrl, {
@@ -1909,7 +1918,9 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var user = '<%=session.getAttribute("user")%>';
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
                             var pregUrl = '<%= context %>/Pregnancy.do';
-                            var pregBody = 'method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + encodeURIComponent(gtt_glu);
+                            var csrfEl3 = document.querySelector('input[name="CSRF-TOKEN"]');
+                            var csrfVal3 = csrfEl3 ? csrfEl3.value : '';
+                            var pregBody = 'method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + encodeURIComponent(gtt_glu) + '&CSRF-TOKEN=' + encodeURIComponent(csrfVal3);
 
                             try {
                                 const response = await fetch(pregUrl, {

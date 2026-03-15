@@ -621,9 +621,14 @@ input[id^='acklabel_']{
         }
 
 
+        function getCsrfToken() {
+            var el = document.querySelector('input[name="CSRF-TOKEN"]');
+            return el ? el.value : '';
+        }
+
         function handleLab(formid, labid, action) {
             var url = '<%= request.getContextPath() %>/documentManager/inboxManage.do';
-            var data = 'method=isLabLinkedToDemographic&labid=' + labid;
+            var data = 'method=isLabLinkedToDemographic&labid=' + labid + '&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
             fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -716,7 +721,7 @@ input[id^='acklabel_']{
             }
 
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic.do";
-            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + labNo;
+            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + labNo + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -746,13 +751,14 @@ input[id^='acklabel_']{
                 console.error("Form not found: " + formid);
                 return;
             }
-            var data = new URLSearchParams(new FormData(formEl)).toString();
+            var params = new URLSearchParams(new FormData(formEl));
+            if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
             console.log(url);
-            console.log(data);
+            console.log(params.toString());
             fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: data
+                body: params.toString()
             })
             .then(function() {
                 window.location.reload();
@@ -829,6 +835,8 @@ input[id^='acklabel_']{
                 if (accNum) params.append('accessionNum', accNum.value);
                 if (labelInput) params.append('label', labelInput.value);
                 params.append('ajaxcall', 'true');
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (csrfEl) params.append('CSRF-TOKEN', csrfEl.value);
                 fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -851,7 +859,7 @@ input[id^='acklabel_']{
     //first check to see if lab is linked, if it is, we can send the demographicNo to the macro
     function runMacro(name, formid, closeOnSuccess) {
         var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
-        var data = 'method=isLabLinkedToDemographic&labid=<%= Encode.forJavaScript(segmentID) %>';
+        var data = 'method=isLabLinkedToDemographic&labid=<%= Encode.forJavaScript(segmentID) %>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -873,12 +881,13 @@ input[id^='acklabel_']{
     function runMacroInternal(name, formid, closeOnSuccess, demographicNo) {
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + name + (demographicNo.length > 0 ? "&demographicNo=" + demographicNo : "");
         var formEl = document.getElementById(formid);
-        var data = new URLSearchParams(new FormData(formEl)).toString();
+        var params = new URLSearchParams(new FormData(formEl));
+        if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
 
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data
+            body: params.toString()
         })
         .then(function() {
             if (closeOnSuccess) {
