@@ -48,6 +48,16 @@ if (!HTMLElement.prototype.show) {
 // HTMLFormElement.prototype.serialize — instance method form: $("formId").serialize()
 //   (line 997 in newCaseManagementView.js.jsp — different from Form.serialize() static call)
 // Position.page, Position.positionedOffset (replace with getBoundingClientRect())
+
+// $$() — CSS selector function (equivalent to querySelectorAll, returns Array not NodeList):
+//   window.$$ = function(selector) { return Array.from(document.querySelectorAll(selector)); };
+//   Used in: reportdaysheet.jsp ($$('tr.oscar')), SearchDrug3.jsp ($$('div.hiddenResource')),
+//            WriteScript.jsp ($$('div.untrustedResource'), $$('div.hiddenResource'))
+//   IMPORTANT: Returns Array (not NodeList) so .invoke(), .each() etc. work via compat shim
+
+// String.prototype.strip() — equivalent to native .trim()
+//   Used in: SearchDrug3.jsp line 1323 (prnStr.strip())
+//   Migration: replace .strip() → .trim() (no shim needed, just search-and-replace)
 ```
 
 This shim lets us swap `prototype.js` → `prototype-compat.js` in the encounter module without changing the calling code, then progressively remove shim usage in later cleanup passes.
@@ -232,7 +242,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 
 ## Phase 1: Low-Risk Modules — Full Rewrite (Admin, Forms, Document Manager)
 
-**13 files, ~16 Prototype API calls total. Minimal UI impact. Direct vanilla JS rewrite, no shim.**
+**26 files. Minimal UI impact. Direct vanilla JS rewrite, no shim.**
 
 ### 1a. Admin pages
 | File | Changes |
@@ -272,7 +282,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 | `documentManager/editDocument.jsp` | Remove Prototype + Scriptaculous includes |
 | `documentManager/addedithtmldocument.jsp` | Remove Prototype + Scriptaculous includes |
 | `documentManager/html5AddDocuments.jsp` | Remove Prototype + Scriptaculous includes |
-| `report/reportdaysheet.jsp` | Remove Prototype include |
+| `report/reportdaysheet.jsp` | Remove Prototype include. Has live `$$('tr.oscar')` + `.invoke('hide'/'show')` calls (lines ~119-124) — replace with `document.querySelectorAll()` + `.forEach()`. |
 | `report/GenerateLetters.jsp` | `Ajax.Request` → `fetch()` |
 | `oscarReport/reportByTemplate/resultReport.jsp` | `Ajax.Request` in `clearSession()` on `<body onunload>` → `navigator.sendBeacon()`. **No Prototype load tag** — `Ajax.Request` call is currently broken/silently fails. Fix independently of Prototype removal. |
 
@@ -286,7 +296,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 
 ## Phase 2: Lab Module — Full Rewrite
 
-**4 files, ~10 Prototype API calls. Medium complexity due to `evalScripts`. Direct vanilla JS rewrite, no shim.**
+**13 files. Medium complexity due to `evalScripts` and Autocompleter. Direct vanilla JS rewrite, no shim.**
 
 | File | Changes |
 |------|---------|
@@ -315,7 +325,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 
 ## Phase 3: Prescription Module — Full Rewrite
 
-**7 files, 40+ Prototype API calls. High complexity — includes LightWindow replacement. Direct vanilla JS rewrite, no shim.**
+**16 files, 40+ Prototype API calls. High complexity — includes LightWindow replacement. Direct vanilla JS rewrite, no shim.**
 
 ### 3a. Replace LightWindow with Bootstrap 5 Modals
 **Files affected**: `oscarRx/SearchDrug3.jsp`, `oscarRx/ViewScript2.jsp`, `oscarRx/SelectPharmacy2.jsp`
@@ -354,10 +364,9 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 ### 3d. Files
 | File | Key Changes |
 |------|------------|
-| `oscarRx/SearchDrug3.jsp` | Ajax calls, Effects, LightWindow, Insertion enum, 8 `.evalJSON()`, `evalScripts`, dragiframe.js |
+| `oscarRx/SearchDrug3.jsp` | Ajax calls, Effects, LightWindow, Insertion enum, 8 `.evalJSON()`, `evalScripts`, dragiframe.js, `$$('div.hiddenResource')` + `.invoke()`, `.strip()` → `.trim()` (line 1323), `.getStyle()` (lines 249, 1242, 1324) |
 | `oscarRx/ViewScript2.jsp` | Ajax calls, LightWindow, 1 `.evalJSON()` |
 | `oscarRx/ViewScript.jsp` | Ajax calls |
-| `oscarRx/WriteScript.jsp` | 2 Ajax.Updater (renal dosing) |
 | `oscarRx/ChooseAllergy2.jsp` | Effect.BlindDown/BlindUp |
 | `oscarRx/ChooseAllergy.jsp` | Prototype + Scriptaculous + effects |
 | `oscarRx/ChooseDrug.jsp` | Prototype include |
@@ -366,8 +375,11 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 | `oscarRx/SelectPharmacy2.jsp` | LightWindow + Event handling |
 | `oscarRx/prescribe.jsp` | Effect.BlindDown/BlindUp, `$().getStyle()` — loaded via AJAX into SearchDrug3.jsp's `#rxText` div. **Must migrate simultaneously with SearchDrug3.jsp** or Effects will break. |
 | `oscarRx/ShowAllergies2.jsp` | `Effect.BlindDown`/`Effect.BlindUp` inside jQuery `$.fn.toggleSection` (lines ~179, ~182). Standalone page (no Prototype load tag) — relies on parent loading Scriptaculous. Replace with CSS transitions. |
+| `oscarRx/SelectReason.jsp` | Loads Prototype. Remove include, migrate any inline API calls. |
+| `oscarRx/Preview2.jsp` | Loads Prototype. Pre-existing CSRF bug with `fetch()` POST (see Phase 0e). Remove Prototype include after CSRF fix. |
 | `oscarRx/displayMedHistory.jsp` | dragiframe.js reference |
 | `oscarRx/ListDrugs.jsp` | Element.observe (1 call) |
+| `oscarRx/WriteScript.jsp` | 2 Ajax.Updater (renal dosing), `$$('div.untrustedResource')` + `$$('div.hiddenResource')` + `.invoke()` |
 
 ### Verification
 - Full prescription workflow: search drug → select → write script → view script
@@ -601,6 +613,56 @@ Phases 1-3 are independent and can be done in any order. Phase 4 is the highest-
 
 All files from the original appendix have been incorporated into the phase definitions above.
 
+### Rollback Strategy
+
+Each phase should be a separate PR. Rollback for any phase is `git revert` of the merged PR.
+
+| Phase | Rollback |
+|-------|----------|
+| Phase 0 | Revert `global-head.jspf` changes, remove new files (`carlos-ajax.js`, `prototype-compat.js`, `transitions.css`) |
+| Phases 1-3 | Revert individual JSP changes (each phase is one PR) |
+| Phase 4 | Revert `encounter-head.jspf` back to loading `prototype.js` + `scriptaculous.js` |
+| Phase 5 | Cannot roll back library deletions without also reverting all prior phases — execute last |
+
+---
+
+## Critical Migration Gotchas (from industry experience)
+
+These are common mistakes when migrating from Prototype.js, gathered from web research and known issues. Each is addressed in the behavioral contracts below.
+
+### G1. `fetch()` defaults to GET — Prototype defaults to POST
+Forgetting `method: 'POST'` silently changes behavior. `CarlosAjax` defaults to `'POST'` to match Prototype.
+
+### G2. `fetch()` does NOT reject on HTTP errors
+A 404/500 resolves the Promise normally. Must check `response.ok` or `response.status`. Prototype auto-routed to `onSuccess`/`onFailure` by status code. `CarlosAjax` preserves this routing.
+
+### G3. `fetch()` network errors (DNS, connection refused) are different from HTTP errors
+`fetch()` rejects (throws) on network errors — neither `onSuccess` nor `onFailure` would fire without explicit handling. `CarlosAjax` MUST catch rejected promises and route them to `onFailure` with a synthetic transport `{status: 0, responseText: 'Network error'}`, then fire `onComplete`. Prototype fired `onException` for this; application code has 17+ `onFailure` callbacks that expect to catch all errors.
+
+### G4. `X-Requested-With: XMLHttpRequest` header is NOT sent by fetch()
+Prototype sends this automatically. Three server-side filters + CSRFGuard's Ajax mode depend on it. `CarlosAjax` adds it automatically.
+
+### G5. CSRF token validation path depends on `X-Requested-With` header
+With `Ajax=true`, CSRFGuard validates from request **header** when `X-Requested-With` is present, or from request **body** when absent. `CarlosAjax` sends the token as a **header**. `sendBeacon` (no custom headers) sends it in the **body**. Both paths work correctly.
+
+### G6. `querySelectorAll()` returns NodeList, not Array
+Prototype's `$$()` returns an enhanced Array with `.invoke()`, `.each()`, etc. `querySelectorAll()` returns a NodeList (no `.map()`, `.filter()`). Always wrap: `Array.from(document.querySelectorAll(selector))`.
+
+### G7. CSS transitions do NOT work on `display: none`
+When replacing Scriptaculous `Effect.Fade`/`Effect.Appear`, you cannot simply transition `display`. Pattern: toggle an opacity class, then set `display: none` via `transitionend` event listener (or use Bootstrap's Collapse component which handles this).
+
+### G8. Prototype's `$()` extends elements — `getElementById()` does not
+Prototype's `$()` adds methods like `.show()`, `.hide()`, `.addClassName()` to the returned element. `document.getElementById()` returns a plain element. Chained calls like `$('foo').show().addClassName('active')` must be rewritten as separate statements since native DOM methods don't return `this`.
+
+### G9. `innerHTML` does NOT execute `<script>` tags
+Prototype's `evalScripts` manually extracted and eval'd scripts. Modern `innerHTML` silently drops `<script>` execution. `CarlosAjax.updater()` handles this by creating dynamic `<script>` DOM elements.
+
+### G10. `sendBeacon()` cannot set custom headers
+Cannot send `X-Requested-With` or `CSRF-TOKEN` as headers. Alternative: `fetch()` with `keepalive: true` supports custom headers and survives page unload (same 64KB limit).
+
+### G11. No application code uses `Ajax.Responders`
+Confirmed by codebase grep — `Ajax.Responders` (global AJAX lifecycle hooks) is only used within `prototype.js` itself. No global responder registration exists in application code, so this feature does not need replacement.
+
 ---
 
 ## Behavioral Contracts — Must Preserve During Migration
@@ -635,22 +697,29 @@ headers: { 'X-Requested-With': 'XMLHttpRequest' }
 
 **Breaking change if omitted**: Server rejects ALL mutating requests. Users cannot save notes, prescriptions, appointments, or any other data.
 
-**Migration rule**: `CarlosAjax` MUST extract the CSRF token from the DOM and include it in the request body for all POST/PUT/DELETE/PATCH requests:
+**Migration rule**: `CarlosAjax` MUST extract the CSRF token from the DOM and include it as a **request header** (not body parameter) for all POST/PUT/DELETE/PATCH requests. This is because CarlosAjax also sends `X-Requested-With: XMLHttpRequest`, which triggers CSRFGuard's Ajax mode — and in Ajax mode, CSRFGuard validates the token from the **header**, not the body:
 ```javascript
 function getCsrfToken() {
     const el = document.querySelector('input[name="CSRF-TOKEN"]');
     return el ? el.value : '';
 }
-// Append CSRF-TOKEN to parameters on every mutating request
+
+// CarlosAjax sends CSRF token as a REQUEST HEADER on every mutating request:
+headers: {
+    'X-Requested-With': 'XMLHttpRequest',
+    'CSRF-TOKEN': getCsrfToken()
+}
 ```
 
-For `navigator.sendBeacon()` (used in page unload handlers), the CSRF token must also be included:
+For `navigator.sendBeacon()` (used in page unload handlers), the CSRF token goes in the **body** — sendBeacon cannot set custom headers, and it also doesn't send `X-Requested-With`, so CSRFGuard falls back to body parameter validation:
 ```javascript
 navigator.sendBeacon(url, new URLSearchParams({
     noteId: 123,
     'CSRF-TOKEN': getCsrfToken()
 }));
 ```
+
+For cases where header-based CSRF validation is needed during page unload, use `fetch()` with `keepalive: true` instead of sendBeacon (see CSRFGuard Token Path Switching section below).
 
 **See**: `docs/carlos-ajax.md` for full implementation details and `docs/csrf-protection-architecture.md` for CSRFGuard architecture.
 
@@ -727,11 +796,35 @@ Beyond the three HTTP header-based filters above, several server-side 2Actions u
 
 These parameter-based detections are independent of HTTP headers and will continue working after migration without any changes. However, they are important context: the server-side code was designed for AJAX from the start, and the header-based detection is the critical contract to preserve.
 
-### CSRFGuard Token Path Switching (`Ajax=true` mode)
+### CSRFGuard Token Path Switching (`Ajax=true` mode) — RESOLVED
 
-**Critical nuance**: With `org.owasp.csrfguard.Ajax=true` (line 171 of `Owasp.CsrfGuard.properties`), CSRFGuard's JavaScript patches XHR to inject the CSRF token as a **request header** (not a form parameter). When CSRFGuard receives a request with `X-Requested-With: XMLHttpRequest`, it validates the token from the **header**. Without that header, it falls back to validating from the **POST body parameter**.
+**Critical finding**: With `org.owasp.csrfguard.Ajax=true` (line 171 of `Owasp.CsrfGuard.properties`), CSRFGuard's JavaScript patches XHR to inject the CSRF token as a **request header** (not a form parameter). When CSRFGuard receives a request with `X-Requested-With: XMLHttpRequest`, it validates the token from the **request header** named `CSRF-TOKEN`. Without that header, it falls back to validating from the **POST body parameter**.
 
-`CarlosAjax` injects the token as a POST body parameter (via `URLSearchParams`). This works because: (a) the `X-Requested-With` header is present, so CSRFGuard enters AJAX mode, but (b) if CSRFGuard also checks the parameter path as fallback, both paths succeed. However, this dual-path behavior must be verified during Phase 0 testing. If CSRFGuard only checks headers in AJAX mode and we send the token as a parameter, validation would fail.
+**Decision**: `CarlosAjax` MUST send the CSRF token as a **request header**, not a body parameter, because it also sends `X-Requested-With: XMLHttpRequest`:
+```javascript
+headers: {
+    'X-Requested-With': 'XMLHttpRequest',
+    'CSRF-TOKEN': getCsrfToken()   // MUST be a header, not body param
+}
+```
+
+For `navigator.sendBeacon()`, which **cannot set custom headers**, the CSRF token goes in the **body** — and `X-Requested-With` is also absent, so CSRFGuard falls back to body parameter validation. This is correct behavior.
+
+For `fetch()` with `keepalive: true` (preferred over `sendBeacon` when headers are needed — e.g., for page unload handlers where you want to guarantee CSRF header validation):
+```javascript
+fetch(url, {
+    method: 'POST',
+    keepalive: true,  // Survives page unload like sendBeacon
+    credentials: 'same-origin',
+    headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'CSRF-TOKEN': getCsrfToken(),
+        'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({ noteId: 123 })
+});
+```
+`fetch()` with `keepalive: true` is the recommended alternative to `sendBeacon` when CSRF headers are needed, because it supports custom headers and has the same page-unload resilience. The `keepalive` flag limits total in-flight body size to 64KB (same as sendBeacon).
 
 ### Server-Side Response Format Dependencies
 
@@ -1097,7 +1190,7 @@ fetch(url, { method: 'POST', body: new URLSearchParams(params), headers: {'Conte
 | `$()` element chaining | **MEDIUM** | Yes — compat shim | 5 files, 400+ calls |
 | `show()`/`hide()` display value | **MEDIUM** | Yes — style.display | 4 files |
 | `.evalJSON()` | **LOW** | Yes — JSON.parse() | 8 files, 19 calls |
-| `$F()` field access | **LOW** | Yes — .value | 2 files, 30+ calls |
+| `$F()` field access | **LOW** | Yes — .value | 2 files, 62+ calls (62 in newCaseManagementView.js.jsp alone) |
 | `$A()` conversion | **LOW** | Yes — Array.from() | 2 files, 7 calls |
 | `addClassName/removeClassName` | **LOW** | Yes — classList API | 3 files |
 | Event constants | **LOW** | Yes — e.key / e.keyCode | 2 files |

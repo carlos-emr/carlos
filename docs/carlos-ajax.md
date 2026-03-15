@@ -41,7 +41,9 @@ Makes an AJAX request without DOM manipulation. Replacement for `Ajax.Request`.
 | `synchronous` | `boolean` | `false` | If `true`, uses synchronous `XMLHttpRequest`. See [Synchronous Requests](#synchronous-requests). |
 | `onSuccess` | `function(transport)` | `null` | Called on HTTP 2xx response. Receives a transport object. |
 | `onFailure` | `function(transport)` | `null` | Called on HTTP 4xx/5xx response. Receives a transport object. |
-| `onComplete` | `function(transport)` | `null` | Called after `onSuccess` or `onFailure`, regardless of outcome. |
+| `onComplete` | `function(transport)` | `null` | Called after `onSuccess` or `onFailure`, regardless of outcome. Always fires — even on network errors. |
+
+**Network error handling**: When `fetch()` rejects (DNS failure, connection refused, network offline), CarlosAjax catches the error and routes it to `onFailure` with a synthetic transport `{status: 0, responseText: 'Network error: ' + error.message}`, then fires `onComplete`. This matches the expectation of the 17+ `onFailure` callbacks in application code that expect to catch all errors.
 
 **The `transport` object** passed to callbacks has:
 - `transport.responseText` — raw response body string
@@ -143,7 +145,7 @@ Without this header, AJAX responses will be corrupted with appended HTML.
 
 **The problem**: CSRFGuard 4.5 does **NOT** intercept the `fetch()` API. Since `fetch()` is a separate browser API from `XMLHttpRequest`, CSRFGuard cannot patch it. If `CarlosAjax` uses `fetch()` for POST requests without including the CSRF token, **every mutating request will be rejected by the server** with a CSRF validation error.
 
-**How CarlosAjax handles this**: For all POST/PUT/DELETE/PATCH requests, CarlosAjax automatically extracts the CSRF token from the DOM and includes it in the request body:
+**How CarlosAjax handles this**: For all POST/PUT/DELETE/PATCH requests, CarlosAjax automatically extracts the CSRF token from the DOM and includes it as a **request header**:
 
 ```javascript
 // Internal implementation:
@@ -152,11 +154,18 @@ function getCsrfToken() {
     return tokenInput ? tokenInput.value : '';
 }
 
-// On every mutating request, CarlosAjax appends:
-// CSRF-TOKEN=<token_value> to the request body parameters
+// On every mutating request, CarlosAjax sends the token as a REQUEST HEADER:
+headers: {
+    'X-Requested-With': 'XMLHttpRequest',
+    'CSRF-TOKEN': getCsrfToken()   // HEADER, not body parameter
+}
 ```
 
-The token is read from the hidden `<input name="CSRF-TOKEN">` field that CSRFGuard's JavaScript injects into all forms on the page. This field is always present because CSRFGuard uses MutationObserver to inject it into dynamically-created forms as well.
+**Why a header, not a body parameter?** CSRFGuard's `Ajax=true` mode (configured in `Owasp.CsrfGuard.properties`) switches CSRF token validation based on the `X-Requested-With` header. When `X-Requested-With: XMLHttpRequest` is present, CSRFGuard validates the token from the **request header** named `CSRF-TOKEN`. Since CarlosAjax always sends `X-Requested-With`, it must also send the CSRF token as a header.
+
+For `navigator.sendBeacon()` (which cannot set custom headers and does not send `X-Requested-With`), CSRFGuard falls back to validating the token from the **POST body parameter** — so sendBeacon correctly includes the token in the body via `URLSearchParams`.
+
+The token value is read from the hidden `<input name="CSRF-TOKEN">` field that CSRFGuard's JavaScript injects into all forms on the page. This field is always present because CSRFGuard uses MutationObserver to inject it into dynamically-created forms as well.
 
 **Token name**: `CSRF-TOKEN` (configured in `Owasp.CsrfGuard.properties`, line 270)
 **Protected methods**: POST, PUT, DELETE, PATCH (line 97)
@@ -354,7 +363,27 @@ The `visibilitychange` event fires in all the same scenarios as `beforeunload` (
       }
   });
   ```
-  Note: `sendBeacon()` always sends POST, cannot read the response, and has a ~64KB payload limit. Since it sends POST, the CSRF token MUST be included.
+  Note: `sendBeacon()` always sends POST, cannot read the response, and has a ~64KB payload limit. Since it sends POST, the CSRF token MUST be included in the body.
+
+- **Page unload with CSRF header validation** — When you need `X-Requested-With` + `CSRF-TOKEN` as headers (not body), use `fetch()` with `keepalive: true` instead of sendBeacon:
+  ```javascript
+  document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden') {
+          fetch('releaseNoteLock.do', {
+              method: 'POST',
+              keepalive: true,     // Survives page unload like sendBeacon
+              credentials: 'same-origin',
+              headers: {
+                  'X-Requested-With': 'XMLHttpRequest',
+                  'CSRF-TOKEN': getCsrfToken(),
+                  'Content-Type': 'application/x-www-form-urlencoded'
+              },
+              body: new URLSearchParams({ noteId: 123 })
+          });
+      }
+  });
+  ```
+  `fetch()` with `keepalive: true` has the same 64KB limit and page-unload resilience as sendBeacon, but supports custom headers. Prefer this over sendBeacon when CSRF header-based validation is needed.
 
 ### Do NOT Use CarlosAjax When:
 
@@ -436,12 +465,18 @@ doSomethingWith(result);
 async function doWork() {
     const response = await fetch(url, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'CSRF-TOKEN': getCsrfToken()    // REQUIRED for POST
         },
         body: new URLSearchParams(data)
     });
+    // Check for CSRF redirect failure
+    if (response.redirected && response.url.includes('errorpage.jsp')) {
+        throw new Error('CSRF validation failed');
+    }
     const result = await response.text();
     doSomethingWith(result);
 }
@@ -478,7 +513,7 @@ Every AJAX call in CARLOS EMR must include these to work correctly with server-s
 | `X-Requested-With` header | `XMLHttpRequest` | ALL AJAX requests (GET and POST) |
 | `Content-Type` header | `application/x-www-form-urlencoded` | POST requests with form data |
 | `credentials` | `'same-origin'` | ALL fetch() calls (session cookie) |
-| `CSRF-TOKEN` parameter | Token from hidden form field | POST, PUT, DELETE, PATCH requests |
+| `CSRF-TOKEN` **header** | Token from hidden form field | POST, PUT, DELETE, PATCH requests (header because `Ajax=true` mode) |
 | CSRF redirect detection | Check `response.redirected` + `response.url` | ALL fetch() calls |
 
 `CarlosAjax` handles all of these automatically. If using `fetch()` directly, add them manually. Missing any one of these will cause silent failures.
