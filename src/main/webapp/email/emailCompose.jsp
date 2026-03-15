@@ -379,8 +379,8 @@
                         <h5 class="card-title">
                             <span class="fa-solid fa-lock"></span> Encryption <span id="encryptionOptionsInfo"
                                                                              class="fa-solid fa-circle-info"
-                                                                             data-toggle="tooltip"
-                                                                             data-placement="auto right"
+                                                                             data-bs-toggle="tooltip"
+                                                                             data-bs-placement="auto"
                                                                              title="Emails will be sent encrypted by default. Encryption settings can be modified by disabling this feature."></span>
                             <div class="form-check form-switch encryptionLock">
                                 <input class="form-check-input" type="checkbox" id="encryptionSwitch"
@@ -394,7 +394,7 @@
                             <div class="row">
                                 <div class="col-sm-12 form-group">
                                     <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
-                                                                   data-toggle="tooltip" data-placement="auto right"
+                                                                   data-bs-toggle="tooltip" data-bs-placement="auto"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
                                               rows="5" placeholder="..."><c:out
@@ -416,8 +416,8 @@
                             </div>
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
-                                    <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-toggle="tooltip"
-                                                      data-placement="auto right"
+                                    <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
+                                                      data-bs-placement="auto"
                                                       title="Clue will be added into the email body (visible)"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -430,7 +430,7 @@
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
                                     <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
-                                                                     data-toggle="tooltip" data-placement="auto right"
+                                                                     data-bs-toggle="tooltip" data-bs-placement="auto"
                                                                      title="Email attachments will be encrypted when enabled"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -784,8 +784,10 @@
         const hasInvalidRecipint = document.getElementById('totalInvalidRecipintEmails') && document.getElementById('totalInvalidRecipintEmails').value > 0;
 
         if (!hasSender || !hasValidRecipient || hasInvalidRecipint) {
-            const errorMessageModal = new bootstrap.Modal(document.getElementById('errorMessageModal'));
-            errorMessageModal.show();
+            var modalEl = document.getElementById('errorMessageModal');
+            var existingModal = bootstrap.Modal.getInstance(modalEl);
+            if (existingModal) existingModal.dispose();
+            new bootstrap.Modal(modalEl).show();
         }
 
         if (!hasSender || !hasValidRecipient) {
