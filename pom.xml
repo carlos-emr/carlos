@@ -437,21 +437,21 @@
             <version>2.0.6.1</version>
         </dependency>
 
-        <!-- spring -->
+        <!-- spring (Jakarta EE 10 — version aligned with spring-framework-bom in dependencyManagement) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-orm</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
         </dependency>
         <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
              Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
@@ -459,29 +459,29 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
         </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aspects</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aop</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
             <exclusions>
                 <exclusion>
                     <groupId>cglib</groupId>
@@ -500,7 +500,7 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context-support</artifactId>
-            <version>5.3.39</version>
+            <version>6.2.17</version>
         </dependency>
 
         <!-- hibernate / sql -->
