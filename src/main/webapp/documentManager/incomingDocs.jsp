@@ -1181,7 +1181,7 @@
                     var provfindEl = document.getElementById("provfind");
                     if (provfindEl) provfindEl.value = ui.item.providerNo;
 
-                    addflagprovider(ui.item.firstName, ui.item.lastName, ui.item.providerNo);
+                    addflagprovider(ui.item.lastName, ui.item.firstName, ui.item.providerNo);
 
                     jQuery("#autocompleteprov").val('');
                     return false;
