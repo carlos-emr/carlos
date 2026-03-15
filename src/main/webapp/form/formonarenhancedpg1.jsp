@@ -364,23 +364,23 @@
                 rhogamWarning();
 
                 /*
-		$("select[name='pg1_labRh']").bind('change',function(){
+		$("select[name='pg1_labRh']").on('change',function(){
 			rhWarning();
 		});
 
-		$("select[name='pg1_labRubella']").bind('change',function(){
+		$("select[name='pg1_labRubella']").on('change',function(){
 			rubellaWarning();
 		});
 
-		$("select[name='pg1_labHBsAg']").bind('change',function(){
+		$("select[name='pg1_labHBsAg']").on('change',function(){
 			hbsagWarning();
 		});
 
-		$("input[name='pg1_geneticA'],input[name='pg1_geneticB'],input[name='pg1_geneticC'],input[name='pg1_labCustom3Result']").bind('blur',function(){
+		$("input[name='pg1_geneticA'],input[name='pg1_geneticB'],input[name='pg1_geneticC'],input[name='pg1_labCustom3Result']").on('blur',function(){
 			geneticWarning();
 		});
 
-		$("input[name='c_bmi']").bind('blur',function(){
+		$("input[name='c_bmi']").on('blur',function(){
 			bmiWarning();
 		});
 
@@ -425,11 +425,11 @@
                         $("#mcv_abn_prompt").show();
                 }
 
-                $("input[name='pg1_ht']").bind('keypress', function () {
+                $("input[name='pg1_ht']").on('keypress', function () {
                     $("input[name='c_bmi']").val('');
                     bmiWarning();
                 });
-                $("input[name='pg1_wt']").bind('keypress', function () {
+                $("input[name='pg1_wt']").on('keypress', function () {
                     $("input[name='c_bmi']").val('');
                     bmiWarning();
                 });
@@ -1056,10 +1056,10 @@
             }
 
             $(document).ready(function () {
-                $("input[name='pg1_geneticD1']").bind('change', function () {
+                $("input[name='pg1_geneticD1']").on('change', function () {
                     updateGeneticD();
                 });
-                $("input[name='pg1_geneticD2']").bind('change', function () {
+                $("input[name='pg1_geneticD2']").on('change', function () {
                     updateGeneticD();
                 });
 
@@ -1072,13 +1072,13 @@
                         $("input[name='pg1_geneticD2']").attr('checked', true);
                 }
 
-                $("input[name='pg1_psCertN']").bind('click', function () {
+                $("input[name='pg1_psCertN']").on('click', function () {
                     if ($("input[name='pg1_psCertN']").attr('checked') == 'checked') {
                         $("#dating-us-form").dialog("open");
                     }
                 });
 
-                $("#print_log_menu").bind('click', function () {
+                $("#print_log_menu").on('click', function () {
                     jQuery.ajax({
                         type: "POST",
                         url: '<%= context %>/Pregnancy.do?method=getPrintData',
@@ -1602,11 +1602,11 @@
                     success: function (data) {
                         if (data.length > 0) {
                             $('#bp_chart').val(data[0].dataField);
-                            $('#moveToForm_bp').unbind("click").bind('click', function () {
+                            $('#moveToForm_bp').off("click").on('click', function () {
                                 moveToForm('bp', 'pg1_BP');
                             });
                         } else {
-                            $('#moveToForm_bp').unbind("click").bind('click', function () {
+                            $('#moveToForm_bp').off("click").on('click', function () {
                                 alert('No Available values in E-Chart');
                             });
                         }
@@ -1621,11 +1621,11 @@
                     success: function (data) {
                         if (data.length > 0) {
                             $('#height_chart').val(data[0].dataField);
-                            $('#moveToForm_height').unbind("click").bind('click', function () {
+                            $('#moveToForm_height').off("click").on('click', function () {
                                 moveToForm('height', 'pg1_ht');
                             });
                         } else {
-                            $('#moveToForm_height').unbind("click").bind('click', function () {
+                            $('#moveToForm_height').off("click").on('click', function () {
                                 alert('No Available values in E-Chart');
                             });
                         }
@@ -1640,11 +1640,11 @@
                     success: function (data) {
                         if (data.length > 0) {
                             $('#weight_chart').val(data[0].dataField);
-                            $('#moveToForm_weight').unbind("click").bind('click', function () {
+                            $('#moveToForm_weight').off("click").on('click', function () {
                                 moveToForm('weight', 'pg1_wt');
                             });
                         } else {
-                            $('#moveToForm_weight').unbind("click").bind('click', function () {
+                            $('#moveToForm_weight').off("click").on('click', function () {
                                 alert('No Available values in E-Chart');
                             });
                         }
@@ -1998,31 +1998,31 @@
                     showSpeed: 400
                 });
 
-                //$('#lab_menu').bind('click',function(){});
-                $('#mcv_menu').bind('click', function () {
+                //$('#lab_menu').on('click',function(){});
+                $('#mcv_menu').on('click', function () {
                     mcvReq();
                 });
-                $('#vitals_pull_menu').bind('click', function () {
+                $('#vitals_pull_menu').on('click', function () {
                     pullVitals();
                 });
-                $('#lab_pull_menu').bind('click', function () {
+                $('#lab_pull_menu').on('click', function () {
                     alert('Not yet implemented');
                 });
 
-                $("#credit_valley_genetic_btn").bind('click', function (e) {
+                $("#credit_valley_genetic_btn").on('click', function (e) {
                     e.preventDefault();
                     popPage('<%= context %>/Pregnancy.do?method=loadEformByName&name=Prenatal Screening (IPS) Credit Valley&demographicNo=<%=demoNo%>', 'credit_valley_lab_req');
                 });
 
-                $("#north_york_genetic_btn").bind('click', function (e) {
+                $("#north_york_genetic_btn").on('click', function (e) {
                     e.preventDefault();
                     popPage('<%= context %>/Pregnancy.do?method=loadEformByName&name=1Prenatal Screening - North York&demographicNo=<%=demoNo%>', 'north_york_lab_req');
                 });
 
-                $("#1st_visit_menu").bind('click', function () {
+                $("#1st_visit_menu").on('click', function () {
                     firstVisitTool();
                 });
-                $("#16wk_visit_menu").bind('click', function () {
+                $("#16wk_visit_menu").on('click', function () {
                     wk16VisitTool();
                 });
             });
@@ -3941,7 +3941,7 @@
                 limitCharacters($(this), mlength, msg, disableNewLine);
             });
 
-            $(".limit-text").bind('paste', function (e) {
+            $(".limit-text").on('paste', function (e) {
                 var pasteData = e.originalEvent.clipboardData.getData('text');
                 pasteLength = pasteData.length;
                 textLength = $(this).val().length;
