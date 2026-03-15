@@ -405,18 +405,31 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 
 | Pattern | Count | Replacement |
 |---------|-------|-------------|
-| `$("id")` | 398 | `document.getElementById("id")` |
-| `.update(html)` | 55+ | See security note below |
-| `.hide()` / `.show()` | many | `.style.display` or `.classList.toggle('d-none')` |
-| `Ajax.Request` / `Ajax.Updater` | 19 | `fetch()` / `CarlosAjax` |
-| `Element.observe` / `Element.stopObserving` | 66 | `addEventListener` / `removeEventListener` |
-| `Event.stop(e)` / `Event.element(e)` | 15 | `e.preventDefault()` / `e.target` |
-| `bindAsEventListener` | 12 | `fn.bind(obj)` or closure with extra args |
-| `Form.serialize()` | 2 | `new URLSearchParams(new FormData(form))` |
+| `$("id")` | 248 | `document.getElementById("id")` |
+| `.update(html)` | 29 | See security note below |
+| `.hide()` / `.show()` | 8 | `.style.display` or `.classList.toggle('d-none')` |
+| `.toggle()` | 6 | `el.style.display = (el.style.display === 'none') ? '' : 'none'` |
+| `Ajax.Request` | 16 | `fetch()` / `CarlosAjax.request()` |
+| `Ajax.Updater` | 3 | `CarlosAjax.updater()` (supports `{success: div}` form) |
+| `Element.observe` / `Element.stopObserving` | 32 | `addEventListener` / `removeEventListener` |
+| `Event.stop(e)` | 15 | `e.preventDefault(); e.stopPropagation()` |
+| `Event.element(e)` | 7 | `e.target` |
+| `Event.pointerX/Y(e)` | 2 | `e.clientX` / `e.clientY` |
+| `bindAsEventListener` | 9 | `fn.bind(obj)` or closure with extra args |
+| `$F()` | 62 | `document.getElementById(id).value` |
+| `Form.serialize()` | 7 | `new URLSearchParams(new FormData(form))` (incl. 1 instance method form) |
 | `.evalJSON()` | 1 | `JSON.parse()` |
-| `Position.page(el)` | 2 | `el.getBoundingClientRect()` + `window.scrollY` |
+| `evalScripts: true` | 15 | CarlosAjax script extraction |
+| `Insertion.Top` / `Insertion.Bottom` | 41 | `insertAdjacentHTML('afterbegin'/'beforeend')` |
+| `Element.remove()` | 41 | `el.remove()` (native) |
+| `Position.page(el)` | 1 | `el.getBoundingClientRect()` + `window.scrollY` |
 | `Position.positionedOffset(el)` | 1 | `el.offsetLeft` / `el.offsetTop` |
-| `.getHeight()` / `.getWidth()` | 50+ | `el.offsetHeight` / `el.offsetWidth` |
+| `.getHeight()` | 5 | `el.offsetHeight` |
+| `.up()` / `.down()` | 8 | `el.closest()` / `el.querySelector()` |
+| `$A()` | 5 | `Array.from()` |
+| `Effect.Fade` / `Effect.Appear` | 10 | CSS transitions |
+| `Effect.BlindUp` / `Effect.BlindDown` | 2 | Bootstrap collapse or CSS transitions |
+| `.setStyle()` / `.addClassName()` | 2 | `el.style.*` / `el.classList.add()` |
 
 **Security note on `.update()` → DOM replacement:** The existing `.update()` calls set `innerHTML` with server responses from trusted internal endpoints. The encounter.js header documents this: "AJAX responses that use $(div).update() are from trusted internal server endpoints only. XSS is mitigated by server-side OWASP encoding in those response JSPs." During migration, these become direct `element.innerHTML = response` assignments, preserving the same trust model. No additional sanitization is needed because the content source (server-side JSPs with OWASP encoding) remains unchanged.
 
@@ -891,7 +904,7 @@ The compat shim must also provide `Element.toggle()` (standalone function form) 
 
 **Prototype behavior**: `$F(id)` returns the `.value` property of the element with the given ID. Works on `<input>`, `<select>`, and `<textarea>`.
 
-**Files affected** (30+ calls): Primarily `js/newCaseManagementView.js.jsp`
+**Files affected** (62 calls in `newCaseManagementView.js.jsp`, 4 in `encounter.js`)
 
 **Migration rule**: Replace with `document.getElementById(id).value`. The compat shim provides:
 ```javascript
@@ -902,7 +915,7 @@ window.$F = function(id) { return document.getElementById(id)?.value ?? ''; };
 
 **Prototype behavior**: `$A(iterable)` creates a static `Array` copy. Critical when converting `arguments` objects or live `NodeList`s that change during iteration.
 
-**Files affected**: `oscarEncounter/js/encounter.js` (3 calls), `js/newCaseManagementView.js.jsp` (4 calls)
+**Files affected**: `oscarEncounter/js/encounter.js` (3 calls), `js/newCaseManagementView.js.jsp` (5 calls)
 
 **Migration rule**: Replace with `Array.from()`. Exact same semantics.
 
