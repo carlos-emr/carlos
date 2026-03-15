@@ -145,7 +145,8 @@ var CarlosAjax = (function () {
      *   contentType:  Content-Type header (default: 'application/x-www-form-urlencoded')
      *   requestHeaders: Additional headers object
      *   synchronous:  If true, uses synchronous XMLHttpRequest (default: false)
-     *   evalScripts:  If true, auto-eval scripts in response (default: false)
+     *   evalScripts:  Ignored by request() — Prototype's Ajax.Request did not support this.
+     *                  Use updater() for evalScripts, or call .update() in onSuccess callback.
      *   onSuccess:    function(transport) — called on 2xx
      *   onFailure:    function(transport) — called on non-2xx or network error
      *   onComplete:   function(transport) — always called last
@@ -225,9 +226,10 @@ var CarlosAjax = (function () {
 
         if (isSuccess(xhr.status)) {
             if (options.onSuccess) options.onSuccess(transport);
-            if (options.evalScripts && transport.responseText) {
-                evalResponseScripts(transport.responseText);
-            }
+            // Note: evalScripts is NOT processed here. In Prototype.js, Ajax.Request
+            // did NOT support evalScripts — only Ajax.Updater did. Script execution
+            // for request() callers happens via .update() in the shim or manually.
+            // CarlosAjax.updater() handles evalScripts through insertContent().
         } else {
             if (options.onFailure) options.onFailure(transport);
         }
@@ -265,9 +267,7 @@ var CarlosAjax = (function () {
 
                     if (isSuccess(response.status)) {
                         if (options.onSuccess) options.onSuccess(transport);
-                        if (options.evalScripts && transport.responseText) {
-                            evalResponseScripts(transport.responseText);
-                        }
+                        // Note: evalScripts is NOT processed here — see comment in requestSync().
                     } else {
                         if (options.onFailure) options.onFailure(transport);
                     }
@@ -284,7 +284,7 @@ var CarlosAjax = (function () {
     }
 
     /**
-     * Evaluate scripts found in a response body (for evalScripts: true on Request).
+     * Evaluate scripts found in a response body (used internally by updater's insertContent).
      */
     function evalResponseScripts(html) {
         var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/script>/gi;
