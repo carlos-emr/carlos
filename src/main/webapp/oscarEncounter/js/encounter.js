@@ -252,7 +252,6 @@ function ajaxInsertTemplate(varpage) {
         CarlosAjax.request(page, {
             method: 'post',
             postBody: params,
-            evalScripts: true,
             onSuccess: writeToEncounterNote,
             onFailure: function () {
                 alert("Inserting template " + varpage + " failed");

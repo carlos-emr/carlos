@@ -1330,7 +1330,7 @@
         }
 
         function initializeNavigation() {
-            $('currentPageNum').innerHTML = 1;
+            $('currentPageNum').textContent = 1;
             //update the page number shown and update previous and next words
             if (current_numberofpages > 1) {
                 if ($('msgNext')) $('msgNext').show();
@@ -1392,10 +1392,10 @@
         }
 
         function navigatePage(p) {
-            var pagenum = parseInt($('currentPageNum').innerHTML);
+            var pagenum = parseInt($('currentPageNum').textContent);
             if (p == 'Previous') {
                 displayCategoryPage(pagenum - 1);
-                $('currentPageNum').innerHTML = pagenum - 1
+                $('currentPageNum').textContent = pagenum - 1
             } else if (p == 'Next') {
                 displayCategoryPage(pagenum + 1);
                 $('currentPageNum').textContent = pagenum + 1
@@ -1407,7 +1407,7 @@
         }
 
         function changeNavigationBar() {
-            var pagenum = parseInt($('currentPageNum').innerHTML);
+            var pagenum = parseInt($('currentPageNum').textContent);
             if (current_numberofpages == 1) {
                 if ($('msgNext')) $('msgNext').hide();
                 if ($('msgPrevious')) $('msgPrevious').hide();

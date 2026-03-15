@@ -397,9 +397,11 @@ Prototype.Browser = {
 };
 
 // ---- carlosExtractAndExecScripts utility ----
-// Extracts script tags from HTML, sets innerHTML with non-script content,
+// Extracts inline script tags from HTML, sets innerHTML with non-script content,
 // then creates dynamic script DOM elements to run them.
 // Used by .update() and CarlosAjax.updater().
+// NOTE: <script src="..."> tags are stripped but NOT loaded. Response fragments
+// for this use case must use only inline scripts (same as original Prototype behavior).
 window.carlosExtractAndExecScripts = function (element, html) {
     var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/script>/gi;
     var scripts = [];
