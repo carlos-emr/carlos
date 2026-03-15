@@ -94,9 +94,7 @@
             };
 
             $(document).ready(function () {
-                $('#listview').DataTable({
-                    responsive: true
-                });
+                $('#listview').DataTable();
             });
 
         </script>
