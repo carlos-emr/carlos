@@ -140,9 +140,13 @@
                                 console.log("ok");
                                 document.getElementById("saveSuccess_" + rowId).style.display = "block";
                             } else {
-                                alert("Server Error" + response.status);
+                                alert("Server Error " + response.status);
                                 document.getElementById("saveSuccess_" + rowId).style.display = "none";
                             }
+                        })
+                        .catch(function (error) {
+                            console.error('Failed to save favorite:', error);
+                            alert('An error occurred while saving. Please refresh and try again.');
                         });
 
                 }

@@ -623,7 +623,11 @@ input[id^='acklabel_']{
 
         function getCsrfToken() {
             var el = document.querySelector('input[name="CSRF-TOKEN"]');
-            return el ? el.value : '';
+            if (!el) {
+                console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
+                return '';
+            }
+            return el.value;
         }
 
         function handleLab(formid, labid, action) {
@@ -692,6 +696,10 @@ input[id^='acklabel_']{
                         }
                     }
                 }
+            })
+            .catch(function(error) {
+                console.error('Failed to process lab action:', error);
+                alert('An error occurred while processing this lab. Please refresh the page and try again.');
             });
         }
 
@@ -735,6 +743,10 @@ input[id^='acklabel_']{
                     // refresh the lab display page and offer dialog to rematch.
                     window.location.reload();
                 }
+            })
+            .catch(function(error) {
+                console.error('Failed to unlink demographic:', error);
+                alert('An error occurred while unlinking the demographic. Please refresh and try again.');
             });
         }
 
@@ -761,6 +773,10 @@ input[id^='acklabel_']{
             })
             .then(function() {
                 window.location.reload();
+            })
+            .catch(function(error) {
+                console.error('Failed to add comment:', error);
+                alert('An error occurred while adding the comment. Please refresh and try again.');
             });
         }
         function submitLabel(lblval, segmentID) {
@@ -840,9 +856,18 @@ input[id^='acklabel_']{
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                     body: params.toString()
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to save label (HTTP ' + response.status + ')');
+                    }
+                    var spanI = document.querySelector('#labelspan_<%=Encode.forJavaScript(segmentID)%> i');
+                    if (spanI && labelInput) spanI.textContent = labelInput.value;
+                })
+                .catch(function(error) {
+                    console.error('Error saving lab label:', error);
+                    alert('Failed to save the label. Please refresh and try again.');
                 });
-                var spanI = document.querySelector('#labelspan_<%=Encode.forJavaScript(segmentID)%> i');
-                if (spanI && labelInput) spanI.textContent = labelInput.value;
                 var ackForm = document.forms['acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>'];
                 if (ackForm && ackForm.label) ackForm.label.value = '';
             });
@@ -874,6 +899,10 @@ input[id^='acklabel_']{
                 }
                 runMacroInternal(name, formid, closeOnSuccess, demoid);
             }
+        })
+        .catch(function(error) {
+            console.error('Failed to run macro:', error);
+            alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
 
@@ -892,6 +921,10 @@ input[id^='acklabel_']{
             if (closeOnSuccess) {
                 window.close();
             }
+        })
+        .catch(function(error) {
+            console.error('Failed to run macro:', error);
+            alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
 </script>

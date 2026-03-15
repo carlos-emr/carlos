@@ -62,7 +62,11 @@
         <script>
             function getCsrfToken() {
                 var el = document.querySelector('input[name="CSRF-TOKEN"]');
-                return el ? el.value : '';
+                if (!el) {
+                    console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
+                    return '';
+                }
+                return el.value;
             }
 
             function getUpdateTime() {

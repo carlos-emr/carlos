@@ -81,21 +81,30 @@ function serializeFormToObject(form) {
 
 /**
  * Returns the CSRF token value injected by csrfguard.js into the page.
- * CSRFGuard 4.5 auto-patches XMLHttpRequest but NOT fetch(), so fetch-based
- * POST requests must include the token manually.
+ * CSRFGuard (as of 4.5) auto-patches XMLHttpRequest but NOT fetch(), so
+ * fetch-based POST requests must include the token manually.
+ * Requires a <form> element on the page (csrfguard.js injects the hidden
+ * input into forms).
  * @returns {string} the CSRF-TOKEN value, or empty string if not found
  */
 function getCsrfToken() {
     var el = document.querySelector('input[name="CSRF-TOKEN"]');
-    return el ? el.value : '';
+    if (!el) {
+        console.warn('CSRF-TOKEN hidden input not found in DOM. '
+            + 'POST requests will be rejected by the server. '
+            + 'Ensure csrfguard.js is loaded and the page contains a <form> element.');
+        return '';
+    }
+    return el.value;
 }
 
 /**
  * Helper function to make a POST request with form-urlencoded data.
  * Centralizes fetch boilerplate for form submissions.
- * Automatically includes the CSRF-TOKEN required by CSRFGuard 4.5.
+ * Automatically includes the CSRF-TOKEN (if available and not already
+ * present in data) required by CSRFGuard.
  * @param {string} url - The URL to POST to
- * @param {string|Object} data - URL-encoded string or object to be converted
+ * @param {string|Object|URLSearchParams} data - Form data as a URL-encoded string, a key-value object, or URLSearchParams instance
  * @returns {Promise<Response>}
  */
 function postForm(url, data) {
@@ -104,6 +113,10 @@ function postForm(url, data) {
         var token = getCsrfToken();
         if (token) {
             params.append('CSRF-TOKEN', token);
+        } else {
+            return Promise.reject(new Error(
+                'CSRF token not available. The page may need to be refreshed. '
+                + 'If the problem persists, try logging out and back in.'));
         }
     }
     return fetch(url, {

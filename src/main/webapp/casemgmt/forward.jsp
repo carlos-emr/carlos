@@ -36,8 +36,8 @@
 <%
     String redirectURL = request.getContextPath() +
         "/CaseManagementEntry.do?method=setUpMainEncounter&from=casemgmt&chain=list" +
-        "&demographicNo=" + request.getParameter("demographicNo") +
-        "&providerNo=" + request.getParameter("providerNo") +
+        "&demographicNo=" + (request.getParameter("demographicNo") != null ? URLEncoder.encode(request.getParameter("demographicNo"), StandardCharsets.UTF_8) : "") +
+        "&providerNo=" + (request.getParameter("providerNo") != null ? URLEncoder.encode(request.getParameter("providerNo"), StandardCharsets.UTF_8) : "") +
         "&reason=" + (request.getParameter("reason") != null ? URLEncoder.encode(request.getParameter("reason"), StandardCharsets.UTF_8) : "") +
         "&reasonCode=" + (request.getParameter("reasonCode") != null ? URLEncoder.encode(request.getParameter("reasonCode"), StandardCharsets.UTF_8) : "") +
         "&appointmentNo=" + (request.getParameter("appointmentNo") != null ? URLEncoder.encode(request.getParameter("appointmentNo"), StandardCharsets.UTF_8) : "") +

@@ -164,6 +164,16 @@
                     })
                     .catch(error => {
                         console.error('Error submitting form:', error);
+                        const errorsList = document.getElementById('errors_list');
+                        const errorDiv = document.getElementById('errorDiv');
+                        if (errorsList && errorDiv) {
+                            errorsList.textContent = '';
+                            var li = document.createElement('li');
+                            li.textContent = 'Failed to save measurements. Please try again. If the problem persists, refresh the page.';
+                            errorsList.appendChild(li);
+                            errorDiv.style.display = 'block';
+                            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
                     });
                 }
             }
