@@ -151,6 +151,6 @@
                                                 value='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnUnLock"/>'>
     </p>
     <script type="text/javascript">
-        $('passwd').focus();
+        document.getElementById('passwd').focus();
     </script>
 </c:if>
