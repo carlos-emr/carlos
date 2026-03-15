@@ -1635,7 +1635,7 @@ function renderRxStage() {
                   document.getElementById('rxDate_'+json.id).style.textDecoration='line-through';
                   document.getElementById('reRx_'+json.id).style.textDecoration='line-through';
                   document.getElementById('del_'+json.id).style.textDecoration='line-through';
-                  document.getElementById('discont_'+json.id).innerHTML = json.reason;
+                  document.getElementById('discont_'+json.id).textContent = json.reason;
                   document.getElementById('prescrip_'+json.id).style.textDecoration='line-through';
 					}
 				});
@@ -2395,20 +2395,20 @@ function updateQty(element){
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
                 var json=JSON.parse(transport.responseText);
-                document.getElementById(methodStr).innerHTML=json.method;
-                document.getElementById(routeStr).innerHTML=json.route;
-                document.getElementById(frequencyStr).innerHTML=json.frequency;
-                document.getElementById(minimumStr).innerHTML=json.takeMin;
-                document.getElementById(maximumStr).innerHTML=json.takeMax;
+                document.getElementById(methodStr).textContent=json.method;
+                document.getElementById(routeStr).textContent=json.route;
+                document.getElementById(frequencyStr).textContent=json.frequency;
+                document.getElementById(minimumStr).textContent=json.takeMin;
+                document.getElementById(maximumStr).textContent=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).innerHTML='';
                 }else{
-                    document.getElementById(durationStr).innerHTML=json.duration;
+                    document.getElementById(durationStr).textContent=json.duration;
                 }
-                document.getElementById(durationUnitStr).innerHTML=json.durationUnit;
-                document.getElementById(quantityStr).innerHTML=json.calQuantity;
+                document.getElementById(durationUnitStr).textContent=json.durationUnit;
+                document.getElementById(quantityStr).textContent=json.calQuantity;
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    document.getElementById(unitNameStr).innerHTML=json.unitName;
+                    document.getElementById(unitNameStr).textContent=json.unitName;
                 }else{
                     document.getElementById(unitNameStr).innerHTML='';
                 }
@@ -2456,19 +2456,19 @@ function updateQty(element){
                        document.getElementById("saveOnlyButton").disabled=false;
                 }
 
-                document.getElementById(methodStr).innerHTML=json.method;
-                document.getElementById(routeStr).innerHTML=json.route;
-                document.getElementById(frequencyStr).innerHTML=json.frequency;
-                document.getElementById(minimumStr).innerHTML=json.takeMin;
-                document.getElementById(maximumStr).innerHTML=json.takeMax;
+                document.getElementById(methodStr).textContent=json.method;
+                document.getElementById(routeStr).textContent=json.route;
+                document.getElementById(frequencyStr).textContent=json.frequency;
+                document.getElementById(minimumStr).textContent=json.takeMin;
+                document.getElementById(maximumStr).textContent=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).innerHTML='';
                 }else{
-                    document.getElementById(durationStr).innerHTML=json.duration;
+                    document.getElementById(durationStr).textContent=json.duration;
                 }
-                document.getElementById(durationUnitStr).innerHTML=json.durationUnit;
+                document.getElementById(durationUnitStr).textContent=json.durationUnit;
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    document.getElementById(unitNameStr).innerHTML=json.unitName;
+                    document.getElementById(unitNameStr).textContent=json.unitName;
                 }else{
                     document.getElementById(unitNameStr).innerHTML='';
                 }
@@ -2477,11 +2477,11 @@ function updateQty(element){
                     //Until a more reliable calculated quantity is being returned, don't update if the calculated quantity is 0
                     //silently changing to 0 can be problematic in situations where the quantity has already been set
                     //to an appropriate value.                 
-                    document.getElementById(quantityStr).innerHTML=json.calQuantity; 
-                    if(document.getElementById(unitNameStr).innerHTML!='')
-                        document.getElementById(quantity).value=document.getElementById(quantityStr).innerHTML+" "+document.getElementById(unitNameStr).innerHTML;
+                    document.getElementById(quantityStr).textContent=json.calQuantity; 
+                    if(document.getElementById(unitNameStr).textContent!='')
+                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent+" "+document.getElementById(unitNameStr).textContent;
                     else
-                        document.getElementById(quantity).value=document.getElementById(quantityStr).innerHTML;
+                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent;
                     
                 }                
                 if(json.prn){
