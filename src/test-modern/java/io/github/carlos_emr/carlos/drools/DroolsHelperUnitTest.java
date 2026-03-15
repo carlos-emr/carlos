@@ -40,12 +40,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link DroolsHelper}, the central utility class for compiling DRL
- * rule files into Drools 7.x {@link KieBase} instances.
+ * rule files into Drools 10.x {@link KieBase} instances.
  *
  * <p>{@code DroolsHelper} was introduced during the Drools 2.0 &rarr; 7.74.1 migration
  * to replace the legacy {@code org.drools.io.RuleBaseLoader} API with the modern KIE
- * API. It uses {@link org.kie.internal.utils.KieHelper} internally to compile DRL text
- * into a self-contained {@code KieBase} without polluting the global KIE repository.</p>
+ * API. It uses the standard {@code KieServices}/{@code KieFileSystem}/{@code KieBuilder}
+ * pipeline to compile DRL text into a {@code KieBase} with unique {@code ReleaseId}
+ * per compilation for thread safety.</p>
  *
  * <p>Tests are organized into three nested classes corresponding to the three entry points:</p>
  * <ul>

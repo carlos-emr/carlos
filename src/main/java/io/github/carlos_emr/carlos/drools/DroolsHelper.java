@@ -170,7 +170,7 @@ public final class DroolsHelper {
 
         // Use a unique ReleaseId per compilation to avoid collisions in the global
         // KIE repository when multiple threads compile DRL concurrently.
-        ReleaseId releaseId = ks.newReleaseId("io.github.carlos-emr",
+        ReleaseId releaseId = ks.newReleaseId("io.github.carlos_emr",
                 "drl-" + UUID.randomUUID(), "1.0.0");
 
         KieFileSystem kfs = ks.newKieFileSystem();

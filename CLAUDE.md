@@ -432,7 +432,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 **Documentation**: Full architecture, DRL file reference, and known bugs in `docs/drools-decision-support-system.md`
 
 **Key Classes**:
-- `DroolsHelper` — compiles DRL to `KieBase` via `KieHelper` (standalone, no global KIE repository pollution)
+- `DroolsHelper` — compiles DRL to `KieBase` via standard KIE API (`KieServices`/`KieFileSystem`/`KieBuilder`)
 - `RuleBaseFactory` — thread-safe `QueueCache` of compiled `KieBase` objects (24h TTL, SHA-256 keyed)
 - `DroolsCompilationException` — checked exception for DRL compilation failures
 - `RuleBaseCreator` — generates DRL from `DSCondition` objects, compiles and caches
