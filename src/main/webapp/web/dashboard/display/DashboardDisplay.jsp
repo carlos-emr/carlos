@@ -48,7 +48,7 @@
         <c:out value="${ dashboard.name }"/>
     </title>
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
+          href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/js/jqplot/jquery.jqplot2.min.css"/>
@@ -56,7 +56,7 @@
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/dashboardDisplayController.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/js/jqplot/jquery.jqplot2.min.js"></script>

@@ -64,7 +64,7 @@
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
 
     <link rel="stylesheet" type="text/css"
-          href="<%=request.getContextPath()%>/library/bootstrap/5.0.2/css/bootstrap.min.css"/>
+          href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 
     <style>
         :root * {

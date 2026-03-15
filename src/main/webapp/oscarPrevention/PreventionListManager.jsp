@@ -58,7 +58,7 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
 
     <style>
         .table tbody tr:hover td, .table tbody tr:hover th {
@@ -168,7 +168,7 @@
 
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 <script>
     $(".prevention-item").click(function () {

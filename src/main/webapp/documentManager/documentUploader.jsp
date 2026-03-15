@@ -105,8 +105,8 @@
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css" />
 
      <!-- tested with Bootstrap 2.3.1 and Bootstrap 3.0.0 -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <!--<link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">-->
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <!--<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">-->
 
     <!-- styles to alter add files button and adjust bootstrap 3 progress bar -->
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/documentUploader/style.css">

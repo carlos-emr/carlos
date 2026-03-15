@@ -88,7 +88,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery.are-you-sure.js"></script>
 
         <!-- Checkbox multi-select -->
-        <script src="<%=request.getContextPath() %>/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/js/bootstrap-select.min.js"></script>
 
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"
@@ -96,7 +96,7 @@
 
         <link rel="stylesheet" type="text/css" media="all"
               href="<%=request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/bootstrap4.1.1.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/bootstrap-select.css"/>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.structure-1.12.1.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.theme-1.12.1.min.css">

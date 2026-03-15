@@ -166,7 +166,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
@@ -371,7 +371,7 @@
     </div>
 
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
 
     </body>

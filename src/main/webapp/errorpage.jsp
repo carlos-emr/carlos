@@ -41,7 +41,7 @@
         <c:out value="OSCAR Error: ${pageContext.errorData.statusCode}"/>
     </title>
     <link rel="shortcut icon" href="${pageContext.request.contextPath}/images/Oscar.ico"/>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css"/>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 
     <style media="all">
 
