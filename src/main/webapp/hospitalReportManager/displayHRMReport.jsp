@@ -930,7 +930,7 @@
                 var myAC = args[0];
                 var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
                 var oData = args[2];
-                $(str).value = args[2][0];//li.id;
+                document.getElementById(str).value = args[2][0];
                 myAC.getInputEl().value = args[2][2] + "," + args[2][1];
                 var adoc = document.createElement('div');
                 adoc.appendChild(document.createTextNode(oData[2] + " " + oData[1]));
