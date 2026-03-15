@@ -236,9 +236,12 @@
                     serverSide: true,
                     processing: true,
                     searching: false,
-                    lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
+                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.LeftNavBar.AllLabs"/>"]],
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
+                    language: {
+                        url: '<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
+                        },
                     ajax: {
                         url: ctx + '/tickler/ListTicklers.do',
                         type: 'GET',
@@ -280,7 +283,7 @@
                             orderable: false,
                             render: function(data) {
                                 var name = escapeHtml(data.demographicName || 'N/A');
-                                return '<a href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/demographiccontrol.jsp?demographic_no=' + encodeURIComponent(data.demographicNo) + '&displaymode=edit&dboperation=search_detail\')">' + name + '</a>';
+                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/demographiccontrol.jsp?demographic_no=' + encodeURIComponent(data.demographicNo) + '&displaymode=edit&dboperation=search_detail\')">' + name + '</a>';
                             }
                         },
                         {
