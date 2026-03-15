@@ -277,7 +277,7 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 | `admin/displayDocumentDescriptionTemplate.jsp` | 7 `Ajax.Request` → `fetch()`, 2 `.evalJSON()` → `JSON.parse()` |
 | `admin/securityupdatesecurity.jsp` | 1 `Ajax.Request` → `fetch()` |
 | `admin/manageFlowsheets.jsp` | Remove Prototype include |
-| `admin/manageCSSStyles.jsp` | Remove Prototype + Scriptaculous includes |
+| `admin/manageCSSStyles.jsp` | Remove Prototype + Scriptaculous includes; **also migrate 7 `$F()` calls to `.value`** |
 | `admin/sitesAdmin.jsp` | Remove Prototype include |
 
 - Remove `<script src="prototype.js">` includes
@@ -296,16 +296,16 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 | `form/formlabreq.jsp` | Remove Prototype include |
 | `form/formlabreq07.jsp` | Remove Prototype include |
 | `form/formlabreq10.jsp` | Remove Prototype include |
-| `form/formrourke2009complete.jsp` | Remove Prototype include |
-| `form/formrourke2017complete.jsp` | Remove Prototype include |
-| `form/formrourke2020complete.jsp` | Remove Prototype include |
+| `form/formrourke2009complete.jsp` | Remove Prototype include; **also migrate `$().setStyle()` calls (4) to vanilla `el.style.*`** |
+| `form/formrourke2017complete.jsp` | Remove Prototype include; **also migrate `$().setStyle()` calls (4) to vanilla `el.style.*`** |
+| `form/formrourke2020complete.jsp` | Remove Prototype include; **also migrate `$().setStyle()` calls (4) to vanilla `el.style.*`** |
 
 ### 1c. Document Manager
 | File | Changes |
 |------|---------|
 | `documentManager/uploadMultiDocument.jsp` | 1 `Ajax.Request` → `fetch()`, 1 `Effect.SlideUp` → CSS transition |
 | `documentManager/incomingDocs.jsp` | 1 `Ajax.Request` → `fetch()`, `Ajax.Autocompleter` → vanilla autocomplete (pattern from `showDocument.js`) |
-| `documentManager/MultiPageDocDisplay.jsp` | Remove `jQuery.noConflict()` if Prototype no longer loaded |
+| `documentManager/MultiPageDocDisplay.jsp` | Remove `jQuery.noConflict()` (in `<c:forEach>` loop — move outside); **also migrate 39 `$()` calls and 16 `.setStyle()` calls to vanilla JS** |
 | `documentManager/editDocument.jsp` | Remove Prototype + Scriptaculous includes; **also replace `Autocompleter.Local` with Bootstrap typeahead** (see Contract 12) |
 | `documentManager/addedithtmldocument.jsp` | Remove Prototype + Scriptaculous includes; **also replace `Autocompleter.Local` with Bootstrap typeahead** (see Contract 12) |
 | `documentManager/html5AddDocuments.jsp` | Remove Prototype + Scriptaculous includes |
@@ -1164,6 +1164,41 @@ const offset = { left: el.offsetLeft, top: el.offsetTop };
 **Files affected**: `share/javascript/controls.js` (8 calls), `share/javascript/slider.js` (2 calls), `js/newCaseManagementView.js.jsp` (1 call)
 
 **Migration rule**: Replace with `element.classList.add()` / `element.classList.remove()`. Exact same semantics — `classList.add()` also prevents duplicates.
+
+### Contract 14b: `Element.setStyle()` / `Element.getStyle()` — Inline Style Manipulation
+
+**Prototype behavior**: `.setStyle({color: 'white', fontSize: '12px'})` applies an object of CSS properties to an element's inline style. `.getStyle('fontSize')` returns the computed or inline style value. Prototype auto-camelCases CSS property names.
+
+**Files affected** (30+ calls in 9 files):
+- `documentManager/MultiPageDocDisplay.jsp` — 16 `.setStyle()` calls
+- `form/formrourke2009/2017/2020complete.jsp` — 4 `.setStyle()` calls each (12 total)
+- `js/newCaseManagementView.js.jsp` — `.setStyle()` and `.getStyle()` calls
+- `oscarRx/SearchDrug3.jsp` — `.getStyle()` calls
+- `share/javascript/controls.js`, `share/javascript/effects.js`, `share/javascript/slider.js` — library usage (deleted in Phase 5)
+
+**Migration rule**: Replace with direct `el.style.*` assignments:
+```javascript
+// .setStyle({color: 'white', fontSize: '12px'})
+el.style.color = 'white';
+el.style.fontSize = '12px';
+// OR use Object.assign for multiple properties:
+Object.assign(el.style, {color: 'white', fontSize: '12px'});
+
+// .getStyle('fontSize')
+getComputedStyle(el).fontSize   // computed value
+// OR el.style.fontSize          // inline value only
+```
+
+The compat shim must provide both methods:
+```javascript
+HTMLElement.prototype.setStyle = function(styles) {
+    for (var prop in styles) { this.style[prop] = styles[prop]; }
+    return this;
+};
+HTMLElement.prototype.getStyle = function(prop) {
+    return this.style[prop] || getComputedStyle(this)[prop];
+};
+```
 
 ### Contract 15: Event Constants and Methods
 
