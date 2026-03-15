@@ -127,7 +127,7 @@
             SecRole secRole = null;
             try {
                 secRole = secRoleDao.findByName(role_name);
-            } catch (javax.persistence.NoResultException e) {
+            } catch (jakarta.persistence.NoResultException e) {
             }
 
             if (secRole != null) {

@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import=" io.github.carlos_emr.carlos.managers.FaxManager"%>
 <%@ page import=" io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
-<%@ taglib prefix = "c" uri = "http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix = "c" uri = "jakarta.tags.core" %>
 <%
   EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
   pageContext.setAttribute("faxActive", FaxManager.isEnabled());

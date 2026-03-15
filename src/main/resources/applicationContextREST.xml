@@ -65,7 +65,7 @@
                     <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
                 </constructor-arg>
                 <constructor-arg>
-                    <bean class="com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector">
+                    <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
                         <constructor-arg>
                             <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
                         </constructor-arg>
@@ -87,7 +87,7 @@
     </bean>
 
     <!-- Jackson 2 JAX-RS provider -->
-    <bean id="jsonProvider" class="com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider">
+    <bean id="jsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
         <property name="mapper" ref="jacksonObjectMapper"/>
     </bean>
 

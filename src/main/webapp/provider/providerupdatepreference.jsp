@@ -162,7 +162,7 @@
             } catch (IllegalArgumentException e) {
                 io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn("Validation errors for provider {}: {}", curUser_providerno, e.getMessage());
                 errorDetails = e.getMessage();
-            } catch (javax.persistence.PersistenceException e) {
+            } catch (jakarta.persistence.PersistenceException e) {
                 String correlationId = UUID.randomUUID().toString();
                 io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Database error saving provider preferences for provider {} [Correlation ID: {}]", curUser_providerno, correlationId, e);
                 errorDetails = "A database error occurred while saving preferences. Please contact support with reference ID: " + correlationId;

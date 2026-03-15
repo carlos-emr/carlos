@@ -640,11 +640,11 @@
             <version>${mvel2.version}</version>
         </dependency>
 
-        <!-- jasper reports -->
+        <!-- jasper reports (7.x required for Jakarta EE 10 compatibility) -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
-            <version>6.21.5</version>
+            <version>7.0.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>bouncycastle</groupId>
@@ -690,10 +690,10 @@
         </dependency>
 
 
-        <!-- Jackson JAXB annotations support - provides JaxbAnnotationIntrospector used in Spring configs -->
+        <!-- Jackson Jakarta XML Bind annotations support - provides JakartaXmlBindAnnotationIntrospector used in Spring configs -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
-            <artifactId>jackson-module-jaxb-annotations</artifactId>
+            <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
             <version>2.19.2</version>
         </dependency>
 
@@ -1098,8 +1098,8 @@
 
         <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
         <dependency>
-            <groupId>com.fasterxml.jackson.jaxrs</groupId>
-            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+            <artifactId>jackson-jakarta-rs-json-provider</artifactId>
             <version>2.19.2</version>
         </dependency>
 
