@@ -228,8 +228,8 @@ These files already use `fetch()` for POST requests today but are **missing CSRF
 | `documentManager/showDocument.jsp` | `fetch()` POST without CSRF token |
 | `lab/CA/ALL/labDisplayAjax.jsp` | `fetch()` POST without CSRF token |
 | `oscarRx/Preview2.jsp` | `fetch()` POST without CSRF token |
-| `admin/EditFavorites2.jsp` | `fetch()` POST without CSRF token |
-| `oscarMDS/oscarMDSIndex.js` (`postForm()`) | `fetch()` POST without CSRF token |
+| `oscarRx/EditFavorites2.jsp` | `fetch()` POST without CSRF token |
+| `share/javascript/oscarMDSIndex.js` (`postForm()`) | `fetch()` POST without CSRF token |
 
 Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-origin'`, and `'CSRF-TOKEN': getCsrfToken()` to the request body on each of these calls. These fixes are independent of the Prototype migration and should be merged first.
 
@@ -536,8 +536,8 @@ src/main/webapp/share/javascript/slider.js            ← DELETE
 src/main/webapp/share/javascript/sortable.js          ← DELETE (used by PreventionReporting.jsp)
 src/main/webapp/share/javascript/dragiframe.js        ← DELETE (used by SearchDrug3.jsp, displayMedHistory.jsp)
 src/main/webapp/share/javascript/select.js            ← DELETE (rewritten in Phase 4d)
-src/main/webapp/share/lightwindow/lightwindow.js      ← DELETE
-src/main/webapp/share/lightwindow/lightwindow.css     ← DELETE
+src/main/webapp/share/lightwindow/javascript/lightwindow.js  ← DELETE
+src/main/webapp/share/lightwindow/css/lightwindow.css       ← DELETE
 ```
 
 ### 5b. Remove old jQuery versions
@@ -768,8 +768,8 @@ if (xhr.responseURL && xhr.responseURL.includes('errorpage.jsp')) {
 - `documentManager/showDocument.jsp` — fetch() POST without CSRF token
 - `lab/CA/ALL/labDisplayAjax.jsp` — fetch() POST without CSRF token
 - `oscarRx/Preview2.jsp` — fetch() POST without CSRF token
-- `admin/EditFavorites2.jsp` — fetch() POST without CSRF token
-- `oscarMDS/oscarMDSIndex.js` `postForm()` — fetch() POST without CSRF token
+- `oscarRx/EditFavorites2.jsp` — fetch() POST without CSRF token
+- `share/javascript/oscarMDSIndex.js` `postForm()` — fetch() POST without CSRF token
 These should be fixed as part of Phase 0 (prerequisites).
 
 ### Contract 1d: `credentials: 'same-origin'` — Session Cookie Inclusion
