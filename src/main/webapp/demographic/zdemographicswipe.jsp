@@ -34,6 +34,7 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%= request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
     <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <title>PATIENT DETAIL INFO</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
@@ -85,7 +86,7 @@
         </p>
 
         <p class="row">
-        <p class="span2">
+        <p class="col-md-2">
             <input type="submit" value="Validate" />
         </p>
         </p>

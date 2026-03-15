@@ -65,6 +65,8 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
     <%
         GregorianCalendar now = new GregorianCalendar();
         int curYear = now.get(Calendar.YEAR);
@@ -229,7 +231,7 @@
                 }
 
                 String billingTable = htmlValue;
-                htmlValue = "\n<table class='table table-hover table-condensed'>\n"
+                htmlValue = "\n<table class='table table-hover table-sm'>\n"
                         + "<thead>";
                 if (summaryView) {
                     htmlValue += "\n<tr><th >OHIP NO</th><th >Number of Records</th><th >Total Billed</th><th colspan='9'></th></tr></thead>";
@@ -306,7 +308,7 @@
 
     <form name="serviceform" id="serviceform"
           action="<%=request.getContextPath() %>/billing/CA/ON/billingOHIPsimulation.jsp">
-        <div class="row well well-small hidden-print">
+        <div class="row card card-body bg-body-tertiary d-print-none">
 
             <input type="hidden" name="submit" value="Create Report">
 
@@ -314,7 +316,7 @@
             <input type="hidden" name="billcenter" value="<%=billCenter%>">
             <%=healthOffice%>
 
-            <button type='button' name='print' value='Print' class="btn pull-right" onClick='window.print()'><i
+            <button type='button' name='print' value='Print' class="btn float-end" onClick='window.print()'><i
                     class="fa-solid fa-print"></i> Print
             </button>
             <br/>
@@ -333,9 +335,9 @@
             <input type="hidden" name="curDate" value="<%=nowDate%>">
 
 
-            <div class="span12" style="margin:4px;">
+            <div class="col-md-12" style="margin:4px;">
 
-                <div class="span3">
+                <div class="col-md-3">
                     Select Provider<br>
                     <select name="providers">
                         <% if (bMultisites) { %>
@@ -371,33 +373,34 @@
                     </select>
                 </div><!--span3-->
 
-                <div class="span2">
+                <div class="col-md-2">
                     From:<br>
-                    <div class="input-append">
-                        <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>" style="width:90px"
-                               autocomplete="off"/>
-                        <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <div class="input-group">
+                        <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
+                               value="<%=xml_vdate%>" style="width:90px" autocomplete="off"/>
+                        <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
 
 
-                <div class="span2">
+                <div class="col-md-2">
                     To:<br>
-                    <div class="input-append">
+                    <div class="input-group">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=xml_appointment_date%>" style="width:90px" autocomplete="off"/>
-                        <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                               class="form-control" value="<%=xml_appointment_date%>" style="width:90px"
+                               autocomplete="off"/>
+                        <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
 
                 <% if (!bMultisites) { %>
-                <div class="span2" style="min-width:140px"><br><input type="checkbox" name="summaryView"
+                <div class="col-md-2" style="min-width:140px"><br><input type="checkbox" name="summaryView"
                                                                       id="summaryView" <%= summaryView ? "checked" : "" %> />Summary
                     View
                 </div>
                 <% } %>
 
-                <div class="span2">
+                <div class="col-md-2">
                     <br>
                     <button class="btn btn-primary " type="submit" name="submit" value="Create Report">Create Report
                     </button>
@@ -406,7 +409,7 @@
 
             </div> <!--span12-->
 
-            <div class="span11">
+            <div class="col-md-11">
 
                 <br>
 
@@ -424,13 +427,8 @@
 
     registerFormSubmit('serviceform', 'dynamic-content');
 
-    var startDate = $("#xml_vdate").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDate = $("#xml_appointment_date").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
     //open a new popup window
     function popupPage(vheight, vwidth, varpage) {
@@ -445,10 +443,12 @@
     }
 
 
-    $(".xlink").click(function (e) {
-        var source = $(this).attr('rel');
-
-        $("#dynamic-content").html('<iframe id="myFrame" name="myFrame" frameborder="0" width="950" height="1000" src="' + source + '">');
+    document.querySelectorAll(".xlink").forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            var source = this.getAttribute('rel');
+            // Existing pattern: creates iframe from server-set rel attribute
+            document.getElementById("dynamic-content").innerHTML = '<iframe id="myFrame" name="myFrame" frameborder="0" width="950" height="1000" src="' + source + '">';
+        });
     });
 
 </script>

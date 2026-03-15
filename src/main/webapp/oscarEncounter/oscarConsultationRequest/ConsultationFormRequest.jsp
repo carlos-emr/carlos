@@ -2766,7 +2766,7 @@ if (userAgent != null) {
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-target="clinicalInformation"></ul>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-bs-target="clinicalInformation"></ul>
                                     </div>
                                     <% } %>
                                 </div>
@@ -2792,7 +2792,7 @@ if (userAgent != null) {
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-target="concurrentProblems"></ul>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu" data-bs-target="concurrentProblems"></ul>
                                     </div>
                                     <% } %>
                                 </div>
@@ -2816,7 +2816,7 @@ if (userAgent != null) {
                                         <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:0.75rem;">
                                             <i class="fa-solid fa-file-import me-1"></i>Import
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu-meds" data-target="currentMedications"></ul>
+                                        <ul class="dropdown-menu dropdown-menu-end consult-import-menu-meds" data-bs-target="currentMedications"></ul>
                                     </div>
                                     <% } %>
                                 </div>

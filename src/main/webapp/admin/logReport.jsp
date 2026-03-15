@@ -105,13 +105,14 @@
 
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
@@ -146,11 +147,12 @@
 
     </head>
     <body>
-    <form name="myform" class="well form-horizontal" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
         <fieldset>
             <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
 
-            <div class="span4">
+            <div class="row">
+            <div class="col-md-4">
                 <label>Provider: </label>
 
                 <select name="providerNo">
@@ -170,7 +172,7 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Content Type:</label>
                 <select name="content">
                     <option value="admin">Admin</option>
@@ -178,29 +180,30 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Start Date: </label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="startDate" id="startDate1" value="<%=startDate!=null?startDate:""%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>End Date: </label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="endDate" id="endDate1" value="<%=endDate!=null?endDate:""%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
 
-            <div class="span8" style="padding-top:10px;">
+            <div class="col-md-8" style="padding-top:10px;">
                 <input class="btn btn-primary" type="submit" name="submit" value="Run Report">
             </div>
 
+            </div><!--row-->
         </fieldset>
     </form>
     <%
@@ -268,13 +271,13 @@
         }
     %> - Log Report</h4>
 
-    <button class="btn pull-right" onClick="window.print()" style="margin-bottom:4px">
+    <button class="btn float-end" onClick="window.print()" style="margin-bottom:4px">
         <i class="fa-solid fa-print"></i> Print
     </button>
 
 
     <p>Period: ( <%= startDate == null ? "" : startDate %> ~ <%= endDate == null ? "" : endDate %>)</p>
-    <table class="table table-bordered table-striped table-hover table-condensed">
+    <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
             <TH>Time</TH>
             <TH>Action</TH>
@@ -312,13 +315,8 @@ for (int i = 0; i < vec.size(); i++) {
                 <% } %>
 
         <script type="text/javascript">
-            var startDate = $("#startDate1").datepicker({
-                format: "yyyy-mm-dd"
-            });
-
-            var endDate = $("#endDate1").datepicker({
-                format: "yyyy-mm-dd"
-            });
+            flatpickr("#startDate1", {dateFormat: "Y-m-d", allowInput: true});
+            flatpickr("#endDate1", {dateFormat: "Y-m-d", allowInput: true});
         </script>
     </body>
 </html>

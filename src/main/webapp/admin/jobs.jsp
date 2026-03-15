@@ -69,6 +69,7 @@
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -359,7 +360,7 @@
 
     <body class="BodyStyle">
     <h4>Manage Jobs</h4>
-    <table id="jobTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="jobTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -382,37 +383,37 @@
         <form id="jobForm">
             <input type="hidden" name="job.id" id="jobId" value="0"/>
             <fieldset>
-                <div class="control-group">
-                    <label class="control-label" for="jobName">Name:*</label>
-                    <div class="controls">
+                <div class="mb-3">
+                    <label class="form-label" for="jobName">Name:*</label>
+                    <div>
                         <input type="text" name="job.name" id="jobName" value=""/>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="jobType">Type:*</label>
-                    <div class="controls">
+                <div class="mb-3">
+                    <label class="form-label" for="jobType">Type:*</label>
+                    <div>
                         <select name="job.oscarJobTypeId" id="jobType">
                             <option value="">&nbsp;</option>
                         </select>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="jobDescription">Description:</label>
-                    <div class="controls">
+                <div class="mb-3">
+                    <label class="form-label" for="jobDescription">Description:</label>
+                    <div>
                         <textarea rows="5" name="job.description" id="jobDescription"></textarea>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="jobEnabled">Enabled: <input type="checkbox" name="job.enabled"
+                <div class="mb-3">
+                    <label class="form-label" for="jobEnabled">Enabled: <input type="checkbox" name="job.enabled"
                                                                                   id="jobEnabled"/></label>
-                    <div class="controls">
+                    <div>
 
                     </div>
                 </div>
 
-                <div class="control-group">
-                    <label class="control-label" for="jobProvider">Run As Provider:</label>
-                    <div class="controls">
+                <div class="mb-3">
+                    <label class="form-label" for="jobProvider">Run As Provider:</label>
+                    <div>
                         <select name="job.provider" id="jobProvider">
                             <option value="">&nbsp;</option>
 

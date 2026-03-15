@@ -167,13 +167,15 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
 
         <%@ include file="/includes/global-head.jspf" %>
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"
                 type="text/javascript"></script>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
+                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
         <%
             CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
             List<String> reportClasses = docClassDao.findUniqueReportClasses();
@@ -348,14 +350,14 @@
                 -moz-osx-font-smoothing: grayscale;
             }
 
-            .panel-body {
+            .card-body {
                 overflow: auto;
             }
 
             a {
                 color: blue;
             }
-            .panel-body table tr td a {
+            .card-body table tr td a {
 	            text-wrap: auto;
 	            word-wrap: anywhere;
 	            word-break: break-word;
@@ -408,18 +410,18 @@
                     String currentkey = (String) categoryKeys.get(i);
                     ArrayList category = (ArrayList) categories.get(i);
             %>
-                <div class="doclist panel panel-default">
-                    <div class="headerline panel-heading">
+                <div class="doclist card">
+                    <div class="headerline card-header">
                         <div class="container">
-                            <div class="form-inline">
-                                <div class="form-group" style="margin-right: 10px;">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="mb-3" style="margin-right: 10px;">
                                     <%= Encode.forHtmlContent(currentkey) %>
                                 </div>
 
                                 <% if (i == 0) {%>
-                                <div class="form-group">
+                                <div class="mb-3">
                                         <%--      <label for="viewstatus"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
-                                    <select class="form-control" id="viewstatus" name="viewstatus"
+                                    <select class="form-select" id="viewstatus" name="viewstatus"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=<%=Encode.forUriComponent(view)%>&viewstatus=' + val;">
                                         <option value="all"
                                                 <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgAll"/></option>
@@ -432,10 +434,10 @@
                                     </select>
                                 </div>
                                 <%}%>
-                                <div class="form-group">
+                                <div class="mb-3">
                                         <%--          <label for="view"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
-                                            class="input-medium form-control"
+                                            class="form-select"
                                             onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&view=' + val;">
                                         <option value="">All</option>
                                         <%
@@ -449,8 +451,8 @@
                                     </select>
                                 </div>
                                 <%if (DocumentBrowserLink) {%>
-                                <div class="form-group">
-                                    <a class="btn btn-link form-control"
+                                <div class="mb-3">
+                                    <a class="btn btn-link"
                                         href="${ pageContext.request.contextPath }/documentManager/documentBrowser.jsp?function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&categorykey=<%=Encode.forUri(currentkey)%>">
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
@@ -460,8 +462,8 @@
                         </div>
                     </div>
 
-                    <div id="documentsInnerDiv<%=i%>" class="panel-body">
-                        <table id="tblDocs<%=i%>" class="table table-condensed table-striped">
+                    <div id="documentsInnerDiv<%=i%>" class="card-body">
+                        <table id="tblDocs<%=i%>" class="table table-sm table-striped">
                             <thead>
                             <tr>
                                 <th>
@@ -696,7 +698,7 @@
                 <input type="button" name="Button" class="btn btn-primary"
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnCombinePDF"/>" class="btn"
+                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnCombinePDF"/>" class="btn btn-secondary"
                        onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs.do"/>');"/>
             </div>
 

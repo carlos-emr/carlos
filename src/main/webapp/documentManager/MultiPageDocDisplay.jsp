@@ -149,6 +149,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
@@ -337,7 +338,7 @@
                                             var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do";
                                             var formid = "#acknowledgeForm_" + docId;
 
-                                            jQuery("#ackStatus").val(status);
+                                            document.getElementById("ackStatus").value = status;
                                             var data = jQuery(formid).serialize();
                                             data += "&method=addComment";
 

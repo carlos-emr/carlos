@@ -64,6 +64,7 @@
 
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
                 type="text/javascript"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
                 type="text/javascript"></script>
@@ -72,6 +73,12 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
               type="text/css"/>
 
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
+        <script type="text/javascript"
+                src="<%= request.getContextPath() %>/share/lightwindow/javascript/lightwindow.js"></script>
+        <link rel="stylesheet" type="text/css"
+              href="<%= request.getContextPath() %>/share/lightwindow/css/lightwindow.css">
 
 
         <c:if test="${empty RxSessionBean}">
@@ -367,25 +374,29 @@
                 })
             })(jQuery);
 
-            function openCarlosModal(url) {
-                var iframe = document.getElementById('carlosModalIframe');
-                iframe.src = url;
-                var modalEl = document.getElementById('carlosModal');
-                var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-            }
-
             function addPharmacy() {
-                openCarlosModal("<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Add");
+                myLightWindow.activateWindow({
+                    href: "<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Add",
+                    width: 400,
+                    height: 500
+                });
             }
 
             function editPharmacy(id) {
-                openCarlosModal("<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Edit&ID=" + id);
+                myLightWindow.activateWindow({
+                    href: "<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Edit&ID=" + id,
+                    width: 400,
+                    height: 500
+                });
                 jQuery("html, body").animate({scrollTop: 0}, 1000);
             }
 
             function viewPharmacy(id) {
-                openCarlosModal("<%= request.getContextPath() %>/oscarRx/ViewPharmacy.jsp?type=View&ID=" + id);
+                myLightWindow.activateWindow({
+                    href: "<%= request.getContextPath() %>/oscarRx/ViewPharmacy.jsp?type=View&ID=" + id,
+                    width: 400,
+                    height: 500
+                });
                 jQuery("html, body").animate({scrollTop: 0}, 1000);
             }
 
@@ -496,19 +507,6 @@
         </style>
     </head>
     <body>
-    <div class="modal fade" id="carlosModal" tabindex="-1" aria-labelledby="carlosModalLabel" aria-hidden="true">
-        <div class="modal-dialog" style="max-width:430px;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="carlosModalLabel">Pharmacy</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" style="padding:0;">
-                    <iframe id="carlosModalIframe" src="" style="width:100%;height:500px;border:none;"></iframe>
-                </div>
-            </div>
-        </div>
-    </div>
     <div class="container-fluid" style="margin:auto 15px;">
 
         <form id="pharmacyForm">
@@ -529,7 +527,7 @@
 
                 <tr>
                     <td>
-                        <table class="table-condensed">
+                        <table class="table table-sm">
                             <tr>
                                 <th class="DivContentSectionHeadTitle">
 
@@ -542,22 +540,22 @@
                                             href="javascript:void(0)"
                                             onclick="addPharmacy();">(add missing pharmacy
 									to clinic database)</a></span></h4>
-                                    <div class="d-flex flex-wrap gap-2 align-items-end">
-                                        <div class="form-group"><label for="pharmacySearch">Pharmacy Name </label>
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <div class="mb-3"><label for="pharmacySearch">Pharmacy Name </label>
                                             <input type="text" class="form-control" id="pharmacySearch"/></div>
-                                        <div class="form-group"><label
+                                        <div class="mb-3"><label
                                                 for="pharmacyAddressSearch">Address </label><input type="text"
                                                                                                    class="form-control"
                                                                                                    id="pharmacyAddressSearch"/>
                                         </div>
-                                        <div class="form-group"><label for="pharmacyCitySearch">City </label><input
+                                        <div class="mb-3"><label for="pharmacyCitySearch">City </label><input
                                                 type="text" class="form-control" id="pharmacyCitySearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPostalCodeSearch">Postal
+                                        <div class="mb-3"><label for="pharmacyPostalCodeSearch">Postal
                                             Code </label><input type="text" class="form-control"
                                                                 id="pharmacyPostalCodeSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPhoneSearch">Phone </label><input
+                                        <div class="mb-3"><label for="pharmacyPhoneSearch">Phone </label><input
                                                 type="text" class="form-control" id="pharmacyPhoneSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyFaxSearch">Fax </label><input
+                                        <div class="mb-3"><label for="pharmacyFaxSearch">Fax </label><input
                                                 type="text" class="form-control" id="pharmacyFaxSearch"/></div>
                                     </div>
                                     <p> Instructions: Add the patient&apos;s preferred pharmacies by clicking on a
@@ -568,7 +566,7 @@
                             </tr>
                             <tr>
                                 <td>
-                                    <table class="table-condensed">
+                                    <table class="table table-sm">
                                         <tr class="sticky-heading">
                                             <th id="preferredList" style="font-weight: normal;">
                                                 <div style="text-align: center">
@@ -586,7 +584,7 @@
                                     <% RxPharmacyData pharmacy = new RxPharmacyData();
                                         List<PharmacyInfo> pharList = pharmacy.getAllPharmacies();
                                     %>
-                                    <table id="pharmacyList" class="table-condensed table-striped"
+                                    <table id="pharmacyList" class="table table-sm table-striped"
                                            style="margin-top:5px;width:100%">
                                         <tr class="sticky-heading">
                                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.pharmacyName"/></th>

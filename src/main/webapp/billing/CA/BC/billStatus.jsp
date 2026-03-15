@@ -116,33 +116,36 @@
 <head>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></title>
-    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
     <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
             type="text/javascript"></script>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
           type="text/css"/>
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script>
         function checkChecked() {
-            if ($('input[name^="billCheck"]:checked').length > 0) {
-                $('#resubmitButton').attr("disabled", false);
-                $('#settleButton').attr("disabled", false);
+            if (document.querySelectorAll('input[name^="billCheck"]:checked').length > 0) {
+                document.getElementById('resubmitButton').disabled = false;
+                document.getElementById('settleButton').disabled = false;
             } else {
-                $('#resubmitButton').attr("disabled", true);
-                $('#settleButton').attr("disabled", true);
+                document.getElementById('resubmitButton').disabled = true;
+                document.getElementById('settleButton').disabled = true;
             }
         }
 
-        $(document).ready(function () {
-            $(document).on("click", "input[name^='billCheck']", function () {
-                checkChecked()
+        document.addEventListener('DOMContentLoaded', function () {
+            document.addEventListener("click", function (e) {
+                if (e.target && e.target.matches("input[name^='billCheck']")) {
+                    checkChecked();
+                }
             });
-            $(document).on("change", "#checkAll", function () {
-                checkChecked()
+            document.addEventListener("change", function (e) {
+                if (e.target && e.target.id === "checkAll") {
+                    checkChecked();
+                }
             });
             checkChecked();
         })
@@ -207,8 +210,13 @@
             document.serviceform.elements[showEle].checked = true;
         }
 
-        $(document).on('click', '#checkAll', function () {
-            $("input[name^='billCheck']").prop('checked', $(this).is(':checked'));
+        document.addEventListener('click', function (e) {
+            if (e.target && e.target.id === 'checkAll') {
+                var isChecked = e.target.checked;
+                document.querySelectorAll("input[name^='billCheck']").forEach(function (el) {
+                    el.checked = isChecked;
+                });
+            }
         })
 
         function setOperation(value) {
@@ -221,7 +229,7 @@
 
         @media print {
 
-            .hidden-print {
+            .d-print-none {
                 display: none !important;
             }
 
@@ -239,7 +247,7 @@
 <div class="container">
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></h3>
 
-    <div class="row well hidden-print">
+    <div class="row card card-body bg-body-tertiary d-print-none">
 
         <div style="text-align: right;"><a href="javascript: function myFunction() {return false; }"
                                            onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">
@@ -264,37 +272,38 @@
         <%}%>
 
 
-        <form name="serviceform" method="get" action="billStatus.jsp" class="form-inline">
+        <form name="serviceform" method="get" action="billStatus.jsp" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<%=readonly%>"/>
             <input type="hidden" name="lastName" value="<%=request.getParameter("lastName")%>"/>
             <input type="hidden" name="firstName" value="<%=request.getParameter("firstName")%>"/>
             <div class="row">
                 <div class="col-lg-12">
-                    <div class="form-group">
-                        <label class="checkbox-inline">
-                            <input type="checkbox" id="showMSP" name="showMSP"
+                    <div class="mb-3">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="showMSP" name="showMSP"
                                    value="show"  <%=showMSP ? "checked" : ""%>/>
-                            <a onclick="billTypeOnly('showMSP')">MSP</a></label>
-                        <label class="checkbox-inline">
-                            <input type="checkbox" name="showWCB" value="show"  <%=showWCB ? "checked" : ""%>/><a
-                                onclick="billTypeOnly('showWCB')">WCB</a>
-                        </label>
-                        <label class="checkbox-inline">
-                            <input type="checkbox" name="showPRIV" value="show" <%=showPRIV ? "checked" : ""%>/><a
-                                onClick="billTypeOnly('showPRIV')">Private</a>
-                        </label>
-                        <label class="checkbox-inline">
-                            <input type="checkbox" name="showICBC" value="show" <%=showICBC ? "checked" : ""%>/><a
-                                onClick="billTypeOnly('showICBC')">ICBC</a>
-                        </label>
+                            <label class="form-check-label"><a onclick="billTypeOnly('showMSP')">MSP</a></label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="showWCB" value="show"  <%=showWCB ? "checked" : ""%>/>
+                            <label class="form-check-label"><a onclick="billTypeOnly('showWCB')">WCB</a></label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="showPRIV" value="show" <%=showPRIV ? "checked" : ""%>/>
+                            <label class="form-check-label"><a onClick="billTypeOnly('showPRIV')">Private</a></label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="showICBC" value="show" <%=showICBC ? "checked" : ""%>/>
+                            <label class="form-check-label"><a onClick="billTypeOnly('showICBC')">ICBC</a></label>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="row">
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="providerview">Select provider</label>
-                        <select name="providerview" id="providerview" class="form-control">
+                        <select name="providerview" id="providerview" class="form-select">
                             <option value="ALL">All Providers</option>
                             <% String proFirst = "";
                                 String proLast = "";
@@ -318,18 +327,18 @@
                 </div>
                 <input type="hidden" name="verCode" value="V03"/>
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="xml_vdate">Service Start Date:</label>
                         <div class="input-group">
                             <input type="text" name="xml_vdate" class="form-control" id="xml_vdate"
                                    value="<%=xml_vdate%>" placeholder="yyyy-mm-dd"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                            <span class="input-group-addon"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div><!--span2-->
                 </div>
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
     <label style="white-space: nowrap;" for="xml_appointment_date">Service End Date:
         <a href="javascript: function myFunction() {return false; }" onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-30")%>')" >30</a>
         <a href="javascript: function myFunction() {return false; }" onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-60")%>')" >60</a>
@@ -339,12 +348,12 @@
                             <input type="text" class="form-control" name="xml_appointment_date" placeholder="yyyy-mm-dd"
                                    id="xml_appointment_date" value="<%=xml_appointment_date%>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                            <span class="input-group-addon"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div><!--span3-->
                 </div>
                 <div class="col-sm-3">
-                    <div class="form-group">
+                    <div class="mb-3">
                         <label for="demographicNo">Demographic:</label>
                         <%
                             String readonlyStr = "true".equals(readonly) ? "readonly" : "";
@@ -357,7 +366,7 @@
             </div>
             <div class="row">
                 <div class="col-lg-12">
-                    <div class="form-group">
+                    <div class="mb-3">
 
                         <% String billTypes = request.getParameter("billTypes");
                             if (billTypes == null) {
@@ -368,101 +377,101 @@
                             }
 
                         %>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.REJECTED%>"     <%=billTypes.equals(MSPReconcile.REJECTED) ? "checked" : ""%>/>
-                            Rejected
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Rejected</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.NOTSUBMITTED%>" <%=billTypes.equals(MSPReconcile.NOTSUBMITTED) ? "checked" : ""%>/>
-                            Not Submitted
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Not Submitted</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.SUBMITTED%>"    <%=billTypes.equals(MSPReconcile.SUBMITTED) ? "checked" : ""%>/>
-                            Submitted
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Submitted</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.SETTLED%>"      <%=billTypes.equals(MSPReconcile.SETTLED) ? "checked" : ""%>/>
-                            Settled
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Settled</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.DELETED%>"      <%=billTypes.equals(MSPReconcile.DELETED) ? "checked" : ""%>/>
-                            Deleted
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Deleted</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.HELD%>"         <%=billTypes.equals(MSPReconcile.HELD) ? "checked" : ""%>/>
-                            Held
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes" value="<%=MSPReconcile.DATACENTERCHANGED%>"
+                            <label class="form-check-label">Held</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes" value="<%=MSPReconcile.DATACENTERCHANGED%>"
                                    title="Data Center Changed" <%=billTypes.equals(MSPReconcile.DATACENTERCHANGED) ? "checked" : ""%>/>
-                            DCC
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes" value="<%=MSPReconcile.PAIDWITHEXP%>"
+                            <label class="form-check-label">DCC</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes" value="<%=MSPReconcile.PAIDWITHEXP%>"
                                    title="Paid with Explanation"     <%=billTypes.equals(MSPReconcile.PAIDWITHEXP) ? "checked" : ""%>/>
-                            PwE
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">PwE</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.BADDEBT%>"      <%=billTypes.equals(MSPReconcile.BADDEBT) ? "checked" : ""%>/>
-                            Bad Debt
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Bad Debt</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.REFUSED%>"      <%=billTypes.equals(MSPReconcile.REFUSED) ? "checked" : ""%>/>
-                            Refused
-                        </label>
-                        <label class="radio-inline">
+                            <label class="form-check-label">Refused</label>
+                        </div>
+                        <div class="form-check form-check-inline">
                             <!--<input type="radio" name="billTypes" value="<%=MSPReconcile.WCB%>"          <%=billTypes.equals(MSPReconcile.WCB)?"checked":""%>/> WCB-->
-                            <input type="radio" name="billTypes" value="<%=MSPReconcile.CAPITATED%>"
+                            <input class="form-check-input" type="radio" name="billTypes" value="<%=MSPReconcile.CAPITATED%>"
                                    title="Capitated"   <%=billTypes.equals(MSPReconcile.CAPITATED) ? "checked" : ""%>/>
-                            Cap
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes" value="<%=MSPReconcile.DONOTBILL%>"
+                            <label class="form-check-label">Cap</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes" value="<%=MSPReconcile.DONOTBILL%>"
                                    title="Do Not Bill"    <%=billTypes.equals(MSPReconcile.DONOTBILL) ? "checked" : ""%>/>
-                            DNBill
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">DNBill</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="<%=MSPReconcile.BILLPATIENT%>"  <%=billTypes.equals(MSPReconcile.BILLPATIENT) ? "checked" : ""%>/>
-                            Bill Patient
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes" value="<%=MSPReconcile.PAIDPRIVATE%>"
+                            <label class="form-check-label">Bill Patient</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes" value="<%=MSPReconcile.PAIDPRIVATE%>"
                                    title="Paid Private"  <%=billTypes.equals(MSPReconcile.PAIDPRIVATE) ? "checked" : ""%>/>
-                            Private
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes" value="<%=MSPReconcile.COLLECTION%>"
+                            <label class="form-check-label">Private</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes" value="<%=MSPReconcile.COLLECTION%>"
                                    title="Transfered to Collection"<%=billTypes.equals(MSPReconcile.COLLECTION) ? "checked" : ""%>/>
-                            Collection
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Collection</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="%"                              <%=billTypes.equals("%") ? "checked" : ""%>/>
-                            All
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">All</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="?"                              <%=billTypes.equals("?") ? "checked" : ""%>/>
-                            Fixable Receivables
-                        </label>
-                        <label class="radio-inline">
-                            <input type="radio" name="billTypes"
+                            <label class="form-check-label">Fixable Receivables</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="billTypes"
                                    value="$"                              <%=billTypes.equals("$") ? "checked" : ""%>/>
-                            Paid Bills
-                        </label>
+                            <label class="form-check-label">Paid Bills</label>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="form-group pull-right">
+            <div class="mb-3 float-end">
                 <input type="hidden" name="submitted" value="yes"/>
                 <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
             </div>
@@ -478,11 +487,11 @@
                value="<%=Encode.forHtmlAttribute(request.getParameter("billTypes"))%>">
 
 
-        <table class="table table-striped table-condensed sortable" id="resultsTable">
+        <table class="table table-striped table-sm sortable" id="resultsTable">
             <thead>
 
-            <th class="no-sort"><label for="checkAll" class="checkbox-inline">
-                <input type="checkbox" id="checkAll" name="checkAll">Select All</label></th>
+            <th class="no-sort"><div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="checkAll" name="checkAll"><label for="checkAll" class="form-check-label">Select All</label></div></th>
             <th title="INVOICE #">INVOICE #</th>
             <th title="LINE #">SEQ #</th>
             <th title="APP. DATE">APP. DATE</th>
@@ -552,10 +561,10 @@
 
             <tr>
                 <td>
-                    <label>
-                        <input type="checkbox" id="billCheck_<%=b.getBilling_no()%>" name="billCheck"
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="billCheck_<%=b.getBilling_no()%>" name="billCheck"
                                value="<%=b.getBilling_no() + "_" + b.getBillMasterNo()%>">
-                    </label>
+                    </div>
                 </td>
                 <td>
                     <%if ("Pri".equals(b.billingtype)) {%>
@@ -665,19 +674,14 @@
             <button id="settleButton" type="submit" class="btn btn-primary" onclick="setOperation('Settle Bill')">
                 Settle
             </button>
-            <input class="btn hidden-print" type='button' name='print' value='Print' onClick='window.print()'>
+            <input class="btn d-print-none" type='button' name='print' value='Print' onClick='window.print()'>
         </div>
     </form>
 
     <script type="text/javascript">
 
-        var startDate = $("#xml_vdate").datepicker({
-            format: "yyyy-mm-dd"
-        });
-
-        var endDate = $("#xml_appointment_date").datepicker({
-            format: "yyyy-mm-dd"
-        });
+        flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
+        flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
     </script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/commons/scripts/sort_table/css.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/commons/scripts/sort_table/common.js"></script>

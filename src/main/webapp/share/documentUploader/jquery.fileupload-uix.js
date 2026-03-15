@@ -92,7 +92,7 @@
                 url = link.get(0).href,
                 name = decodeURIComponent(url.split('/').pop()).replace(/:/g, '-'),
                 type = 'application/octet-stream';
-            link.on('dragstart', function (event) {
+            link.bind('dragstart', function (event) {
                 try {
                     event.originalEvent.dataTransfer
                         .setData('DownloadURL', [type, name, url].join(':'));
@@ -274,17 +274,17 @@
         };
 
         this.initEventHandlers = function () {
-            uploadHandler.downloadTable
-                .on('click', 'a:not([target="_blank"])', uploadHandler.downloadHandler);
-            uploadHandler.downloadTable
-                .on('click', '.file_download_delete button', uploadHandler.deleteHandler);
+            uploadHandler.downloadTable.on('click', 'a:not([target="_blank"])',
+                uploadHandler.downloadHandler);
+            uploadHandler.downloadTable.on('click', '.file_download_delete button',
+                uploadHandler.deleteHandler);
         };
 
         this.destroyEventHandlers = function () {
-            uploadHandler.downloadTable
-                .off('click', 'a:not([target="_blank"])', uploadHandler.downloadHandler);
-            uploadHandler.downloadTable
-                .off('click', '.file_download_delete button', uploadHandler.deleteHandler);
+            uploadHandler.downloadTable.off('click', 'a:not([target="_blank"])',
+                uploadHandler.downloadHandler);
+            uploadHandler.downloadTable.off('click', '.file_download_delete button',
+                uploadHandler.deleteHandler);
         };
 
         this.multiButtonHandler = function (e) {
@@ -298,20 +298,20 @@
             } else {
                 uploadHandler.multiButtons.find('.file_upload_start:first')
                     .button({icons: {primary: 'ui-icon-circle-arrow-e'}})
-                    .on('click', {selector: '.file_upload_start'}, uploadHandler.multiButtonHandler);
+                    .bind('click', {selector: '.file_upload_start'}, uploadHandler.multiButtonHandler);
             }
             uploadHandler.multiButtons.find('.file_upload_cancel:first')
                 .button({icons: {primary: 'ui-icon-cancel'}})
-                .on('click', {selector: '.file_upload_cancel'}, uploadHandler.multiButtonHandler);
+                .bind('click', {selector: '.file_upload_cancel'}, uploadHandler.multiButtonHandler);
             uploadHandler.multiButtons.find('.file_download_delete:first')
                 .button({icons: {primary: 'ui-icon-trash'}})
-                .on('click', {selector: '.file_download_delete'}, uploadHandler.multiButtonHandler);
+                .bind('click', {selector: '.file_download_delete'}, uploadHandler.multiButtonHandler);
         };
 
         this.destroyMultiButtons = function () {
             uploadHandler.multiButtons.find(
                 '.file_upload_start:first, .file_upload_cancel:first, .file_download_delete:first'
-            ).off('click', uploadHandler.multiButtonHandler).button('destroy').show();
+            ).unbind('click', uploadHandler.multiButtonHandler).button('destroy').show();
         };
 
         this.initExtended = function () {

@@ -28,6 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<label for="assessor" class="control-label" data-field-name="assessor">Assessor:</label>
+<label for="assessor" class="form-label" data-field-name="assessor">Assessor:</label>
 <input type="text" name="assessor" id="assessor" class="bottom-line form-control h-si ecares-input"
        style="width: 300px;">

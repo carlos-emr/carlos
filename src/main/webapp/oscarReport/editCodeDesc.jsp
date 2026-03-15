@@ -47,6 +47,7 @@
 
 
         <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
         <style>
             input {
@@ -83,7 +84,7 @@
                 </td>
                 <td><%=editingCodeCode%>
                 </td>
-                <td><input name="editingCodeDesc" value=<%=editingCodeDesc%> class="span4"></td>
+                <td><input name="editingCodeDesc" value=<%=editingCodeDesc%> class="col-md-4"></td>
                 <td><input type="submit" name="submit" class="btn btn-primary" value="Modify"></td>
             </tr>
         </table>

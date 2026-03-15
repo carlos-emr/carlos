@@ -62,11 +62,12 @@
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script src="<%=request.getContextPath() %>/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
 
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 listSystemFlowsheets();
                 listFlowsheets1();
             });
@@ -157,7 +158,7 @@
 
     <h4>System Flowsheets</h4>
     <table id="systemFsTable" name="systemFsTable"
-           class="table table-bordered table-striped table-hover table-condensed">
+           class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -175,7 +176,7 @@
     <h4>Custom Flowsheets</h4>
     <br/><br/>
     <h6>Clinic-level</h6>
-    <table id="clinicTable" name="fsTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="clinicTable" name="fsTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -196,7 +197,7 @@
 
     <br/><br/>
     <h6>Provider-level</h6>
-    <table id="providerTable" name="fsTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="providerTable" name="fsTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -217,7 +218,7 @@
 
     <br/><br/>
     <h6>Patient-level</h6>
-    <table id="patientTable" name="fsTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="patientTable" name="fsTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>

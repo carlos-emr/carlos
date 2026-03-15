@@ -155,16 +155,15 @@
 
     <script>
         $(function () {
-            $(document).tooltip();
         });
 
         function selectOther() {
-            document.querySelector('.alert').classList.add('hidden');
+            document.querySelector('.alert').classList.add('d-none');
             if (document.UPLOAD.type.value == "OTHER") {
-                document.getElementById('OTHER').classList.remove('hidden');
+                document.getElementById('OTHER').classList.remove('d-none');
                 document.getElementById('otherType').required = true;
             } else {
-                document.getElementById('OTHER').classList.add('hidden');
+                document.getElementById('OTHER').classList.add('d-none');
                 document.getElementById('otherType').required = false;
             }
         }
@@ -186,13 +185,13 @@
         }
 
         function showErrorMessage(message) {
-            document.querySelector('.alert').classList.add('alert-error');
-            document.querySelector('.alert').classList.remove('hidden');
+            document.querySelector('.alert').classList.add('alert-danger');
+            document.querySelector('.alert').classList.remove('d-none');
             document.getElementById('errorMsg').innerHTML = message;
         }
 
         function getFileList(event) {
-            document.querySelector('.alert').classList.add('hidden');
+            document.querySelector('.alert').classList.add('d-none');
             const fileList = document.getElementById('file-list');
             const files = event.target.files;
             fileList.innerHTML = '';
@@ -249,8 +248,8 @@
 
 <h3>HL7 Lab Upload</h3>
 <div class="loading-screen">
-    <div class="loading-bar progress progress-striped active">
-        <div class="bar" style="width: 100%;"></div>
+    <div class="loading-bar progress" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" style="width: 100%;"></div>
     </div>
     <div class="loading-message">
         Please be patient. Uploading a large number of HL7 labs may take some time. Do not close this window while
@@ -258,10 +257,10 @@
     </div>
 </div>
 
-<div class="well">
+<div class="card card-body bg-body-tertiary">
 
-    <div class="alert hidden">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+    <div class="alert d-none">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <div id="errorMsg">
 
         </div>
@@ -297,7 +296,7 @@
             <option value="OTHER">Other</option>
         </select>
         <br>
-        <div id="OTHER" class="hidden">
+        <div id="OTHER" class="d-none">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="lab.ca.all.testUploader.pleaseSpecifyTheOtherLabType"/>:<br>
             <input type="text" id="otherType">
         </div>

@@ -280,7 +280,7 @@
         <tr>
             <td class="MainTableLeftColumn" valign="top"></td>
             <td valign="top" class="MainTableRightColumn">
-                <table class="cumlatable table table-condensed">
+                <table class="cumlatable table table-sm">
                     <tr>
                         <th>&nbsp;</th>
                         <th>Latest Value</th>

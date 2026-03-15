@@ -92,8 +92,7 @@
                 var customInstr = eval('get.customInstr' + rowId).checked;
                 var special = eval('get.fldSpecial' + rowId).value;
                 var dispenseInternal = eval('get.dispenseInternal' + rowId).value;
-                customName = encodeURI(customName);
-                special = encodeURI(special);
+                // URLSearchParams handles encoding automatically
 
                 if (favoriteName == null || favoriteName.length < 1) {
                     alert('Please enter a favorite name.');
@@ -121,8 +120,24 @@
                 }
 
                 if (err == false) {
-                    var data = "favoriteId=" + favoriteId + "&favoriteName=" + favoriteName + "&customName=" + customName + "&takeMin=" + takeMin + "&takeMax=" + takeMax + "&frequencyCode=" + frequencyCode +
-                        "&duration=" + duration + "&durationUnit=" + durationUnit + "&quantity=" + quantity + "&repeat=" + repeat + "&nosubs=" + nosubs + "&prn=" + prn + "&customInstr=" + customInstr + "&special=" + special + "&dispenseInternal=" + dispenseInternal;
+                    var params = new URLSearchParams();
+                    params.append('favoriteId', favoriteId);
+                    params.append('favoriteName', favoriteName);
+                    params.append('customName', customName);
+                    params.append('takeMin', takeMin);
+                    params.append('takeMax', takeMax);
+                    params.append('frequencyCode', frequencyCode);
+                    params.append('duration', duration);
+                    params.append('durationUnit', durationUnit);
+                    params.append('quantity', quantity);
+                    params.append('repeat', repeat);
+                    params.append('nosubs', nosubs);
+                    params.append('prn', prn);
+                    params.append('customInstr', customInstr);
+                    params.append('special', special);
+                    params.append('dispenseInternal', dispenseInternal);
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    if (csrfEl) params.append('CSRF-TOKEN', csrfEl.value);
                     var url = "<c:out value="${ctx}"/>" + "/oscarRx/updateFavorite2.do?method=ajaxEditFavorite";
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -135,16 +150,20 @@
                             'X-Requested-With': 'XMLHttpRequest',
                             'CSRF-TOKEN': csrfToken
                         },
-                        body: data,
+                        body: params.toString(),
                     })
                         .then(function (response) {
                             if (response.status === 200) {
                                 console.log("ok");
                                 document.getElementById("saveSuccess_" + rowId).style.display = "block";
                             } else {
-                                alert("Server Error" + response.status);
+                                alert("Server Error " + response.status);
                                 document.getElementById("saveSuccess_" + rowId).style.display = "none";
                             }
+                        })
+                        .catch(function (error) {
+                            console.error('Failed to save favorite:', error);
+                            alert('An error occurred while saving. Please refresh and try again.');
                         });
 
                 }

@@ -93,18 +93,17 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.groupacl.title"/></title>
 
         <script>
             function changeGroup() {
-                $("#method").val('setGroupNo');
-                $("#myform").submit();
+                document.getElementById('method').value = 'setGroupNo';
+                document.getElementById('myform').submit();
             }
 
             function save_acl() {
-                $("#method").val('save');
-                $("#myform").submit();
+                document.getElementById('method').value = 'save';
+                document.getElementById('myform').submit();
             }
         </script>
     </head>

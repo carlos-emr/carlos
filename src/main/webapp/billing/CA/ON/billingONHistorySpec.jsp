@@ -61,7 +61,7 @@
 <html>
 <head>
     <title>BILLING HISTORY</title>
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
     <script language="JavaScript">
         function upCaseCtrl(ctrl) {
@@ -99,7 +99,7 @@
 </form>
 
 
-<table style="width:95%; margin:auto;" class="table table-striped table-condensed">
+<table style="width:95%; margin:auto;" class="table table-striped table-sm">
     <thead>
     <tr class="myYellow">
         <th style="text-align:center; white-space:nowrap;"><b>Invoice No.</b></th>

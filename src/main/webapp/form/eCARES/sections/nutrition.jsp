@@ -66,7 +66,7 @@
         </div>
         <div class="flex-1 flex">
 
-            <strong class="mandatory control-label font-bold w-9" data-names="wnl,fair,poor">
+            <strong class="mandatory form-label font-bold w-9" data-names="wnl,fair,poor">
                 <span class="highlight" data-field-name="appetite">Appetite</span></strong>
 
             <label class="font-normal flex items-center"><input type="radio" name="appetite" class="m-0"

@@ -134,7 +134,7 @@
             <%=msg%>
         </div>
         <% } %>
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.ID"/></b>
             <select name="userName">
                 <% for (int i = 0; i < vec.size(); i++) { %>

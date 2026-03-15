@@ -88,6 +88,7 @@
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+                <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript"
@@ -247,11 +248,11 @@
                                     <tr>
                                         <td>
                                             <div class="input-group">
-								<span class="input-group-addon" id="basic-addon3">
+								<span class="input-group-text" id="basic-addon3">
 									<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>
 								</span>
 
-                                                <select class="form-control" name="selectedCodingSystem"
+                                                <select class="form-select" name="selectedCodingSystem"
                                                             <%=disabled%>>
                                                     <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
                                                         <option value="${codingSys}">

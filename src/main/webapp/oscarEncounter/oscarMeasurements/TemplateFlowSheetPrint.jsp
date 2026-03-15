@@ -183,7 +183,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
         <meta name="viewport" content="width=device-width, user-scalable=false;">
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
 
         <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
         <!--[if lt IE 9]>
@@ -196,8 +196,6 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
         <link rel="apple-touch-icon-precomposed" sizes="72x72" href="ico/apple-touch-icon-72-precomposed.png">
         <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
         <link rel="shortcut icon" href="ico/favicon.png">
-
-        <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
 
         <style type="text/css">
             div.ImmSet {
@@ -479,7 +477,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
     <body class="BodyStyle" id="printFlowsheetBody">
 
-    <form action="TemplateFlowSheetPrint.jsp" id="flowsheetPrintForm" method="post" class="form-inline">
+    <form action="TemplateFlowSheetPrint.jsp" id="flowsheetPrintForm" method="post" class="d-flex flex-wrap align-items-center gap-2">
         <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
         <input type="hidden" name="template" value="<%=temp%>"/>
         <input type="hidden" name="printView" value="true"/>
@@ -500,43 +498,43 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             </div><!-- module-block -->
 
-            <div class="well" style="padding-bottom:0px;margin-bottom:0px;">
+            <div class="card card-body bg-body-tertiary" style="padding-bottom:0px;margin-bottom:0px;">
                 <h3><oscar:nameage demographicNo="<%=demographic_no%>"/></h3>
             </div>
 
             <!-- VIEW CONTROL -->
-            <div class="well DoNotPrint"
+            <div class="card card-body bg-body-tertiary DoNotPrint"
                  style="margin:0px;padding-top:2px;padding-bottom:2px;background-color:#c6c6c6;overflow: hidden">
 
                 <%if (!printView) {%>
-                <div class="controls">
+                <div>
                     <input type="checkbox" name="select-all-chk" id="select-all-chk" class="css-checkbox"
                            value="select-all"/>
                     <label for="select-all-chk" class="css-label">Select All</label>
                 </div>
 
-                <div class="controls">
+                <div>
                     <input type="checkbox" name="print-comments-chk" id="print-comments-chk" class="css-checkbox"
                            value="print"/>
                     <label for="print-comments-chk" class="css-label">Print Comments <a href="#comments-list"><span
-                            class="label label-info">view</span></a></label>
+                            class="badge bg-info">view</span></a></label>
                 </div>
 
-                <div class="controls">
+                <div>
                     <input type="checkbox" name="print-recommendation-chk" id="print-recommendation-chk"
                            class="css-checkbox" value="print"/>
                     <label for="print-recommendation-chk" class="css-label">Print Recommendations <a
-                            href="#recommendations-list"><span class="label label-info">view</span></a></label>
+                            href="#recommendations-list"><span class="badge bg-info">view</span></a></label>
                 </div>
                 <%}%>
 
 
-                <div class="controls DoNotPrint" style="float:right">
+                <div class="DoNotPrint" style="float:right">
 
                     <%if (printView) {%>
-                    <a href="JavaScript:void(0);" class="btn btn-small back loading" title="Cancel"
-                       data-loading-text="cancelling...">Cancel</a>
-                    <button type="button" class="btn btn-small btn-success DoNotPrint"
+                    <a href="JavaScript:void(0);" class="btn btn-sm back loading" title="Cancel"
+                       data-bs-loading-text="cancelling...">Cancel</a>
+                    <button type="button" class="btn btn-sm btn-success DoNotPrint"
                             onclick="javascript:window.print();"><i class="fa-solid fa-print"></i> Print
                     </button>
                     <%} else {%>
@@ -544,16 +542,16 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     view:
                     <div class="btn-group">
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>"
-                           id="all-btn" class="btn btn-small loading" data-loading-text="Loading...">All</a>
+                           id="all-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">All</a>
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=lastOnly"
-                           id="lastOnly-btn" class="btn btn-small loading" data-loading-text="Loading...">Last Only</a>
+                           id="lastOnly-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Last Only</a>
                         <a href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>&show=outOfRange"
-                           id="outOfRange-btn" class="btn btn-small loading" data-loading-text="Loading...">Out of
+                           id="outOfRange-btn" class="btn btn-sm loading" data-bs-loading-text="Loading...">Out of
                             Range</a>
                     </div>
 
-                    <button type="submit" class="btn btn-small DoNotPrint loading-print preview"
-                            data-loading-text="Loading..."><i class="fa-solid fa-print"></i> Preview
+                    <button type="submit" class="btn btn-sm DoNotPrint loading-print preview"
+                            data-bs-loading-text="Loading..."><i class="fa-solid fa-print"></i> Preview
                     </button>
 
                     <%}%>
@@ -563,7 +561,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
         <div id="wrapper-content">
             <!--MEASUREMENTS SELECTION LIST  overflow: hidden;-->
-            <div class="well" id="mtype-list">
+            <div class="card card-body bg-body-tertiary" id="mtype-list">
 
                 <%
                     EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
@@ -636,20 +634,20 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
 
                             <div class="range-<%=measure%>" style="display:none">
-                                <div class="input-append date" id="dp-startDate-<%=measure%>" data-date="<%=date%>"
-                                     data-date-format="yyyy-mm-dd" title="Start Date">
+                                <div class="input-group date" id="dp-startDate-<%=measure%>" data-date="<%=date%>"
+                                     title="Start Date">
                                     <input style="width:90px" name="sDate<%=measure%>" id="sDate-<%=measure%>" size="16"
-                                           type="text" value="" placeholder="start"
+                                           type="text" value="" placeholder="start" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
-                                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
 
-                                <div class="input-append date" id="dp-endDate-<%=measure%>" data-date="<%=date%>"
-                                     data-date-format="yyyy-mm-dd" title="End Date">
+                                <div class="input-group date" id="dp-endDate-<%=measure%>" data-date="<%=date%>"
+                                     title="End Date">
                                     <input style="width:90px" name="eDate<%=measure%>" id="eDate-<%=measure%>" size="16"
-                                           type="text" value="" placeholder="end"
+                                           type="text" value="" placeholder="end" data-input
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
-                                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
                             </div><!--range container-->
 
@@ -954,7 +952,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <!--COMMENTS-->
 
-            <div class="well" id="comments-list"  <%=noPrint1%>  >
+            <div class="card card-body bg-body-tertiary" id="comments-list"  <%=noPrint1%>  >
                 <h4>Comments</h4>
                 <ol>
                     <% for (int i = 0; i < comments.size(); i++) {
@@ -969,7 +967,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <!--RECOMMENDATIONS-->
             <% if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems) { %>
-            <div class="well" id="recommendations-list" <%=noPrint2%> >
+            <div class="card card-body bg-body-tertiary" id="recommendations-list" <%=noPrint2%> >
 
                 <h4><%=flowSheet%> Recommendations</h4>
 
@@ -998,15 +996,16 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             class="fa-solid fa-arrow-up"></i>Top</a></div>
 
     <div class="alert">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <strong>Oops!</strong> You need to make a selection before you can generate a print preview.
     </div>
 
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
-    <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript">
 
@@ -1022,8 +1021,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
         });
 
-        $(function () {
-            $('[id^=dp-]').datepicker();
+        document.addEventListener('DOMContentLoaded', function () {
+            flatpickr('[id^=dp-]', {dateFormat: "Y-m-d", allowInput: true, wrap: true});
         });
 
         $(document).ready(function () {
@@ -1038,7 +1037,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             });
 
             $('.loading').on("click", function () {
-                $(this).button('loading');
+                var btn = this;
+                var loadingText = btn.getAttribute('data-bs-loading-text') || 'Loading...';
+                if (!btn.getAttribute('data-original-text')) { btn.setAttribute('data-original-text', btn.textContent); }
+                btn.disabled = true;
+                btn.textContent = loadingText;
             });
 
             $('a.back').on("click", function () {
@@ -1150,7 +1153,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                 if (error == true) {
                     return false;
                 } else {
-                    $(".loading-print").button('loading');
+                    document.querySelectorAll('.loading-print').forEach(function(btn) {
+                        var loadingText = btn.getAttribute('data-bs-loading-text') || 'Loading...';
+                        if (!btn.getAttribute('data-original-text')) { btn.setAttribute('data-original-text', btn.innerHTML); }
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' + loadingText;
+                    });
                     return true;
                 }
 

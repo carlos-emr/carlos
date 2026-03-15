@@ -45,8 +45,8 @@
           rel="stylesheet">
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ pageContext.request.contextPath }/js/global.js"></script>
-    <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script>
-    <!-- DataTables 1.13.4 -->
+    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
         jQuery(document).ready(function () {
@@ -67,7 +67,7 @@
 <body>
 &nbsp;<h4>Manage Billing Payment Type</h4>
 
-<div class="well">
+<div class="card card-body bg-body-tertiary">
     <table style="width:80%" id="tblBillType" class="table table-striped">
         <thead>
         <tr>
@@ -102,7 +102,7 @@
     </table>
     <p>
     <hr/>
-    <a class="btn"
+    <a class="btn btn-secondary"
        href="<%=request.getContextPath()%>/billing/CA/ON/editBillingPaymentType.jsp">Create
         a new payment type</a>
 

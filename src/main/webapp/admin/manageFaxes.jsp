@@ -59,9 +59,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css"/>
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css"/>
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css"/>
     <link rel="stylesheet"
-          href="<%=request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"/>
+          href="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -72,7 +72,6 @@
 
 
         $(document).ready(function () {
-            $(document).tooltip();
 
             var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
 
@@ -293,33 +292,33 @@
 
             <div class="row">
                 <legend>Search Faxes</legend>
-                <div class="input-append span3">
+                <div class="input-group col-md-3">
 
-                    <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                    <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="From" id="dateBegin" name="dateBegin" required/>
-                    <span class="add-on">
+                    <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
 
-                <div class="input-append span3">
+                <div class="input-group col-md-3">
 
-                    <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                    <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="To" id="dateEnd" name="dateEnd" required/>
-                    <span class="add-on">
+                    <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
-                <div class="span6">
-                    <input class="span6" type="text" placeholder="Pt. Name (last, first)" id="autocompletedemo"/>
+                <div class="col-md-6">
+                    <input class="form-control" type="text" placeholder="Pt. Name (last, first)" id="autocompletedemo"/>
                     <input type="hidden" id="demographic_no" name="demographic_no" value="">
                 </div>
 
             </div>
 
             <div class="row">
-                <div class="span5">
-                    <select class="span5" name="oscarUser">
+                <div class="col-md-5">
+                    <select class="form-select" name="oscarUser">
                         <option value="-1">Provider</option>
 
                         <%
@@ -337,8 +336,8 @@
                         %>
                     </select>
                 </div>
-                <div class="span5">
-                    <select class="span5" name="team">
+                <div class="col-md-5">
+                    <select class="form-select" name="team">
                         <option value="-1">Team</option>
                         <%
                             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
@@ -353,8 +352,8 @@
                         %>
                     </select>
                 </div>
-                <div class="span2">
-                    <select class="span2" name="status">
+                <div class="col-md-2">
+                    <select class="form-select" name="status">
                         <option value="-1">Status</option>
 
                         <%
@@ -370,16 +369,16 @@
             </div>
 
             <div class="row">
-                <div class="span12">
-                    <input class="btn btn-default" type="submit" value="Fetch Faxes"/>
-                    <input class="btn btn-default" type="button" value="Reset" onclick="return resetForm();"/>
+                <div class="col-md-12">
+                    <input class="btn btn-secondary" type="submit" value="Fetch Faxes"/>
+                    <input class="btn btn-secondary" type="button" value="Reset" onclick="return resetForm();"/>
                 </div>
             </div>
 
         </form>
 
         <div class="row">
-            <div class="span12">
+            <div class="col-md-12">
                 <div id="results" style="margin-top:20px;">
                     <!-- container -->
                 </div>
@@ -387,7 +386,7 @@
         </div>
         <div>
             <p>Fax status definitions:</p>
-            <dl class="dl-horizontal">
+            <dl class="row">
                 <dt>RECEIVED</dt>
                 <dd>is the status of a fax that was successfully RECEIVED from the fax gateway service. Click on View in
                     the Action column for a preview of the fax.
@@ -427,13 +426,8 @@
 </div> <!-- body row -->
 
 <script language="javascript">
-    var startDate = $("#dateBegin").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDate = $("#dateEnd").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#dateBegin", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#dateEnd", {dateFormat: "Y-m-d", allowInput: true});
 </script>
 
 </body>

@@ -240,36 +240,21 @@
         }
 
     </script>
-
-    <style type="text/css">
-        .span4 {
-            padding-left: 0px;
-            padding-right: 0px;
-            margin-left: 0px;
-            margin-right: 0px;
-        }
-
-        .span10 {
-            padding-left: 0px;
-            padding-right: 0px;
-            margin-left: 0px;
-            margin-right: 0px;
-        }
-    </style>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 </head>
 <body>
 
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></h3>
 
-<div class="container-fluid form-inline">
+<div class="container-fluid d-flex flex-wrap align-items-center gap-2">
 
     <%
         String success = (String) request.getAttribute("success");
         if ("true".equalsIgnoreCase(success)) {
     %>
     <div class="alert alert-success">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <strong>Success!</strong> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.sucess"/>
     </div>
     <%
@@ -279,7 +264,7 @@
     <form action="${pageContext.request.contextPath}/admin/manageCSSStyles.do" method="post" accept-charset="UTF-8">
         <input type="hidden" id="method" name="method" value="save"/>
 
-        <div class="row well"><!--select existing styles-->
+        <div class="row card card-body bg-body-tertiary"><!--select existing styles-->
 
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.CurrentStyles"/><br/>
 
@@ -290,9 +275,9 @@
                 </c:forEach>
             </select>
 
-            <input class="btn" type="button" onclick="edit();return false;"
+            <input class="btn btn-secondary" type="button" onclick="edit();return false;"
                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Edit"/>"/>
-            <input type="submit" name="submit" value="Delete" class="btn" onclick="return deleteStyle();"/>
+            <input type="submit" name="submit" value="Delete" class="btn btn-secondary" onclick="return deleteStyle();"/>
 
 
         </div>
@@ -309,7 +294,7 @@
         </div>
 
         <div class="row">
-            <div class="span4">
+            <div class="col-md-4">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.FontSize"/><br>
                 <select id="font-size" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
@@ -374,13 +359,13 @@
             </div><!--span4-->
 
 
-            <div class="span4">
+            <div class="col-md-4">
                 <input type="hidden" id="editStyle" name="editStyle"/>
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
-                <textarea rows="8" class="span6" readonly="true" id="styleText" name="styleText"></textarea>
-                <input class="btn" id="apply-btn" type="button"
+                <textarea rows="8" class="form-control" readonly="true" id="styleText" name="styleText"></textarea>
+                <input class="btn btn-secondary" id="apply-btn" type="button"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
                        style="display:none"/>
 
@@ -394,11 +379,11 @@
         <!-- row -->
 
 
-        <div class="span10" style="text-align:right;">
+        <div class="col-md-10" style="text-align:right;">
             <hr>
-            <input class="btn btn-large" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Clear"/>"
+            <input class="btn btn-lg" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Clear"/>"
                    onclick="reinit();return false;"/>
-            <input type="submit" name="submit" value="Save" class="btn btn-large btn-primary" onclick="return checkfields();" />
+            <input type="submit" name="submit" value="Save" class="btn btn-lg btn-primary" onclick="return checkfields();" />
         </div>
 
     </form>

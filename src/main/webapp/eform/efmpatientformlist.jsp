@@ -85,13 +85,15 @@
         </title>
 
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables/datatables.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
 
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
         <script src="${pageContext.request.contextPath}/js/jquery.fileDownload.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
@@ -218,7 +220,7 @@
 
                 <form id="sendToPhrForm" action="efmpatientformlistSendPhrAction.jsp">
                     <input type="hidden" name="clientId" value="<%=demographic_no%>"/>
-                    <table id="efmTable" class="table table-striped table-compact dataTable no-footer">
+                    <table id="efmTable" class="table table-striped table-sm dataTable no-footer">
                         <thead>
                         <tr>
                             <th>

@@ -224,7 +224,7 @@
         <title>Add/Edit Service Code</title>
 
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
 
         <script language="JavaScript">
 
@@ -367,11 +367,11 @@
                         }
                     %>
                 </select></td>
-                <td><input class="input-mini" type="hidden" name="submit" value="Search"> <input class="btn"
+                <td><input class="form-control form-control-sm d-inline-block w-auto" type="hidden" name="submit" value="Search"> <input class="btn btn-secondary"
                                                                                                  type="submit"
                                                                                                  name="action"
                                                                                                  value=" Edit "> <input
-                        class="btn"
+                        class="btn btn-secondary"
                         type="submit" name="action" value="Delete"
                         onClick="javascript:return onDelete();"></td>
             </tr>
@@ -379,13 +379,13 @@
         </table>
     </form>
     <form method="post" name="baseurl" action="billingONfavourite.jsp">
-        <table style="width:100%;" class="table table-striped table-condensed">
+        <table style="width:100%;" class="table table-striped table-sm">
 
             <tr class="myGreen">
                 <td style="text-align:right"><b>Name</b></td>
-                <td><input class="input" type="text" name="name"
+                <td><input class="form-control d-inline-block w-auto" type="text" name="name"
                            value="<%=prop.getProperty("name", "")%>" maxlength='50'/>
-                    (e.g. Flu shot) <input class="btn" type="submit" name="submit" value="Search"
+                    (e.g. Flu shot) <input class="btn btn-secondary" type="submit" name="submit" value="Search"
                                            onclick="javascript:return onSearch();"></td>
             </tr>
 
@@ -396,14 +396,14 @@
             <tr>
                 <td style="text-align:right"><b>Service Code <%=i + 1%>
                 </b></td>
-                <td><input class="input-mini" type="text" name="serviceCode<%=i%>"
+                <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="serviceCode<%=i%>"
                            value="<%=prop.getProperty("serviceCode"+i, "")%>"
-                           maxlength='50' onblur="upCaseCtrl(this)"/> (e.g. A001A) <b>Unit</b><input class="input-mini"
+                           maxlength='50' onblur="upCaseCtrl(this)"/> (e.g. A001A) <b>Unit</b><input class="form-control form-control-sm d-inline-block w-auto"
                                                                                                      type="text"
                                                                                                      name="serviceUnit<%=i%>"
                                                                                                      value="<%=prop.getProperty("serviceUnit"+i, "")%>"
                                                                                                      maxlength='2'/>
-                    (e.g. 1, 12) <b>@</b><input class="input-mini" type="text"
+                    (e.g. 1, 12) <b>@</b><input class="form-control form-control-sm d-inline-block w-auto" type="text"
                                                 name="serviceAt<%=i%>"
                                                 value="<%=prop.getProperty("serviceAt"+i, "")%>"
                                                 maxlength='4'/> (e.g. 0.85)
@@ -416,11 +416,11 @@
 
             <tr>
                 <td style="text-align:right"><b>Dx</b></td>
-                <td><input class="input-mini" type="text" name="dx"
+                <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx"
                            value="<%=prop.getProperty("dx", "")%>" maxlength='4'/>
-                    (e.g. 012) <b>Dx1</b> <input class="input-mini" type="text" name="dx1"
+                    (e.g. 012) <b>Dx1</b> <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx1"
                                                  value="<%=prop.getProperty("dx1", "")%>" maxlength='4'/> <b>Dx2</b>
-                    <input class="input-mini" type="text" name="dx2" value="<%=prop.getProperty("dx2", "")%>"
+                    <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx2" value="<%=prop.getProperty("dx2", "")%>"
                            maxlength='4'/></td>
             </tr>
             <tr>
@@ -428,7 +428,7 @@
                         type="hidden" name="action" value='<%=action%>'> <input
                         type="submit" name="submit" class="btn btn-primary"
                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
-                        onclick="javascript:return onSave();"> <input class="btn" type="button"
+                        onclick="javascript:return onSave();"> <input class="btn btn-secondary" type="button"
                                                                       name="Cancel"
                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnExit"/>"
                                                                       onClick="window.close()"></td>

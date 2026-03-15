@@ -48,6 +48,7 @@
         <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
@@ -64,25 +65,25 @@
 
     <c:choose>
         <c:when test="${ empty templatesInGroup }">
-            <div class="row-fluid">
-                <div class="well span12" id=manageGroups>
+            <div class="row">
+                <div class="card card-body bg-body-tertiary col-md-12" id=manageGroups>
 
-                    <div class="row-fluid">
+                    <div class="row">
                         <!--ADD GROUP-->
                         <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup.do"
-                              method="post" id="addGroupTemplate" class="form-inline">
+                              method="post" id="addGroupTemplate" class="d-flex flex-wrap align-items-center gap-2">
                             <input type="text" name="groupName" class="check" placeholder="Group Name">
                             <input type="submit" name="subm" class="btn groupAdd" value="Add Group" disabled>
                         </form>
 
-                        <div class="alert alert-error textExists" style="display:none;">
-                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                        <div class="alert alert-danger textExists" style="display:none;">
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             <strong>Error!</strong> the group name you selected already exists.
                         </div>
                     </div>
-                    <div class="row-fluid">
+                    <div class="row">
                         <!--GROUP LIST-->
-                        <table class="table table-condensed table-striped" id="groupListTbl">
+                        <table class="table table-sm table-striped" id="groupListTbl">
                             <thead>
                             <tr>
                                 <th colspan="2">Group Name</th>
@@ -102,14 +103,14 @@
                                             <td>
                                                 <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup.do" style="display:inline;">
                                                     <input type="hidden" name="groupName" value="${ groupName }"/>
-                                                    <a class="pull-right" href="javascript:void(0);"
+                                                    <a class="float-end" href="javascript:void(0);"
                                                        onclick="if(confirm('Are you sure you want to delete this group?')){this.closest('form').submit();}"
                                                        title="delete group">
                                                         <i style="color:red;" class="fa-solid fa-xmark"></i>
                                                     </a>
                                                 </form>
                                                 <span>&nbsp;</span>
-                                                <a class="pull-right"
+                                                <a class="float-end"
                                                    href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup.do?groupName=${ groupName }"
                                                    title="edit group">
                                                     <i style="color:blue;" class="fa-solid fa-pen-to-square"></i>
@@ -132,10 +133,10 @@
             </div>
         </c:when>
         <c:otherwise>
-            <div class="row-fluid">
+            <div class="row">
                 <!--TEMPLATES IN GROUP-->
-                <div class="well span12">
-                    <div class="row-fluid">
+                <div class="card card-body bg-body-tertiary col-md-12">
+                    <div class="row">
                         <c:choose>
                             <c:when test="${ not empty templatesInGroup }">
                                 <h4>Templates in Group: <c:out value="${templatesInGroup[0].groupName}"/></h4>
@@ -145,8 +146,8 @@
                             </c:otherwise>
                         </c:choose>
                     </div>
-                    <div class="row-fluid">
-                        <table class="table table-condensed table-striped" id="groupData">
+                    <div class="row">
+                        <table class="table table-sm table-striped" id="groupData">
                             <thead>
                             <tr>
                                 <th>
@@ -188,7 +189,7 @@
                                                                 <input type="hidden" name="groupName" value="${temp.groupName}"/>
                                                                 <a href="javascript:void(0);"
                                                                    onclick="if(confirm('Remove template from group?')){this.closest('form').submit();}"
-                                                                   class="pull-right" title="delete template from group">
+                                                                   class="float-end" title="delete template from group">
                                                                     <i style="color:red;" class="fa-solid fa-xmark"></i>
                                                                 </a>
                                                             </form>
@@ -220,18 +221,18 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="row-fluid actions">
-                        <form class="form-inline"
+                    <div class="row actions">
+                        <form class="d-flex flex-wrap align-items-center gap-2"
                               action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/rbtGroup.do"
                               id="goBack">
                             <button type="submit" name="back-btn" id="back-btn"
-                                    title="return to template group page" class="btn btn-secondary pull-right">Back
+                                    title="return to template group page" class="btn btn-secondary float-end">Back
                             </button>
 
                             <button type="button" style="margin-right:5px;" name="selectRbtTemplatesBtn"
                                     id="selectRbtTemplatesBtn"
-                                    title="add template to this group" data-toggle="modal"
-                                    data-target="#selectTemplatesModal" class="btn btn-primary pull-right">
+                                    title="add template to this group" data-bs-toggle="modal"
+                                    data-bs-target="#selectTemplatesModal" class="btn btn-primary float-end">
                                 Select Templates
                             </button>
 
@@ -243,16 +244,14 @@
     </c:choose>
 
     <!-- MODAL for template group selection -->
-    <div id="selectTemplatesModal" class="modal hide" tabindex="-1"
-         aria-labelledby="selectTemplatesModal" aria-hidden="true">
+    <div id="selectTemplatesModal" class="modal fade" tabindex="-1"
+         aria-labelledby="selectTemplatesModalLabel" aria-hidden="true">
         <div class="modal-dialog">
-            <div class="modal-content" role="dialog">
+            <div class="modal-content">
                 <div class="modal-header">
-                    <button class="close" data-dismiss="modal">
-                        &times;
-                    </button>
-                    <h3 class="modal-title">Select templates for group: <c:out
+                    <h3 class="modal-title" id="selectTemplatesModalLabel">Select templates for group: <c:out
                             value="${templatesInGroup[0].groupName}"/></h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/rbtAddToGroup.do"
@@ -273,7 +272,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" id="templateToGroup-btn" class="btn btn-primary">
                         Add Selected Template(s) to ${templatesInGroup[0].groupName}
                     </button>
@@ -284,14 +283,17 @@
 
     <script type="text/javascript">
 
-        $(document).ready(function () {
+        document.addEventListener('DOMContentLoaded', function () {
 
-            $("#templateToGroup-btn").on("click", function () {
-                $("#templateToGroupForm").trigger("submit");
-                $('#selectTemplatesModal').modal('hide');
+            document.getElementById('templateToGroup-btn').addEventListener('click', function () {
+                document.getElementById('templateToGroupForm').submit();
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('selectTemplatesModal')).hide();
             });
 
-            $(".check").on("change", validate).keyup(validate);
+            document.querySelectorAll('.check').forEach(function (el) {
+                el.addEventListener('change', validate);
+                el.addEventListener('keyup', validate);
+            });
 
         });
 
@@ -299,23 +301,23 @@
         // Function ensures that no duplicate groups can be added
         // Variable v - user entered group name to be compared
         function validate() {
-            var value = $(this).val();
+            var value = this.value;
             value = value.trim();
-            var id = $(this).attr("id");
+            var id = this.getAttribute("id");
             var inputCheck = checkRow(value);
 
             if (value != "" && inputCheck == "") {
-                $('.groupAdd').removeAttr("disabled");
-                $('.groupAdd').addClass("btn-success");
-                $('.textExists').hide();
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.removeAttribute("disabled"); });
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.add("btn-success"); });
+                document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = 'none'; });
             } else if (inputCheck == "exists") {
-                $('.groupAdd').attr("disabled", "disabled");
-                $('.groupAdd').removeClass("btn-success");
-                $('.textExists').show();
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.setAttribute("disabled", "disabled"); });
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.remove("btn-success"); });
+                document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = ''; });
             } else {
-                $('.groupAdd').attr("disabled", "disabled");
-                $('.groupAdd').removeClass("btn-success");
-                $('.textExists').hide();
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.setAttribute("disabled", "disabled"); });
+                document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.remove("btn-success"); });
+                document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = 'none'; });
             }
         }
 

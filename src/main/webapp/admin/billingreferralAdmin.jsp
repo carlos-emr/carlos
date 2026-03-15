@@ -61,6 +61,7 @@
         <script type="text/javascript" language="JavaScript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
         <script>
 
@@ -122,10 +123,10 @@
             }
 
             function clearMe() {
-                $("#nameQuery").val('');
-                $("#specialtyQuery").val('');
-                $("#showHidden").prop('checked', false);
-                $("#addressQuery").val('');
+                document.getElementById('nameQuery').value = '';
+                document.getElementById('specialtyQuery').value = '';
+                document.getElementById('showHidden').checked = false;
+                document.getElementById('addressQuery').value = '';
             }
         </script>
         <link href="${request.contextPath}/css/displaytag.css" rel="stylesheet"></link>

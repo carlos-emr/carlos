@@ -96,12 +96,13 @@
         </select>
 
         <button type="submit" name="add" class="btn btn-primary" style="margin-top:-10px">Add</button>
-        <a href="SetupGroupList.do" class="btn" style="margin-top:-10px">Cancel</a>
+        <a href="SetupGroupList.do" class="btn btn-secondary" style="margin-top:-10px">Cancel</a>
     </form>
 
 </div><!-- container -->
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 </body>

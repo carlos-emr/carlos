@@ -167,7 +167,7 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></title>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
 
@@ -280,8 +280,8 @@
     <div class="container-fluid">
 
 
-        <div class="well">
-            <form method="post" name="baseur0" action="billingONEditPrivateCode.jsp" class="form-inline">
+        <div class="card card-body bg-body-tertiary">
+            <form method="post" name="baseur0" action="billingONEditPrivateCode.jsp" class="d-flex flex-wrap align-items-center gap-2">
 
                 Select Code to edit:<br>
                 <select name="service_code" id="service_code" required>
@@ -315,11 +315,11 @@
                     %>
                 </select>
                 <input type="hidden" name="submit" value="Search">
-                <input class="btn" type="submit" name="action" value="Edit">
+                <input class="btn btn-secondary" type="submit" name="action" value="Edit">
             </form>
         </div><!--select code to edit well-->
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <form method="post" name="baseurl" action="billingONEditPrivateCode.jsp">
 
                 <div class="alert alert-<%=alert%>">
@@ -327,9 +327,9 @@
                 </div>
 
                 Private Code_ <small>(e.g. O001A)</small><br>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="service_code"
-                           value="<%=prop.getProperty("service_code", "?").substring(1)%>" class="span2" maxlength='10'
+                           value="<%=prop.getProperty("service_code", "?").substring(1)%>" class="col-md-2" maxlength='10'
                            onblur="upCaseCtrl(this)" required/>
                     <button type="submit" name="submit" class="btn btn-primary" onclick="javascript:return onSearch();"
                             value="Search">Search
@@ -352,17 +352,17 @@
 
                 Issued Date <small>(effective date)</small><br>
 
-                <div class="input-append date" id="billingservice_date" data-date="" data-date-format="yyyy-mm-dd">
+                <div class="input-group date" data-date="">
                     <input style="width:90px" name="billingservice_date" id="billingservice_date" size="16" type="text"
                            value="" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" readonly>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
 
 
                 <br>
-                <input class="btn" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
+                <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
                 <input type="hidden" name="action" value='<%=action%>'>
-                <input class="btn" type="submit" name="submit"
+                <input class="btn btn-secondary" type="submit" name="submit"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="javascript:return onSave();">
             </form>
@@ -370,14 +370,13 @@
 
     </div>
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     </body>
     <script type="text/javascript">
-        $(function () {
-            $('#billingservice_date').datepicker();
+        document.addEventListener('DOMContentLoaded', function () {
+            flatpickr('#billingservice_date', {dateFormat: "Y-m-d", allowInput: true});
         });
     </script>
 </html>

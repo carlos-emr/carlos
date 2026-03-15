@@ -60,7 +60,7 @@
     - DemographicData: Patient information retrieval
 
     Frontend Dependencies:
-    - Bootstrap 5.0.2 (responsive layout)
+    - Bootstrap 5.3.3 (responsive layout)
     - Font Awesome 6.x (icons)
     - Toast UI Editor 3.x (WYSIWYG/Markdown rich text editor with i18n)
     - No jQuery dependency (uses native DOMContentLoaded)
@@ -429,7 +429,7 @@ function validateFields() {
 			<tr>
 				<td><!-- colspan -->
 				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validateFields()">
-				<table class="well" style="width:100%">
+				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
 							<th colspan="2" style="text-align:left"><fmt:message key="messenger.CreateMessage.msgMessage" /></th>
@@ -443,7 +443,7 @@ function validateFields() {
 							<div class="ChooseRecipientsBox" style="max-height: 576px; overflow-y: scroll;">
 							<table>
                                 <tr>
-								<td style="padding: 10px 5px; min-width:fit-content;"  class="form-inline"><!--list of the providers cell Start-->
+								<td style="padding: 10px 5px; min-width:fit-content;"  class="d-flex flex-wrap align-items-center gap-2"><!--list of the providers cell Start-->
 									<%if(recall){ %>
 										<div>
 											<input name="provider" value="<%=Encode.forHtmlAttribute(delegate)%>" type="checkbox" checked>

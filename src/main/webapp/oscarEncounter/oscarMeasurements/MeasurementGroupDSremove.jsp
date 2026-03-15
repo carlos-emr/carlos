@@ -94,14 +94,14 @@
         <input type="hidden" name="property" value="<%=propKey%>">
 
 
-        <div class="alert alert-warning alert-block">
+        <div class="alert alert-warning">
             <h4>Warning!</h4>
             Measurement group <em><strong><%=groupName%>
         </strong></em> is associated with the <em><strong><%=valueDisplay%>
         </strong></em> decision support. To remove this association please click on the remove button.
 
             <div style="width:100%;text-align:right;margin-top:10px">
-                <button class="btn" onclick="window.close();">Cancel</button>
+                <button class="btn btn-secondary" onclick="window.close();">Cancel</button>
                 <button type="submit" name="remove" class="btn btn-danger">Remove</button>
             </div>
 
@@ -111,6 +111,7 @@
 </div><!-- container -->
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 </body>

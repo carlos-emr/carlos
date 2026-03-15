@@ -78,6 +78,7 @@
         <link rel="stylesheet" type="text/css"
               href="${ pageContext.request.contextPath }/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
 
     </c:if>
     <%-- END DETACHED VIEW ENABLED  --%>

@@ -98,9 +98,10 @@
         }
     </style>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <script language="javascript">
-        $(window).load(function () {
+        $(window).on('load', function () {
             $('input[type="checkbox"]').click(function () {
                 var pass = 5; //5 files at a time
                 var numOfFiles = $('input[type="checkbox"]:checked').length;
@@ -291,7 +292,7 @@
             </select>
 
             Resource Type:
-            <select name="resourceType" id="resourceType" class="input-xxlarge">
+            <select name="resourceType" id="resourceType" class="form-select w-auto d-inline-block">
                 <option value="" ${resourceType == '' ? 'selected="selected"' : ''}> - All - </option>
                 <c:forEach var="r" items="${mcedtTypeList.data}">
                     <option value="${r.resourceType}" ${r.resourceType == resourceType ? 'selected="selected"' : ''}>

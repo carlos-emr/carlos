@@ -74,17 +74,22 @@
         <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
         <link type="text/css" media="all" href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"
               rel="stylesheet">
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+        <link href="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/css/responsive.dataTables.min.css"
               rel="stylesheet" type="text/css"/>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+                <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/dxJSONCodeSearch.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/js/dataTables.responsive.min.js"></script>
 
         <script type="text/javascript">
             var ctx = "${pageContext.servletContext.contextPath}";
@@ -94,7 +99,9 @@
             };
 
             $(document).ready(function () {
-                $('#listview').DataTable();
+                $('#listview').DataTable({
+                    responsive: true
+                });
             });
 
         </script>
@@ -140,14 +147,14 @@
 
     <div class="container-fluid">
         <div class="navbar">
-            <div class="navbar-inner">
-                <a class="brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DiseaseRegistry"/></a>
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DiseaseRegistry"/></a>
             </div>
         </div>
 
-        <div class="well well-small">
+        <div class="card card-body bg-body-tertiary">
             <form action="${pageContext.request.contextPath}/report/DxresearchReport.do?method=addSearchCode" method="post" accept-charset="UTF-8">
-                <div class="row-fluid">
+                <div class="row">
                     <input type="hidden" name="action" value="NA"/>
                     <select name="quicklistname" class="sel">
                         <option value="">Add Dx QuickList</option>
@@ -165,9 +172,9 @@
                         </c:forEach>
                     </select>
                     <input type="text" id="codesearch" placeholder="search description" name="codesearch"
-                           class="span4 jsonDxSearch"/>
+                           class="col-md-4 jsonDxSearch"/>
                 </div>
-                <div class="row-fluid">
+                <div class="row">
                     <input type="submit" class="btn btn-primary" value="Add" />
                     <input type="button" class="btn btn-danger" value="Clear"
                            onclick="javascript:this.form.action='${pageContext.servletContext.contextPath}/report/DxresearchReport.do?method=clearSearchCode';this.form.submit()"/>
@@ -175,45 +182,50 @@
             </form>
 
         </div>
-        <div class="row-fluid">
+        <div class="row">
             <strong>Search all patients with disease codes:</strong>
         </div>
 
-        <form action="<%=formAction%>" method="post" class="form-inline" accept-charset="UTF-8">
+        <form action="<%=formAction%>" method="post" class="d-flex flex-wrap align-items-center gap-2" accept-charset="UTF-8">
 
-            <div class="row-fluid">
-                <display:table name="codeSearch" id="codeSearch" class="table table-condensed table-striped">
+            <div class="row">
+                <display:table name="codeSearch" id="codeSearch" class="table table-sm table-striped">
                     <display:column property="type" title="Code System"/>
                     <display:column property="dxSearchCode" title="Code"/>
                     <display:column property="description" title="Description"/>
                 </display:table>
             </div>
-            <div class="row-fluid">
-                <label class="radio">
-                    <input type="radio" name="SearchBy" value="patientRegistedDistincted"
+            <div class="row">
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedDistincted"
                            id="SearchBy_Distincted" <c:if test="${radiostatus == 'patientRegistedDistincted'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedDistincted'">
-                    ALL(distincted)</label>
-                <label class="radio">
-                    <input type="radio" name="SearchBy" value="patientRegistedAll"
+                    <label class="form-check-label" for="SearchBy_Distincted">ALL(distincted)</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedAll"
                            id="SearchBy_All" <c:if test="${radiostatus == 'patientRegistedAll'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedAll'">
-                    ALL</label>
-                <label class="radio">
-                    <input type="radio" name="SearchBy" value="patientRegistedActive"
+                    <label class="form-check-label" for="SearchBy_All">ALL</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedActive"
                            id="SearchBy_Active" <c:if test="${radiostatus == 'patientRegistedActive'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedActive'">
-                    Active</label>
-                <label class="radio">
-                    <input type="radio" name="SearchBy" value="patientRegistedDeleted"
+                    <label class="form-check-label" for="SearchBy_Active">Active</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedDeleted"
                            id="SearchBy_Deleted" <c:if test="${radiostatus == 'patientRegistedDeleted'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedDeleted'">
-                    Deleted</label>
-                <label class="radio">
-                    <input type="radio" name="SearchBy" value="patientRegistedResolve"
+                    <label class="form-check-label" for="SearchBy_Deleted">Deleted</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" class="form-check-input" name="SearchBy" value="patientRegistedResolve"
                            id="SearchBy_Resolved" <c:if test="${radiostatus == 'patientRegistedResolve'}">checked</c:if>
                            onclick="javascript:this.form.action='<%= request.getContextPath()%>/report/DxresearchReport.do?method=patientRegistedResolve'">
-                    Resolved</label>
+                    <label class="form-check-label" for="SearchBy_Resolved">Resolved</label>
+                </div>
 
 
                 <select id="provider_no" name="provider_no" class="sel">
@@ -261,8 +273,8 @@
             </div>
 
             <h3>Results</h3>
-            <div class="row-fluid">
-                <display:table name="listview" id="listview" class="table table-striped table-hover table-condensed">
+            <div class="row">
+                <display:table name="listview" id="listview" class="table table-striped table-hover table-sm">
                     <display:column property="strFirstName" title="First Name"/>
                     <display:column property="strLastName" title="Last Name"/>
                     <display:column property="strSex" title="Sex"/>
@@ -279,7 +291,7 @@
 
 
             <c:if test="${ not empty listview and not empty listview.strCode }">
-                <input type="button" class="btn" value="Download Excel"
+                <input type="button" class="btn btn-secondary" value="Download Excel"
                        onclick="javascript:this.form.action='${pageContext.servletContext.contextPath}/report/DxresearchReport.do?method=patientExcelReport';this.form.submit()">
             </c:if>
 

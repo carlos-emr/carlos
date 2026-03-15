@@ -25,7 +25,7 @@
     width: 65%
 }
 
-.select-group select.input-group-addon {
+.select-group select.input-group-text {
     width: 35%;
 }
 

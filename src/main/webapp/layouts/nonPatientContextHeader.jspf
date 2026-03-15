@@ -73,8 +73,8 @@ int curDay = cal.get(Calendar.DAY_OF_MONTH);
 <head>
 <title>OSCAR</title>
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-<link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-<link href="<%=request.getContextPath() %>/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
+
+
 
 <style>
 body{background-color: #fff /*#f3f3f3*/;}
@@ -110,9 +110,9 @@ margin-top:18px;
 .accordion-heading:hover{background-color:#e6e6e6;}
 .accordion-heading a:hover{text-decoration:none;}
 
-.icon-chevron-right{opacity:0.3;}
+.fa-chevron-right{opacity:0.3;}
 
-.accordion-heading a:hover > .icon-chevron-right{opacity: 1;}
+.accordion-heading a:hover > .fa-chevron-right{opacity: 1;}
 
 .selected-heading{background-color:#e6e6e6;}
 
@@ -131,7 +131,7 @@ padding-right:10px;
 padding-bottom:20px
 }
 
-.icon-chevron-right{float:right;}  
+.fa-chevron-right{float:right;}  
 
 #adminNav{
 -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.065);
@@ -188,48 +188,38 @@ label.error {
 	  #dynamic-content{margin-left:260px;}
 }
 
-.visible-print {
-  display: none !important;
-}  
 
-@media print {
-  .visible-print {
-    display: inherit !important;
-  }
-  .hidden-print {
-    display: none !important;
-  }
-}
 </style>
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 <oscar:customInterface section="main"/> <!--needs to be in header-->
 </head>
 
-<div class="navbar navbar-fixed-top">
-      <div class="navbar-inner">
+<div class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid">
 
           <a href="http://oscarmcmaster.org/" target="_blank" title="OSCAR EMR"><img src="<%=request.getContextPath()%>/images/oscar_logo_small.png" border="0" style="float:left"></a>
           
-			<div class="dropdown navbar-text pull-right" style="display:inline">
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="global.loggedIn"/>  <a class="navbar-link dropdown-toggle" data-toggle="dropdown" id="dLabel" role="button" href="#username" style="color:#000;"><%=userfirstname%> <%=userlastname%> <b class="caret" id="caret-loggedIn"></b></a>
+			<div class="dropdown navbar-text float-end" style="display:inline">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="global.loggedIn"/>  <a class="dropdown-toggle" data-bs-toggle="dropdown" id="dLabel" role="button" href="#username" style="color:#000;"><%=userfirstname%> <%=userlastname%></a>
 					 <ul class="dropdown-menu">
 					 				<li>	
 									<!-- <a href=# onClick ="popupPage2('<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>-->
-									<a href=# onClick ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/About.jsp')">About</a>
+									<a class="dropdown-item" href=# onClick ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/About.jsp')">About</a>
 									</li>
-									<li class="divider"></li>
+									<li><hr class="dropdown-divider"></li>
 								
 										<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc" rights="r">
 										 <!--  <li id="admin">
-										     <a HREF="#" ONCLICK ="popupPage2('<%= request.getContextPath() %>/admin/admin.jsp');return false;"><i class="icon-cog"></i> Old <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
+										     <a HREF="#" ONCLICK ="popupPage2('<%= request.getContextPath() %>/admin/admin.jsp');return false;"><i class="fa-solid fa-gear"></i> Old <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
 										  </li>-->
 										
 										<% if (OscarProperties.getInstance().getBooleanProperty("admin2.enabled", "true")) { %>
 										<li id="admin2">
-										 <a href="<%=request.getContextPath()%>/administration/" TITLE='Administration Panel'><i class="icon-cog"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
+										 <a class="dropdown-item" href="<%=request.getContextPath()%>/administration/" TITLE='Administration Panel'><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
 										<!--title new is temp for development-->
 										</li>
 										<% } %>
@@ -238,24 +228,22 @@ label.error {
 									
 							        <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
 									<li>  
-										<a href=# onClick ="popupPage2('<%=request.getContextPath()%>/provider/providerpreference.jsp?provider_no=<%=curUser_no%>');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' ; return true"><i class="icon-user"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.pref"/></a>
+										<a class="dropdown-item" href=# onClick ="popupPage2('<%=request.getContextPath()%>/provider/providerpreference.jsp?provider_no=<%=curUser_no%>');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>' ; return true"><i class="fa-solid fa-user"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.pref"/></a>
 									</li>
 									</security:oscarSec>
 									
-							        <li><a href="#" onclick='window.open("<%=request.getContextPath()%>/provider/providerchangepassword.jsp","changePassword","resizable=yes,scrollbars=yes,width=700,height=300");'><i class="icon-lock"></i> Change Password</a></li>
-							        <li><a href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/scratch/index.jsp','scratch')" style="padding-right:10px;"><i class="icon-pencil"></i> Scratch Pad</a></li>
-							        <li class="divider"></li>
-							        <li><a href="<%=request.getContextPath()%>/logout.jsp"><i class="icon-off"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/></a></li>
+							        <li><a class="dropdown-item" href="#" onclick='window.open("<%=request.getContextPath()%>/provider/providerchangepassword.jsp","changePassword","resizable=yes,scrollbars=yes,width=700,height=300");'><i class="fa-solid fa-lock"></i> Change Password</a></li>
+							        <li><a class="dropdown-item" href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/scratch/index.jsp','scratch')" style="padding-right:10px;"><i class="fa-solid fa-pencil"></i> Scratch Pad</a></li>
+							        <li><hr class="dropdown-divider"></li>
+							        <li><a class="dropdown-item" href="<%=request.getContextPath()%>/logout.jsp"><i class="fa-solid fa-power-off"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/></a></li>
 							    </ul>
 			</div>
 		    
-		    <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            </a>	
-		  
-		    <div class="nav-collapse collapse">
+		    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMainCollapse" aria-controls="navbarMainCollapse" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+            </button>
+
+		    <div class="collapse navbar-collapse" id="navbarMainCollapse">
 
 			<ul class="nav" id="navlist" >
 			
@@ -368,10 +356,8 @@ label.error {
 			</ul>
 
 		    </div>
-	             
-		    
+
     	</div>
     </div>
-</div>
 
-<div style="position:absolute;top:50px; right:20px"><i class=" icon-question-sign"></i> <a href="#" ONCLICK ="popupPage2('<%=resourcebaseurl%>');return false;" title="" onmouseover="window.status='';return true">Help</a> <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" style="margin-left:10px;"><i class=" icon-question-sign"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></div>
+<div style="position:absolute;top:50px; right:20px"><i class="fa-solid fa-circle-question"></i> <a href="#" ONCLICK ="popupPage2('<%=resourcebaseurl%>');return false;" title="" onmouseover="window.status='';return true">Help</a> <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" style="margin-left:10px;"><i class="fa-solid fa-circle-question"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></div>

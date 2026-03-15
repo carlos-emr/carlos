@@ -29,8 +29,8 @@
 
 --%>
 <div class="flex border-bottom-gray">
-    <label for="eGFR" class="tt" data-toggle="tooltip" title="eGFR">
-        <svg height="10" width="10" data-html="true">
+    <label for="eGFR" class="tt" data-bs-toggle="tooltip" title="eGFR">
+        <svg height="10" width="10" data-bs-html="true">
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_crcl" data-score="1">

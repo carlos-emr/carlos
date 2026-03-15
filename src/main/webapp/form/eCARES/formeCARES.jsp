@@ -53,7 +53,7 @@
     <title>Community Comprehensive Geriatric Assessment Form</title>
     <meta name="viewport" content="width=device-width, user-scalable=false;">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap2-datepicker/datepicker3.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/js/jqplot/jquery.jqplot.min.css">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/eCARES/eCARES_v1.css">
 </head>
@@ -66,7 +66,7 @@
 
 <div class="container main-container" style="padding-bottom: 80px;">
     <noscript>Your browser either does not support JavaScript, or has it turned off.</noscript>
-    <form name="formeCARES" class="form-inline" role="form" method="post"
+    <form name="formeCARES" class="d-flex flex-wrap align-items-center gap-2" role="form" method="post"
           action="${pageContext.servletContext.contextPath}/formeCARES.do" id="formeCARES">
         <input type="hidden" name="demographicNo"
                value="${ not empty param.demographicNo ? param.demographicNo : param.demographic_no }"/>
@@ -77,7 +77,7 @@
         <input type="hidden" name="providerNo" value="${ param.provNo }"/>
         <input type="hidden" name="method" value="save"/>
         <input type="hidden" name="ticklerId" value="0"/>
-        <div id="contextPath" class="hidden">${pageContext.servletContext.contextPath}</div>
+        <div id="contextPath" class="d-none">${pageContext.servletContext.contextPath}</div>
         <fieldset>
             <div class="form-container center-container">
 
@@ -221,7 +221,7 @@
                         <div id="frailty-index-container">
                             <div class="flex pl-2 items-center">
                                 <span class="flex-1" title="Deficit based Frailty Score"><strong>Frailty Index:</strong></span>
-                                <span class="tt" data-html="true" data-placement="top"
+                                <span class="tt" data-bs-html="true" data-bs-placement="top"
                                       title="Non-frail (0 to &#8804;0.1) <br />
                                 Vulnerable (&#62;0.1 to &#8804;0.2) <br />
                                 Mild (&#62;0.2 to &#60;0.3) <br />
@@ -257,23 +257,23 @@
     </form>
 
     <!-- Modal -->
-    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+    <div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel"
          aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                    <h4 class="modal-title">Please confirm</h4>
+                    <h4 class="modal-title" id="myModalLabel">Please confirm</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p><span class="glyphicon glyphicon-ok-circle text-success"></span> All information entered on
+                    <p><span class="fa-solid fa-circle-check text-success"></span> All information entered on
                         the eCGA has been saved.</p>
 
-                    <span class="glyphicon glyphicon-warning-sign text-warning"></span> The eCGA is not complete,
+                    <span class="fa-solid fa-triangle-exclamation text-warning"></span> The eCGA is not complete,
                     are you sure you want to close?
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default continueButton" data-dismiss="modal">No, continue
+                    <button type="button" class="btn btn-secondary continueButton" data-bs-dismiss="modal">No, continue
                         editing
                     </button>
                     <button type="button" class="btn btn-warning closeWindowButton">Yes, exit</button>
@@ -284,55 +284,54 @@
 
 
     <!-- Modal -->
-    <div class="modal fade" id="ticklerModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+    <div class="modal fade" id="ticklerModal" tabindex="-1" aria-labelledby="ticklerModalTitle"
          aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
                     <h4 class="modal-title" id="ticklerModalTitle"></h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default save-tickler">Create Tickler</button>
-                    <button type="button" class="btn btn-warning" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary save-tickler">Create Tickler</button>
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
                 </div>
-            </div>
-        </div><!-- /.modal-content -->
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
 
-    </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
+    </div><!-- /.modal -->
 
 <!-- Modal -->
-<div class="modal fade" id="chartModal" tabindex="-1" role="dialog" aria-labelledby="chartModalLabel"
+<div class="modal fade" id="chartModal" tabindex="-1" aria-labelledby="chartModalLabel"
      aria-hidden="true">
     <div class="modal-dialog modal-lg" style="width:60%;">
         <div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                <h4 class="modal-title">eFI - Frailty Index</h4>
+                <h4 class="modal-title" id="chartModalLabel">eFI - Frailty Index</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div id="chart" style="width:90%;margin:auto"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div><!-- /.modal-content -->
     </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 
-<div class="top-controls hidden-print">
+<div class="top-controls d-print-none">
     <div class="center-container wcag-container row">
 
-        <div class="col-xs-10 text-right">
+        <div class="col-10 text-end">
             <input type="button" class="btn btn-info print" value="Print">
             <input type="button" class="btn btn-primary calculate" value="Calculate Frailty Index">
             <input type="button" class="btn btn-primary save" value="Save">
             <input type="button" class="btn btn-danger exit" value="Save & Close">
-            <a data-toggle="modal" href="#chartModal" class="btn btn-info">Graph eFI</a>
+            <a data-bs-toggle="modal" href="#chartModal" class="btn btn-info">Graph eFI</a>
             <input type="button" class="btn btn-info tickler" value="Create Tickler">
             <input type="button" class="btn btn-info export" value="Export">
         </div>
@@ -341,6 +340,7 @@
 </div>
 
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript"
         src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript"
@@ -348,7 +348,7 @@
         integrity="sha512-Br5bdkAjeKASBYCbM5qNfb5DB7tGLX3OSwYlDQxKKPNPWmKEcChhEpk7kIEhFLUjTxw0FdGkB/uJNEzbfYFxWkA=="
         crossorigin="anonymous"></script>
 <script type="text/javascript"
-        src="${pageContext.request.contextPath}/library/bootstrap2-datepicker/bootstrap-datepicker.js"></script>
+        src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
 <!--jqplot js includes-->
 <script class="include" type="text/javascript"

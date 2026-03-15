@@ -398,8 +398,8 @@
     <link rel="stylesheet" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css">
 
     <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
 
-    <script src="${ pageContext.request.contextPath }/js/jqBootstrapValidation-1.3.7.min.js"></script>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></title>
 
     <script>
@@ -429,13 +429,13 @@
 }
 %>
 
-        $(document).ready(function () {
-            $("#primaryRoleProvider").val("");
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('primaryRoleProvider').value = "";
         });
 
         function primaryRoleChooseProvider() {
             $("#primaryRoleRole").find('option').remove();
-            var provider = $("#primaryRoleProvider").val();
+            var provider = document.getElementById('primaryRoleProvider').value;
             for (var i = 0; i < items.length; i++) {
                     if(items[i].providerNo === provider && items[i].role_id !== "") {
                     $("#primaryRoleRole").append('<option value="' + items[i].roleName + '">' + items[i].roleName + '</option>');
@@ -444,8 +444,8 @@
         }
 
         function setPrimaryRole() {
-            var providerNo = $("#primaryRoleProvider").val();
-            var roleName = $("#primaryRoleRole").val();
+            var providerNo = document.getElementById('primaryRoleProvider').value;
+            var roleName = document.getElementById('primaryRoleRole').value;
             if(providerNo !== '' && roleName !== '') {
                 return true;
             } else {
@@ -478,8 +478,8 @@
 <body onLoad="setfocus()">
 
 <div id="header" class="navbar">
-    <div class="navbar-inner">
-        <div class="brand"><i class="fa-solid fa-lock"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></div>
+    <div class="container-fluid">
+        <div class="navbar-brand"><i class="fa-solid fa-lock"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></div>
     </div>
 </div>
 
@@ -491,10 +491,10 @@
         <%=msg%>
     </div>
     <% } %>
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
 
-        <div class="controls">
-            <div class="input-append">
+        <div>
+            <div class="input-group">
                 <input type="text" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
                        value="<%=Encode.forHtmlAttribute(keyword)%>"/>
                 <input type="submit" class="btn btn-primary" name="search" value="Filter" >
@@ -504,7 +504,7 @@
     </div>
 </form>
 
-<table id="provTable" class="table table-striped table-hover table-condensed">
+<table id="provTable" class="table table-striped table-hover table-sm">
     <thead>
     <tr>
         <th><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/></th>
@@ -577,7 +577,7 @@
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnAdd"/>" disabled="disabled">
                     <input type="submit" name="buttonUpdate" class="btn btn-info"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
-                    <input type="submit" name="submit" class="btn-link" style="color:red;"
+                    <input type="submit" name="submit" class="btn btn-link" style="color:red;"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
                 </div>
             </td>
@@ -591,7 +591,7 @@
 
       <% if( newCaseManagement ) {
       %>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
        <form name="myform" action="providerRole.jsp" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <table>
             <tr>
@@ -599,7 +599,7 @@
             </tr>
             <tr>
                 <td>
-                    <label class="control-label" for="primaryRoleProvider"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>:</label>
+                    <label class="form-label" for="primaryRoleProvider"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/>:</label>
                     <select id="primaryRoleProvider" name="primaryRoleProvider" onChange="primaryRoleChooseProvider()">
                         <option value="">Select Below</option>
                         <%
@@ -621,7 +621,7 @@
 
             <tr>
                 <td>
-                    <label class="control-label" for="primaryRoleRole"><fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>:</label>
+                    <label class="form-label" for="primaryRoleRole"><fmt:setBundle basename="oscarResources"/><fmt:message key="role"/>:</label>
                     <select id="primaryRoleRole" name="primaryRoleRole">
                     </select>
                 </td>

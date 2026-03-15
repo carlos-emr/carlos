@@ -58,7 +58,7 @@
     <head>
 
         <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
+        <!-- Bootstrap -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 

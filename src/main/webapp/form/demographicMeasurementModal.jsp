@@ -80,7 +80,7 @@
                 // On successful retrieval of the measurement data, a modal body will be constructed with the list for selection
                 let modalHeader = "<h4 class=\"measurement-modal-header\">" + measurementTypeMap[measurementType].name + "</h4>";
                 let measurementValueInput = "Current Value: <input type=\"text\" id=\"currentMeasurementValue\" value=\"" + document.getElementById(elementId).value + "\" onkeydown=\"resetInstructions('" + measurementType + "')\"/> <span id=\"measurementInstruction\">" + measurementTypeMap[measurementType].instructions + "</span>";
-                let observationDateInput = "Observation Date: <input type=\"date\" id=\"currentMeasurementObservationDate\" value=\"" + moment(new Date()).format('YYYY-MM-DD') + "\"/>";
+                let observationDateInput = "Observation Date: <input type=\"date\" id=\"currentMeasurementObservationDate\" value=\"" + new Date().toISOString().slice(0, 10) + "\"/>";
                 let body = "<div class=\"view-height-75-scroll\">" + modalHeader + "<div>" + measurementValueInput + "<br/>" + observationDateInput + "</div>";
 
                 if (data[-1] !== null && data[-1] !== "No Results Found") {
@@ -120,7 +120,8 @@
                             ageDisplay += ageYears + ' years old';
                         }
 
-                        body += "<a href=\"#\"><p onclick=\"setDemographicMeasurementModalValues('" + this.dataField + "', '" + this.measuringInstruction + "', '" + moment(this.dateObserved.time).format('YYYY-MM-DD') + "'); return false;\">" + this.dataField + " " + this.measuringInstruction + " (" + moment(this.dateObserved.time).format('YYYY-MM-DD') + " - " + ageDisplay + ")</p></a>";
+                        let obsDate = new Date(this.dateObserved.time).toISOString().slice(0, 10);
+                        body += "<a href=\"#\"><p onclick=\"setDemographicMeasurementModalValues('" + this.dataField + "', '" + this.measuringInstruction + "', '" + obsDate + "'); return false;\">" + this.dataField + " " + this.measuringInstruction + " (" + obsDate + " - " + ageDisplay + ")</p></a>";
                     });
                 }
 

@@ -60,6 +60,7 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/js/global.js"></script>
 
@@ -77,10 +78,10 @@
         List<String> templateGroups = rbtGroupManager.getTemplateGroups(loggedInInfo);
         String value = "";
     %>
-    <div class="row-fluid">
-        <form class="form-inline">
-            <div class="input-prepend">
-                <span class="add-on">Group</span>
+    <div class="row">
+        <form class="d-flex flex-wrap align-items-center gap-2">
+            <div class="input-group">
+                <span class="input-group-text">Group</span>
                 <select name="templates" id="viewSelect">
                     <option value="all">All Templates</option>
 
@@ -103,9 +104,9 @@
         </form>
     </div>
 
-    <div class="row-fluid">
+    <div class="row">
 
-        <table class="table table-condensed table-striped table-hover" style="font-size:14px;" id="rbtTable">
+        <table class="table table-sm table-striped table-hover" style="font-size:14px;" id="rbtTable">
             <thead>
             <tr>
                 <th onclick="sortTable(0)"><a class="contentLink">#</a></th>
@@ -149,7 +150,7 @@
 
     <script type="text/javascript">
         //Table Display
-        jQuery("#viewSelect").on("change", function () {
+        document.getElementById('viewSelect').addEventListener('change', function () {
             updateTableDisplay();
         });
 
@@ -193,6 +194,7 @@
             return bool;
         }
 
+        // Search - uses raw DOM element (jQuery .context removed in 3.x)
         jQuery(document).ready(function () {
             jQuery("#userSearch").on("keyup", function () {
                 var value = jQuery(this).val().toLowerCase();

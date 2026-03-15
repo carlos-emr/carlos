@@ -186,6 +186,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         	var ctx = '${ ctx }';
         </script>
 <script type="text/javascript" src="${ ctx }/library/jquery/jquery-3.7.1.min.js" ></script>
+<script src="${ ctx }/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript" src="${ ctx }/library/jquery/jquery-ui-1.14.2.min.js" ></script>
 
 		<link href="${ ctx }/css/searchDrug3.css" rel="stylesheet" type="text/css"/>

@@ -17,6 +17,7 @@
 
     <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
     <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>

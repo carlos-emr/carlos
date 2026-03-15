@@ -78,7 +78,7 @@
 <div class="container-fluid">
     <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></h1>
     <p class="lead">Customize which prevention items to display on the prevention list.</p>
-    <p style="margin-top:-20px"><span class="label label-info">Info</span> Any changes made here will affect every
+    <p style="margin-top:-20px"><span class="badge bg-info">Info</span> Any changes made here will affect every
         provider using the prevention module. To add/remove any item from the prevention list simply click on the item
         below. Green indicates that the item is available from the prevention module.</p>
 
@@ -133,30 +133,31 @@
     </table>
 
     <!-- Button to trigger modal confirmation -->
-    <button id="btnVoid" class="btn btn-large pull-right" disabled>Save</button>
-    <a href="#modalConfirm" id="btnConfirm" class="btn btn-large btn-success pull-right" data-toggle="modal"
-       data-backdrop="false" style="display:none">Save</a>
+    <button id="btnVoid" class="btn btn-lg float-end" disabled>Save</button>
+    <a href="#modalConfirm" id="btnConfirm" class="btn btn-lg btn-success float-end" data-bs-toggle="modal"
+       data-bs-backdrop="false" style="display:none">Save</a>
 
 </div><!-- container -->
 
 
 <form action="PreventionListManager.jsp?formAction=update" method="post">
     <!-- Modal -->
-    <div id="modalConfirm" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="modalConfirmLabel"
+    <div id="modalConfirm" class="modal fade" tabindex="-1" aria-labelledby="modalConfirmLabel"
          aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header" style="background-color:#fbb450;">
-            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
             <h3 id="modalConfirmLabel">Are you sure?</h3>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             <p>Please confirm your changes to the prevention list:</p>
-            <div class="well" id="modalItems"></div>
+            <div class="card card-body bg-body-tertiary" id="modalItems"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn" data-dismiss="modal" aria-hidden="true">No, don't save</button>
+            <button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">No, don't save</button>
             <button type="submit" class="btn btn-danger">Yes, please save</button>
         </div>
-    </div>
+    </div></div></div>
 
     <!-- property value to be saved: hidden-->
     <input type="hidden" name="prevention-bin" id="prevention-bin">
@@ -168,6 +169,7 @@
 
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 <script>

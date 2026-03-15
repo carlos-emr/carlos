@@ -100,6 +100,7 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <style>
         body {
@@ -179,13 +180,13 @@
             if (data.success) {
                 $("#submit").prop("disabled", true); // Re-disable submit button after save
                 $("#msg").text(data.message || "Configuration saved!");
-                $('.alert').removeClass('alert-error');
+                $('.alert').removeClass('alert-danger');
                 $('.alert').addClass('alert-success');
                 $('.alert').show();
             } else {
                 $("#msg").text(data.message || "There was a problem saving your configuration.  Check the logs for further details.");
                 $('.alert').removeClass('alert-success');
-                $('.alert').addClass('alert-error');
+                $('.alert').addClass('alert-danger');
                 $('.alert').show();
             }
         };
@@ -222,7 +223,7 @@
                     error: function(jqXHR, textStatus, errorThrown) {
                         $("#msg").text("Failed to save configuration. Server returned: " + (errorThrown || textStatus));
                         $('.alert').removeClass('alert-success');
-                        $('.alert').addClass('alert-error');
+                        $('.alert').addClass('alert-danger');
                         $('.alert').show();
                     }
                 });
@@ -366,23 +367,23 @@
         <!-- Scheduler Health Status - Top of Page -->
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax.restart" rights="r" reverse="<%=false%>">
             <div class="row">
-                <div class="span12">
+                <div class="col-md-12">
                     <legend class="fax-section-title"><i class="fas fa-heartbeat"></i> Scheduler Health Status</legend>
                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
                         The fax scheduler polls for inbound/outbound faxes at regular intervals. These metrics show scheduler health, not fax gateway connectivity.
                     </small>
                 </div>
-                <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
+                <div class="col-md-12" style="display: inline-flex; gap: 6px; align-items: baseline;">
                     <label class="status-label"><i class="fas fa-heartbeat"></i> Scheduler Status:</label><label id="faxStatusDetails"></label>
                 </div>
-                <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
+                <div class="col-md-12" style="display: inline-flex; gap: 6px; align-items: baseline;">
                     <label class="status-label"><i class="fas fa-clock"></i> Last Poll Cycle:</label><label id="faxLastRunDetails">Never</label>
                     <small class="fax-muted" style="margin-left: 8px;">(scheduler ran, may have had nothing to process)</small>
                 </div>
-                <div class="span12" style="display: inline-flex; gap: 6px; align-items: baseline;">
+                <div class="col-md-12" style="display: inline-flex; gap: 6px; align-items: baseline;">
                     <label class="status-label"><i class="fas fa-exclamation-triangle"></i> Last Scheduler Error:</label><label id="faxLastErrorDetails">None</label>
                 </div>
-                <div class="span12" style="margin-bottom: 20px;">
+                <div class="col-md-12" style="margin-bottom: 20px;">
                     <button id="restartFaxSchedulerBtn" class="btn btn-warning" type="button" onclick="rebootFaxSchedular()" disabled>
                         <i class="fas fa-sync-alt"></i> Restart Scheduler
                     </button>
@@ -393,20 +394,20 @@
         <!-- Pending Incoming Faxes -->
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r" reverse="<%=false%>">
             <div id="pendingFaxesSection" class="row" style="display:none;">
-                <div class="span12">
+                <div class="col-md-12">
                     <legend class="fax-section-title">
                         <i class="fas fa-inbox"></i> Pending Incoming Faxes
-                        <span id="pendingFaxBadge" class="badge badge-warning" style="display:none; font-size: 12px; vertical-align: middle; margin-left: 8px;"></span>
+                        <span id="pendingFaxBadge" class="badge bg-warning text-dark" style="display:none; font-size: 12px; vertical-align: middle; margin-left: 8px;"></span>
                     </legend>
                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
                         Fax files downloaded from the provider but not yet fully imported into the document system. These are retried automatically each poll cycle.
                     </small>
                 </div>
-                <div class="span12">
+                <div class="col-md-12">
                     <div id="pendingFaxesNone" style="display:none; margin-bottom: 14px;">
                         <span style="color: #059669;"><i class="fas fa-check-circle"></i> All downloaded faxes have been imported successfully.</span>
                     </div>
-                    <table id="pendingFaxesTable" class="table table-striped table-condensed" style="display:none; margin-bottom: 14px;">
+                    <table id="pendingFaxesTable" class="table table-striped table-sm" style="display:none; margin-bottom: 14px;">
                         <thead>
                             <tr>
                                 <th>Filename</th>
@@ -423,11 +424,11 @@
 
         <!-- Fax Gateway Configuration -->
         <div class="row">
-            <div class="span12">
+            <div class="col-md-12">
                 <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> Fax Gateway Configuration</legend>
 
                 <div class="row fax-card">
-                    <div class="span12">
+                    <div class="col-md-12">
                         <%
                             // Current UI supports configuring one fax account at a time.
                             // Backend array-based save infrastructure is preserved for potential future multi-account support.
@@ -452,9 +453,9 @@
 
                         <!-- Provider Type Selection -->
                         <div class="row">
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label for="providerType">Fax Provider</label>
-                                <select class="span6" id="providerType" name="providerType">
+                                <select class="form-select" id="providerType" name="providerType">
                                     <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>>Middleware Relay (faxws)</option>
                                     <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>>SRFax Direct API</option>
                                 </select>
@@ -465,29 +466,29 @@
                         <!-- Middleware Relay Fields (shown only for Middleware provider) -->
                         <div id="middlewareFields" style="display:none;">
                             <div class="row">
-                                <div class="span12">
+                                <div class="col-md-12">
                                     <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">Middleware Relay Server</h6>
                                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
                                         <i class="fas fa-info-circle"></i> Configure the relay server that will forward faxes to/from SRFax
                                     </small>
                                 </div>
-                                <div class="span12">
+                                <div class="col-md-12">
                                     <label for="faxUrl"><i class="fas fa-link"></i> Middleware Relay URL</label>
-                                    <input class="span12" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
+                                    <input class="form-control" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
                                            value="<%=Encode.forHtmlAttribute(faxUrl)%>"/>
                                     <small class="fax-muted">URL of your middleware relay server</small>
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="span6">
+                                <div class="col-md-6">
                                     <label for="faxServiceUser"><i class="fas fa-user"></i> Middleware Username</label>
-                                    <input class="span6" id="faxServiceUser" type="text" name="siteUser"
+                                    <input class="form-control" id="faxServiceUser" type="text" name="siteUser"
                                            value="<%=Encode.forHtmlAttribute(siteUser)%>"/>
                                     <small class="fax-muted">Username for middleware relay server</small>
                                 </div>
-                                <div class="span6">
+                                <div class="col-md-6">
                                     <label for="faxServicePasswd"><i class="fas fa-key"></i> Middleware Password</label>
-                                    <input class="span6" id="faxServicePasswd" type="password" name="sitePasswd"
+                                    <input class="form-control" id="faxServicePasswd" type="password" name="sitePasswd"
                                            value="<%=Encode.forHtmlAttribute(sitePasswd)%>"/>
                                     <small class="fax-muted">Password for middleware relay server</small>
                                 </div>
@@ -497,10 +498,10 @@
                         <!-- SRFax API Endpoint (read-only, shown only for SRFax provider) -->
                         <div id="srfaxUrlInfo" style="display:none;">
                             <div class="row">
-                                <div class="span12">
+                                <div class="col-md-12">
                                     <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax API Endpoint</h6>
                                     <label><i class="fas fa-link"></i> API URL</label>
-                                    <input class="span12" type="text" readonly
+                                    <input class="form-control" type="text" readonly
                                            value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                     <small class="fax-muted"><i class="fas fa-lock"></i> Default endpoint &mdash; override via <code>srfax.api.url</code> in carlos.properties only</small>
@@ -510,72 +511,72 @@
 
                         <!-- SRFax Account Credentials (always shown) -->
                         <div class="row">
-                            <div class="span12">
+                            <div class="col-md-12">
                                 <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;">SRFax Account Credentials</h6>
                                 <small class="fax-muted" style="display: block; margin-bottom: 12px;">
                                     <i class="fas fa-info-circle"></i> Required for both provider types - your SRFax account details
                                 </small>
                             </div>
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label for="faxUser">SRFax Username</label>
-                                <input class="span6" type="text" id="faxUser" name="faxUser"
+                                <input class="form-control" type="text" id="faxUser" name="faxUser"
                                        value="<%=Encode.forHtmlAttribute(faxUser)%>"/>
                                 <input type="hidden" id="id" name="id" value="<%=Encode.forHtmlAttribute(configId)%>"/>
                             </div>
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label for="faxPasswd">SRFax Password</label>
-                                <input class="span6" type="password" id="faxPasswd" name="faxPassword"
+                                <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
                                        value="<%=Encode.forHtmlAttribute(faxPassword)%>"/>
                             </div>
                         </div>
 
                         <!-- Account Details -->
                         <div class="row">
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label for="faxNumber">Fax Number</label>
-                                <input class="span6" type="text" id="faxNumber" name="faxNumber"
+                                <input class="form-control" type="text" id="faxNumber" name="faxNumber"
                                        value="<%=Encode.forHtmlAttribute(faxNumber)%>"/>
                             </div>
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label for="senderEmail">Email</label>
-                                <input class="span6" type="email" id="senderEmail" name="senderEmail"
+                                <input class="form-control" type="email" id="senderEmail" name="senderEmail"
                                        placeholder="Account email"
                                        value="<%=Encode.forHtmlAttribute(senderEmail)%>"/>
                             </div>
                         </div>
                         <div class="row">
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label>Inbox Queue</label>
-                                <input class="span6" type="text" readonly
+                                <input class="form-control" type="text" readonly
                                        value="<%=Encode.forHtmlAttribute(queueMap.getOrDefault(queueId, "default"))%>"
                                        style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                 <input type="hidden" name="inboxQueue" value="<%=queueId%>"/>
                                 <small class="fax-muted">Incoming faxes are routed to this document review queue</small>
                             </div>
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label for="accountName">Account Name</label>
-                                <input class="span6" type="text" name="accountName" id="accountName"
+                                <input class="form-control" type="text" name="accountName" id="accountName"
                                        value="<%=Encode.forHtmlAttribute(accountName)%>"/>
                             </div>
                         </div>
 
                         <!-- Enable/Disable Toggle -->
                         <div class="row">
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label>Enable Fax Gateway</label>
-                                <label class="radio inline control-label">
-                                    <input type="radio" id="on" name="active" value="true" <%=isActive ? "checked" : ""%> />
-                                    Enabled
-                                </label>
-                                <label class="radio inline control-label">
-                                    <input type="radio" id="of" name="active" value="false" <%=!isActive ? "checked" : ""%> />
-                                    Disabled
-                                </label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" id="on" name="active" value="true" <%=isActive ? "checked" : ""%> />
+                                    <label class="form-check-label" for="on">Enabled</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" id="of" name="active" value="false" <%=!isActive ? "checked" : ""%> />
+                                    <label class="form-check-label" for="of">Disabled</label>
+                                </div>
                                 <input type="hidden" id="activeState" name="activeState" value="<%=isActive%>"/>
                                 <br/>
                                 <small class="fax-muted"><i class="fas fa-info-circle"></i> Turn the selected fax gateway on or off for sending and receiving</small>
                             </div>
-                            <div class="span6">
+                            <div class="col-md-6">
                                 <label>
                                     <input type="checkbox" id="downloadCheckbox" <%=isDownload ? "checked" : ""%> onchange="$('#download_on').prop('checked', this.checked); $('#download_of').prop('checked', !this.checked); $('#downloadState').val(this.checked); $('#submit').prop('disabled', false);" />
                                     Poll for incoming faxes

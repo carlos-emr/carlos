@@ -47,8 +47,9 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="application/javascript"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script language="javascript">
-        $(window).load(function () {
+        $(window).on('load', function () {
             $('input[type="checkbox"]').click(function () {
                 var pass = 5; //5 files at a time
                 var numOfFiles = $('input[type="checkbox"]:checked').length;

@@ -259,6 +259,7 @@
               href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript"
                 src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link rel="stylesheet" href="<%=request.getContextPath() %>/demographic/demographiceditdemographic.css"
@@ -279,9 +280,6 @@
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
 
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <% if (isMobileOptimized) { %>
         <meta name="viewport"
               content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width"/>
@@ -904,7 +902,7 @@
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap
 		*/
-            .searchBox .select-group, .searchBox div.input-group-btn {
+            .searchBox .select-group, .searchBox div.input-group {
                 display: flex;
                 flex-direction: row;
                 align-items: stretch;

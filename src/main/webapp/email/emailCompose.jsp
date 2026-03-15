@@ -13,12 +13,13 @@
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
-    <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
+    <link href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${ctx}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <%--
@@ -133,9 +134,7 @@
             margin-right: 5px;
         }
 
-        .hide {
-            display: none;
-        }
+        /* Bootstrap 5: using .d-none utility for display:none */
 
         .error-message {
             color: red;
@@ -189,7 +188,7 @@
             <input type="hidden" name="totalInvalidRecipintEmails" id="totalInvalidRecipintEmails"
                    value="${fn:length(invalidReceiverEmailList)}"/>
 
-            <form id="emailComposeForm" class="form-inline" action='${ emailSendAction }' method="post"
+            <form id="emailComposeForm" class="d-flex flex-wrap align-items-center gap-2" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
                 <input type="hidden" name="fdid" value="${fdid}"/>
@@ -205,7 +204,7 @@
                     <div class="card-body">
                         <div class="container">
                             <div class="row">
-                                <div class="col-sm-12 form-group">
+                                <div class="col-sm-12 mb-3">
                                     <label for="senderEmailAddress">Sender</label>
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
@@ -231,7 +230,7 @@
                     </div>
                     <div class="card-body">
                         <div class="container">
-                            <div class="row form-group">
+                            <div class="row mb-3">
                                 <div class="col-sm-1">
                                     <label for="receiverName">Patient</label>
                                 </div>
@@ -243,7 +242,7 @@
                             </div>
                             <div id="receiverEmailsContainer">
                                 <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
-                                    <div class="row form-group mt-3">
+                                    <div class="row mb-3 mt-3">
                                         <div class="col-sm-1">
                                             <label for="receiverEmailAddress${loop.index + 1}">Email(s)</label>
                                         </div>
@@ -273,9 +272,9 @@
                     </div>
                 </div>
 
-                <div class="modal fade" id="errorMessageModal" tabindex="-1" role="dialog"
+                <div class="modal fade" id="errorMessageModal" tabindex="-1"
                      aria-labelledby="errorMessageModalLabel" aria-hidden="true">
-                    <div class="modal-dialog" role="document">
+                    <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="errorMessageModalLabel"><c:out
@@ -380,7 +379,7 @@
                             <span class="fa-solid fa-lock"></span> Encryption <span id="encryptionOptionsInfo"
                                                                              class="fa-solid fa-circle-info"
                                                                              data-bs-toggle="tooltip"
-                                                                             data-bs-placement="auto"
+                                                                             data-bs-placement="right"
                                                                              title="Emails will be sent encrypted by default. Encryption settings can be modified by disabling this feature."></span>
                             <div class="form-check form-switch encryptionLock">
                                 <input class="form-check-input" type="checkbox" id="encryptionSwitch"
@@ -392,9 +391,9 @@
                     <div class="card-body" id="encryptionOptions">
                         <div class="container">
                             <div class="row">
-                                <div class="col-sm-12 form-group">
+                                <div class="col-sm-12 mb-3">
                                     <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
-                                                                   data-bs-toggle="tooltip" data-bs-placement="auto"
+                                                                   data-bs-toggle="tooltip" data-bs-placement="right"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
                                               rows="5" placeholder="..."><c:out
@@ -402,7 +401,7 @@
                                     <div class="error-message" id="encryptedMessageError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 form-group">
+                            <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Password</label>
                                 </div>
@@ -414,10 +413,10 @@
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 form-group">
+                            <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
-                                                      data-bs-placement="auto"
+                                                      data-bs-placement="right"
                                                       title="Clue will be added into the email body (visible)"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -427,10 +426,10 @@
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 form-group">
+                            <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
                                     <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
-                                                                     data-bs-toggle="tooltip" data-bs-placement="auto"
+                                                                     data-bs-toggle="tooltip" data-bs-placement="right"
                                                                      title="Email attachments will be encrypted when enabled"></span></label>
                                 </div>
                                 <div class="col-sm-10">
@@ -460,20 +459,16 @@
                                 <div class="col-sm-12">
                                     <label>Chart options</label>
                                     <div class="form-check">
-                                        <div class="form-check-label">
 											<input class="form-check-input" type="radio" name="patientChartOption" id="doNotAddAsNoteOption" value="doNotAddAsNote" onClick="toggleInternalTextArea()">
                                             <label class="form-check-label" for="doNotAddAsNoteOption">
                                                 Do not add to patient chart
                                             </label>
-                                        </div>
                                     </div>
                                     <div class="form-check">
-                                        <div class="form-check-label">
 											<input class="form-check-input" type="radio" name="patientChartOption" id="addFullNoteOption" value="addFullNote" checked onClick="toggleInternalTextArea()">
                                             <label class="form-check-label" for="addFullNoteOption">
                                                 Chart as new note in patient's chart
                                             </label>
-										</div>
 										<div id="internalCommentContainer" class="d-none">
 											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="Internal comment to include" rows="3"><c:out value="${ not empty param.internalComment ? param.internalComment : internalComment }" /></textarea>
                                         </div>
@@ -526,7 +521,7 @@
                     </div>
                 </div>
 
-                <div id="additionalParams" class="m-2 row hide">
+                <div id="additionalParams" class="m-2 row d-none">
                     <div class="col-sm-3">
                         <button type="button" class="btn btn-link text-decoration-none"
                                 onclick="showAdditionalParamsTextBox()">Add Additional Parameters
@@ -535,7 +530,7 @@
                     <div class="col-sm-9">
                         <c:set var="emailAdditionalParams"
                                value="${not empty emailAdditionalParams ? emailAdditionalParams : ''}"/>
-                        <input type="text" class="form-control ${ not empty emailAdditionalParams ? '' : 'hide' }"
+                        <input type="text" class="form-control ${ not empty emailAdditionalParams ? '' : 'd-none' }"
                                name="additionalURLParams" id="additionalURLParams"
                                placeholder="Extra Parameters (if applicable)"
                                value="<c:out value='${emailAdditionalParams}' />">
@@ -545,12 +540,12 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" id="btnSend" class="btn btn-primary btn-md pull-right" value="Send">
+                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 Send
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel"
-                                    class="btn btn-danger btn-md pull-right" value="Cancel" name="close"
+                                    class="btn btn-danger btn-md float-end" value="Cancel" name="close"
                                     onclick="cancelEmail()">
                                 <span class="btn-label"><i class="fa-solid fa-xmark"></i></span>
                                 Cancel
@@ -579,13 +574,18 @@
                     </div>
                 </c:otherwise>
             </c:choose>
-            <input type="button" class="btn btn-danger btn-md pull-right" value="Close" onclick="window.close();"/>
+            <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
         </c:if>
     </div>
 </div>
 
 <script type="text/javascript">
     document.addEventListener("DOMContentLoaded", function () {
+        // Initialize BS5 tooltips
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            new bootstrap.Tooltip(el);
+        });
+
         // Check if any error
         if (document.getElementById('isEmailError').value === 'true') {
             // Open EForm again on sent
@@ -697,7 +697,7 @@
 
     function displayError(errorElementId, errorMessage) {
         const errorElement = document.getElementById(errorElementId);
-        errorElement.textContent = errorMessage;
+        errorElement.innerHTML = errorMessage;
         errorElement.parentNode.firstElementChild.classList.add("is-invalid");
         setTimeout(function () {
             errorElement.scrollIntoView({block: 'center'});
@@ -706,13 +706,13 @@
 
     function clearError(errorElementId) {
         const errorElement = document.getElementById(errorElementId);
-        errorElement.textContent = '';
+        errorElement.innerHTML = '';
         errorElement.parentNode.firstElementChild.classList.remove("is-invalid");
     }
 
     function showEncryptionOptions() {
         const checkbox = document.getElementById("encryptionSwitch");
-        document.getElementById("encryptionOptions").classList.toggle('hide', !checkbox.checked);
+        document.getElementById("encryptionOptions").classList.toggle('d-none', !checkbox.checked);
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
         document.getElementById("isEncryption").innerHTML = checkbox.checked ? "ON" : "OFF";
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
@@ -724,7 +724,7 @@
 
     function removeReceiverEmail(button) {
         let receiverEmailsContainer = document.getElementById("receiverEmailsContainer");
-        let formGroup = button.closest('.form-group');
+        let formGroup = button.closest('.mb-3');
         if (receiverEmailsContainer.children.length > 1) {
             receiverEmailsContainer.removeChild(formGroup);
         } else {
@@ -773,7 +773,7 @@
                 attachmentSize = sizeInBytes.toFixed(1) + units[j];
             }
 
-            sizeElements[i].textContent = attachmentSize;
+            sizeElements[i].innerHTML = attachmentSize;
         }
     }
 
@@ -784,10 +784,8 @@
         const hasInvalidRecipint = document.getElementById('totalInvalidRecipintEmails') && document.getElementById('totalInvalidRecipintEmails').value > 0;
 
         if (!hasSender || !hasValidRecipient || hasInvalidRecipint) {
-            var modalEl = document.getElementById('errorMessageModal');
-            var existingModal = bootstrap.Modal.getInstance(modalEl);
-            if (existingModal) existingModal.dispose();
-            new bootstrap.Modal(modalEl).show();
+            const errorMessageModal = new bootstrap.Modal(document.getElementById('errorMessageModal'));
+            errorMessageModal.show();
         }
 
         if (!hasSender || !hasValidRecipient) {
@@ -838,14 +836,14 @@
 
         const senderEmailType = selectedSender.getAttribute('data-email-type');
         if (senderEmailType && senderEmailType === "API") {
-            document.getElementById('additionalParams').classList.remove('hide');
+            document.getElementById('additionalParams').classList.remove('d-none');
         } else {
-            document.getElementById('additionalParams').classList.add('hide');
+            document.getElementById('additionalParams').classList.add('d-none');
         }
     }
 
     function showAdditionalParamsTextBox() {
-        document.getElementById('additionalURLParams').classList.toggle('hide');
+        document.getElementById('additionalURLParams').classList.toggle('d-none');
     }
 
     function showErrorAndClose() {

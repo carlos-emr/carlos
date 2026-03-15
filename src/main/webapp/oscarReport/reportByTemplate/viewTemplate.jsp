@@ -56,6 +56,7 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </head>
@@ -88,8 +89,8 @@
     </div>
 
     <div id="viewTemplateActions" class="form-actions noprint">
-        <input type="button" class="btn" value="Back" onclick="javascript: window.history.back();return false;"/>
-        <input type="button" class="btn" value="Print" onclick="javascript: window.print();"/>
+        <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
+        <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
         <input type="button" class="btn btn-primary" value="Edit"
                onclick="document.location='addEditTemplate.jsp?templateid=<%=templateid%>&opentext=1'"/>
     </div>

@@ -207,16 +207,16 @@
 
 
 <div class="container-fluid">
-    <span class="pull-right"><%=today%></span>
+    <span class="float-end"><%=today%></span>
 
-    <div class="row well">
+    <div class="row card card-body bg-body-tertiary">
         <%=errorMsg%>
 
         <form name="billingPaymentForm" method="get" action="billingONPayment.jsp">
 
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
 
-            <div class="span3">
+            <div class="col-md-3">
                 Provider:<br>
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.providerName"/>-->
                 <select name="providerList">
@@ -237,27 +237,27 @@
             </div>
 
 
-            <div class="span2">
+            <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
-                <div class="input-append">
-                    <input type="text" style="width:90px" name="startDateText" id="startDateText"
+                <div class="input-group">
+                    <input type="text" class="form-control" style="width:90px" name="startDateText" id="startDateText"
                            value="<%=DateUtils.formatDate(startDate,locale)%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
-                <div class="input-append">
-                    <input type="text" style="width:90px" name="endDateText" id="endDateText"
+                <div class="input-group">
+                    <input type="text" class="form-control" style="width:90px" name="endDateText" id="endDateText"
                            value="<%=DateUtils.formatDate(endDate,locale)%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <br>
                 <input class="btn btn-primary" type="submit"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.generateReport"/>"/>
@@ -268,7 +268,7 @@
 
     <div class="row">
         <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.raBillingReport"/></h4>
-        <table class="table-striped table-condensed table-hover">
+        <table class="table-striped table-sm table-hover">
             <thead>
             <tr>
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
@@ -445,7 +445,7 @@
         <hr>
         <!-- 3rd Party Payments Table -->
         <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.premiumPaymentReport"/></h4>
-        <table width="100%" cellspacing="0" class="table-striped table-condensed table-hover">
+        <table width="100%" cellspacing="0" class="table-striped table-sm table-hover">
             <thead>
             <tr>
                 <th style="text-align:left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.providerName"/></th>
@@ -515,7 +515,7 @@
         <hr>
         <!-- 3rd Party Payments Table -->
         <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.3rdPartyBillingReport"/></h4>
-        <table class="table-striped table-condensed table-hover">
+        <table class="table-striped table-sm table-hover">
             <thead>
             <tr>
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
@@ -731,8 +731,8 @@
 </div><!--container-->
 
 <script type="text/javascript">
-    var startDate = $("#startDateText").datepicker({format: "yyyy-mm-dd"});
-    var endDate = $("#endDateText").datepicker({format: "yyyy-mm-dd"});
+    flatpickr("#startDateText", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#endDateText", {dateFormat: "Y-m-d", allowInput: true});
 </script>
 
 </body>

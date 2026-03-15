@@ -129,7 +129,11 @@
                 if (ret) {
                     // Convert form data to URL-encoded string
                     const formData = new FormData(document.getElementById('theForm'));
-                    const urlEncodedData = new URLSearchParams(formData).toString();
+                    const urlParams = new URLSearchParams(formData);
+                    if (!urlParams.has('CSRF-TOKEN')) {
+                        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                        if (csrfEl) urlParams.append('CSRF-TOKEN', csrfEl.value);
+                    }
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
@@ -141,7 +145,7 @@
                             'CSRF-TOKEN': csrfToken,
                             'X-Requested-With': 'XMLHttpRequest'
                         },
-                        body: urlEncodedData
+                        body: urlParams.toString()
                     })
                     .then(response => response.json())
                     .then(data => {
@@ -164,6 +168,16 @@
                     })
                     .catch(error => {
                         console.error('Error submitting form:', error);
+                        const errorsList = document.getElementById('errors_list');
+                        const errorDiv = document.getElementById('errorDiv');
+                        if (errorsList && errorDiv) {
+                            errorsList.textContent = '';
+                            var li = document.createElement('li');
+                            li.textContent = 'Failed to save measurements. Please try again. If the problem persists, refresh the page.';
+                            errorsList.appendChild(li);
+                            errorDiv.style.display = 'block';
+                            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
                     });
                 }
             }
@@ -218,7 +232,7 @@
                                 <table>
                                     <tr>
                                         <td>
-                                            <div class="well">
+                                            <div class="card card-body bg-body-tertiary">
                                                 <table class="table table-striped">
                                                     <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
@@ -268,11 +282,11 @@
                                                                     </td>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <td><input type="text" class="input-small" name="inputValue-${ctr.index}" id="inputValue-${ctr.index}"/></td>
+                                                                    <td><input type="text" class="form-control form-control-sm" name="inputValue-${ctr.index}" id="inputValue-${ctr.index}"/></td>
                                                                 </c:otherwise>
                                                             </c:choose>
 
-                                                            <td><input type="text" class="input-medium" name="date-${ctr.index}" id="date-${ctr.index}"/></td>
+                                                            <td><input type="text" class="form-control" name="date-${ctr.index}" id="date-${ctr.index}"/></td>
                                                             <script>
                                                                 Calendar.setup({
                                                                     inputField: "date-${ctr.index}",
@@ -281,7 +295,7 @@
                                                                 });
                                                             </script>
 
-                                                            <td><input type="text" class="input-large" name="comments-${ctr.index}" id="comments-${ctr.index}"/></td>
+                                                            <td><input type="text" class="form-control" name="comments-${ctr.index}" id="comments-${ctr.index}"/></td>
                                                             <td>
                                                                 <input type="hidden" name="inputType-${ctr.index}" value="${measurementType.type}"/>
                                                                 <input type="hidden" name="inputTypeDisplayName-${ctr.index}" value="${measurementType.typeDisplayName}"/>
@@ -319,10 +333,10 @@
                                                     </c:if>
 
                                                 </table>
-                                            </div> <!-- well -->
+                                            </div> <!-- card card-body bg-body-tertiary -->
                                             <table>
                                                 <tr>
-                                                    <td><input type="button" name="Button" class="btn"
+                                                    <td><input type="button" name="Button" class="btn btn-secondary"
                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="button" name="Button" class="btn btn-primary"

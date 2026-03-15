@@ -137,14 +137,29 @@
                 src="<%= context %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%= context %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%= context %>/js/jquery-ui-1.8.18.custom.min.js"></script>
-        <script src="<%= context %>/js/fg.menu.js"></script>
+        <script src="<%= context %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%= context %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.css" media="screen"/>
-
-
-        <link rel="stylesheet" href="<%= context %>/css/cupertino/jquery-ui-1.8.18.custom.css">
-        <link rel="stylesheet" href="<%= context %>/css/fg.menu.css">
+        <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.14.2.min.css">
+        <script>
+            /* Bootstrap 5 dropdown shim replacing fg.menu plugin */
+            $.fn.menu = function(opts) {
+                return this.each(function() {
+                    var $trigger = $(this);
+                    if (!opts || !opts.content) return;
+                    var $wrapper = $('<div class="dropdown d-inline-block"></div>');
+                    $trigger.wrap($wrapper);
+                    $trigger.attr({'data-bs-toggle': 'dropdown', 'role': 'button'}).css('cursor', 'pointer');
+                    var $menu = $('<ul class="dropdown-menu"></ul>');
+                    $(opts.content).find('a').each(function() {
+                        var $a = $(this).clone().addClass('dropdown-item');
+                        $menu.append($('<li></li>').append($a));
+                    });
+                    $trigger.after($menu);
+                });
+            };
+        </script>
 
         <style type="text/css">
             body {
@@ -1008,17 +1023,17 @@
                         adjustDynamicListTotals();
 
                         try {
-                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                            var csrfToken = csrfEl ? csrfEl.value : '';
+                            var formBody = $("form").serialize();
+                            if (formBody.indexOf('CSRF-TOKEN=') === -1) {
+                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                if (csrfEl) formBody += '&CSRF-TOKEN=' + encodeURIComponent(csrfEl.value);
+                            }
                             const response = await fetch('<%= context %>/Pregnancy.do?method=saveFormAjax', {
                                 method: 'POST',
-                                credentials: 'same-origin',
                                 headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                    'CSRF-TOKEN': csrfToken,
-                                    'X-Requested-With': 'XMLHttpRequest'
+                                    'Content-Type': 'application/x-www-form-urlencoded'
                                 },
-                                body: $("form").serialize()
+                                body: formBody
                             });
                             if (!response.ok) {
                                 throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
@@ -1406,13 +1421,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
             }
 
             $(document).ready(function () {
-                $("input[name='ar2_lab2GTT1']").on('keyup', function () {
+                $("input[name='ar2_lab2GTT1']").bind('keyup', function () {
                     updateGtt();
                 });
-                $("input[name='ar2_lab2GTT2']").on('keyup', function () {
+                $("input[name='ar2_lab2GTT2']").bind('keyup', function () {
                     updateGtt();
                 });
-                $("input[name='ar2_lab2GTT3']").on('keyup', function () {
+                $("input[name='ar2_lab2GTT3']").bind('keyup', function () {
                     updateGtt();
                 });
 
@@ -1435,7 +1450,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     $("#rhNegSpan").css('background-color', 'red');
                 }
 
-                $("input[name='ar2_rhNeg']").on('change', function () {
+                $("input[name='ar2_rhNeg']").bind('change', function () {
                     if ($("input[name='ar2_rhNeg']").attr('checked') == 'checked') {
                         $("#rhNegSpan").css('background-color', 'red');
                     } else {
@@ -1451,7 +1466,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     $("#hepbSpan2").css('background-color', 'red');
                 }
 
-                $("input[name='ar2_hepBIG']").on('change', function () {
+                $("input[name='ar2_hepBIG']").bind('change', function () {
                     if ($("input[name='ar2_hepBIG']").attr('checked') == 'checked') {
                         $("#hepbSpan").css('background-color', 'red');
                     } else {
@@ -1459,7 +1474,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     }
                 });
 
-                $("input[name='ar2_hepBVac']").on('change', function () {
+                $("input[name='ar2_hepBVac']").bind('change', function () {
                     if ($("input[name='ar2_hepBVac']").attr('checked') == 'checked') {
                         $("#hepbSpan2").css('background-color', 'red');
                     } else {
@@ -1472,7 +1487,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     $("#rubellaSpan").css('background-color', 'red');
                 }
 
-                $("input[name='ar2_rubella']").on('change', function () {
+                $("input[name='ar2_rubella']").bind('change', function () {
                     if ($("input[name='ar2_rubella']").attr('checked') == 'checked') {
                         $("#rubellaSpan").css('background-color', 'red');
                     } else {
@@ -1559,12 +1574,11 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 
                             try {
                                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                var csrfToken = csrfEl ? csrfEl.value : '';
+                                var csrfVal = csrfEl ? csrfEl.value : '';
                                 const response = await fetch('<%= context %>/Pregnancy.do', {
                                     method: 'POST',
-                                    credentials: 'same-origin',
-                                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
-                                    body: 'method=createGBSLabReq&demographicNo=' + encodeURIComponent(demographic) + '&penicillin=' + encodeURIComponent(penicillin)
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                    body: 'method=createGBSLabReq&demographicNo=' + encodeURIComponent(demographic) + '&penicillin=' + encodeURIComponent(penicillin) + '&CSRF-TOKEN=' + encodeURIComponent(csrfVal)
                                 });
                                 if (!response.ok) {
                                     throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
@@ -1711,19 +1725,19 @@ if (!fedb.equals("") && fedb.length()==10 ) {
             $(function () {
 
                 <% if(!bView) { %>
-                $('#gbs_menu').on('click', function () {
+                $('#gbs_menu').bind('click', function () {
                     gbsReq();
                 });
-                $("#gd_menu").on('click', function () {
+                $("#gd_menu").bind('click', function () {
                     popPage('http://www.diabetes.ca/diabetes-and-you/what/gestational/', 'resource')
                 });
-                $("#gct_menu").on('click', function () {
+                $("#gct_menu").bind('click', function () {
                     gctReq();
                 });
-                $("#gtt_menu").on('click', function () {
+                $("#gtt_menu").bind('click', function () {
                     gttReq();
                 });
-                $("#edb_menu").on('click', function () {
+                $("#edb_menu").bind('click', function () {
                     var usNum = checkSOGCGuidelineForEDB();
                     if (usNum > 0) {
                         var usDate = $("#ar2_uDate" + usNum).val();
@@ -1733,7 +1747,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     }
                 });
 
-                $("#print_log_menu").on('click', function () {
+                $("#print_log_menu").bind('click', function () {
                     jQuery.ajax({
                         type: "POST",
                         url: '<%= context %>/Pregnancy.do?method=getPrintData',
@@ -1762,7 +1776,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 
                 <% } %>
 
-                $('#graph_menu').on('click', function () {
+                $('#graph_menu').bind('click', function () {
                     fancyBoxFundal();
                 });
 
@@ -1849,13 +1863,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 
             $(function () {
 
-                $("#24wk_visit_menu").on('click', function () {
+                $("#24wk_visit_menu").bind('click', function () {
                     wk24VisitTool();
                 });
-                $("#35wk_visit_menu").on('click', function () {
+                $("#35wk_visit_menu").bind('click', function () {
                     wk35VisitTool();
                 });
-                $("#dd_visit_menu").on('click', function () {
+                $("#dd_visit_menu").bind('click', function () {
                     ddVisitTool();
                 });
 
@@ -1878,15 +1892,14 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var user = '<%=session.getAttribute("user")%>';
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
                             var pregUrl = '<%= context %>/Pregnancy.do';
-                            var pregBody = 'method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + encodeURIComponent(gct_hb) + '&urine=' + encodeURIComponent(gct_urine) + '&antibody=' + encodeURIComponent(gct_ab) + '&glucose=' + encodeURIComponent(gct_glu);
+                            var csrfEl2 = document.querySelector('input[name="CSRF-TOKEN"]');
+                            var csrfVal2 = csrfEl2 ? csrfEl2.value : '';
+                            var pregBody = 'method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + encodeURIComponent(gct_hb) + '&urine=' + encodeURIComponent(gct_urine) + '&antibody=' + encodeURIComponent(gct_ab) + '&glucose=' + encodeURIComponent(gct_glu) + '&CSRF-TOKEN=' + encodeURIComponent(csrfVal2);
 
                             try {
-                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                var csrfToken = csrfEl ? csrfEl.value : '';
                                 const response = await fetch(pregUrl, {
                                     method: 'POST',
-                                    credentials: 'same-origin',
-                                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                                     body: pregBody
                                 });
                                 if (!response.ok) {
@@ -1920,15 +1933,14 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var user = '<%=session.getAttribute("user")%>';
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
                             var pregUrl = '<%= context %>/Pregnancy.do';
-                            var pregBody = 'method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + encodeURIComponent(gtt_glu);
+                            var csrfEl3 = document.querySelector('input[name="CSRF-TOKEN"]');
+                            var csrfVal3 = csrfEl3 ? csrfEl3.value : '';
+                            var pregBody = 'method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + encodeURIComponent(gtt_glu) + '&CSRF-TOKEN=' + encodeURIComponent(csrfVal3);
 
                             try {
-                                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                var csrfToken = csrfEl ? csrfEl.value : '';
                                 const response = await fetch(pregUrl, {
                                     method: 'POST',
-                                    credentials: 'same-origin',
-                                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                                     body: pregBody
                                 });
                                 if (!response.ok) {
@@ -3126,7 +3138,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </form>
     </div>
 
-    <div id="lab_menu_div" class="hidden">
+    <div id="lab_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)"
                    onclick="popPage('form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AnteNatal','LabReq')">Routine
@@ -3137,7 +3149,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         </ul>
     </div>
 
-    <div id="forms_menu_div" class="hidden">
+    <div id="forms_menu_div" class="d-none">
         <ul>
             <li><a href="javascript:void(0)" onclick="loadUltrasoundForms();">Ultrasound</a></li>
             <li><a href="javascript:void(0)" onclick="loadCustomForms();"><%=customEformGroup%>

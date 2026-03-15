@@ -337,7 +337,7 @@
                 <li>
                     <a title="Scratch Pad" href="javascript: function myFunction() {return false; }"
                        onClick="popup(700,1024,'<%= request.getContextPath() %>/scratch/index.jsp','scratch')"><span
-                            class="glyphicon glyphicon-list-alt"></span></a>
+                            class="fa-solid fa-rectangle-list"></span></a>
                 </li>
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
@@ -346,7 +346,7 @@
                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
-                        <span class="glyphicon glyphicon-user"></span>
+                        <span class="fa-solid fa-user"></span>
 
                         <span>
                                 <c:out value='<%= userfirstname + " " + userlastname %>'/>
@@ -359,7 +359,7 @@
         </td>
         <td>
             <a id="logoutButton" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/logout.jsp">
-                <span class="glyphicon glyphicon-off"></span>
+                <span class="fa-solid fa-power-off"></span>
             </a>
         </td>
 
@@ -368,6 +368,7 @@
 
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script>

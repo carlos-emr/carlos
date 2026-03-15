@@ -103,8 +103,8 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></h3>
 
-<div class="container-fluid well">
-    <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
+<div class="container-fluid card card-body bg-body-tertiary">
+    <button class="btn btn-secondary" type='button' name='print' value='Print' onClick='window.print()'><i
             class="fa-solid fa-print"></i> Print
     </button>
 
@@ -114,7 +114,7 @@
     <form name="serviceform" method="post"
           action="<%=oscarVariables.getProperty("isNewONbilling","").equals("true")? "onGenINRbilling.jsp":"genINRbilling.jsp" %>">
         Select provider
-        <select name="provider" onChange="jumpMenu('parent',this,0)" class="span2">
+        <select name="provider" onChange="jumpMenu('parent',this,0)" class="form-select">
             <option value="#">Select Provider</option>
             <option value="reportINR.jsp?provider_no=all"
                     <%=providerview.equals("all") ? "selected" : ""%>><b>All
@@ -156,7 +156,7 @@
         </select>
         Clinic Location:
         <input type="hidden" name="billcenter" value="G">
-        <select name="xml_location" datafld='xml_location' class="span4">
+        <select name="xml_location" datafld='xml_location' class="form-select">
             <% ResultSet rsclinic = null;
                 String clinic_location = "", clinic_code = "";
                 List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
@@ -176,7 +176,7 @@
         <input type="hidden" name="curDate" value="<%=nowDate%>">
         <input type="hidden" name="curTime" value="<%=nowTime%>">
 
-        <table class="table table-striped  table-condensed">
+        <table class="table table-striped  table-sm">
 
             <tr>
                 <td>Selection</td>

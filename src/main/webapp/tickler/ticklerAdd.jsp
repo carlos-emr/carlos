@@ -482,6 +482,7 @@
         </script>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <style media="all">
             .tickler-label {
@@ -573,7 +574,7 @@
                 </tr>
             </table>
         </form>
-        <form name="serviceform" method="post">
+        <form name="serviceform" method="post" action="<%=request.getContextPath()%>/tickler/dbTicklerAdd.jsp">
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
             <input type="hidden" name="user_no" value="<%=Encode.forHtmlAttribute(user_no)%>">

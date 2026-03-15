@@ -298,8 +298,8 @@
     <script src="${pageContext.request.contextPath}js/global.js"></script>
 
 
-    <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script>
-    <!-- DataTables 1.13.4 -->
+    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
         jQuery(document).ready(function () {
@@ -404,7 +404,7 @@
                 <% } %></th>
             <th style="width: 600px">Object Name/Role Name: <input type="text" name="keyword"
                                                                    value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
-                    type="submit" name="search" class="btn"
+                    type="submit" name="search" class="btn btn-secondary"
                     value="Filter"></th>
         </tr>
     </table>
@@ -433,8 +433,8 @@
 %>
 
 <h4>Role/Privilege List</h4>
-<div class="well">
-    <table id="tblpp" class="table table-condensed">
+<div class="card card-body bg-body-tertiary">
+    <table id="tblpp" class="table table-sm">
         <thead>
         <tr>
             <th style="width:300px">Role</th>
@@ -488,8 +488,8 @@
                         type="hidden" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
                         type="hidden" name="objectName" value="<%=obj %>"> <input
                         type="hidden" name="roleUserGroup" value="<%=roleUser %>"> <input
-                        type="submit" name="buttonUpdate" value="Update" class="btn"> <input
-                        type="submit" name="submit" value="Delete" class="btn"> <% } %>
+                        type="submit" name="buttonUpdate" value="Update" class="btn btn-secondary"> <input
+                        type="submit" name="submit" value="Delete" class="btn btn-secondary"> <% } %>
                 </td>
             </tr>
         </form>
@@ -500,7 +500,7 @@
 
 
 <h4>Add Role/Privilege</h4>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
     <form name="myform2" action="providerPrivilege.jsp" method="POST">
         For:
         <select name="roleUserGroup"
@@ -519,7 +519,7 @@
         <option value="_principal">_principal</option>
     </select>
 
-        <table id="addtbl" style="width: 100%" class="table table-striped table-condensed">
+        <table id="addtbl" style="width: 100%" class="table table-striped table-sm">
             <thead>
             <tr>
                 <th style="width:300px">Role</th>
@@ -592,7 +592,7 @@
                 </select></td>
                 <td>
                     <input type="submit"
-                           name="submit" value="Add" class="btn"></td>
+                           name="submit" value="Add" class="btn btn-secondary"></td>
             </tr>
             <% }%>
 
@@ -600,7 +600,7 @@
             </tbody>
         </table>
         <br>
-        <table style="width:100%" class="table table-condensed">
+        <table style="width:100%" class="table table-sm">
             <tbody>
             <tr>
                 <td style="width:300px">
@@ -630,7 +630,7 @@
                     <% }%>
                 </select></td>
                 <td><input type="submit"
-                           name="submit" value="Add" class="btn"></td>
+                           name="submit" value="Add" class="btn btn-secondary"></td>
 
             </tr>
             </tbody>

@@ -156,4 +156,3 @@
 
     out.print(eForm.getFormHtml());
 %>
-<script type="text/javascript" src="<%= request.getContextPath() %>/library/moment.js"></script>

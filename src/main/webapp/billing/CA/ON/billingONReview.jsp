@@ -250,17 +250,17 @@
         if (demo.getHin() == null) {
             errorFlag = "1";
             errorMsg = errorMsg
-                    + "<br><div class='alert alert-error'>Error: The patient does not have a HIN </div><br>";
+                    + "<br><div class='alert alert-danger'>Error: The patient does not have a HIN </div><br>";
         } else if (demo.getHin().equals("")) {
-            warningMsg += "<br><div class='alert alert-error'>Warning: The patient does not have a HIN </div><br>";
+            warningMsg += "<br><div class='alert alert-danger'>Warning: The patient does not have a HIN </div><br>";
         }
         if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-            warningMsg += "<br><div class='alert alert-error'>Warning: the referral doctor's no is wrong. </div><br>";
+            warningMsg += "<br><div class='alert alert-danger'>Warning: the referral doctor's no is wrong. </div><br>";
         }
         if (demoDOB.length() != 8) {
             errorFlag = "1";
             errorMsg = errorMsg
-                    + "<br><div class='alert alert-error'>Error: The patient does not have a valid DOB. </div><br>";
+                    + "<br><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div><br>";
         }
     }
 
@@ -305,8 +305,8 @@
         var bClick = false;
 
         function onSave() {
-            var value = jQuery("#payee").val();
-            jQuery("#payeename").val(value);
+            var value = document.getElementById("payee").value;
+            document.getElementById("payeename").value = value;
             var ret = checkTotal();
             bClick = false;
 
@@ -409,7 +409,7 @@
 
 
         function updateElement(eId, data) {
-            jQuery("#" + eId).val(data);
+            document.getElementById(eId).value = data;
         }
 
         function checkTotal() {
@@ -439,7 +439,7 @@
                 }
 
                 updateElement("total", formatTotal(total));
-                total += new Number(jQuery("#gst").val());
+                total += new Number(document.getElementById("gst").value);
                 updateElement("gstBilledTotal", formatTotal(total));
 
             }
@@ -749,7 +749,7 @@
 	    if (svcCodes.isEmpty()) {
 			codeValid = false;
 		%>
-                    <tr class="alert alert-error">
+                    <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
                             Service code "<%=serviceCodeValue%>" is invalid. Please go back to correct it.
@@ -770,7 +770,7 @@
 		if(dcodes.size() == 0) {
 		codeValid = false;
 		%>
-                    <tr class="alert alert-error">
+                    <tr class="alert alert-danger">
                         <td align=center>
                             &nbsp;<br>
                             Diagnostic code "<%=dxCodeValue%>" is invalid. Please go back to correct it.
@@ -1021,15 +1021,15 @@
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
-                            <input type="submit" name="button" value="Back to Edit" class="btn" style="width: 120px;"/>
+                            <input type="submit" name="button" value="Back to Edit" class="btn btn-secondary" style="width: 120px;"/>
                                 <% if (codeValid && !dupServiceCode) { %>
                             <input type="submit" name="submit" value="Save" class="btn btn-primary"
                                    style="width: 120px;" onClick="onClickSave();"/>
-                            <input type="submit" name="submit" value="Save & Add Another Bill" class="btn"
+                            <input type="submit" name="submit" value="Save & Add Another Bill" class="btn btn-secondary"
                                    onClick="onClickSave();"/>
                                 <% }else if (dupServiceCode){%>
                         <td>
-                            <div class='alert alert-error'>Warning: Duplicate service codes entered</div>
+                            <div class='alert alert-danger'>Warning: Duplicate service codes entered</div>
                         </td>
                             <% }
                                     %>
@@ -1216,7 +1216,7 @@
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
-            <input type="submit" name="submit" value="Save & Print Invoice" class="btn"
+            <input type="submit" name="submit" value="Save & Print Invoice" class="btn btn-secondary"
                    style="width: 150px;"/>
             <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
                    value="Settle & Print Invoice"
@@ -1257,9 +1257,9 @@
 <script language="JavaScript">
     function calculatePayment() {
         var payment = 0.00;
-        jQuery("input[id^='paid_']").each(function (index) {
-            if (this != null && this.value.length > 0) {
-                payment = parseFloat(payment) + parseFloat(this.value);
+        document.querySelectorAll("input[id^='paid_']").forEach(function (el) {
+            if (el != null && el.value.length > 0) {
+                payment = parseFloat(payment) + parseFloat(el.value);
                 payment = payment.toFixed(2);
             }
         });
@@ -1272,9 +1272,9 @@
 
     function calculateDiscount() {
         var discount = 0.00;
-        jQuery("input[id^='discount_']").each(function (index) {
-            if (this != null && this.value.length > 0) {
-                discount = parseFloat(discount) + parseFloat(this.value);
+        document.querySelectorAll("input[id^='discount_']").forEach(function (el) {
+            if (el != null && el.value.length > 0) {
+                discount = parseFloat(discount) + parseFloat(el.value);
                 discount = discount.toFixed(2);
             }
         });
@@ -1285,15 +1285,15 @@
 
     function calculateTotal() {
         var total = 0.00;
-        jQuery("input[id^='percCodeSubtotal_']").each(function (index) {
-            if (this != null && this.value.length > 0) {
-                total = parseFloat(total) + parseFloat(this.value);
+        document.querySelectorAll("input[id^='percCodeSubtotal_']").forEach(function (el) {
+            if (el != null && el.value.length > 0) {
+                total = parseFloat(total) + parseFloat(el.value);
                 total = total.toFixed(2);
             }
         });
-        jQuery("#total").val(total);
-        jQuery("#gstBilledTotal").val(total);
-        jQuery("#stotal").val(total);
+        document.getElementById("total").value = total;
+        document.getElementById("gstBilledTotal").value = total;
+        document.getElementById("stotal").value = total;
     }
 
     function onTotalChanged() {
@@ -1305,9 +1305,9 @@
             return;
         }
 
-        var total = jQuery("#total").val();
-        jQuery("#gstBilledTotal").val(total);
-        jQuery("#stotal").val(total);
+        var total = document.getElementById("total").value;
+        document.getElementById("gstBilledTotal").value = total;
+        document.getElementById("stotal").value = total;
     }
 
     function addToDiseaseRegistry() {
@@ -1390,7 +1390,7 @@
                     <jsp:param name="demographicNo" value="<%=demo_no%>"/>
                 </jsp:include>
             </div>
-            <input type="button" value="Add To Disease Registry" class="btn" onclick="addToDiseaseRegistry()"/>
+            <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
         </form>
     </div>
 

@@ -116,7 +116,7 @@
 
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></h3>
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         <table>
             <tr>
                 <td width="3%"></td>
@@ -148,7 +148,7 @@
 
                 <td width="37%" valign="top">
 
-                    <table class="table table-striped  table-condensed">
+                    <table class="table table-striped  table-sm">
                         <tr>
                             <th width="6%"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgClinicLocation"/></th>
                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingLocation.msgDescription"/></th>
@@ -179,7 +179,7 @@
                                 </td>
                                 <td><%=clinicLocation.getClinicLocationName()%>
                                 </td>
-                                <td align="center"><input class="btn" type="submit" name="submit"
+                                <td align="center"><input class="btn btn-secondary" type="submit" name="submit"
                                                           value="Delete"/> <input type="hidden" name="location_no"
                                                                                   value="<%=clinicLocation.getClinicLocationNo()%>"/>
                                 </td>

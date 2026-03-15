@@ -88,7 +88,7 @@
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h3>
 
 
-        <table class="table table-condensed table-hover">
+        <table class="table table-sm table-hover">
             <thead>
             <tr class="btn-inverse">
                 <th></th>
@@ -122,7 +122,7 @@
                         oldNumber = myGroup.getId().getMyGroupNo();
                     }
             %>
-            <tr class="<%=toggleLine?"":"info"%>">
+            <tr class="<%=toggleLine?"":"table-info"%>">
                 <td width="20px">
                     <input type="checkbox"
                            name="<%=myGroup.getId().getMyGroupNo() + myGroup.getId().getProviderNo()%>"
@@ -149,6 +149,7 @@
     </FORM>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <script>
         function anyChecks() {

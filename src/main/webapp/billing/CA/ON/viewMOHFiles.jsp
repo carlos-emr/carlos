@@ -36,8 +36,6 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></title>
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
     <script LANGUAGE="JavaScript">
@@ -60,11 +58,13 @@
         }
 
         function toggleCheckboxes(el) {
-            jQuery("input[name='mohFile']").attr("checked", jQuery(el).attr("checked"));
+            document.querySelectorAll("input[name='mohFile']").forEach(function (cb) {
+                cb.checked = el.checked;
+            });
         }
 
         function checkForm() {
-            if (jQuery("input[name='mohFile']:checked").size() > 0) {
+            if (document.querySelectorAll("input[name='mohFile']:checked").length > 0) {
                 return true;
             }
             alert("Please select a file first.");
@@ -76,18 +76,18 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></h3>
 
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
 
     <form id="form" method="POST">
         <input type="hidden" id="filename" name="filename" value="">
     </form>
 
     <% if (folder == EDTFolder.INBOX) { %>
-    <form method="POST" action="<%=request.getContextPath()%>/billing/CA/ON/moveMOHFiles.do" onsubmit="return checkForm();" class="form-inline">
+    <form method="POST" action="<%=request.getContextPath()%>/billing/CA/ON/moveMOHFiles.do" onsubmit="return checkForm();" class="d-flex flex-wrap align-items-center gap-2">
     <% } %>
 
         <% if (folder == EDTFolder.INBOX) {%>
-        <input type="submit" value="Archive" class="btn">
+        <input type="submit" value="Archive" class="btn btn-secondary">
         <% } %>
 
         View:
@@ -171,7 +171,7 @@
         <% if (contents.length > 20) { %>
 
         <% if (folder == EDTFolder.INBOX) {%>
-        <input type="submit" value="Archive" class="btn">
+        <input type="submit" value="Archive" class="btn btn-secondary">
         <% } %>
 
         <select name="folder" onchange="location.href='<%= request.getContextPath() %>/billing/CA/ON/viewMOHFiles.jsp?folder='+this.options[selectedIndex].value">

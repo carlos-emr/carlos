@@ -54,7 +54,7 @@
 
         </div>
         <div class="flex-1 flex items-center">
-            <span class="tt font-bold w-9" data-names="y,n,number" data-toggle="tooltip"
+            <span class="tt font-bold w-9" data-names="y,n,number" data-bs-toggle="tooltip"
                   title="Flag if there is any falls in last 6 months">
                 <span class="highlight" data-field-name="falls">Falls</span>
             </span>
@@ -67,7 +67,7 @@
                 <input type="radio" name="falls" class="m-0" autocomplete="off" data-score="0" value="0">
                 <span class="pl-1">N</span>
             </label>
-            <span class="tt ml-4 highlight" data-toggle="tooltip" data-field-name="falls_number"
+            <span class="tt ml-4 highlight" data-bs-toggle="tooltip" data-field-name="falls_number"
                   title="Number of falls in last 6 months">
                 Number
             </span>

@@ -361,8 +361,8 @@
 <body id="editFlowsheetBody">
 
 <% if(demographic == null || "null".equalsIgnoreCase(demographic)){ %>
-	<div class="navbar" id="demoHeader"><div class="navbar-inner">
-		<a class="brand" href="javascript:void(0)">Edit Flowsheet</a>
+	<div class="navbar" id="demoHeader"><div class="container-fluid">
+		<a class="navbar-brand" href="javascript:void(0)">Edit Flowsheet</a>
 	</div></div>
 <% }%>
 <% if(demographic != null) { %>
@@ -372,7 +372,7 @@
 
 <div class="container-fluid" id="container-main">
 
-    <div class="row-fluid">
+    <div class="row">
 
         <h4 style="display:inline;">
 
@@ -388,7 +388,7 @@
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<%=demographic%>&template=<%=flowsheet%><%=tracker%>"
-               class="btn btn-small" title="go back to <%=flowsheet%> flowsheet"><i class="fa-solid fa-backward"></i></a>
+               class="btn btn-sm" title="go back to <%=flowsheet%> flowsheet"><i class="fa-solid fa-backward"></i></a>
 
             <%}%>
 
@@ -424,19 +424,19 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		  </span>
     </div><!-- row -->
 
-    <div class="row-fluid">
-        <div class="span12">
+    <div class="row">
+        <div class="col-md-12">
 
             <ul class="nav nav-tabs" id="myTab">
                 <li class="list-title">Measurements:</li>
-                <li class="active"><a href="#home" data-toggle="tab">All</a></li>
-                <li><a href="#custom" data-toggle="tab">Custom</a></li>
-                <li><a href="#add" data-toggle="tab"><i class="fa-solid fa-circle-plus"></i> Add</a></li>
+                <li class="nav-item"><a class="nav-link active" href="#home" data-bs-toggle="tab">All</a></li>
+                <li class="nav-item"><a class="nav-link" href="#custom" data-bs-toggle="tab">Custom</a></li>
+                <li class="nav-item"><a class="nav-link" href="#add" data-bs-toggle="tab"><i class="fa-solid fa-circle-plus"></i> Add</a></li>
             </ul>
 
             <% if (request.getAttribute("errorMessage") != null) { %>
-            <div class="alert alert-error">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <div class="alert alert-danger">
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <%= Encode.forHtml((String)request.getAttribute("errorMessage")) %>
             </div>
             <% } %>
@@ -465,10 +465,10 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
             <%}%>
 
             <div class="tab-content">
-                <div class="tab-pane active" id="home">
+                <div class="tab-pane show active" id="home">
 
 		<!-- Flowsheet Measurement List -->
-		<table class="table table-striped table-bordered table-condensed" id="measurementTbl">
+		<table class="table table-striped table-bordered table-sm" id="measurementTbl">
 		<thead>
 		<tr>
 		<th style="min-width:60px;max-width:80px;"></th>
@@ -552,20 +552,20 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
 	<div class="tab-pane" id="custom">
 
-		<div class="span4">
+		<div class="col-md-4">
 		<!--right sidebar-->
 
 			<!-- Custom List -->
-		    <div class="well" style="min-width: 240px">
+		    <div class="card card-body bg-body-tertiary" style="min-width: 240px">
 		    <h4>Custom List:</h4>
 		    <%
 		    if(custList.size()==0){
 	    		%>
-	    		<p class="muted">No custom measurements</p>
+	    		<p class="text-muted">No custom measurements</p>
 	    		<%
 	    	}else{
 	    	%>
-		    <table class="table table-striped table-condensed">
+		    <table class="table table-striped table-sm">
 
 			<tbody>
 
@@ -607,7 +607,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
                                     <td><%=cust.getAction()%>
                                         <% if (isHigherScope) { %>
-                                        <span class="label label-info" title="Inherited from <%=custLevel%> level">Inherited</span>
+                                        <span class="badge bg-info" title="Inherited from <%=custLevel%> level">Inherited</span>
                                         <% } %>
                                     </td>
 
@@ -650,16 +650,16 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                 </tbody>
                             </table><!-- Custom List END-->
                             <%} %>
-                        </div><!-- well -->
+                        </div><!-- card card-body bg-body-tertiary -->
 
-                    </div><!-- span4 -->
+                    </div><!-- col-md-4 -->
 
                 </div><!-- custom tab -->
 
                 <!-- ADD NEW MEAS -->
                 <div class="tab-pane" id="add">
 
-                    <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="well"
+                    <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
                           action="FlowSheetCustomAction.do" method="post">
                         <input type="hidden" name="flowsheet" value="<%=temp%>"/>
                         <input type="hidden" name="method" value="save"/>
@@ -763,7 +763,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
                         <legend></legend>
 
-                        <input type="submit" class="btn btn-large btn-primary" value="Save"/>
+                        <input type="submit" class="btn btn-lg btn-primary" value="Save"/>
 
                     </form>
 
@@ -793,8 +793,8 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
     <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
 
     <script>
-        $(function () {
-            $("[rel=popover]").popover({});
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
         });
 
 
@@ -820,8 +820,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
             });
 
             <%if(request.getParameter("add")!=null){%>
-//$('#addModal').modal('show');
-            $('#myTab a[href="#add"]').tab('show');
+            bootstrap.Tab.getOrCreateInstance(document.querySelector('#myTab a[href="#add"]')).show();
             <%}%>
 
             $(document).scroll(function () {
@@ -833,10 +832,10 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                 }
             });
 
-            //$('<a href="#" class="btn" id="add-new" title="Add Measurement" style="margin-left:15px"><i class="fa-solid fa-plus"></i> Add</a>').appendTo('div.dataTables_filter label');
+            //$('<a href="#" class="btn btn-secondary" id="add-new" title="Add Measurement" style="margin-left:15px"><i class="fa-solid fa-plus"></i> Add</a>').appendTo('div.dataTables_filter label');
 
             $("#add-new").click(function () {
-                $('#addModal').modal('show');
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal')).show();
             });
 
             $("#measurement-select").click(function () {
@@ -853,12 +852,12 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 
         });
 
-        $('#measurementTbl').dataTable({
-            "aaSorting": [[1, "asc"]],
-            "iDisplayLength": 25,
-            "aoColumnDefs": [{ //remove sorting from batch column
-                bSortable: false,
-                aTargets: [0]
+        $('#measurementTbl').DataTable({
+            "order": [[1, "asc"]],
+            "pageLength": 25,
+            "columnDefs": [{
+                orderable: false,
+                targets: [0]
             }]
         });
 

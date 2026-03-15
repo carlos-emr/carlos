@@ -55,6 +55,7 @@
         <!--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>-->
 
         <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-compat.js"></script>
 
         <script src="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <link href="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
@@ -87,7 +88,6 @@
 
         <script>
             $(function () {
-                $(document).tooltip();
             });
         </script>
 
@@ -95,7 +95,7 @@
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></h3>
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.downloadTraceabilityData'/></h4>
         This screen will allow you to check your OSCAR against another OSCAR to see if it is running the same version.
         You can click "Download Traceability Data from this Oscar" to generate a file with information about the system.
@@ -107,7 +107,7 @@
         </form>
     </div>
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.traceabilityReport'/></h4>
         If you have a Traceability Data file from another Oscar, you can choose it and click "Generate Traceability
         Report" to create a file which will let you know what files in the OSCAR program have been modified, added, or

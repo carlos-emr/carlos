@@ -95,12 +95,11 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></title>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <%
@@ -211,14 +210,6 @@
         }
 
         @media print {
-            .visible-print {
-                display: inherit !important;
-            }
-
-            .hidden-print {
-                display: none !important;
-            }
-
             /*this is so the link locatons don't display*/
             a:link:after, a:visited:after {
                 content: "";
@@ -235,18 +226,18 @@
 
     <div id="Layer1" style="position: absolute; left: 90px; top: 35px; width: 0px; height: 12px; z-index: 1"></div>
 
-    <div class="row well hidden-print">
+    <div class="row card card-body bg-body-tertiary d-print-none">
 
-        <button type='button' name='print' value='Print' class="btn hidden-print" onClick='window.print()'
+        <button type='button' name='print' value='Print' class="btn d-print-none" onClick='window.print()'
                 style="position:absolute;top:20px;right:20px;"><i class="fa-solid fa-print"></i> Print
         </button>
 
         <div class="dropdown">
             <!-- Link or button to toggle dropdown -->
-            <a href="#" class="dropdown-archive">Show Archive</a>
+            <a href="#" class="dropdown-archive dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Show Archive</a>
             <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
                 <%for (int i = 0; i < 5; i++) { %>
-                <li><a href="billingONMRI.jsp?year=<%=yearArray[i]%>">YEAR <%=yearArray[i]%>
+                <li><a class="dropdown-item" href="billingONMRI.jsp?year=<%=yearArray[i]%>">YEAR <%=yearArray[i]%>
                 </a></li>
                 <%}%>
             </ul>
@@ -255,7 +246,7 @@
 
         <form name="form1" method="post" action="ongenreport.jsp" onsubmit="return checkSubmit();">
 
-            <div class="span4">
+            <div class="col-md-4">
                 Select Provider<br>
                 <select name="providers" onchange="setBillingCenter(this.value);">
                     <%
@@ -293,7 +284,7 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 Billing Center<br>
                 <select name="billcenter" id="billcenter">
                     <%
@@ -315,26 +306,26 @@
             <input type="hidden" name="curDate" value="<%=nowDate%>">
 
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Service Date Start:</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="xml_vdate" id="xml_vdate" value="<%=xml_vdate%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <label>Service Date End:</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date"
                            value="<%=xml_appointment_date%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-            <div class="span10">
+            <div class="col-md-10">
                 <input type="checkbox" name="useProviderMOH"
                        id="useProviderMOH" <%=("true".equals(request.getParameter("useProviderMOH")) ? "checked" : "") %>>Use
                 individual provider's bill center setting (will use above bill center if provider does not have one
@@ -407,7 +398,7 @@
                     href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=oFile%>"
                     target="_blank"><%=oFile%>
             </a></font></td>
-            <td width="3%"><input type="button" value="R" class="btn hidden-print"
+            <td width="3%"><input type="button" value="R" class="btn d-print-none"
                                   onclick="recreate(<%=obj.getId() %>)"/></td>
             <td><font size="2"> <a
                     href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=hFile%>"
@@ -478,18 +469,13 @@
 </div><!--container-->
 
 <script>
-    $('.dropdown-archive').dropdown();
+    /* dropdown-archive auto-initialized via data-bs-toggle="dropdown" */
 
-    var startDate = $("#xml_vdate").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
-    var endDate = $("#xml_appointment_date").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    $(document).ready(function () {
-        parent.resizeIframe($('html').height());
+    document.addEventListener('DOMContentLoaded', function () {
+        parent.resizeIframe(document.documentElement.scrollHeight);
     });
 
 </script>

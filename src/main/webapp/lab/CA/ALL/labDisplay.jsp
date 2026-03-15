@@ -621,15 +621,21 @@ input[id^='acklabel_']{
         }
 
 
+        function getCsrfToken() {
+            var el = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (!el) {
+                console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
+                return '';
+            }
+            return el.value;
+        }
+
         function handleLab(formid, labid, action) {
             var url = '<%= request.getContextPath() %>/documentManager/inboxManage.do';
-            var data = 'method=isLabLinkedToDemographic&labid=' + labid;
-            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            var csrfToken = csrfEl ? csrfEl.value : '';
+            var data = 'method=isLabLinkedToDemographic&labid=' + labid + '&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
             fetch(url, {
                 method: 'POST',
-                credentials: 'same-origin',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: data
             })
             .then(function(response) { return response.json(); })
@@ -690,6 +696,10 @@ input[id^='acklabel_']{
                         }
                     }
                 }
+            })
+            .catch(function(error) {
+                console.error('Failed to process lab action:', error);
+                alert('An error occurred while processing this lab. Please refresh the page and try again.');
             });
         }
 
@@ -719,13 +729,10 @@ input[id^='acklabel_']{
             }
 
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic.do";
-            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + labNo;
-            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            var csrfToken = csrfEl ? csrfEl.value : '';
+            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
                 method: 'POST',
-                credentials: 'same-origin',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: dataStr
             })
             .then(function(response) { return response.json(); })
@@ -736,6 +743,10 @@ input[id^='acklabel_']{
                     // refresh the lab display page and offer dialog to rematch.
                     window.location.reload();
                 }
+            })
+            .catch(function(error) {
+                console.error('Failed to unlink demographic:', error);
+                alert('An error occurred while unlinking the demographic. Please refresh and try again.');
             });
         }
 
@@ -752,19 +763,20 @@ input[id^='acklabel_']{
                 console.error("Form not found: " + formid);
                 return;
             }
-            var data = new URLSearchParams(new FormData(formEl)).toString();
+            var params = new URLSearchParams(new FormData(formEl));
+            if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
             console.log(url);
-            console.log(data);
-            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-            var csrfToken = csrfEl ? csrfEl.value : '';
             fetch(url, {
                 method: 'POST',
-                credentials: 'same-origin',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
-                body: data
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString()
             })
             .then(function() {
                 window.location.reload();
+            })
+            .catch(function(error) {
+                console.error('Failed to add comment:', error);
+                alert('An error occurred while adding the comment. Please refresh and try again.');
             });
         }
         function submitLabel(lblval, segmentID) {
@@ -838,16 +850,24 @@ input[id^='acklabel_']{
                 if (accNum) params.append('accessionNum', accNum.value);
                 if (labelInput) params.append('label', labelInput.value);
                 params.append('ajaxcall', 'true');
-                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                var csrfToken = csrfEl ? csrfEl.value : '';
+                var csrfToken = getCsrfToken();
+                if (csrfToken) params.append('CSRF-TOKEN', csrfToken);
                 fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do', {
                     method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                     body: params.toString()
+                })
+                .then(function(response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to save label (HTTP ' + response.status + ')');
+                    }
+                    var spanI = document.querySelector('#labelspan_<%=Encode.forJavaScript(segmentID)%> i');
+                    if (spanI && labelInput) spanI.textContent = labelInput.value;
+                })
+                .catch(function(error) {
+                    console.error('Error saving lab label:', error);
+                    alert('Failed to save the label. Please refresh and try again.');
                 });
-                var spanI = document.querySelector('#labelspan_<%=Encode.forJavaScript(segmentID)%> i');
-                if (spanI && labelInput) spanI.textContent = labelInput.value;
                 var ackForm = document.forms['acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>'];
                 if (ackForm && ackForm.label) ackForm.label.value = '';
             });
@@ -863,13 +883,10 @@ input[id^='acklabel_']{
     //first check to see if lab is linked, if it is, we can send the demographicNo to the macro
     function runMacro(name, formid, closeOnSuccess) {
         var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
-        var data = 'method=isLabLinkedToDemographic&labid=<%= Encode.forJavaScript(segmentID) %>';
-        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-        var csrfToken = csrfEl ? csrfEl.value : '';
+        var data = 'method=isLabLinkedToDemographic&labid=<%= Encode.forJavaScript(segmentID) %>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
-            credentials: 'same-origin',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: data
         })
         .then(function(response) { return response.json(); })
@@ -882,25 +899,32 @@ input[id^='acklabel_']{
                 }
                 runMacroInternal(name, formid, closeOnSuccess, demoid);
             }
+        })
+        .catch(function(error) {
+            console.error('Failed to run macro:', error);
+            alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
 
     function runMacroInternal(name, formid, closeOnSuccess, demographicNo) {
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro.do?name=" + name + (demographicNo.length > 0 ? "&demographicNo=" + demographicNo : "");
         var formEl = document.getElementById(formid);
-        var data = new URLSearchParams(new FormData(formEl)).toString();
-        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-        var csrfToken = csrfEl ? csrfEl.value : '';
+        var params = new URLSearchParams(new FormData(formEl));
+        if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
+
         fetch(url, {
             method: 'POST',
-            credentials: 'same-origin',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'},
-            body: data
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: params.toString()
         })
         .then(function() {
             if (closeOnSuccess) {
                 window.close();
             }
+        })
+        .catch(function(error) {
+            console.error('Failed to run macro:', error);
+            alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
 </script>

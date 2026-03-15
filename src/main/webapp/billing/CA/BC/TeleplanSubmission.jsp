@@ -158,7 +158,7 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile2"/></h3>
 
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <div id="Layer2"
          style="position: absolute; left: 76px; top: 190px; width: 129px; height: 123px; z-index: 2; border: 1px none #000000; visibility: hidden;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:white">
@@ -191,7 +191,7 @@
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do" method="post" onsubmit="return checkSubmit();"
-               class="form-inline">
+               class="d-flex flex-wrap align-items-center gap-2">
 
         Select provider
         <select name="providers">
@@ -210,11 +210,11 @@
     </form>
 
     Activity List | <a href="#" onClick="showHideLayers('Layer2','','show');">Show Archive</a>
-    <button class="btn pull-right" type="button" value="Print" onclick="window.print()"/>
+    <button class="btn float-end" type="button" value="Print" onclick="window.print()"/>
     <i class="fa-solid fa-print"></i> Print</button>
 
 
-    <table class="table table-striped  table-condensed">
+    <table class="table table-striped  table-sm">
         <thead>
         <tr style="background-color:<%=yearColor%>">
             <th width="12%">Provider</th>

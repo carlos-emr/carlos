@@ -32,8 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
-    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/css/bootstrap-datetimepicker-standalone.css" />
-    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/css/bootstrap-datetimepicker.min.css" /> 
+    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" /> 
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css" />
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" />
@@ -41,13 +40,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/web/css/Inboxhub.css"/>
 
-    <script type="text/javascript" src="${pageContext.request.contextPath}/library/moment.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" charset="utf8" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap-datetimepicker.min.js" ></script>
     <script src="${pageContext.request.contextPath}/share/javascript/oscarMDSIndex.js"></script>
     <title>Inboxhub</title>
 </head>
@@ -59,7 +58,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <input type="hidden" id="ctx" value="<e:forHtmlAttribute value='${pageContext.request.contextPath}' />";/>
 <div class="container-fluid overflow-hidden">
     <div class="row">
-        <nav class="navbar navbar-light d-flex justify-content-center" style="background-color: #e3f2fd;">
+        <nav class="navbar d-flex justify-content-center" data-bs-theme="light" style="background-color: #e3f2fd;">
             <jsp:include page="InboxhubTopbar.jsp"/>
         </nav>
     </div>

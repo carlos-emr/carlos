@@ -65,6 +65,7 @@
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script src="<%=request.getContextPath() %>/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
 
@@ -72,7 +73,7 @@
             String id = request.getParameter("id");
         %>
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 loadFlowsheet();
                 loadTypes();
                 loadPreventionTypes();
@@ -100,13 +101,13 @@
                 jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheet&id=<%=id%>", {},
                     function (xml) {
                         $("#itemTable tbody").empty();
-                        $("#name").html(xml.name);
-                        $("#template").html(xml.template);
-                        $("#createdBy").html(xml.createdBy);
-                        $("#createdDate").html(xml.createdDate);
-                        $("#dxCodeTriggers").html(xml.dxCodeTriggers);
-                        $("#recommendationColour").html(xml.recommendationColour);
-                        $("#warningColour").html(xml.warningColour);
+                        document.getElementById('name').textContent = xml.name;
+                        document.getElementById('template').textContent = xml.template;
+                        document.getElementById('createdBy').textContent = xml.createdBy;
+                        document.getElementById('createdDate').textContent = xml.createdDate;
+                        document.getElementById('dxCodeTriggers').textContent = xml.dxCodeTriggers;
+                        document.getElementById('recommendationColour').textContent = xml.recommendationColour;
+                        document.getElementById('warningColour').textContent = xml.warningColour;
 
 
                         for (var x = 0; x < xml.items.length; x++) {
@@ -163,7 +164,7 @@
 
 
             function addMeasurement() {
-                var typeId = $("#types").val();
+                var typeId = document.getElementById('types').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addMeasurement', {
                     flowsheetId:<%=id%>,
@@ -174,7 +175,7 @@
             }
 
             function addPrevention() {
-                var typeId = $("#preventionTypes").val();
+                var typeId = document.getElementById('preventionTypes').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=addPrevention', {
                     flowsheetId:<%=id%>,
@@ -238,7 +239,7 @@
 
     <br/>
 
-    <table id="itemTable" name="itemTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="itemTable" name="itemTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>

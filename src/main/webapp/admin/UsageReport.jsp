@@ -68,8 +68,10 @@
 
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+<script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>EMR Usage Report</h4>
 </div>
 
@@ -90,16 +92,16 @@
 
     List<Provider> providers = providerDao.getActiveProviders();
 %>
-<form class="well form-horizontal" action="${ctx}/admin/UsageReport.jsp"
+<form class="card card-body bg-body-tertiary" action="${ctx}/admin/UsageReport.jsp"
       id="usageForm">
     <fieldset>
         <h4>
             Usage Report <br> <small>Please select the provider,
             service begin and end dates.</small>
         </h4>
-        <div class="control-group">
-            <label class="control-label">Provider</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Provider</label>
+            <div>
 
                 <select name="providerNo">
                     <%
@@ -118,25 +120,25 @@
                 </select>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Start Date</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Start Date</label>
+            <div>
                 <input type="text" id="startDate" name="startDate"
                        value="<%=request.getParameter("startDate") != null ? request
 					.getParameter("startDate") : ""%>"/>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">End Date</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">End Date</label>
+            <div>
                 <input type="text" id="endDate" name="endDate"
                        value="<%=request.getParameter("endDate") != null ? request
 					.getParameter("endDate") : ""%>"/>
             </div>
         </div>
-        <div class="control-group">
+        <div class="mb-3">
             <hr>
-            <div class="controls">
+            <div>
                 <button type="submit" class="btn btn-primary">Run Report</button>
             </div>
         </div>
@@ -228,15 +230,15 @@
 <fieldset>
     <legend>Practice Profile</legend>
 
-    <dl class="dl-horizontal">
+    <dl class="row">
         <dt>Practice Size</dt>
         <dd>
-            <span class="badge"><%=demoList.size()%></span>
+            <span class="badge text-bg-secondary"><%=demoList.size()%></span>
         </dd>
     </dl>
 
     <h5>Age and Gender Distribution</h5>
-    <table class="table table-bordered table-striped table-condensed table-hover">
+    <table class="table table-bordered table-striped table-sm table-hover">
         <thead>
         <tr>
             <th>Age Group - Years</th>
@@ -282,31 +284,31 @@
 
     <h5>Scheduled Appts</h5>
 
-    <table class="table table-bordered table-striped table-condensed table-hover tooltips">
+    <table class="table table-bordered table-striped table-sm table-hover tooltips">
         <thead>
         <tr>
             <th>Scheduled Appts</th>
-            <th><a data-toggle="tooltip"
-                   data-original-title="Bill for services  includes OHIP, WSIB, other Provincial plans, private insurance and uninsured (self pay, third parties) invoicing">Billing</a>
+            <th><a data-bs-toggle="tooltip"
+                   data-bs-title="Bill for services  includes OHIP, WSIB, other Provincial plans, private insurance and uninsured (self pay, third parties) invoicing">Billing</a>
             </th>
-            <th><a data-toggle="tooltip"
-                   data-original-title="Enter encounter notes for patients seen  progress note entry associated with a kept patient office visit">Encounter
+            <th><a data-bs-toggle="tooltip"
+                   data-bs-title="Enter encounter notes for patients seen  progress note entry associated with a kept patient office visit">Encounter
                 Note</a></th>
-            <th><a data-toggle="tooltip"
-                   data-original-title="Enter problem lists for patients seen  presence of CPP problem list entry. If an application allows for none in the CPP category of Problem List/Ongoing Problems this is an
+            <th><a data-bs-toggle="tooltip"
+                   data-bs-title="Enter problem lists for patients seen  presence of CPP problem list entry. If an application allows for none in the CPP category of Problem List/Ongoing Problems this is an
 					acceptable entry.">Problem
                 List</a></th>
-            <th><a data-toggle="tooltip"
-                   data-original-title="Store documents not originated from an EMR  includes any scanned documents or external documents delivered through an electronic interface e.g. through Hospital Report
+            <th><a data-bs-toggle="tooltip"
+                   data-bs-title="Store documents not originated from an EMR  includes any scanned documents or external documents delivered through an electronic interface e.g. through Hospital Report
 					Manager.">Stored
                 Documents</a></th>
             <th>Rx new/renewals</th>
-            <th><a data-toggle="tooltip"
-                   data-original-title="Generate automated alerts or  reminders to support care delivery includes medication alerts (drug-drug, drug-allergy, drug-condition); preventive care and chronic disease
+            <th><a data-bs-toggle="tooltip"
+                   data-bs-title="Generate automated alerts or  reminders to support care delivery includes medication alerts (drug-drug, drug-allergy, drug-condition); preventive care and chronic disease
 					management reminders">Use
                 of reminders/alerts</a></th>
-            <th><a data-toggle="tooltip"
-                   data-original-title="Receive lab results electronically, directly into the EMR from private labs  includes electronic interfaces with hospital labs.">Labs</a>
+            <th><a data-bs-toggle="tooltip"
+                   data-bs-title="Receive lab results electronically, directly into the EMR from private labs  includes electronic interfaces with hospital labs.">Labs</a>
             </th>
         </tr>
         </thead>
@@ -338,13 +340,8 @@
 %>
 
 <script>
-    var startDt = $("#startDate").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDt = $("#endDate").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#startDate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#endDate", {dateFormat: "Y-m-d", allowInput: true});
     $(document).ready(function () {
         $('#usageForm').validate({
             rules: {
@@ -361,9 +358,7 @@
     });
 
     // initialiaze toolstips
-    $('.tooltips').tooltip({
-        selector: "a[data-toggle=tooltip]"
-    });
+    document.querySelectorAll('.tooltips a[data-bs-toggle="tooltip"]').forEach(function(el) { new bootstrap.Tooltip(el); });
 
     registerFormSubmit('usageForm', 'dynamic-content');
 </script>

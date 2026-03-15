@@ -80,7 +80,7 @@
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/picker.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
+        <!-- Bootstrap -->
 
         <script language="JavaScript">
             <!--
@@ -147,12 +147,12 @@
                 %>
             </select>
             <input type="hidden" name="dboperation" value=" Edit ">
-            <input type="submit" class="btn" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
+            <input type="submit" class="btn btn-secondary" value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
         </form>
     </div>
 
-    <div class="well">
-        <form name="addtemplatecode" method="post" action="scheduletemplatecodesetting.jsp" class="form-horizontal">
+    <div class="card card-body bg-body-tertiary">
+        <form name="addtemplatecode" method="post" action="scheduletemplatecodesetting.jsp" class="">
             <%
                 boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(" Edit ");
                 if (bEdit) {
@@ -168,37 +168,37 @@
                     }
                 }
             %>
-            <div class="control-group">
-                <label class="control-label" for="code"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formCode"/>:</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label" for="code"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formCode"/>:</label>
+                <div>
                     <input type="text" name="code" id="code" maxlength="1"
                             <%=bEdit?("value='"+dataBean.getProperty("code")+"'"):"value=''"%>>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label" for="description"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formDescription"/>:</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label" for="description"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formDescription"/>:</label>
+                <div>
                     <input type="text" name="description" id="description" maxlength="40"
                             <%=bEdit?("value='"+Encode.forHtmlContent(dataBean.getProperty("description"))+"'"):"value=''"%>>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label" for="duration"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formDuration"/>:</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label" for="duration"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formDuration"/>:</label>
+                <div>
                     <input type="text" name="duration" id="duration" maxlength="3"
                            placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.msgDuration"/>"
                             <%=bEdit?("value='"+dataBean.getProperty("duration")+"'"):"value=''"%>>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label" for="color"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formColor"/>:</label>
-                <div class="controls">
-                    <div class="input-append">
+            <div class="mb-3">
+                <label class="form-label" for="color"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formColor"/>:</label>
+                <div>
+                    <div class="input-group">
                         <input type="text" name="color" id="color" maxlength="10"
                                style="width: 178px; background-color:<%=bEdit?(dataBean.getProperty("color")):"white"%>;"
                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.msgColorExample"/>"
                                 <%=bEdit?("value='"+dataBean.getProperty("color")+"'"):"value=''"%>>
-                        <span class="add-on"><a
+                        <span class="input-group-text"><a
                                 href="javascript:TCP.popup(document.forms['addtemplatecode'].elements['color']);"><img
                                 width="15" height="13" border="0"
                                 src="${pageContext.request.contextPath}/images/sel.gif"
@@ -206,16 +206,16 @@
                     </div>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label" for="bookingLimit"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formBookingLimit"/>:</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label" for="bookingLimit"><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.formBookingLimit"/>:</label>
+                <div>
                     <input type="text" id="bookinglimit" name="bookinglimit"
                             <%=bEdit?("value='"+dataBean.getProperty("bookinglimit")+"'"):"value='1'"%>>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label" for="limitType">Limit Type:</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label" for="limitType">Limit Type:</label>
+                <div>
                     <input type="radio" name="confirm" value="No"
                             <%=(bEdit? (dataBean.getProperty("confirm").startsWith("N")? "checked" : "") : "checked")%>>Off
                     <input type="radio" name="confirm" value="Yes"
@@ -236,7 +236,7 @@
                 </div>
                 <div style="text-align:right">
                     <br>
-                    <input type="button" class="btn"
+                    <input type="button" class="btn btn-secondary"
                            onclick="document.forms['addtemplatecode'].dboperation.value='Delete'; document.forms['addtemplatecode'].submit();"
                            value='<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplatecodesetting.btnDelete"/>'>
                     <input type="button" class="btn btn-primary"

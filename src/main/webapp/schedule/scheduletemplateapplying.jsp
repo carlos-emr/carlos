@@ -181,7 +181,7 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.title"/></title>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
+        <!-- Bootstrap -->
         <script language="JavaScript">
             <!--
 
@@ -481,7 +481,7 @@
                         <br>
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgStepFour"/>
                     </div>
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
 
 
                         <%
@@ -559,7 +559,7 @@
                                     <%
                                         }
                                     %>
-                                </select> <input type="button" name="command" class="btn"
+                                </select> <input type="button" name="command" class="btn btn-secondary"
                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.btnDelete"/>"
                                                  onClick="onBtnDelete(document.forms['schedule'].elements['select'])">
                                 </td>
@@ -614,7 +614,7 @@
                             </tr>
                             <tr>
                                 <td style="text-align:center; white-space:nowrap" colspan="2">
-                                    <table class="table table-condensed talbe-bordered">
+                                    <table class="table table-sm talbe-bordered">
                                         <tr>
                                             <td style="width:70%">
                                                 <script>
@@ -668,7 +668,7 @@
                                                         <td><input type="text"
                                                                    name="sunfrom1" size="20" value="<%=param3[0][0]%>"
                                                                    readonly>
-                                                            <input type="button" class="btn" name="sunto1" value="<<"
+                                                            <input type="button" class="btn btn-secondary" name="sunto1" value="<<"
                                                                    onclick="javascript:tranbutton1_click();">
                                                             <%=bMoreAddr ? getSelectAddr("sunaddr1", addr, param4[0][0]) : ""  %>
                                                         </td>
@@ -680,7 +680,7 @@
                                                         <td><input type="text"
                                                                    name="monfrom1" size="20" value="<%=param3[1][0]%>"
                                                                    readonly>
-                                                            <input type="button" class="btn" name="monto1" value="<<"
+                                                            <input type="button" class="btn btn-secondary" name="monto1" value="<<"
                                                                    onclick="javascript:tranbutton2_click();">
                                                             <%=bMoreAddr ? getSelectAddr("monaddr1", addr, param4[1][0]) : ""  %>
                                                         </td>
@@ -693,7 +693,7 @@
                                                         <td><input type="text"
                                                                    name="tuefrom1" size="20" value="<%=param3[2][0]%>"
                                                                    readonly>
-                                                            <input type="button" class="btn" name="tueto1" value="<<"
+                                                            <input type="button" class="btn btn-secondary" name="tueto1" value="<<"
                                                                    onclick="javascript:tranbutton3_click();">
                                                             <%=bMoreAddr ? getSelectAddr("tueaddr1", addr, param4[2][0]) : ""  %>
                                                         </td>
@@ -706,7 +706,7 @@
                                                         <td><input type="text"
                                                                    name="wedfrom1" size="20" value="<%=param3[3][0]%>"
                                                                    readonly>
-                                                            <input type="button" class="btn" name="wedto1" value="<<"
+                                                            <input type="button" class="btn btn-secondary" name="wedto1" value="<<"
                                                                    onclick="javascript:tranbutton4_click();">
                                                             <%=bMoreAddr ? getSelectAddr("wedaddr1", addr, param4[3][0]) : ""  %>
                                                         </td>
@@ -719,7 +719,7 @@
                                                         <td><input type="text"
                                                                    name="thufrom1" size="20" value="<%=param3[4][0]%>"
                                                                    readonly>
-                                                            <input type="button" class="btn" name="thuto1" value="<<"
+                                                            <input type="button" class="btn btn-secondary" name="thuto1" value="<<"
                                                                    onclick="javascript:tranbutton5_click();">
                                                             <%=bMoreAddr ? getSelectAddr("thuaddr1", addr, param4[4][0]) : ""  %>
                                                         </td>
@@ -731,7 +731,7 @@
                                                         <td><input type="text"
                                                                    name="frifrom1" size="20" value="<%=param3[5][0]%>"
                                                                    readonly>
-                                                            <input type="button" class="btn" name="frito1" value="<<"
+                                                            <input type="button" class="btn btn-secondary" name="frito1" value="<<"
                                                                    onclick="javascript:tranbutton6_click();">
                                                             <%=bMoreAddr ? getSelectAddr("friaddr1", addr, param4[5][0]) : ""  %>
                                                         </td>
@@ -744,7 +744,7 @@
                                                         <td><input type="text"
                                                                    name="satfrom1" size="20" value="<%=param3[6][0]%>"
                                                                    readonly>
-                                                            <input type="button" class="btn" name="satto1" value="<<"
+                                                            <input type="button" class="btn btn-secondary" name="satto1" value="<<"
                                                                    onclick="javascript:tranbutton7_click();">
                                                             <%=bMoreAddr ? getSelectAddr("sataddr1", addr, param4[6][0]) : ""  %>
                                                         </td>

@@ -74,9 +74,9 @@
 
     <form action="<%=request.getContextPath() %>/admin/GstControl.do" method="post">
         GST:<br>
-        <div class="input-append">
-            <input type="text" class="span2" maxlength="3" id="gstPercent" name="gstPercent" value="<%=percent%>"/>
-            <span class="add-on">%</span>
+        <div class="input-group">
+            <input type="text" class="form-control" maxlength="3" id="gstPercent" name="gstPercent" value="<%=percent%>"/>
+            <span class="input-group-text">%</span>
         </div>
         <br>
         <input class="btn btn-primary" type="submit" value="save" onclick="submitcheck()"/>

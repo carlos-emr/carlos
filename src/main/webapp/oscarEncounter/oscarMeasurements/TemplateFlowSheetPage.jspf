@@ -170,6 +170,7 @@
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
@@ -500,25 +501,25 @@ div.recommendations ul{
              <tr>
              	<td>
                		<div class="DoNotPrint" style="display:flex; gap:3px; flex-direction: row;">
-                        <div class="form-group">
+                        <div class="mb-3">
                    <label for="numEle"> #Of Elements</label>
                         <input type="text" size="3" id="numEle" value="<%=request.getParameter("numEle") != null ? request.getParameter("numEle") : "" %>"/>
                         </div>
-                        <div class="form-group">
+                        <div class="mb-3">
                    <label for="flowsheetStartDate"> Start Date</label>
                         <input type="date" size="10" id="flowsheetStartDate" value="<%=request.getParameter("sdate") != null ? request.getParameter("sdate") : "" %>" />
                         </div>
-                        <div class="form-group">
+                        <div class="mb-3">
                    <label for="flowsheetEndDate"> End Date</label>
                         <input type="date" size="10" id="flowsheetEndDate" value="<%=request.getParameter("edate") != null ? request.getParameter("edate") : "" %>"/>
                         </div>
                         <div class="button-group">
                             <label>&nbsp;</label>
-                    <input type="button" class="btn" value="go" onclick="loadDifferentElements()"/>
+                    <input type="button" class="btn btn-secondary" value="go" onclick="loadDifferentElements()"/>
                         </div>
                         <div class="button-group">
                             <label>&nbsp;</label>
-                    <input type="button" class="btn" value="clear" onclick="clearDifferentElements()"/>
+                    <input type="button" class="btn btn-secondary" value="clear" onclick="clearDifferentElements()"/>
                         </div>
 
                     </div>
@@ -660,7 +661,7 @@ div.recommendations ul{
     <% } %>
 <div id="print_box">
    <input type="button" class="DoNotPrint btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarencounter.templateflowsheet.print"/>" onclick="javascript:window.print()">
-    <a class="btn" href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>">Custom Print</a>
+    <a class="btn btn-secondary" href="TemplateFlowSheetPrint.jsp?demographic_no=<%=demographic_no%>&template=<%=temp%>">Custom Print</a>
 &nbsp;
 
 </div>
@@ -983,7 +984,7 @@ if(temp.equals("diab2") || temp.equals("chf")) {
 %>
 
 
-<div class="panel panel-default">
+<div class="card card-body">
 	<!-- drug reason -->
 	 <h3>Associated Rx History</h3>
 	 <br/>
@@ -1047,7 +1048,7 @@ if(temp.equals("diab2") || temp.equals("chf")) {
 
 <% } %>
 
-<div class="panel panel-default">
+<div class="card card-body">
     <h3>Comments</h3>
     <ol>
         <% for (int i = 0; i < comments.size(); i++){

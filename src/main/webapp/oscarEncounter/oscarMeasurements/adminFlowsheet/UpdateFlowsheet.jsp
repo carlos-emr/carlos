@@ -156,8 +156,8 @@ display:inline-block;
 
     <%
         if (request.getParameter("demographic") == null) { %>
-<div class="navbar" id="demoHeader"><div class="navbar-inner">
-    <a class="brand" href="javascript:void(0)">Update Flowsheet Measurement</a>
+<div class="navbar" id="demoHeader"><div class="container-fluid">
+    <a class="navbar-brand" href="javascript:void(0)">Update Flowsheet Measurement</a>
     <em>for <strong><%=flowsheet%></strong> flowsheet </em>
 </div></div>
     <%} else { %>
@@ -169,7 +169,7 @@ display:inline-block;
 
 <div class="container-fluid" id="container-main">
 
-        <div class="span8">
+        <div class="col-md-8">
 <form action="FlowSheetCustomAction.do" method="post" onsubmit="return validateRuleValue();">
                 <input type="hidden" name="method" value="update"/>
                 <input type="hidden" name="flowsheet" value="<%=flowsheet%>"/>
@@ -186,7 +186,7 @@ display:inline-block;
                     <input type="hidden" name="prevention_type" value="<%=h2.get("prevention_type")%>"/>
                     <input type="hidden" name="measurement_type" value="<%=h2.get("measurement_type")%>"/>
 
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
                         <h4>Measurement Details</h4>
 
                         <div class="mtype-details">
@@ -213,7 +213,7 @@ display:inline-block;
                         </div>
                     </div>
 
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
                         <h4>Rule</h4>
 
                         <table class="table table-striped">
@@ -329,7 +329,7 @@ display:inline-block;
                 </div>
 
 
-                    <div class="well">
+                    <div class="card card-body bg-body-tertiary">
                         <table class="table table-striped">
                             <%
                                 Hashtable colourHash = mFlowsheet.getIndicatorHashtable();
@@ -487,10 +487,10 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn">Cancel</a>
+                        <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>" class="btn btn-secondary">Cancel</a>
                         <%} else { %>
                         <a href="EditFlowsheet.jsp?flowsheet=<%=flowsheet%>&demographic=<%=demographic%><%=htQueryString%><%=scope != null ? "&scope=" + scope : ""%>"
-                           class="btn">Cancel</a>
+                           class="btn btn-secondary">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>
                     </div>
@@ -507,7 +507,7 @@ display:inline-block;
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
 
-    <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>
 
 <script>
 $(document).ready(function () {

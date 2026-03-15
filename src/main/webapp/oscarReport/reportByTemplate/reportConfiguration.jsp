@@ -67,6 +67,7 @@
         <script src="${pageContext.request.contextPath}/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script src="${pageContext.request.contextPath}/share/calendar/calendar-setup.js"></script>
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script>
             function checkform(formobj) {
@@ -134,13 +135,13 @@
     </h3>
 
     <c:if test="${ not empty errormsg }">
-    <div class="alert alert-error">
-        <a href="#" data-dismiss="alert" class="close">&times;</a>
+    <div class="alert alert-danger">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <c:out value="${ errormsg }"/>
     </div>
     </c:if>
 
-    <div class="well configDiv" id=manageGroups>
+    <div class="card card-body bg-body-tertiary configDiv" id=manageGroups>
         <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/GenerateReportAction.do"
                    method="post" onsubmit="return checkform(this);">
             <input type="hidden" name="templateId" value="${ curreport.templateId }">
@@ -151,14 +152,14 @@
                     step++;
                     Parameter curparam = (Parameter) parameters.get(i);
             %>
-            <div class="control-group">
-                <label class="control-label" for="<%=curparam.getParamId()%>"><strong>Step <%=step%>
+            <div class="mb-3">
+                <label class="form-label" for="<%=curparam.getParamId()%>"><strong>Step <%=step%>
                     : </strong> <%=curparam.getParamDescription()%>
                 </label>
 
                     <%-- If LIST field --%>
                 <%if (curparam.getParamType().equals(curparam.LIST)) {%>
-                <div class="controls">
+                <div>
                     <select name="<%=curparam.getParamId()%>" id="<%=curparam.getParamId()%>">
                         <%
                             ArrayList paramChoices = curparam.getParamChoices();
@@ -173,16 +174,16 @@
 
                     <%--If TEXT field --%>
                 <% } else if (curparam.getParamType().equals(curparam.TEXT)) {%>
-                <div class="controls">
+                <div>
                     <input type="text" name="<%=curparam.getParamId()%>" id="<%=curparam.getParamId()%>"/>
                 </div>
 
                     <%--If DATE field --%>
                 <% } else if (curparam.getParamType().equals(curparam.DATE)) {%>
-                <div class="controls">
-                    <div class="input-append" id="<%=curparam.getParamId()%>">
+                <div>
+                    <div class="input-group" id="<%=curparam.getParamId()%>">
                         <input type="text" class="datefield" id="datefield<%=i%>" name="<%=curparam.getParamId()%>"/>
-                        <span class="add-on">
+                        <span class="input-group-text">
 									<a id="obsdate<%=i%>">
 										<img title="Calendar" src="${pageContext.request.contextPath}/images/cal.gif"
                                              alt="Calendar">
@@ -203,7 +204,7 @@
                     <%--If CHECK field --%>
                 <% } else if (curparam.getParamType().equals(curparam.CHECK)) {%>
                 <input type="hidden" name="<%=curparam.getParamId()%>:check" value=""/>
-                <div class="controls">
+                <div>
 
                     <input type="checkbox" name="mastercheck" id="mastercheck"
                            onclick="checkAll(this, 'enclosingCol<%=i%>', 'checkclass<%=i%>')"/>
@@ -213,16 +214,16 @@
                         for (int i2 = 0; i2 < paramChoices.size(); i2++) {
                             Choice curchoice = (Choice) paramChoices.get(i2);
                     %>
-                    <label class="checkbox control-label" for="<%=curparam.getParamId() + curchoice.getChoiceId()%>">
-                        <input type="checkbox" name="<%=curparam.getParamId()%>"
-                               id="<%=curparam.getParamId() + curchoice.getChoiceId()%>" class="checkclass<%=i%>"
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input checkclass<%=i%>" name="<%=curparam.getParamId()%>"
+                               id="<%=curparam.getParamId() + curchoice.getChoiceId()%>"
                                value="<%=curchoice.getChoiceId()%>"/>
-                        <%=curchoice.getChoiceText()%>
-                    </label>
+                        <label class="form-check-label" for="<%=curparam.getParamId() + curchoice.getChoiceId()%>"><%=curchoice.getChoiceText()%></label>
+                    </div>
                     <%}%>
                 </div>
                 <% } else if (curparam.getParamType().equals(curparam.TEXTLIST)) {%>
-                <div class="controls">
+                <div>
                     <input type="text" placeholder="Comma Separated" name="<%=curparam.getParamId()%>:list"
                            id="<%=curparam.getParamId()%>"/>
                 </div>
@@ -232,9 +233,9 @@
 
             <%} %> <%--end for loop --%>
 
-            <div class="control-group">
-                <label class="control-label"><strong>Step <%=step + 1%>:</strong></label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label"><strong>Step <%=step + 1%>:</strong></label>
+                <div>
                     <input type="submit" class="btn btn-primary" name="submitButton" value="Run Query"/>
                 </div>
             </div>

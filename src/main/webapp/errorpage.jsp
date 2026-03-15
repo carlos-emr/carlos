@@ -137,9 +137,9 @@
         </p>
 
         <div id="navigation">
-            <a class="btn btn-default pull-left" title="Go back"
+            <a class="btn btn-secondary float-start" title="Go back"
                href="#" onclick="window.history.back();" role="button">Back</a>
-            <a class="btn btn-default pull-right" title="Go back to main schedule"
+            <a class="btn btn-secondary float-end" title="Go back to main schedule"
                href="${ pageContext.request.contextPath }/provider/providercontrol.jsp" role="button">Exit</a>
         </div>
     </div>

@@ -150,6 +150,7 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script>
@@ -176,20 +177,22 @@
     <form name="billingSettingsForm" method="post" action="${pageContext.request.contextPath}/admin/billingSettings.jsp">
 
         <input type="hidden" name="dboperation" value="">
-        <table id="displaySettingsTable" class="table table-bordered table-striped table-hover table-condensed">
+        <table id="displaySettingsTable" class="table table-bordered table-striped table-hover table-sm">
             <tbody>
             <oscar:oscarPropertiesCheck property="billregion" value="BC">
                 <tr>
                     <td>Auto-populate Referring Physician on Billing Form for All Providers?:</td>
                     <td>
-                        <label for="auto_populate_refer-true" class="radio inline">
-                            <input id="auto_populate_refer-true" type="radio" value="true" name="auto_populate_refer"
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" id="auto_populate_refer-true" type="radio" value="true" name="auto_populate_refer"
                                     <%=(dataBean.getProperty("auto_populate_refer", "false").equals("true")) ? "checked" : ""%> />
-                            Yes</label>
-                        <label for="auto_populate_refer-false" class="radio inline">
-                            <input id="auto_populate_refer-false" type="radio" value="false" name="auto_populate_refer"
+                            <label class="form-check-label" for="auto_populate_refer-true">Yes</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" id="auto_populate_refer-false" type="radio" value="false" name="auto_populate_refer"
                                     <%=(dataBean.getProperty("auto_populate_refer", "false").equals("false")) ? "checked" : ""%> />
-                            No</label>
+                            <label class="form-check-label" for="auto_populate_refer-false">No</label>
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -244,11 +247,12 @@
                 <tr>
                     <td>Set clinic information to display on all private invoices:</td>
                     <td>
-                        <label for="invoice_use_custom_clinic_info" class="checkbox">
-                            <input type="checkbox" id="invoice_use_custom_clinic_info"
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="invoice_use_custom_clinic_info"
                                    name="invoice_use_custom_clinic_info"
                                    onclick="setClinicInfo()" ${ "on" eq dataBean["invoice_use_custom_clinic_info"] ? "checked" : ""} />
-                            Use Custom</label>
+                            <label class="form-check-label" for="invoice_use_custom_clinic_info">Use Custom</label>
+                        </div>
 
                         <br>
                         <textarea style="resize: none;" rows="5" id="invoice_custom_clinic_info"

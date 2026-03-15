@@ -53,6 +53,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>Uploading Claims from Oscar to MCEDT</title>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <link href="mailbox/css/mcedt.css" rel="stylesheet" type="text/css">
 
 

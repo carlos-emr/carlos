@@ -57,7 +57,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.title"/></title>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
         <script>
             function CodeAttach(File2) {
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
@@ -118,7 +118,7 @@
                 <option value="9">900-999</option>
             </select> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgOR"/> <br/>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgDescription"/>: <input
-                    type="text" name="codedesc" value=""> <input type="submit" class="btn"
+                    type="text" name="codedesc" value=""> <input type="submit" class="btn btn-secondary"
                                                                  name="search1"
                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnSearch"/>"/>
         </p>
@@ -128,7 +128,7 @@
 
     <form name="diagcode" id="diagcode" method="post"
           action="billingDigUpdate.jsp">
-        <table style="width:800px; margin:auto" class="table-striped table-condensed">
+        <table style="width:800px; margin:auto" class="table-striped table-sm">
             <thead>
             <tr>
                 <th style="width:12%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.formCode"/></b></th>
@@ -218,9 +218,9 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<%=Dcode%>|<%=DcodeDesc%>')"><%=Dcode%>
                 </a></td>
-                <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
+                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%=Dcode%>"
-                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn"
+                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
                                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode%>">
                 </td>
@@ -246,9 +246,9 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<%=Dcode%>|<%=DcodeDesc%>')"><%=Dcode%>
                 </a></td>
-                <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
+                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%=Dcode%>"
-                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn"
+                                             value="<%=DcodeDesc%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
                                                                                  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode%>">
                 </td>
@@ -273,9 +273,9 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<%=Dcode2%>|<%=DcodeDesc2%>')"><%=Dcode2%>
                 </a></td>
-                <td style="width:88%"><input type="text" class="input input-xxlarge" style="margin-bottom: 0px;"
+                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<%=Dcode2%>"
-                                             value="<%=DcodeDesc2%>">&nbsp;<input type="submit" class="btn"
+                                             value="<%=DcodeDesc2%>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                   name="update"
                                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.btnUpdate"/> <%=Dcode2%>">
                 </td>
