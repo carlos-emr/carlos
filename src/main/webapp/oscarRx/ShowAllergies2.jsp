@@ -95,7 +95,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="EditAllergies.title"/></title>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/allergies.css">
         <style type="text/css">

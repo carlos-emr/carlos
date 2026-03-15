@@ -218,7 +218,7 @@
             padding-left: .5em;
         }
     </style>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript">
         function submitForm(methodName) {
@@ -234,7 +234,7 @@
         }
     </script>
     <title>Billing Invoice</title>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
     <oscar:customInterface section="invoice"/>
 </head>
 <body>

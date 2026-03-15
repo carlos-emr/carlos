@@ -64,7 +64,7 @@
     <head>
         <title>Enrollment History</title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <script>
             var ctx = '<%=request.getContextPath()%>';
