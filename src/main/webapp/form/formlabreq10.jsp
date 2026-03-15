@@ -354,7 +354,7 @@
         function switchProvider(value) {
 
             if (value == -1) {
-                $("select[name='letterhead']").value = value;
+                $("select[name='letterhead']").val(value);
                 $("input[name='clinicName']").val("<%=clinic.getClinicName()%>");
                 $("input[name='clinicAddress']").val("<%=clinic.getClinicAddress() %>");
                 $("input[name='clinicCity']").val("<%=clinic.getClinicCity() + " " + clinic.getClinicProvince()%>");
@@ -370,7 +370,7 @@
                 if (typeof providerData["prov_" + value] != "undefined")
                     value = "prov_" + value;
 
-                $("select[name='letterhead']").value = value;
+                $("select[name='letterhead']").val(value);
 
                 $("input[name='clinicName']").val("");
                 $("input[name='clinicAddress']").val(providerData[value]['address']);
