@@ -15,7 +15,7 @@ Replacing `Ajax.Request` / `Ajax.Updater` with raw `fetch()` is error-prone beca
 
 1. **Server-side header dependencies** — Three Java servlet filters check for the `X-Requested-With: XMLHttpRequest` header. Omitting it corrupts AJAX responses with injected HTML.
 2. **Content-Type contract** — Server actions expect `application/x-www-form-urlencoded` for POST data. `fetch()` does not set this by default.
-3. **Callback ordering** — Prototype fires callbacks in a specific sequence (`onSuccess` → DOM update → `onComplete`). Breaking this order breaks dependent code.
+3. **Callback ordering** — Prototype fires callbacks in a specific sequence (`onSuccess` → DOM update → script execution → `onComplete`). Breaking this order breaks dependent code.
 4. **Script execution** — Modern `innerHTML` does NOT execute `<script>` tags. Some AJAX responses contain inline scripts that must run.
 5. **Content accumulation** — `Insertion.Bottom`/`Insertion.Top` appends/prepends without destroying existing content.
 
@@ -34,16 +34,20 @@ Makes an AJAX request without DOM manipulation. Replacement for `Ajax.Request`.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `method` | `string` | `'POST'` | HTTP method (`'GET'`, `'POST'`, `'PUT'`, `'DELETE'`) |
-| `parameters` | `object\|string` | `null` | Request parameters. Objects are serialized to URL-encoded form. Strings are sent as-is. |
+| `parameters` | `object\|string` | `null` | Request parameters. Objects are serialized to URL-encoded form. Strings are sent as-is. **For GET requests**, parameters are appended to the URL as query string parameters (matching Prototype.js behavior). **For POST/PUT/DELETE/PATCH**, parameters are sent in the request body. |
 | `postBody` | `string` | `null` | Raw request body. If provided, takes precedence over `parameters`. |
 | `contentType` | `string` | `'application/x-www-form-urlencoded'` | Content-Type header for POST requests. |
-| `requestHeaders` | `object` | `{}` | Additional HTTP headers to include. |
+| `requestHeaders` | `object` | `{}` | Additional HTTP headers to include. Custom headers are merged with automatic headers (`X-Requested-With`, `Content-Type`, `CSRF-TOKEN`). **Automatic headers take precedence** — custom headers cannot override `X-Requested-With` or `CSRF-TOKEN` (these are security-critical). Custom `Content-Type` is ignored — use the `contentType` option instead. |
 | `synchronous` | `boolean` | `false` | If `true`, uses synchronous `XMLHttpRequest`. See [Synchronous Requests](#synchronous-requests). |
 | `onSuccess` | `function(transport)` | `null` | Called on HTTP 2xx response. Receives a transport object. |
 | `onFailure` | `function(transport)` | `null` | Called on HTTP 4xx/5xx response. Receives a transport object. |
 | `onComplete` | `function(transport)` | `null` | Called after `onSuccess` or `onFailure`, regardless of outcome. Always fires — even on network errors. |
 
+**Callback execution order for `request()`**: `onSuccess(transport)` or `onFailure(transport)` fires first, then `onComplete(transport)` fires last. This order is guaranteed — `onComplete` never fires before `onSuccess`/`onFailure`.
+
 **Network error handling**: When `fetch()` rejects (DNS failure, connection refused, network offline), CarlosAjax catches the error and routes it to `onFailure` with a synthetic transport `{status: 0, responseText: 'Network error: ' + error.message}`, then fires `onComplete`. This matches the expectation of the 17+ `onFailure` callbacks in application code that expect to catch all errors.
+
+**Timeouts**: CarlosAjax does not implement request timeouts by default. The `fetch()` API has no built-in timeout. For synchronous `XMLHttpRequest`, the browser's default timeout applies. If a request hangs indefinitely, no callback fires until the connection is closed by the server or browser. Callers that need timeout behavior should implement it at the application level using `AbortController` or `setTimeout` + manual abort.
 
 **The `transport` object** passed to callbacks has:
 - `transport.responseText` — raw response body string
@@ -72,14 +76,16 @@ CarlosAjax.request('saveNote.do', {
 Makes an AJAX request and inserts the response HTML into a DOM element. Replacement for `Ajax.Updater`.
 
 **First argument** can be:
-- **String** (`'divId'`): Always updates the target element, regardless of success/failure
+- **String** (`'divId'`): Always updates the target element, regardless of success/failure. **On failure (4xx/5xx)**, the error response body (e.g., a server error page) IS inserted into the element. Callers that use the string form should consider this — if the error response is a full HTML page, it will replace the element's content and potentially break layout. Use the object form below to avoid this.
 - **Object** (`{success: 'divId'}`): Only updates the target on HTTP 2xx. On failure, no DOM update occurs. This two-target form is used in `newCaseManagementView.js.jsp` for note saving and issue updating.
+
+**When the target element does not exist** (no DOM element with the given ID): the DOM update is silently skipped. Callbacks (`onSuccess`, `onFailure`, `onComplete`) still fire normally. No error is thrown.
 
 **Additional parameters** (beyond those in `request()`):
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `insertion` | `string` | `null` | Where to insert content: `'bottom'`, `'top'`, `'before'`, `'after'`. If `null`, replaces element's innerHTML. |
+| `insertion` | `string` | `null` | Where to insert content relative to the target element: `'bottom'` (append inside, maps to `insertAdjacentHTML('beforeend')`), `'top'` (prepend inside, maps to `insertAdjacentHTML('afterbegin')`), `'before'` (insert before the element in DOM, maps to `insertAdjacentHTML('beforebegin')`), `'after'` (insert after the element in DOM, maps to `insertAdjacentHTML('afterend')`). If `null`, replaces element's innerHTML. |
 | `evalScripts` | `boolean` | `false` | If `true`, extracts and executes `<script>` tags from the response after inserting the HTML. |
 
 **Callback execution order** (matches Prototype.js contract):
@@ -107,6 +113,16 @@ CarlosAjax.updater('labResults', 'loadLabs.do', {
     method: 'GET',
     parameters: { demographicNo: demoNo },
     evalScripts: true
+});
+
+// Success-only update — only inserts HTML on HTTP 2xx (no DOM change on failure)
+// Used in newCaseManagementView.js.jsp (lines 2399, 2840) for note saving
+CarlosAjax.updater({success: 'noteContainer'}, 'saveNote.do', {
+    method: 'POST',
+    parameters: { noteId: 123 },
+    onFailure: function(transport) {
+        alert('Save failed: ' + transport.status);
+    }
 });
 ```
 
@@ -148,7 +164,7 @@ Without this header, AJAX responses will be corrupted with appended HTML.
 **How CarlosAjax handles this**: For all POST/PUT/DELETE/PATCH requests, CarlosAjax automatically extracts the CSRF token from the DOM and includes it as a **request header**:
 
 ```javascript
-// Internal implementation:
+// Internal helper, also exposed as CarlosAjax.getCsrfToken() for external use:
 function getCsrfToken() {
     const tokenInput = document.querySelector('input[name="CSRF-TOKEN"]');
     return tokenInput ? tokenInput.value : '';
@@ -295,7 +311,7 @@ The `visibilitychange` event fires in all the same scenarios as `beforeunload` (
 
 - **New code with no legacy patterns** — If you're writing new features from scratch and don't need Prototype.js callback ordering, use `fetch()` directly with async/await. **You MUST include both the required headers AND the CSRF token for POST requests:**
   ```javascript
-  // Helper to get CSRF token (or use CarlosAjax.getCsrfToken() if available)
+  // Helper to get CSRF token (CarlosAjax exposes this as CarlosAjax.getCsrfToken())
   function getCsrfToken() {
       const el = document.querySelector('input[name="CSRF-TOKEN"]');
       return el ? el.value : '';

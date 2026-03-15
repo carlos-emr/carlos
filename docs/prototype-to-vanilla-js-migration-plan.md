@@ -21,14 +21,41 @@ Provides drop-in replacements for the most common Prototype APIs using vanilla J
 ```javascript
 // Only define if Prototype's $ is not loaded
 if (typeof window.$ === 'undefined' || !window.Prototype) {
-    window.$ = function(id) { return document.getElementById(id); };
+    // Multi-argument form: $(id1, id2, ...) returns Array of elements (lines 944-947)
+    window.$ = function() {
+        if (arguments.length > 1) {
+            return Array.from(arguments).map(function(id) { return document.getElementById(id); });
+        }
+        return document.getElementById(arguments[0]);
+    };
 }
-window.$F = function(id) { return document.getElementById(id)?.value ?? ''; };
+// $F() must handle checkbox/radio: return null when unchecked (Prototype dispatches
+// through Form.Element.Serializers.inputSelector, lines 2873-2874 of prototype.js)
+window.$F = function(id) {
+    var el = document.getElementById(id);
+    if (!el) return '';
+    if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) return null;
+    return el.value;
+};
 window.$A = function(iterable) { return Array.from(iterable); };
+// $$() returns Array (not NodeList) so .invoke()/.each() work
+window.$$ = function(selector) { return Array.from(document.querySelectorAll(selector)); };
 
 // Element extensions (applied to HTMLElement.prototype)
+// IMPORTANT: Prototype's .update() EXECUTES inline scripts via evalScripts()
+// (prototype.js lines 1387-1389). Plain innerHTML does NOT execute scripts.
+// The shim must strip <script> tags, set innerHTML (trusted same-origin JSP
+// content — see Phase 0c security context), then create dynamic <script> DOM
+// elements to execute them (same safe pattern as CarlosAjax.updater).
+// See Phase 0c evalScripts section for the script extraction + DOM-append pattern.
 if (!HTMLElement.prototype.update) {
-    HTMLElement.prototype.update = function(html) { this.innerHTML = html; return this; };
+    HTMLElement.prototype.update = function(html) {
+        html = (html == null) ? '' : String(html);
+        // Uses same script extraction + DOM-append pattern from Phase 0c
+        // (trusted same-origin content only — OWASP-encoded JSP responses)
+        carlosExtractAndExecScripts(this, html);
+        return this;
+    };
 }
 if (!HTMLElement.prototype.hide) {
     HTMLElement.prototype.hide = function() { this.style.display = 'none'; return this; };
@@ -279,8 +306,8 @@ Fix: Add `'X-Requested-With': 'XMLHttpRequest'` header, `credentials: 'same-orig
 | `documentManager/uploadMultiDocument.jsp` | 1 `Ajax.Request` → `fetch()`, 1 `Effect.SlideUp` → CSS transition |
 | `documentManager/incomingDocs.jsp` | 1 `Ajax.Request` → `fetch()`, `Ajax.Autocompleter` → vanilla autocomplete (pattern from `showDocument.js`) |
 | `documentManager/MultiPageDocDisplay.jsp` | Remove `jQuery.noConflict()` if Prototype no longer loaded |
-| `documentManager/editDocument.jsp` | Remove Prototype + Scriptaculous includes |
-| `documentManager/addedithtmldocument.jsp` | Remove Prototype + Scriptaculous includes |
+| `documentManager/editDocument.jsp` | Remove Prototype + Scriptaculous includes; **also replace `Autocompleter.Local` with Bootstrap typeahead** (see Contract 12) |
+| `documentManager/addedithtmldocument.jsp` | Remove Prototype + Scriptaculous includes; **also replace `Autocompleter.Local` with Bootstrap typeahead** (see Contract 12) |
 | `documentManager/html5AddDocuments.jsp` | Remove Prototype + Scriptaculous includes |
 | `report/reportdaysheet.jsp` | Remove Prototype include. Has live `$$('tr.oscar')` + `.invoke('hide'/'show')` calls (lines ~119-124) — replace with `document.querySelectorAll()` + `.forEach()`. |
 | `report/GenerateLetters.jsp` | `Ajax.Request` → `fetch()` |
@@ -553,13 +580,13 @@ src/main/webapp/share/javascript/jquery/jquery-1.4.2.js ← DELETE
 Update any JSP files that reference these old versions to use the standard `global-head.jspf` include instead.
 
 ### 5c. Remove all `jQuery.noConflict()` calls
-**29 files** contain `jQuery.noConflict()` calls. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references across the entire codebase.
+**30 files** contain `jQuery.noConflict()` calls. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references across the entire codebase.
 
 **Removal groups** (after Prototype is removed from each page):
 
 | Group | Files | Action |
 |-------|-------|--------|
-| **A: No Prototype, no $j** (20 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographic*.jsp` (4), `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `SegmentDisplay.jsp`, `ChartNotes.jsp` | Safe to remove immediately — dead calls |
+| **A: No Prototype, no $j** (21 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographic*.jsp` (4), `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `SegmentDisplay.jsp`, `ChartNotes.jsp`, `oscarMDS/Index.jsp` | Safe to remove immediately — dead calls |
 | **B: Prototype loaded, no $() in JSP** (4 files) | `dxResearch.jsp`, `demographiceditdemographic.jsp` (also has Ajax.Request — see Phase 4e), `UserPreferences.jsp`, `manageFlowsheets.jsp` | Remove after Prototype `<script>` tag removed and Ajax calls migrated |
 | **C: Active Prototype $() usage** (5 files) | `encounter-head.jspf`, `newEncounterLayout.jsp`, `billingBC.jsp`, `SearchDrug3.jsp`, `MultiPageDocDisplay.jsp` | Remove ONLY after Prototype code migrated (Phases 1-4) |
 | **D: Third-party plugin** (1 file) | `js/jquery.fileDownload.js` — `var $ = jQuery.noConflict()` as module-local pattern | Leave as-is |
@@ -912,12 +939,22 @@ window.Form = {
 
 The `.up()` and `.down()` traversal methods are used for DOM navigation:
 ```javascript
-// .up('div', 2) — find 2nd ancestor matching 'div'
-HTMLElement.prototype.up = function(selector, level) {
-    var el = this; level = level || 0;
-    for (var i = 0; i <= level; i++) el = el.closest(selector + ':not(:scope)');
-    // OR iterate parentElement.closest() level+1 times
-    return el;
+// .up() without args returns parentElement (6 calls like $("noteIssues").up().id)
+// .up('div') finds first ancestor matching selector
+// .up('div', 2) finds (2+1)th ancestor matching 'div' — index parameter
+// NOTE: closest() is WRONG for .up() — it includes the element itself and
+//       cannot handle the level/index parameter. Must iterate parentElements.
+HTMLElement.prototype.up = function(selector, index) {
+    if (!selector) return this.parentElement;
+    var el = this.parentElement, count = 0;
+    while (el) {
+        if (el.matches && el.matches(selector)) {
+            if (count === (index || 0)) return el;
+            count++;
+        }
+        el = el.parentElement;
+    }
+    return null;
 };
 // .down('div') — find first descendant matching 'div'
 HTMLElement.prototype.down = function(selector) { return this.querySelector(selector); };
@@ -961,6 +998,23 @@ storedHandlers[name] = handler;
 el.removeEventListener('click', storedHandlers[name]);
 ```
 
+**CRITICAL: `bindAsEventListener` vs `.bind()` argument ordering**:
+Prototype's `bindAsEventListener` prepends the EVENT as the FIRST argument, then appends bound args:
+`handler.bindAsEventListener(this, midName, topName)` → `function(event, midName, topName)`
+
+`.bind()` does the OPPOSITE — prepends bound args BEFORE the event:
+`handler.bind(this, midName, topName)` → `function(midName, topName, event)`
+
+**Do NOT replace `bindAsEventListener` with `.bind()` directly.** The shim must provide:
+```javascript
+Function.prototype.bindAsEventListener = function(context) {
+    var fn = this, args = Array.prototype.slice.call(arguments, 1);
+    return function(event) {
+        return fn.apply(context, [event || window.event].concat(args));
+    };
+};
+```
+
 The compat shim must implement `bindAsEventListener`, `Element.observe`, and `Element.stopObserving` using this stored-reference pattern.
 
 **Known leak**: `newCaseManagementView.js.jsp` line 813 passes `openAnnotation.bindAsEventListener(...)` directly as a listener argument without storing the reference. The listener is never removed, so it stacks on repeated `showEdit()` calls. This is a pre-existing bug — consider fixing during migration by storing the reference and removing the previous listener before adding a new one.
@@ -986,6 +1040,8 @@ The compat shim must implement `bindAsEventListener`, `Element.observe`, and `El
 
 `CarlosAjax.updater()` must support an `insertion` option that maps to these positions.
 
+**Script execution**: Prototype's `Insertion.*` classes also call `evalScripts()` on the inserted HTML (prototype.js line 1992). `insertAdjacentHTML()` does NOT execute scripts. Direct `new Insertion.Bottom(el, html)` calls outside of AJAX contexts (e.g., `newCaseManagementView.js.jsp` lines 1897-1899) need script handling if the HTML could contain scripts. Verify that non-AJAX `Insertion.*` call sites never receive HTML with embedded `<script>` tags, or add the CarlosAjax script extraction pattern.
+
 ### Contract 7: `Element.show()` / `Element.hide()` — Display Value Reset
 
 **Prototype behavior**: `.show()` sets `style.display = ''` (empty string, returns to CSS default). `.hide()` sets `style.display = 'none'`. `.show()` does NOT remember the previous display value.
@@ -1003,14 +1059,20 @@ The compat shim must also provide `Element.toggle()` (standalone function form) 
 
 ### Contract 8: `$F()` — Form Field Value Access
 
-**Prototype behavior**: `$F(id)` returns the `.value` property of the element with the given ID. Works on `<input>`, `<select>`, and `<textarea>`.
+**Prototype behavior**: `$F(id)` returns the value of the form element with the given ID. For `<input>`, `<select>`, and `<textarea>`, this is `.value`. However, for **checkboxes and radios**, Prototype dispatches through `Form.Element.Serializers.inputSelector()` (prototype.js lines 2873-2874): returns `element.value` when **checked**, `null` when **unchecked**. For `<select multiple>`, Prototype returns an Array of selected values (not a single string).
 
 **Files affected** (62 calls in `newCaseManagementView.js.jsp`, 4 in `encounter.js`)
 
-**Migration rule**: Replace with `document.getElementById(id).value`. The compat shim provides:
+**Migration rule**: The compat shim must replicate Prototype's dispatch logic:
 ```javascript
-window.$F = function(id) { return document.getElementById(id)?.value ?? ''; };
+window.$F = function(id) {
+    var el = document.getElementById(id);
+    if (!el) return '';  // Intentional: Prototype throws, shim returns '' (safer)
+    if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) return null;
+    return el.value;
+};
 ```
+For direct migration (non-shim): replace with `document.getElementById(id).value` only if the target is never a checkbox/radio. Audit each call site.
 
 ### Contract 9: `$A()` — Static Array Copy from Live Collections
 
@@ -1035,6 +1097,8 @@ window.$F = function(id) { return document.getElementById(id)?.value ?? ''; };
 - `oscarRx/ViewScript2.jsp` (1 call)
 
 **Migration rule**: Replace `transport.responseText.evalJSON()` with `JSON.parse(transport.responseText)`.
+
+**IMPORTANT: `JSON.parse()` is STRICTER than `evalJSON()`**. Prototype's `evalJSON()` without sanitize uses `eval()` internally, which accepts non-standard JSON like unquoted keys, trailing commas, and single-quoted strings. `JSON.parse()` rejects all of these. Some calls use `evalJSON(true)` (sanitize mode) which validates structure first — `JSON.parse()` is equivalent to the sanitized form. Audit the 19 server endpoints that return JSON to ensure they produce valid strict JSON (double-quoted keys, no trailing commas).
 
 ### Contract 11: Effect Completion Callbacks (`afterFinish`, `afterUpdate`)
 
@@ -1133,9 +1197,15 @@ const offset = { left: el.offsetLeft, top: el.offsetTop };
 
 ### Contract 18: `.invoke()` — Batch Method Invocation on Multiple Elements
 
-**Prototype behavior**: `$$(selector).invoke('show')` calls `.show()` on every matched element.
+**Prototype behavior**: `$$(selector).invoke('show')` calls `.show()` on every matched element. `.invoke()` is added by Prototype's Enumerable mixin to Arrays.
 
-**Files affected**: `js/newCaseManagementView.js.jsp` (lines 941-947) — batch show/hide of form row elements
+**Files affected**:
+- `js/newCaseManagementView.js.jsp` (lines 941-947) — batch show/hide of form row elements
+- `oscarRx/SearchDrug3.jsp` — `$$('div.hiddenResource').invoke('show')`, `$$('div.untrustedResource').invoke('hide')`
+- `oscarRx/WriteScript.jsp` — similar `$$()` + `.invoke()` patterns
+- `report/reportdaysheet.jsp` — `$$('tr.oscar').invoke('show')` / `invoke('hide')`
+
+12+ `.invoke()` calls total across the codebase. Without the shim, ALL break.
 
 **Migration rule**: Replace with explicit loop:
 ```javascript
@@ -1143,7 +1213,19 @@ const offset = { left: el.offsetLeft, top: el.offsetTop };
 [rowIDs[2], rowIDs[4], rowIDs[5]].forEach(id => document.getElementById(id).style.display = '');
 ```
 
-Note: Prototype's multi-argument `$(id1, id2, id3)` returns an array of elements. The compat shim's `$()` must handle single-ID (returns element) vs multi-ID (returns array) cases, OR these call sites must be rewritten.
+**Compat shim must provide `.invoke()` on `Array.prototype`** (or at minimum on arrays returned by `$$()` and multi-arg `$()`):
+```javascript
+if (!Array.prototype.invoke) {
+    Array.prototype.invoke = function(method) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        return this.map(function(el) {
+            return el[method].apply(el, args);
+        });
+    };
+}
+```
+
+Note: Prototype's multi-argument `$(id1, id2, id3)` returns an array of elements. The compat shim's `$()` must handle single-ID (returns element) vs multi-ID (returns array) cases — both are now implemented in the Phase 0a shim code above.
 
 ### Contract 19: `postBody` vs `parameters` — Request Body Semantics
 
