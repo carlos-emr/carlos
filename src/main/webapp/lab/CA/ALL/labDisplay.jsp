@@ -721,7 +721,7 @@ input[id^='acklabel_']{
             }
 
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic.do";
-            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + labNo + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
+            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
