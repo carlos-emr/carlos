@@ -73,7 +73,7 @@
 %>
 <html>
     <head>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js" type="text/javascript"></script>
 
         <script>

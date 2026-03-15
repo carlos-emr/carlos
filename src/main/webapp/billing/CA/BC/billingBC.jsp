@@ -347,9 +347,9 @@
     </title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
 
@@ -362,9 +362,9 @@
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/moment.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"

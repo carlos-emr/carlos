@@ -61,8 +61,8 @@
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
 
     <style>
         body {
@@ -148,10 +148,10 @@
         }
     </style>
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
     <script>
         $(function () {

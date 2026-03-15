@@ -66,7 +66,7 @@
         <title>OSCAR Jobs</title>
 
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
         <script src="<%=request.getContextPath()%>/share/yui/js/yahoo-dom-event.js"></script>
         <script src="<%=request.getContextPath()%>/share/yui/js/connection-min.js"></script>

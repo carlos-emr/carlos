@@ -397,7 +397,7 @@
     <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css">
 
-    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
 
     <script src="${ pageContext.request.contextPath }/js/jqBootstrapValidation-1.3.7.min.js"></script>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="role"/></title>

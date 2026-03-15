@@ -76,11 +76,11 @@
 
 		<link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 		<link href="${pageContext.request.contextPath}/library/DataTables/datatables.css" rel="stylesheet">
-		<link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
+		<link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet">
 
 
 		<script src="${pageContext.request.contextPath}/js/global.js"></script>
-		<script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+		<script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 		<script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 

@@ -54,16 +54,16 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></title>
         <!--<script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>-->
 
-        <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
 
         <script src="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <link href="${ pageContext.servletContext.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
-        <link href="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui.structure-1.12.1.min.css"
+        <link href="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui.structure-1.14.2.min.css"
               rel="stylesheet">
-        <link href="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui.theme-1.12.1.min.css"
+        <link href="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui.theme-1.14.2.min.css"
               rel="stylesheet">
-        <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
         <script language="JavaScript">
             function setfocus() {

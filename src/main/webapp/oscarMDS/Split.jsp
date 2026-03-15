@@ -40,14 +40,14 @@
     <title>PDF Sorter</title>
 
     <link rel="stylesheet"
-          href="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui.theme-1.12.1.min.css"
+          href="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui.theme-1.14.2.min.css"
           type="text/css"/>
     <link rel="stylesheet" href="${ pageContext.servletContext.contextPath }/share/css/sorter.css" type="text/css"/>
 
     <script type="text/javascript"
-            src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+            src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
+            src="${ pageContext.servletContext.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
     <script type="text/javascript"
             src="${ pageContext.servletContext.contextPath }/share/javascript/jquery/jquery.rotate.1-1.js"></script>

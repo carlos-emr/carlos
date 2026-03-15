@@ -28,7 +28,7 @@
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+                src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <title>MOH Report</title>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/billing.css">
         <link rel="stylesheet" type="text/css" media="all"

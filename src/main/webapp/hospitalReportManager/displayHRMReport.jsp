@@ -205,9 +205,9 @@
     <title>HRM Report</title>
 
     <script type="text/javascript"
-            src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+            src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript"
-            src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+            src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script language="javascript" type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/carlos-ajax.js"></script>
@@ -222,7 +222,7 @@
     <script type="text/javascript" src="<%=request.getContextPath()%>/hospitalReportManager/hrmActions.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
 
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css"
           type="text/css"/>
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/yui/css/fonts-min.css"/>
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/yui/css/autocomplete.css"/>

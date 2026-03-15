@@ -185,8 +185,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript" >
         	var ctx = '${ ctx }';
         </script>
-<script type="text/javascript" src="${ ctx }/library/jquery/jquery-3.6.4.min.js" ></script>
-<script type="text/javascript" src="${ ctx }/library/jquery/jquery-ui-1.12.1.min.js" ></script>
+<script type="text/javascript" src="${ ctx }/library/jquery/jquery-3.7.1.min.js" ></script>
+<script type="text/javascript" src="${ ctx }/library/jquery/jquery-ui-1.14.2.min.js" ></script>
 
 		<link href="${ ctx }/css/searchDrug3.css" rel="stylesheet" type="text/css"/>
 
@@ -202,7 +202,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <%-- YUI autocomplete library removed — replaced by jQuery UI autocomplete --%>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.12.1.min.css"/>
+		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
 
         <script type="text/javascript">
             let selectedReRxIDs = [];

@@ -65,7 +65,7 @@
         <link rel="stylesheet" type="text/css" media="screen"
               href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
         <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
-        <script type="text/javascript" src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+        <script type="text/javascript" src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript">
 
             function popUpData(data) {

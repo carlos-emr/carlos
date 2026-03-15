@@ -76,7 +76,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdateprovider.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
         <script LANGUAGE="JavaScript">

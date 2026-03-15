@@ -67,7 +67,7 @@
         <title>OSCAR Jobs</title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script src="<%=request.getContextPath() %>/js/global.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <style>

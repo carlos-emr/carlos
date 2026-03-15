@@ -40,11 +40,11 @@
 
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
 
         <style>
             body {
@@ -140,7 +140,7 @@
 
     <div style="font-size:0; line-height:0">&nbsp;</div>
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 
     <script>
         $(document).ready(function () {

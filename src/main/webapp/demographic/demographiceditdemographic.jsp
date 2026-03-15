@@ -258,9 +258,9 @@
         <link rel="stylesheet" type="text/css" media="all"
               href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript"
-                src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+                src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link rel="stylesheet" href="<%=request.getContextPath() %>/demographic/demographiceditdemographic.css"
               type="text/css"/>
 

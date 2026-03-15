@@ -78,7 +78,7 @@
                 src="<%=request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"
                 type="text/javascript"></script>
 
         <script src="<%=request.getContextPath()%>/js/fg.menu.js"></script>
@@ -87,15 +87,15 @@
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/js/bootstrap-select.min.js"></script>
 
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"
                 type="text/javascript"></script>
 
         <link rel="stylesheet" type="text/css" media="all"
               href="<%=request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/bootstrap-select.css"/>
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.theme-1.12.1.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui.theme-1.14.2.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/formBCAR2020.css">
 
 

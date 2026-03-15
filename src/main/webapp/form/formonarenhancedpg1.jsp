@@ -104,7 +104,7 @@
                 src="<%= context %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= context %>/share/calendar/calendar-setup.js"></script>
 
-        <script src="<%= context %>/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
+        <script src="<%= context %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
         <script src="<%= context %>/js/jquery-ui-1.8.18.custom.min.js"></script>
         <script src="<%= context %>/js/fg.menu.js"></script>
 

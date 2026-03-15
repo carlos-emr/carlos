@@ -53,7 +53,7 @@
           href="${ pageContext.request.contextPath }/css/bootstrap-timepicker.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
@@ -61,7 +61,7 @@
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/library/bootstrap2-datepicker/bootstrap-datepicker.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/js/bootstrap-timepicker.min.js"></script>

@@ -45,7 +45,7 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>Upload</title>
-    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js" type="application/javascript"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="application/javascript"></script>
     <script type="text/javascript">
         $(window).load(function () {
             $('input[type="checkbox"]').click(function () {
