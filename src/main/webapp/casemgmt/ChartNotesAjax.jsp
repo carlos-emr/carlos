@@ -976,20 +976,20 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 		setTimeout(adjustCaseNote, 0);
 	});
 
-    Element.observe(caseNote, 'click', getActiveText);
+    document.getElementById(caseNote).addEventListener('click', getActiveText);
     <%Integer num;
 			Iterator<Integer> iterator = lockedNotes.iterator();
 			while (iterator.hasNext())
 			{
 				num = iterator.next();%>
-    Element.observe('n<%=num%>', 'click', unlockNote);
+    document.getElementById('n<%=num%>').addEventListener('click', unlockNote);
     <%}
 
 			iterator = unLockedNotes.iterator();
 			while (iterator.hasNext())
 			{
 				num = iterator.next();%>
-    Element.observe('n<%=num%>', 'click', fullView);
+    document.getElementById('n<%=num%>').addEventListener('click', fullView);
     <%}%>
 
     //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
@@ -1016,9 +1016,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     makeIssue = "makeIssue";
     defaultDiv = "sig<%=savedId%>";
     changeIssueFunc;  //set in changeDiagnosis function above
-    addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, defaultDiv);
-    if ($('asgnIssues')) {
-        Element.observe('asgnIssues', 'click', addIssueFunc);
+    addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
+    if (document.getElementById('asgnIssues')) {
+        document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
     }
     try {
          new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {

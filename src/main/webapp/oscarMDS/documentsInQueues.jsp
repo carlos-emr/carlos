@@ -124,7 +124,7 @@
             var data = 'method=isDocumentLinkedToDemographic&docId=' + docid;
             CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
-                    var json = transport.responseText.evalJSON();
+                    var json = JSON.parse(transport.responseText);
                     if (json != null) {
                         var success = json.isLinkedToDemographic;
                         var demoid = '';
@@ -910,7 +910,7 @@
             if (inQueue)
                 data += "&inQueue=" + inQueue;
             // oscarLog('url='+url+'+-+ \n data='+data+"----div:"+div);
-            var placeholder = $('docPlaceholder_' + docNo);
+            var placeholder = document.getElementById('docPlaceholder_' + docNo);
             var ajaxOptions = {
                 method: 'get',
                 parameters: data,
@@ -920,9 +920,9 @@
                 }
             };
             if (!placeholder) {
-                ajaxOptions.insertion = Insertion.Bottom;
+                ajaxOptions.insertion = 'bottom';
             }
-            new Ajax.Updater(placeholder || div, url, ajaxOptions);
+            CarlosAjax.updater(placeholder || div, url, ajaxOptions);
 
         }
 
@@ -1546,7 +1546,7 @@
                 //console.log('in getp '+patientId);
                 CarlosAjax.request(url, {
                     method: 'post', parameters: data, onSuccess: function (transport) {
-                        var json = transport.responseText.evalJSON();
+                        var json = JSON.parse(transport.responseText);
                         //console.log("onsuccess=="+json);
                         if (json != null) {
                             var pn = json.demoName;//get name from id
@@ -1964,7 +1964,7 @@
                         } else {
                             var newEle = createNewDocEle(patientId);
                             //oscarLog($('labdoc'+patientId+'showSublist'));
-                            new Insertion.Bottom('labdoc' + patientId + 'showSublist', newEle);
+                            document.getElementById('labdoc' + patientId + 'showSublist').insertAdjacentHTML('beforeend', newEle);
                             changed = true;
                         }
                     } else if (type == 'HL7') {
@@ -1973,7 +1973,7 @@
                             changed = true;
                         } else {
                             var newEle = createNewHL7Ele(patientId);
-                            new Insertion.Bottom('labdoc' + patientId + 'showSublist', newEle);
+                            document.getElementById('labdoc' + patientId + 'showSublist').insertAdjacentHTML('beforeend', newEle);
                             changed = true;
                         }
                     }
@@ -2006,7 +2006,7 @@
             //console.log('in cre '+patientId);
             CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
-                    var json = transport.responseText.evalJSON();
+                    var json = JSON.parse(transport.responseText);
                     //oscarLog(json);
                     if (json != null) {
                         var patientName = json.demoName;//get name from id
@@ -2030,7 +2030,7 @@
                         e += '</dl></dt>';
                         //oscarLog('jjjjje='+e);
                         //oscarLog('before return e');
-                        new Insertion.Bottom('patientsdoclabs', e);
+                        document.getElementById('patientsdoclabs').insertAdjacentHTML('beforeend', e);
                         return e;
                     }
                 }
@@ -2093,10 +2093,10 @@
         }
 
         function updateDocument(eleId, isNext) {//save doc info
-            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do", data = $(eleId).serialize(true);
+            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do", data = new URLSearchParams(new FormData(document.getElementById(eleId))).toString();
             CarlosAjax.request(url, {
                 method: 'post', parameters: data, onSuccess: function (transport) {
-                    var json = transport.responseText.evalJSON();
+                    var json = JSON.parse(transport.responseText);
                     var patientId;
                     //oscarLog(json);
                     if (json != null) {
@@ -2124,7 +2124,7 @@
                                 if (isNext) {
                                     //console.log("isNext is true");
                                     //blind up
-                                    Effect.BlindUp('labdoc_' + num);
+                                    var _el = document.getElementById('labdoc_' + num); if (_el) { _el.style.transition = 'max-height 0.3s ease, opacity 0.3s ease'; _el.style.overflow = 'hidden'; _el.style.maxHeight = '0'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
                                     //make the document out of the queue
                                     updateDocStatusInQueue(num);
                                     //update side navigation for queue
@@ -2159,7 +2159,7 @@
                             method: 'post', parameters: data, onSuccess: function (transport) {
                                 //console.log('after updatestatus ,doclabid '+doclabid);
 
-                                Effect.BlindUp('labdoc_' + doclabid);
+                                var _el = document.getElementById('labdoc_' + doclabid); if (_el) { _el.style.transition = 'max-height 0.3s ease, opacity 0.3s ease'; _el.style.overflow = 'hidden'; _el.style.maxHeight = '0'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
                                 updateDocLabData(doclabid, inQueue);
                                 if (inQueue) {
                                     //console.log(' inqueue is true ');
@@ -2195,7 +2195,7 @@
                             var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
                             CarlosAjax.request(url, {
                                 method: 'post', parameters: data, onSuccess: function (transport) {
-                                    Effect.Fade('labdoc_' + docId);
+                                    var _el = document.getElementById('labdoc_' + docId); if (_el) { _el.style.transition = 'opacity 0.3s ease'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
                                     updateDocLabData(docId, true);
                                     removeDocFromQueue(doclabid);
                                 }
@@ -2217,7 +2217,7 @@
                         var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
                         CarlosAjax.request(url, {
                             method: 'post', parameters: data, onSuccess: function (transport) {
-                                Effect.Fade('labdoc_' + docId);
+                                var _el = document.getElementById('labdoc_' + docId); if (_el) { _el.style.transition = 'opacity 0.3s ease'; _el.style.opacity = '0'; setTimeout(function() { _el.style.display = 'none'; }, 300); }
                                 updateDocLabData(docId, true);
                                 removeDocFromQueue(doclabid);
                             }

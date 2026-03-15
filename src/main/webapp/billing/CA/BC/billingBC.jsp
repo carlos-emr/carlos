@@ -584,8 +584,6 @@
     </style>
     <script type="text/javascript">
 
-        jQuery.noConflict();
-
         // set the context path for javascript functions
         var ctx = '${pageContext.servletContext.contextPath}';
 

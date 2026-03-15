@@ -413,8 +413,6 @@
             src="${pageContext.servletContext.contextPath}/js/documentDescriptionTypeahead.js"></script>
 
     <script type="text/javascript">
-        jQuery.noConflict();
-
         const ctx = "${pageContext.servletContext.contextPath}";
         var contextpath = ctx;
 

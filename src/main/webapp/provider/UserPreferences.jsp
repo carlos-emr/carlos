@@ -48,9 +48,6 @@
     <script src="<c:out value="${ctx}/js/checkPassword.js.jsp"/>"></script>
     <script src="<c:out value="${ctx}/js/jquery.js"/>"></script>
     <script>
-        jQuery.noConflict();
-    </script>
-    <script>
         jQuery(document).ready(function () {
             //jQuery("#general").hide();
             jQuery("#scheduling").hide();

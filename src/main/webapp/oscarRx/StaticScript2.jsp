@@ -144,27 +144,37 @@
                     oscarLog(url);
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
-                    new Ajax.Request(url, {
-                        method: 'post', parameters: data, onSuccess: function (transport) {
-                            window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%=regionalIdentifier%>' + "&cn=" + '<%=cn%>';
-                        }
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                        credentials: 'same-origin',
+                        body: data
+                    }).then(function() {
+                        window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%=regionalIdentifier%>' + "&cn=" + '<%=cn%>';
                     });
                 }
             }
 
             //represcribe a drug
-            function reRxDrugSearch3(reRxDrugId) {
+            async function reRxDrugSearch3(reRxDrugId) {
                 var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
                 var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do";
-                new Ajax.Request(urlUpdateId, {method: 'post', parameters: dataUpdateId + "&parameterValue=updateReRxDrug"});
+                fetch(urlUpdateId, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: dataUpdateId + "&parameterValue=updateReRxDrug"
+                });
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId);
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/rePrescribe2.do?method=saveReRxDrugIdToStash";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, asynchronous: false, onSuccess: function (transport) {
-                        location.href = "<c:out value="${ctx}"/>" + "/oscarRx/SearchDrug3.jsp?";
-                    }
+                await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: data
                 });
+                location.href = "<c:out value="${ctx}"/>" + "/oscarRx/SearchDrug3.jsp?";
             }
 
         </script>

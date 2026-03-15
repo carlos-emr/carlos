@@ -139,26 +139,7 @@
     }
 
     function urlencode(str) {
-        var ns = (navigator.appName == "Netscape") ? 1 : 0;
-        if (ns) {
-            return escape(str);
-        }
-        var ms = "%25#23 20+2B?3F<3C>3E{7B}7D[5B]5D|7C^5E~7E`60";
-        var msi = 0;
-        var i, c, rs, ts;
-        while (msi < ms.length) {
-            c = ms.charAt(msi);
-            rs = ms.substring(++msi, msi + 2);
-            msi += 2;
-            i = 0;
-            while (true) {
-                i = str.indexOf(c, i);
-                if (i == -1) break;
-                ts = str.substring(0, i);
-                str = ts + "%" + rs + str.substring(++i, str.length);
-            }
-        }
-        return str;
+        return encodeURIComponent(str);
     }
 
     function measurementLoaded(name) {
@@ -794,12 +775,7 @@
 
         $(editElem).style.right = right + "px";
         $(editElem).style.top = top + "px";
-        if (Prototype.Browser.IE) {
-            //IE6 bug of showing select box
-            if ($("channel")) $("channel").style.visibility = "hidden";
-            $(editElem).style.display = "block";
-        } else
-            $(editElem).style.display = "table";
+        $(editElem).style.display = "table";
 
         //Prepare Annotation Window & Extra Fields
         var now = new Date();
@@ -2858,9 +2834,9 @@ function updateCPPNote() {
     function showFilter() {
 
         if (filterShows)
-            new Effect.BlindUp('filter', { queue: 'end' });
+            $('filter').classList.add('carlos-collapsed');
         else
-            new Effect.BlindDown('filter', { queue: 'end' });
+            $('filter').classList.remove('carlos-collapsed');
 
         filterShows = !filterShows;
     }
@@ -3148,9 +3124,10 @@ function autoSave() {
     }
 
     function autoCompleteHideMenu(element, update) {
-        new Effect.Fade(update, {duration: 0.15});
-        new Effect.Fade($("issueTable"), {duration: 0.15});
-        new Effect.Fade($("issueList"), {duration: 0.15});
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.classList.add('carlos-fade-out'); setTimeout(function() { el.style.display = 'none'; }, 300); }
+        var tbl = $("issueTable"); if (tbl) { tbl.classList.add('carlos-fade-out'); setTimeout(function() { tbl.style.display = 'none'; }, 300); }
+        var lst = $("issueList"); if (lst) { lst.classList.add('carlos-fade-out'); setTimeout(function() { lst.style.display = 'none'; }, 300); }
     }
 
     function autoCompleteShowMenu(element, update) {
@@ -3159,21 +3136,23 @@ function autoSave() {
         $("issueList").style.top = $("mainContent").style.top;
         $("issueList").style.width = $("issueAutocompleteList").style.width;
 
-        Effect.Appear($("issueList"), {duration: 0.15});
-        Effect.Appear($("issueTable"), {duration: 0.15});
-        Effect.Appear(update, {duration: 0.15});
+        var lst = $("issueList"); if (lst) { lst.style.display = ''; lst.classList.remove('carlos-fade-out'); }
+        var tbl = $("issueTable"); if (tbl) { tbl.style.display = ''; tbl.classList.remove('carlos-fade-out'); }
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.style.display = ''; el.classList.remove('carlos-fade-out'); }
 
     }
 
     function autoCompleteHideMenuCPP(element, update) {
-        new Effect.Fade(update, {duration: 0.15});
-        new Effect.Fade($("issueListCPP"), {duration: 0.15});
-
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.classList.add('carlos-fade-out'); setTimeout(function() { el.style.display = 'none'; }, 300); }
+        var lst = $("issueListCPP"); if (lst) { lst.classList.add('carlos-fade-out'); setTimeout(function() { lst.style.display = 'none'; }, 300); }
     }
 
     function autoCompleteShowMenuCPP(element, update) {
-        Effect.Appear($("issueListCPP"), {duration: 0.15});
-        Effect.Appear(update, {duration: 0.15});
+        var lst = $("issueListCPP"); if (lst) { lst.style.display = ''; lst.classList.remove('carlos-fade-out'); }
+        var el = (typeof update === 'string') ? $(update) : update;
+        if (el) { el.style.display = ''; el.classList.remove('carlos-fade-out'); }
     }
 
     function callInProgress(xmlhttp) {

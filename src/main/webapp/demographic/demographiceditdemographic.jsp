@@ -299,9 +299,6 @@
                 type="text/javascript"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/menutility.js"
                 type="text/javascript"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <script type="text/javascript"
                 src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>

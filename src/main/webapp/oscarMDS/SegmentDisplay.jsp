@@ -87,7 +87,6 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 
 
 <script type="text/javascript" charset="utf-8">
-    jQuery.noConflict();
     jQuery(function () {
         jQuery("#createLabel").click(function () {
             jQuery.ajax({

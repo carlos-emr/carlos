@@ -72,12 +72,6 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
               type="text/css"/>
 
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/lightwindow/javascript/lightwindow.js"></script>
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/lightwindow/css/lightwindow.css">
 
 
         <c:if test="${empty RxSessionBean}">
@@ -373,29 +367,23 @@
                 })
             })(jQuery);
 
+            function openCarlosModal(url) {
+                var iframe = document.getElementById('carlosModalIframe');
+                iframe.src = url;
+                jQuery('#carlosModal').modal('show');
+            }
+
             function addPharmacy() {
-                myLightWindow.activateWindow({
-                    href: "<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Add",
-                    width: 400,
-                    height: 500
-                });
+                openCarlosModal("<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Add");
             }
 
             function editPharmacy(id) {
-                myLightWindow.activateWindow({
-                    href: "<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Edit&ID=" + id,
-                    width: 400,
-                    height: 500
-                });
+                openCarlosModal("<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Edit&ID=" + id);
                 jQuery("html, body").animate({scrollTop: 0}, 1000);
             }
 
             function viewPharmacy(id) {
-                myLightWindow.activateWindow({
-                    href: "<%= request.getContextPath() %>/oscarRx/ViewPharmacy.jsp?type=View&ID=" + id,
-                    width: 400,
-                    height: 500
-                });
+                openCarlosModal("<%= request.getContextPath() %>/oscarRx/ViewPharmacy.jsp?type=View&ID=" + id);
                 jQuery("html, body").animate({scrollTop: 0}, 1000);
             }
 
@@ -506,6 +494,18 @@
         </style>
     </head>
     <body>
+    <div class="modal fade" id="carlosModal" tabindex="-1" role="dialog" aria-label="Pharmacy Dialog">
+        <div class="modal-dialog" role="document" style="width:430px;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body" style="padding:0;">
+                    <iframe id="carlosModalIframe" src="" style="width:100%;height:500px;border:none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="container-fluid" style="margin:auto 15px;">
 
         <form id="pharmacyForm">

@@ -332,11 +332,16 @@
                 var url = contextpath + "/documentManager/inboxManage.do";
                 var data = 'method=isDocumentLinkedToDemographic&docId=' + encodeURIComponent(docid);
 
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': csrfToken
                     },
+                    credentials: 'same-origin',
                     body: data
                 })
                 .then(function(response) {
@@ -368,11 +373,16 @@
                 var btn = document.getElementById('rotate90btn_' + id);
                 if (btn) btn.disabled = true;
 
+                var csrfEl2 = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken2 = csrfEl2 ? csrfEl2.value : '';
                 fetch(contextpath + "/documentManager/SplitDocument.do", {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': csrfToken2
                     },
+                    credentials: 'same-origin',
                     body: "method=rotate90&document=" + encodeURIComponent(id)
                 })
                 .then(function(response) {
@@ -941,9 +951,16 @@
                 docId: docId,
                 providerNo: providerNo
             });
+            var csrfEl3 = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken3 = csrfEl3 ? csrfEl3.value : '';
             fetch(contextpath + '/documentManager/ManageDocument.do', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'CSRF-TOKEN': csrfToken3
+                },
+                credentials: 'same-origin',
                 body: data.toString()
             }).then(function(response) {
                 if (response.ok) {
@@ -1101,9 +1118,16 @@
     function runDocMacro(name, formid, closeOnSuccess) {
         var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
         var data = 'method=isDocumentLinkedToDemographic&docId=<%= Encode.forJavaScript(docId) %>';
+        var csrfEl4 = document.querySelector('input[name="CSRF-TOKEN"]');
+        var csrfToken4 = csrfEl4 ? csrfEl4.value : '';
         fetch(url, {
             method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'CSRF-TOKEN': csrfToken4
+            },
+            credentials: 'same-origin',
             body: data
         })
         .then(function(response) { return response.json(); })
@@ -1123,9 +1147,16 @@
         var url = '<%=request.getContextPath()%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
         var data = new URLSearchParams(new FormData(formEl)).toString();
+        var csrfEl5 = document.querySelector('input[name="CSRF-TOKEN"]');
+        var csrfToken5 = csrfEl5 ? csrfEl5.value : '';
         fetch(url, {
             method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'CSRF-TOKEN': csrfToken5
+            },
+            credentials: 'same-origin',
             body: data
         })
         .then(function(response) {
