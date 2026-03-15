@@ -246,9 +246,7 @@
     <!-- calendar stylesheet -->
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/controls.js"></script>
+    <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
@@ -676,7 +674,40 @@
         }
 
         window.onload = function () {
-            new Autocompleter.Local('docSubClass', 'docSubClass_list', docSubClassList);
+            // Vanilla autocomplete replacing Autocompleter.Local
+            (function() {
+                var input = document.getElementById('docSubClass');
+                var dropdown = document.getElementById('docSubClass_list');
+                if (!input || !dropdown) return;
+                input.addEventListener('input', function() {
+                    var val = input.value.toLowerCase();
+                    while (dropdown.firstChild) { dropdown.removeChild(dropdown.firstChild); }
+                    if (val.length === 0) { dropdown.style.display = 'none'; return; }
+                    var matches = docSubClassList.filter(function(item) {
+                        return item.toLowerCase().indexOf(val) !== -1;
+                    });
+                    if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+                    var ul = document.createElement('ul');
+                    matches.forEach(function(match) {
+                        var li = document.createElement('li');
+                        li.textContent = match;
+                        li.style.cursor = 'pointer';
+                        li.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            input.value = match;
+                            dropdown.style.display = 'none';
+                        });
+                        li.addEventListener('mouseover', function() { li.classList.add('selected'); });
+                        li.addEventListener('mouseout', function() { li.classList.remove('selected'); });
+                        ul.appendChild(li);
+                    });
+                    dropdown.appendChild(ul);
+                    dropdown.style.display = 'block';
+                });
+                input.addEventListener('blur', function() {
+                    setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+                });
+            })();
             setupDocDescriptionTypeahead(null);
         }
 
@@ -737,28 +768,35 @@
                 var docDescriptionList;
                 var docType = document.getElementById('docType').options[document.getElementById('docType').selectedIndex].value;
 
-                docDescriptionList = $('docDescriptionList');
+                docDescriptionList = document.getElementById('docDescriptionList');
                 while (docDescriptionList.hasChildNodes()) {
                     docDescriptionList.removeChild(docDescriptionList.lastChild);
                 }
 
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=<%=user_no%>&useDocumentDescriptionTemplateType=<%=useDocumentDescriptionTemplateType%>";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        var json = transport.responseText.evalJSON();
-                        if (json != null) {
-                            for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
-
-                                bdoc = document.createElement('input');
-                                bdoc.setAttribute("type", "button");
-                                bdoc.setAttribute("value", json.documentDescriptionTemplate[i].descriptionShortcut);
-                                bdoc.setAttribute("title", json.documentDescriptionTemplate[i].description);
-                                bdoc.setAttribute("onclick", "selectDocDesc('" + json.documentDescriptionTemplate[i].description + "');");
-
-                                docDescriptionList = $('docDescriptionList');
-                                docDescriptionList.appendChild(bdoc);
-                            }
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': csrfToken
+                    },
+                    credentials: 'same-origin',
+                    body: data
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(json) {
+                    if (json != null) {
+                        for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
+                            bdoc = document.createElement('input');
+                            bdoc.setAttribute("type", "button");
+                            bdoc.setAttribute("value", json.documentDescriptionTemplate[i].descriptionShortcut);
+                            bdoc.setAttribute("title", json.documentDescriptionTemplate[i].description);
+                            bdoc.setAttribute("onclick", "selectDocDesc('" + json.documentDescriptionTemplate[i].description + "');");
+                            document.getElementById('docDescriptionList').appendChild(bdoc);
                         }
                     }
                 });

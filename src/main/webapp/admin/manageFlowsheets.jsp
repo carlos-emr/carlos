@@ -83,8 +83,6 @@
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Manage Flowsheets</title>
 
-        <script src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
-
         <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath()%>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">

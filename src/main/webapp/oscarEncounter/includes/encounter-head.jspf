@@ -1,6 +1,5 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <script>var $j = jQuery.noConflict();</script>
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.title"/> - <oscar:nameage
                 demographicNo="${bean.demographicNo}"/></title>
@@ -13,9 +12,7 @@
         <link rel="stylesheet" type="text/css" href="${ctx}/oscarEncounter/encounterStyles.css">
         <link rel="stylesheet" type="text/css" href="${ctx}/oscarEncounter/css/encounter-page.css">
 
-        <%-- Prototype.js must load AFTER jQuery.noConflict() so $ remains Prototype's --%>
-        <script src="${ctx}/share/javascript/prototype.js" type="text/javascript"></script>
-        <script src="${ctx}/share/javascript/scriptaculous.js" type="text/javascript"></script>
+        <script src="${ctx}/share/javascript/prototype-compat.js" type="text/javascript"></script>
 
         <%-- Popup menu scripts --%>
         <script src="${ctx}/share/javascript/popupmenu.js" type="text/javascript"></script>

@@ -149,7 +149,6 @@
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -633,7 +632,7 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%=demographicNo%>&id=<%=h.get("ID")%>&date=<%=(Date) h.get("completion_date")%>&rand=" + ran_number;  //hack to get around ie caching the page
                 //console.log("params" + params);
-                new Ajax.Updater('injectionInfo', url, {method: 'get', parameters: params, asynchronous: true});
+                CarlosAjax.updater('injectionInfo', url, {method: 'get', parameters: params});
                 //alert(origRequest.responseText);
             }
 
@@ -650,14 +649,13 @@
 
             function deleteCall() {
                 var url = "<%=request.getContextPath()%>/oscarPrevention/AddPrevention.do";
-                var data = Form.serialize('deleteForm');
+                var data = new URLSearchParams(new FormData(document.getElementById('deleteForm'))).toString();
                 console.log("deleteCall " + data);
-                new Ajax.Request(url, {
-                    method: 'post',
-                    postBody: data,
-                    asynchronous: true,
-                    onComplete: getInjectionInformation
-                });
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: data
+                }).then(function() { getInjectionInformation(); });
             }
 
             function deleteInjection(idval) {

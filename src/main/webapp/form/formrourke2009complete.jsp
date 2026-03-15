@@ -86,8 +86,6 @@
     <!-- popup mouseover js code -->
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/mouseover.js"></script>
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-
     <!--Text Area text max limit code -->
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_core.js"></script>
@@ -190,16 +188,16 @@
                             colourIsSet = true;
 
                             if (colour == red) {
-                                $(child).setStyle({color: white})
+                                child.style.color = white;
                                 var anchorCheck = child.childNodes[0];
                                 if (anchorCheck.nodeName == "A") {
-                                    $(anchorCheck).setStyle({color: white});
+                                    anchorCheck.style.color = white;
                                 }
                             } else {
-                                $(child).setStyle({color: black})
+                                child.style.color = black;
                                 var anchorCheck = child.childNodes[0];
                                 if (anchorCheck.nodeName == "A") {
-                                    $(anchorCheck).setStyle({color: linkColour});
+                                    anchorCheck.style.color = linkColour;
                                 }
                             }
                             break;
