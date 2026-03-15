@@ -125,18 +125,10 @@ function TColorPicker(field) {
     this.build1 = TCGenerateWind;
     this.build2 = TCGenerateGray;
     this.build3 = TCGenerateMac;
-    this.show = document.layers ?
-        function (div) {
-            this.divs[div].visibility = 'show'
-        } :
-        function (div) {
+    this.show = function (div) {
             this.divs[div].visibility = 'visible'
         };
-    this.hide = document.layers ?
-        function (div) {
-            this.divs[div].visibility = 'hide'
-        } :
-        function (div) {
+    this.hide = function (div) {
             this.divs[div].visibility = 'hidden'
         };
     // event handlers
