@@ -905,6 +905,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
 
         @Test
@@ -925,6 +926,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
     }
 
@@ -1011,7 +1013,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
-            assertThat(result).isGreaterThanOrEqualTo(0);
+            assertThat(result).isZero();
         }
     }
 
@@ -1097,7 +1099,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
-            assertThat(result).isGreaterThanOrEqualTo(0);
+            assertThat(result).isZero();
         }
     }
 
@@ -1151,7 +1153,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
-            assertThat(result).isGreaterThanOrEqualTo(0);
+            assertThat(result).isZero();
         }
     }
 
@@ -1201,7 +1203,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
-            assertThat(result).isGreaterThanOrEqualTo(0);
+            assertThat(result).isZero();
         }
 
         @Test
@@ -1223,7 +1225,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
-            assertThat(result).isGreaterThanOrEqualTo(0);
+            assertThat(result).isZero();
         }
 
         @Test
@@ -1243,6 +1245,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result).isZero();
         }
     }
 

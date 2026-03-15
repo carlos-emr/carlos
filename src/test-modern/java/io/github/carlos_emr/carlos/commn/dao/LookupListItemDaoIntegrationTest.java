@@ -1,0 +1,117 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.model.LookupList;
+import io.github.carlos_emr.carlos.commn.model.LookupListItem;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.*;
+
+/**
+ * Integration tests for {@link LookupListItemDao}.
+ *
+ * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ *
+ * @since 2026-03-07
+ * @see LookupListItemDao
+ */
+@DisplayName("LookupListItem Dao Integration Tests")
+@Tag("integration")
+@Tag("dao")
+@Tag("admin")
+@Transactional
+public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
+
+    @Autowired
+    private LookupListItemDao lookupListItemDao;
+
+    @Autowired
+    private LookupListDao lookupListDao;
+
+    private Integer parentListId;
+
+    @BeforeEach
+    void createParentLookupList() {
+        LookupList parent = new LookupList();
+        parent.setName("TestList");
+        parent.setListTitle("Test List");
+        parent.setDescription("Parent list for FK");
+        lookupListDao.persist(parent);
+        parentListId = parent.getId();
+    }
+
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist lookuplistitem with generated ID")
+        void shouldPersistLookupListItem_whenValidDataProvided() throws Exception {
+            LookupListItem entity = new LookupListItem();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setLookupListId(parentListId);
+            lookupListItemDao.persist(entity);
+            assertThat(entity.getId()).isPositive();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find lookuplistitem by ID")
+        void shouldFindLookupListItem_whenValidIdProvided() throws Exception {
+            LookupListItem saved = new LookupListItem();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setLookupListId(parentListId);
+            lookupListItemDao.persist(saved);
+            LookupListItem found = lookupListItemDao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
+        }
+    }
+
+    @Nested
+    @DisplayName("Query operations")
+    class QueryOperations {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count all records")
+        void shouldCountAllRecords() throws Exception {
+            LookupListItem entity = new LookupListItem();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setLookupListId(parentListId);
+            lookupListItemDao.persist(entity);
+            long count = lookupListItemDao.getCountAll();
+            assertThat(count).isEqualTo(1);
+        }
+    }
+}

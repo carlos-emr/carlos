@@ -1,6 +1,20 @@
 -- Test lookup tables for reference data
 -- These tables are referenced by formulas in HBM mappings but don't have entity classes
 
+-- ichppccode table: hbm2ddl cannot auto-create because @GeneratedValue(IDENTITY)
+-- is incompatible with String-typed PK in H2
+CREATE TABLE IF NOT EXISTS ichppccode (
+    ichppccode VARCHAR(20) NOT NULL PRIMARY KEY,
+    diagnostic_code VARCHAR(50),
+    description VARCHAR(255)
+);
+
+-- icd9synonym table: referenced by FK from icd9 entity
+CREATE TABLE IF NOT EXISTS icd9synonym (
+    dxcode VARCHAR(10) NOT NULL PRIMARY KEY,
+    synonym VARCHAR(255)
+);
+
 -- Gender lookup table (Hibernate may auto-create this due to formula in Demographic.hbm.xml)
 CREATE TABLE IF NOT EXISTS lst_gender (
     code char(1) NOT NULL PRIMARY KEY,
@@ -176,3 +190,13 @@ CREATE TABLE IF NOT EXISTS app_lookuptable_fields (
     fieldlength INT,
     PRIMARY KEY (tableid, fieldname)
 );
+
+-- Fix wcb table: dual entity mapping (Wcb + WCB) causes hbm2ddl to create
+-- the id column without IDENTITY when primitive int id (from WCB.java) is processed last.
+-- This ALTER ensures auto-increment works for both entity types.
+ALTER TABLE wcb ALTER COLUMN id INT AUTO_INCREMENT;
+
+-- Insert default secrole record for FK constraints (program_provider.role_id -> secrole.role_no).
+-- The secrole table is managed by Secrole.hbm.xml so hbm2ddl drops and recreates it empty.
+MERGE INTO secrole (role_no, role_name, description) KEY(role_no) VALUES (1, 'doctor', 'Doctor role');
+

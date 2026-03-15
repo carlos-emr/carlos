@@ -303,8 +303,10 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
             List<Admission> result = admissionDao.getAdmissionsByProgramAndDate(
                     PROGRAM_ID, yesterday, nextWeek);
 
-            // Then
+            // Then — today's admission should be in range (yesterday..nextWeek)
             assertThat(result).isNotEmpty();
+            assertThat(result).extracting(Admission::getProgramId).contains(PROGRAM_ID);
+            assertThat(result).extracting(Admission::getClientId).contains(DEMO_NO);
         }
     }
 
@@ -342,6 +344,10 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(adm.getId());
+            assertThat(result.getClientId()).isEqualTo(DEMO_NO);
+            assertThat(result.getProgramId()).isEqualTo(PROGRAM_ID);
+            assertThat(result.getAdmissionStatus()).isEqualTo(Admission.STATUS_CURRENT);
         }
 
         @Test
@@ -375,7 +381,7 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             // Then
-            assertThat(adm.getId()).isNotNull();
+            assertThat(adm.getId()).isPositive();
         }
     }
 
@@ -492,7 +498,9 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
             List<Admission> result = admissionDao.getClientIdByProgramDate(PROGRAM_ID, today);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProgramId()).isEqualTo(PROGRAM_ID);
+            assertThat(result.get(0).getClientId()).isEqualTo(DEMO_NO);
         }
     }
 }
