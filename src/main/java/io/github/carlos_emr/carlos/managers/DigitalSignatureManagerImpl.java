@@ -41,7 +41,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -72,8 +71,9 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         try {
             digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
         } catch (Exception e) {
+            logger.warn("Decryption failed for signature ID {} — attempting legacy re-encryption", id, e);
 
-            // the data is not encrypted, fetching attached entity, encrypt and save it for future use
+            // The data is not encrypted (legacy record). Re-attach, encrypt, and persist for future access.
             try {
                 digitalSignature.setSignatureImage(EncryptionUtils.encrypt(digitalSignature.getSignatureImage()));
                 this.digitalSignatureDao.merge(digitalSignature);
@@ -82,7 +82,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                 this.digitalSignatureDao.detach(digitalSignature);
                 digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
             } catch (Exception ex) {
-                return digitalSignature;
+                logger.error("Re-encryption and decryption both failed for signature ID {} — returning null to avoid corrupted data", id, ex);
+                return null;
             }
         }
 
@@ -127,26 +128,23 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             Path filePath = validatedFile.toPath();
 
             if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-                logger.debug("Signature file not found or not a regular file: " + filePath);
+                logger.debug("Signature file not found or not a regular file: {}", filePath);
                 return null;
             }
 
-            try (FileInputStream fileInputStream = new FileInputStream(filePath.toFile())) {
-                byte[] image = new byte[1024 * 256];
-                int readBytes = fileInputStream.read(image);
-                if (readBytes <= 0) {
-                    logger.debug("Signature file is empty: " + filePath);
-                    return null;
-                }
-
-                return this.saveDigitalSignature(
-                        loggedInInfo.getCurrentFacility().getId(),
-                        loggedInInfo.getLoggedInProviderNo(),
-                        demographicNo, 
-                        image, 
-                        moduleType
-                );
+            byte[] image = Files.readAllBytes(filePath);
+            if (image.length == 0) {
+                logger.debug("Signature file is empty: {}", filePath);
+                return null;
             }
+
+            return this.saveDigitalSignature(
+                    loggedInInfo.getCurrentFacility().getId(),
+                    loggedInInfo.getLoggedInProviderNo(),
+                    demographicNo,
+                    image,
+                    moduleType
+            );
         } catch (FileNotFoundException e) {
             logger.debug("Signature file not found. User probably didn't collect a signature.", e);
         } catch (SecurityException e) {

@@ -974,7 +974,7 @@
                         }
                         fetchNext();
                     },
-                    error: function () { fetchNext(); }
+                    error: function () { console.warn('Failed to auto-import ' + issueType + ' for consultation'); fetchNext(); }
                 });
             }
 

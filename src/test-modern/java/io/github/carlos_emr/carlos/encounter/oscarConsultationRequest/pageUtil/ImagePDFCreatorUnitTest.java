@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 import io.github.carlos_emr.OscarProperties;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -61,6 +62,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("pdf")
 @DisplayName("ImagePDFCreator Unit Tests")
 class ImagePDFCreatorUnitTest {
+
+    static {
+        System.setProperty("java.awt.headless", "true");
+    }
+
+    @BeforeAll
+    static void setUpHeadless() {
+        // Headless property set in static initializer above to ensure it runs
+        // before any AWT class loading
+    }
 
     @TempDir
     Path tempDir;

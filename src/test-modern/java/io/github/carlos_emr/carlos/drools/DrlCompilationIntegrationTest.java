@@ -115,6 +115,9 @@ class DrlCompilationIntegrationTest {
     void shouldCompile_diabetesFlowsheetDrl() throws DroolsCompilationException {
         KieBase kieBase = loadDrl(FLOWSHEETS_BASE + "diab.drl");
         assertThat(kieBase).isNotNull();
+        assertThat(kieBase.getKiePackages()).isNotEmpty();
+        int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+        assertThat(totalRules).isGreaterThan(0);
     }
 
     /** Hypertension flowsheet: systolic/diastolic blood pressure thresholds. */
@@ -123,6 +126,9 @@ class DrlCompilationIntegrationTest {
     void shouldCompile_hypertensionFlowsheetDrl() throws DroolsCompilationException {
         KieBase kieBase = loadDrl(FLOWSHEETS_BASE + "hypertension.drl");
         assertThat(kieBase).isNotNull();
+        assertThat(kieBase.getKiePackages()).isNotEmpty();
+        int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+        assertThat(totalRules).isGreaterThan(0);
     }
 
     /** Chronic kidney disease flowsheet: eGFR, ACR, creatinine thresholds. */
@@ -131,6 +137,9 @@ class DrlCompilationIntegrationTest {
     void shouldCompile_ckdFlowsheetDrl() throws DroolsCompilationException {
         KieBase kieBase = loadDrl(FLOWSHEETS_BASE + "ckd.drl");
         assertThat(kieBase).isNotNull();
+        assertThat(kieBase.getKiePackages()).isNotEmpty();
+        int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+        assertThat(totalRules).isGreaterThan(0);
     }
 
     /** Congestive heart failure flowsheet: weight, BP, heart rate thresholds. */
@@ -139,6 +148,9 @@ class DrlCompilationIntegrationTest {
     void shouldCompile_chfFlowsheetDrl() throws DroolsCompilationException {
         KieBase kieBase = loadDrl(FLOWSHEETS_BASE + "chf.drl");
         assertThat(kieBase).isNotNull();
+        assertThat(kieBase.getKiePackages()).isNotEmpty();
+        int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+        assertThat(totalRules).isGreaterThan(0);
     }
 
     /** HIV flowsheet: CD4 count, viral load thresholds. */
@@ -147,6 +159,9 @@ class DrlCompilationIntegrationTest {
     void shouldCompile_hivFlowsheetDrl() throws DroolsCompilationException {
         KieBase kieBase = loadDrl(FLOWSHEETS_BASE + "hiv.drl");
         assertThat(kieBase).isNotNull();
+        assertThat(kieBase.getKiePackages()).isNotEmpty();
+        int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+        assertThat(totalRules).isGreaterThan(0);
     }
 
     // -------------------------------------------------------------------------
@@ -234,6 +249,9 @@ class DrlCompilationIntegrationTest {
     void shouldCompile_preventionDrl() throws DroolsCompilationException {
         KieBase kieBase = loadDrl("/oscar/oscarPrevention/prevention.drl");
         assertThat(kieBase).isNotNull();
+        assertThat(kieBase.getKiePackages()).isNotEmpty();
+        int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+        assertThat(totalRules).isGreaterThan(0);
     }
 
     /** Rh incompatibility workflow: automates prenatal Rh factor follow-up. */
@@ -242,6 +260,9 @@ class DrlCompilationIntegrationTest {
     void shouldCompile_workflowRhDrl() throws DroolsCompilationException {
         KieBase kieBase = loadDrl("/oscar/oscarWorkflow/rules/Rh_workflow.drl");
         assertThat(kieBase).isNotNull();
+        assertThat(kieBase.getKiePackages()).isNotEmpty();
+        int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+        assertThat(totalRules).isGreaterThan(0);
     }
 
     // -------------------------------------------------------------------------
@@ -304,7 +325,9 @@ class DrlCompilationIntegrationTest {
             session.dispose();
         }
 
+        // Verify at least one workflow rule fired by checking colour was set to a known value
         assertThat(info.getColour()).isNotNull();
+        assertThat(info.getColour()).isIn("red", "orange");
     }
 
     /**
