@@ -450,12 +450,12 @@ StaticScript2.jsp line 165 also uses `asynchronous: false` for the same reason.
 | `Ajax.Request` | 16 | `fetch()` / `CarlosAjax.request()` |
 | `Ajax.Updater` | 3 | `CarlosAjax.updater()` (supports `{success: div}` form) |
 | `Element.observe` / `Element.stopObserving` | 32 | `addEventListener` / `removeEventListener` |
-| `Event.stop(e)` | 15 | `e.preventDefault(); e.stopPropagation()` |
-| `Event.element(e)` | 7 | `e.target` |
+| `Event.stop(e)` | 19 | `e.preventDefault(); e.stopPropagation()` |
+| `Event.element(e)` | 13 | `e.target` |
 | `Event.pointerX/Y(e)` | 2 | `e.clientX` / `e.clientY` |
 | `bindAsEventListener` | 9 | `fn.bind(obj)` or closure with extra args |
-| `$F()` | 62 | `document.getElementById(id).value` |
-| `Form.serialize()` | 7 | `new URLSearchParams(new FormData(form))` (incl. 1 instance method form) |
+| `$F()` | 68 | `document.getElementById(id).value` |
+| `Form.serialize()` | 9 | `new URLSearchParams(new FormData(form))` (incl. 2 `.serialize()` instance method calls) |
 | `.evalJSON()` | 1 | `JSON.parse()` |
 | `evalScripts: true` | 15 | CarlosAjax script extraction |
 | `Insertion.Top` / `Insertion.Bottom` | 41 | `insertAdjacentHTML('afterbegin'/'beforeend')` |
@@ -579,13 +579,13 @@ src/main/webapp/share/javascript/jquery/jquery-1.4.2.js ← DELETE
 Update any JSP files that reference these old versions to use the standard `global-head.jspf` include instead.
 
 ### 5c. Remove all `jQuery.noConflict()` calls
-**32 files** contain `jQuery.noConflict()` calls. The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references across the entire codebase.
+**29 files** contain `jQuery.noConflict()` calls (28 application JSP/JSPF files plus 1 third-party JS plugin). The `$j` variable defined in `encounter-head.jspf` is **never used anywhere** — it's defined but has zero references across the entire codebase.
 
 **Removal groups** (after Prototype is removed from each page):
 
 | Group | Files | Action |
 |-------|-------|--------|
-| **A: No Prototype, no $j** (23 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographic*.jsp` (4), `demographicaddarecordhtm.jsp`, `demographicappthistory.jsp`, `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `SegmentDisplay.jsp`, `ChartNotes.jsp`, `oscarMDS/Index.jsp` | Safe to remove immediately — dead calls |
+| **A: No Prototype, no $j** (18 files) | `appointmentstatussetting.jsp`, `editappointment.jsp`, `billingON*.jsp` (4), `ticklerDemoMain.jsp`, `AddMeasurementData.jsp`, `demographicaddarecordhtm.jsp`, `demographicappthistory.jsp`, `EnrollmentHistory.jsp`, `ManageContacts.jsp`, `admin.jsp`, `appointmentprovideradmin*.jsp` (2), `SegmentDisplay.jsp`, `ChartNotes.jsp`, `oscarMDS/Index.jsp` | Safe to remove immediately — dead calls |
 | **B: Prototype loaded, no $() in JSP** (4 files) | `dxResearch.jsp`, `demographiceditdemographic.jsp` (also has Ajax.Request — see Phase 4e), `UserPreferences.jsp`, `manageFlowsheets.jsp` | Remove after Prototype `<script>` tag removed and Ajax calls migrated |
 | **C: Active Prototype $() usage** (5 files) | `encounter-head.jspf`, `newEncounterLayout.jsp`, `billingBC.jsp`, `SearchDrug3.jsp`, `MultiPageDocDisplay.jsp` | Remove ONLY after Prototype code migrated (Phases 1-4) |
 | **D: Third-party plugin** (1 file) | `js/jquery.fileDownload.js` — `var $ = jQuery.noConflict()` as module-local pattern | Leave as-is |
@@ -792,7 +792,6 @@ if (xhr.responseURL && xhr.responseURL.includes('errorpage.jsp')) {
 
 **Pre-existing bugs**: Several existing `fetch()` calls in the codebase already suffer from this exact problem today (they were written without CSRF tokens and without redirect detection):
 - `documentManager/showDocument.jsp` — fetch() POST without CSRF token
-- `lab/CA/ALL/labDisplayAjax.jsp` — fetch() POST without CSRF token
 - `oscarRx/Preview2.jsp` — fetch() POST without CSRF token
 - `oscarRx/EditFavorites2.jsp` — fetch() POST without CSRF token
 - `share/javascript/oscarMDSIndex.js` `postForm()` — fetch() POST without CSRF token
