@@ -350,7 +350,7 @@
 
         </style>
 
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlos-ajax.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script language="JavaScript">
             //<!--
