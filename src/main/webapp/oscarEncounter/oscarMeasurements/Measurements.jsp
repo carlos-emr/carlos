@@ -129,14 +129,18 @@
                 if (ret) {
                     // Convert form data to URL-encoded string
                     const formData = new FormData(document.getElementById('theForm'));
-                    const urlEncodedData = new URLSearchParams(formData).toString();
+                    const urlParams = new URLSearchParams(formData);
+                    if (!urlParams.has('CSRF-TOKEN')) {
+                        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                        if (csrfEl) urlParams.append('CSRF-TOKEN', csrfEl.value);
+                    }
 
                     fetch('<%=request.getContextPath()%>/oscarEncounter/Measurements.do?ajax=true&skipCreateNote=true', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
-                        body: urlEncodedData
+                        body: urlParams.toString()
                     })
                     .then(response => response.json())
                     .then(data => {
@@ -159,6 +163,16 @@
                     })
                     .catch(error => {
                         console.error('Error submitting form:', error);
+                        const errorsList = document.getElementById('errors_list');
+                        const errorDiv = document.getElementById('errorDiv');
+                        if (errorsList && errorDiv) {
+                            errorsList.textContent = '';
+                            var li = document.createElement('li');
+                            li.textContent = 'Failed to save measurements. Please try again. If the problem persists, refresh the page.';
+                            errorsList.appendChild(li);
+                            errorDiv.style.display = 'block';
+                            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
                     });
                 }
             }

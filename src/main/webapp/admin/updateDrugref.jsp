@@ -60,10 +60,20 @@
         <link href="<c:out value="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>" rel="stylesheet" type="text/css">
 
         <script>
+            function getCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!el) {
+                    console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
+                    return '';
+                }
+                return el.value;
+            }
+
             function getUpdateTime() {
                 const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'verify');
+                formData.append('CSRF-TOKEN', getCsrfToken());
 
                 fetch(url, {
                     method: 'POST',
@@ -106,6 +116,7 @@
                 const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'updateDB');
+                formData.append('CSRF-TOKEN', getCsrfToken());
 
                 fetch(url, {
                     method: 'POST',
@@ -145,6 +156,8 @@
       </style>
     </head>
     <body class="mainbody">
+    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
+    <form id="csrfForm" method="post" style="display:none;"></form>
     <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
     <div class="card card-body bg-body-tertiary">
         <div id="dbInfo"></div>
