@@ -107,8 +107,6 @@
        value=<%if(p!=null) { %> "<%=p.getEnableEncounterTime() %>" <%} else { %> "" <%} %> />
 <input type="hidden" name="old_enableEncounterTransportationTime"
        value=<%if(p!=null) { %> "<%=p.isEnableEncounterTransportationTime() %>" <%} else { %> "" <%} %> />
-<input type="hidden" name="old_enableOCAN" value=<%if(p!=null) { %> "<%=p.isEnableOCAN() %>" <%} else { %> "" <%} %> />
-
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
@@ -293,10 +291,6 @@
     <tr class="b">
         <td width="20%">Email Notification Addresses (csv):</td>
         <td><input type="text" name="program.emailNotificationAddressesCsv" id="program.emailNotificationAddressesCsv" /></td>
-    </tr>
-    <tr class="b">
-        <td width="20%">Enable OCAN:</td>
-        <td><input type="checkbox" name="program.enableOCAN"/></td>
     </tr>
     <tr>
         <td colspan="2"><input type="button" value="Save" onclick="return save()"/> <button type="button" onclick="window.history.back();">Cancel</button></td>

@@ -69,7 +69,7 @@
         </style>
         <script>
             $(document).ready(function () {
-                $('#ocanTable').DataTable({
+                $('#episodeTable').DataTable({
                     "language": {
                         "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.json"
                     }
@@ -87,7 +87,7 @@
     <br/>
 
     <div id="demo">
-        <table id="ocanTable" class="table table-striped table-condensed">
+        <table id="episodeTable" class="table table-striped table-condensed">
             <thead>
             <tr>
                 <th>Description</th>

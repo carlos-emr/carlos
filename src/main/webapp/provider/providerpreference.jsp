@@ -47,6 +47,8 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -185,6 +187,10 @@
     String apptCardName = props.getOrDefault("appointmentCardName", "");
     String apptCardPhone = props.getOrDefault("appointmentCardPhone", "");
     String apptCardFax = props.getOrDefault("appointmentCardFax", "");
+
+    // Signature stamp
+    String consultSigValue = props.getOrDefault(UserProperty.PROVIDER_CONSULT_SIGNATURE, "");
+    boolean hasConsultSignature = !consultSigValue.isEmpty();
 
     // Prevention warning preferences (use "true"/"false" unlike most prefs)
     boolean prevSSO = "true".equalsIgnoreCase(
@@ -1261,9 +1267,85 @@
 </oscar:oscarPropertiesCheck>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
-     SECTION 10: ACCOUNT & ADVANCED
-     External links for password, signature, printer, API clients, etc.
-     These truly require separate pages due to their complex UIs.
+     SECTION 10: SIGNATURE STAMP
+     Upload or draw a signature image used in consults, prescriptions, and eForms.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secSignatureStamp">
+            <i class="fas fa-signature section-icon"></i> <fmt:message key="provider.providerpreference.signatureStamp.title"/>
+        </button>
+    </h2>
+    <div id="secSignatureStamp" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="section-note">
+                <i class="fas fa-info-circle"></i>
+                <fmt:message key="provider.providerpreference.signatureStamp.infoNote"/>
+            </div>
+
+            <%-- Current signature preview --%>
+            <fmt:message key="provider.providerpreference.signatureStamp.altCurrentSig" var="altCurrentSig"/>
+            <div class="mb-3">
+                <label class="pref-label"><fmt:message key="provider.providerpreference.signatureStamp.labelCurrentSig"/></label>
+                <div id="sigPreviewArea" style="border:1px solid var(--carlos-border); border-radius:4px; padding:10px; background:#fff; min-height:80px; display:flex; align-items:center; justify-content:center;">
+                    <% if (hasConsultSignature) { %>
+                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/provider/providerSignatureImage.do"
+                             alt="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("altCurrentSig"))%>" style="max-width:100%; max-height:120px;"/>
+                    <% } else { %>
+                        <span id="sigPlaceholder" style="color:#999; font-style:italic;"><fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded"/></span>
+                        <img id="sigPreviewImg" src="" alt="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("altCurrentSig"))%>" style="max-width:100%; max-height:120px; display:none;"/>
+                    <% } %>
+                </div>
+            </div>
+
+            <div id="sigStatusMsg" class="alert" style="display:none;" role="alert"></div>
+
+            <%-- Upload signature file --%>
+            <div class="mb-3">
+                <label class="pref-label" for="sigFileInput"><fmt:message key="provider.providerpreference.signatureStamp.labelUpload"/></label>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="file" id="sigFileInput" accept="image/png,image/jpeg,image/gif"
+                           class="form-control form-control-sm" style="max-width:300px;"/>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="uploadSignatureFile()">
+                        <i class="fas fa-upload"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnUpload"/>
+                    </button>
+                </div>
+                <small class="text-muted"><fmt:message key="provider.providerpreference.signatureStamp.uploadHint"/></small>
+            </div>
+
+            <%-- Draw signature --%>
+            <div class="mb-3">
+                <label class="pref-label"><fmt:message key="provider.providerpreference.signatureStamp.labelDraw"/></label>
+                <div style="border:1px solid var(--carlos-border); border-radius:4px; background:#fff; padding:4px; display:inline-block;">
+                    <canvas id="sigCanvas" width="500" height="150"
+                            style="cursor:crosshair; display:block; touch-action:none;"></canvas>
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="saveDrawnSignature()">
+                        <i class="fas fa-save"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnSaveDrawing"/>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas()">
+                        <i class="fas fa-eraser"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnClear"/>
+                    </button>
+                </div>
+            </div>
+
+            <%-- Delete signature --%>
+            <% if (hasConsultSignature) { %>
+            <div class="mb-0" id="sigDeleteSection">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSignature()">
+                    <i class="fas fa-trash-alt"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnDelete"/>
+                </button>
+            </div>
+            <% } %>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 11: ACCOUNT & ADVANCED
+     External links for password, printer, API clients, etc.
      ═══════════════════════════════════════════════════════════════════════ --%>
 <div class="accordion-item">
     <h2 class="accordion-header">
@@ -1283,7 +1365,7 @@
                     <i class="fas fa-key"></i> Change Password
                 </a>
                 <a href="providerSignature.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-signature"></i> Edit Signature
+                    <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
                 <a href="providerPrinter.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> Set Default Printer
@@ -1585,6 +1667,254 @@ document.getElementById('dxSearchModal').addEventListener('show.bs.modal', funct
 document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', function() {
     document.getElementById('dxSearchFrame').src = 'about:blank';
 });
+</script>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SIGNATURE STAMP - Canvas drawing and upload/delete AJAX handlers.
+     Operates independently from the main preferences form.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<script>
+(function() {
+    var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
+
+    // ── Localized message strings (via fmt:message for safe fallback, OWASP-encoded for JS) ──
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSelectFirst" var="_sigSelectFirst"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadSuccess" var="_sigUploadSuccess"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadFailed" var="_sigUploadFailed"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgUploadError" var="_sigUploadError"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDrawFirst" var="_sigDrawFirst"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveSuccess" var="_sigSaveSuccess"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveFailed" var="_sigSaveFailed"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgSaveError" var="_sigSaveError"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteConfirm" var="_sigDeleteConfirm"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteSuccess" var="_sigDeleteSuccess"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteFailed" var="_sigDeleteFailed"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.msgDeleteError" var="_sigDeleteError"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded" var="_sigNoSigUploaded"/>
+    <fmt:message key="provider.providerpreference.signatureStamp.btnDelete" var="_sigBtnDelete"/>
+    var _msg = {
+        selectFirst:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSelectFirst"))%>',
+        uploadSuccess:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadSuccess"))%>',
+        uploadFailed:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadFailed"))%>',
+        uploadError:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadError"))%>',
+        drawFirst:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDrawFirst"))%>',
+        saveSuccess:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveSuccess"))%>',
+        saveFailed:     '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveFailed"))%>',
+        saveError:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveError"))%>',
+        deleteConfirm:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteConfirm"))%>',
+        deleteSuccess:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteSuccess"))%>',
+        deleteFailed:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteFailed"))%>',
+        deleteError:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteError"))%>',
+        noSigUploaded:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigNoSigUploaded"))%>',
+        btnDelete:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigBtnDelete"))%>'
+    };
+
+    // ── Canvas drawing ──
+    var canvas = document.getElementById('sigCanvas');
+    if (canvas) {
+        var ctx = canvas.getContext('2d');
+        var drawing = false;
+        var hasDrawn = false;
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        function getPos(e) {
+            var rect = canvas.getBoundingClientRect();
+            var clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function startDraw(e) {
+            e.preventDefault();
+            drawing = true;
+            hasDrawn = true;
+            var pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            e.preventDefault();
+            var pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDraw(e) {
+            if (drawing) {
+                e.preventDefault();
+                drawing = false;
+            }
+        }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDraw);
+    }
+
+    // ── Status message helper ──
+    function showStatus(msg, type) {
+        var el = document.getElementById('sigStatusMsg');
+        if (!el) {
+            return;
+        }
+        el.className = 'alert alert-' + type;
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(function() { el.style.display = 'none'; }, 4000);
+    }
+
+    function updatePreview(imageUrl) {
+        if (!imageUrl) {
+            return;
+        }
+        var img = document.getElementById('sigPreviewImg');
+        var placeholder = document.getElementById('sigPlaceholder');
+        img.src = imageUrl + (imageUrl.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+        img.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+
+        // Show delete button if not already present
+        if (!document.getElementById('sigDeleteSection')) {
+            var body = document.querySelector('#secSignatureStamp .accordion-body');
+            var div = document.createElement('div');
+            div.className = 'mb-0';
+            div.id = 'sigDeleteSection';
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-danger';
+            btn.onclick = window.deleteSignature;
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-trash-alt';
+            btn.appendChild(icon);
+            btn.appendChild(document.createTextNode(' ' + _msg.btnDelete));
+            div.appendChild(btn);
+            body.appendChild(div);
+        }
+    }
+
+    // ── XHR helper (CSRFGuard 4.5 auto-injects CSRF token into XMLHttpRequest) ──
+    // Accepts FormData (multipart, for file uploads) or a plain params string (url-encoded).
+    function sigXhr(body, onSuccess, onError) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', sigStampUrl, true);
+        if (typeof body === 'string') {
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        }
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    onSuccess(data);
+                } catch (e) {
+                    onError();
+                }
+            } else {
+                onError();
+            }
+        };
+        xhr.onerror = onError;
+        xhr.send(body);
+    }
+
+    // ── Upload file ──
+    window.uploadSignatureFile = function() {
+        var fileInput = document.getElementById('sigFileInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showStatus(_msg.selectFirst, 'warning');
+            return;
+        }
+        var formData = new FormData();
+        formData.append('image', fileInput.files[0]);
+        formData.append('method', 'upload');
+
+        sigXhr(formData, function(data) {
+            if (data.success) {
+                updatePreview(data.imageUrl);
+                showStatus(_msg.uploadSuccess, 'success');
+                fileInput.value = '';
+            } else {
+                showStatus(data.error || _msg.uploadFailed, 'danger');
+            }
+        }, function() { showStatus(_msg.uploadError, 'danger'); });
+    };
+
+    // ── Save drawn signature ──
+    window.saveDrawnSignature = function() {
+        if (!hasDrawn) {
+            showStatus(_msg.drawFirst, 'warning');
+            return;
+        }
+        var dataUrl = canvas.toDataURL('image/png');
+        var params = 'method=saveDrawn&signatureData=' + encodeURIComponent(dataUrl);
+
+        sigXhr(params, function(data) {
+            if (data.success) {
+                updatePreview(data.imageUrl);
+                showStatus(_msg.saveSuccess, 'success');
+                clearCanvas();
+                hasDrawn = false;
+            } else {
+                showStatus(data.error || _msg.saveFailed, 'danger');
+            }
+        }, function() { showStatus(_msg.saveError, 'danger'); });
+    };
+
+    // ── Clear canvas ──
+    window.clearCanvas = function() {
+        if (canvas) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasDrawn = false;
+        }
+    };
+
+    // ── Delete signature ──
+    window.deleteSignature = function() {
+        if (!confirm(_msg.deleteConfirm)) return;
+
+        var params = 'method=delete';
+
+        sigXhr(params, function(data) {
+            if (data.success) {
+                var img = document.getElementById('sigPreviewImg');
+                img.style.display = 'none';
+                img.src = '';
+                var placeholder = document.getElementById('sigPlaceholder');
+                if (!placeholder) {
+                    placeholder = document.createElement('span');
+                    placeholder.id = 'sigPlaceholder';
+                    placeholder.style.cssText = 'color:#999;font-style:italic;';
+                    placeholder.textContent = _msg.noSigUploaded;
+                    document.getElementById('sigPreviewArea').appendChild(placeholder);
+                }
+                placeholder.style.display = '';
+                var delSection = document.getElementById('sigDeleteSection');
+                if (delSection) delSection.remove();
+                showStatus(_msg.deleteSuccess, 'success');
+            } else {
+                showStatus(data.error || _msg.deleteFailed, 'danger');
+            }
+        }, function() { showStatus(_msg.deleteError, 'danger'); });
+    };
+})();
 </script>
 </body>
 

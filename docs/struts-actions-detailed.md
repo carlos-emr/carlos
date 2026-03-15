@@ -268,7 +268,6 @@ Electronic forms management and processing.
 | eform/eFormAttachmentForm | io.github.carlos_emr.carlos.eform.upload.UploadEFormAttachment2Action | Uploads form attachments |
 | eform/FetchUpdatedData | io.github.carlos_emr.carlos.eform.actions.FetchUpdatedData2Action | Fetches updated form data |
 | eform/imageUpload | io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action | Uploads images to forms |
-| eform/IndivicaRichTextLetterSettings | io.github.carlos_emr.carlos.eform.actions.RTLSettings2Action | Configures rich text letter settings |
 | eform/logEformError | io.github.carlos_emr.carlos.eform.EformLogError2Action | Logs form errors |
 | eform/manageEForm | io.github.carlos_emr.carlos.eform.actions.ManageEForm2Action | Manages electronic forms |
 | eform/removeEForm | io.github.carlos_emr.carlos.eform.actions.RemEForm2Action | Removes forms |

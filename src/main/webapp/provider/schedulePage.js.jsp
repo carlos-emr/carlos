@@ -635,6 +635,15 @@ form.appendChild(xi);
 var yi = document.createElement('input');
 yi.type = 'hidden'; yi.name = 'y'; yi.value = Y;
 form.appendChild(yi);
+// Inject CSRF token from an existing form (CSRFGuard injects into DOM forms at page load)
+var csrfInput = document.querySelector('input[name="CSRF-TOKEN"]');
+if (csrfInput) {
+    var csrfHidden = document.createElement('input');
+    csrfHidden.type = 'hidden';
+    csrfHidden.name = csrfInput.name;
+    csrfHidden.value = csrfInput.value;
+    form.appendChild(csrfHidden);
+}
 document.body.appendChild(form);
 form.submit();
 }

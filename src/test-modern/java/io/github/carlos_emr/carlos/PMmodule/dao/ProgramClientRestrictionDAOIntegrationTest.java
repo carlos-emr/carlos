@@ -397,7 +397,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
             // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
             int facilityId = 42;
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, ?4, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing) VALUES (?1, ?2, ?3, ?4, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, testProgramId1)
                 .setParameter(2, "TestProgram1")
                 .setParameter(3, "community")
@@ -427,7 +427,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
             // facilityId is Integer (nullable) so NULL is valid.
             // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, NULL, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing) VALUES (?1, ?2, ?3, NULL, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, testProgramId1)
                 .setParameter(2, "NullFacilityProg")
                 .setParameter(3, "community")

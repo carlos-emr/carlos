@@ -115,12 +115,11 @@ public final class PathValidationUtils {
      * Use this when reading uploaded file content without writing to a destination.
      *
      * @param sourceFile the uploaded file (from Struts2/Tomcat)
-     * @return the validated File (same as input if valid) - use this return value for file operations
+     * @return the canonicalized validated File - use this return value for all subsequent file operations
      * @throws SecurityException if validation fails
      */
     public static File validateUpload(File sourceFile) {
-        validateSource(sourceFile, null);
-        return sourceFile;
+        return validateSource(sourceFile, null);
     }
 
     /**
@@ -202,30 +201,39 @@ public final class PathValidationUtils {
     // INTERNAL VALIDATION METHODS
     // ========================================================================
 
-    private static void validateSource(File sourceFile, File expectedBaseDir) {
+    private static File validateSource(File sourceFile, File expectedBaseDir) {
         if (sourceFile == null) {
             throw new SecurityException("Uploaded file is null");
         }
 
-        if (!sourceFile.exists()) {
+        // Canonicalize first to resolve symlinks before any filesystem checks
+        File canonicalFile;
+        try {
+            canonicalFile = sourceFile.getCanonicalFile();
+        } catch (IOException e) {
+            logger.error("Cannot resolve canonical path for uploaded file", e);
+            throw new SecurityException("Cannot resolve upload file path");
+        }
+
+        if (!canonicalFile.exists()) {
             throw new SecurityException("Uploaded file does not exist");
         }
 
-        if (!sourceFile.isFile()) {
+        if (!canonicalFile.isFile()) {
             throw new SecurityException("Uploaded file is not a regular file");
         }
 
         // Check expected base directory first
-        if (expectedBaseDir != null && isWithinDirectory(sourceFile, expectedBaseDir)) {
-            return;
+        if (expectedBaseDir != null && isWithinDirectory(canonicalFile, expectedBaseDir)) {
+            return canonicalFile;
         }
 
         // Fallback: check temp directories - they're always valid sources for uploads
-        if (isInAllowedTempDirectory(sourceFile)) {
-            return;
+        if (isInAllowedTempDirectory(canonicalFile)) {
+            return canonicalFile;
         }
 
-        logger.error("Invalid upload source path: {}", sourceFile.getPath());
+        logger.error("Invalid upload source path: {}", canonicalFile.getPath());
         throw new SecurityException("Invalid upload source");
     }
 

@@ -30,7 +30,10 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
+        return;
+    }
 %>
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
 
@@ -45,24 +48,21 @@
 %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script LANGUAGE="JavaScript">
-            <!--
-            function start() {
-                this.focus();
-            }
-
-            //-->
-        </script>
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgTitle"/></title>
     </head>
-    <body onload="start()">
-    <center>
-        <table border="0" cellspacing="0" cellpadding="0" width="90%">
-            <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgTitle"/></font></th>
-            </tr>
-        </table>
+    <body>
+    <div class="container-fluid p-3">
+
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgTitle"/>
+            </h4>
+        </div>
+
         <%
             int rowsAffected = 0, datano = 0;
 
@@ -83,28 +83,17 @@
             }
 
             if (rowsAffected == 1) {
-        %>
-        <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgSuccessful"/></h1>
-        </p>
-        <script LANGUAGE="JavaScript">
-            self.close();
-            //self.opener.refresh();
-        </script>
-        <%
-        } else {
-        %>
-        <p>
-        <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgFailed"/></h1>
-        </p>
-        <%
+                response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?displaymode=displaymygroup");
+                return;
             }
         %>
-        <p></p>
-        <hr width="90%"/>
-        <form><input type="button"
-                     value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.btnClose"/>"
-                     onClick="window.close()"></form>
-    </center>
+        <div class="alert alert-danger" role="alert">
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providersavemygroup.msgFailed"/>
+        </div>
+
+        <input type="button" class="btn btn-secondary btn-sm"
+               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+               onClick="window.history.go(-1);return false;">
+    </div>
     </body>
 </html>

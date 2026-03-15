@@ -27,8 +27,10 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
 import io.github.carlos_emr.carlos.commn.model.ProviderSitePK;
 import io.github.carlos_emr.carlos.commn.model.Site;
@@ -120,17 +122,25 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
         SecroleDao secRoleDao = (SecroleDao) SpringUtils.getBean(SecroleDao.class);
         ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
+        FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);
 
         Program p = programDao.getProgramByName("OSCAR");
         if (p != null)
             return;
+
+        // Ensure a default Facility exists before creating the program
+        Integer facilityId = ensureDefaultFacilityExists(facilityDao);
+
         p = new Program();
-        p.setFacilityId(1);
+        p.setFacilityId(facilityId);
         p.setName("OSCAR");
         p.setMaxAllowed(99999);
         p.setType("Service");
         p.setProgramStatus("active");
         programDao.saveProgram(p);
+
+        // Re-fetch to get the generated ID (merge() doesn't update the passed object)
+        p = programDao.getProgramByName("OSCAR");
 
         ProgramProvider pp = new ProgramProvider();
         pp.setProviderNo("999998");
@@ -138,6 +148,22 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
         pp.setRoleId(secRoleDao.getRoleByName("doctor").getId());
         programProviderDao.saveProgramProvider(pp);
 
+    }
+
+    private Integer ensureDefaultFacilityExists(FacilityDao facilityDao) {
+        java.util.List<Facility> facilities = facilityDao.findAll(null);
+        if (facilities != null && !facilities.isEmpty()) {
+            return facilities.get(0).getId();
+        }
+
+        Facility facility = new Facility();
+        facility.setName("Default Facility");
+        facility.setDisabled(false);
+        facility.setOrgId(0);
+        facility.setSectorId(0);
+        facilityDao.persist(facility);
+        logger.info("Created default Facility (ID: " + facility.getId() + ")");
+        return facility.getId();
     }
 
     private void createDefaultSiteIfNecessary() {

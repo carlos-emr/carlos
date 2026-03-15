@@ -29,8 +29,6 @@
 
 package io.github.carlos_emr.carlos.utility;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Iterator;
@@ -62,21 +60,6 @@ public final class WebUtils {
         }
 
         logger.error("--- Dump Request Parameters End ---");
-    }
-
-    public static void dumpRequest(HttpServletRequest request) throws IOException {
-        logger.error("--- Dump Request Start ---");
-        InputStream is = request.getInputStream();
-        StringBuilder sb = new StringBuilder();
-        boolean var3 = false;
-
-        int x;
-        while ((x = is.read()) != -1) {
-            sb.append((char) x);
-        }
-
-        logger.error(sb.toString());
-        logger.error("--- Dump Request End ---");
     }
 
     public static boolean isChecked(HttpServletRequest request, String parameter) {
@@ -242,14 +225,6 @@ public final class WebUtils {
 
     public static String getDisabledString(boolean enabled) {
         return !enabled ? "disabled=\"disabled\"" : "";
-    }
-
-    public static String limitStringLength(String s, int length) {
-        if (s == null) {
-            return null;
-        } else {
-            return s.length() <= length ? s : s.substring(0, length - 3) + "...";
-        }
     }
 
     public static String popErrorMessagesAsHtml(HttpSession session) {
