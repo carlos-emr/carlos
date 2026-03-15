@@ -199,12 +199,13 @@
 
     getComment = function (labid, action) {
         var ret = true;
-        var text = "V" + <%=version%> +"commentText" + labid + $("providerNo").value;
+        var text = "V" + <%=version%> +"commentText" + labid + document.getElementById("providerNo").value;
 
         var commentVal = "";
 
-        if ($(text) != null) {
-            commentVal = $(text).innerHTML;
+        var textEl = document.getElementById(text);
+        if (textEl != null) {
+            commentVal = textEl.innerHTML;
             if (commentVal == null) {
                 commentVal = "";
             }
@@ -216,9 +217,9 @@
         if (comment == null)
             ret = false;
         else if (comment != null && comment.length > 0) {
-            $(commentID).value = comment;
+            document.getElementById(commentID).value = comment;
         } else {
-            $(commentID).value = commentVal;
+            document.getElementById(commentID).value = commentVal;
         }
         if (ret)
             handleLab('acknowledgeForm_' + labid, labid, action);
@@ -244,9 +245,9 @@
         var contextPath = '${pageContext.request.contextPath}';
         var url = contextPath + '/documentManager/inboxManage.do';
         var data = 'method=isLabLinkedToDemographic&labid=' + labid;
-        new Ajax.Request(url, {
-            method: 'post', parameters: data, onSuccess: function (transport) {
-                var json = transport.responseText.evalJSON();
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data, onSuccess: function (transport) {
+                var json = JSON.parse(transport.responseText);
                 if (json != null) {
                     var success = json.isLinkedToDemographic;
                     var demoid = '';
@@ -254,7 +255,7 @@
                     if (success) {
                         if (action == 'ackLab') {
                             if (confirmAck()) {
-                                $("status_" + labid).value = "A";
+                                document.getElementById("status_" + labid).value = "A";
                                 updateStatus(formid);
                             }
                         } else if (action == 'msgLab') {
@@ -277,16 +278,16 @@
                     } else {
                         if (action == 'ackLab') {
                             if (confirmAckUnmatched()) {
-                                $("status_" + labid).value = "A";
+                                document.getElementById("status_" + labid).value = "A";
                                 updateStatus(formid);
                             } else {
-                                var pn = $("demoName" + labid).value;
+                                var pn = document.getElementById("demoName" + labid).value;
                                 if (pn) popupStart(360, 680, contextPath + '/oscarMDS/SearchPatient.do?labType=HL7&segmentID=' + labid + '&name=' + pn, 'searchPatientWindow');
                             }
                         } else {
                             alert("Please relate lab to a demographic.");
                             //pop up relate demo window
-                            var pn = $("demoName" + labid).value;
+                            var pn = document.getElementById("demoName" + labid).value;
                             if (pn) popupStart(360, 680, contextPath + '/oscarMDS/SearchPatient.do?labType=HL7&segmentID=' + labid + '&name=' + pn, 'searchPatientWindow');
                         }
                     }

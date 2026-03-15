@@ -237,26 +237,29 @@
         %>
             <%--<link rel="stylesheet" type="text/css" href="styles.css" />--%>
 
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <script type="text/javascript">
             function resetStash() {
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/deleteRx.do?parameterValue=clearStash";
-                var data = "";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        parent.document.getElementById('rxText').innerHTML = "";//make pending prescriptions disappear.
-                        parent.document.getElementById('searchString').focus();
-                    }
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: ''
+                }).then(function() {
+                    parent.document.getElementById('rxText').textContent = "";//make pending prescriptions disappear.
+                    parent.document.getElementById('searchString').focus();
                 });
             }
 
             function resetReRxDrugList() {
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/deleteRx.do?parameterValue=clearReRxDrugList";
-                var data = "";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: ''
                 });
             }
 
@@ -295,7 +298,12 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
-                new Ajax.Request(url, {method: 'post', parameters: params});
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: params
+                });
             }
 
 
@@ -306,7 +314,12 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
-                new Ajax.Request(url, {method: 'post', parameters: params});
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: params
+                });
                 frames['preview'].document.getElementById('additNotes').innerHTML = document.getElementById('additionalNotes').value.replace(/\n/g, "<br>");
                 frames['preview'].document.getElementsByName('additNotes')[0].value = document.getElementById('additionalNotes').value.replace(/\n/g, "\r\n");
             }
@@ -420,24 +433,25 @@
     	try {
 			var url = "<%=request.getContextPath() %>/oscarRx/WriteToEncounter.do";
 			var prefPharmacy = "<%=prefPharmacy != null ? Encode.forJavaScriptBlock(prefPharmacy) : ""%>";
-			new Ajax.Request(url, {method: 'post',
-				parameters: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
+			fetch(url, {
+				method: 'POST',
+				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+				credentials: 'same-origin',
+				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&additionalNotes=" +
-						"&body="+ encodeURIComponent(text),
-				onSuccess:function(ret){
-					//console.log("success")
-					if (print) {
-						printIframe();
-					}
-					openEncounter();
-				},
-				onError: function(e) {
-					alert("ERROR: could not paste to EMR" + e);
-					if (print) {
-						printIframe();
-					}
-					openEncounter();
-				}});
+						"&body="+ encodeURIComponent(text)
+			}).then(function(ret){
+				if (print) {
+					printIframe();
+				}
+				openEncounter();
+			}).catch(function(e) {
+				alert("ERROR: could not paste to EMR" + e);
+				if (print) {
+					printIframe();
+				}
+				openEncounter();
+			});
 		} catch (e) {
 			alert("ERROR: could not paste to EMR" + e);
 		}
@@ -574,9 +588,11 @@
             }
 
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
-	new Ajax.Request('<%=request.getContextPath() %>/oscarRx/saveDigitalSignature.do', {
-		method: 'post',
-		parameters: {method: 'saveDigitalSignature', digitalSignatureId: digitalSignatureId, scriptId: scriptId}
+	fetch('<%=request.getContextPath() %>/oscarRx/saveDigitalSignature.do', {
+		method: 'POST',
+		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+		credentials: 'same-origin',
+		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
 	});
 }
 
@@ -689,10 +705,13 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 	                                if(! id) {
 										return;
 	                                }
-                                    var url="<c:out value="${ctx}"/>"+"/oscarRx/managePharmacy2.do?";
-                                    var data="method=getPharmacyInfo&pharmacyId="+id;
-                                    new Ajax.Request(url, {method: 'get',parameters:data, onSuccess:function(transport){
-                                        var json=transport.responseText.evalJSON();
+                                    var url="<c:out value="${ctx}"/>"+"/oscarRx/managePharmacy2.do?method=getPharmacyInfo&pharmacyId="+id;
+                                    fetch(url, {
+                                        method: 'GET',
+                                        headers: {'X-Requested-With': 'XMLHttpRequest'},
+                                        credentials: 'same-origin'
+                                    }).then(function(resp){ return resp.text(); }).then(function(responseText){
+                                        var json = JSON.parse(responseText);
 
                                                     if (json != null) {
                                                         var text = json.name + "<br>" + json.address + "<br>" + json.city + ", " + json.province + ", "
@@ -702,8 +721,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                         text += "<input type='hidden' name='pharmacyInfo' value=" + id + " />"
                                                         expandPreview(text);
                                                     }
-                                                }
-                                            });
+                                                });
 
                                         }
 
@@ -712,7 +730,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             parent.document.getElementById('lightwindow_contents').style.width = "1120px";
                                             document.getElementById('preview').style.width = "600px";
                                             frames['preview'].document.getElementById('pharmInfo').innerHTML = text;
-                                            $("selectedPharmacy").innerHTML = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
+                                            document.getElementById("selectedPharmacy").innerHTML = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
                                         }
 
                                         function reducePreview() {
@@ -720,7 +738,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             parent.document.getElementById('lightwindow_contents').style.width = "980px";
                                             document.getElementById('preview').style.width = "460px";
                                             frames['preview'].document.getElementById('pharmInfo').innerHTML = "";
-                                            $("selectedPharmacy").innerHTML = "";
+                                            document.getElementById("selectedPharmacy").innerHTML = "";
                                         }
                                     </script>
 

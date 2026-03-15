@@ -139,9 +139,7 @@
     <!-- calendar stylesheet -->
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/controls.js"></script>
+    <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
@@ -333,8 +331,7 @@
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
                                     <script type="text/javascript">
-                                        jQuery.noConflict();
-
+                                        // jQuery.noConflict() removed — no longer needed without Prototype.js
 
                                         function addDocComment(docId, status) {
                                             var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do";
@@ -369,7 +366,7 @@
                                         var totalPage =<%=numOfPage%>;
                                         showPageImg = function (docid, pn) {
                                             if (docid && pn) {
-                                                var e = $('docImg_' + docid);
+                                                var e = document.getElementById('docImg_' + docid);
                                                 if (e) {
                                                     // Find URl from src of image
                                                     var url = e.getAttribute('src');
@@ -383,7 +380,7 @@
                                         nextPage = function (docid) {
                                             curPage++;
 
-                                            $('viewedPage_' + docid).innerHTML = curPage;
+                                            document.getElementById('viewedPage_' + docid).textContent = curPage;
                                             showPageImg(docid, curPage);
                                             if (curPage == totalPage) {
                                                 hideNext();
@@ -399,7 +396,7 @@
                                                 curPage = 1;
                                                 hidePrev();
                                             }
-                                            $('viewedPage_' + docid).innerHTML = curPage;
+                                            document.getElementById('viewedPage_' + docid).textContent = curPage;
                                             showPageImg(docid, curPage);
                                             if (curPage == 1) {
                                                 hidePrev();
@@ -412,45 +409,45 @@
                                         }
                                         firstPage = function (docid) {
                                             curPage = 1;
-                                            $('viewedPage_' + docid).innerHTML = 1;
+                                            document.getElementById('viewedPage_' + docid).textContent = 1;
                                             showPageImg(docid, curPage);
                                             hidePrev();
                                             showNext();
                                         }
                                         lastPage = function (docid) {
                                             curPage = totalPage;
-                                            $('viewedPage_' + docid).innerHTML = totalPage;
+                                            document.getElementById('viewedPage_' + docid).textContent = totalPage;
                                             showPageImg(docid, curPage);
                                             hideNext();
                                             showPrev();
                                         }
                                         hidePrev = function () {
                                             //disable previous link
-                                            $("prevP").setStyle({display: 'none'});
-                                            $("firstP").setStyle({display: 'none'});
-                                            $("prevP2").setStyle({display: 'none'});
-                                            $("firstP2").setStyle({display: 'none'});
+                                            document.getElementById("prevP").style.display = 'none';
+                                            document.getElementById("firstP").style.display = 'none';
+                                            document.getElementById("prevP2").style.display = 'none';
+                                            document.getElementById("firstP2").style.display = 'none';
                                         }
                                         hideNext = function () {
                                             //disable next link
-                                            $("nextP").setStyle({display: 'none'});
-                                            $("lastP").setStyle({display: 'none'});
-                                            $("nextP2").setStyle({display: 'none'});
-                                            $("lastP2").setStyle({display: 'none'});
+                                            document.getElementById("nextP").style.display = 'none';
+                                            document.getElementById("lastP").style.display = 'none';
+                                            document.getElementById("nextP2").style.display = 'none';
+                                            document.getElementById("lastP2").style.display = 'none';
                                         }
                                         showPrev = function () {
                                             //disable previous link
-                                            $("prevP").setStyle({display: 'inline'});
-                                            $("firstP").setStyle({display: 'inline'});
-                                            $("prevP2").setStyle({display: 'inline'});
-                                            $("firstP2").setStyle({display: 'inline'});
+                                            document.getElementById("prevP").style.display = 'inline';
+                                            document.getElementById("firstP").style.display = 'inline';
+                                            document.getElementById("prevP2").style.display = 'inline';
+                                            document.getElementById("firstP2").style.display = 'inline';
                                         }
                                         showNext = function () {
                                             //disable next link
-                                            $("nextP").setStyle({display: 'inline'});
-                                            $("lastP").setStyle({display: 'inline'});
-                                            $("nextP2").setStyle({display: 'inline'});
-                                            $("lastP2").setStyle({display: 'inline'});
+                                            document.getElementById("nextP").style.display = 'inline';
+                                            document.getElementById("lastP").style.display = 'inline';
+                                            document.getElementById("nextP2").style.display = 'inline';
+                                            document.getElementById("lastP2").style.display = 'inline';
                                         }
                                         popupStart = function (vheight, vwidth, varpage, windowname) {
                                             oscarLog("in popupStart ");

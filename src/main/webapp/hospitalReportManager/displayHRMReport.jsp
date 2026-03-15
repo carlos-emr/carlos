@@ -210,9 +210,7 @@
             src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
     <script language="javascript" type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/effects.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/controls.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/carlos-ajax.js"></script>
 
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/connection-min.js"></script>

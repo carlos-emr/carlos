@@ -174,20 +174,24 @@
         }
 
         if (needToReleaseLock) {
-            //release lock on note
+            //release lock on note via sendBeacon (reliable on page unload)
             var url = ctx + "/CaseManagementEntry.do";
             var nId = document.forms['caseManagementEntryForm'].noteId.value;
             var params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId;
-            new Ajax.Request(
-                url,
-                {
-                    method: 'post',
-                    postBody: params,
-                    asynchronous: false
-                }
-            );
+            var csrfToken = CarlosAjax.getCsrfToken();
+            if (csrfToken) {
+                params += "&CSRF-TOKEN=" + encodeURIComponent(csrfToken);
+            }
+            navigator.sendBeacon(url, new Blob([params], {type: 'application/x-www-form-urlencoded'}));
         }
     }
+
+    // Use visibilitychange for reliable lock release (fires more reliably than beforeunload)
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') {
+            onClosing();
+        }
+    });
 
     var numMenus = 3;
     function showMenu(menuNumber, eventObj) {

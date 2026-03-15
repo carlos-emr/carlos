@@ -194,18 +194,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
 		<link href="${ ctx }/css/searchDrug3.css" rel="stylesheet" type="text/css"/>
 
-        <link rel="stylesheet" href="<c:out value="${ctx}/share/lightwindow/css/lightwindow.css"/>" type="text/css" media="screen" />
+        <link rel="stylesheet" href="${ctx}/share/css/transitions.css" type="text/css" />
         <script type="text/javascript" src="${ctx}/js/global.js"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/screen.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/rx.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/scriptaculous.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/effects.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/controls.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/dragiframe.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/lightwindow/javascript/lightwindow.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/js/checkDate.js"/>"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/carlos-ajax.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
+        <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
 
 
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}/share/yui/css/autocomplete.css"/>">
@@ -220,13 +215,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script type="text/javascript">
             let selectedReRxIDs = [];
 	        function saveLinks(randNumber) {
-	            $('method_'+randNumber).onblur();
-	            $('route_'+randNumber).onblur();
-	            $('frequency_'+randNumber).onblur();
-	            $('minimum_'+randNumber).onblur();
-	            $('maximum_'+randNumber).onblur();
-	            $('duration_'+randNumber).onblur();
-	            $('durationUnit_'+randNumber).onblur();
+	            document.getElementById('method_'+randNumber).onblur();
+	            document.getElementById('route_'+randNumber).onblur();
+	            document.getElementById('frequency_'+randNumber).onblur();
+	            document.getElementById('minimum_'+randNumber).onblur();
+	            document.getElementById('maximum_'+randNumber).onblur();
+	            document.getElementById('duration_'+randNumber).onblur();
+	            document.getElementById('durationUnit_'+randNumber).onblur();
 	        }
 
 
@@ -246,10 +241,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
         //has to be in here, not prescribe.jsp for it to work in IE 6/7 and probably 8.
         function showHideSpecInst(elementId){
-            if($(elementId).getStyle('display')=='none'){
-                Effect.BlindDown(elementId);
+            var el = document.getElementById(elementId);
+            if(el.style.display === 'none' || getComputedStyle(el).display === 'none'){
+                el.style.display = '';
+                el.classList.remove('carlos-collapsed');
             }else{
-                Effect.BlindUp(elementId);
+                el.classList.add('carlos-collapsed');
+                el.style.display = 'none';
             }
           }
 
@@ -257,7 +255,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 				var rand = Math.floor(Math.random() * 10001);
 				var url = ctx + "/oscarRx/deleteRx.do?parameterValue=clearReRxDrugList";
 				var data = "rand=" + rand;
-				new Ajax.Request(url, {
+				CarlosAjax.request(url, {
 					method: 'post', parameters: data, onSuccess: function (transport) {
 						// updateCurrentInteractions();
 					}
@@ -265,7 +263,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 			}
 
 			function onPrint(cfgPage) {
-				var docF = $('printFormDD');
+				var docF = document.getElementById('printFormDD');
 
                 docF.action = "<%= request.getContextPath() %>/form/createpdf?__title=Rx&__cfgfile=" + cfgPage + "&__template=a6blank";
                 docF.target="_blank";
@@ -286,7 +284,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
                var top = winY+70;
                var left = winX+110;
-                var url = ctx + "/oscarRx/searchDrug.do?rx2=true&searchString=" + encodeURIComponent($('searchString').value);
+                var url = ctx + "/oscarRx/searchDrug.do?rx2=true&searchString=" + encodeURIComponent(document.getElementById('searchString').value);
                popup2(600, 800, top, left, url, 'windowNameRxSearch<%=demoNo%>');
 
            }
