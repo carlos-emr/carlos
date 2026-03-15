@@ -136,12 +136,16 @@ if (!HTMLElement.prototype.insert) {
     };
 }
 
-// .setStyle({prop: val}) — inline style manipulation
+// .setStyle({prop: val}) or .setStyle('prop', 'val') — inline style manipulation
 if (!HTMLElement.prototype.setStyle) {
-    HTMLElement.prototype.setStyle = function (styles) {
-        for (var prop in styles) {
-            if (styles.hasOwnProperty(prop)) {
-                this.style[prop] = styles[prop];
+    HTMLElement.prototype.setStyle = function (stylesOrProp, value) {
+        if (typeof stylesOrProp === 'string') {
+            this.style[stylesOrProp] = value;
+        } else {
+            for (var prop in stylesOrProp) {
+                if (stylesOrProp.hasOwnProperty(prop)) {
+                    this.style[prop] = stylesOrProp[prop];
+                }
             }
         }
         return this;
@@ -288,6 +292,16 @@ Event.findElement = function (e, selector) {
 };
 Event.pointerX = function (e) { return e.clientX; };
 Event.pointerY = function (e) { return e.clientY; };
+
+// Event.observe / Event.stopObserving — static equivalents of Element.observe
+Event.observe = function (el, eventName, handler) {
+    if (typeof el === 'string') el = document.getElementById(el);
+    if (el) el.addEventListener(eventName, handler);
+};
+Event.stopObserving = function (el, eventName, handler) {
+    if (typeof el === 'string') el = document.getElementById(el);
+    if (el) el.removeEventListener(eventName, handler);
+};
 
 // Event key constants
 Event.KEY_TAB = 9;
