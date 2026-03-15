@@ -1842,10 +1842,13 @@ function updateCPPNote() {
             txt = el.id;
         else {
             var level = 0;
-            while ($(el).up('div', level).id.search(/^n/) == -1)
+            var ancestor = $(el).up('div', level);
+            while (ancestor && ancestor.id.search(/^n/) === -1) {
                 ++level;
-
-            txt = $(el).up('div', level).id;
+                ancestor = $(el).up('div', level);
+            }
+            if (!ancestor) return;
+            txt = ancestor.id;
         }
 
         var passwd = "passwd";

@@ -56,7 +56,10 @@ if (!Array.prototype.invoke) {
     Array.prototype.invoke = function (method) {
         var args = Array.prototype.slice.call(arguments, 1);
         return this.map(function (el) {
-            return el[method].apply(el, args);
+            if (el && typeof el[method] === 'function') {
+                return el[method].apply(el, args);
+            }
+            return undefined;
         });
     };
 }
