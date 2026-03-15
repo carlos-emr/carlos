@@ -1754,14 +1754,19 @@ function popForm2(scriptId){
                 }
                 
                 //oscarLog( "preview2 done");
-                myLightWindow.activateWindow({
-                    href: url,
-                    width: 980,
-                    height: h
-                });
-                var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
-                document.getElementById('lightwindow_title_bar_close_link').textContent=editRxMsg;
-                document.getElementById('lightwindow_title_bar_close_link').onclick=updateDeleteOnCloseRxBox;
+                fetch(url, {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                    .then(function(r) { return r.text(); })
+                    .then(function(html) {
+                        var modalBody = document.getElementById('carlosModalBody');
+                        modalBody.innerHTML = html;
+                        var modalDialog = document.querySelector('#carlosModal .modal-dialog');
+                        modalDialog.style.maxWidth = '980px';
+                        var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
+                        var closeBtn = document.getElementById('carlosModalCloseBtn');
+                        closeBtn.textContent = editRxMsg;
+                        closeBtn.onclick = updateDeleteOnCloseRxBox;
+                        new bootstrap.Modal(document.getElementById('carlosModal')).show();
+                    });
             }});
 
         }
@@ -2662,7 +2667,7 @@ function updateQty(element){
 		}
 		<%}%>
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'));
+        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
         var url= ctx + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,asynchronous:false,
@@ -2695,7 +2700,7 @@ function updateQty(element){
 		}
 		<%}%>		
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'));
+        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
         var url= ctx + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,asynchronous:false,
