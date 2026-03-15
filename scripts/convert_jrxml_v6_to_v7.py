@@ -653,10 +653,14 @@ def convert_jrxml(input_path):
 
 
 def find_jrxml_files(paths):
-    """Find all JRXML files from given paths."""
+    """Find all JRXML files from given paths.
+
+    Accepts both .jrxml and .xml files when explicitly specified.
+    When scanning directories, only .jrxml files are included by default.
+    """
     files = []
     for path in paths:
-        if os.path.isfile(path) and path.endswith('.jrxml'):
+        if os.path.isfile(path) and (path.endswith('.jrxml') or path.endswith('.xml')):
             files.append(path)
         elif os.path.isdir(path):
             for root_dir, _, filenames in os.walk(path):
