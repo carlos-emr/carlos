@@ -171,12 +171,10 @@
         %>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css"/>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-
         <script type="text/javascript">
 
             function setComment() {
-                frames['preview'].document.getElementById('additNotes').innerHTML = '<%=comment%>';
+                frames['preview'].document.getElementById('additNotes').textContent = '<%=comment%>';
             }
 
             function setDefaultAddr() {
@@ -184,7 +182,12 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
-                new Ajax.Request(url, {method: 'post', parameters: params});
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: params
+                });
             }
 
 
@@ -195,7 +198,12 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
-                new Ajax.Request(url, {method: 'post', parameters: params});
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: params
+                });
                 frames['preview'].document.getElementById('additNotes').innerHTML = document.getElementById('additionalNotes').value;
             }
 

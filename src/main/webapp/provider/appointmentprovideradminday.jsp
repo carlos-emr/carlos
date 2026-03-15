@@ -485,7 +485,7 @@
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
+                src="${pageContext.servletContext.contextPath}/js/carlos-ajax.js"></script>
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
         <link rel="stylesheet" type="text/css" media="all"

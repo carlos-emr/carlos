@@ -1120,8 +1120,8 @@ function renderRxStage() {
         <br/>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
         <textarea id="disComment" rows="3" cols="45"></textarea><br/>
-        <input type="button" onclick="$('discontinueUI').hide();" value="Cancel"/>
-        <input type="button" onclick="Discontinue2($('disDrugId').value,$('disReason').value,$('disComment').value,$('disDrug').innerHTML);" value="Discontinue"/>
+        <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="Cancel"/>
+        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').innerHTML);" value="Discontinue"/>
 
     </div>
 
@@ -1191,11 +1191,11 @@ function renderRxStage() {
             if (confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') === true) {
             const data = "ltDrugId=" + encodeURIComponent(drugId) + "&isLongTerm=" + element.checked + "&rand=" + Math.floor(Math.random() * 10001);
             const url = ctx + "/oscarRx/WriteScript.do?parameterValue=updateLongTermStatus";
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post',
                 parameters: data,
                 onSuccess: function (transport) {
-                    const json = transport.responseText.evalJSON();
+                    var json = JSON.parse(transport.responseText);
                     if (json != null && (json.success === 'true' || json.success === true)) {
                         callReplacementWebService('ListDrugs.jsp','drugProfile');
                     } else {

@@ -1553,14 +1553,14 @@ function flashAutoSave(el, success) {
 }
 
 /**
- * Checks whether an AJAX response looks like a valid save response (not a
+ * Checks whether a fetch response looks like a valid save response (not a
  * session-expired login redirect page). Returns false if the response body
  * contains HTML that looks like a full page (e.g., a login redirect).
  */
-function isValidAutoSaveResponse(transport) {
-    if (!transport || transport.status !== 200) return false;
-    var body = (transport.responseText || '').trim();
-    if (body.indexOf('<html') !== -1 || body.indexOf('login') !== -1) return false;
+function isValidAutoSaveResponse(status, body) {
+    if (status !== 200) return false;
+    var text = (body || '').trim();
+    if (text.indexOf('<html') !== -1 || text.indexOf('login') !== -1) return false;
     return true;
 }
 
@@ -1571,29 +1571,35 @@ function isValidAutoSaveResponse(transport) {
     el.addEventListener('focus', function() { previousValue = this.value; });
     el.addEventListener('change', function() {
         var self = this;
-        new Ajax.Request(
-            '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do',
-            { method: 'post',
-              parameters: 'method=update&value=' + encodeURIComponent(self.value),
-              onSuccess: function(r) {
-                  if (isValidAutoSaveResponse(r)) {
-                      flashAutoSave(self, true);
-                      previousValue = self.value;
-                  } else {
-                      console.error('Rx interaction warning level: unexpected response (possible session expiry)');
-                      self.value = previousValue;
-                      flashAutoSave(self, false);
-                      alert('Failed to save Rx Interaction Warning Level. Your session may have expired.');
-                  }
-              },
-              onFailure: function(r) {
-                  console.error('Failed to save rx interaction warning level: HTTP ' + r.status);
-                  self.value = previousValue;
-                  flashAutoSave(self, false);
-                  alert('Failed to save Rx Interaction Warning Level (HTTP ' + r.status + '). Please try again.');
-              }
-            }
-        );
+        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        var csrfToken = csrfEl ? csrfEl.value : '';
+        fetch('<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'CSRF-TOKEN': csrfToken
+            },
+            body: 'method=update&value=' + encodeURIComponent(self.value)
+        }).then(function(r) {
+            return r.text().then(function(body) {
+                if (isValidAutoSaveResponse(r.status, body)) {
+                    flashAutoSave(self, true);
+                    previousValue = self.value;
+                } else {
+                    console.error('Rx interaction warning level: unexpected response (possible session expiry)');
+                    self.value = previousValue;
+                    flashAutoSave(self, false);
+                    alert('Failed to save Rx Interaction Warning Level. Your session may have expired.');
+                }
+            });
+        }).catch(function(err) {
+            console.error('Failed to save rx interaction warning level:', err);
+            self.value = previousValue;
+            flashAutoSave(self, false);
+            alert('Failed to save Rx Interaction Warning Level. Please try again.');
+        });
     });
 })();
 
@@ -1604,30 +1610,36 @@ function isValidAutoSaveResponse(transport) {
     el.addEventListener('focus', function() { previousValue = this.value; });
     el.addEventListener('change', function() {
         var self = this;
-        new Ajax.Request(
-            '<c:out value="${ctx}"/>/setProviderStaleDate.do',
-            { method: 'post',
-              parameters: 'method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
-                + '&provider_no=<%=Encode.forJavaScript(providerNo)%>',
-              onSuccess: function(r) {
-                  if (isValidAutoSaveResponse(r)) {
-                      flashAutoSave(self, true);
-                      previousValue = self.value;
-                  } else {
-                      console.error('Review message time: unexpected response (possible session expiry)');
-                      self.value = previousValue;
-                      flashAutoSave(self, false);
-                      alert('Failed to save Review Messages Time. Your session may have expired.');
-                  }
-              },
-              onFailure: function(r) {
-                  console.error('Failed to save review message time: HTTP ' + r.status);
-                  self.value = previousValue;
-                  flashAutoSave(self, false);
-                  alert('Failed to save Review Messages Time (HTTP ' + r.status + '). Please try again.');
-              }
-            }
-        );
+        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        var csrfToken = csrfEl ? csrfEl.value : '';
+        fetch('<c:out value="${ctx}"/>/setProviderStaleDate.do', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'CSRF-TOKEN': csrfToken
+            },
+            body: 'method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
+                + '&provider_no=<%=Encode.forJavaScript(providerNo)%>'
+        }).then(function(r) {
+            return r.text().then(function(body) {
+                if (isValidAutoSaveResponse(r.status, body)) {
+                    flashAutoSave(self, true);
+                    previousValue = self.value;
+                } else {
+                    console.error('Review message time: unexpected response (possible session expiry)');
+                    self.value = previousValue;
+                    flashAutoSave(self, false);
+                    alert('Failed to save Review Messages Time. Your session may have expired.');
+                }
+            });
+        }).catch(function(err) {
+            console.error('Failed to save review message time:', err);
+            self.value = previousValue;
+            flashAutoSave(self, false);
+            alert('Failed to save Review Messages Time. Please try again.');
+        });
     });
 })();
 

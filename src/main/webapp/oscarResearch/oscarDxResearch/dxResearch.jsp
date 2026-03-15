@@ -84,8 +84,7 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
 
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
@@ -106,8 +105,6 @@
 
         <script type="text/javascript">
             //<!--
-
-            jQuery.noConflict();
 
             function setfocus() {
                 document.forms[0].xml_research1.focus();

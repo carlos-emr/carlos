@@ -1296,7 +1296,7 @@ function updateCPPNote() {
         if (varpage != 'null') {
             var page = ctx + "/oscarEncounter/InsertTemplate.do";
             var params = "templateName=" + varpage + "&version=2";
-            new Ajax.Request(page, {
+            CarlosAjax.request(page, {
                     method: 'post',
                     postBody: params,
                     evalScripts: true,
@@ -1379,12 +1379,11 @@ function updateCPPNote() {
         var url = ctx + "/CaseManagementEntry.do";
         params = "method=releaseNoteLock&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&noteId=" + nId + "&force=true";
 
-        new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',
-                postBody: params,
-                asynchronous: true
+                postBody: params
             }
         );
     }
@@ -1690,7 +1689,7 @@ function updateCPPNote() {
         var params = "method=viewNote&raw=true&noteId=" + nId;
         var noteTxtArea = "caseNote_note" + nId;
 
-        var ajax = new Ajax.Request(
+        CarlosAjax.request(
             url,
             {
                 method: 'post',

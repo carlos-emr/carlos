@@ -613,7 +613,7 @@
                                         function sendMRP(ele) {
                                             var doclabid = ele.id;
                                             doclabid = doclabid.split('_')[1];
-                                            var demoId = $('demofind' + doclabid).value;
+                                            var demoId = document.getElementById('demofind' + doclabid).value;
                                             if (demoId == '-1') {
                                                 alert('Please enter a valid demographic');
                                                 ele.checked = false;
@@ -622,17 +622,28 @@
                                                     var type = 'DOC';
                                                     var url = "<%=request.getContextPath()%>/oscarMDS/SendMRP.do";
                                                     var data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
-                                                    new Ajax.Request(url, {
-                                                        method: 'post',
-                                                        parameters: data,
-                                                        onSuccess: function (transport) {
-                                                            ele.disabled = true;
-                                                            $('mrp_fail_' + doclabid).hide();
+                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                    var csrfToken = csrfEl ? csrfEl.value : '';
+                                                    fetch(url, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                                            'X-Requested-With': 'XMLHttpRequest',
+                                                            'CSRF-TOKEN': csrfToken
                                                         },
-                                                        onFailure: function (transport) {
+                                                        credentials: 'same-origin',
+                                                        body: data
+                                                    }).then(function(response) {
+                                                        if (response.ok) {
+                                                            ele.disabled = true;
+                                                            document.getElementById('mrp_fail_' + doclabid).style.display = 'none';
+                                                        } else {
                                                             ele.checked = false;
-                                                            $('mrp_fail_' + doclabid).show();
+                                                            document.getElementById('mrp_fail_' + doclabid).style.display = '';
                                                         }
+                                                    }).catch(function() {
+                                                        ele.checked = false;
+                                                        document.getElementById('mrp_fail_' + doclabid).style.display = '';
                                                     });
                                                 } else {
                                                     ele.checked = false;
@@ -650,7 +661,7 @@
                                         }
 
                                         YAHOO.example.BasicRemote = function () {
-                                            if ($("autocompletedemo<%=docId%>") && $("autocomplete_choices<%=docId%>")) {
+                                            if (document.getElementById("autocompletedemo<%=docId%>") && document.getElementById("autocomplete_choices<%=docId%>")) {
                                                 oscarLog('in basic remote');
                                                 //var oDS = new YAHOO.util.XHRDataSource("http://localhost:8080/drugref2/test4.jsp");
                                                 var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
@@ -692,14 +703,14 @@
                                                     //oscarLog(args[0].getInputEl().id);
                                                     var str = args[0].getInputEl().id.replace("autocompletedemo", "demofind");
                                                     //oscarLog(str);
-                                                    $(str).value = args[2][2];//li.id;
-                                                    //oscarLog("str value="+$(str).value);
+                                                    document.getElementById(str).value = args[2][2];//li.id;
+                                                    //oscarLog("str value="+document.getElementById(str).value);
                                                     //oscarLog(args[2][1]+"--"+args[2][0]);
                                                     args[0].getInputEl().value = args[2][0] + "(" + args[2][1] + ")";
                                                     //oscarLog("--"+args[0].getInputEl().value);
                                                     selectedDemos.push(args[0].getInputEl().value);
                                                     //enable Save button whenever a selection is made
-                                                    $('save<%=docId%>').enable();
+                                                    document.getElementById('save<%=docId%>').disabled = false;
 
                                                 });
 
