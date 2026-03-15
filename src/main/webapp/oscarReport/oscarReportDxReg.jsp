@@ -71,7 +71,7 @@
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap.min.css" rel="stylesheet" type="text/css"/>
+        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
         <link type="text/css" media="all" href="${pageContext.servletContext.contextPath}/css/bootstrap.min.css"
               rel="stylesheet">
         <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"

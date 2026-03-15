@@ -353,13 +353,13 @@
             UserProperty maximizeP = uPropDao.getProp(providerNo, "encounterWindowMaximize");
 
             if (maximizeP != null && maximizeP.getValue().equals("yes")) {%>
-        <script> jQuery(window).on('load', function () {
+        <script> jQuery(window).load(function () {
             window.resizeTo(screen.width, screen.height);
         });</script>
         <% } else if (widthP != null && !widthP.getValue().isEmpty() && heightP != null && !heightP.getValue().isEmpty()) {
             String width = widthP.getValue();
             String height = heightP.getValue();%>
-        <script> jQuery(window).on('load', function () {
+        <script> jQuery(window).load(function () {
             window.resizeTo(<%=width%>, <%=height%>)
         }) </script>
         <% } %>
