@@ -133,6 +133,33 @@ For POST requests, it also sets:
 
 Without this header, AJAX responses will be corrupted with appended HTML.
 
+### CSRF Token Injection (CRITICAL)
+
+**Background**: CARLOS EMR uses OWASP CSRFGuard 4.5 to protect all POST/PUT/DELETE/PATCH requests. CSRFGuard's JavaScript (`csrfguard.js`) patches `XMLHttpRequest.prototype.open` and `.send` to automatically inject a `CSRF-TOKEN` parameter into every mutating XHR request. It also injects a hidden `CSRF-TOKEN` field into all `<form>` elements via MutationObserver.
+
+**The problem**: CSRFGuard 4.5 does **NOT** intercept the `fetch()` API. Since `fetch()` is a separate browser API from `XMLHttpRequest`, CSRFGuard cannot patch it. If `CarlosAjax` uses `fetch()` for POST requests without including the CSRF token, **every mutating request will be rejected by the server** with a CSRF validation error.
+
+**How CarlosAjax handles this**: For all POST/PUT/DELETE/PATCH requests, CarlosAjax automatically extracts the CSRF token from the DOM and includes it in the request body:
+
+```javascript
+// Internal implementation:
+function getCsrfToken() {
+    const tokenInput = document.querySelector('input[name="CSRF-TOKEN"]');
+    return tokenInput ? tokenInput.value : '';
+}
+
+// On every mutating request, CarlosAjax appends:
+// CSRF-TOKEN=<token_value> to the request body parameters
+```
+
+The token is read from the hidden `<input name="CSRF-TOKEN">` field that CSRFGuard's JavaScript injects into all forms on the page. This field is always present because CSRFGuard uses MutationObserver to inject it into dynamically-created forms as well.
+
+**Token name**: `CSRF-TOKEN` (configured in `Owasp.CsrfGuard.properties`, line 270)
+**Protected methods**: POST, PUT, DELETE, PATCH (line 97)
+**Token rotation**: Disabled (session-scoped tokens — safe for multi-tab EMR usage)
+
+**Important**: GET requests do NOT need CSRF tokens. CarlosAjax only injects the token for protected HTTP methods.
+
 ### Parameter Serialization
 
 When `parameters` is an object, it is serialized to URL-encoded form data:
@@ -203,20 +230,29 @@ window.addEventListener('beforeunload', function() {
 
 ### Use `fetch()` Directly When:
 
-- **New code with no legacy patterns** — If you're writing new features from scratch and don't need Prototype.js callback ordering, use `fetch()` directly with async/await. Just remember to include the required headers:
+- **New code with no legacy patterns** — If you're writing new features from scratch and don't need Prototype.js callback ordering, use `fetch()` directly with async/await. **You MUST include both the required headers AND the CSRF token for POST requests:**
   ```javascript
+  // Helper to get CSRF token (or use CarlosAjax.getCsrfToken() if available)
+  function getCsrfToken() {
+      const el = document.querySelector('input[name="CSRF-TOKEN"]');
+      return el ? el.value : '';
+  }
+
   const response = await fetch(url, {
       method: 'POST',
       headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-Requested-With': 'XMLHttpRequest'
       },
-      body: new URLSearchParams(params)
+      body: new URLSearchParams({
+          ...params,
+          'CSRF-TOKEN': getCsrfToken()   // REQUIRED for POST/PUT/DELETE/PATCH
+      })
   });
   const data = await response.text();
   ```
 
-- **JSON API calls** — For REST endpoints that return JSON:
+- **JSON API calls (GET only)** — GET requests do NOT need CSRF tokens:
   ```javascript
   const response = await fetch(url, {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -224,8 +260,10 @@ window.addEventListener('beforeunload', function() {
   const data = await response.json();
   ```
 
-- **File uploads** — `CarlosAjax` uses `application/x-www-form-urlencoded` by default. For file uploads, use `fetch()` with `FormData`:
+- **File uploads** — `CarlosAjax` uses `application/x-www-form-urlencoded` by default. For file uploads, use `fetch()` with `FormData`. CSRFGuard's MutationObserver injects a hidden `CSRF-TOKEN` field into all `<form>` elements, so `FormData` from a form element will include it automatically:
   ```javascript
+  // FormData from a form element includes CSRF-TOKEN automatically
+  // (CSRFGuard injects the hidden field via MutationObserver)
   const formData = new FormData(document.getElementById('uploadForm'));
   const response = await fetch(url, {
       method: 'POST',
@@ -235,13 +273,23 @@ window.addEventListener('beforeunload', function() {
   });
   ```
 
+  **Warning**: If you construct a `new FormData()` without a form element (empty constructor), you MUST add the CSRF token manually:
+  ```javascript
+  const formData = new FormData();  // empty — no auto-injected CSRF-TOKEN
+  formData.append('file', fileBlob);
+  formData.append('CSRF-TOKEN', getCsrfToken());  // MUST add manually
+  ```
+
 ### Use `navigator.sendBeacon()` When:
 
 - **Page unload / beforeunload handlers** — Fire-and-forget requests that must survive navigation:
   ```javascript
-  navigator.sendBeacon(url, new URLSearchParams({ noteId: 123 }));
+  navigator.sendBeacon(url, new URLSearchParams({
+      noteId: 123,
+      'CSRF-TOKEN': getCsrfToken()   // REQUIRED — sendBeacon sends POST
+  }));
   ```
-  Note: `sendBeacon()` always sends POST, cannot read the response, and has a ~64KB payload limit.
+  Note: `sendBeacon()` always sends POST, cannot read the response, and has a ~64KB payload limit. Since it sends POST, the CSRF token MUST be included.
 
 ### Do NOT Use CarlosAjax When:
 
@@ -356,14 +404,15 @@ var json = JSON.parse(transport.responseText);
 
 ---
 
-## Required Headers — Quick Reference
+## Required Headers & Tokens — Quick Reference
 
-Every AJAX call in CARLOS EMR must include these headers to work correctly with server-side filters:
+Every AJAX call in CARLOS EMR must include these to work correctly with server-side filters and CSRF protection:
 
-| Header | Value | Required For |
-|--------|-------|-------------|
-| `X-Requested-With` | `XMLHttpRequest` | ALL AJAX requests (GET and POST) |
-| `Content-Type` | `application/x-www-form-urlencoded` | POST requests with form data |
+| Requirement | Value | Required For |
+|-------------|-------|-------------|
+| `X-Requested-With` header | `XMLHttpRequest` | ALL AJAX requests (GET and POST) |
+| `Content-Type` header | `application/x-www-form-urlencoded` | POST requests with form data |
+| `CSRF-TOKEN` parameter | Token from hidden form field | POST, PUT, DELETE, PATCH requests |
 
 `CarlosAjax` adds these automatically. If using `fetch()` directly, add them manually.
 

@@ -548,6 +548,37 @@ This section documents every behavioral contract from Prototype.js and Scriptacu
 headers: { 'X-Requested-With': 'XMLHttpRequest' }
 ```
 
+### Contract 1b: CSRF Token Injection (CRITICAL — Will Break ALL POST Requests)
+
+**Prototype behavior**: CSRFGuard 4.5's `csrfguard.js` patches `XMLHttpRequest.prototype.open` and `.send` to automatically inject a `CSRF-TOKEN` parameter into every mutating XHR request. Since Prototype.js uses `XMLHttpRequest` internally, all 173+ POST requests in the codebase get CSRF tokens injected automatically today.
+
+**Why it matters**: CSRFGuard 4.5 does **NOT** intercept the `fetch()` API. `fetch()` is a completely separate browser API — CSRFGuard cannot patch it. If we migrate from Prototype's `Ajax.Request` (which uses XHR) to `fetch()` without manually including the CSRF token, **every POST/PUT/DELETE/PATCH request will be rejected by the server** with a CSRF validation error.
+
+**Protected methods**: POST, PUT, DELETE, PATCH (configured in `Owasp.CsrfGuard.properties` line 97)
+**Token name**: `CSRF-TOKEN` (line 270)
+**Token source**: Hidden `<input name="CSRF-TOKEN">` field auto-injected into all `<form>` elements by `csrfguard.js` via MutationObserver
+
+**Breaking change if omitted**: Server rejects ALL mutating requests. Users cannot save notes, prescriptions, appointments, or any other data.
+
+**Migration rule**: `CarlosAjax` MUST extract the CSRF token from the DOM and include it in the request body for all POST/PUT/DELETE/PATCH requests:
+```javascript
+function getCsrfToken() {
+    const el = document.querySelector('input[name="CSRF-TOKEN"]');
+    return el ? el.value : '';
+}
+// Append CSRF-TOKEN to parameters on every mutating request
+```
+
+For `navigator.sendBeacon()` (used in page unload handlers), the CSRF token must also be included:
+```javascript
+navigator.sendBeacon(url, new URLSearchParams({
+    noteId: 123,
+    'CSRF-TOKEN': getCsrfToken()
+}));
+```
+
+**See**: `docs/carlos-ajax.md` for full implementation details and `docs/csrf-protection-architecture.md` for CSRFGuard architecture.
+
 ### Contract 2: `Content-Type: application/x-www-form-urlencoded` Default
 
 **Prototype behavior**: Default `contentType` is `'application/x-www-form-urlencoded'` (prototype.js line 1005). Parameters are encoded as `key=value&key2=value2`.
@@ -844,6 +875,7 @@ fetch(url, { method: 'POST', body: new URLSearchParams(params), headers: {'Conte
 
 | Contract | Severity | Mechanical? | Files |
 |----------|----------|-------------|-------|
+| CSRF token injection | **CRITICAL** | Yes — CarlosAjax handles | All POST/PUT/DELETE/PATCH |
 | `X-Requested-With` header | **CRITICAL** | Yes — add to all fetch calls | All AJAX files |
 | `Content-Type` default | **CRITICAL** | Yes — set explicitly | All POST requests |
 | `Form.serialize()` format | **HIGH** | Yes — URLSearchParams | 7 files, 13+ calls |
