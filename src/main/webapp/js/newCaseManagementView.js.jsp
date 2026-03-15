@@ -589,7 +589,7 @@
             for (var idx = 0; idx < leftNavBar.length; ++idx) {
                 var div = document.createElement("div");
                 div.className = "leftBox";
-                div.style.visiblity = "hidden";
+                div.style.visibility = "hidden";
                 div.id = leftNavBarTitles[idx];
                 $(navbar).appendChild(div);
                 this.arrLeftDivs.push(div);
@@ -1805,7 +1805,7 @@ function updateCPPNote() {
     function unlock_ajax(id) {
         var url = ctx + "/CaseManagementView.do";
         var noteId = id.substr(1);
-        var params = "method=do_unlock_ajax&noteId=" + noteId + "&password=" + $F("passwd");
+        var params = "method=do_unlock_ajax&noteId=" + noteId + "&password=" + encodeURIComponent($F("passwd"));
 
         CarlosAjax.request(
             url,
