@@ -34,6 +34,16 @@ var CarlosAjax = (function () {
     var MUTATING_METHODS = ['POST', 'PUT', 'DELETE', 'PATCH'];
 
     /**
+     * Maps Prototype.js insertion position names to insertAdjacentHTML positions.
+     */
+    var POS_MAP = {
+        'bottom': 'beforeend',
+        'top': 'afterbegin',
+        'before': 'beforebegin',
+        'after': 'afterend'
+    };
+
+    /**
      * Build standard headers for all AJAX requests.
      * @param {string} method - HTTP method
      * @param {Object} extraHeaders - Additional headers from caller
@@ -70,12 +80,18 @@ var CarlosAjax = (function () {
      * @param {string} [responseURL] - Final URL after redirects
      * @returns {Object} Transport object with .status, .responseText, .responseURL
      */
-    function makeTransport(status, responseText, responseURL) {
-        return {
+    function makeTransport(status, responseText, responseURL, statusText) {
+        var transport = {
             status: status,
+            statusText: statusText || '',
             responseText: responseText,
-            responseURL: responseURL || ''
+            responseURL: responseURL || '',
+            responseJSON: null
         };
+        if (responseText) {
+            try { transport.responseJSON = JSON.parse(responseText); } catch (e) { /* not JSON */ }
+        }
+        return transport;
     }
 
     /**
@@ -196,7 +212,7 @@ var CarlosAjax = (function () {
             return errorTransport;
         }
 
-        var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL);
+        var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText);
 
         // Check for CSRF redirect
         if (xhr.responseURL && xhr.responseURL.indexOf('errorpage.jsp') !== -1) {
@@ -208,10 +224,10 @@ var CarlosAjax = (function () {
         }
 
         if (isSuccess(xhr.status)) {
+            if (options.onSuccess) options.onSuccess(transport);
             if (options.evalScripts && transport.responseText) {
                 evalResponseScripts(transport.responseText);
             }
-            if (options.onSuccess) options.onSuccess(transport);
         } else {
             if (options.onFailure) options.onFailure(transport);
         }
@@ -236,7 +252,7 @@ var CarlosAjax = (function () {
         return fetch(url, fetchOptions)
             .then(function (response) {
                 return response.text().then(function (text) {
-                    var transport = makeTransport(response.status, text, response.url);
+                    var transport = makeTransport(response.status, text, response.url, response.statusText);
 
                     // Detect CSRF rejection (redirect to error page)
                     if (isCsrfRedirect(response)) {
@@ -248,10 +264,10 @@ var CarlosAjax = (function () {
                     }
 
                     if (isSuccess(response.status)) {
+                        if (options.onSuccess) options.onSuccess(transport);
                         if (options.evalScripts && transport.responseText) {
                             evalResponseScripts(transport.responseText);
                         }
-                        if (options.onSuccess) options.onSuccess(transport);
                     } else {
                         if (options.onFailure) options.onFailure(transport);
                     }
@@ -381,13 +397,7 @@ var CarlosAjax = (function () {
             var cleanHtml = html.replace(scriptPattern, '');
 
             if (insertion) {
-                var posMap = {
-                    'bottom': 'beforeend',
-                    'top': 'afterbegin',
-                    'before': 'beforebegin',
-                    'after': 'afterend'
-                };
-                element.insertAdjacentHTML(posMap[insertion] || 'beforeend', cleanHtml);
+                element.insertAdjacentHTML(POS_MAP[insertion] || 'beforeend', cleanHtml);
             } else {
                 element.innerHTML = cleanHtml;
             }
@@ -403,13 +413,7 @@ var CarlosAjax = (function () {
             });
         } else {
             if (insertion) {
-                var posMap2 = {
-                    'bottom': 'beforeend',
-                    'top': 'afterbegin',
-                    'before': 'beforebegin',
-                    'after': 'afterend'
-                };
-                element.insertAdjacentHTML(posMap2[insertion] || 'beforeend', html);
+                element.insertAdjacentHTML(POS_MAP[insertion] || 'beforeend', html);
             } else {
                 element.innerHTML = html;
             }
