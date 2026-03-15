@@ -163,13 +163,24 @@ var CarlosAutocomplete = (function () {
         this.input.addEventListener('keyup', function (e) { self.onKeyUp(e); });
         this.input.addEventListener('keydown', function (e) { self.onKeyDown(e); });
 
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function (e) {
+        // Close dropdown when clicking outside (store reference for cleanup)
+        this._documentClickHandler = function (e) {
             if (e.target !== self.input && !self.dropdown.contains(e.target)) {
                 self.close();
             }
-        });
+        };
+        document.addEventListener('click', this._documentClickHandler);
     }
+
+    /**
+     * Clean up event listeners. Call when the autocomplete is no longer needed.
+     */
+    SelectBox.prototype.destroy = function () {
+        if (this._documentClickHandler) {
+            document.removeEventListener('click', this._documentClickHandler);
+            this._documentClickHandler = null;
+        }
+    };
 
     SelectBox.prototype.activate = function () {
         this.input.removeAttribute('readonly');
@@ -214,6 +225,15 @@ var CarlosAutocomplete = (function () {
         });
 
         this.dropdown.appendChild(ul);
+
+        // Position dropdown below the input
+        var rect = this.input.getBoundingClientRect();
+        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        this.dropdown.style.top = (rect.bottom + scrollTop) + 'px';
+        this.dropdown.style.left = (rect.left + scrollLeft) + 'px';
+        this.dropdown.style.width = rect.width + 'px';
+
         this.dropdown.style.display = 'block';
         this.isOpen = true;
         this.activeIndex = -1;
@@ -374,6 +394,15 @@ if (!Autocompleter.Local) {
             });
 
             dropdown.appendChild(ul);
+
+            // Position dropdown below the input
+            var rect = input.getBoundingClientRect();
+            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+            dropdown.style.top = (rect.bottom + scrollTop) + 'px';
+            dropdown.style.left = (rect.left + scrollLeft) + 'px';
+            dropdown.style.width = rect.width + 'px';
+
             dropdown.style.display = 'block';
             activeIndex = -1;
         }
@@ -393,13 +422,14 @@ if (!Autocompleter.Local) {
         function selectItem(idx) {
             if (idx < 0 || idx >= filteredItems.length) return;
             var text = filteredItems[idx];
+            // Grab the li BEFORE hiding the dropdown
+            var selectedLi = dropdown.querySelectorAll('li')[idx];
             input.value = text;
             dropdown.style.display = 'none';
             activeIndex = -1;
 
             if (afterUpdateElement) {
-                var lis = dropdown.querySelectorAll('li');
-                afterUpdateElement(input, lis[idx] || { textContent: text });
+                afterUpdateElement(input, selectedLi || { textContent: text });
             }
         }
 
@@ -442,11 +472,17 @@ if (!Autocompleter.Local) {
             }
         });
 
-        document.addEventListener('click', function (e) {
+        var docClickHandler = function (e) {
             if (e.target !== input && !dropdown.contains(e.target)) {
                 dropdown.style.display = 'none';
                 activeIndex = -1;
             }
-        });
+        };
+        document.addEventListener('click', docClickHandler);
+
+        // Expose destroy for cleanup
+        this.destroy = function () {
+            document.removeEventListener('click', docClickHandler);
+        };
     };
 }
