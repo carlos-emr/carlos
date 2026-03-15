@@ -318,16 +318,40 @@ Event.KEY_PAGEUP = 33;
 Event.KEY_PAGEDOWN = 34;
 
 // ---- Form.serialize() ----
+// Prototype.js Form.serialize included disabled fields; the HTML FormData spec
+// excludes them. This shim preserves the Prototype behavior by manually adding
+// disabled element values after building the FormData baseline.
 window.Form = window.Form || {};
 Form.serialize = function (formOrId) {
     var form = typeof formOrId === 'string' ? document.getElementById(formOrId) : formOrId;
-    return new URLSearchParams(new FormData(form)).toString();
+    var params = new URLSearchParams(new FormData(form));
+    // Include disabled fields (Prototype included them, FormData does not)
+    var elements = form.elements;
+    for (var i = 0; i < elements.length; i++) {
+        var el = elements[i];
+        if (!el.disabled || !el.name) continue;
+        var tag = el.tagName.toUpperCase();
+        var type = (el.type || '').toLowerCase();
+        if (tag === 'SELECT') {
+            // For select elements, add the selected option value
+            if (el.selectedIndex >= 0) {
+                params.append(el.name, el.options[el.selectedIndex].value);
+            }
+        } else if (type === 'checkbox' || type === 'radio') {
+            if (el.checked) {
+                params.append(el.name, el.value || 'on');
+            }
+        } else if (tag === 'INPUT' || tag === 'TEXTAREA') {
+            params.append(el.name, el.value);
+        }
+    }
+    return params.toString();
 };
 
 // HTMLFormElement.prototype.serialize — instance method form
 if (!HTMLFormElement.prototype.serialize) {
     HTMLFormElement.prototype.serialize = function () {
-        return new URLSearchParams(new FormData(this)).toString();
+        return Form.serialize(this);
     };
 }
 
