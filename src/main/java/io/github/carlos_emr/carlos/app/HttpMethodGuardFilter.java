@@ -150,12 +150,9 @@ public class HttpMethodGuardFilter implements Filter {
             "dbmanageprovider.jsp",
             "adminsavemygroup.jsp",
             // Appointment mutators
-            "addappointment.jsp",
-            "appointmentcontrol.jsp",
             "appointmentdeletearecord.jsp",
             // Demographic mutators
             "demographicaddarecord.jsp",
-            "demographicmergerecord.jsp",
             // Billing mutators
             "billingonsave.jsp",
             "billingcorrection.jsp",
@@ -205,7 +202,6 @@ public class HttpMethodGuardFilter implements Filter {
             "reportformorder.jsp",
             "reportformrecord.jsp",
             // Other mutators
-            "annotation.jsp",
             "groupnoteselectaction.jsp",
             "preference_action.jsp",
             "patientlettermanager.jsp",
@@ -228,8 +224,6 @@ public class HttpMethodGuardFilter implements Filter {
             // Billing form management mutators
             "dbmanagebillingform_add.jsp",
             "billingsettings.jsp",
-            // Teleplan mutators
-            "genteplangroupreport.jsp",
             // Document mutators
             "uploadmultidocument.jsp",
             // Antenatal mutators
