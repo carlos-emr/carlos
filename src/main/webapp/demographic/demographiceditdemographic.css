@@ -6,9 +6,9 @@
  * https://github.com/carlos-emr/carlos
  *
  * CARLOS Flat Theme for Demographic Edit Page
- * This file loads LAST to override encounterStyles.css legacy colors.
- * Uses !important where encounterStyles.css or inline HTML attributes
- * (bgcolor, style) would otherwise win the CSS cascade.
+ * encounterStyles.css is no longer loaded on this page; !important overrides
+ * that were needed only to beat encounterStyles.css specificity have been removed.
+ * !important is retained only for display:none (JS toggling) and @media print rules.
  *
  * Reference pages for visual consistency:
  *   - demographic/search.jsp (searchBox.css + global.css)
@@ -17,24 +17,36 @@
  */
 
 /* ============================================================
-   1. BASE RESETS — override encounterStyles.css body/table/heading
+   1. BASE RESETS — override legacy body/table/heading styles
    ============================================================ */
 body#demographiceditdemographic {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    font-size: 13px !important;
-    color: var(--carlos-text, #333) !important;
-    background-color: #fff !important;
-    margin: 0 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: var(--carlos-text, #333);
+    background-color: #fff;
+    margin: 0;
 }
 
-body#demographiceditdemographic table { font-size: 13px !important; font-family: inherit !important; }
-body#demographiceditdemographic * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important; }
-body#demographiceditdemographic th { font-size: 12px !important; }
-body#demographiceditdemographic h3 { font-size: 12px !important; margin-bottom: 0 !important; }
-body#demographiceditdemographic h4 { font-size: 13px !important; margin-bottom: 0 !important; }
+body#demographiceditdemographic table { font-size: 13px; font-family: inherit; }
+body#demographiceditdemographic p,
+body#demographiceditdemographic label,
+body#demographiceditdemographic span,
+body#demographiceditdemographic a,
+body#demographiceditdemographic li,
+body#demographiceditdemographic td,
+body#demographiceditdemographic th,
+body#demographiceditdemographic input,
+body#demographiceditdemographic textarea,
+body#demographiceditdemographic button,
+body#demographiceditdemographic select {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+body#demographiceditdemographic th { font-size: 12px; }
+body#demographiceditdemographic h3 { font-size: 12px; margin-bottom: 0; }
+body#demographiceditdemographic h4 { font-size: 13px; margin-bottom: 0; }
 
-body#demographiceditdemographic a { color: var(--carlos-link, #337ab7) !important; text-decoration: none !important; }
-body#demographiceditdemographic a:hover { color: color-mix(in srgb, var(--carlos-link, #337ab7) 75%, black) !important; text-decoration: underline !important; }
+body#demographiceditdemographic a { color: var(--carlos-link, #337ab7); text-decoration: none; }
+body#demographiceditdemographic a:hover { color: color-mix(in srgb, var(--carlos-link, #337ab7) 75%, black); text-decoration: underline; }
 
 /* ============================================================
    2. TOP HEADER BAR — #003399 → page-header-bar style (#f5f5f5)
@@ -42,56 +54,56 @@ body#demographiceditdemographic a:hover { color: color-mix(in srgb, var(--carlos
    encounterStyles: .MainTableTopRowRightColumn { background-color: #003399 }
    encounterStyles: .TopStatusBar { background-color: #6699cc }
    ============================================================ */
-.MainTable { border-width: 0 !important; border-color: transparent !important; font-size: 13px !important; }
+.MainTable { border-width: 0; border-color: transparent; font-size: 13px; }
 
 /* Single full-width patient banner */
 .MainTableTopRowLeftColumn {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
-    font-weight: 600 !important;
-    font-size: 15px !important;
-    padding: 12px 20px !important;
-    border: none !important;
-    border-bottom: 2px solid color-mix(in srgb, var(--carlos-primary, #337ab7) 70%, black) !important;
-    max-width: none !important;
-    width: 100% !important;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 12px 20px;
+    border: none;
+    border-bottom: 2px solid color-mix(in srgb, var(--carlos-primary, #337ab7) 70%, black);
+    max-width: none;
+    width: 100%;
 }
 
 .MainTableTopRowRightColumn {
     display: none !important;
 }
 
-.MainTableTopRow td { border: none !important; }
+.MainTableTopRow td { border: none; }
 
 table.TopStatusBar,
 table.TopStatusBarShort {
-    background-color: transparent !important;
-    color: #fff !important;
-    font-size: 15px !important;
-    height: auto !important;
+    background-color: transparent;
+    color: #fff;
+    font-size: 15px;
+    height: auto;
 }
-table.TopStatusBar td { color: #fff !important; padding: 2px 4px !important; }
+table.TopStatusBar td { color: #fff; padding: 2px 4px; }
 
 /* Patient header spans */
 .patient-header-name {
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    color: #fff !important;
-    margin-right: 15px !important;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-right: 15px;
 }
 
 .patient-header-details {
-    font-size: 14px !important;
-    font-weight: 400 !important;
-    color: rgba(255,255,255,0.9) !important;
-    margin-right: 20px !important;
+    font-size: 14px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.9);
+    margin-right: 20px;
 }
 
 .patient-header-appt {
-    font-size: 13px !important;
-    font-weight: 400 !important;
-    font-style: italic !important;
-    color: rgba(255,255,255,0.8) !important;
+    font-size: 13px;
+    font-weight: 400;
+    font-style: italic;
+    color: rgba(255,255,255,0.8);
 }
 
 /* ============================================================
@@ -100,20 +112,20 @@ table.TopStatusBar td { color: #fff !important; padding: 2px 4px !important; }
    encounterStyles: .MainTableLeftColumn { border: 2px solid #A9A9A9 }
    ============================================================ */
 .MainTableLeftColumn {
-    background-color: #fff !important;
-    border: none !important;
-    border-right: 1px solid var(--carlos-border, #ddd) !important;
-    max-width: 155px !important;
-    min-width: 130px !important;
-    padding: 0 !important;
+    background-color: #fff;
+    border: none;
+    border-right: 1px solid var(--carlos-border, #ddd);
+    max-width: 155px;
+    min-width: 130px;
+    padding: 0;
 }
 
 .MainTableBottomRowLeftColumn {
-    border: none !important;
-    border-right: 1px solid var(--carlos-border, #ddd) !important;
-    max-width: 155px !important;
-    height: auto !important;
-    background-color: #fff !important;
+    border: none;
+    border-right: 1px solid var(--carlos-border, #ddd);
+    max-width: 155px;
+    height: auto;
+    background-color: #fff;
 }
 
 /* Sidebar section headers — hidden (Appointment, Billing, Clinical Modules, Resources) */
@@ -126,10 +138,10 @@ table.TopStatusBar td { color: #fff !important; padding: 2px 4px !important; }
 body#demographiceditdemographic td.MainTableLeftColumn td,
 body#demographiceditdemographic .MainTableLeftColumn td,
 .MainTableLeftColumn td {
-    padding: 0 !important;
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
-    font-size: 12px !important;
+    padding: 0;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
+    font-size: 12px;
 }
 
 body#demographiceditdemographic .MainTableLeftColumn td a[href],
@@ -142,22 +154,22 @@ body#demographiceditdemographic .MainTableBottomRowLeftColumn a[href],
 body#demographiceditdemographic .MainTableBottomRowLeftColumn a,
 .MainTableLeftColumn a,
 .MainTableBottomRowLeftColumn a {
-    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    display: block !important;
-    padding: 8px 12px !important;
-    color: white !important;
-    background-color: var(--carlos-primary, #337ab7) !important;
-    text-decoration: none !important;
-    border-bottom: 1px solid rgba(255,255,255,0.2) !important;
+    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: block;
+    padding: 8px 12px;
+    color: white;
+    background-color: var(--carlos-primary, #337ab7);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
 }
 
 body#demographiceditdemographic .MainTableLeftColumn td a[href]:hover,
 body#demographiceditdemographic .MainTableLeftColumn td a:hover,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a[href]:hover,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a:hover {
-    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black) !important;
-    color: white !important;
-    text-decoration: none !important;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+    color: white;
+    text-decoration: none;
 }
 
 body#demographiceditdemographic .MainTableLeftColumn td a:link,
@@ -166,31 +178,31 @@ body#demographiceditdemographic .MainTableLeftColumn td a:active,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a:link,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a:visited,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a:active {
-    color: white !important;
+    color: white;
 }
 
 /* Catch-all: every child element in sidebar gets white text */
 body#demographiceditdemographic .MainTableLeftColumn td *,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td * {
-    color: white !important;
+    color: white;
 }
 
 /* ============================================================
    4. RIGHT CONTENT COLUMN — remove #A9A9A9 borders
    ============================================================ */
 .MainTableRightColumn {
-    border: none !important;
-    padding: 0 !important;
-    height: auto !important;
-    margin-left: 0 !important;
-    background-color: #fff !important;
+    border: none;
+    padding: 0;
+    height: auto;
+    margin-left: 0;
+    background-color: #fff;
 }
 
 .MainTableBottomRowRightColumn {
-    border: none !important;
-    border-top: 1px solid var(--carlos-border, #ddd) !important;
-    height: auto !important;
-    background-color: #fff !important;
+    border: none;
+    border-top: 1px solid var(--carlos-border, #ddd);
+    height: auto;
+    background-color: #fff;
 }
 
 /* ============================================================
@@ -199,24 +211,24 @@ body#demographiceditdemographic .MainTableBottomRowLeftColumn td * {
    encounterStyles: div.demographicSection h3 { background-color: #ccccff }
    ============================================================ */
 div.demographicSection {
-    width: 100% !important;
-    margin-top: 6px !important;
-    margin-left: 0 !important;
-    border: 1px solid var(--carlos-border, #ddd) !important;
-    border-radius: 4px !important;
-    overflow: hidden !important;
-    background-color: #fff !important;
+    width: 100%;
+    margin-top: 6px;
+    margin-left: 0;
+    border: 1px solid var(--carlos-border, #ddd);
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #fff;
 }
 
 div.demographicSection h3 {
-    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: white !important;
-    font-variant: normal !important;
-    text-transform: none !important;
-    letter-spacing: normal !important;
-    margin: 0 !important;
-    padding: 8px 12px !important;
+    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--carlos-primary, #337ab7);
+    color: white;
+    font-variant: normal;
+    text-transform: none;
+    letter-spacing: normal;
+    margin: 0;
+    padding: 8px 12px;
 }
 /* h3-pill class — subtle gold links inside blue section headers */
 body#demographiceditdemographic a.h3-pill,
@@ -227,24 +239,24 @@ body#demographiceditdemographic div.demographicSection h3 a.h3-pill,
 body#demographiceditdemographic #viewDemographics2 .demographicSection h3 a.h3-pill,
 #otherContacts h3 a.h3-pill,
 #clinicStatus h3 a.h3-pill {
-    color: white !important;
-    background-color: transparent !important;
-    border: 1px solid rgba(255,255,255,0.6) !important;
-    padding: 2px 8px !important;
-    border-radius: 3px !important;
-    text-decoration: none !important;
-    font-size: 11px !important;
-    font-weight: 500 !important;
-    margin-left: 6px !important;
-    display: inline-block !important;
+    color: white;
+    background-color: transparent;
+    border: 1px solid rgba(255,255,255,0.6);
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 6px;
+    display: inline-block;
 }
 body#demographiceditdemographic a.h3-pill:hover,
 body#demographiceditdemographic div.demographicSection h3 a.h3-pill:hover,
 #otherContacts h3 a.h3-pill:hover,
 #clinicStatus h3 a.h3-pill:hover {
-    color: white !important;
-    border-color: white !important;
-    background-color: rgba(255,255,255,0.1) !important;
+    color: white;
+    border-color: white;
+    background-color: rgba(255,255,255,0.1);
 }
 
 /* h3-link class — high-visibility pill links inside section headers */
@@ -255,20 +267,20 @@ a.h3-link:active,
 body#demographiceditdemographic a.h3-link,
 body#demographiceditdemographic a.h3-link:link,
 body#demographiceditdemographic a.h3-link:visited {
-    color: var(--carlos-primary, #337ab7) !important;
-    background-color: #fff !important;
-    text-decoration: none !important;
-    font-weight: 600 !important;
-    padding: 2px 8px !important;
-    border-radius: 3px !important;
-    font-size: 11px !important;
-    margin-left: 4px !important;
-    display: inline-block !important;
+    color: var(--carlos-primary, #337ab7);
+    background-color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-left: 4px;
+    display: inline-block;
 }
 a.h3-link:hover,
 body#demographiceditdemographic a.h3-link:hover {
-    color: #fff !important;
-    background-color: rgba(255,255,255,0.25) !important;
+    color: #fff;
+    background-color: rgba(255,255,255,0.25);
 }
 
 /* Force white on ALL elements inside section h3 headers — nuclear specificity */
@@ -283,27 +295,27 @@ body#demographiceditdemographic .demographicWrapper .demographicSection h3 b a,
 #otherContacts h3 a,
 #otherContacts h3 b a,
 #clinicStatus h3 a {
-    color: white !important;
-    text-decoration: underline !important;
+    color: white;
+    text-decoration: underline;
 }
 body#demographiceditdemographic #viewDemographics2 div.demographicSection h3 a:hover,
 body#demographiceditdemographic #viewDemographics2 div.demographicSection h3 b a:hover,
 #otherContacts h3 a:hover,
 #otherContacts h3 b a:hover,
 #clinicStatus h3 a:hover {
-    color: white !important;
-    text-decoration-color: white !important;
+    color: white;
+    text-decoration-color: white;
 }
 
-div.demographicSection ul { list-style: none !important; padding: 0 !important; margin: 0 !important; }
+div.demographicSection ul { list-style: none; padding: 0; margin: 0; }
 div.demographicSection li {
-    padding: 5px 12px !important;
-    font-size: 12px !important;
-    line-height: 1.6 !important;
-    border-bottom: 1px solid #f0f0f0 !important;
-    white-space: nowrap !important;
+    padding: 5px 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    border-bottom: 1px solid #f0f0f0;
+    white-space: nowrap;
 }
-div.demographicSection li:last-child { border-bottom: none !important; }
+div.demographicSection li:last-child { border-bottom: none; }
 
 /* ============================================================
    6. WRAPPER & BACKGROUND COLORS — #eeeeff/#EEEEFF → #f5f5f5
@@ -313,12 +325,12 @@ div.demographicSection li:last-child { border-bottom: none !important; }
    encounterStyles: div.demographicDetail { background-color: #eeeeff }
    HTML inline: bgcolor="#EEEEFF"
    ============================================================ */
-#viewDemographics2 { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
-.lightPurple { background-color: #fff !important; }
-.darkPurple { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
-.demographicDetail { background-color: #fff !important; }
-div.demographicDetail { background-color: #fff !important; }
-.encounterTable { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
+#viewDemographics2 { background-color: var(--carlos-bg-light, #f5f5f5); }
+.lightPurple { background-color: #fff; }
+.darkPurple { background-color: var(--carlos-bg-light, #f5f5f5); }
+.demographicDetail { background-color: #fff; }
+div.demographicDetail { background-color: #fff; }
+.encounterTable { background-color: var(--carlos-bg-light, #f5f5f5); }
 
 /* Override inline bgcolor="#EEEEFF" on edit table */
 table#editDemographic,
@@ -326,7 +338,7 @@ table#editDemographic[bgcolor],
 table[bgcolor="#EEEEFF"],
 #demographicPatientNotes,
 #demographicPatientNotes[bgcolor] {
-    background-color: #fff !important;
+    background-color: #fff;
 }
 
 /* ============================================================
@@ -334,12 +346,12 @@ table[bgcolor="#EEEEFF"],
    ============================================================ */
 .category_table_heading,
 .category_table_heading th {
-    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: white !important;
-    font-variant: normal !important;
-    text-transform: none !important;
-    padding: 8px 12px !important;
+    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--carlos-primary, #337ab7);
+    color: white;
+    font-variant: normal;
+    text-transform: none;
+    padding: 8px 12px;
 }
 
 /* ============================================================
@@ -347,11 +359,11 @@ table[bgcolor="#EEEEFF"],
    encounterStyles: .RowTop { background-color: #CCCCFF }
    ============================================================ */
 .RowTop {
-    background-color: var(--carlos-bg-light, #f5f5f5) !important;
-    color: var(--carlos-text, #333) !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    border-bottom: 1px solid var(--carlos-border, #ddd) !important;
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    color: var(--carlos-text, #333);
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--carlos-border, #ddd);
 }
 
 /* ============================================================
@@ -360,16 +372,16 @@ table[bgcolor="#EEEEFF"],
    encounterStyles: .patientInfo { background-color: #CBC9E0 }
    ============================================================ */
 .doctorInfo {
-    background-color: var(--carlos-bg-light, #f5f5f5) !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
-    padding: 4px 8px !important;
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
 }
 .patientInfo {
-    background-color: var(--carlos-bg-light, #f5f5f5) !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    padding: 4px 8px !important;
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 8px;
 }
 
 /* ============================================================
@@ -377,8 +389,8 @@ table[bgcolor="#EEEEFF"],
    encounterStyles: .Title { background-color: #6699cc }
    ============================================================ */
 .Title {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
 }
 
 /* ============================================================
@@ -386,62 +398,73 @@ table[bgcolor="#EEEEFF"],
    encounterStyles: .menu { background-color: #6699cc }
    ============================================================ */
 .menu {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    border: none !important;
-    border-radius: 4px !important;
-    font-size: 12px !important;
+    background-color: var(--carlos-primary, #337ab7);
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
 }
-.menu a { color: #fff !important; text-decoration: none !important; }
-.menu a:hover { text-decoration: underline !important; }
+.menu a { color: #fff; text-decoration: none; }
+.menu a:hover { text-decoration: underline; }
 
 /* ============================================================
    12. EDIT FORM TABLE
    ============================================================ */
-table#editDemographic { width: 100% !important; padding: 0 !important; margin: 0 !important; }
+table#editDemographic { width: 100%; padding: 0; margin: 0; }
 
 table#editDemographic tr,
 table#editDemographic tr td table#waitingListTable tr {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: flex-start !important;
-    align-items: stretch !important;
-    width: 100% !important;
+    display: table-row;
 }
 
 table#editDemographic tr td,
 table#editDemographic tr td table#waitingListTable tr td {
-    display: flex !important;
-    align-items: stretch !important;
-    width: 100% !important;
-    margin: 0 !important;
+    display: table-cell;
+    vertical-align: middle;
+    margin: 0;
 }
 
-table#editDemographic tr td input,
+table#editDemographic tr td input[type="text"],
+table#editDemographic tr td input[type="email"],
+table#editDemographic tr td input[type="password"],
+table#editDemographic tr td input[type="search"],
+table#editDemographic tr td input[type="tel"],
+table#editDemographic tr td input[type="url"],
+table#editDemographic tr td input[type="number"],
+table#editDemographic tr td input[type="date"],
+table#editDemographic tr td input:not([type]),
 table#editDemographic tr td select,
 table#editDemographic tr td textarea {
-    width: 100% !important;
-    font-size: 13px !important;
-    padding: 6px 12px !important;
-    border: 1px solid #ced4da !important;
-    border-radius: 4px !important;
-    background-color: #fff !important;
-    color: var(--carlos-text, #333) !important;
-    line-height: 1.5 !important;
+    width: 100%;
+    font-size: 13px;
+    padding: 6px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #fff;
+    color: var(--carlos-text, #333);
+    line-height: 1.5;
 }
 
-table#editDemographic tr td input:focus,
+table#editDemographic tr td input[type="text"]:focus,
+table#editDemographic tr td input[type="email"]:focus,
+table#editDemographic tr td input[type="password"]:focus,
+table#editDemographic tr td input[type="search"]:focus,
+table#editDemographic tr td input[type="tel"]:focus,
+table#editDemographic tr td input[type="url"]:focus,
+table#editDemographic tr td input[type="number"]:focus,
+table#editDemographic tr td input[type="date"]:focus,
+table#editDemographic tr td input:not([type]):focus,
 table#editDemographic tr td select:focus,
 table#editDemographic tr td textarea:focus {
-    border-color: #80bdff !important;
-    outline: 0 !important;
-    box-shadow: 0 0 0 0.2rem rgba(51,122,183,0.25) !important;
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(51,122,183,0.25);
 }
 
 table#editDemographic tr td b,
-table#editDemographic tr td strong { font-size: 12px !important; color: #555 !important; text-indent: 5px !important; }
+table#editDemographic tr td strong { font-size: 12px; color: #555; text-indent: 5px; }
 
-table#editDemographic tr:nth-of-type(odd) { background-color: #fff !important; }
-table#editDemographic tr:nth-of-type(even) { background-color: #f8f9fa !important; }
+table#editDemographic tr:nth-of-type(odd) { background-color: #fff; }
+table#editDemographic tr:nth-of-type(even) { background-color: #f8f9fa; }
 
 /* ============================================================
    13. BUTTONS — flat --carlos-primary, matching search.jsp btn-primary
@@ -450,54 +473,54 @@ table#editDemographic tr:nth-of-type(even) { background-color: #f8f9fa !importan
 body#demographiceditdemographic input[type="submit"],
 body#demographiceditdemographic input[type="button"],
 body#demographiceditdemographic button {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
-    border: 1px solid var(--carlos-primary, #337ab7) !important;
-    border-radius: 4px !important;
-    padding: 6px 14px !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    cursor: pointer !important;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
+    border: 1px solid var(--carlos-primary, #337ab7);
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
 }
 body#demographiceditdemographic input[type="submit"]:hover,
 body#demographiceditdemographic input[type="button"]:hover,
 body#demographiceditdemographic button:hover {
-    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black) !important;
-    border-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 80%, black) !important;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+    border-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 80%, black);
 }
 
 /* btn-secondary — gray, matching search.jsp */
 body#demographiceditdemographic input.btn-secondary,
 body#demographiceditdemographic button.btn-secondary {
-    background-color: #6c757d !important;
-    border-color: #6c757d !important;
-    color: #fff !important;
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
 }
 body#demographiceditdemographic input.btn-secondary:hover,
 body#demographiceditdemographic button.btn-secondary:hover {
-    background-color: #5a6268 !important;
-    border-color: #545b62 !important;
+    background-color: #5a6268;
+    border-color: #545b62;
 }
 
 /* btn-link — text-only, matching search.jsp */
 body#demographiceditdemographic input.btn-link,
 body#demographiceditdemographic button.btn-link {
-    background-color: transparent !important;
-    border-color: transparent !important;
-    color: var(--carlos-primary, #337ab7) !important;
-    text-decoration: underline !important;
-    font-weight: 400 !important;
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--carlos-primary, #337ab7);
+    text-decoration: underline;
+    font-weight: 400;
 }
 body#demographiceditdemographic input.btn-link:hover,
 body#demographiceditdemographic button.btn-link:hover {
-    background-color: transparent !important;
-    color: color-mix(in srgb, var(--carlos-primary, #337ab7) 75%, black) !important;
+    background-color: transparent;
+    color: color-mix(in srgb, var(--carlos-primary, #337ab7) 75%, black);
 }
 
 /* ============================================================
    14. HEAD CLASS — #BBBBBB → #f5f5f5
    ============================================================ */
-.Head { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
+.Head { background-color: var(--carlos-bg-light, #f5f5f5); }
 
 /* ============================================================
    15. MISC PURPLE REMNANTS
@@ -508,27 +531,27 @@ body#demographiceditdemographic button.btn-link:hover {
    encounterStyles: .printOps { background-color: #CCCCFF }
    encounterStyles: span.footnote { background-color: #ccccee }
    ============================================================ */
-#content { background-color: #fff !important; }
-#save { background-color: var(--carlos-bg-light, #f5f5f5) !important; border-color: var(--carlos-border, #ddd) !important; }
-.sig { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
-.showEdContent { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
-.printOps { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
-span.footnote { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
-#notesLoading { background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 30%, white) !important; }
+#content { background-color: #fff; }
+#save { background-color: var(--carlos-bg-light, #f5f5f5); border-color: var(--carlos-border, #ddd); }
+.sig { background-color: var(--carlos-bg-light, #f5f5f5); }
+.showEdContent { background-color: var(--carlos-bg-light, #f5f5f5); }
+.printOps { background-color: var(--carlos-bg-light, #f5f5f5); }
+span.footnote { background-color: var(--carlos-bg-light, #f5f5f5); }
+#notesLoading { background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 30%, white); }
 
 /* ============================================================
    16. TOOLTIP POPUP
    ============================================================ */
 #pup {
-    position: absolute !important;
-    z-index: 200 !important;
-    padding: 8px 12px !important;
-    width: 250px !important;
-    border: 1px solid var(--carlos-border, #ddd) !important;
-    border-radius: 4px !important;
-    background-color: #555 !important;
-    color: #fff !important;
-    font-size: 12px !important;
+    position: absolute;
+    z-index: 200;
+    padding: 8px 12px;
+    width: 250px;
+    border: 1px solid var(--carlos-border, #ddd);
+    border-radius: 4px;
+    background-color: #555;
+    color: #fff;
+    font-size: 12px;
 }
 
 /* ============================================================
@@ -537,100 +560,100 @@ span.footnote { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
 /* Hide Back button from search fragment on this page (bottom bar has its own) */
 body#demographiceditdemographic .search-back-btn { display: none !important; }
 
-.searchBox { margin: 0 !important; }
+.searchBox { margin: 0; }
 .searchBox .select-group,
 .searchBox div.input-group-btn {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: stretch !important;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
 }
 
 /* ============================================================
    18. DETAIL TABLE
    ============================================================ */
-table.demographicDetail { font-size: 12px !important; background-color: #fff !important; }
-table.demographicDetail td { padding: 3px 5px !important; }
+table.demographicDetail { font-size: 12px; background-color: #fff; }
+table.demographicDetail td { padding: 3px 5px; }
 
 /* ============================================================
    19. TOPBOX/LEFTBOX — #6699cc → --carlos-primary (encounter left nav)
    ============================================================ */
-div.topBox h3, div.leftBox h3 { background-color: var(--carlos-primary, #337ab7) !important; color: #fff !important; font-size: 12px !important; }
-div.topBox h3 a, div.leftBox h3 a { color: #fff !important; }
-div.topBox { border-color: var(--carlos-border, #ddd) !important; }
-div.leftBox { border-color: var(--carlos-border, #ddd) !important; }
+div.topBox h3, div.leftBox h3 { background-color: var(--carlos-primary, #337ab7); color: #fff; font-size: 12px; }
+div.topBox h3 a, div.leftBox h3 a { color: #fff; }
+div.topBox { border-color: var(--carlos-border, #ddd); }
+div.leftBox { border-color: var(--carlos-border, #ddd); }
 
 /* ============================================================
    20. HEALTH CARE TEAM TABLE
    ============================================================ */
 #listHealthCareTeam .category_table_heading th,
 #addEditHealthCareTeam .category_table_heading th {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
 }
 
 /* ============================================================
    21. HIN BADGE IN HEADER
    ============================================================ */
 .patient-header-hin {
-    display: inline-block !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    color: #fff !important;
-    background-color: rgba(255,255,255,0.2) !important;
-    padding: 2px 10px !important;
-    border-radius: 3px !important;
-    margin-right: 15px !important;
-    letter-spacing: 0.5px !important;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    background-color: rgba(255,255,255,0.2);
+    padding: 2px 10px;
+    border-radius: 3px;
+    margin-right: 15px;
+    letter-spacing: 0.5px;
 }
 
 /* ============================================================
    21a. DEMOGRAPHIC TOOLBAR (ID + Edit button)
    ============================================================ */
 .demo-toolbar {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    padding: 6px 12px !important;
-    background-color: var(--carlos-bg-light, #f5f5f5) !important;
-    border: 1px solid var(--carlos-border, #ddd) !important;
-    border-radius: 4px !important;
-    margin-bottom: 6px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    border: 1px solid var(--carlos-border, #ddd);
+    border-radius: 4px;
+    margin-bottom: 6px;
 }
 
 .demo-toolbar-id {
-    font-size: 13px !important;
-    color: var(--carlos-text, #333) !important;
+    font-size: 13px;
+    color: var(--carlos-text, #333);
 }
 
 .demo-toolbar-id a {
-    font-weight: 600 !important;
+    font-weight: 600;
 }
 
 body#demographiceditdemographic .demo-toolbar-btn {
-    font: normal 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    background-color: var(--carlos-primary, #337ab7) !important;
-    border: 1px solid var(--carlos-primary, #337ab7) !important;
-    color: white !important;
-    padding: 5px 14px !important;
-    border-radius: 4px !important;
-    cursor: pointer !important;
+    font: normal 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--carlos-primary, #337ab7);
+    border: 1px solid var(--carlos-primary, #337ab7);
+    color: white;
+    padding: 5px 14px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 body#demographiceditdemographic .demo-toolbar-btn:hover {
-    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black) !important;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
 }
 
 /* ============================================================
    21b. SHOW/HIDE EMPTY FIELDS TOGGLE
    ============================================================ */
 .toggle-empty-bar {
-    padding: 4px 12px !important;
-    text-align: right !important;
-    font-size: 12px !important;
+    padding: 4px 12px;
+    text-align: right;
+    font-size: 12px;
 }
 .toggle-empty-bar a {
-    cursor: pointer !important;
-    font-size: 12px !important;
+    cursor: pointer;
+    font-size: 12px;
 }
 
 /* When hiding empties, any li marked .empty-field gets hidden */
@@ -642,13 +665,13 @@ body#demographiceditdemographic .demo-toolbar-btn:hover {
    22. STICKY HEADER BANNER
    ============================================================ */
 .MainTableTopRow {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 100 !important;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .MainTableTopRowLeftColumn {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* ============================================================
@@ -665,145 +688,145 @@ body#demographiceditdemographic .demo-toolbar-btn:hover {
 
 /* Compact search toggle link */
 .search-toggle-bar {
-    padding: 6px 12px !important;
-    background-color: var(--carlos-bg-light, #f5f5f5) !important;
-    border-bottom: 1px solid var(--carlos-border, #ddd) !important;
-    font-size: 13px !important;
-    cursor: pointer !important;
+    padding: 6px 12px;
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    border-bottom: 1px solid var(--carlos-border, #ddd);
+    font-size: 13px;
+    cursor: pointer;
 }
 .search-toggle-bar a {
-    font-weight: 500 !important;
+    font-weight: 500;
 }
 
 /* ============================================================
    24. EQUAL-WIDTH SECTION PANELS
    ============================================================ */
 div.leftSection, div.rightSection {
-    float: left !important;
-    width: 49% !important;
-    margin-left: 0.5% !important;
-    padding: 4px !important;
-    box-sizing: border-box !important;
+    float: left;
+    width: 49%;
+    margin-left: 0.5%;
+    padding: 4px;
+    box-sizing: border-box;
 }
 
 div.demographicWrapper {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    background-color: var(--carlos-bg-light, #f5f5f5) !important;
-    padding: 8px !important;
-    margin: 5px 1px !important;
+    display: flex;
+    flex-wrap: wrap;
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    padding: 8px;
+    margin: 5px 1px;
 }
 
 /* ============================================================
    25. BOTTOM BUTTON TOOLBAR — two-row layout
    ============================================================ */
 .darkPurple {
-    background-color: #fff !important;
-    border-top: 2px solid var(--carlos-border, #ddd) !important;
-    padding: 8px 12px !important;
+    background-color: #fff;
+    border-top: 2px solid var(--carlos-border, #ddd);
+    padding: 8px 12px;
 }
 
 .darkPurple td {
-    background-color: #fff !important;
+    background-color: #fff;
 }
 
 .toolbar-row {
-    display: flex !important;
-    align-items: center !important;
-    padding: 6px 0 !important;
-    gap: 6px !important;
-    flex-wrap: wrap !important;
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .toolbar-primary {
-    justify-content: space-between !important;
-    border-bottom: 1px solid #eee !important;
-    padding-bottom: 10px !important;
-    margin-bottom: 6px !important;
+    justify-content: space-between;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 .toolbar-left, .toolbar-right {
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    flex-wrap: wrap !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .toolbar-print {
-    justify-content: flex-start !important;
+    justify-content: flex-start;
 }
 
 .toolbar-right .dropdown {
-    display: inline-block !important;
+    display: inline-block;
 }
 
 /* Update Record button — prominent green */
 body#demographiceditdemographic .btn-toolbar-update {
-    background-color: #28a745 !important;
-    border-color: #28a745 !important;
-    color: #fff !important;
-    padding: 8px 20px !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
+    background-color: #28a745;
+    border-color: #28a745;
+    color: #fff;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 600;
 }
 body#demographiceditdemographic .btn-toolbar-update:hover {
-    background-color: #218838 !important;
-    border-color: #1e7e34 !important;
+    background-color: #218838;
+    border-color: #1e7e34;
 }
 
 /* Toolbar buttons — blue, matching primary */
 body#demographiceditdemographic .btn-toolbar-secondary {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    border: 1px solid var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
-    padding: 6px 12px !important;
-    font-size: 12px !important;
+    background-color: var(--carlos-primary, #337ab7);
+    border: 1px solid var(--carlos-primary, #337ab7);
+    color: #fff;
+    padding: 6px 12px;
+    font-size: 12px;
 }
 body#demographiceditdemographic .btn-toolbar-secondary:hover {
-    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black) !important;
-    border-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 80%, black) !important;
-    color: #fff !important;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+    border-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 80%, black);
+    color: #fff;
 }
 
 /* Back button — gray, matching search.jsp btn-secondary */
 body#demographiceditdemographic input.btn-toolbar-back[type="button"],
 body#demographiceditdemographic .toolbar-right input.btn-toolbar-back,
 body#demographiceditdemographic .darkPurple input.btn-toolbar-back {
-    background-color: #6c757d !important;
-    border-color: #6c757d !important;
-    color: #fff !important;
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
 }
 body#demographiceditdemographic input.btn-toolbar-back[type="button"]:hover,
 body#demographiceditdemographic .toolbar-right input.btn-toolbar-back:hover,
 body#demographiceditdemographic .darkPurple input.btn-toolbar-back:hover {
-    background-color: #5a6268 !important;
-    border-color: #545b62 !important;
+    background-color: #5a6268;
+    border-color: #545b62;
 }
 
 /* Dropdown toggle — blue */
 body#demographiceditdemographic .dropdown-toggle {
-    background-color: var(--carlos-primary, #337ab7) !important;
-    border: 1px solid var(--carlos-primary, #337ab7) !important;
-    color: #fff !important;
+    background-color: var(--carlos-primary, #337ab7);
+    border: 1px solid var(--carlos-primary, #337ab7);
+    color: #fff;
 }
 body#demographiceditdemographic .dropdown-toggle:hover {
-    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black) !important;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
 }
 
 /* Dropdown menu items */
 body#demographiceditdemographic .dropdown-menu {
-    font-size: 13px !important;
-    border: 1px solid var(--carlos-border, #ddd) !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    font-size: 13px;
+    border: 1px solid var(--carlos-border, #ddd);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 body#demographiceditdemographic .dropdown-item {
-    padding: 8px 16px !important;
-    color: var(--carlos-text, #333) !important;
-    background-color: #fff !important;
+    padding: 8px 16px;
+    color: var(--carlos-text, #333);
+    background-color: #fff;
 }
 body#demographiceditdemographic .dropdown-item:hover {
-    background-color: var(--carlos-bg-light, #f5f5f5) !important;
-    color: var(--carlos-primary, #337ab7) !important;
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    color: var(--carlos-primary, #337ab7);
 }
 
 /* ============================================================

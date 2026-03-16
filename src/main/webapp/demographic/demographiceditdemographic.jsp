@@ -276,13 +276,7 @@
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
 
         <% if (isMobileOptimized) { %>
-        <meta name="viewport"
-              content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width"/>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/mobile/editdemographicstyle.css">
-        <% } else { %>
-        <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/oscarEncounter/encounterStyles.css">
-        <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/share/css/searchBox.css">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <% } %>
         <script language="javascript" type="text/javascript"
                 src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
@@ -997,7 +991,7 @@
 
                                 %>
                                 <span class="patient-header-name"><%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %></span>
-                                <span class="patient-header-details"><%= Encode.forHtml(demographic.getSex()) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; DOB: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
+                                <span class="patient-header-details"><%= Encode.forHtml(Gender.valueOf(demographic.getSex()).getText()) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; DOB: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
                                 <span class="patient-header-hin">HIN: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
                                 <% } %>
@@ -1234,13 +1228,13 @@
                                             <td>
                                                 <div class="demo-toolbar">
                                                     <span class="demo-toolbar-id">
-                                                        <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= head %>&displaymode=edit&dboperation=<%= dboperation %>">#<%=head%></a>
+                                                        <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(head) %>&displaymode=edit&dboperation=<%= Encode.forUriComponent(dboperation) %>">#<%= Encode.forHtml(head) %></a>
                                                         <%
                                                             for (int i = 0; i < records.size(); i++) {
                                                                 if (((String) records.get(i)).equals(demographic_no)) {
-                                                        %>, #<%=demographic_no%><%
+                                                        %>, #<%= Encode.forHtml(demographic_no) %><%
                                                                 } else {
-                                                        %>, <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= records.get(i) %>&displaymode=edit&dboperation=<%= dboperation %>">#<%=records.get(i)%></a><%
+                                                        %>, <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(String.valueOf(records.get(i))) %>&displaymode=edit&dboperation=<%= Encode.forUriComponent(dboperation) %>">#<%= Encode.forHtml(String.valueOf(records.get(i))) %></a><%
                                                                 }
                                                             }
                                                         %>
@@ -1595,7 +1589,7 @@
                                                             <div class="demographicSection" id="clinicStatus">
                                                                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
                                                                     <a class="h3-pill" href="#"
-                                                                        onclick="popup(1000, 650, '<%= request.getContextPath() %>/demographic/EnrollmentHistory.jsp?demographicNo=<%=demographic_no%>', 'enrollmentHistory'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
+                                                                        onclick="popup(1000, 650, '<%= Encode.forJavaScriptAttribute(request.getContextPath() + "/demographic/EnrollmentHistory.jsp?demographicNo=" + Encode.forUriComponent(demographic_no)) %>', 'enrollmentHistory'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
