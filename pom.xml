@@ -119,12 +119,6 @@
                 <artifactId>gson</artifactId>
                 <version>2.13.2</version>
             </dependency>
-            <!-- Force secure version of mina-core to fix CVE -->
-            <dependency>
-                <groupId>org.apache.mina</groupId>
-                <artifactId>mina-core</artifactId>
-                <version>2.1.10</version>
-            </dependency>
             <!-- Force secure versions of ALL Netty modules to fix multiple CVEs:
                  - HTTP/2 DDoS (MadeYouReset) in netty-codec-http2
                  - DoS via zip bomb in netty-codec
