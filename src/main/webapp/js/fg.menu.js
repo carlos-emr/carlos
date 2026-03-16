@@ -323,10 +323,17 @@ Menu.prototype.flyout = function (container, options) {
 
         allSubLists.css({left: linkWidth, width: linkWidth}).hide();
 
-        $(this).find('a:eq(0)').addClass('fg-menu-indicator').html('<span>' + $(this).find('a:eq(0)').text() + '</span><span class="ui-icon ' + options.nextMenuLink + '"></span>').hover(
-            function () {
-                clearTimeout(hideTimer);
-                var subList = $(this).next();
+        var $firstLink = $(this).find('a:eq(0)');
+        var linkText = $firstLink.text();
+        $firstLink
+            .empty()
+            .addClass('fg-menu-indicator')
+            .append($('<span></span>').text(linkText))
+            .append($('<span></span>').addClass('ui-icon ' + options.nextMenuLink))
+            .hover(
+                function () {
+                    clearTimeout(hideTimer);
+                    var subList = $(this).next();
                 if (!fitVertical(subList, $(this).offset().top)) {
                     subList.css({top: 'auto', bottom: 0});
                 }
