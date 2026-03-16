@@ -1143,38 +1143,6 @@
             <scope>compile</scope>
         </dependency>
         
-        <!-- Selenium test dependencies -->
-        <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
-        <!-- https://mvnrepository.com/artifact/org.seleniumhq.selenium/selenium-java -->
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-java</artifactId>
-            <version>4.40.0</version>
-            <scope>test</scope>
-            <exclusions>
-                <!-- Exclude DevTools - not using Chrome DevTools Protocol -->
-                <exclusion>
-                    <groupId>org.seleniumhq.selenium</groupId>
-                    <artifactId>selenium-devtools-v142</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.seleniumhq.selenium</groupId>
-                    <artifactId>selenium-devtools-v143</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.seleniumhq.selenium</groupId>
-                    <artifactId>selenium-devtools-v144</artifactId>
-                </exclusion>
-                <!-- Exclude OpenTelemetry - not using observability features -->
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- webdrivermanager removed - Selenium 4.6+ has built-in Selenium Manager -->
-        <!-- that auto-downloads browser drivers, making webdrivermanager unnecessary -->
-        <!-- Also removes vulnerable OkHttp 3.x transitive dependency -->
         <!-- https://mvnrepository.com/artifact/org.testng/testng -->
         <dependency>
             <groupId>org.testng</groupId>
