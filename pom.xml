@@ -702,12 +702,6 @@
 
 
 
-        <!-- jcharts: now from Maven Central (same JAR, different coordinates) -->
-        <dependency>
-            <groupId>jcharts</groupId>
-            <artifactId>jcharts</artifactId>
-            <version>0.7.5</version>
-        </dependency>
 
         <!-- cds: can be found in the local_repo folder -->
         <dependency>
