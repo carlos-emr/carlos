@@ -275,9 +275,6 @@
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
 
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <% if (isMobileOptimized) { %>
         <meta name="viewport"
               content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width"/>
@@ -946,9 +943,7 @@
                     resident = demographicCust.getResident() == null ? "" : demographicCust.getResident();
                     nurse = demographicCust.getNurse() == null ? "" : demographicCust.getNurse();
                     alert = demographicCust.getAlert() == null ? "" : demographicCust.getAlert();
-                    ;
                     midwife = demographicCust.getMidwife() == null ? "" : demographicCust.getMidwife();
-                    ;
                     notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
 
                     resident = resident == null ? "" : resident;
@@ -1002,7 +997,7 @@
 
                                 %>
                                 <span class="patient-header-name"><%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %></span>
-                                <span class="patient-header-details"><%=demographic.getSex()%> &middot; <%=demographic.getAgeAsOf(new Date())%> &middot; DOB: <%=birthYear%>-<%=birthMonth%>-<%=birthDate%></span>
+                                <span class="patient-header-details"><%= Encode.forHtml(demographic.getSex()) %> &middot; <%= Encode.forHtml(demographic.getAgeAsOf(new Date())) %> &middot; DOB: <%= Encode.forHtml(birthYear) %>-<%= Encode.forHtml(birthMonth) %>-<%= Encode.forHtml(birthDate) %></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
                                 <span class="patient-header-hin">HIN: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
                                 <% } %>
@@ -1212,7 +1207,7 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: text-bottom;">
                                         <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
                                     </svg>
-                                    Search Patient
+                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.searchPatient"/>
                                 </a>
                             </td>
                         </tr>
@@ -1259,7 +1254,7 @@
                                                             </svg>
                                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEdit"/>
                                                         </button>
-                                                        <button type="button" id="closeBtn" class="demo-toolbar-btn" onclick="showHideDetail();" style="display:none;">Close</button>
+                                                        <button type="button" id="closeBtn" class="demo-toolbar-btn" onclick="showHideDetail();" style="display:none;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></button>
                                                         <% } %>
                                                     </security:oscarSec>
                                                 </div>
@@ -1359,22 +1354,37 @@
                                         <tr>
                                             <td class="lightPurple"><!---new-->
                                                 <div class="toggle-empty-bar">
-                                                    <a href="javascript:void(0)" id="toggleEmptyFields">Show all fields</a>
+                                                    <a href="javascript:void(0)" id="toggleEmptyFields"
+                                                       data-show-text="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.showAllFields"/>"
+                                                       data-hide-text="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.hideEmptyFields"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.showAllFields"/></a>
                                                 </div>
                                                 <script>
                                                     jQuery(document).ready(function() {
                                                         // Mark empty list items
                                                         jQuery('#viewDemographics2 .demographicSection li').each(function() {
-                                                            var infoSpan = jQuery(this).find('span.info');
-                                                            var strongEl = jQuery(this).find('strong');
+                                                            var $li = jQuery(this);
                                                             var text = '';
+                                                            // Check span.info, strong, b, and anchor text (in priority order)
+                                                            var infoSpan = $li.find('span.info');
+                                                            var strongEl = $li.find('strong');
+                                                            var boldEl = $li.find('b');
+                                                            var anchorEl = $li.find('a');
                                                             if (infoSpan.length) {
-                                                                text = jQuery.trim(infoSpan.text());
+                                                                text = infoSpan.text();
                                                             } else if (strongEl.length) {
-                                                                text = jQuery.trim(strongEl.text());
+                                                                text = strongEl.text();
+                                                            } else if (boldEl.length) {
+                                                                text = boldEl.text();
+                                                            } else if (anchorEl.length) {
+                                                                text = anchorEl.text();
+                                                            } else {
+                                                                // Fall back to full li text minus label
+                                                                text = $li.clone().children('span.label').remove().end().text();
                                                             }
-                                                            if (text === '' || text === '\u00a0') {
-                                                                jQuery(this).addClass('empty-field');
+                                                            // Normalize: trim whitespace and non-breaking spaces
+                                                            text = text.replace(/\u00a0/g, ' ').trim();
+                                                            if (text === '') {
+                                                                $li.addClass('empty-field');
                                                             }
                                                         });
                                                         // Start with empties hidden
@@ -1382,12 +1392,14 @@
                                                         // Toggle
                                                         jQuery('#toggleEmptyFields').on('click', function() {
                                                             var wrapper = jQuery('#viewDemographics2');
+                                                            var showText = jQuery(this).data('showText');
+                                                            var hideText = jQuery(this).data('hideText');
                                                             if (wrapper.hasClass('hide-empties')) {
                                                                 wrapper.removeClass('hide-empties');
-                                                                jQuery(this).text('Hide empty fields');
+                                                                jQuery(this).text(hideText);
                                                             } else {
                                                                 wrapper.addClass('hide-empties');
-                                                                jQuery(this).text('Show all fields');
+                                                                jQuery(this).text(showText);
                                                             }
                                                         });
                                                     });
@@ -4847,27 +4859,28 @@
                                                                 <c:set value="${ OscarProperties.getInstance()['BC_CARECONNECT_URL'] }" var="url" scope="page"/>
                                                                 <c:if test="${ not empty url }">
                                                                     <script type="text/javascript" src="${ctx}/careconnect/careconnect.js"></script>
-                                                                    <input type="button" class="btn-toolbar-secondary" value="CareConnect"
-                                                                           onclick="callCareConnect('${url}', '${ demographic.hin }', '${ demographic.firstName }',
-                                                                                   '${ demographic.lastName }', '${ demographic.formattedDob }', '${ demographic.sex }',
-                                                                                   '${ OscarProperties.getInstance()['BC_CARECONNECT_REGION'] }' )"/>
+                                                                    <input type="button" class="btn-toolbar-secondary"
+                                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCareConnect"/>"
+                                                                           onclick="callCareConnect('${url}', '<%= Encode.forJavaScriptAttribute(demographic.getHin()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFirstName()) %>',
+                                                                                   '<%= Encode.forJavaScriptAttribute(demographic.getLastName()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFormattedDob()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getSex()) %>',
+                                                                                   '<%= Encode.forJavaScriptAttribute(OscarProperties.getInstance().getProperty("BC_CARECONNECT_REGION", "")) %>' )"/>
                                                                 </c:if>
                                                             </security:oscarSec>
                                                         </oscar:oscarPropertiesCheck>
                                                     </div>
                                                     <div class="toolbar-right">
-                                                        <span id="swipeButton" style="display: none;">
+                                                        <span id="swipeButtonBottom" style="display: none;">
                                                             <input type="button" name="Button" class="btn-toolbar-secondary"
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
                                                                    onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                                         </span>
-                                                        <div class="dropdown" style="display:inline-block;">
+                                                        <div class="dropdown">
                                                             <button class="btn-toolbar-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                                Print / Labels
+                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.printAndLabels"/>
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=appointment%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=URLEncoder.encode(appointment != null ? appointment : "", StandardCharsets.UTF_8)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
                                                                 <% if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) { %>
@@ -4878,7 +4891,7 @@
                                                             </ul>
                                                         </div>
                                                         <input type="button" name="Button" id="cancelButton" class="btn-toolbar-back"
-                                                               value="Back" onclick="self.close();">
+                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onclick="self.close();">
                                                     </div>
                                                 </div>
                                                 </table>
