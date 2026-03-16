@@ -118,7 +118,12 @@ public class TicklerList2Action extends ActionSupport {
             CustomFilter filter = buildFilterFromRequest(request);
 
             // recordsTotal uses a filter without search so the total count reflects form filters only
+            String originalSearchTerm = filter.getSearchTerm();
+            filter.setSearchTerm(null);
             int totalRecords = ticklerManager.getNumTicklers(loggedInInfo, filter);
+            // restore search term so subsequent calls use the full filter, including search
+            filter.setSearchTerm(originalSearchTerm);
+
             // recordsFiltered accounts for full-text search when the DataTables search box is used
             int filteredRecords = (filter.getSearchTerm() != null && !filter.getSearchTerm().trim().isEmpty())
                     ? ticklerManager.getNumTicklersFiltered(loggedInInfo, filter)
