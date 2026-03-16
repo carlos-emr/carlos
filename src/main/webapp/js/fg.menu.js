@@ -491,7 +491,8 @@ Menu.prototype.drilldown = function (container, options) {
                         }
                         $('.fg-menu-current-crumb').removeClass('fg-menu-current-crumb');
                         var crumbText = $(this).find('span:eq(0)').text();
-                        var newCrumb = $('<li class="fg-menu-current-crumb"><a href="javascript://" class="fg-menu-crumb">' + crumbText + '</a></li>');
+                        var newCrumb = $('<li class="fg-menu-current-crumb"></li>');
+                        $('<a href="javascript://" class="fg-menu-crumb"></a>').text(crumbText).appendTo(newCrumb);
                         newCrumb
                             .appendTo(breadcrumb)
                             .find('a').click(function () {
