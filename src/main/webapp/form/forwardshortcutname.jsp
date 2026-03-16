@@ -46,7 +46,7 @@
 
     // forward to the page 'form_link'
     if (true) {
-        out.clear();
+        out.clearBuffer();
         //forward to the current specified form, e.g. contextPath/form/formar.jsp?demographic_no=
         String strFrm = URLDecoder.decode(request.getParameter("formname"), "UTF-8");
         String[] formPath = (new FrmData()).getShortcutFormValue(request.getParameter("demographic_no"), strFrm);
@@ -59,7 +59,7 @@
                 ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") +
                 ((request.getParameter("formId") != null) ? "&formId=" + request.getParameter("formId") : "&formId=" + formPath[1]);
         MiscUtils.getLogger().info("Forwarding to page : " + nextPage);
-        pageContext.forward(nextPage);
+        request.getRequestDispatcher(nextPage).include(request, response);
         return;
     }
 %>

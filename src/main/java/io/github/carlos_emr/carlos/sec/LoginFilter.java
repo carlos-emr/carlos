@@ -378,6 +378,10 @@ public class LoginFilter implements Filter {
      * @return boolean true if request URI starts with any exempt URL, false otherwise
      */
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+        // Treat context root (e.g. /carlos/) as equivalent to /index.jsp (welcome file)
+        if (requestURI.equals(contextPath) || requestURI.equals(contextPath + "/")) {
+            requestURI = contextPath + "/index.jsp";
+        }
         for (String exemptUrl : EXEMPT_URLS) {
             if (requestURI.startsWith(contextPath + exemptUrl)) {
                 return true;

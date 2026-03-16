@@ -282,6 +282,9 @@ public class LogoutBroadcastFilter implements Filter {
                 "var loginUrl=cp+'/index.jsp';" +
                 "var done=false;" +
                 "var logoutMsg='" + Encode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
+                // Grace period: ignore logout broadcasts for 5s after page load
+                // to prevent stale broadcasts from prior sessions causing immediate logout
+                "var ready=false;setTimeout(function(){ready=true},5000);" +
 
                 // BroadcastChannel listener (feature detection — may not exist in all browsers)
                 "var bc;" +
@@ -325,7 +328,8 @@ public class LogoutBroadcastFilter implements Filter {
                 "dL()}" +
 
                 // handleLogout — received broadcast from another window
-                "function hL(){if(done)return;done=true;dL()}" +
+                // Ignore during grace period to prevent stale broadcasts from causing logout loops
+                "function hL(){if(done||!ready)return;done=true;dL()}" +
 
                 // doLogout — show logged-out overlay, close popup or redirect tab to login
                 "function dL(){" +

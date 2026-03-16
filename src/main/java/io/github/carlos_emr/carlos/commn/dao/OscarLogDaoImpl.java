@@ -166,7 +166,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn) {
-        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != '-1' order by dateTime desc";
+        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 order by l.dateTime desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);
@@ -188,7 +188,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Object[]> getRecentDemographicsViewedByProvider(String providerNo, int startPosition,
                                                                 int itemsToReturn) {
-        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != '-1' group by l.demographicId order by MAX(l.created) desc";
+        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 group by l.demographicId order by MAX(l.created) desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);
@@ -210,7 +210,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Object[]> getRecentDemographicsViewedByProviderAfterDateIncluded(String providerNo, Date date,
                                                                                  int startPosition, int itemsToReturn) {
-        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.created >= ?2 and l.demographicId is not null and l.demographicId != '-1' group by l.demographicId order by MAX(l.created) desc";
+        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.created >= ?2 and l.demographicId is not null and l.demographicId != -1 group by l.demographicId order by MAX(l.created) desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);

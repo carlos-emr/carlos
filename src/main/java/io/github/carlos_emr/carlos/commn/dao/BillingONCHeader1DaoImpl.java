@@ -667,7 +667,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public List<Object[]> findBillingsAndDemographicsById(Integer id) {
-        String sql = "FROM BillingONCHeader1 b, Demographic d WHERE b.id = ?1 AND b.demographicNo = d.DemographicNo";
+        String sql = "SELECT b, d FROM BillingONCHeader1 b, Demographic d WHERE b.id = ?1 AND b.demographicNo = d.DemographicNo";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         return query.getResultList();

@@ -73,7 +73,7 @@ public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements De
     }
 
     public List<Object[]> findAllRolesAndAccessTypes() {
-        return (List<Object[]>) HqlQueryHelper.find(currentSession(), "FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.Id");
+        return (List<Object[]>) HqlQueryHelper.find(currentSession(), "SELECT a, b FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.Id");
     }
 
 }

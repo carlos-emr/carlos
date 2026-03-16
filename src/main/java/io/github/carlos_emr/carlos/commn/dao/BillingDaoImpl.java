@@ -113,7 +113,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
             params.put(param, serviceCodes.get(i));
         }
 
-        StringBuilder buf = new StringBuilder("FROM Billing b, BillingDetail bd where b.demographicNo = :demoNo and bd.billingNo = b.id");
+        StringBuilder buf = new StringBuilder("SELECT b, bd FROM Billing b, BillingDetail bd where b.demographicNo = :demoNo and bd.billingNo = b.id");
         params.put("demoNo", demoNo);
 
         if (serviceCodeValues.length() != 0) {

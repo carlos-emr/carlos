@@ -50,7 +50,7 @@ public class BillingInrDaoImpl extends AbstractDaoImpl<BillingInr> implements Bi
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> search_inrbilling_dt_billno(Integer billingInrNo) {
-        String sql = "from BillingInr b, Demographic d where d.DemographicNo=b.demographicNo and b.id=?1 and b.status<>'D'";
+        String sql = "select b, d from BillingInr b, Demographic d where d.DemographicNo=b.demographicNo and b.id=?1 and b.status<>'D'";
         Query q = entityManager.createQuery(sql);
         q.setParameter(1, billingInrNo);
 

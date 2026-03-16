@@ -47,14 +47,14 @@ public class WaitingListDaoImpl extends AbstractDaoImpl<WaitingList> implements 
 
     @SuppressWarnings("unchecked")
     public List<Object[]> findByDemographic(Integer demographicNo) {
-        Query query = entityManager.createQuery("FROM WaitingListName wn, WaitingList w WHERE wn.id = w.listId AND w.demographicNo = ?1 AND w.isHistory != 'Y'");
+        Query query = entityManager.createQuery("SELECT wn, w FROM WaitingListName wn, WaitingList w WHERE wn.id = w.listId AND w.demographicNo = ?1 AND w.isHistory != 'Y'");
         query.setParameter(1, demographicNo);
         return query.getResultList();
     }
 
     @SuppressWarnings("unchecked")
     public List<Object[]> findWaitingListsAndDemographics(Integer listId) {
-        Query query = entityManager.createQuery("FROM WaitingList w, Demographic d WHERE w.demographicNo = d.DemographicNo AND  w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.position");
+        Query query = entityManager.createQuery("SELECT w, d FROM WaitingList w, Demographic d WHERE w.demographicNo = d.DemographicNo AND  w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.position");
         query.setParameter(1, listId);
         return query.getResultList();
     }

@@ -27,9 +27,9 @@
     String historyet = request.getParameter("historyet") == null ? "" : ("&historyet=" + request.getParameter("historyet"));
 
     if (true) {
-        out.clear();
+        out.clearBuffer();
         if (formId == 0) {
-            pageContext.forward("formonarpg1.jsp?demographic_no=" + demoNo + "&formId=" + formId);
+            request.getRequestDispatcher("formonarpg1.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         } else {
             FrmRecord rec = (new FrmRecordFactory()).factory("ONAR");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
@@ -39,8 +39,8 @@
                 suffix = "pg" + pg;
             }
 
-            pageContext.forward("formonar" + suffix
-                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet);
+            request.getRequestDispatcher("formonar" + suffix
+                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet).include(request, response);
         }
         return;
     }

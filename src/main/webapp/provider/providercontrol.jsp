@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/errorpage.jsp" buffer="64kb" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
 
@@ -173,6 +173,10 @@
     // get operation name from request
     String operation = requestParamDict.getDef("displaymode", "");
 
-    // redirect to a file associated with operation
-    pageContext.forward(opToFileDict.getDef(operation, ""));
+    // Use jsp:include instead of pageContext.forward() because Tomcat 11's
+    // response buffer handling prevents forward() from working when response
+    // wrapper filters (CSRFGuard, LogoutBroadcast) are in the filter chain.
+    out.clearBuffer();
+    String includeTarget = opToFileDict.getDef(operation, "");
+    request.getRequestDispatcher(includeTarget).include(request, response);
 %>

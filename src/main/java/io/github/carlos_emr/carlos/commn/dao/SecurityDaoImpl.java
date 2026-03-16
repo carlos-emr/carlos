@@ -112,7 +112,7 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     @Override
     public List<Object[]> findProviders() {
-        String sql = "FROM Security s, Provider p WHERE p.providerNo = s.providerNo ORDER BY p.lastName";
+        String sql = "SELECT s, p FROM Security s, Provider p WHERE p.providerNo = s.providerNo ORDER BY p.lastName";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }

@@ -105,7 +105,7 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
 
     @Override
     public List<Object[]> search_appttimecode(Date sDate, String providerNo) {
-        Query query = entityManager.createQuery("FROM ScheduleTemplate st, ScheduleDate sd WHERE st.id.name=sd.hour and sd.date=?1 and sd.providerNo=?2 and sd.status='A' and (st.id.providerNo = sd.providerNo or st.id.providerNo='Public')");
+        Query query = entityManager.createQuery("SELECT st, sd FROM ScheduleTemplate st, ScheduleDate sd WHERE st.id.name=sd.hour and sd.date=?1 and sd.providerNo=?2 and sd.status='A' and (st.id.providerNo = sd.providerNo or st.id.providerNo='Public')");
         query.setParameter(1, sDate);
         query.setParameter(2, providerNo);
 

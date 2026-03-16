@@ -16,8 +16,8 @@
 <%
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Report in CSV")) {
         if (true) {
-            out.clear();
-            pageContext.forward("reportDownload"); //forward request&response to the target page
+            out.clearBuffer();
+            request.getRequestDispatcher("reportDownload").include(request, response); //forward request&response to the target page
             return;
         }
     }

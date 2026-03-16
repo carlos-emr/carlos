@@ -94,9 +94,20 @@
                 document.loginForm.username.select();
             }
 
-            // Clear any stale logout signal from a previous session so it does not
+            // Clear any stale logout signals from a previous session so they do not
             // cause an immediate logout loop if the user logs in again in this tab.
             try { localStorage.removeItem('carlos_logout_signal'); } catch(e) {}
+            // Drain and close any pending BroadcastChannel logout messages, then
+            // re-open a channel that ignores messages until the page navigates away.
+            try {
+                var bc = new BroadcastChannel('carlos_logout');
+                bc.onmessage = function() {}; // consume and ignore stale broadcasts
+                // Close on form submit so the authenticated page gets a clean channel
+                var loginForm = document.querySelector('form[name="loginForm"]');
+                if (loginForm) {
+                    loginForm.addEventListener('submit', function() { try { bc.close(); } catch(e) {} });
+                }
+            } catch(e) {}
 
             function popupPage(vheight, vwidth, varpage) {
                 var page = "" + varpage;

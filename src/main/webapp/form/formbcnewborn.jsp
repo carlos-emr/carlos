@@ -25,15 +25,15 @@
     String historyet = request.getParameter("historyet") == null ? "" : ("&historyet=" + request.getParameter("historyet"));
 
     if (true) {
-        out.clear();
+        out.clearBuffer();
         if (formId == 0) {
-            pageContext.forward("formbcnewbornpg1.jsp?demographic_no=" + demoNo + "&formId=" + formId);
+            request.getRequestDispatcher("formbcnewbornpg1.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         } else {
             FrmRecord rec = (new FrmRecordFactory()).factory("BCNewBorn");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-            pageContext.forward("formbcnewborn" + props.getProperty("c_lastVisited", "pg1")
-                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet);
+            request.getRequestDispatcher("formbcnewborn" + props.getProperty("c_lastVisited", "pg1")
+                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet).include(request, response);
         }
 
         return;
