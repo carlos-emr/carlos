@@ -57,11 +57,6 @@
               href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
               title="win2k-cold-1">
 
-        <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js"
-                type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js"
-                type="text/javascript"></script>
-
         <script type="text/javascript">
 
             function validate() {
@@ -117,7 +112,7 @@
 
                     <input type="submit"
                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnSubmit"/>"/>
-                    <input type="submit" onclick="$('method').value='remove';"
+                    <input type="submit" onclick="document.getElementById('method').value='remove';"
                         value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setNoteStaleDate.btnReset"/>"/>
                 </form> <%
             } else {

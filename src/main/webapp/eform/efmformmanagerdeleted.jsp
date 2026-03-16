@@ -43,6 +43,9 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.title"/></title>
 
@@ -84,7 +87,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.calldeletedformdata.title"/></h3>
 
 
-    <table class="table table-condensed table-striped table-hover" id="tblDeletedEforms">
+    <table class="table table-sm table-striped table-hover" id="tblDeletedEforms">
         <tr>
             <th><a href="<%= request.getContextPath() %>/eform/efmformmanagerdeleted.jsp?orderby=form_name"
                    class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFormName"/></a></th>
@@ -125,9 +128,9 @@
     <%@ include file="efmFooter.jspf" %>
 
     <script>
-        $('#tblDeletedEforms').dataTable({
-            "aaSorting": [[0, "asc"]],
-            "fnDrawCallback": bindLinks
+        $('#tblDeletedEforms').DataTable({
+            "order": [[0, "asc"]],
+            "drawCallback": bindLinks
         });
 
         function bindLinks(oSettings) {

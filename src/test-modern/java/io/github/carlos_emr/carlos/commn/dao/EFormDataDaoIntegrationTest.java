@@ -178,7 +178,9 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             List<EFormData> result = eFormDataDao.findByDemographicIdSinceLastDate(DEMO_NO, yesterday);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDemographicId()).isEqualTo(DEMO_NO);
+            assertThat(result.get(0).getFormId()).isEqualTo(FORM_ID);
         }
     }
 
@@ -311,7 +313,12 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             List<Map<String, Object>> result = eFormDataDao.findByDemographicIdCurrentNoData(DEMO_NO, true);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            Map<String, Object> row = result.get(0);
+            assertThat(row).containsKey("formId");
+            assertThat(row).containsKey("formName");
+            assertThat(row.get("formId")).isEqualTo(FORM_ID);
+            assertThat(row.get("demographicId")).isEqualTo(DEMO_NO);
         }
     }
 
@@ -441,7 +448,11 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             List<Object[]> result = eFormDataDao.findMetaFieldsByFormId(FORM_ID);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            Object[] row = result.get(0);
+            assertThat(row).hasSize(5);
+            assertThat(row[1]).isEqualTo(DEMO_NO);
+            assertThat(row[4]).isEqualTo(PROVIDER_NO);
         }
     }
 
@@ -489,7 +500,9 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
                     Arrays.asList(PROVIDER_NO), FORM_ID);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
+            assertThat(result.get(0).getFormId()).isEqualTo(FORM_ID);
         }
     }
 
@@ -512,7 +525,9 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             List<EFormData> result = eFormDataDao.findByDemographicIdAndFormName(DEMO_NO, "TestForm");
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getFormName()).isEqualTo("TestForm");
+            assertThat(result.get(0).getDemographicId()).isEqualTo(DEMO_NO);
         }
     }
 
@@ -535,7 +550,9 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             List<EFormData> result = eFormDataDao.findByDemographicIdAndFormId(DEMO_NO, FORM_ID);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getFormId()).isEqualTo(FORM_ID);
+            assertThat(result.get(0).getDemographicId()).isEqualTo(DEMO_NO);
         }
     }
 
@@ -559,7 +576,8 @@ public class EFormDataDaoIntegrationTest extends CarlosTestBase {
             List<EFormData> result = eFormDataDao.findByFidsAndDates(fids, yesterday, nextWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getFormId()).isEqualTo(FORM_ID);
         }
     }
 

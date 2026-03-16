@@ -533,7 +533,6 @@
             }
 
 
-            if (!document.all) document.captureEvents(Event.MOUSEUP);
             document.onmouseup = getActiveText;
 
             var encTextareaFocus = false;
@@ -742,8 +741,11 @@
             }
         </script>
 
+        <!-- Prototype.js removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
         <script language="javascript" type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+                src="<%= request.getContextPath() %>/share/javascript/prototype-compat.js"></script>
+        <script language="javascript" type="text/javascript"
+                src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script type="text/javascript" language=javascript>
             // Written by wreby
             // This code supports the autosave function
@@ -780,12 +782,11 @@
                 disableButtons(form);
                 form.btnPressed.value = 'AutoSave';
                 form.submitMethod.value = 'ajax';
-                var pars = Form.serialize(form);
+                var pars = new URLSearchParams(new FormData(form)).toString();
                 //send off the request
-                request = new Ajax.Request('SaveEncounter.do', {
+                request = CarlosAjax.request('SaveEncounter.do', {
                     method: 'post',
                     postBody: pars,
-                    asynchronous: true,
                     onSuccess: AutoSaveSuccess,
                     onFailure: AjaxSubmitFailure
                 });
@@ -805,12 +806,11 @@
                 }
                 disableButtons(formToSubmit);
                 formToSubmit.submitMethod.value = 'ajax';
-                var pars = Form.serialize(formToSubmit);
+                var pars = new URLSearchParams(new FormData(formToSubmit)).toString();
                 //send off the request
-                request = new Ajax.Request('SaveEncounter.do', {
+                request = CarlosAjax.request('SaveEncounter.do', {
                     method: 'post',
                     postBody: pars,
-                    asynchronous: true,
                     onSuccess: AjaxSubmitSuccess,
                     onFailure: AjaxSubmitFailure
                 });

@@ -166,7 +166,7 @@
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <script language="JavaScript">
         if ('<%=request.getAttribute("close")%>' == 'true') {
@@ -1097,7 +1097,7 @@
         function callReplacementWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
             var params = "demographicNo=<%=bill.getDemographicNo()%>&wcb=&billingcode=<%=allFields.getProperty("billingCode")%>&rand=" + ran_number;  //hack to get around ie caching the page
-            new Ajax.Updater(id, url, {method: 'get', parameters: params, asynchronous: true});
+            CarlosAjax.updater(id, url, {method: 'get', parameters: params});
         }
 
         function replaceWCB(id) {

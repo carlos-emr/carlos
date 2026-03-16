@@ -52,25 +52,27 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></title>
     <meta charset="UTF-8">
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
-    <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js" type="text/javascript"></script>
-    <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js" type="text/javascript"></script>
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/picker.js"></script>
     <script type="text/javascript">
 
+        function getEl(id) {
+            return document.getElementById(id);
+        }
+
         function enableEdit(elem) {
             if (elem.checked == true) {
-                $("styleText").readOnly = false;
-                $("apply-btn").style.display = 'block';
+                getEl("styleText").readOnly = false;
+                getEl("apply-btn").style.display = 'block';
             } else {
-                $("styleText").readOnly = true;
-                $("apply-btn").style.display = 'none';
+                getEl("styleText").readOnly = true;
+                getEl("apply-btn").style.display = 'none';
             }
 
         }
 
         function addStyle(id, option) {
-            var currentStyle = $F("styleText");
+            var currentStyle = getEl("styleText").value;
             var idx = currentStyle.indexOf(id);
             var idx2;
             var tmp1;
@@ -96,13 +98,13 @@
                     currentStyle = tmp1 + tmp2;
                 }
 
-                $("styleText").value = currentStyle;
-                $("example").style.cssText = currentStyle;
+                getEl("styleText").value = currentStyle;
+                getEl("example").style.cssText = currentStyle;
             } else {
                 if (option.value != "") {
                     currentStyle += id + ":" + option.value + ";";
-                    $("styleText").value = currentStyle;
-                    $("example").style.cssText = currentStyle;
+                    getEl("styleText").value = currentStyle;
+                    getEl("example").style.cssText = currentStyle;
                 }
             }
 
@@ -113,19 +115,19 @@
         var bgcolor;
 
         function checkColours() {
-            if (color != $F("color")) {
-                addStyle("color", $("color"));
-                color = $F("color");
+            if (color != getEl("color").value) {
+                addStyle("color", getEl("color"));
+                color = getEl("color").value;
             }
 
-            if (bgcolor != $F("background-color")) {
-                addStyle("background-color", $("background-color"));
-                bgcolor = $F("background-color");
+            if (bgcolor != getEl("background-color").value) {
+                addStyle("background-color", getEl("background-color"));
+                bgcolor = getEl("background-color").value;
             }
         }
 
         function edit() {
-            var style = $("style").options[$("style").selectedIndex].value;
+            var style = getEl("style").options[getEl("style").selectedIndex].value;
             var styles = style.split(";");
             var item;
             var components;
@@ -133,16 +135,16 @@
             var pos;
             var tmp;
 
-            $("font-size").selectedIndex = 0;
-            $("font-style").selectedIndex = 0;
-            $("font-variant").selectedIndex = 0;
-            $("font-weight").selectedIndex = 0;
-            $("text-decoration").selectedIndex = 0;
-            $("styleName").value = "";
-            $("color").value = "";
-            $("background-color").value = "";
-            $("styleText").value = "";
-            $("example").style.cssText = "";
+            getEl("font-size").selectedIndex = 0;
+            getEl("font-style").selectedIndex = 0;
+            getEl("font-variant").selectedIndex = 0;
+            getEl("font-weight").selectedIndex = 0;
+            getEl("text-decoration").selectedIndex = 0;
+            getEl("styleName").value = "";
+            getEl("color").value = "";
+            getEl("background-color").value = "";
+            getEl("styleText").value = "";
+            getEl("example").style.cssText = "";
 
             for (var idx = 0; idx < styles.length - 1; ++idx) {
                 components = styles[idx].split(":");
@@ -150,11 +152,11 @@
                 value = components[1];
 
                 if (item == "color" || item == "background-color") {
-                    $(item).value = value;
+                    getEl(item).value = value;
                 } else {
-                    for (var idx2 = 0; idx2 < $(item).options.length; ++idx2) {
-                        if ($(item).options[idx2].value == value) {
-                            $(item).options[idx2].selected = true;
+                    for (var idx2 = 0; idx2 < getEl(item).options.length; ++idx2) {
+                        if (getEl(item).options[idx2].value == value) {
+                            getEl(item).options[idx2].selected = true;
                             break;
                         }
                     } //end for
@@ -162,21 +164,21 @@
             } //end for
 
             if (style != "-1") {
-                $("styleText").value = style;
-                $("editStyle").value = style;
-                $("example").style.cssText = style;
-                $("styleName").value = $("style").options[$("style").selectedIndex].text;
+                getEl("styleText").value = style;
+                getEl("editStyle").value = style;
+                getEl("example").style.cssText = style;
+                getEl("styleName").value = getEl("style").options[getEl("style").selectedIndex].text;
             }
         }
 
         function checkfields() {
             var msg = "";
 
-            if ($("styleText").value.length == 0) {
+            if (getEl("styleText").value.length == 0) {
                 msg = "<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.noStyleError"/>";
             }
 
-            if ($("styleName").value.trim().length == 0) {
+            if (getEl("styleName").value.trim().length == 0) {
                 msg += "\r\n<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.noStyleNameError"/>";
             }
 
@@ -186,12 +188,12 @@
             }
 
             //if it's a new style save it for addition
-            if ($("style").selectedIndex == 0) {
-                addStyle("color", $("color"));
-                addStyle("background-color", $("background-color"));
-                $("editStyle").value = $("styleText").value;
+            if (getEl("style").selectedIndex == 0) {
+                addStyle("color", getEl("color"));
+                addStyle("background-color", getEl("background-color"));
+                getEl("editStyle").value = getEl("styleText").value;
             }
-            $("method").value = "save";
+            getEl("method").value = "save";
 
             return true;
 
@@ -199,75 +201,60 @@
 
         function deleteStyle() {
 
-            if ($("style").selectedIndex == 0) {
+            if (getEl("style").selectedIndex == 0) {
                 return false;
             }
 
             if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.confirmDelete"/>")) {
-                $("editStyle").value = $("style").options[$("style").selectedIndex].value;
-                $("method").value = "delete";
+                getEl("editStyle").value = getEl("style").options[getEl("style").selectedIndex].value;
+                getEl("method").value = "delete";
                 return true;
             }
             return false;
         }
 
         function applyStyle() {
-            $("example").style.cssText = $("styleText").value;
+            getEl("example").style.cssText = getEl("styleText").value;
         }
 
         function reinit() {
-            $("style").selectedIndex = 0;
-            $("font-size").selectedIndex = 0;
-            $("font-style").selectedIndex = 0;
-            $("font-variant").selectedIndex = 0;
-            $("font-weight").selectedIndex = 0;
-            $("text-decoration").selectedIndex = 0;
-            $("styleName").value = "";
-            $("color").value = "";
-            $("background-color").value = "";
-            $("styleText").value = "";
-            $("editStyle").value = "";
-            $("example").style.cssText = "";
+            getEl("style").selectedIndex = 0;
+            getEl("font-size").selectedIndex = 0;
+            getEl("font-style").selectedIndex = 0;
+            getEl("font-variant").selectedIndex = 0;
+            getEl("font-weight").selectedIndex = 0;
+            getEl("text-decoration").selectedIndex = 0;
+            getEl("styleName").value = "";
+            getEl("color").value = "";
+            getEl("background-color").value = "";
+            getEl("styleText").value = "";
+            getEl("editStyle").value = "";
+            getEl("example").style.cssText = "";
         }
 
         function init() {
             reinit();
-            color = $F("color");
-            bgcolor = $F("background-color");
+            color = getEl("color").value;
+            bgcolor = getEl("background-color").value;
             setInterval("checkColours()", 5000);
         }
 
     </script>
-
-    <style type="text/css">
-        .span4 {
-            padding-left: 0px;
-            padding-right: 0px;
-            margin-left: 0px;
-            margin-right: 0px;
-        }
-
-        .span10 {
-            padding-left: 0px;
-            padding-right: 0px;
-            margin-left: 0px;
-            margin-right: 0px;
-        }
-    </style>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 </head>
 <body>
 
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></h3>
 
-<div class="container-fluid form-inline">
+<div class="container-fluid d-flex flex-wrap align-items-center gap-2">
 
     <%
         String success = (String) request.getAttribute("success");
         if ("true".equalsIgnoreCase(success)) {
     %>
     <div class="alert alert-success">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <strong>Success!</strong> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.sucess"/>
     </div>
     <%
@@ -277,7 +264,7 @@
     <form action="${pageContext.request.contextPath}/admin/manageCSSStyles.do" method="post" accept-charset="UTF-8">
         <input type="hidden" id="method" name="method" value="save"/>
 
-        <div class="row well"><!--select existing styles-->
+        <div class="row card card-body bg-body-tertiary"><!--select existing styles-->
 
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.CurrentStyles"/><br/>
 
@@ -288,9 +275,9 @@
                 </c:forEach>
             </select>
 
-            <input class="btn" type="button" onclick="edit();return false;"
+            <input class="btn btn-secondary" type="button" onclick="edit();return false;"
                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Edit"/>"/>
-            <input type="submit" name="submit" value="Delete" class="btn" onclick="return deleteStyle();"/>
+            <input type="submit" name="submit" value="Delete" class="btn btn-secondary" onclick="return deleteStyle();"/>
 
 
         </div>
@@ -307,7 +294,7 @@
         </div>
 
         <div class="row">
-            <div class="span4">
+            <div class="col-md-4">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.FontSize"/><br>
                 <select id="font-size" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
@@ -372,13 +359,13 @@
             </div><!--span4-->
 
 
-            <div class="span4">
+            <div class="col-md-4">
                 <input type="hidden" id="editStyle" name="editStyle"/>
 
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
-                <textarea rows="8" class="span6" readonly="true" id="styleText" name="styleText"></textarea>
-                <input class="btn" id="apply-btn" type="button"
+                <textarea rows="8" class="form-control" readonly="true" id="styleText" name="styleText"></textarea>
+                <input class="btn btn-secondary" id="apply-btn" type="button"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
                        style="display:none"/>
 
@@ -392,11 +379,11 @@
         <!-- row -->
 
 
-        <div class="span10" style="text-align:right;">
+        <div class="col-md-10" style="text-align:right;">
             <hr>
-            <input class="btn btn-large" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Clear"/>"
+            <input class="btn btn-lg" type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.Clear"/>"
                    onclick="reinit();return false;"/>
-            <input type="submit" name="submit" value="Save" class="btn btn-large btn-primary" onclick="return checkfields();" />
+            <input type="submit" name="submit" value="Save" class="btn btn-lg btn-primary" onclick="return checkfields();" />
         </div>
 
     </form>

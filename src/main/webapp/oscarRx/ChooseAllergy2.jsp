@@ -51,11 +51,8 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/screen.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/scriptaculous.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseAllergy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -123,12 +120,13 @@
 
             function toggleSection(typecode) {
                 var imgsrc = document.getElementById(typecode + "_img").src;
+                var content = document.getElementById(typecode + "_content");
                 if (imgsrc.indexOf('expander') != -1) {
                     document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/collapser.png';
-                    Effect.BlindDown(document.getElementById(typecode + "_content"), {duration: 0.1});
+                    content.classList.remove('carlos-collapsed');
                 } else {
                     document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/expander.png';
-                    Effect.BlindUp(document.getElementById(typecode + "_content"), {duration: 0.1});
+                    content.classList.add('carlos-collapsed');
                 }
 
             }

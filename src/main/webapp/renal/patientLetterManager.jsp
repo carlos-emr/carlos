@@ -56,7 +56,7 @@
 
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.renal.managePatientLetter"/></title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <%
             if (request.getParameter("action") != null && request.getParameter("action").equals("save")) {
@@ -103,7 +103,7 @@
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.renal.managePatientLetter"/></h3>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         Use this section to customize the patient letter generated from the screening report.
         <br/>
         <form action="patientLetterManager.jsp" method="post">

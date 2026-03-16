@@ -751,14 +751,26 @@ function addNavElement() {
     formelement[0].appendChild(spacer);
 
     /*
-     * Place the new CSS style into the parent page.
+     * Inject Bootstrap 5 CSS into the eForm page so that toolbar components render correctly.
+     * This is required for standalone HTML eForms that do not load Bootstrap themselves.
      */
     let headelement = document.getElementsByTagName("head");
-    let style = document.createElement("link");
-    style.setAttribute("rel", "stylesheet");
-    style.setAttribute("type", "text/css");
-    style.setAttribute("href", "../library/bootstrap/3.0.0/css/eform_floating_toolbar_bootstrap_custom.min.css");
-    headelement[0].appendChild(style);
+    let bootstrapStyle = document.createElement("link");
+    bootstrapStyle.setAttribute("rel", "stylesheet");
+    bootstrapStyle.setAttribute("type", "text/css");
+    bootstrapStyle.setAttribute("href", "../library/bootstrap/5.3.3/css/bootstrap.min.css");
+    headelement[0].appendChild(bootstrapStyle);
+
+    /*
+     * Inject toolbar-specific CSS that provides the critical #toolbarWrapper positioning
+     * (position:fixed, z-index:10000) and scoped styles not present in bootstrap.min.css.
+     * Previously bundled inside eform_floating_toolbar_bootstrap_custom.min.css (Bootstrap 3).
+     */
+    let toolbarStyle = document.createElement("link");
+    toolbarStyle.setAttribute("rel", "stylesheet");
+    toolbarStyle.setAttribute("type", "text/css");
+    toolbarStyle.setAttribute("href", "../eform/eformFloatingToolbar/eform_floating_toolbar_custom.css");
+    headelement[0].appendChild(toolbarStyle);
 
 }
 

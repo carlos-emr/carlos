@@ -268,6 +268,8 @@ class LocalOnlyUserAgentUnitTest {
 
             InputStream result = invokeOpenStream(agent,testFile.toUri().toString());
             assertThat(result).as("file under webapp root should be allowed").isNotNull();
+            byte[] content = result.readAllBytes();
+            assertThat(new String(content)).isEqualTo("body { color: black; }");
             result.close();
         }
 
@@ -313,6 +315,8 @@ class LocalOnlyUserAgentUnitTest {
 
                 InputStream result = invokeOpenStream(agent,tmpFile.toUri().toString());
                 assertThat(result).as("file under java.io.tmpdir should be allowed").isNotNull();
+                byte[] content = result.readAllBytes();
+                assertThat(new String(content)).isEqualTo("body { margin: 0; }");
                 result.close();
             } finally {
                 Files.deleteIfExists(tmpFile);
@@ -467,6 +471,9 @@ class LocalOnlyUserAgentUnitTest {
         void shouldReturnNonNullRenderer() {
             ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
             assertThat(renderer).isNotNull();
+            assertThat(renderer).isInstanceOf(ITextRenderer.class);
+            // Verify the renderer has a shared context configured (required for PDF generation)
+            assertThat(renderer.getSharedContext()).isNotNull();
         }
 
         @Test

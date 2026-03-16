@@ -57,8 +57,6 @@
         <title><%=bundle.getString(providertitle)%></title>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
-        <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js" type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js" type="text/javascript"></script>
     </head>
 
     <body class="BodyStyle" vlink="#0000FF">

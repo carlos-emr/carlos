@@ -83,7 +83,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
 
             <h2>Create New Upload</h2>
 
@@ -99,15 +99,15 @@
                         <p>Please add at least one file to the upload.</p>
 
                         <div>
-                            <button class="btn" onclick="return addNew(this)">Add
+                            <button class="btn btn-secondary" onclick="return addNew(this)">Add
                                 File
                             </button>
-                            <button class="btn" onclick="return cancelUpload(this)">Cancel</button>
+                            <button class="btn btn-secondary" onclick="return cancelUpload(this)">Cancel</button>
                         </div>
 
                     </c:when>
                     <c:otherwise>
-                        <table class="table table-striped  table-condensed">
+                        <table class="table table-striped  table-sm">
                             <thead>
                             <tr>
                                 <th></th>
@@ -127,10 +127,10 @@
                         </table>
 
                         <div>
-                            <button class="btn" onclick="return uploadToMcedt(this)">Upload to MCEDT</button>
-                            <button class="btn" onclick="return removeSelected(this)">Remove Selected Files</button>
-                            <button class="btn" onclick="return addNew(this)">Add More Files</button>
-                            <button class="btn" onclick="return cancelUpload(this)">Cancel</button>
+                            <button class="btn btn-secondary" onclick="return uploadToMcedt(this)">Upload to MCEDT</button>
+                            <button class="btn btn-secondary" onclick="return removeSelected(this)">Remove Selected Files</button>
+                            <button class="btn btn-secondary" onclick="return addNew(this)">Add More Files</button>
+                            <button class="btn btn-secondary" onclick="return cancelUpload(this)">Cancel</button>
                         </div>
                     </c:otherwise>
                 </c:choose>

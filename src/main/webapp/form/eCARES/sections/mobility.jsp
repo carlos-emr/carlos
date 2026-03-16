@@ -41,7 +41,7 @@
         <div class="flex-1">
             <div class="flex">
                 <span class="mandatory tt font-bold inline-block pl-1 w-10" data-names="ind,asst,cant"
-                      data-toggle="tooltip" title="Walk Outside">
+                      data-bs-toggle="tooltip" title="Walk Outside">
                     <span class="highlight" data-field-name="walk_outside">Walk Outside</span>
                 </span>
 
@@ -60,7 +60,7 @@
                     <span class="pl-1">Can't</span></label>
             </div>
             <div class="flex"><span class="mandatory tt font-bold pl-1 w-10" data-names="ind,stand_by,asst,dep"
-                                    data-toggle="tooltip" title="Transfers">
+                                    data-bs-toggle="tooltip" title="Transfers">
                     <span class="highlight" data-field-name="transfers">Transfers</span>
                 </span>
 
@@ -85,7 +85,7 @@
                     <span class="pl-1">DEP</span></label>
             </div>
             <div class="flex">
-                <span class="mandatory tt font-bold pl-1 w-10" data-names="none,case,walker,chair" data-toggle="tooltip"
+                <span class="mandatory tt font-bold pl-1 w-10" data-names="none,case,walker,chair" data-bs-toggle="tooltip"
                       title="Walking Aid">
                     <span class="highlight" data-field-name="aid">Aid</span>
                 </span>
@@ -164,14 +164,14 @@
             </div>
 
             <div class="flex">
-                <label for="five_times_sit_to_stand_time" class="tt font-normal" data-toggle="tooltip"
+                <label for="five_times_sit_to_stand_time" class="tt font-normal" data-bs-toggle="tooltip"
                        title="Five Times Sit to Stand Score Time in Seconds">
                     <span class="font-bold highlight" data-field-name="five_times_sit_to_stand_time">5TSTS Time:</span>
                 </label>
                 <input type="number" id="five_times_sit_to_stand_time" min="0" max="1000"
                        name="five_times_sit_to_stand_time" class="h-si ecares-input" style="width:45px;">
 
-                <label for="five_times_sit_to_stand_attempt" class="tt font-normal" data-toggle="tooltip"
+                <label for="five_times_sit_to_stand_attempt" class="tt font-normal" data-bs-toggle="tooltip"
                        title="Five Times Sit to Stand Number Attempts">
                     <span class="highlight" data-field-name="five_times_sit_to_stand_attempt">5TSTS ATPT:</span>
                 </label>
@@ -186,7 +186,7 @@
                     <option value="5">5</option>
                 </select>
 
-                <div class="tt control-label inline-block pl-1" data-toggle="tooltip"
+                <div class="tt form-label inline-block pl-1" data-bs-toggle="tooltip"
                      title="Able to cross arms in front">
                     CRS Arms
                 </div>

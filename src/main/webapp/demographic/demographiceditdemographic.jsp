@@ -258,9 +258,10 @@
         <link rel="stylesheet" type="text/css" media="all"
               href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-1.12.0.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript"
-                src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+                src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link rel="stylesheet" href="<%=request.getContextPath() %>/demographic/demographiceditdemographic.css"
               type="text/css"/>
 
@@ -279,9 +280,6 @@
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
 
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
         <% if (isMobileOptimized) { %>
         <meta name="viewport"
               content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width"/>
@@ -299,10 +297,6 @@
                 type="text/javascript"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/menutility.js"
                 type="text/javascript"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <script type="text/javascript"
                 src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
@@ -908,7 +902,7 @@
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap
 		*/
-            .searchBox .select-group, .searchBox div.input-group-btn {
+            .searchBox .select-group, .searchBox div.input-group {
                 display: flex;
                 flex-direction: row;
                 align-items: stretch;
@@ -5017,12 +5011,17 @@
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
             var params = "demographic=<%=demographic_no%>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
-            var response;
-            new Ajax.Request(url + '?' + params, {
-                onSuccess: function (response) {
-                    document.getElementById(id).innerHTML = response.responseText;
-                    document.getElementById('search_spinner').innerHTML = "";
+            fetch(url + '?' + params, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
+            }).then(function(r) { return r.text(); })
+              .then(function(text) {
+                // Server-rendered eligibility HTML inserted into DOM (same-origin trusted content)
+                document.getElementById(id).innerHTML = text;
+                document.getElementById('search_spinner').innerHTML = "";
             });
         }
         

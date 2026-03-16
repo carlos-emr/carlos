@@ -12,7 +12,7 @@
     function attachHandlers($obj, apinamespace, extensionName) {
 
         ;(function (jSignatureInstance, $obj, apinamespace) {
-            $obj.bind('click', function () {
+            $obj.on('click', function () {
                 // when user is annoyed enough to click on us, hide us
                 $obj.hide()
             })

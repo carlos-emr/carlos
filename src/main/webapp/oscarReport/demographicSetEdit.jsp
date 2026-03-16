@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
@@ -78,18 +79,22 @@
         <title>Demographic Set Edit I18n</title>
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
-        <script src="${pageContext.request.contextPath}/js/bootstrap.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
 
         <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+                    new bootstrap.Tooltip(el);
+                });
+            });
 
             function showHideItem(id) {
                 if (document.getElementById(id).style.display == 'none')
@@ -130,25 +135,25 @@
 
     </head>
 
-    <body class="preview" id="top" data-spy="scroll" data-target=".subnav" data-offset="180">
+    <body class="preview" id="top" data-bs-spy="scroll" data-bs-target=".subnav" data-bs-offset="180">
 
     <div class="container">
 
-        <div class="page-header">
+        <div class="pb-2 mt-4 mb-3 border-bottom">
             <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDemographic"/> - <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgSetEdit"/></h3>
         </div>
 
         <section id="mainContent">
             <% if (request.getAttribute("deleteSetSuccess") != null && (Boolean) request.getAttribute("deleteSetSuccess")) { %>
-            <div class="alert alert-block alert-success fade in">
-                <button type="button" class="close" data-dismiss="alert">X</button>
+            <div class="alert alert-success fade show">
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <h4 class="alert-heading">Success!</h4>
-                <p>Patient set "${requestScope.setname}" has been successfully deleted.</p>
+                <p>Patient set "<c:out value="${requestScope.setname}"/>" has been successfully deleted.</p>
             </div>
             <% } %>
             <div class="row">
-                <div class="span12">
-                    <form class="form-horizontal well form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit.do">
+                <div class="col-md-12">
+                    <form class="card card-body bg-body-tertiary form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit.do">
                     <div><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgPatientSet"/>: <select
                             name="patientSet">
                         <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgOptionSet"/></option>
@@ -157,7 +162,7 @@
                         <option value="<%=s%>"><%=s%>
                         </option>
                         <%}%>
-                    </select> <input type="submit" class="btn"
+                    </select> <input type="submit" class="btn btn-secondary"
                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDisplaySet"/>"/>
                     </div>
 
@@ -165,17 +170,17 @@
                    List<Map<String,String>> list = (List<Map<String,String>>) request.getAttribute("SET");
                    String setName = (String) request.getAttribute("setname");%>
                     <div><form action="${pageContext.request.contextPath}/report/SetEligibility.do" method="post">
-                        <input type="button" class="btn" data-toggle="tooltip"
+                        <input type="button" class="btn btn-secondary" data-bs-toggle="tooltip"
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgIneligible"/>"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnSetIneligible"/>"
                                onclick="submit();">
-                        <input type="submit" class="btn" name="delete"
+                        <input type="submit" class="btn btn-secondary" name="delete"
                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgDelete"/>"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.btnDelete"/>"/>
                         <input type="hidden" name="setName" value="<%=setName%>">
                         <input type="hidden" name="deleteSet" id="deleteSet">
 
-                        <table id="demoTable" class="ele table table-striped table-condensed">
+                        <table id="demoTable" class="ele table table-striped table-sm">
                             <thead>
                             <tr>
                                 <th>&nbsp;<input type="checkbox" id="select_all"
@@ -197,7 +202,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="demoNo"
-                                           value="<%=h.get("demographic_no")%>" class="checkbox"></td>
+                                           value="<%=h.get("demographic_no")%>" class="form-check-input"></td>
                                 <td><%=h.get("demographic_no")%>
                                 </td>
                                 <td><%=demo.getLastName()%>, <%=demo.getFirstName()%>
@@ -217,7 +222,7 @@
                             </tbody>
                         </table>
                         <!-- Button to trigger modal delete confirmation. Backend not implimented-->
-                        <!--<a href="#delete-set-confirm" role="button" class="btn btn-alert" data-toggle="modal"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.delGroup"/></a>-->
+                        <!--<a href="#delete-set-confirm" role="button" class="btn btn-alert" data-bs-toggle="modal"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.delGroup"/></a>-->
                     </form></div>
                     <script>
 
@@ -264,10 +269,11 @@
         </section>
     </div>
 
-    <div id="delete-set-confirm" class="modal hide fade" tabindex="-1" role="dialog">
+    <div id="delete-set-confirm" class="modal fade" tabindex="-1" aria-labelledby="deleteSetTitle">
+        <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal">X</button>
-            <h3>Delete Set</h3>
+            <h3 id="deleteSetTitle">Delete Set</h3>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
             <p>This will permanently delete the set, this procedure is
@@ -276,16 +282,16 @@
         </div>
         <div class="modal-footer">
             <a href="javascript:onDeleteConfirm();" class="btn btn-danger">Yes</a>
-            <button type="button" class="btn" data-dismiss="modal">No</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
         </div>
-    </div>
+    </div></div></div>
 
 
     <script>
 
         function onDeleteConfirm() {
-            $('#delete-set-confirm').modal('hide');
-            $('#deleteSet').val('deleteSet');
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('delete-set-confirm')).hide();
+            document.getElementById('deleteSet').value = 'deleteSet';
             document.getElementsByName("DemographicSetEditForm")[0].submit();
         }
 
@@ -294,8 +300,9 @@
             //e.preventDefault();
 
             var id = $(this).data('id');
-            $('#delete-set-confirm').modal({backdrop: true});
-            $('#delete-set-confirm').data('id', id).modal('show');
+            var deleteModal = new bootstrap.Modal(document.getElementById('delete-set-confirm'), {backdrop: true});
+            $('#delete-set-confirm').data('id', id);
+            deleteModal.show();
         };
 
     </script>

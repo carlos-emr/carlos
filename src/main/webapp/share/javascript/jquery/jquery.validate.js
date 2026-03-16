@@ -351,7 +351,7 @@
                     .validateDelegate("[type='radio'], [type='checkbox'], select, option", "click", delegate);
 
                 if (this.settings.invalidHandler) {
-                    $(this.currentForm).bind("invalid-form.validate", this.settings.invalidHandler);
+                    $(this.currentForm).on("invalid-form.validate", this.settings.invalidHandler);
                 }
             },
 
@@ -1142,7 +1142,7 @@
                 // TODO find a way to bind the event just once, avoiding the unbind-rebind overhead
                 var target = $(param);
                 if (this.settings.onfocusout) {
-                    target.unbind(".validate-equalTo").bind("blur.validate-equalTo", function () {
+                    target.off(".validate-equalTo").on("blur.validate-equalTo", function () {
                         $(element).valid();
                     });
                 }
@@ -1251,7 +1251,7 @@
 (function ($) {
     $.extend($.fn, {
         validateDelegate: function (delegate, type, handler) {
-            return this.bind(type, function (event) {
+            return this.on(type, function (event) {
                 var target = $(event.target);
                 if (target.is(delegate)) {
                     return handler.apply(target, arguments);

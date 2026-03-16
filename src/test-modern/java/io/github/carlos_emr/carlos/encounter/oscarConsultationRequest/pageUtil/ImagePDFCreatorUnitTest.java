@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 import io.github.carlos_emr.OscarProperties;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -62,6 +63,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("ImagePDFCreator Unit Tests")
 class ImagePDFCreatorUnitTest {
 
+    static {
+        System.setProperty("java.awt.headless", "true");
+    }
+
+    @BeforeAll
+    static void setUpHeadless() {
+        // Headless property set in static initializer above to ensure it runs
+        // before any AWT class loading
+    }
+
     @TempDir
     Path tempDir;
 
@@ -79,6 +90,16 @@ class ImagePDFCreatorUnitTest {
             OscarProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
         } else {
             OscarProperties.getInstance().remove("DOCUMENT_DIR");
+        }
+    }
+
+    /** Returns true if AWT graphics are available (display or headless mode). */
+    private static boolean isAwtAvailable() {
+        try {
+            new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB).createGraphics().dispose();
+            return true;
+        } catch (Throwable t) {
+            return false;
         }
     }
 
@@ -149,6 +170,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce valid single-page PDF from JPEG image")
         void shouldProduceValidPdf_fromJpegImage() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path jpeg = createTestImage("test.jpg", "JPEG", 400, 600);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -168,6 +190,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce valid single-page PDF from PNG image")
         void shouldProduceValidPdf_fromPngImage() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path png = createTestImage("test.png", "PNG", 400, 600);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -187,6 +210,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should scale large image to fit within 500x700 bounds")
         void shouldScaleLargeImage_toFitWithinBounds() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path large = createTestImage("large.jpg", "JPEG", 2000, 3000);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -206,6 +230,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce multi-page PDF from multi-page TIFF")
         void shouldProduceMultiPagePdf_fromMultiPageTiff() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path tiff = createMultiPageTiff("multi.tiff", 3);
             Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 
@@ -222,6 +247,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should produce single-page PDF from single-page TIFF")
         void shouldProduceSinglePagePdf_fromSinglePageTiff() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path tiff = createMultiPageTiff("single.tif", 1);
             Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 
@@ -237,6 +263,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should detect TIFF by .tif extension (case-insensitive)")
         void shouldDetectTiff_byTifExtension() throws Exception {
+            Assumptions.assumeTrue(isAwtAvailable(), "AWT graphics not available (no display)");
             Path tiff = createMultiPageTiff("scan.TIF", 2);
             Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 

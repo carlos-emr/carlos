@@ -54,7 +54,9 @@
 
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript">
             function popupPage(varpage, windowname) {
@@ -100,14 +102,14 @@
     <%@ include file="efmTopNav.jspf" %>
 
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h3 style="display:inline"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
             class="fa-solid fa-circle-question"></i>
 
         <p>View: <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp"
                     class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnCurrent"/></a> | <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnDeleted"/></p>
 
-        <table id="scrollNumber1" name="encounterTable" class="table table-condensed table-striped">
+        <table id="scrollNumber1" name="encounterTable" class="table table-sm table-striped">
             <thead>
             <tr>
                 <th>

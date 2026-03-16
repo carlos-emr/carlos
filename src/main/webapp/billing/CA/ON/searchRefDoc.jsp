@@ -112,11 +112,11 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
-        <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
 
@@ -174,7 +174,7 @@
             type="button" class="btn-link" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">
-        <table style="width:100%" id="tblDocs" class="table table-condensed">
+        <table style="width:100%" id="tblDocs" class="table table-sm">
             <thead>
             <tr class="title">
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/></th>
@@ -220,7 +220,7 @@
             </tbody>
         </table>
         <br>
-        <a class="btn"
+        <a class="btn btn-secondary"
            href="${pageContext.request.contextPath}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/></a>
 
     </div>

@@ -80,21 +80,23 @@
 
         </style>
 
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body>
     <%@ include file="efmTopNav.jspf" %>
 
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/></h3>
-    <div class="row-fluid">
-        <div class="well span6">
+    <div class="row">
+        <div class="card card-body bg-body-tertiary col-md-6">
 
             <!--ADD GROUP-->
             <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="post" id="addGroupForm"
-                  class="form-inline">
-                <div class="controls">
-                    <div class="input-append">
+                  class="d-flex flex-wrap align-items-center gap-2">
+                <div>
+                    <div class="input-group">
                         <input type="text" name="groupName" class="check"
                                placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addGroup"/>">
                         <input type="submit" name="subm" class="btn btn-primary groupAdd"
@@ -104,13 +106,13 @@
             </form>
 
 
-            <div class="alert alert-error textExists" style="display:none;">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <div class="alert alert-danger textExists" style="display:none;">
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <strong>Error!</strong> the group name you selected already exists.
             </div>
 
             <!--GROUP LIST-->
-            <table class="table table-condensed table-striped" id="groupListTbl">
+            <table class="table table-sm table-striped" id="groupListTbl">
                 <thead>
                 <tr>
                     <th></th>
@@ -130,7 +132,7 @@
 
                         if (groupName.equals(groupView)) {
                 %>
-                <tr class="success">
+                <tr class="table-success">
                             <%}else{%>
                 <tr>
                     <%}%>
@@ -138,7 +140,7 @@
                         <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup.do" style="display:inline;">
                             <input type="hidden" name="group_name" value="<%=Encode.forHtmlAttribute(groupName)%>"/>
                             <a href="javascript:void(0);"
-                               class="btn btn-small" title="delete this group"
+                               class="btn btn-sm btn-secondary" title="delete this group"
                                data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=Encode.forHtmlAttribute(groupName)%></strong>?"
 ><i
                                     class="fa-solid fa-trash"></i></a>
@@ -160,11 +162,11 @@
 
         <!--EFORMS IN GROUP-->
 
-        <div class="well span6">
+        <div class="card card-body bg-body-tertiary col-md-6">
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.contents"/>: <%=groupView%>
             </h4>
 
-            <table class="table table-condensed table-striped">
+            <table class="table table-sm table-striped">
                 <thead>
                 <tr>
                     <th>
@@ -195,16 +197,16 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <tr rel="popover" data-html="true" data-title="<%=curForm.get("formName")%>"
-                    data-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=curForm.get("formSubject")%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=curForm.get("formFileName")%></small>"
-                    data-trigger="hover" data-placement="bottom">
+                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=curForm.get("formName")%>"
+                    data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=curForm.get("formSubject")%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=curForm.get("formFileName")%></small>"
+                    data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup.do" style="display:inline;">
                             <input type="hidden" name="fid" value="<%=curForm.get("fid")%>"/>
                             <input type="hidden" name="groupName" value="<%=Encode.forHtmlAttribute(groupView)%>"/>
                             <a href="javascript:void(0);"
-                               title="remove from group" class="btn btn-small"
+                               title="remove from group" class="btn btn-sm btn-secondary"
                                data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"
 ><i
                                     class="fa-solid fa-trash"></i></a>
@@ -234,21 +236,22 @@
                 </tbody>
             </table>
 
-            <div class="row-fluid">
+            <div class="row">
                 <button type="button" name="addEform-btn" id="addEform-btn" title="add eform to this group"
-                        class="btn btn-primary modalShow pull-right">Add eForm
+                        class="btn btn-primary modalShow float-end">Add eForm
                 </button>
             </div>
         </div>
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
         <form action="${pageContext.request.contextPath}/eform/addToGroup.do" method="post" id="eformToGroupForm">
-        <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
+        <div id="myModal" class="modal fade" tabindex="-1" aria-labelledby="myModalLabel"
              aria-hidden="true">
+            <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">X</button>
                 <h3 id="myModalLabel"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.addToGroup"/> <%=groupView%>
                 </h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
 
@@ -273,12 +276,12 @@
 
             </div>
             <div class="modal-footer">
-                <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
 
                 <input type="submit" name="subm" id="eformToGroup-btn" class="btn btn-primary"
                        value="Add eForm to Group">
             </div>
-        </div>
+        </div></div></div>
         </form>
                 <% } %>
 
@@ -290,17 +293,17 @@
 
 
             $(function () {
-                $("[rel=popover]").popover({});
+                document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
             });
 
             $(document).ready(function () {
 
                 $("#eformToGroupForm").submit(function () {
-                    $('#myModal').modal('hide');
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('myModal')).hide();
                 });
 
                 $(".modalShow").click(function () {
-                    $('#myModal').modal('toggle');
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('myModal')).toggle();
                 });
 
                 $(".check").change(validate).keyup(validate);
@@ -332,7 +335,7 @@
                 var result = "";
                 $('#groupListTbl tbody').find('tr').each(function () {
 
-                    if ($('td:nth(1)', $(this)).attr("title") === textInput) {
+                    if ($('td:eq(1)', $(this)).attr("title") === textInput) {
                         result = "exists";
                         return false;
                     }

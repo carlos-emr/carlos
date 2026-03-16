@@ -54,9 +54,10 @@
     <head>
         <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/oscarRx/styles.css">
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+                src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+                <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+                src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
 	<script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
 
@@ -106,7 +107,7 @@
                     $.post("<%=request.getContextPath() + "/oscarRx/managePharmacy.do?method=save"%>",
                         data, function (data) {
                             if (data.id) {
-                                parent.location.reload();
+                                window.top.location.reload();
                             } else {
                                 alert("There was a problem saving your record");
                             }
@@ -129,7 +130,7 @@
                 $.post("<%=request.getContextPath() + "/oscarRx/managePharmacy.do?method=add"%>",
                     data, function (data) {
                         if (data.success) {
-                            parent.location.reload();
+                            window.top.location.reload();
                         } else {
                             alert("There was an error saving your Pharmacy");
                         }

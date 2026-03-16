@@ -33,7 +33,12 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>On Call Clinic Calendar</title>
+    <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath()%>/css/fontawesome-all.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath()%>/css/bootstrap-year-calendar.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+    <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script src="<%=request.getContextPath()%>/js/bootstrap-year-calendar.min.js"></script>
 
 
@@ -76,7 +81,7 @@
 
                 // Callback Events
                 clickDay: function (d) {
-                    $(d.element).popover('hide');
+                    bootstrap.Popover.getInstance(d.element)?.hide();
                     var dataSource = $('#calendar').data('calendar').getDataSource();
                     var newId = 0;
                     var delId = 0;
@@ -145,20 +150,20 @@
                                 + '</div>';
                         }
 
-                        $(e.element).popover({
+                        var existingPopover = bootstrap.Popover.getInstance(e.element);
+                        if (existingPopover) { existingPopover.dispose(); }
+                        new bootstrap.Popover(e.element, {
                             trigger: 'manual',
                             container: 'body',
                             html: true,
                             content: content
-                        });
-
-                        $(e.element).popover('show');
+                        }).show();
                     }
 
                 },
                 mouseOutDay: function (e) {
                     if ($(".event-tooltip-content").is(":visible")) {
-                        $(e.element).popover('hide');
+                        bootstrap.Popover.getInstance(e.element)?.hide();
                     }
 
                 },
@@ -170,19 +175,19 @@
                 $('#calendar').data('calendar').setDataSource(data);
             });
 
-            $("#modal").modal();
+            new bootstrap.Modal(document.getElementById('modal')).show();
         });
     </script>
 </head>
 <body>
 <div id="calendar" class="calendar" oncontextmenu="return false;">
 </div>
-<div id="modal" class="modal fade">
+<div id="modal" class="modal fade" tabindex="-1" aria-labelledby="onCallModalTitle">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">�</button>
-                <h4 class="modal-title">Instructions For Using OSCAR On-Call Calendar</h4>
+                <h4 class="modal-title" id="onCallModalTitle">Instructions For Using CARLOS On-Call Calendar</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p>To set a date for the On-Call Clinic Calendar click on the date in the calendar and the date will
@@ -190,7 +195,7 @@
                 <p>To remove a date from the On-Call Clinic Calendar click on the green date</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div><!-- /.modal-content -->
     </div><!-- /.modal-dialog -->

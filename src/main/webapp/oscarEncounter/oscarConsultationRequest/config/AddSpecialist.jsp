@@ -127,14 +127,14 @@
         </script>
 
         <script>
-            $(document).ready(function () {
-                $('#institution').change(function () {
+            document.addEventListener('DOMContentLoaded', function () {
+                document.getElementById('institution').addEventListener('change', function () {
                     changeInstitution();
                 });
             });
 
             function changeInstitution() {
-                var id = $('#institution').val();
+                var id = document.getElementById('institution').value;
                 if (id == '0') {
                     $('#department').empty();
                     $('#department').append($("<option></option>").attr("value", '0').text('Select Below'));
@@ -387,10 +387,10 @@
                             thisForm.setEformId((Integer) request.getAttribute("eformId"));
                     %>
                     <script>
-                        $(document).ready(function () {
-                            $('#institution').val('<%= Encode.forJavaScript(String.valueOf(request.getAttribute("institution"))) %>');
+                        document.addEventListener('DOMContentLoaded', function () {
+                            document.getElementById('institution').value = '<%= Encode.forJavaScript(String.valueOf(request.getAttribute("institution"))) %>';
                             changeInstitution();
-                            $('#department').val('<%= Encode.forJavaScript(String.valueOf(request.getAttribute("department"))) %>');
+                            document.getElementById('department').value = '<%= Encode.forJavaScript(String.valueOf(request.getAttribute("department"))) %>';
                         });
                     </script>
                     <% } %>

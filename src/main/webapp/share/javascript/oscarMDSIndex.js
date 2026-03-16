@@ -80,16 +80,44 @@ function serializeFormToObject(form) {
 }
 
 /**
+ * Returns the CSRF token value injected by csrfguard.js into the page.
+ * CSRFGuard (as of 4.5) auto-patches XMLHttpRequest but NOT fetch(), so
+ * fetch-based POST requests must include the token manually.
+ * Requires a <form> element on the page (csrfguard.js injects the hidden
+ * input into forms).
+ * @returns {string} the CSRF-TOKEN value, or empty string if not found
+ */
+function getCsrfToken() {
+    var el = document.querySelector('input[name="CSRF-TOKEN"]');
+    if (!el) {
+        console.warn('CSRF-TOKEN hidden input not found in DOM. '
+            + 'POST requests will be rejected by the server. '
+            + 'Ensure csrfguard.js is loaded and the page contains a <form> element.');
+        return '';
+    }
+    return el.value;
+}
+
+/**
  * Helper function to make a POST request with form-urlencoded data.
  * Centralizes fetch boilerplate for form submissions.
+ * Automatically includes the CSRF-TOKEN (if available and not already
+ * present in data) required by CSRFGuard.
  * @param {string} url - The URL to POST to
- * @param {string|Object} data - URL-encoded string or object to be converted
+ * @param {string|Object|URLSearchParams} data - Form data as a URL-encoded string, a key-value object, or URLSearchParams instance
  * @returns {Promise<Response>}
  */
 function postForm(url, data) {
+    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+    var csrfToken = csrfEl ? csrfEl.value : '';
     return fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'CSRF-TOKEN': csrfToken
+        },
         body: typeof data === 'string' ? data : new URLSearchParams(data).toString()
     });
 }
@@ -100,7 +128,7 @@ function postForm(url, data) {
  * @returns {Promise<Response>}
  */
 function fetchGet(url) {
-    return fetch(url, { method: 'GET' });
+    return fetch(url, { method: 'GET', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
 }
 
 /**
@@ -421,14 +449,14 @@ function sendMRP(ele) {
 }
 
 function rotate180(id) {
-    jQuery("#rotate180btn_" + id).attr('disabled', 'disabled');
+    jQuery("#rotate180btn_" + id).prop('disabled', true);
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
     postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate180&document=" + id)
         .then(response => response.text())
         .then(data => {
-            jQuery("#rotate180btn_" + id).removeAttr('disabled');
+            jQuery("#rotate180btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
@@ -439,14 +467,14 @@ function rotate180(id) {
 }
 
 function rotate90(id) {
-    jQuery("#rotate90btn_" + id).attr('disabled', 'disabled');
+    jQuery("#rotate90btn_" + id).prop('disabled', true);
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
     postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate90&document=" + id)
         .then(response => response.text())
         .then(data => {
-            jQuery("#rotate90btn_" + id).removeAttr('disabled');
+            jQuery("#rotate90btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
@@ -457,7 +485,7 @@ function rotate90(id) {
 }
 
 function removeFirstPage(id) {
-    jQuery("#removeFirstPagebtn_" + id).attr('disabled', 'disabled');
+    jQuery("#removeFirstPagebtn_" + id).prop('disabled', true);
     if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
         ShowSpin(true);
         const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
@@ -479,12 +507,12 @@ function removeFirstPage(id) {
                     jQuery("#removeFirstPagebtn_" + id).remove();
                 }
                 HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).removeAttr('disabled');
+                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
             })
             .catch(error => {
                 console.error('Error:', error);
                 HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).removeAttr('disabled');
+                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
             });
     }
 }

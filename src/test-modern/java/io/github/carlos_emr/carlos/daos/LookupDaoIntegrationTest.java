@@ -497,6 +497,9 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
             // Then - either empty (JDBC error caught) or populated (if data visible)
             assertThat(result).isNotNull();
+            // The JDBC call references a nonexistent table, so the DAO catches the
+            // SQLException and returns an empty list
+            assertThat(result).isEmpty();
         }
     }
 
@@ -552,8 +555,9 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             List<LookupCodeValue> result = lookupDao.LoadCodeList(
                 tableId, false, "", "", "");
 
-            // Then
+            // Then - missing backing table causes empty result
             assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
 
         @Test

@@ -149,15 +149,16 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.addRole"/></title>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <!-- Bootstrap -->
 
-        <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"
+        <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css"
               rel="stylesheet">
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
         <script type="text/javascript" language="JavaScript">
             <!--
@@ -258,20 +259,20 @@
 
     <span style="display: inline-block; width:100%; margin:auto; text-align:center;" class="alert"><%=msg%></span>
     <br><br>
-    <div class="well">
-        <form method="post" name="baseurl" action="providerAddRole.jsp" class="form-horizontal">
-            <div class="control-group">
-                <label class="control-label" for="role_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.rolename"/></label>
-                <div class="controls">
+    <div class="card card-body bg-body-tertiary">
+        <form method="post" name="baseurl" action="providerAddRole.jsp" class="">
+            <div class="mb-3">
+                <label class="form-label" for="role_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provideraddrole.rolename"/></label>
+                <div>
                     <input type="text" name="role_name" id="role_name"
                            value="<%=Encode.forHtmlAttribute(prop.getProperty("role_name", ""))%>"
                            maxlength='30'>
-                    <input type="submit" name="submit" value="Search" class="btn"
+                    <input type="submit" name="submit" value="Search" class="btn btn-secondary"
                            onclick="javascript:return onSearch();">
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <input
                             type="hidden" name="action" value='<%=action%>'/> <% if (!"search".equals(action)) {%>
                     <input type="submit" name="submit" class="btn btn-primary"

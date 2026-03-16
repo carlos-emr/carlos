@@ -74,7 +74,7 @@ nhpup = {
         // The event obj needs to be gotten from the virtual 
         //  caller, since we use onmouseover='nhpup.popup(p_msg)' 
         var t = this.getTarget(arguments.callee.caller.arguments[0]);
-        $jq(t).unbind('mouseout').bind('mouseout',
+        $jq(t).off('mouseout').on('mouseout',
             function (e) {
                 nhpup.pup.hide();
                 nhpup.move = false;
