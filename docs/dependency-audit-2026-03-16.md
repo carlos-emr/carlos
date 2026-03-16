@@ -30,8 +30,8 @@ These are patch or minor version bumps with no breaking API changes.
 | `org.apache.pdfbox:pdfbox` | 2.0.35 | **2.0.36** | Trivial | Released 2026-03-12, patch update |
 | `org.mockito:mockito-core` | 5.21.0 | **5.23.0** | Low | Released 2026-03, minor update |
 | `org.jetbrains:annotations` | 26.0.2-1 | **26.1.0** | Trivial | Released ~2026-02, minor version bump |
-| `ca.uhn.hapi.fhir:org.hl7.fhir.utilities` | 6.4.0 | **6.6.0** | Low | Security fixes for CVE-2024-45294/51132 |
-| `ca.uhn.hapi.fhir:org.hl7.fhir.dstu3` | 6.4.0 | **6.6.0** | Low | Follows org.hl7.fhir.core versioning |
+| `ca.uhn.hapi.fhir:org.hl7.fhir.utilities` | 6.4.0 | **6.8.2** | Low | Security fixes for CVE-2024-45294/51132; 6.8.2 is actual latest (6.6.0 also valid) |
+| `ca.uhn.hapi.fhir:org.hl7.fhir.dstu3` | 6.4.0 | **6.8.2** | Low | Follows org.hl7.fhir.core versioning; 6.8.2 is actual latest |
 
 **Recommended action**: Apply all of these in a single PR. These are safe, backward-compatible updates.
 
