@@ -1129,13 +1129,7 @@
             <scope>compile</scope>
         </dependency>
         
-        <!-- https://mvnrepository.com/artifact/org.testng/testng -->
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <version>7.5.1</version>
-            <scope>test</scope>
-        </dependency>
+        <!-- TestNG removed: all tests migrated to JUnit 5 (modern test framework) -->
 
         <!-- Modern Test Framework Dependencies -->
 
