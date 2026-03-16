@@ -307,18 +307,6 @@
             <artifactId>commons-collections4</artifactId>
             <version>4.5.0</version>
         </dependency>
-        <!-- Commons Digester3 Library -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-digester3</artifactId>
-            <version>3.2</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-beanutils</groupId>
-                    <artifactId>commons-beanutils</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
         <!-- apache commons codec -->
         <dependency>
             <groupId>commons-codec</groupId>

@@ -27,11 +27,19 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.reports.custom;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlElementWrapper;
 import java.util.ArrayList;
 import java.util.List;
 
+@XmlAccessorType(XmlAccessType.NONE)
 public class Form {
+    @XmlElement(name = "name")
     private String name;
+    @XmlElementWrapper(name = "items")
+    @XmlElement(name = "item")
     private List<Item> items = new ArrayList<Item>();
 
     public String getName() {

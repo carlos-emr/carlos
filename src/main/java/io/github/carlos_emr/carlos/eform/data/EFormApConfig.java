@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,53 +15,45 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  * <p>
- * This software was written for
- * Centre for Research on Inner City Health, St. Michael's Hospital,
- * Toronto, Ontario, Canada
- 
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.PMmodule.web.reports.custom;
+package io.github.carlos_emr.carlos.eform.data;
 
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import java.util.ArrayList;
+import java.util.List;
 
-@XmlAccessorType(XmlAccessType.NONE)
-public class Item {
-    private String id;
-    @XmlElement(name = "name")
-    private String name;
-    @XmlElement(name = "type")
-    private String valueType;
+/**
+ * JAXB root element for eForm database access point configuration XML.
+ * Replaces Apache Commons Digester3 parsing of apconfig.xml.
+ *
+ * @since 2006-05-25
+ */
+@XmlRootElement(name = "eformap-config")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class EFormApConfig {
 
+    @XmlElement(name = "databaseap")
+    private List<DatabaseAP> databaseAPs = new ArrayList<>();
 
-    public String getId() {
-        return id;
+    public List<DatabaseAP> getDatabaseAPs() {
+        return databaseAPs;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public void setDatabaseAPs(List<DatabaseAP> databaseAPs) {
+        this.databaseAPs = databaseAPs;
     }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getValueType() {
-        return valueType;
-    }
-
-    public void setValueType(String valueType) {
-        this.valueType = valueType;
-    }
-
 }
