@@ -297,10 +297,6 @@
                 type="text/javascript"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/menutility.js"
                 type="text/javascript"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <script type="text/javascript"
                 src="<%=request.getContextPath() %>/demographic/demographiceditdemographic.js.jsp"></script>
@@ -5015,12 +5011,17 @@
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
             var params = "demographic=<%=demographic_no%>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
-            var response;
-            new Ajax.Request(url + '?' + params, {
-                onSuccess: function (response) {
-                    document.getElementById(id).innerHTML = response.responseText;
-                    document.getElementById('search_spinner').innerHTML = "";
+            fetch(url + '?' + params, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
+            }).then(function(r) { return r.text(); })
+              .then(function(text) {
+                // Server-rendered eligibility HTML inserted into DOM (same-origin trusted content)
+                document.getElementById(id).innerHTML = text;
+                document.getElementById('search_spinner').innerHTML = "";
             });
         }
         

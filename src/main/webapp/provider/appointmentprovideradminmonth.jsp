@@ -355,7 +355,7 @@
 
         </style>
 
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script language="JavaScript">
             //<!--
@@ -451,7 +451,7 @@
                 var url = "<%= request.getContextPath() %>/provider/tabAlertsRefresh.jsp";
                 var pars = "id=" + id;
 
-                var myAjax = new Ajax.Updater(id, url, {method: 'get', parameters: pars});
+                CarlosAjax.updater(id, url, {method: 'get', parameters: pars});
             }
 
             //-->

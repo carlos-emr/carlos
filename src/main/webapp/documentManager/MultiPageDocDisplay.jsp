@@ -139,9 +139,7 @@
     <!-- calendar stylesheet -->
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/controls.js"></script>
+    <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
@@ -334,8 +332,7 @@
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
                                     <script type="text/javascript">
-                                        jQuery.noConflict();
-
+                                        // jQuery.noConflict() removed — no longer needed without Prototype.js
 
                                         function addDocComment(docId, status) {
                                             var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do";
@@ -370,7 +367,7 @@
                                         var totalPage =<%=numOfPage%>;
                                         showPageImg = function (docid, pn) {
                                             if (docid && pn) {
-                                                var e = $('docImg_' + docid);
+                                                var e = document.getElementById('docImg_' + docid);
                                                 if (e) {
                                                     // Find URl from src of image
                                                     var url = e.getAttribute('src');
@@ -384,7 +381,7 @@
                                         nextPage = function (docid) {
                                             curPage++;
 
-                                            $('viewedPage_' + docid).innerHTML = curPage;
+                                            document.getElementById('viewedPage_' + docid).textContent = curPage;
                                             showPageImg(docid, curPage);
                                             if (curPage == totalPage) {
                                                 hideNext();
@@ -400,7 +397,7 @@
                                                 curPage = 1;
                                                 hidePrev();
                                             }
-                                            $('viewedPage_' + docid).innerHTML = curPage;
+                                            document.getElementById('viewedPage_' + docid).textContent = curPage;
                                             showPageImg(docid, curPage);
                                             if (curPage == 1) {
                                                 hidePrev();
@@ -413,45 +410,45 @@
                                         }
                                         firstPage = function (docid) {
                                             curPage = 1;
-                                            $('viewedPage_' + docid).innerHTML = 1;
+                                            document.getElementById('viewedPage_' + docid).textContent = 1;
                                             showPageImg(docid, curPage);
                                             hidePrev();
                                             showNext();
                                         }
                                         lastPage = function (docid) {
                                             curPage = totalPage;
-                                            $('viewedPage_' + docid).innerHTML = totalPage;
+                                            document.getElementById('viewedPage_' + docid).textContent = totalPage;
                                             showPageImg(docid, curPage);
                                             hideNext();
                                             showPrev();
                                         }
                                         hidePrev = function () {
                                             //disable previous link
-                                            $("prevP").setStyle({display: 'none'});
-                                            $("firstP").setStyle({display: 'none'});
-                                            $("prevP2").setStyle({display: 'none'});
-                                            $("firstP2").setStyle({display: 'none'});
+                                            document.getElementById("prevP").style.display = 'none';
+                                            document.getElementById("firstP").style.display = 'none';
+                                            document.getElementById("prevP2").style.display = 'none';
+                                            document.getElementById("firstP2").style.display = 'none';
                                         }
                                         hideNext = function () {
                                             //disable next link
-                                            $("nextP").setStyle({display: 'none'});
-                                            $("lastP").setStyle({display: 'none'});
-                                            $("nextP2").setStyle({display: 'none'});
-                                            $("lastP2").setStyle({display: 'none'});
+                                            document.getElementById("nextP").style.display = 'none';
+                                            document.getElementById("lastP").style.display = 'none';
+                                            document.getElementById("nextP2").style.display = 'none';
+                                            document.getElementById("lastP2").style.display = 'none';
                                         }
                                         showPrev = function () {
                                             //disable previous link
-                                            $("prevP").setStyle({display: 'inline'});
-                                            $("firstP").setStyle({display: 'inline'});
-                                            $("prevP2").setStyle({display: 'inline'});
-                                            $("firstP2").setStyle({display: 'inline'});
+                                            document.getElementById("prevP").style.display = 'inline';
+                                            document.getElementById("firstP").style.display = 'inline';
+                                            document.getElementById("prevP2").style.display = 'inline';
+                                            document.getElementById("firstP2").style.display = 'inline';
                                         }
                                         showNext = function () {
                                             //disable next link
-                                            $("nextP").setStyle({display: 'inline'});
-                                            $("lastP").setStyle({display: 'inline'});
-                                            $("nextP2").setStyle({display: 'inline'});
-                                            $("lastP2").setStyle({display: 'inline'});
+                                            document.getElementById("nextP").style.display = 'inline';
+                                            document.getElementById("lastP").style.display = 'inline';
+                                            document.getElementById("nextP2").style.display = 'inline';
+                                            document.getElementById("lastP2").style.display = 'inline';
                                         }
                                         popupStart = function (vheight, vwidth, varpage, windowname) {
                                             oscarLog("in popupStart ");
@@ -500,8 +497,8 @@
                                                 oscarLog(str);
                                                 oscarLog(args[2]);
                                                 var oData = args[2];
-                                                $(str).value = args[2][0];//li.id;
-                                                oscarLog("str value=" + $(str).value);
+                                                document.getElementById(str).value = args[2][0];//li.id;
+                                                oscarLog("str value=" + document.getElementById(str).value);
                                                 oscarLog(args[2][1] + "--" + args[2][0]);
                                                 myAC.getInputEl().value = args[2][2] + "," + args[2][1];
                                                 oscarLog("--" + args[0].getInputEl().value);
@@ -529,7 +526,7 @@
                                                 adoc.appendChild(idoc);
 
                                                 adoc.appendChild(bdoc);
-                                                var providerList = $('providerList<%=docId%>');
+                                                var providerList = document.getElementById('providerList<%=docId%>');
                                                 //    console.log('Now HERE'+providerList);
                                                 providerList.appendChild(adoc);
 
@@ -550,21 +547,29 @@
                                             var num = formid.split("_");
                                             var doclabid = num[1];
                                             if (doclabid) {
-                                                var demoId = $('demofind' + doclabid).value;
-                                                var saved = $('saved' + doclabid).value;
+                                                var demoId = document.getElementById('demofind' + doclabid).value;
+                                                var saved = document.getElementById('saved' + doclabid).value;
                                                 if (demoId == '-1' || saved == 'false' || saved == false) {
                                                     alert('Document is not assigned to a patient,please file it');
                                                 } else {
                                                     var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do";
-                                                    var data = $(formid).serialize(true);
+                                                    var formEl = document.getElementById(formid);
+                                                    var data = new URLSearchParams(new FormData(formEl)).toString();
+                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                    var csrfToken = csrfEl ? csrfEl.value : '';
 
-                                                    new Ajax.Request(url, {
-                                                        method: 'post',
-                                                        parameters: data,
-                                                        onSuccess: function (transport) {
-                                                            refreshParent();
-                                                            window.close();
-                                                        }
+                                                    fetch(url, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                                            'X-Requested-With': 'XMLHttpRequest',
+                                                            'CSRF-TOKEN': csrfToken
+                                                        },
+                                                        credentials: 'same-origin',
+                                                        body: data
+                                                    }).then(function() {
+                                                        refreshParent();
+                                                        window.close();
                                                     });
                                                 }
                                             }
@@ -574,8 +579,8 @@
                                             if (docId) {
                                                 docId = docId.replace(/\s/, '');
                                                 if (docId.length > 0) {
-                                                    var demoId = $('demofind' + docId).value;
-                                                    var saved = $('saved' + docId).value;
+                                                    var demoId = document.getElementById('demofind' + docId).value;
+                                                    var saved = document.getElementById('saved' + docId).value;
                                                     var isFile = true;
                                                     if (demoId == '-1' || saved == 'false' || saved == false) {
                                                         isFile = confirm('Document is not assigned and saved to any patient, do you still want to file it?');
@@ -585,13 +590,20 @@
                                                         if (type) {
                                                             var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs.do';
                                                             var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                                                            new Ajax.Request(url, {
-                                                                method: 'post',
-                                                                parameters: data,
-                                                                onSuccess: function (transport) {
-                                                                    refreshParent();
-                                                                    window.close();
-                                                                }
+                                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                            var csrfToken = csrfEl ? csrfEl.value : '';
+                                                            fetch(url, {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                                    'CSRF-TOKEN': csrfToken
+                                                                },
+                                                                credentials: 'same-origin',
+                                                                body: data
+                                                            }).then(function() {
+                                                                refreshParent();
+                                                                window.close();
                                                             });
                                                         }
                                                     }
@@ -602,7 +614,7 @@
                                         function sendMRP(ele) {
                                             var doclabid = ele.id;
                                             doclabid = doclabid.split('_')[1];
-                                            var demoId = $('demofind' + doclabid).value;
+                                            var demoId = document.getElementById('demofind' + doclabid).value;
                                             if (demoId == '-1') {
                                                 alert('Please enter a valid demographic');
                                                 ele.checked = false;
@@ -611,17 +623,28 @@
                                                     var type = 'DOC';
                                                     var url = "<%=request.getContextPath()%>/oscarMDS/SendMRP.do";
                                                     var data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
-                                                    new Ajax.Request(url, {
-                                                        method: 'post',
-                                                        parameters: data,
-                                                        onSuccess: function (transport) {
-                                                            ele.disabled = true;
-                                                            $('mrp_fail_' + doclabid).hide();
+                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                    var csrfToken = csrfEl ? csrfEl.value : '';
+                                                    fetch(url, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                                            'X-Requested-With': 'XMLHttpRequest',
+                                                            'CSRF-TOKEN': csrfToken
                                                         },
-                                                        onFailure: function (transport) {
+                                                        credentials: 'same-origin',
+                                                        body: data
+                                                    }).then(function(response) {
+                                                        if (response.ok) {
+                                                            ele.disabled = true;
+                                                            document.getElementById('mrp_fail_' + doclabid).style.display = 'none';
+                                                        } else {
                                                             ele.checked = false;
-                                                            $('mrp_fail_' + doclabid).show();
+                                                            document.getElementById('mrp_fail_' + doclabid).style.display = '';
                                                         }
+                                                    }).catch(function() {
+                                                        ele.checked = false;
+                                                        document.getElementById('mrp_fail_' + doclabid).style.display = '';
                                                     });
                                                 } else {
                                                     ele.checked = false;
@@ -639,7 +662,7 @@
                                         }
 
                                         YAHOO.example.BasicRemote = function () {
-                                            if ($("autocompletedemo<%=docId%>") && $("autocomplete_choices<%=docId%>")) {
+                                            if (document.getElementById("autocompletedemo<%=docId%>") && document.getElementById("autocomplete_choices<%=docId%>")) {
                                                 oscarLog('in basic remote');
                                                 //var oDS = new YAHOO.util.XHRDataSource("http://localhost:8080/drugref2/test4.jsp");
                                                 var url = "<%=request.getContextPath()%>/demographic/SearchDemographic.do";
@@ -681,14 +704,14 @@
                                                     //oscarLog(args[0].getInputEl().id);
                                                     var str = args[0].getInputEl().id.replace("autocompletedemo", "demofind");
                                                     //oscarLog(str);
-                                                    $(str).value = args[2][2];//li.id;
-                                                    //oscarLog("str value="+$(str).value);
+                                                    document.getElementById(str).value = args[2][2];//li.id;
+                                                    //oscarLog("str value="+document.getElementById(str).value);
                                                     //oscarLog(args[2][1]+"--"+args[2][0]);
                                                     args[0].getInputEl().value = args[2][0] + "(" + args[2][1] + ")";
                                                     //oscarLog("--"+args[0].getInputEl().value);
                                                     selectedDemos.push(args[0].getInputEl().value);
                                                     //enable Save button whenever a selection is made
-                                                    $('save<%=docId%>').enable();
+                                                    document.getElementById('save<%=docId%>').disabled = false;
 
                                                 });
 
@@ -705,23 +728,34 @@
                                                 return false;
                                             }
                                             //save doc info
-                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do",
-                                                data = $(eleId).serialize(true);
-                                            new Ajax.Request(url, {
-                                                method: 'post', parameters: data, onSuccess: function (transport) {
-                                                    var ar = eleId.split("_");
-                                                    var num = ar[1];
-                                                    num = num.replace(/\s/g, '');
-                                                    if ($("saveSucessMsg_" + num)) $("saveSucessMsg_" + num).show();
-                                                    if ($('saved' + num)) $('saved' + num).value = 'true';
-                                                    if ($('autocompletedemo' + num))
-                                                        $('autocompletedemo' + num).disabled = true;
-                                                    if ($('removeProv' + num))
-                                                        $('removeProv' + num).remove();
+                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument.do";
+                                            var formEl = document.getElementById(eleId);
+                                            var data = new URLSearchParams(new FormData(formEl)).toString();
+                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                            var csrfToken = csrfEl ? csrfEl.value : '';
+                                            fetch(url, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                    'CSRF-TOKEN': csrfToken
+                                                },
+                                                credentials: 'same-origin',
+                                                body: data
+                                            }).then(function() {
+                                                var ar = eleId.split("_");
+                                                var num = ar[1];
+                                                num = num.replace(/\s/g, '');
+                                                var successMsg = document.getElementById("saveSucessMsg_" + num);
+                                                if (successMsg) successMsg.style.display = '';
+                                                var savedEl = document.getElementById('saved' + num);
+                                                if (savedEl) savedEl.value = 'true';
+                                                var autoEl = document.getElementById('autocompletedemo' + num);
+                                                if (autoEl) autoEl.disabled = true;
+                                                var removeEl = document.getElementById('removeProv' + num);
+                                                if (removeEl) removeEl.parentNode.removeChild(removeEl);
 
-                                                    refreshParent();
-
-                                                }
+                                                refreshParent();
                                             });
                                             return false;
                                         }

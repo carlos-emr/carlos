@@ -55,15 +55,14 @@
 <head>
     <title>Send eData</title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
 
 
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>
+    <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
 
     <script>
         function checkRequiredFields() {

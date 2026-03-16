@@ -41,8 +41,7 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.appt.status.mgr.title"/></title>
     <link href="<%= request.getContextPath() %>/css/jquery.ui.colorPicker.css" rel="stylesheet" type="text/css"/>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
-    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-    <script src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js" type="text/javascript"></script>
+    <script src="<%= request.getContextPath() %>/js/jquery-ui-1.8.18.custom.min.js" type="text/javascript"></script>
     <script src="<%= request.getContextPath() %>/js/jquery.ui.colorPicker.min.js" type="text/javascript"></script>
 </head>
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>

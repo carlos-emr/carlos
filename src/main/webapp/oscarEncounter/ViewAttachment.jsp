@@ -142,7 +142,7 @@
 
             function expandAll() {
                 var i;
-                var root = document.all('tblRoot');
+                var root = document.getElementById('tblRoot');
 
                 var col = root.getElementsByTagName('IMG');
 
@@ -157,7 +157,7 @@
 
             function collapseAll() {
                 var i;
-                var root = document.all('tblRoot');
+                var root = document.getElementById('tblRoot');
 
                 var col = root.getElementsByTagName('IMG');
 

@@ -75,10 +75,15 @@
                 formData.append('method', 'verify');
                 formData.append('CSRF-TOKEN', getCsrfToken());
 
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: formData.toString()
                 })
@@ -98,9 +103,9 @@
                         document.getElementById('statusDisplay').style.display = 'none';
                         document.getElementById('updateButton').style.display = 'none';
                     } else {
-                        document.getElementById('dbDateTime').innerHTML = json.lastUpdate;
-                        document.getElementById('drugDatabaseVersion').innerHTML = json.version;
-                        document.getElementById('drugDatabase').innerHTML = json.drugDatabase;
+                        document.getElementById('dbDateTime').textContent = json.lastUpdate;
+                        document.getElementById('drugDatabaseVersion').textContent = json.version;
+                        document.getElementById('drugDatabase').textContent = json.drugDatabase;
                         document.getElementById('dbInfo').style.display = 'none';
                         document.getElementById('statusDisplay').style.display = 'block';
                     }
@@ -118,10 +123,15 @@
                 formData.append('method', 'updateDB');
                 formData.append('CSRF-TOKEN', getCsrfToken());
 
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: formData.toString()
                 })

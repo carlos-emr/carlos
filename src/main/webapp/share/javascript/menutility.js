@@ -11,16 +11,10 @@
 // ************************
 
 function getStyleObject(objectId) {
-    // cross-browser function to get an object's style object given its id
-    if (document.getElementById && document.getElementById(objectId)) {
-        // W3C DOM
-        return document.getElementById(objectId).style;
-    } else if (document.all && document.all(objectId)) {
-        // MSIE 4 DOM
-        return document.all(objectId).style;
-    } else if (document.layers && document.layers[objectId]) {
-        // NN 4 DOM.. note: this won't find nested layers
-        return document.layers[objectId];
+    // get an object's style object given its id
+    var el = document.getElementById(objectId);
+    if (el) {
+        return el.style;
     } else {
         return false;
     }

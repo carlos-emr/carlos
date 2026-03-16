@@ -87,7 +87,7 @@
         <script type="text/javascript">
             jQuery(document).ready(function ($) {
                 //--> Popup effects
-                jQuery(".hovereffect").bind("mouseover", function () {
+                jQuery(".hovereffect").on("mouseover", function () {
                     nhpup.popup(jQuery('#healthCareTeamMemberDetail_' + this.id).html(), {'width': 250});
                 });
             })

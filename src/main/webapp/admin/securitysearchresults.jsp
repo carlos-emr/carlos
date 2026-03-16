@@ -76,13 +76,14 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.title"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+              rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap -->
+        <!-- Bootstrap 2.3.1 -->
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
+        <!-- DataTables 1.13.4 -->
         <script>
             function setfocus() {
                 document.searchprovider.keyword.focus();

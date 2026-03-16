@@ -1174,7 +1174,7 @@ function dialogs(page) {
 
                 if ($("#printPg1").val() === "true" || $("#printPg2").val() === "true" || $("#printPg3").val() === "true" || $("#printPg4").val() === "true" || $("#printPg5").val() === "true" || $("#printPg6").val() === "true") {
                     document.forms[0].action = "../form/BCAR2020.do?method=print";
-                    $("#printBtn").click();
+                    $("#printBtn").trigger('click');
                 }
 
             },

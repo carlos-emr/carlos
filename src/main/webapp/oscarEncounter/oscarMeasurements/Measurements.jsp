@@ -135,10 +135,15 @@
                         if (csrfEl) urlParams.append('CSRF-TOKEN', csrfEl.value);
                     }
 
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfToken = csrfEl ? csrfEl.value : '';
                     fetch('<%=request.getContextPath()%>/oscarEncounter/Measurements.do?ajax=true&skipCreateNote=true', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded'
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'CSRF-TOKEN': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
                         },
                         body: urlParams.toString()
                     })

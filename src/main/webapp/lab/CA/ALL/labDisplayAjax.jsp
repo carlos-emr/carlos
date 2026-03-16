@@ -174,7 +174,7 @@
     }
 %>
 <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-<script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
 
 <script language="JavaScript">
     popupStart = function (vheight, vwidth, varpage, windowname) {
@@ -200,12 +200,13 @@
 
     getComment = function (labid, action) {
         var ret = true;
-        var text = "V" + <%=version%> +"commentText" + labid + $("providerNo").value;
+        var text = "V" + <%=version%> +"commentText" + labid + document.getElementById("providerNo").value;
 
         var commentVal = "";
 
-        if ($(text) != null) {
-            commentVal = $(text).innerHTML;
+        var textEl = document.getElementById(text);
+        if (textEl != null) {
+            commentVal = textEl.innerHTML;
             if (commentVal == null) {
                 commentVal = "";
             }
@@ -217,9 +218,9 @@
         if (comment == null)
             ret = false;
         else if (comment != null && comment.length > 0) {
-            $(commentID).value = comment;
+            document.getElementById(commentID).value = comment;
         } else {
-            $(commentID).value = commentVal;
+            document.getElementById(commentID).value = commentVal;
         }
         if (ret)
             handleLab('acknowledgeForm_' + labid, labid, action);
@@ -245,9 +246,9 @@
         var contextPath = '${pageContext.request.contextPath}';
         var url = contextPath + '/documentManager/inboxManage.do';
         var data = 'method=isLabLinkedToDemographic&labid=' + labid;
-        new Ajax.Request(url, {
-            method: 'post', parameters: data, onSuccess: function (transport) {
-                var json = transport.responseText.evalJSON();
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data, onSuccess: function (transport) {
+                var json = JSON.parse(transport.responseText);
                 if (json != null) {
                     var success = json.isLinkedToDemographic;
                     var demoid = '';
@@ -255,7 +256,7 @@
                     if (success) {
                         if (action == 'ackLab') {
                             if (confirmAck()) {
-                                $("status_" + labid).value = "A";
+                                document.getElementById("status_" + labid).value = "A";
                                 updateStatus(formid);
                             }
                         } else if (action == 'msgLab') {
@@ -278,16 +279,16 @@
                     } else {
                         if (action == 'ackLab') {
                             if (confirmAckUnmatched()) {
-                                $("status_" + labid).value = "A";
+                                document.getElementById("status_" + labid).value = "A";
                                 updateStatus(formid);
                             } else {
-                                var pn = $("demoName" + labid).value;
+                                var pn = document.getElementById("demoName" + labid).value;
                                 if (pn) popupStart(360, 680, contextPath + '/oscarMDS/SearchPatient.do?labType=HL7&segmentID=' + labid + '&name=' + pn, 'searchPatientWindow');
                             }
                         } else {
                             alert("Please relate lab to a demographic.");
                             //pop up relate demo window
-                            var pn = $("demoName" + labid).value;
+                            var pn = document.getElementById("demoName" + labid).value;
                             if (pn) popupStart(360, 680, contextPath + '/oscarMDS/SearchPatient.do?labType=HL7&segmentID=' + labid + '&name=' + pn, 'searchPatientWindow');
                         }
                     }
@@ -300,24 +301,27 @@
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do?method=addComment";
         var status = "status_" + labid;
 
-        if ($F(status) == "") {
-            $(status).value = "N";
+        var statusEl = document.getElementById(status);
+        if (statusEl.value == "") {
+            statusEl.value = "N";
         }
-        var data = $(formid).serialize(true);
+        var data = new URLSearchParams(new FormData(document.getElementById(formid))).toString();
 
-        var label = "V" + <%=version%> +"commentLabel" + labid + $F("providerNo");
-        var text = "V" + <%=version%> +"commentText" + labid + $("providerNo").value;
+        var label = "V" + <%=version%> +"commentLabel" + labid + document.getElementById("providerNo").value;
+        var text = "V" + <%=version%> +"commentText" + labid + document.getElementById("providerNo").value;
         var commentID = "comment_" + labid;
         var newComment;
 
-        new Ajax.Request(url, {
-            method: 'post', parameters: data, onSuccess: function (transport) {
-                if ($(label) != null && $(text) != null) {
-                    newComment = $(commentID).value;
-                    $(label).update("comment: ");
-                    $(text).update(newComment);
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data, onSuccess: function (transport) {
+                var labelEl = document.getElementById(label);
+                var textEl = document.getElementById(text);
+                if (labelEl != null && textEl != null) {
+                    newComment = document.getElementById(commentID).value;
+                    labelEl.textContent = "comment: ";
+                    textEl.textContent = newComment;
                 } else {
-                    alert("Comment '" + $(commentID).value + "' added!\nThis lab has been forwarded to you.");
+                    alert("Comment '" + document.getElementById(commentID).value + "' added!\nThis lab has been forwarded to you.");
                 }
             }
         });
@@ -336,13 +340,14 @@
     }
     updateStatus = function (formid) {
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus.do";
-        var data = $(formid).serialize(true);
+        var data = new URLSearchParams(new FormData(document.getElementById(formid))).toString();
 
-        new Ajax.Request(url, {
-            method: 'post', parameters: data, onSuccess: function (transport) {
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data, onSuccess: function (transport) {
                 var num = formid.split("_");
                 if (num[1]) {
-                    Effect.BlindUp('labdoc_' + num[1]);
+                    var labEl = document.getElementById('labdoc_' + num[1]);
+                    if (labEl) { labEl.classList.add('carlos-collapsed'); }
                     //updateDocLabData(num[1]);
                     refreshCategoryList();
 
@@ -359,15 +364,18 @@
             labForm.label.value = ackForm.label.value;
         }
         var url = '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabLabel.do";
-        var data = $(labFormId).serialize(true);
-        new Ajax.Request(url, {
-            method: 'post', parameters: data
+        var data = new URLSearchParams(new FormData(document.getElementById(labFormId))).toString();
+        CarlosAjax.request(url, {
+            method: 'POST', parameters: data
 
         });
         var labelSpanEl = document.getElementById(labelspanid);
         var labelEl = document.getElementById(labelid);
         if (labelSpanEl && labelEl) {
-            labelSpanEl.innerHTML = "<i> Label: " + labelEl.value + "</i>";
+            labelSpanEl.textContent = "";
+            var italicEl = document.createElement("i");
+            italicEl.textContent = " Label: " + labelEl.value;
+            labelSpanEl.appendChild(italicEl);
             labelEl.value = "";
         }
     };

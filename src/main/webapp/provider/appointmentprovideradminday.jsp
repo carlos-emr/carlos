@@ -485,7 +485,7 @@
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
+                src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" media="all"
@@ -496,9 +496,6 @@
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
                 <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
 
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/provider/schedulePage.js.jsp"></script>
 

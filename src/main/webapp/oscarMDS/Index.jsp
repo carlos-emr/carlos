@@ -347,7 +347,7 @@
                                         </details>
                                         <c:if test="${requestScope.selectedCategoryPatient eq patientId}">
                                             <script>
-                                                un_bold($("patient" +${patientId}<%=(selectedCategoryType.equals("CATEGORY_TYPE_HL7"))?"hl7s":(selectedCategoryType.equals("CATEGORY_TYPE_DOC")?"docs":"all")%>));
+                                                un_bold(document.getElementById("patient" +${patientId}<%=(selectedCategoryType.equals("CATEGORY_TYPE_HL7"))?"hl7s":(selectedCategoryType.equals("CATEGORY_TYPE_DOC")?"docs":"all")%>));
                                             </script>
                                         </c:if>
                                     </c:forEach>
@@ -412,8 +412,6 @@
             src="${pageContext.servletContext.contextPath}/js/documentDescriptionTypeahead.js"></script>
 
     <script type="text/javascript">
-        jQuery.noConflict();
-
         const ctx = "${pageContext.servletContext.contextPath}";
         var contextpath = ctx;
 

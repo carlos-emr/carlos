@@ -29,7 +29,7 @@
 
 --%>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
-<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<script type="text/javascript" src="${pageContext.request.contextPath}/library/moment.js"></script>
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/alertify.core.css"/>
 <link rel="stylesheet" href="${pageContext.request.contextPath}/css/alertify.default.css"/>
 <script type="text/javascript" src="${pageContext.request.contextPath}/js/alertify.js"></script>
@@ -46,8 +46,8 @@
     }
 </style>
 <script>
-    // Must include jQuery for ajax call, cannot assume the form this file will be included in has it already included
-    let local_jQuery = jQuery.noConflict(true);
+    // Local jQuery reference for ajax calls in this modal
+    let local_jQuery = jQuery;
 
     // Map of measurementTypes to corresponding name and default instructions
     let measurementTypeMap = {

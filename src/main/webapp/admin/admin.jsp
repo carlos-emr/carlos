@@ -78,9 +78,6 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
         <oscar:customInterface section="admin"/>
 
         <script type="text/JavaScript">

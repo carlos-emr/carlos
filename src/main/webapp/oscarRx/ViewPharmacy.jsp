@@ -57,8 +57,7 @@
     <head>
         <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/oscarRx/styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript">
             <%
@@ -69,17 +68,17 @@
                     data, function (data) {
                         if (data.name) {
                             $('#pharmacyId').val(<%=request.getParameter("ID")%>);
-                            $('#pharmacyName').html(data.name);
-                            $('#pharmacyAddress').html(data.address);
-                            $('#pharmacyCity').html(data.city);
-                            $('#pharmacyProvince').html(data.province);
-                            $('#pharmacyPostalCode').html(data.postalCode);
-                            $('#pharmacyPhone1').html(data.phone1);
-                            $('#pharmacyPhone2').html(data.phone2);
-                            $('#pharmacyFax').html(data.fax);
-                            $('#pharmacyEmail').html(data.email);
-                            $('#pharmacyServiceLocationId').html(data.serviceLocationIdentifier);
-                            $('#pharmacyNotes').html(data.notes);
+                            $('#pharmacyName').text(data.name);
+                            $('#pharmacyAddress').text(data.address);
+                            $('#pharmacyCity').text(data.city);
+                            $('#pharmacyProvince').text(data.province);
+                            $('#pharmacyPostalCode').text(data.postalCode);
+                            $('#pharmacyPhone1').text(data.phone1);
+                            $('#pharmacyPhone2').text(data.phone2);
+                            $('#pharmacyFax').text(data.fax);
+                            $('#pharmacyEmail').text(data.email);
+                            $('#pharmacyServiceLocationId').text(data.serviceLocationIdentifier);
+                            $('#pharmacyNotes').text(data.notes);
                         } else {
                             alert("Unable to retrieve pharmacy information");
                         }

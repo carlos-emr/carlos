@@ -112,12 +112,13 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+              rel="stylesheet">
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
+        <!-- DataTables 1.13.4 -->
 
         <script>
             <%if(param.length()>0) {%>

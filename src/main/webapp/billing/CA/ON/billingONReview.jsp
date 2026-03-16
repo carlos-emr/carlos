@@ -292,14 +292,10 @@
     <title>OscarBilling</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
 
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
 
     <oscar:customInterface section="billingReview"/>
     <script language="JavaScript">

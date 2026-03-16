@@ -108,21 +108,17 @@ function getCsrfToken() {
  * @returns {Promise<Response>}
  */
 function postForm(url, data) {
-    var params = new URLSearchParams(data);
-    if (!params.has('CSRF-TOKEN')) {
-        var token = getCsrfToken();
-        if (token) {
-            params.append('CSRF-TOKEN', token);
-        } else {
-            return Promise.reject(new Error(
-                'CSRF token not available. The page may need to be refreshed. '
-                + 'If the problem persists, try logging out and back in.'));
-        }
-    }
+    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+    var csrfToken = csrfEl ? csrfEl.value : '';
     return fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString()
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'CSRF-TOKEN': csrfToken
+        },
+        body: typeof data === 'string' ? data : new URLSearchParams(data).toString()
     });
 }
 
@@ -132,7 +128,7 @@ function postForm(url, data) {
  * @returns {Promise<Response>}
  */
 function fetchGet(url) {
-    return fetch(url, { method: 'GET' });
+    return fetch(url, { method: 'GET', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
 }
 
 /**
@@ -453,14 +449,14 @@ function sendMRP(ele) {
 }
 
 function rotate180(id) {
-    jQuery("#rotate180btn_" + id).attr('disabled', 'disabled');
+    jQuery("#rotate180btn_" + id).prop('disabled', true);
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
     postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate180&document=" + id)
         .then(response => response.text())
         .then(data => {
-            jQuery("#rotate180btn_" + id).removeAttr('disabled');
+            jQuery("#rotate180btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
@@ -471,14 +467,14 @@ function rotate180(id) {
 }
 
 function rotate90(id) {
-    jQuery("#rotate90btn_" + id).attr('disabled', 'disabled');
+    jQuery("#rotate90btn_" + id).prop('disabled', true);
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
     postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate90&document=" + id)
         .then(response => response.text())
         .then(data => {
-            jQuery("#rotate90btn_" + id).removeAttr('disabled');
+            jQuery("#rotate90btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
@@ -489,7 +485,7 @@ function rotate90(id) {
 }
 
 function removeFirstPage(id) {
-    jQuery("#removeFirstPagebtn_" + id).attr('disabled', 'disabled');
+    jQuery("#removeFirstPagebtn_" + id).prop('disabled', true);
     if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
         ShowSpin(true);
         const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
@@ -511,12 +507,12 @@ function removeFirstPage(id) {
                     jQuery("#removeFirstPagebtn_" + id).remove();
                 }
                 HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).removeAttr('disabled');
+                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
             })
             .catch(error => {
                 console.error('Error:', error);
                 HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).removeAttr('disabled');
+                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
             });
     }
 }

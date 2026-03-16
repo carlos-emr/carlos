@@ -211,9 +211,7 @@
             src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script language="javascript" type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/effects.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/controls.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/carlos-ajax.js"></script>
 
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/yahoo-dom-event.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/share/yui/js/connection-min.js"></script>
@@ -369,7 +367,7 @@
 
         function popupPatient(height, width, url, windowName, docId, d) {
             if (!d) {
-                d = $('demofind' + docId + 'hrm').value;
+                d = document.getElementById('demofind' + docId + 'hrm').value;
             }
             urlNew = url + d;
             return popup2(height, width, 0, 0, urlNew, windowName);
@@ -377,7 +375,7 @@
 
         function popupPatientTickler(height, width, url, windowName, docId, d, n) {
             if (!d) {
-                d = $('demofind' + docId + 'hrm').value;
+                d = document.getElementById('demofind' + docId + 'hrm').value;
             }
             urlNew = url + "method=edit&tickler.demographic_webName=" + n + "&tickler.demographicNo=" + d + "&docType=HRM&docId=" + docId;
             return popup2(height, width, 0, 0, urlNew, windowName);
@@ -933,7 +931,7 @@
                 var myAC = args[0];
                 var str = myAC.getInputEl().id.replace("autocompleteprov", "provfind");
                 var oData = args[2];
-                $(str).value = args[2][0];//li.id;
+                document.getElementById(str).value = args[2][0];
                 myAC.getInputEl().value = args[2][2] + "," + args[2][1];
                 var adoc = document.createElement('div');
                 adoc.appendChild(document.createTextNode(oData[2] + " " + oData[1]));
@@ -943,7 +941,7 @@
                 idoc.setAttribute("value", oData[0]);
                 adoc.appendChild(idoc);
 
-                var providerList = $('providerList<%=hrmReportId%>hrm');
+                var providerList = document.getElementById('providerList<%=hrmReportId%>hrm');
                 providerList.appendChild(adoc);
 
                 myAC.getInputEl().value = '';//;oData.fname + " " + oData.lname ;

@@ -335,7 +335,7 @@
                 var result = "";
                 $('#groupListTbl tbody').find('tr').each(function () {
 
-                    if ($('td:nth(1)', $(this)).attr("title") === textInput) {
+                    if ($('td:eq(1)', $(this)).attr("title") === textInput) {
                         result = "exists";
                         return false;
                     }

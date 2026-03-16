@@ -66,11 +66,6 @@
               href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
               title="win2k-cold-1">
 
-        <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js"
-                type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js"
-                type="text/javascript"></script>
-
         <!-- main calendar program -->
         <script type="text/javascript"
                 src="<c:out value="${ctx}"/>/share/calendar/calendar.js"></script>
@@ -106,16 +101,20 @@
             }
 
             function showhide() {
-                var id1 = 'fromExisting';
-                var id2 = 'saveNew';
-                if ($(id1).getStyle('display') == 'none') {
-                    Effect.BlindDown(id1)
-                    Effect.BlindUp(id2);
-                    $('chooseMode').value = 'existing';
+                var el1 = document.getElementById('fromExisting');
+                var el2 = document.getElementById('saveNew');
+                if (el1.style.display === 'none' || el1.classList.contains('carlos-collapsed')) {
+                    el1.classList.remove('carlos-collapsed');
+                    el1.style.display = '';
+                    el2.classList.add('carlos-collapsed');
+                    el2.style.display = 'none';
+                    document.getElementById('chooseMode').value = 'existing';
                 } else {
-                    Effect.BlindUp(id1);
-                    Effect.BlindDown(id2);
-                    $('chooseMode').value = 'new';
+                    el1.classList.add('carlos-collapsed');
+                    el1.style.display = 'none';
+                    el2.classList.remove('carlos-collapsed');
+                    el2.style.display = '';
+                    document.getElementById('chooseMode').value = 'new';
                 }
             }
         </script>

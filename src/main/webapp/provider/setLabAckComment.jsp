@@ -67,11 +67,6 @@
               href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
               title="win2k-cold-1">
 
-        <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js"
-                type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js"
-                type="text/javascript"></script>
-
         <!-- main calendar program -->
         <script type="text/javascript"
                 src="<c:out value="${ctx}"/>/share/calendar/calendar.js"></script>
