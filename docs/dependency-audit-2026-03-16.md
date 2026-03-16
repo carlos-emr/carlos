@@ -21,7 +21,7 @@
 | **HttpClient 4.x** (`org.apache.httpcomponents:httpclient`) | 4.5.14 | 5.6 (`client5`) | EOL trajectory. Spring 6+ dropped native HC4 support. Migration to `org.apache.httpcomponents.client5:httpclient5` recommended. |
 | **HttpMime 4.x** (`org.apache.httpcomponents:httpmime`) | 4.5.14 | absorbed into `httpclient5` | Same EOL trajectory. Multipart functionality moves to HC5. |
 | **ScribeJava** (`com.github.scribejava:scribejava-core`) | 8.3.3 | 8.3.3 (latest) | **Abandoned** — last release Nov 2022, maintainer unresponsive. OAuth library in PHI-adjacent context. Replace with Spring Security OAuth2 Client or Nimbus OAuth2/OIDC SDK. |
-| **TOTP** (`dev.samstevens.totp:totp`) | 1.7.1 | 1.7.1 (latest) | **Abandoned** — last release Nov 2020, no maintainer responses since 2022. Security-critical MFA library. Replace with `com.eatthepath:java-otp` or implement via `javax.crypto` HMAC directly. |
+| **TOTP** — migrated from `dev.samstevens.totp` to `com.eatthepath:java-otp` | 0.4.0 | 0.4.0 (latest) | **Migrated** — replaced abandoned `dev.samstevens.totp` (last release Nov 2020) with `java-otp` (zero runtime dependencies, MIT license). |
 | **XMLBeans** (`org.apache.xmlbeans:xmlbeans`) | 3.1.0 | 5.3.0 | 2 major versions behind (from 2019). Typically a transitive dependency of Apache POI. Upgrade may require schema regeneration. |
 | **commons-digester3** (`org.apache.commons:commons-digester3`) | 3.2 | 3.2 (latest) | **EOL** — last release 2011 (14 years ago). Transitive `commons-beanutils` may expose CVE-2025-48734 (CVSS 8.8). CARLOS already excludes beanutils, but digester3 itself needs replacement (JAXB, Jackson XML). |
 
@@ -115,11 +115,10 @@ This is a future epic, not a single upgrade task.
 
 ### Abandoned Libraries in Security-Critical Roles
 
-Two abandoned libraries serve security-critical functions:
+One abandoned library still serves a security-critical function:
 - **ScribeJava** (OAuth) — last release Nov 2022
-- **TOTP** (MFA) — last release Nov 2020
 
-Both should be replaced with actively maintained alternatives before they accumulate unpatched vulnerabilities.
+**Resolved**: `dev.samstevens.totp` (MFA, abandoned Nov 2020) was replaced with `com.eatthepath:java-otp` 0.4.0.
 
 ## 7. Summary Statistics
 
@@ -131,7 +130,7 @@ Both should be replaced with actively maintained alternatives before they accumu
 | High priority | 6 |
 | Medium priority | 12 |
 | Low / monitor | 9 |
-| Abandoned / EOL | 4 (ScribeJava, TOTP, commons-digester3, ultrabuk-htmltopdf) |
+| Abandoned / EOL | 3 (ScribeJava, commons-digester3, ultrabuk-htmltopdf) |
 | Unmaintained but current | 3 (JDOM2, Velocity Tools, ZXing) |
 
 ---

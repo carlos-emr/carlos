@@ -1286,11 +1286,12 @@
             <artifactId>caffeine</artifactId>
             <version>3.2.3</version>
         </dependency>
-		<!-- https://mvnrepository.com/artifact/dev.samstevens.totp/totp -->
+		<!-- https://mvnrepository.com/artifact/com.eatthepath/java-otp -->
+		<!-- TOTP/HOTP library for MFA (replaces abandoned dev.samstevens.totp) -->
 		<dependency>
-			<groupId>dev.samstevens.totp</groupId>
-			<artifactId>totp</artifactId>
-			<version>1.7.1</version>
+			<groupId>com.eatthepath</groupId>
+			<artifactId>java-otp</artifactId>
+			<version>0.4.0</version>
 		</dependency>
 
 

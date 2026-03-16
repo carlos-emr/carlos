@@ -27,13 +27,13 @@
 
 package io.github.carlos_emr.carlos.managers;
 
-import dev.samstevens.totp.secret.DefaultSecretGenerator;
-import dev.samstevens.totp.secret.SecretGenerator;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.OscarProperties;
 
+import org.apache.commons.codec.binary.Base32;
 import java.io.UnsupportedEncodingException;
+import java.security.SecureRandom;
 
 /**
  * This interface provides methods for managing Multi-Factor Authentication (MFA) within the OSCAR EMR system.
@@ -71,8 +71,9 @@ public interface MfaManager {
      * @return A randomly generated MFA secret string.
      */
     static String generateMfaSecret() {
-        SecretGenerator secretGenerator = new DefaultSecretGenerator();
-        return secretGenerator.generate();
+        byte[] secretBytes = new byte[20];
+        new SecureRandom().nextBytes(secretBytes);
+        return new Base32().encodeToString(secretBytes);
     }
 
     /**
