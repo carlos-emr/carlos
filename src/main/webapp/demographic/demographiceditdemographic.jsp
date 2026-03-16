@@ -246,6 +246,7 @@
 <html>
 
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.title"/></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -257,12 +258,6 @@
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%=request.getContextPath()%>/share/calendar/calendar.css" title="win2k-cold-1"/>
-
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-1.12.0.min.js"></script>
-        <script type="text/javascript"
-                src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/demographic/demographiceditdemographic.css"
-              type="text/css"/>
 
         <!-- main calendar program -->
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar.js"></script>
@@ -919,6 +914,7 @@
             }
 
         </style>
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/demographic/demographiceditdemographic.css" type="text/css"/>
     </head>
     <body onLoad="setfocus(); checkONReferralNo(); formatPhoneNum(); checkRosterStatus2();"
           topmargin="0" leftmargin="0" rightmargin="0" id="demographiceditdemographic">
@@ -938,35 +934,35 @@
     %>
     <div id="editDemographicWrapper" style="margin: auto 10px;">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
+            <%
+                //----------------------------REFERRAL DOCTOR------------------------------
+                String rdohip = "", rd = "", fd = "", family_doc = "";
+
+                String resident = "", nurse = "", alert = "", notes = "", midwife = "";
+
+                DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographic_no));
+                if (demographicCust != null) {
+                    resident = demographicCust.getResident() == null ? "" : demographicCust.getResident();
+                    nurse = demographicCust.getNurse() == null ? "" : demographicCust.getNurse();
+                    alert = demographicCust.getAlert() == null ? "" : demographicCust.getAlert();
+                    ;
+                    midwife = demographicCust.getMidwife() == null ? "" : demographicCust.getMidwife();
+                    ;
+                    notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+
+                    resident = resident == null ? "" : resident;
+                    nurse = nurse == null ? "" : nurse;
+                    alert = alert == null ? "" : alert;
+                    midwife = midwife == null ? "" : midwife;
+                    notes = notes == null ? "" : notes;
+                }
+            %>
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgPatientDetailRecord"/>
-                </td>
-                <td class="MainTableTopRowRightColumn">
+                <td class="MainTableTopRowLeftColumn" colspan="2">
                     <table class="TopStatusBar">
                         <tr>
                             <td>
                                 <%
-                                    //----------------------------REFERRAL DOCTOR------------------------------
-                                    String rdohip = "", rd = "", fd = "", family_doc = "";
-
-                                    String resident = "", nurse = "", alert = "", notes = "", midwife = "";
-
-                                    DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographic_no));
-                                    if (demographicCust != null) {
-                                        resident = demographicCust.getResident() == null ? "" : demographicCust.getResident();
-                                        nurse = demographicCust.getNurse() == null ? "" : demographicCust.getNurse();
-                                        alert = demographicCust.getAlert() == null ? "" : demographicCust.getAlert();
-                                        ;
-                                        midwife = demographicCust.getMidwife() == null ? "" : demographicCust.getMidwife();
-                                        ;
-                                        notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
-
-                                        resident = resident == null ? "" : resident;
-                                        nurse = nurse == null ? "" : nurse;
-                                        alert = alert == null ? "" : alert;
-                                        midwife = midwife == null ? "" : midwife;
-                                        notes = notes == null ? "" : notes;
-                                    }
 
                                     int dob_year = 0, dob_month = 0, dob_date = 0;
                                     String birthYear = "0000", birthMonth = "00", birthDate = "00";
@@ -1003,15 +999,13 @@
                                             dob_month = Integer.parseInt(birthMonth);
                                             dob_date = Integer.parseInt(birthDate);
 
-                                %> <%=demographic.getLastName()%>,
-                                <%=demographic.getFirstName()%> <%=demographic.getSex()%>
-                                <%=demographic.getAgeAsOf(new Date())%>
-
-                                <span style="margin-left: 20px;font-style:italic">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt
-                                        demographicNo='<%=demographic.getDemographicNo().toString()%>'/>
-				</span>
-
+                                %>
+                                <span class="patient-header-name"><%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %></span>
+                                <span class="patient-header-details"><%=demographic.getSex()%> &middot; <%=demographic.getAgeAsOf(new Date())%> &middot; DOB: <%=birthYear%>-<%=birthMonth%>-<%=birthDate%></span>
+                                <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
+                                <span class="patient-header-hin">HIN: <%= Encode.forHtml(demographic.getHin()) %><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <%= Encode.forHtml(demographic.getVer()) %><% } %></span>
+                                <% } %>
+                                <span class="patient-header-appt"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt demographicNo='<%=demographic.getDemographicNo().toString()%>'/></span>
 
                             </td>
                         </tr>
@@ -1092,44 +1086,7 @@
                             </tr>
                             <%
                                 if ("ON".equals(prov)) {
-                                    String default_view = oscarProps.getProperty("default_view", "");
-
-                                    if (!oscarProps.getProperty("clinic_no", "").startsWith("1022")) { // part 2 of quick hack to make Dr. Hunter happy
                             %>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="window.open('<%= request.getContextPath() %>/billing/CA/ON/specialtyBilling/fluBilling/addFluBilling.jsp?function=demographic&functionid=<%=demographic.getDemographicNo()%>&creator=<%=curProvider_no%>&demographic_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>%2C<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&hin=<%=URLEncoder.encode(demographic.getHin()!=null?demographic.getHin():"", StandardCharsets.UTF_8)%><%=URLEncoder.encode(demographic.getVer()!=null?demographic.getVer():"", StandardCharsets.UTF_8)%>&demo_sex=<%=URLEncoder.encode(demographic.getSex(), StandardCharsets.UTF_8)%>&demo_hctype=<%=URLEncoder.encode(demographic.getHcType()==null?"null":demographic.getHcType(), StandardCharsets.UTF_8)%>&rd=<%=URLEncoder.encode(rd==null?"null":rd, StandardCharsets.UTF_8)%>&rdohip=<%=URLEncoder.encode(rdohip==null?"null":rdohip, StandardCharsets.UTF_8)%>&dob=<%=MyDateFormat.getStandardDate(Integer.parseInt(birthYear),Integer.parseInt(birthMonth),Integer.parseInt(birthDate))%>&mrp=<%=demographic.getProviderNo() != null ? demographic.getProviderNo() : ""%>','', 'scrollbars=yes,resizable=yes,width=720,height=500');return false;"
-                                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddFluBill"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgFluBilling"/></a></td>
-                            </tr>
-                            <% } %>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupS('<%= request.getContextPath() %>/billing/CA/ON/billingShortcutPg1.jsp?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarProps.getProperty("hospital_view", default_view), StandardCharsets.UTF_8)%>&hotclick=&appointment_no=0&demographic_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>%2C<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&demographic_no=<%=demographic.getDemographicNo()%>&providerview=<%=demographic.getProviderNo()%>&user_no=<%=curProvider_no%>&apptProvider_no=none&appointment_date=<%=dateString%>&start_time=00:00:00&bNewForm=1&status=t');return false;"
-                                        title="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgHospitalBilling"/></a></td>
-                            </tr>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="window.open('<%= request.getContextPath() %>/billing/CA/ON/addBatchBilling.jsp?demographic_no=<%=demographic.getDemographicNo().toString()%>&creator=<%=curProvider_no%>&demographic_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>%2C<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&hin=<%=demographic.getHin()!=null?URLEncoder.encode(demographic.getHin(), StandardCharsets.UTF_8):""%> <%=demographic.getVer()!=null?URLEncoder.encode(demographic.getVer(), StandardCharsets.UTF_8):""%>&dob=<%=MyDateFormat.getStandardDate(Integer.parseInt(birthYear),Integer.parseInt(birthMonth),Integer.parseInt(birthDate))%>','', 'scrollbars=yes,resizable=yes,width=600,height=400');return false;"
-                                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddBatchBilling"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddBatchBilling"/></a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="window.open('<%= request.getContextPath() %>/billing/CA/ON/inr/addINRbilling.jsp?function=demographic&functionid=<%=demographic.getDemographicNo()%>&creator=<%=curProvider_no%>&demographic_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>%2C<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&hin=<%=demographic.getHin()!=null?URLEncoder.encode(demographic.getHin(), StandardCharsets.UTF_8):""%> <%=demographic.getVer()!=null?URLEncoder.encode(demographic.getVer(), StandardCharsets.UTF_8):""%>&dob=<%=MyDateFormat.getStandardDate(Integer.parseInt(birthYear),Integer.parseInt(birthMonth),Integer.parseInt(birthDate))%>','', 'scrollbars=yes,resizable=yes,width=600,height=400');return false;"
-                                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddINRBilling"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddINR"/></a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="window.open('<%= request.getContextPath() %>/billing/CA/ON/inr/reportINR.jsp?provider_no=<%=curProvider_no%>','', 'scrollbars=yes,resizable=yes,width=600,height=600');return false;"
-                                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgINRBilling"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgINRBill"/></a>
-                                </td>
-                            </tr>
                             <%
                                 }
                             %>
@@ -1158,40 +1115,7 @@
                                         <a href="javascript: function myFunction() {return false; }"
                                            onClick="popupEChart(710, 1024,encURL);return false;"
                                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEChart"/>">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEChart"/></a>&nbsp;<a
-                                            style="text-decoration: none;"
-                                            href="javascript: function myFunction() {return false; }"
-                                            onmouseover="return !showMenu('1', event);">+</a>
-                                        <div id='menu1' class='menu' onclick='event.cancelBubble = true;'>
-                                            <h3 style='text-align: center'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEncType"/></h3>
-                                            <br>
-                                            <ul>
-                                                <li><a href="#" onmouseover='this.style.color="black"'
-                                                       onmouseout='this.style.color="white"'
-                                                       onclick="return add2url('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.faceToFaceEnc.title"/>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.faceToFaceEnc.title"/>
-                                                </a><br/>
-                                                </li>
-                                                <li><a href="#" onmouseover='this.style.color="black"'
-                                                       onmouseout='this.style.color="white"'
-                                                       onclick="return add2url('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.telephoneEnc.title"/>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.telephoneEnc.title"/>
-                                                </a><br/>
-                                                </li>
-                                                <li><a href="#" onmouseover='this.style.color="black"'
-                                                       onmouseout='this.style.color="white"'
-                                                       onclick="return add2url('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noClientEnc.title"/>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.noClientEnc.title"/>
-                                                </a><br/>
-                                                </li>
-                                                <li><a href="#" onmouseover='this.style.color="black"'
-                                                       onmouseout='this.style.color="white"'
-                                                       onclick="return customReason();"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgCustom"/></a>
-                                                </li>
-                                                <li id="listCustom" style="display: none;"><input id="txtCustom"
-                                                                                                  type="text" size="16"
-                                                                                                  maxlength="32"
-                                                                                                  onkeypress="return grabEnterCustomReason(event);">
-                                                </li>
-                                            </ul>
-                                        </div>
+                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEChart"/></a>
                                     </td>
                                 </tr>
                             <tr>
@@ -1208,17 +1132,6 @@
                                         href="javascript: function myFunction() {return false; }"
                                         onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ticklerMain.jsp?demoview=<%=demographic_no%>');return false;">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/></a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popup(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage.do?demographic_no=<%=demographic.getDemographicNo()%>','msg')">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgSendMsg"/></a></td>
-                        </tr>
-                        <tr>
-                            <td><a href="#"
-                                   onclick="popup(300,300,'<%=request.getContextPath()%>/demographic/demographicCohort.jsp?demographic_no=<%=demographic.getDemographicNo()%>', 'cohort'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddPatientSet"/></a>
                             </td>
                         </tr>
 
@@ -1266,20 +1179,10 @@
                                        onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/documentBrowser.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
                             </tr>
                             <%}%>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&curUser=<%=curProvider_no%>&mode=add')"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAddDocument"/></a></td>
-                            </tr>
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
                                     href="<%= request.getContextPath() %>/eform/efmpatientformlist.jsp?demographic_no=<%=demographic_no%>&apptProvider=<%=apptProvider%>&appointment=<%=appointment%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
-                        </tr>
-                        <tr>
-                            <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmformslistadd.jsp?demographic_no=<%=demographic_no%>&appointment=<%=appointment%>">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAddEForm"/> </a></td>
                         </tr>
 
                     </table>
@@ -1302,6 +1205,16 @@
                         </ul>
                     </div>
                     <table border=0 width="100%">
+                        <tr>
+                            <td class="search-toggle-bar">
+                                <a href="javascript:void(0)" onclick="var el=document.getElementById('searchTable'); el.className = el.className.indexOf('show-search')>=0 ? '' : 'show-search';">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: text-bottom;">
+                                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+                                    </svg>
+                                    Search Patient
+                                </a>
+                            </td>
+                        </tr>
                         <tr id="searchTable">
                             <td>
                                 <jsp:include page="zdemographicfulltitlesearch.jsp"/>
@@ -1315,42 +1228,40 @@
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">
                                     <table width="100%" class="demographicDetail">
+                                        <%
+                                            DemographicMerged dmDAO = new DemographicMerged();
+                                            String dboperation = "search_detail";
+                                            String head = dmDAO.getHead(demographic_no);
+                                            ArrayList records = dmDAO.getTail(head);
+                                        %>
                                         <tr>
                                             <td>
-                                                <%
-                                                    DemographicMerged dmDAO = new DemographicMerged();
-                                                    String dboperation = "search_detail";
-                                                    String head = dmDAO.getHead(demographic_no);
-                                                    ArrayList records = dmDAO.getTail(head);
-
-                                                %><a
-                                                    href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= head %>&displaymode=edit&dboperation=<%= dboperation %>"><%=head%>
-                                            </a>
-                                                <%
-
-                                                    for (int i = 0; i < records.size(); i++) {
-                                                        if (((String) records.get(i)).equals(demographic_no)) {
-                                                %><%=", " + demographic_no %>
-                                                <%
-                                                } else {
-                                                %>, <a
-                                                    href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= records.get(i) %>&displaymode=edit&dboperation=<%= dboperation %>"><%=records.get(i)%>
-                                            </a>
-                                                <%
-                                                        }
-                                                    }
-                                                %> )
-
-                                                <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic"
-                                                                   rights="w">
-                                                    <%
-                                                        if (head.equals(demographic_no)) {
-                                                    %>
-                                                    <a id="editBtn" href="javascript: showHideDetail();"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEdit"/></a>
-                                                    <a id="closeBtn" href="javascript: showHideDetail();"
-                                                       style="display:none;">Close</a>
-                                                    <% } %>
-                                                </security:oscarSec>
+                                                <div class="demo-toolbar">
+                                                    <span class="demo-toolbar-id">
+                                                        <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= head %>&displaymode=edit&dboperation=<%= dboperation %>">#<%=head%></a>
+                                                        <%
+                                                            for (int i = 0; i < records.size(); i++) {
+                                                                if (((String) records.get(i)).equals(demographic_no)) {
+                                                        %>, #<%=demographic_no%><%
+                                                                } else {
+                                                        %>, <a href="<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%= records.get(i) %>&displaymode=edit&dboperation=<%= dboperation %>">#<%=records.get(i)%></a><%
+                                                                }
+                                                            }
+                                                        %>
+                                                    </span>
+                                                    <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
+                                                        <% if (head.equals(demographic_no)) { %>
+                                                        <button type="button" id="editBtn" class="demo-toolbar-btn" onclick="showHideDetail();">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: text-bottom; margin-right: 3px;">
+                                                                <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+                                                                <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/>
+                                                            </svg>
+                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEdit"/>
+                                                        </button>
+                                                        <button type="button" id="closeBtn" class="demo-toolbar-btn" onclick="showHideDetail();" style="display:none;">Close</button>
+                                                        <% } %>
+                                                    </security:oscarSec>
+                                                </div>
                                             </td>
                                         </tr>
                                         <%
@@ -1446,7 +1357,41 @@
 
                                         <tr>
                                             <td class="lightPurple"><!---new-->
-                                                <div style="display: block;" id="viewDemographics2">
+                                                <div class="toggle-empty-bar">
+                                                    <a href="javascript:void(0)" id="toggleEmptyFields">Show all fields</a>
+                                                </div>
+                                                <script>
+                                                    jQuery(document).ready(function() {
+                                                        // Mark empty list items
+                                                        jQuery('#viewDemographics2 .demographicSection li').each(function() {
+                                                            var infoSpan = jQuery(this).find('span.info');
+                                                            var strongEl = jQuery(this).find('strong');
+                                                            var text = '';
+                                                            if (infoSpan.length) {
+                                                                text = jQuery.trim(infoSpan.text());
+                                                            } else if (strongEl.length) {
+                                                                text = jQuery.trim(strongEl.text());
+                                                            }
+                                                            if (text === '' || text === '\u00a0') {
+                                                                jQuery(this).addClass('empty-field');
+                                                            }
+                                                        });
+                                                        // Start with empties hidden
+                                                        jQuery('#viewDemographics2').addClass('hide-empties');
+                                                        // Toggle
+                                                        jQuery('#toggleEmptyFields').on('click', function() {
+                                                            var wrapper = jQuery('#viewDemographics2');
+                                                            if (wrapper.hasClass('hide-empties')) {
+                                                                wrapper.removeClass('hide-empties');
+                                                                jQuery(this).text('Hide empty fields');
+                                                            } else {
+                                                                wrapper.addClass('hide-empties');
+                                                                jQuery(this).text('Show all fields');
+                                                            }
+                                                        });
+                                                    });
+                                                </script>
+                                                <div style="display: block;" id="viewDemographics2" class="hide-empties">
                                                     <div class="demographicWrapper">
                                                         <div class="leftSection">
                                                             <div class="demographicSection" id="demographic">
@@ -1565,11 +1510,10 @@
                                                             <%if (!oscarProps.isPropertyActive("NEW_CONTACTS_UI")) { %>
 
                                                             <div class="demographicSection" id="otherContacts">
-                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>:
-                                                                    <b><a
-                                                                            href="javascript: function myFunction() {return false; }"
+                                                                <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgOtherContacts"/>
+                                                                    <a class="h3-pill" href="javascript: function myFunction() {return false; }"
                                                                             onClick="popup(700,960,'<%= request.getContextPath() %>/demographic/AddAlternateContact.jsp?demo=<%=demographic.getDemographicNo()%>','AddRelation')">
-                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/><!--i18n--></a></b>
+                                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <%
@@ -1637,8 +1581,8 @@
                                                             <% } %>
                                                             <div class="demographicSection" id="clinicStatus">
                                                                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgClinicStatus"/>
-                                                                    (<a href="#"
-                                                                        onclick="popup(1000, 650, '<%= request.getContextPath() %>/demographic/EnrollmentHistory.jsp?demographicNo=<%=demographic_no%>', 'enrollmentHistory'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>)
+                                                                    <a class="h3-pill" href="#"
+                                                                        onclick="popup(1000, 650, '<%= request.getContextPath() %>/demographic/EnrollmentHistory.jsp?demographicNo=<%=demographic_no%>', 'enrollmentHistory'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEnrollmentHistory"/></a>
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
@@ -4877,96 +4821,65 @@
                                             <%-- BOTTOM TOOLBAR  --%>
                                         <tr class="darkPurple">
                                             <td>
-                                                <table border="0" width="100%" cellpadding="0" cellspacing="0">
-                                                    <tr>
-                                                        <td width="30%" valign="top">
+                                                <input type="hidden" name="dboperation" value="update_record">
+                                                <input type="hidden" name="displaymode" value="Update Record">
 
-                                                            <oscar:oscarPropertiesCheck value="BC"
-                                                                                        property="billregion">
-                                                                <security:oscarSec roleName="<%=roleName$%>"
-                                                                                   objectName="_careconnect" rights="r">
-                                                                    <c:set value="${ OscarProperties.getInstance()['BC_CARECONNECT_URL'] }"
-                                                                           var="url" scope="page"/>
-                                                                    <c:if test="${ not empty url }">
-                                                                        <script type="text/javascript"
-                                                                                src="${ctx}/careconnect/careconnect.js"></script>
-                                                                        <input type="button" value="CareConnect"
-                                                                               onclick="callCareConnect('${url}', '${ demographic.hin }', '${ demographic.firstName }',
-                                                                                       '${ demographic.lastName }', '${ demographic.formattedDob }', '${ demographic.sex }',
-                                                                                       '${ OscarProperties.getInstance()['BC_CARECONNECT_REGION'] }' )"/>
-                                                                        <br/>
-                                                                    </c:if>
-                                                                </security:oscarSec>
-                                                            </oscar:oscarPropertiesCheck>
-                                                            <input type="button" class="oscar-dialog-link"
-                                                                   onClick="window.open('<%= request.getContextPath() %>/demographic/demographicAudit.jsp?demographic_no=<%=demographic_no %>')"
-                                                                   value="Audit Information"/>
-
-                                                            <input type="hidden" name="dboperation"
-                                                                   value="update_record">
-
-                                                            <security:oscarSec roleName="<%=roleName$%>"
-                                                                               objectName="_demographicExport"
-                                                                               rights="r" reverse="<%=false%>">
-                                                                <input type="button"
-                                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
-                                                                       onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
-                                                            </security:oscarSec>
-                                                            <br>
-
-
-                                                            <input
-                                                                    type="button" name="Button" id="cancelButton"
-                                                                    class="leftButton top"
-                                                                    value="Exit Master Record" onclick="self.close();">
-                                                        </td>
-                                                        <td width="30%" align='center' valign="top"><input
-                                                                type="hidden" name="displaymode" value="Update Record">
-                                                            <!-- sec code block --> <span id="updateButton"
-                                                                                               style="display: none;"> <security:oscarSec
-                                                                    roleName="<%=roleName$%>" objectName="_demographic"
-                                                                    rights="w">
+                                                <%-- Row 1: Primary actions --%>
+                                                <div class="toolbar-row toolbar-primary">
+                                                    <div class="toolbar-left">
+                                                        <span id="updateButton" style="display: none;">
+                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w">
                                                                 <%
                                                                     boolean showCbiReminder = oscarProps.getBooleanProperty("CBI_REMIND_ON_UPDATE_DEMOGRAPHIC", "true");
                                                                 %>
-                                                                <input type="submit" <%=(showCbiReminder?"onclick='showCbiReminder()'":"")%>
+                                                                <input type="submit" class="btn-toolbar-update" <%=(showCbiReminder?"onclick='showCbiReminder()'":"")%>
                                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnUpdate"/>">
-                                                            </security:oscarSec> </span> <!-- sec code block -->
-                                                        </td>
-                                                        <td width="40%" align='right' valign="top"><span
-                                                                id="swipeButton" style="display: none;"> <input
-                                                                type="button" name="Button"
-                                                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                                                onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
-								</span>
-                                                            <!--input type="button" name="Button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/>"
-                                                                   onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/>"
-                                                                   onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=appointment%>');return false;">
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/>"
-                                                                   onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/>"
-                                                                   onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <%
-                                                                if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) {
-                                                            %>
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePublicHealthLabel"/>"
-                                                                   onclick="popupPage(400,700,'<%=printSexHealthLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <% } %>
-                                                            <input type="button" name="Button" size="110"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnPrintLabel"/>"
-                                                                   onclick="popupPage(600,800,'<%=printHtmlLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnClientLabLabel"/>"
-                                                                   onclick="popupPage(400,700,'<%=printLabLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                        </td>
-                                                    </tr>
+                                                            </security:oscarSec>
+                                                        </span>
+                                                        <security:oscarSec roleName="<%=roleName$%>" objectName="_demographicExport" rights="r" reverse="<%=false%>">
+                                                            <input type="button" class="btn-toolbar-secondary"
+                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
+                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
+                                                        </security:oscarSec>
+                                                        <oscar:oscarPropertiesCheck value="BC" property="billregion">
+                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_careconnect" rights="r">
+                                                                <c:set value="${ OscarProperties.getInstance()['BC_CARECONNECT_URL'] }" var="url" scope="page"/>
+                                                                <c:if test="${ not empty url }">
+                                                                    <script type="text/javascript" src="${ctx}/careconnect/careconnect.js"></script>
+                                                                    <input type="button" class="btn-toolbar-secondary" value="CareConnect"
+                                                                           onclick="callCareConnect('${url}', '${ demographic.hin }', '${ demographic.firstName }',
+                                                                                   '${ demographic.lastName }', '${ demographic.formattedDob }', '${ demographic.sex }',
+                                                                                   '${ OscarProperties.getInstance()['BC_CARECONNECT_REGION'] }' )"/>
+                                                                </c:if>
+                                                            </security:oscarSec>
+                                                        </oscar:oscarPropertiesCheck>
+                                                    </div>
+                                                    <div class="toolbar-right">
+                                                        <span id="swipeButton" style="display: none;">
+                                                            <input type="button" name="Button" class="btn-toolbar-secondary"
+                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
+                                                                   onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                                        </span>
+                                                        <div class="dropdown" style="display:inline-block;">
+                                                            <button class="btn-toolbar-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                Print / Labels
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=appointment%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
+                                                                <% if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) { %>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printSexHealthLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePublicHealthLabel"/></a></li>
+                                                                <% } %>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(600,800,'<%=printHtmlLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnPrintLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLabLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnClientLabLabel"/></a></li>
+                                                            </ul>
+                                                        </div>
+                                                        <input type="button" name="Button" id="cancelButton" class="btn-toolbar-back"
+                                                               value="Back" onclick="self.close();">
+                                                    </div>
+                                                </div>
                                                 </table>
                                                     <%-- END BOTTOM TOOLBAR  --%>
 
