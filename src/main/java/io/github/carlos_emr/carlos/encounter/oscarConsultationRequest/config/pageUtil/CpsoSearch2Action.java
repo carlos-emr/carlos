@@ -77,7 +77,7 @@ public class CpsoSearch2Action extends ActionSupport {
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
             throw new SecurityException("missing required security object _admin.consult");
         }
 
