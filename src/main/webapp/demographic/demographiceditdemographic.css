@@ -46,7 +46,7 @@ body#demographiceditdemographic h3 { font-size: 12px; margin-bottom: 0; }
 body#demographiceditdemographic h4 { font-size: 13px; margin-bottom: 0; }
 
 body#demographiceditdemographic a { color: var(--carlos-link, #337ab7); text-decoration: none; }
-body#demographiceditdemographic a:hover { color: color-mix(in srgb, var(--carlos-link, #337ab7) 75%, black); text-decoration: underline; }
+body#demographiceditdemographic a:hover { color: #285b89; color: color-mix(in srgb, var(--carlos-link, #337ab7) 75%, black); text-decoration: underline; }
 
 /* ============================================================
    2. TOP HEADER BAR — #003399 → page-header-bar style (#f5f5f5)
@@ -64,6 +64,7 @@ body#demographiceditdemographic a:hover { color: color-mix(in srgb, var(--carlos
     font-size: 15px;
     padding: 12px 20px;
     border: none;
+    border-bottom: 2px solid #245580;
     border-bottom: 2px solid color-mix(in srgb, var(--carlos-primary, #337ab7) 70%, black);
     max-width: none;
     width: 100%;
@@ -167,6 +168,7 @@ body#demographiceditdemographic .MainTableLeftColumn td a[href]:hover,
 body#demographiceditdemographic .MainTableLeftColumn td a:hover,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a[href]:hover,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a:hover {
+    background-color: #2b689c;
     background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
     color: white;
     text-decoration: none;
@@ -327,7 +329,11 @@ div.demographicSection li:last-child { border-bottom: none; }
    ============================================================ */
 #viewDemographics2 { background-color: var(--carlos-bg-light, #f5f5f5); }
 .lightPurple { background-color: #fff; }
-.darkPurple { background-color: var(--carlos-bg-light, #f5f5f5); }
+.darkPurple {
+    background-color: var(--carlos-bg-light, #f5f5f5);
+    border-top: 2px solid var(--carlos-border, #ddd);
+    padding: 8px 12px;
+}
 .demographicDetail { background-color: #fff; }
 div.demographicDetail { background-color: #fff; }
 .encounterTable { background-color: var(--carlos-bg-light, #f5f5f5); }
@@ -485,7 +491,9 @@ body#demographiceditdemographic button {
 body#demographiceditdemographic input[type="submit"]:hover,
 body#demographiceditdemographic input[type="button"]:hover,
 body#demographiceditdemographic button:hover {
+    background-color: #2b689c;
     background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+    border-color: #2c5f8c;
     border-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 80%, black);
 }
 
@@ -514,6 +522,7 @@ body#demographiceditdemographic button.btn-link {
 body#demographiceditdemographic input.btn-link:hover,
 body#demographiceditdemographic button.btn-link:hover {
     background-color: transparent;
+    color: #285b89;
     color: color-mix(in srgb, var(--carlos-primary, #337ab7) 75%, black);
 }
 
@@ -537,7 +546,7 @@ body#demographiceditdemographic button.btn-link:hover {
 .showEdContent { background-color: var(--carlos-bg-light, #f5f5f5); }
 .printOps { background-color: var(--carlos-bg-light, #f5f5f5); }
 span.footnote { background-color: var(--carlos-bg-light, #f5f5f5); }
-#notesLoading { background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 30%, white); }
+#notesLoading { background-color: #c2d7e9; background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 30%, white); }
 
 /* ============================================================
    16. TOOLTIP POPUP
@@ -640,6 +649,7 @@ body#demographiceditdemographic .demo-toolbar-btn {
 }
 
 body#demographiceditdemographic .demo-toolbar-btn:hover {
+    background-color: #2b689c;
     background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
 }
 
@@ -720,12 +730,6 @@ div.demographicWrapper {
 /* ============================================================
    25. BOTTOM BUTTON TOOLBAR — two-row layout
    ============================================================ */
-.darkPurple {
-    background-color: #fff;
-    border-top: 2px solid var(--carlos-border, #ddd);
-    padding: 8px 12px;
-}
-
 .darkPurple td {
     background-color: #fff;
 }
@@ -783,7 +787,9 @@ body#demographiceditdemographic .btn-toolbar-secondary {
     font-size: 12px;
 }
 body#demographiceditdemographic .btn-toolbar-secondary:hover {
+    background-color: #2b689c;
     background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+    border-color: #2c5f8c;
     border-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 80%, black);
     color: #fff;
 }
@@ -810,6 +816,7 @@ body#demographiceditdemographic .dropdown-toggle {
     color: #fff;
 }
 body#demographiceditdemographic .dropdown-toggle:hover {
+    background-color: #2b689c;
     background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
 }
 

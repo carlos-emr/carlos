@@ -552,16 +552,19 @@
                 document.getElementById('editDemographic').style.display = 'table';
                 document.getElementById('viewDemographics2').style.display = 'none';
                 document.getElementById('updateButton').style.display = 'block';
-                document.getElementById('swipeButton').style.display = 'block';
-                document.getElementById('editBtn').style.display = 'none';
-                document.getElementById('closeBtn').style.display = 'inline';
+                var swipeBtn = document.getElementById('swipeButton');
+                if (swipeBtn) swipeBtn.style.display = 'block';
+                var editBtn = document.getElementById('editBtn');
+                if (editBtn) editBtn.style.display = 'none';
+                var closeBtn = document.getElementById('closeBtn');
+                if (closeBtn) closeBtn.style.display = 'inline';
             }
 
             function showHideDetail() {
                 showHideItem('editDemographic');
                 showHideItem('viewDemographics2');
                 showHideItem('updateButton');
-                showHideItem('swipeButton');
+                if (document.getElementById('swipeButton')) showHideItem('swipeButton');
 
                 showHideBtn('editBtn');
                 showHideBtn('closeBtn');
@@ -593,18 +596,22 @@
             }
 
             function showHideItem(id) {
-                if (document.getElementById(id).style.display === 'inline' || document.getElementById(id).style.display === 'block' || document.getElementById(id).style.display === 'table') {
-                    document.getElementById(id).style.display = 'none';
+                var el = document.getElementById(id);
+                if (!el) return;
+                if (el.style.display === 'inline' || el.style.display === 'block' || el.style.display === 'table') {
+                    el.style.display = 'none';
                 } else {
-                    document.getElementById(id).style.display = 'table';
+                    el.style.display = (el.tagName === 'TABLE') ? 'table' : 'block';
                 }
             }
 
             function showHideBtn(id) {
-                if (document.getElementById(id).style.display === 'none') {
-                    document.getElementById(id).style.display = 'inline';
+                var el = document.getElementById(id);
+                if (!el) return;
+                if (el.style.display === 'none') {
+                    el.style.display = 'inline';
                 } else {
-                    document.getElementById(id).style.display = 'none';
+                    el.style.display = 'none';
                 }
             }
 
@@ -4854,7 +4861,7 @@
                                                                     <script type="text/javascript" src="${ctx}/careconnect/careconnect.js"></script>
                                                                     <input type="button" class="btn-toolbar-secondary"
                                                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCareConnect"/>"
-                                                                           onclick="callCareConnect('${url}', '<%= Encode.forJavaScriptAttribute(demographic.getHin()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFirstName()) %>',
+                                                                           onclick="callCareConnect('<%= Encode.forJavaScriptAttribute((String) pageContext.getAttribute("url")) %>', '<%= Encode.forJavaScriptAttribute(demographic.getHin()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFirstName()) %>',
                                                                                    '<%= Encode.forJavaScriptAttribute(demographic.getLastName()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getFormattedDob()) %>', '<%= Encode.forJavaScriptAttribute(demographic.getSex()) %>',
                                                                                    '<%= Encode.forJavaScriptAttribute(OscarProperties.getInstance().getProperty("BC_CARECONNECT_REGION", "")) %>' )"/>
                                                                 </c:if>
@@ -4873,7 +4880,7 @@
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=URLEncoder.encode(appointment != null ? appointment : "", StandardCharsets.UTF_8)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=Encode.forUriComponent(appointment != null ? appointment : "")%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
                                                                 <% if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) { %>
