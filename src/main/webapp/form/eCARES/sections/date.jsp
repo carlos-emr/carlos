@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<label class="tt pl-2 highlight" data-toggle="tooltip" data-field-name="date" title="Date of data entry">Date
+<label class="tt pl-2 highlight" data-bs-toggle="tooltip" data-field-name="date" title="Date of data entry">Date
     (YYYY/MM/DD):</label>
 
 <input type="text" name="date" title="Date of data entry" class="date bottom-line form-control h-si ecares-input"

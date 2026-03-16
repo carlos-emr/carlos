@@ -98,7 +98,7 @@
             }
         </script>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     </head>
 
 
@@ -134,7 +134,7 @@
 
         <a href="admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
 
-        <a href="adminnewgroup.jsp" class="btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+        <a href="adminnewgroup.jsp" class="btn btn-secondary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
         <%} else {%>
 
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.description"/></h3>
@@ -145,7 +145,7 @@
                title="Enter an existing or new group name.">
         <small>(Max. 10 chars.)</small>
 
-        <table class="table table-condensed table-hover">
+        <table class="table table-sm table-hover">
             <thead>
             <tr class="btn-inverse">
                 <th></th>
@@ -164,7 +164,7 @@
                 for (ProviderData provider : providerList) {
                     i++;
             %>
-            <tr class="<%=i%2==0?"":"info"%>">
+            <tr class="<%=i%2==0?"":"table-info"%>">
                 <td width="20px" ALIGN="center">
                     <input type="checkbox" name="data" value="<%=i%>">
                     <input type="hidden" name="provider_no<%=i%>" value="<%= provider.getId() %>">
@@ -186,14 +186,15 @@
         <input type="submit" name="Submit" class="btn btn-primary"
                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminnewgroup.btnSubmit"/>">
 
-        <a href="admindisplaymygroup.jsp" class="btn btn-default">Cancel</a>
+        <a href="admindisplaymygroup.jsp" class="btn btn-secondary">Cancel</a>
 
     </FORM>
 
     <%} %>
 
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <script>
         $(document).ready(function () {

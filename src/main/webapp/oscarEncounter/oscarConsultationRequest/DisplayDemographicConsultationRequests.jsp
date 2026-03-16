@@ -125,14 +125,14 @@
     <!--META HTTP-EQUIV="Refresh" CONTENT="20;"-->
 
     <!-- jquery -->
-    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
 
     <!-- css -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap 2.3.1 -->
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/assets/css/DT_bootstrap.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"><!-- Bootstrap 2.3.1 -->
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css" rel="stylesheet">
 
     <style>
       .MainTable .dataTables_length label {

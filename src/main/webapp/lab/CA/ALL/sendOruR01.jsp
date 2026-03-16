@@ -54,31 +54,31 @@
 <html>
 <head>
     <title>Send eData</title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
 
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 
-    <script src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
     <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
 
     <script>
         function checkRequiredFields() {
-            if (jQuery("#professionalSpecialistId").val().length == 0) {
+            if (document.getElementById('professionalSpecialistId').value.length == 0) {
                 alert('Select a providers / specialist to send to.');
                 return (false);
             }
-            if (jQuery("#clientFirstName").val().length == 0 || jQuery("#clientLastName").val().length == 0) {
+            if (document.getElementById('clientFirstName').value.length == 0 || document.getElementById('clientLastName').value.length == 0) {
                 alert('The clients first and last name is required.');
                 return (false);
             }
-            if (jQuery("#subject").val().length == 0) {
+            if (document.getElementById('subject').value.length == 0) {
                 alert('The subject is required.');
                 return (false);
             }
-            if (jQuery("#textMessage").val().length == 0 && jQuery("#uploadFile").val().length == 0) {
+            if (document.getElementById('textMessage').value.length == 0 && document.getElementById('uploadFile').value.length == 0) {
                 alert('Either Text Data or an Upload File is required.');
                 return (false);
             }
@@ -99,17 +99,17 @@ for pre-populating data.
 %>
 
 <form method="post" enctype="multipart/form-data" action="oruR01Upload.do" onsubmit="return checkRequiredFields()"
-      class="well form-horizontal">
+      class="card card-body bg-body-tertiary">
     <fieldset>
-        <div class="control-group">
-            <label class="control-label">From Provider:</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">From Provider:</label>
+            <div>
                 <%=SendOruR01UIBean.getLoggedInProviderDisplayLine(loggedInInfo)%>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">To Provider / Specialist:</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">To Provider / Specialist:</label>
+            <div>
                 <select name="professionalSpecialistId" id="professionalSpecialistId">
                     <option value="">--- none selected ---</option>
                     <%
@@ -123,46 +123,45 @@ for pre-populating data.
                 </select>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label"><strong>For Client</strong></label>
-            <div class="controls">&nbsp;</div>
+        <div class="mb-3">
+            <label class="form-label"><strong>For Client</strong></label>
+            <div>&nbsp;</div>
         </div>
-        <div class="control-group">
-            <label class="control-label">First Name</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">First Name</label>
+            <div>
                 <input type="text" id="clientFirstName" name="clientFirstName"
                        value="<%=sendOruR01UIBean.getClientFirstName()%>"/>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Last Name</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Last Name</label>
+            <div>
                 <input type="text" id="clientLastName" name="clientLastName"
                        value="<%=sendOruR01UIBean.getClientLastName()%>"/>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Health Number<br/>(excluding version code)</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Health Number<br/>(excluding version code)</label>
+            <div>
                 <input type="text" name="clientHealthNumber" value="<%=sendOruR01UIBean.getClientHin()%>"/>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">BirthDay</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">BirthDay</label>
+            <div>
                 <input type="text" id="clientBirthDay" name="clientBirthDay"
                        value="<%=sendOruR01UIBean.getClientBirthDate()%>"/>
                 <script>
-                    jQuery(document).ready(function () {
-                        Date.format = 'yy-mm-dd';
-                        jQuery("#clientBirthDay").datepicker({dateFormat: 'yy-mm-dd'});
+                    document.addEventListener('DOMContentLoaded', function () {
+                        flatpickr("#clientBirthDay", {dateFormat: "Y-m-d", allowInput: true});
                     });
                 </script>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Gender</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Gender</label>
+            <div>
                 <select name="clientGender">
                     <option value="">--- none selected ---</option>
                     <%
@@ -177,30 +176,30 @@ for pre-populating data.
             </div>
         </div>
         <hr/>
-        <div class="control-group">
-            <label class="control-label">Subject</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Subject</label>
+            <div>
                 <input type="text" id="subject" name="subject" value="<%=sendOruR01UIBean.getSubject()%>"/>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Text Message</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Text Message</label>
+            <div>
                 <textarea id="textMessage" name="textMessage"
                           style="width:40em;height:8em"><%=sendOruR01UIBean.getTextMessage()%></textarea>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Upload File</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Upload File</label>
+            <div>
                 <input type="file" id="uploadFile" name="uploadFile"/>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">&nbsp;</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">&nbsp;</label>
+            <div>
                 <input type="submit" class="btn btn-primary" value="Electronically Send Data"/>&nbsp;<input
-                    type="button" class="btn" value="close" onclick='window.close()'/>
+                    type="button" class="btn btn-secondary" value="close" onclick='window.close()'/>
             </div>
         </div>
     </fieldset>

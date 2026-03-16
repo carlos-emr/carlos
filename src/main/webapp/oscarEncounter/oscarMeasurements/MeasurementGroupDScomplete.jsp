@@ -90,7 +90,7 @@
 
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - complete</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
 
 </head>
 
@@ -100,19 +100,20 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Measurements.msgEditMeasurementGroup"/> - Modify Decision Support for
         Group </h3>
 
-    <div class="alert alert-success alert-block">
+    <div class="alert alert-success">
         <h4>Success!</h4>
         You have successfully <%=state%> the decision support!
 
-        <div style="width:100%;text-align:right;margin-top:10px"><a class="btn" onclick="window.close();">Done</a> <a
+        <div style="width:100%;text-align:right;margin-top:10px"><a class="btn btn-secondary" onclick="window.close();">Done</a> <a
                 href="SetupGroupList.do" class="btn btn-info">Modify another group</a></div>
 
     </div>
 
 </div><!-- container -->
 
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>

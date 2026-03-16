@@ -93,8 +93,8 @@
 
 <html>
     <head>
-        <script src="<%=request.getContextPath() %>/js/jquery-1.7.1.min.js" type="text/javascript"></script>
-        <script src="<%=request.getContextPath() %>/js/jquery.dataTables.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js" type="text/javascript"></script>
 
         <script>
             function createTickler(id) {
@@ -169,7 +169,6 @@
 
         <style title="currentStyle" type="text/css">
             @import "<%= request.getContextPath() %>/css/demo_page.css";
-            @import "<%= request.getContextPath() %>/css/demo_table.css";
         </style>
 
         <style>
@@ -186,8 +185,8 @@
         </style>
         <script type="text/javascript">
             $(document).ready(function () {
-                $('#ckdTable').dataTable({
-                    "aaSorting": [[1, "desc"]]
+                $('#ckdTable').DataTable({
+                    "order": [[1, "desc"]]
                 });
             });
         </script>

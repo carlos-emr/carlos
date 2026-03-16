@@ -46,11 +46,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.pref.title"/></title>
     <script src="<c:out value="${ctx}/js/checkPassword.js.jsp"/>"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-    <script src="<c:out value="${ctx}/js/jquery.js"/>"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
+    <script src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
     <script>
         jQuery(document).ready(function () {
             //jQuery("#general").hide();

@@ -637,7 +637,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <input type="image" id="anno<%=globalNoteId%>" src='<%=ctx %>/oscarEncounter/graphics/annotation.png'
                    title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnAnnotation"/>'
                    style="float: right; margin-right: 5px; margin-bottom: 3px; height:10px;width:10px"
-                   onclick="window.open('<%=addr%>','anwin','width=400,height=500');$('annotation_attribname').value='<%=atbname%>'; return false;"/>
+                   onclick="window.open('<%=addr%>','anwin','width=400,height=500');document.getElementById('annotation_attribname').value='<%=atbname%>'; return false;"/>
             <%
                 }
             %>
@@ -831,7 +831,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 			}
 			else if (!fulltxt && !note.isDocument() && !note.isEformData() && !note.isEncounterForm() && !note.isRxAnnotation() && !note.isInvoice() && !note.isEmailNote())
 			{
-				%><script> Element.observe('n<%=note.getNoteId()%>', 'click', fullView); </script><%
+				%><script> document.getElementById('n<%=note.getNoteId()%>').addEventListener('click', fullView); </script><%
                     unLockedNotes.add(note.getNoteId());
                 }
             }
@@ -949,7 +949,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     <%if (!bean.oscarMsg.equals(""))
              {%>
-    $(caseNote).value += "\n\n<%=org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(bean.oscarMsg)%>";
+    document.getElementById(caseNote).value += "\n\n<%=org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(bean.oscarMsg)%>";
     <%bean.reason = "";
                  bean.oscarMsg = "";
              }
@@ -958,7 +958,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
              {
                  String noteBody = request.getParameter("noteBody");
                  noteBody = noteBody.replaceAll("<br>|<BR>", "\n");%>
-    $(caseNote).value += "\n\n<%=org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(noteBody)%>";
+    document.getElementById(caseNote).value += "\n\n<%=org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(noteBody)%>";
     <%}
 
              if (found != true)
@@ -976,20 +976,20 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 		setTimeout(adjustCaseNote, 0);
 	});
 
-    Element.observe(caseNote, 'click', getActiveText);
+    document.getElementById(caseNote).addEventListener('click', getActiveText);
     <%Integer num;
 			Iterator<Integer> iterator = lockedNotes.iterator();
 			while (iterator.hasNext())
 			{
 				num = iterator.next();%>
-    Element.observe('n<%=num%>', 'click', unlockNote);
+    document.getElementById('n<%=num%>').addEventListener('click', unlockNote);
     <%}
 
 			iterator = unLockedNotes.iterator();
 			while (iterator.hasNext())
 			{
 				num = iterator.next();%>
-    Element.observe('n<%=num%>', 'click', fullView);
+    document.getElementById('n<%=num%>').addEventListener('click', fullView);
     <%}%>
 
     //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
@@ -1016,9 +1016,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     makeIssue = "makeIssue";
     defaultDiv = "sig<%=savedId%>";
     changeIssueFunc;  //set in changeDiagnosis function above
-    addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, defaultDiv);
-    if ($('asgnIssues')) {
-        Element.observe('asgnIssues', 'click', addIssueFunc);
+    addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
+    if (document.getElementById('asgnIssues')) {
+        document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
     }
     try {
          new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {

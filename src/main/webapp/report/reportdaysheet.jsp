@@ -111,17 +111,14 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.title"/></title>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
+        <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
 
         <script language="JavaScript">
             function hideOnSource() {
                 var selfBooked = document.getElementById('onlySelfBooked');
-                var list = $$('tr.oscar');
-                if (selfBooked.checked) {
-                    list.invoke('hide');
-                } else {
-                    list.invoke('show');
-                }
+                document.querySelectorAll('tr.oscar').forEach(function(el) {
+                    el.style.display = selfBooked.checked ? 'none' : '';
+                });
             }
         </script>
 
@@ -171,8 +168,8 @@
             </span>
             <span style="float:right;">
                 <span style="margin-right:10px; font-size:12px; color:#888;"><%=createtime%></span>
-                <input type="button" class="btn btn-sm btn-default" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>" onClick="window.print()">
-                <input type="button" class="btn btn-sm btn-default" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>" onClick="window.close()">
+                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>" onClick="window.print()">
+                <input type="button" class="btn btn-sm btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>" onClick="window.close()">
             </span>
         </div>
 
@@ -265,7 +262,7 @@
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
         <%=Encode.forHtml(providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "")) %>
     </div>
-    <table class="table table-condensed table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
+    <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
         <tr>
             <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>

@@ -46,7 +46,7 @@
 </head>
 <body>
 <div class="container-fluid">
-    <div class="row-fluid">
+    <div class="row">
 
         <h4 style="color: red">We are sorry, there was an error
             processing your request</h4>

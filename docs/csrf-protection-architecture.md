@@ -92,7 +92,11 @@ The `csrfguard.js` script (served by the JavascriptServlet) automatically handle
 - `XMLHttpRequest` calls automatically get the token in a custom header
 - Dynamically created DOM nodes (via AJAX page loads, JavaScript DOM manipulation) are
   automatically scanned and injected via `MutationObserver`
-- **No manual token handling is needed in JSPs or JavaScript**
+- **No manual token handling is needed for `<form>` submissions or `XMLHttpRequest` calls**
+- **`fetch()` calls require manual CSRF token inclusion** — CSRFGuard (as of 4.5) does
+  **not** auto-intercept `fetch()`. Use the `getCsrfToken()` helper from `oscarMDSIndex.js`
+  or the `postForm()` wrapper which handles this automatically. See
+  `src/main/webapp/share/javascript/oscarMDSIndex.js` for the implementation.
 
 ### Property Key Gotchas
 

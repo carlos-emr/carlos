@@ -57,13 +57,10 @@
       Blob.prototype.mozSlice);
 
   /**
-   * Creates a drag handler for specified drag events.
-   *
-   * This function returns a handler that processes drag events based on the provided type.
-   * It checks if the event is a dragover and modifies the dataTransfer object accordingly.
-   * The handler also triggers the appropriate event and prevents default behavior if necessary.
+   * Helper function to create drag handlers for dragover/dragenter/dragleave
    *
    * @param {string} type Event type
+   * @returns {Function} Drag handler
    */
   function getDragHandler(type) {
     var isDragOver = type === 'dragover';

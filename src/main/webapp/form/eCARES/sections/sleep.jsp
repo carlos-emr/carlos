@@ -48,7 +48,7 @@
     </label>
 
     <span class="mandatory font-bold ml-8 highlight tt" rel="daytime_drowsiness" data-names="y,n"
-          data-toggle="tooltip" title="Daytime Drowsiness" data-field-name="daytime_drowsiness">
+          data-bs-toggle="tooltip" title="Daytime Drowsiness" data-field-name="daytime_drowsiness">
         Daytime Drowsiness
     </span>
     <label class="flex items-center font-normal pl-2">
@@ -60,7 +60,7 @@
         <span class="pl-1">N</span>
     </label>
 
-    <span class="tt font-bold pl-8" data-toggle="tooltip" data-html="true"
+    <span class="tt font-bold pl-8" data-bs-toggle="tooltip" data-bs-html="true"
           title="From the pain scale:<br>1-2: None to Low<br>2-5: Moderate Over<br>5: Extreme">
         <svg height="10" width="10">
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>

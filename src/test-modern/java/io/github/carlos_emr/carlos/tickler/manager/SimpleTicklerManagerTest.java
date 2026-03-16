@@ -49,6 +49,9 @@ import java.util.*;
  * Simple integration test for TicklerManager using real Spring context.
  */
 @DisplayName("Simple TicklerManager Integration Tests")
+@Tag("integration")
+@Tag("manager")
+@Tag("tickler")
 @Transactional
 @ContextConfiguration(locations = {"classpath:test-context-mock-security.xml"})
 class SimpleTicklerManagerTest extends CarlosTestBase {

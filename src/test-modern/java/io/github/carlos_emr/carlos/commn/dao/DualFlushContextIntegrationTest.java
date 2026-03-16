@@ -126,7 +126,8 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
                     "FROM Facility f WHERE f.name = ?0", "Updated Via JPA");
 
             // Then
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getName()).isEqualTo("Updated Via JPA");
         }
     }
 
@@ -188,7 +189,8 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             List<Object> results = query.getResultList();
 
             // Then
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            assertThat(((Number) results.get(0)).intValue()).isEqualTo(demo.getDemographicNo());
         }
     }
 

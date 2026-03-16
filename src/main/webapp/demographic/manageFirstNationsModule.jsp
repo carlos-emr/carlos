@@ -74,7 +74,7 @@
  --%>
 <script type="text/javascript">
     //<!--
-    jQuery(document).ready(function () {
+    document.addEventListener('DOMContentLoaded', function () {
 
         // all that is needed is a full band number OR a Band Name/number, Family Number
         // and family position.
@@ -91,37 +91,38 @@
                     family = number.substring(3, 8);
                     familyPostion = number.substring(8, 10);
 
-                    if (!jQuery("#fNationCom").val()) {
-                        jQuery("#fNationCom").val(band);
+                    if (!document.getElementById('fNationCom').value) {
+                        document.getElementById('fNationCom').value = band;
                     }
-                    if (!jQuery("#fNationFamilyNumber").val()) {
-                        jQuery("#fNationFamilyNumber").val(family);
+                    if (!document.getElementById('fNationFamilyNumber').value) {
+                        document.getElementById('fNationFamilyNumber').value = family;
                     }
-                    if (!jQuery("#fNationFamilyPosition").val()) {
-                        jQuery("#fNationFamilyPosition").val(familyPostion);
+                    if (!document.getElementById('fNationFamilyPosition').value) {
+                        document.getElementById('fNationFamilyPosition').value = familyPostion;
                     }
                 }
             }
 
         }
 
-        jQuery("#statusNum").focus(function () {
+        document.getElementById('statusNum').addEventListener('focus', function () {
             toggleFirstNationFields(true)
         });
 
 
-        jQuery("#statusNum").blur(function () {
-            evaluateNumber(jQuery("#statusNum").val());
+        document.getElementById('statusNum').addEventListener('blur', function () {
+            evaluateNumber(document.getElementById('statusNum').value);
 
-            if (jQuery("#statusNum").val()) {
-                jQuery("[name='aboriginal']").val("Yes");
+            if (document.getElementById('statusNum').value) {
+                document.querySelector("[name='aboriginal']").value = "Yes";
             } else {
-                jQuery("[name='aboriginal']").val("");
+                document.querySelector("[name='aboriginal']").value = "";
             }
         });
 
-        jQuery("#fNationCom").on("change", function () {
-            jQuery("#labelfNationCom").val(jQuery("#fNationCom option:selected").text().trim());
+        document.getElementById('fNationCom').addEventListener('change', function () {
+            var selectedOption = document.getElementById('fNationCom').options[document.getElementById('fNationCom').selectedIndex];
+            document.getElementById('labelfNationCom').value = selectedOption.text.trim();
         })
 
     });

@@ -46,10 +46,10 @@ Required Parameters to plug-in:
     <tr>
         <td class="heading">
             ${ quickList }
-            <div class="panel panel-default">
-                <div class="panel-body">
+            <div class="card">
+                <div class="card-body">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.quickList"/>
-                    <small class="pull-right">
+                    <small class="float-end">
                         <a class="oscar-dialog-link" href="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp">
                             add/edit
                         </a>
@@ -60,7 +60,7 @@ Required Parameters to plug-in:
     </tr>
     <tr>
         <td class="quickList">
-            <select class="form-control" style="overflow:auto" name="quickList"
+            <select class="form-select" style="overflow:auto" name="quickList"
                          onchange="javascript:changeList(this,'${ demographicNo }','${ providerNo }');">
                 <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
                     <option value="${ quickLists.quickListName }" ${ quickLists.quickListName eq param.quickList || quickLists.lastUsed eq 'Selected' ? 'selected' : '' } >
@@ -71,7 +71,7 @@ Required Parameters to plug-in:
             <ul class="list-group">
                 <c:forEach var="item" items="${allQuickListItems.dxQuickListItemsVector}">
                     <li class="list-group-item">
-  					<span class="pull-right">
+  					<span class="float-end">
  						<a href="#" title="${ item.dxSearchCode }"
                                    onclick="javascript:submitform( '${ item.dxSearchCode }', '${ item.type }' )">
                             add

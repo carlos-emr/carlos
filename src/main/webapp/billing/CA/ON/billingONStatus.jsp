@@ -222,24 +222,23 @@
         <title>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/>
         </title>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
         <script src="<%=request.getContextPath() %>/js/excellentexport.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <script>
-            $(document).ready(function () {
-                var startDate = $("#xml_vdate").datepicker({format: "yyyy-mm-dd"});
-                var endDate = $("#xml_appointment_date").datepicker({format: "yyyy-mm-dd"});
+            document.addEventListener('DOMContentLoaded', function () {
+                flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
+                flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
-                var paymentStartDate = $("#paymentStartDate").datepicker({format: "yyyy-mm-dd"});
-                var paymentEndDate = $("#paymentEndDate").datepicker({format: "yyyy-mm-dd"});
+                flatpickr("#paymentStartDate", {dateFormat: "Y-m-d", allowInput: true});
+                flatpickr("#paymentEndDate", {dateFormat: "Y-m-d", allowInput: true});
             });
         </script>
         <script>
@@ -358,7 +357,7 @@
                     //document.getElementById(ajaxFieldId).innerHTML = xmlHttp.responseText;
                     if (xmlHttp.status == 200) {
                         //alert("go 3" + xmlHttp.responseText);
-                        document.getElementById(ajaxFieldId).innerHTML = xmlHttp.responseText;
+                        document.getElementById(ajaxFieldId).textContent = xmlHttp.responseText;
                     }
                 }
             }
@@ -373,8 +372,8 @@
 
 
             updateSort = function (name) {
-                var sortName = $("#sortName").val();
-                var sortOrder = $("#sortOrder").val();
+                var sortName = document.getElementById("sortName").value;
+                var sortOrder = document.getElementById("sortOrder").value;
 
                 if (sortName != name) {
                     sortName = name;
@@ -390,8 +389,8 @@
                     }
                 }
 
-                $("#sortName").val(sortName);
-                $("#sortOrder").val(sortOrder);
+                document.getElementById("sortName").value = sortName;
+                document.getElementById("sortOrder").value = sortOrder;
 
                 document.serviceform.submit();
             }
@@ -421,7 +420,7 @@
             }
 
             @media print {
-                .hidden-print {
+                .d-print-none {
                     display: none !important;
                 }
             }
@@ -435,45 +434,45 @@
     <div class="container-fluid">
         <!--Hiding for now since this does not seem to manage the providers in the select
             <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">Manage Provider List</a>-->
-        <form name="serviceform" class="form-inline" method="get" action="billingONStatus.jsp"
+        <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="billingONStatus.jsp"
               onsubmit="ShowSpin(true);">
             <input type="hidden" id="sortName" name="sortName" value="<%=sortName%>">
             <input type="hidden" id="sortOrder" name="sortOrder" value="<%=sortOrder%>">
-            <div class="row well hidden-print">
+            <div class="row card card-body bg-body-tertiary d-print-none">
                 <%
                     String tmpStrBillType = Arrays.toString(strBillType);
                 %>
                 <div class="row">
-                    <div class="span12">
-                        <label class="checkbox inline"><input type="checkbox" name="billTypeAll" id="ALL" value="ALL"
-                                                              checked onclick="changeStatus();">ALL</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="HCP" <%=tmpStrBillType.indexOf("HCP")>=0?"checked":""%>>Bill
-                            OHIP</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="RMB" <%=tmpStrBillType.indexOf("RMB")>=0?"checked":""%>>RMB</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="WCB" <%=tmpStrBillType.indexOf("WCB")>=0?"checked":""%>>WCB</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="NOT" <%=tmpStrBillType.indexOf("NOT")>=0?"checked":""%>>Not
-                            Bill</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="PAT" <%=tmpStrBillType.indexOf("PAT")>=0?"checked":""%>>Bill
-                            Patient</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="OCF" <%=tmpStrBillType.indexOf("OCF")>=0?"checked":""%>>OCF</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="ODS" <%=tmpStrBillType.indexOf("ODS")>=0?"checked":""%>>ODSP</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="CPP" <%=tmpStrBillType.indexOf("CPP")>=0?"checked":""%>>CPP</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="STD" <%=tmpStrBillType.indexOf("STD")>=0?"checked":""%>>STD/LTD</label>
-                        <label class="checkbox inline"><input type="checkbox" name="billType"
-                                                              value="IFH" <%=tmpStrBillType.indexOf("IFH")>=0?"checked":""%>>IFH</label>
+                    <div class="col-md-12">
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billTypeAll" id="ALL" value="ALL"
+                                                              checked onclick="changeStatus();"><label class="form-check-label" for="ALL">ALL</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_HCP"
+                                                              value="HCP" <%=tmpStrBillType.indexOf("HCP")>=0?"checked":""%>><label class="form-check-label" for="billType_HCP">Bill
+                            OHIP</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_RMB"
+                                                              value="RMB" <%=tmpStrBillType.indexOf("RMB")>=0?"checked":""%>><label class="form-check-label" for="billType_RMB">RMB</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_WCB"
+                                                              value="WCB" <%=tmpStrBillType.indexOf("WCB")>=0?"checked":""%>><label class="form-check-label" for="billType_WCB">WCB</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_NOT"
+                                                              value="NOT" <%=tmpStrBillType.indexOf("NOT")>=0?"checked":""%>><label class="form-check-label" for="billType_NOT">Not
+                            Bill</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_PAT"
+                                                              value="PAT" <%=tmpStrBillType.indexOf("PAT")>=0?"checked":""%>><label class="form-check-label" for="billType_PAT">Bill
+                            Patient</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_OCF"
+                                                              value="OCF" <%=tmpStrBillType.indexOf("OCF")>=0?"checked":""%>><label class="form-check-label" for="billType_OCF">OCF</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_ODS"
+                                                              value="ODS" <%=tmpStrBillType.indexOf("ODS")>=0?"checked":""%>><label class="form-check-label" for="billType_ODS">ODSP</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_CPP"
+                                                              value="CPP" <%=tmpStrBillType.indexOf("CPP")>=0?"checked":""%>><label class="form-check-label" for="billType_CPP">CPP</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_STD"
+                                                              value="STD" <%=tmpStrBillType.indexOf("STD")>=0?"checked":""%>><label class="form-check-label" for="billType_STD">STD/LTD</label></div>
+                        <div class="form-check form-check-inline"><input type="checkbox" class="form-check-input" name="billType" id="billType_IFH"
+                                                              value="IFH" <%=tmpStrBillType.indexOf("IFH")>=0?"checked":""%>><label class="form-check-label" for="billType_IFH">IFH</label></div>
                     </div>
                     <!--</div>-->
                     <!--<div class="row">-->
-                    <div class="span10">
+                    <div class="col-md-10">
                         <% // multisite start ==========================================
                             String curSite = request.getParameter("site");
                             if (bMultisites) {
@@ -510,7 +509,7 @@
                         </script>
                         <label>
                             Site:
-                            <select id="site" name="site" class="input-large" onchange="changeSite(this)">
+                            <select id="site" name="site" class="form-select" onchange="changeSite(this)">
                                 <option value="none" style="background-color:white">---select clinic---</option>
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
@@ -523,7 +522,7 @@
                             </select>
                         </label>
                         <label>Provider:
-                            <select id="providerview" class="input-large" name="providerview"
+                            <select id="providerview" class="form-select" name="providerview"
                                     onchange="changeProvider(true);"></select></label>
                         <% if (request.getParameter("providerview") != null) { %>
                         <script>
@@ -537,7 +536,7 @@
                         %>
                         <label>
                             Provider:
-                            <select name="providerview" class="input-large" onchange="changeProvider(false);">
+                            <select name="providerview" class="form-select" onchange="changeProvider(false);">
                                 <%
                                     if (pList.size() == 1) {
                                         String temp[] = (pList.get(0)).split("\\|");
@@ -561,14 +560,14 @@
                         <% } %>
                         <label>
                             OHIP No.:
-                            <input type="text" class="input-small" name="provider_ohipNo" readonly value="<%=ohipNo%>"></label>
+                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<%=ohipNo%>"></label>
                     </div>
-                    <div class="span6">
+                    <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
-                        <div class="input-append">
-                            <input type="text" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="xml_appointment_date">End:
                             <small>
@@ -580,30 +579,30 @@
                                    onClick="fillEndDate('<%=DateUtils.sumDate("yyyy-MM-dd","-90")%>')">90</a>
                                 days back
                             </small></label>
-                        <div class="input-append">
-                            <input type="text" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
                                    value="<%=endDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
                 </div>
                 <!-- row -->
                 <div class="row">
-                    <div class="span12">
+                    <div class="col-md-12">
                         <label>Dx:
-                            <input type="text" name="dx" class="input-mini" placeholder="123" value="<%=dx%>"></label>
+                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<%=dx%>"></label>
                         <label>Serv. Code:
-                            <input type="text" name="serviceCode" class="input-mini" placeholder="A123A"
+                            <input type="text" name="serviceCode" class="form-control form-control-sm d-inline-block w-auto" placeholder="A123A"
                                    value="<%=serviceCode%>"></label>
                         <label>Demographic:
-                            <input type="text" name="demographicNo" class="input-mini" placeholder="1234"
+                            <input type="text" name="demographicNo" class="form-control form-control-sm d-inline-block w-auto" placeholder="1234"
                                    value="<%=demoNo%>"></label>
                         <label>RA Code:
-                            <input type="text" name="raCode" class="input-mini" placeholder=""
+                            <input type="text" name="raCode" class="form-control form-control-sm d-inline-block w-auto" placeholder=""
                                    value="<%=raCode%>"></label>
                         <label>Claim No (% for any):
-                            <input type="text" name="claimNo" class="input-small" value="<%=claimNo%>"></label>
+                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<%=claimNo%>"></label>
                         <label>
                             Visit Type:
                             <select name="visitType" style="background-color:white;">
@@ -644,7 +643,7 @@
                             </select>
                         </label>
                         <label for="xml_location">Visit Location:</label>
-                        <select name="xml_location" id="xml_location" class="input-large">
+                        <select name="xml_location" id="xml_location" class="form-select">
                             <% //
                                 JdbcBillingPageUtil tdbObj = new JdbcBillingPageUtil();
 
@@ -661,53 +660,82 @@
                             <% } %>
                         </select>
                         <label for="paymentStartDate">Payment Start:</label>
-                        <div class="input-append">
-                            <input type="text" name="paymentStartDate" id="paymentStartDate" style="width:90px"
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="paymentStartDate" id="paymentStartDate" style="width:90px"
                                    value="<%=paymentStartDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
-                        <div class="input-append">
-                            <input type="text" name="paymentEndDate" id="paymentEndDate" style="width:90px"
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="paymentEndDate" id="paymentEndDate" style="width:90px"
                                    value="<%=paymentEndDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <!--</div>-->
                         <!--<div class="row" >-->
-                        <div class="span12">
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="%" <%=statusType.equals("%")?"checked":""%>>All</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="_" <%=statusType.equals("_")?"checked":""%>>Rejected</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="H" <%=statusType.equals("H")?"checked":""%>>Capitated</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="O" <%=statusType.equals("O")?"checked":""%>>Invoiced</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="P" <%=statusType.equals("P")?"checked":""%>>Bill
-                                Patient</label>
-                            <!--li><label class="radio inline"><input type="radio" name="statusType" value="N" <%=statusType.equals("N")?"checked":""%>>Do Not Bill</label>
-                                    <label class="radio inline"><input type="radio" name="statusType" value="W" <%=statusType.equals("W")?"checked":""%>>WCB</label>-->
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="B" <%=statusType.equals("B")?"checked":""%>>Submmitted
-                                OHIP</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="S" <%=statusType.equals("S")?"checked":""%>>Settled/Paid</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="X" <%=statusType.equals("X")?"checked":""%>>Bad
-                                Debt</label>
-                            <label class="radio inline"><input type="radio" name="statusType"
-                                                               value="D" <%=statusType.equals("D")?"checked":""%>>Deleted
-                                Bill</label>
+                        <div class="col-md-12">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeAll"
+                                       value="%" <%=statusType.equals("%")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeAll">All</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeRejected"
+                                       value="_" <%=statusType.equals("_")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeRejected">Rejected</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeCapitated"
+                                       value="H" <%=statusType.equals("H")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeCapitated">Capitated</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeInvoiced"
+                                       value="O" <%=statusType.equals("O")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeInvoiced">Invoiced</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeBillPatient"
+                                       value="P" <%=statusType.equals("P")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeBillPatient">Bill Patient</label>
+                            </div>
+                            <!--<div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeDoNotBill" value="N" <%=statusType.equals("N")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeDoNotBill">Do Not Bill</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeWCB" value="W" <%=statusType.equals("W")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeWCB">WCB</label>
+                            </div>-->
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeSubmittedOHIP"
+                                       value="B" <%=statusType.equals("B")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeSubmittedOHIP">Submitted OHIP</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeSettled"
+                                       value="S" <%=statusType.equals("S")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeSettled">Settled/Paid</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeBadDebt"
+                                       value="X" <%=statusType.equals("X")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeBadDebt">Bad Debt</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="statusType" id="statusTypeDeleted"
+                                       value="D" <%=statusType.equals("D")?"checked":""%>>
+                                <label class="form-check-label" for="statusTypeDeleted">Deleted Bill</label>
+                            </div>
                         </div>
                         <!--</div>-->
                         <!-- row -->
                         <!--<div class="row">-->
-                        <div class="span4" style="padding-top:10px;">
+                        <div class="col-md-4" style="padding-top:10px;">
                             <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
-                            <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
+                            <button class="btn btn-secondary" type='button' name='print' value='Print' onClick='window.print()'><i
                                     class="fa-solid fa-print"></i> Print
                             </button>
                         </div>
@@ -715,7 +743,7 @@
                     <!-- row -->
                 </div>
             </div>
-            <!-- end well -->
+            <!-- end card card-body bg-body-tertiary -->
         </form>
         <form name="invoiceForm" action="<%=request.getContextPath()%>/BillingInvoice.do">
             <input type="hidden" name="method" value="">
@@ -724,7 +752,7 @@
             <!--  div class="rejected list"-->
             <table class="table" id="rejectTbl">
                 <thead>
-                <tr class="warning">
+                <tr class="table-warning">
                     <th>Insurance#</th>
                     <th>D.O.B</th>
                     <th>Invoice#</th>
@@ -741,7 +769,7 @@
                     <th>Exp.</th>
                     <th>Code Error</th>
                     <th>
-                        <button class="btn-link hidden-print" type="button" title="Show/Hide Checked"
+                        <button class="btn-link d-print-none" type="button" title="Show/Hide Checked"
                                 onClick="filterChecked()">Status
                         </button>
                     </th>
@@ -840,7 +868,7 @@
                             DATE</a></th>
                         <th><a href="javascript:void(0);"
                                onClick="updateSort('DemographicNo');return false;">PATIENT</a></th>
-                        <th class="<%=hideName?"hidden-print":""%>">PATIENT NAME</th>
+                        <th class="<%=hideName?"d-print-none":""%>">PATIENT NAME</th>
                         <th><a href="javascript:void(0);"
                                onClick="updateSort('VisitLocation');return false;">LOCATION</a></th>
                         <th title="Status">STAT</th>
@@ -861,7 +889,7 @@
                         <% if (bMultisites) {%>
                         <th>SITE</th>
                         <% }%>
-                        <th class="hidden-print">
+                        <th class="d-print-none">
                             <a href="#" onClick="checkAll(document.invoiceForm.invoiceAction)">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingStatus.action"/>
                             </a>
@@ -978,7 +1006,7 @@
                         <td style="text-align:center"><%=ch1Obj.getDemographic_no()%>
                         </td>
                         <!--PATIENT-->
-                        <td style="text-align:center" class="<%=hideName?"hidden-print":""%>"><a href=#
+                        <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
                                                                                                  onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=ch1Obj.getDemographic_no()%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
                         </a></td>
                         <td style="text-align:center"><%=ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>
@@ -1029,7 +1057,7 @@
                         </td>
                         <!--SITE-->
                         <% }%>
-                        <td style="text-align:center" class="hidden-print">
+                        <td style="text-align:center" class="d-print-none">
                             <% if (newInvoice && b3rdParty) { %>
                             <input type="checkbox" name="invoiceAction" id="invoiceAction<%=invoiceNo%>"
                                    value="<%=invoiceNo%>"/>
@@ -1051,11 +1079,11 @@
 
                 </script>
                 <table>
-                    <tr class="warning">
+                    <tr class="table-warning">
                         <td>Count:</td>
                         <td style="text-align:center"><%=patientCount%>
                         </td>
-                        <td style="text-align:center" class="<%=hideName?"hidden-print":""%>">&nbsp;</td>
+                        <td style="text-align:center" class="<%=hideName?"d-print-none":""%>">&nbsp;</td>
                         <td>&nbsp;</td>
                         <!--LOCATION-->
                         <td>&nbsp;</td>
@@ -1091,7 +1119,7 @@
                         <td>&nbsp;</td>
                         <!--SITE-->
                         <% }%>
-                        <td style="text-align:center" class="hidden-print">
+                        <td style="text-align:center" class="d-print-none">
                             <a href="#" onClick="submitForm('print')">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingStatus.print"/>
                             </a>

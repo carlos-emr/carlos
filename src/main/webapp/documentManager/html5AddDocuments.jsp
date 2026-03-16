@@ -60,8 +60,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.title"/></title>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/scriptaculous.js"></script>
+    <!-- Prototype.js/Scriptaculous removed — using vanilla JS (Phase 1c migration) -->
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
 
     <%
@@ -284,17 +283,16 @@
         };
 
         function changeProviderAndQueue() {
-            upload_url = "<%=request.getContextPath()%>/documentManager/addEditDocument.do?method=html5MultiUpload&queue=" + $('queue').value + "&providers=" + $('provider').value;
-
+            upload_url = "<%=request.getContextPath()%>/documentManager/addEditDocument.do?method=html5MultiUpload&queue=" + document.getElementById('queue').value + "&providers=" + document.getElementById('provider').value;
         }
 
         function addProviderToPost(ele) {
-            $('provider').value = ele.options[ele.selectedIndex].value;
+            document.getElementById('provider').value = ele.options[ele.selectedIndex].value;
             changeProviderAndQueue();
         }
 
         function addQueueToPost(ele) {
-            $('queue').value = ele.options[ele.selectedIndex].value;
+            document.getElementById('queue').value = ele.options[ele.selectedIndex].value;
             changeProviderAndQueue();
         }
     </script>

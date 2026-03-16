@@ -304,11 +304,11 @@
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></title>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
@@ -457,7 +457,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></h3>
 
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <div class="alert alert-<%=alert%>">
             <%=msg%>
@@ -465,11 +465,11 @@
 
         <form method="post" id="baseurl" name="baseurl" action="addEditServiceCode.jsp">
 
-            <div class="span10">
+            <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="service_code" value="<%=prop.getProperty("service_code", "")%>"
-                           class="span2" maxlength='5' onblur="upCaseCtrl(this)"/>
+                           class="col-md-2" maxlength='5' onblur="upCaseCtrl(this)"/>
                     <button class="btn btn-primary" type="submit" name="submitFrm" value="Search"
                             onclick="javascript:return onSearch();">Search
                     </button>
@@ -495,14 +495,14 @@
             </div>
 
 
-            <div class="span10">
+            <div class="col-md-10">
                 Description <small>50 Characters</small><br>
-                <textarea name="description" class="span6"><%=prop.getProperty("description", "")%></textarea>
+                <textarea name="description" class="form-control"><%=prop.getProperty("description", "")%></textarea>
             </div>
 
-            <div class="span10">
+            <div class="col-md-10">
                 Style<br>
-                <select id="servicecode_style" name="servicecode_style" class="span2"
+                <select id="servicecode_style" name="servicecode_style" class="form-select"
                         onchange="displayStyleText(this.options[this.selectedIndex].value);" title="CSS Style Viewer">
                     <option value="-1,None">None</option>
                     <%
@@ -516,16 +516,16 @@
                     %>
                 </select>
                 <br>
-                <textarea id="displayStyle" readonly="readonly" class="span6"></textarea>
+                <textarea id="displayStyle" readonly="readonly" class="form-control"></textarea>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 Fee <small> e.g. 18.20</small><br>
                 <input type="text" name="value" value="<%=prop.getProperty("value", "")%>" size='8' maxlength='8'
                        pattern="\d+(\.\d{2})?"><br/>
             </div>
 
-            <div class="span6">
+            <div class="col-md-6">
                 Percentage <small> e.g. 0.20</small><br>
                 <input type="text" name="percentage" value="<%=prop.getProperty("percentage", "")%>" size='8'
                        maxlength='8'>
@@ -533,28 +533,28 @@
                 max.<input type="text" name="max" value="<%=prop.getProperty("max", "")%>" size='7' maxlength='8'>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>Issued Date</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="billingservice_date" id="billingservice_date"
-                           value="<%=prop.getProperty("billingservice_date", "")%>"
+                           class="form-control" value="<%=prop.getProperty("billingservice_date", "")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>Termination Date</label>
-                <div class="input-append">
+                <div class="input-group">
                     <input type="text" name="termination_date" id="termination_date"
-                           value="<%=prop.getProperty("termination_date", "9999-12-31")%>"
+                           class="form-control" value="<%=prop.getProperty("termination_date", "9999-12-31")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
 
-            <div class="span10">
+            <div class="col-md-10">
                 <% String sliFlagValue = prop.getProperty("sliFlag", "0");
                     sliFlagValue = sliFlagValue.equals("1") || sliFlagValue.equals("true") ? "checked" : "";
                 %>
@@ -562,9 +562,9 @@
             </div>
 
 
-            <div class="span10">
+            <div class="col-md-10">
                 <br>
-                <input type="hidden" id="action" name="action" value=''> <input class="btn" type="submit"
+                <input type="hidden" id="action" name="action" value=''> <input class="btn btn-secondary" type="submit"
                                                                                 name="submitFrm"
                                                                                 value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>"
                                                                                 onclick="document.getElementById('action').value='<%=action%>';return onSave();">
@@ -572,7 +572,7 @@
                 <%
                     if (!action2.equals("")) {
                 %>
-                <input class="btn" type="submit" name="submitFrm"
+                <input class="btn btn-secondary" type="submit" name="submitFrm"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnAdd"/>"
                        onclick="document.getElementById('action').value='<%=action2%>';return onSave();">
                 <%}%>
@@ -581,13 +581,8 @@
         </form>
     </div>
     <script type="text/javascript">
-        var startDate = $("#billingservice_date").datepicker({
-            format: "yyyy-mm-dd"
-        });
-
-        var endDate = $("#termination_date").datepicker({
-            format: "yyyy-mm-dd"
-        });
+        flatpickr("#billingservice_date", {dateFormat: "Y-m-d", allowInput: true});
+        flatpickr("#termination_date", {dateFormat: "Y-m-d", allowInput: true});
     </script>
 
     </body>

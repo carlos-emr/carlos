@@ -117,7 +117,18 @@ public class TicklerList2Action extends ActionSupport {
 
             CustomFilter filter = buildFilterFromRequest(request);
 
+            // recordsTotal uses a filter without search so the total count reflects form filters only
+            String originalSearchTerm = filter.getSearchTerm();
+            filter.setSearchTerm(null);
             int totalRecords = ticklerManager.getNumTicklers(loggedInInfo, filter);
+            // restore search term so subsequent calls use the full filter, including search
+            filter.setSearchTerm(originalSearchTerm);
+
+            // recordsFiltered accounts for full-text search when the DataTables search box is used
+            int filteredRecords = (filter.getSearchTerm() != null && !filter.getSearchTerm().trim().isEmpty())
+                    ? ticklerManager.getNumTicklersFiltered(loggedInInfo, filter)
+                    : totalRecords;
+
             List<TicklerListDTO> ticklerDTOs = ticklerManager.getTicklerDTOs(loggedInInfo, filter, start, length);
 
             List<Map<String, Object>> rows = new ArrayList<>();
@@ -140,7 +151,7 @@ public class TicklerList2Action extends ActionSupport {
             Map<String, Object> result = new HashMap<>();
             result.put("draw", draw);
             result.put("recordsTotal", totalRecords);
-            result.put("recordsFiltered", totalRecords);
+            result.put("recordsFiltered", filteredRecords);
             result.put("data", rows);
             result.put("comments", commentsMap);
 
@@ -201,7 +212,38 @@ public class TicklerList2Action extends ActionSupport {
             filter.setEndDateWeb(endDateStr);
         }
 
+        // DataTables server-side sort: order[0][column] maps to the column index,
+        // order[0][dir] is "asc" or "desc". Only whitelisted columns are accepted.
+        String orderColStr = getStringParam(request, "order[0][column]", "4");
+        String orderDir = getStringParam(request, "order[0][dir]", "desc");
+        filter.setSortColumn(mapColumnIndexToField(orderColStr));
+        filter.setSort_order("asc".equalsIgnoreCase(orderDir) ? "asc" : "desc");
+
+        // DataTables search box value — used for full-text search across message and patient name
+        String searchValue = getStringParam(request, "search[value]", "");
+        if (!searchValue.isEmpty()) {
+            filter.setSearchTerm(searchValue);
+        }
+
         return filter;
+    }
+
+    /**
+     * Maps a DataTables column index string to the corresponding {@link CustomFilter} sort column name.
+     * Unrecognised indices default to {@code serviceDate}.
+     * Column mapping mirrors the {@code columns} array in {@code ticklerMain.jsp}:
+     * 0=checkbox, 1=edit, 2=demographicName, 3=creatorName, 4=serviceDate, 5=createDate,
+     * 6=priority, 7=assigneeName, 8=status, 9=message, 10=noteLink.
+     *
+     * @param colIndexStr String the DataTables column index from the request
+     * @return String the CustomFilter sortColumn value
+     */
+    private String mapColumnIndexToField(String colIndexStr) {
+        switch (colIndexStr) {
+            case "6":  return "priority";
+            case "4":  // fall-through to default
+            default:   return "serviceDate";
+        }
     }
 
     /**

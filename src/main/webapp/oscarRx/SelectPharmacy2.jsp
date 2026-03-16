@@ -63,21 +63,11 @@
         <jsp:include page="/images/spinner.jsp" flush="true"/>
 
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
-                type="text/javascript"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css"/>
-
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/lightwindow/javascript/lightwindow.js"></script>
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/share/lightwindow/css/lightwindow.css">
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js" type="text/javascript"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js" type="text/javascript"></script>
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
 
 
         <c:if test="${empty RxSessionBean}">
@@ -108,21 +98,72 @@
                         function (data) {
                             if (data && data.length && data.length > 0) {
                                 $("#preferredList").html("");
-                                var json;
                                 var preferredPharmacyInfo;
                                 for (var idx = 1; idx <= data.length; ++idx) {  //deliberately using idx = 1 to start to match the preferredOrder in db which is 1 counting instead of 0 counting
                                     preferredPharmacyInfo = data[idx - 1];
-                                    json = JSON.stringify(preferredPharmacyInfo);
-                                    var pharm = "<div prefOrder='" + idx + "' pharmId='" + preferredPharmacyInfo.id + "'><table style='width: 100%'><tr><td class='prefAction prefUp'> Move Up </td>";
-                                    pharm += "<td rowspan='3' style='padding-left: 5px'>" + preferredPharmacyInfo.name + "<br /> ";
-                                    pharm += preferredPharmacyInfo.address + ", " + preferredPharmacyInfo.city + " " + preferredPharmacyInfo.province + "<br /> ";
-                                    pharm += preferredPharmacyInfo.postalCode + "<br />";
-                                    pharm += "Main Phone: " + preferredPharmacyInfo.phone1 + "<br />";
-                                    pharm += "Fax: " + preferredPharmacyInfo.fax + "<br />";
-                                    pharm += "<a href='javascript:void(0)'  onclick='viewPharmacy(" + preferredPharmacyInfo.id + "); event.stopPropagation(); return false;'>View More</a>";
-                                    pharm += "<p class='add-date' style='color: grey; text-align: right; margin: 0;'><i><small>Added: " + formatTimestamp(preferredPharmacyInfo.demoAddDate) + "</small></i></p>";
-                                    pharm += "</tr><tr><td class='prefAction prefUnlink'> Remove from List </td></tr><tr><td class='prefAction prefDown'> Move Down </td></tr></table></div>";
-                                    $("#preferredList").append(pharm);
+                                    var wrapper = document.createElement('div');
+                                    wrapper.setAttribute('prefOrder', idx);
+                                    wrapper.setAttribute('pharmId', preferredPharmacyInfo.id);
+
+                                    var tbl = document.createElement('table');
+                                    tbl.style.width = '100%';
+
+                                    // Row 1: Move Up + pharmacy info
+                                    var row1 = tbl.insertRow();
+                                    var upCell = row1.insertCell();
+                                    upCell.className = 'prefAction prefUp';
+                                    upCell.textContent = ' Move Up ';
+
+                                    var infoCell = row1.insertCell();
+                                    infoCell.rowSpan = 3;
+                                    infoCell.style.paddingLeft = '5px';
+
+                                    var nameNode = document.createTextNode(preferredPharmacyInfo.name);
+                                    infoCell.appendChild(nameNode);
+                                    infoCell.appendChild(document.createElement('br'));
+                                    infoCell.appendChild(document.createTextNode(preferredPharmacyInfo.address + ', ' + preferredPharmacyInfo.city + ' ' + preferredPharmacyInfo.province));
+                                    infoCell.appendChild(document.createElement('br'));
+                                    infoCell.appendChild(document.createTextNode(preferredPharmacyInfo.postalCode));
+                                    infoCell.appendChild(document.createElement('br'));
+                                    infoCell.appendChild(document.createTextNode('Main Phone: ' + preferredPharmacyInfo.phone1));
+                                    infoCell.appendChild(document.createElement('br'));
+                                    infoCell.appendChild(document.createTextNode('Fax: ' + preferredPharmacyInfo.fax));
+                                    infoCell.appendChild(document.createElement('br'));
+
+                                    var viewLink = document.createElement('a');
+                                    viewLink.href = 'javascript:void(0)';
+                                    viewLink.textContent = 'View More';
+                                    viewLink.setAttribute('data-pharm-id', preferredPharmacyInfo.id);
+                                    viewLink.addEventListener('click', function(e) {
+                                        viewPharmacy(this.getAttribute('data-pharm-id'));
+                                        e.stopPropagation();
+                                    });
+                                    infoCell.appendChild(viewLink);
+
+                                    var addDateP = document.createElement('p');
+                                    addDateP.className = 'add-date';
+                                    addDateP.style.cssText = 'color: grey; text-align: right; margin: 0;';
+                                    var addDateI = document.createElement('i');
+                                    var addDateSmall = document.createElement('small');
+                                    addDateSmall.textContent = 'Added: ' + formatTimestamp(preferredPharmacyInfo.demoAddDate);
+                                    addDateI.appendChild(addDateSmall);
+                                    addDateP.appendChild(addDateI);
+                                    infoCell.appendChild(addDateP);
+
+                                    // Row 2: Remove from List
+                                    var row2 = tbl.insertRow();
+                                    var unlinkCell = row2.insertCell();
+                                    unlinkCell.className = 'prefAction prefUnlink';
+                                    unlinkCell.textContent = ' Remove from List ';
+
+                                    // Row 3: Move Down
+                                    var row3 = tbl.insertRow();
+                                    var downCell = row3.insertCell();
+                                    downCell.className = 'prefAction prefDown';
+                                    downCell.textContent = ' Move Down ';
+
+                                    wrapper.appendChild(tbl);
+                                    document.getElementById('preferredList').appendChild(wrapper);
                                 }
 
                                 $(".prefUnlink").click(function () {
@@ -373,30 +414,23 @@
                 })
             })(jQuery);
 
+            function openPharmacyModal(url) {
+                var iframe = document.getElementById('pharmacyModalIframe');
+                iframe.src = url;
+                var modal = new bootstrap.Modal(document.getElementById('pharmacyModal'));
+                modal.show();
+            }
+
             function addPharmacy() {
-                myLightWindow.activateWindow({
-                    href: "<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Add",
-                    width: 400,
-                    height: 500
-                });
+                openPharmacyModal("<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Add");
             }
 
             function editPharmacy(id) {
-                myLightWindow.activateWindow({
-                    href: "<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Edit&ID=" + id,
-                    width: 400,
-                    height: 500
-                });
-                jQuery("html, body").animate({scrollTop: 0}, 1000);
+                openPharmacyModal("<%= request.getContextPath() %>/oscarRx/ManagePharmacy2.jsp?type=Edit&ID=" + id);
             }
 
             function viewPharmacy(id) {
-                myLightWindow.activateWindow({
-                    href: "<%= request.getContextPath() %>/oscarRx/ViewPharmacy.jsp?type=View&ID=" + id,
-                    width: 400,
-                    height: 500
-                });
-                jQuery("html, body").animate({scrollTop: 0}, 1000);
+                openPharmacyModal("<%= request.getContextPath() %>/oscarRx/ViewPharmacy.jsp?type=View&ID=" + id);
             }
 
 
@@ -518,7 +552,7 @@
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/>
                         <%=surname%>, <%=firstName%>
                     </span>
-                            <input type=button class="btn btn-default pull-right" onclick="returnToRx();"
+                            <input type=button class="btn btn-secondary float-end" onclick="returnToRx();"
                                    value="Return to RX"/>
                         </h2>
                     </th>
@@ -526,7 +560,7 @@
 
                 <tr>
                     <td>
-                        <table class="table-condensed">
+                        <table class="table table-sm">
                             <tr>
                                 <th class="DivContentSectionHeadTitle">
 
@@ -539,22 +573,22 @@
                                             href="javascript:void(0)"
                                             onclick="addPharmacy();">(add missing pharmacy
 									to clinic database)</a></span></h4>
-                                    <div class="form-inline">
-                                        <div class="form-group"><label for="pharmacySearch">Pharmacy Name </label>
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <div class="mb-3"><label for="pharmacySearch">Pharmacy Name </label>
                                             <input type="text" class="form-control" id="pharmacySearch"/></div>
-                                        <div class="form-group"><label
+                                        <div class="mb-3"><label
                                                 for="pharmacyAddressSearch">Address </label><input type="text"
                                                                                                    class="form-control"
                                                                                                    id="pharmacyAddressSearch"/>
                                         </div>
-                                        <div class="form-group"><label for="pharmacyCitySearch">City </label><input
+                                        <div class="mb-3"><label for="pharmacyCitySearch">City </label><input
                                                 type="text" class="form-control" id="pharmacyCitySearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPostalCodeSearch">Postal
+                                        <div class="mb-3"><label for="pharmacyPostalCodeSearch">Postal
                                             Code </label><input type="text" class="form-control"
                                                                 id="pharmacyPostalCodeSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPhoneSearch">Phone </label><input
+                                        <div class="mb-3"><label for="pharmacyPhoneSearch">Phone </label><input
                                                 type="text" class="form-control" id="pharmacyPhoneSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyFaxSearch">Fax </label><input
+                                        <div class="mb-3"><label for="pharmacyFaxSearch">Fax </label><input
                                                 type="text" class="form-control" id="pharmacyFaxSearch"/></div>
                                     </div>
                                     <p> Instructions: Add the patient&apos;s preferred pharmacies by clicking on a
@@ -565,7 +599,7 @@
                             </tr>
                             <tr>
                                 <td>
-                                    <table class="table-condensed">
+                                    <table class="table table-sm">
                                         <tr class="sticky-heading">
                                             <th id="preferredList" style="font-weight: normal;">
                                                 <div style="text-align: center">
@@ -583,7 +617,7 @@
                                     <% RxPharmacyData pharmacy = new RxPharmacyData();
                                         List<PharmacyInfo> pharList = pharmacy.getAllPharmacies();
                                     %>
-                                    <table id="pharmacyList" class="table-condensed table-striped"
+                                    <table id="pharmacyList" class="table table-sm table-striped"
                                            style="margin-top:5px;width:100%">
                                         <tr class="sticky-heading">
                                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.pharmacyName"/></th>
@@ -637,6 +671,22 @@
             </table>
         </form>
     </div>
+
+    <!-- Bootstrap modal replacing LightWindow for pharmacy add/edit/view -->
+    <div class="modal fade" id="pharmacyModal" tabindex="-1" aria-labelledby="pharmacyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="pharmacyModalLabel">Pharmacy</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <iframe id="pharmacyModalIframe" style="width:100%; height:500px; border:none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
     </body>
 
 </html>

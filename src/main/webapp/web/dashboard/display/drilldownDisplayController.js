@@ -56,9 +56,10 @@ function sendData(path, param, target) {
         dataType: 'html',
         success: function (data) {
             if (target == "close") {
-                $('#assignTickler').modal('toggle');
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
             } else if (target == "modal") {
-                $('#assignTickler').modal('show').find('.modal-body').html(data);
+                $('#assignTickler').find('.modal-body').html(data);
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
             } else {
                 document.open();
                 document.write(data);
@@ -244,7 +245,7 @@ $(document).ready(function () {
 
         // exclude the first column.
         if (i > 0) {
-            var select = $('<select class="form-control" ><option value="">All</option></select>')
+            var select = $('<select class="form-select" ><option value="">All</option></select>')
                 .appendTo($(this).empty())
                 .on('change', function () {
                     drilldownTable.column(columnId).search($(this).val()).draw();
@@ -331,7 +332,7 @@ $(document).ready(function () {
             url: url,
             dataType: "json",
             success: function (data) {
-                $("#modalConfirmAddToDiseaseRegistry").modal("show");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).show();
                 $("#icd9code").text(data.icd9code);
                 $("#icd9description").text(data.description);
             }
@@ -356,7 +357,7 @@ $(document).ready(function () {
             url: url,
             data: data,
             success: function (data) {
-                $("#modalConfirmAddToDiseaseRegistry").modal("toggle");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).toggle();
             }
         });
     });
@@ -371,7 +372,7 @@ $(document).ready(function () {
             return;
         }
 
-        $("#modalConfirmPatientExclusion").modal("show");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientExclusion')).show();
     });
 
     $("#confirmPatientExclusion").on('click', function (event) {
@@ -389,7 +390,7 @@ $(document).ready(function () {
             url: url,
             data: data,
             success: function (data) {
-                $("#modalConfirmPatientExclusion").modal("toggle");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientExclusion')).toggle();
             }
         });
     });
@@ -404,7 +405,7 @@ $(document).ready(function () {
             return;
         }
 
-        $("#modalConfirmPatientStatusUpdate").modal("show");
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientStatusUpdate')).show();
 
     });
 
@@ -423,7 +424,7 @@ $(document).ready(function () {
             url: url,
             data: data,
             success: function (data) {
-                $("#modalConfirmPatientStatusUpdate").modal("toggle");
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientStatusUpdate')).toggle();
             }
         });
     });

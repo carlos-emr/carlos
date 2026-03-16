@@ -32,15 +32,19 @@
 <script type="text/javascript">
 
     //--> Date picker
-    $(function () {
-        $('.date-picker').datepicker({
-            format: 'mm-dd-yyyy'
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr('.date-picker', {
+            dateFormat: 'Y-m-d',
+            allowInput: true
         });
-    });
 
-    // --> Time picker
-    $(function () {
-        $('.time-picker').timepicker();
+        // --> Time picker
+        flatpickr('.time-picker', {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: 'h:i K',
+            allowInput: true
+        });
     });
 
 </script>
@@ -48,9 +52,9 @@
       action="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler.do" method="POST" novalidate>
     <input type="hidden" value="saveTickler" name="method"/>
     <div class="row">
-        <div class="col-xs-12">
-            <div class="form-group">
-                <div class="well" id="patientTicklerList">
+        <div class="col-12">
+            <div class="mb-3">
+                <div class="card card-body bg-body-tertiary" id="patientTicklerList">
 						<span class="message">
 							Assign this Tickler action for each of the
 							selected patients.
@@ -65,10 +69,10 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-12">
-            <div class="form-group">
+        <div class="col-12">
+            <div class="mb-3">
                 <label>Action:</label>
-                <select class="form-control required" name="ticklerCategoryId">
+                <select class="form-select required" name="ticklerCategoryId">
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
                         <option title="${ ticklerCategory.description }" value="${ ticklerCategory.id }">
                             <c:out value="${ ticklerCategory.category }"/>
@@ -80,10 +84,10 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-6">
-            <div class="form-group">
+        <div class="col-6">
+            <div class="mb-3">
                 <label>Assign to:</label>
-                <select class="form-control required" name="taskAssignedTo">
+                <select class="form-select required" name="taskAssignedTo">
                     <option value=""></option>
                     <c:forEach items="${ providers }" var="provider">
                         <option value="${ provider.providerNo }">
@@ -94,11 +98,11 @@
             </div>
         </div>
 
-        <div class="col-xs-6">
-            <div class="form-group">
+        <div class="col-6">
+            <div class="mb-3">
                 <label>Priority:</label>
 
-                <select class="form-control required" name="priority">
+                <select class="form-select required" name="priority">
                     <option value=""></option>
                     <option value="Low">Low</option>
                     <option value="Normal">Normal</option>
@@ -109,28 +113,28 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-6">
+        <div class="col-6">
 
-            <label for="datePickerServiceDate" class="control-label">Service
+            <label for="datePickerServiceDate" class="form-label">Service
                 Date:</label>
-            <div class="controls">
+            <div>
                 <div class="input-group">
                     <input name="serviceDate" id="datePickerServiceDate" type="text"
                            class="date-picker form-control required"/>
-                    <label for="datePickerServiceDate" class="input-group-addon btn">
-                        <span class="glyphicon glyphicon-calendar"></span>
+                    <label for="datePickerServiceDate" class="input-group-text btn">
+                        <span class="fa-solid fa-calendar"></span>
                     </label>
                 </div>
             </div>
         </div>
 
-        <div class="col-xs-6">
-            <label for="ticklerTime" class="control-label"> Time:</label>
-            <div class="controls">
+        <div class="col-6">
+            <label for="ticklerTime" class="form-label"> Time:</label>
+            <div>
                 <div class="input-group">
                     <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required"/>
-                    <label for="ticklerTime" class="input-group-addon btn">
-                        <span class="glyphicon glyphicon-time"></span>
+                    <label for="ticklerTime" class="input-group-text btn">
+                        <span class="fa-solid fa-clock"></span>
                     </label>
                 </div>
             </div>
@@ -138,10 +142,10 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-12">
-            <div class="form-group">
+        <div class="col-12">
+            <div class="mb-3">
                 <label>Message:</label>
-                <select class="form-control" name="message">
+                <select class="form-select" name="message">
                     <option value=""></option>
                     <c:forEach items="${ textSuggestions }" var="textSuggestion">
                         <option>

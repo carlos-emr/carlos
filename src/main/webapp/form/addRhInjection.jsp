@@ -129,7 +129,7 @@
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/prototype.js"></script>
+
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -202,11 +202,7 @@
 
 
     <script type="text/javascript">
-        //new Form.Element.Observer($("myfield"), 1, myCallBackFunction);
-
         function process(formInject) {
-            //alert(Form.Element.Serializers.inputSelector(formInject.reason_check));
-            //alert(formInject.reason_check);
             for (i = 0; formInject.reason_check.length; i++) {
                 if (formInject.reason_check[i].checked) {
                     //alert(formInject.reason_check[i].value);

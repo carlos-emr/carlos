@@ -76,11 +76,11 @@
 
 <h3>Add New Inbox Queue</h3>
 
-<div class="well">
+<div class="card card-body bg-body-tertiary">
 
 
-    <form class="form-inline" id="addQueueForm">
-        <input type="text" id="newQueueName" class="input-xlarge input-queue" placeholder="Type queue name" value=""/>
+    <form class="d-flex flex-wrap align-items-center gap-2" id="addQueueForm">
+        <input type="text" id="newQueueName" class="form-control input-queue" placeholder="Type queue name" value=""/>
         <input type="button" class="btn btn-primary" value="Add" id="add-btn"/>
 
         <i class="fa-solid fa-circle-question" style="margin-left:20px;"></i>
@@ -89,7 +89,7 @@
 </div>
 
 <div class="alert">
-    <button type="button" class="close" data-dismiss="alert">&times;</button>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     <div id="addQueueSuccessMsg">
         <strong>Warning!</strong> Best check yo self, you're not looking too good.
     </div>
@@ -112,8 +112,8 @@
 
 <script type="text/javascript">
 
-    var pageTitle = $(document).attr('title');
-    $(document).attr('title', 'Administration Panel | Add New Inbox Queue');
+    var pageTitle = document.title;
+    document.title = 'Administration Panel | Add New Inbox Queue';
 
     $(document).ready(function ($) {
 
@@ -126,7 +126,7 @@
 
             if (qn == "default") {
                 $('.alert').removeClass('alert-success');
-                $('.alert').addClass('alert-error');
+                $('.alert').addClass('alert-danger');
                 $('.alert').show();
 
                 $('#addQueueSuccessMsg').html("<strong>Error!</strong> You can not overwrite the <em>default</em> queue.");
@@ -151,7 +151,7 @@
                             var json = data.addNewQueue;
                             if (json != null) {
                                 if (json == true) {
-                                    $('.alert').removeClass('alert-error');
+                                    $('.alert').removeClass('alert-danger');
                                     $('.alert').addClass('alert-success');
                                     $('.alert').show();
 
@@ -159,7 +159,7 @@
                                     $('#newQueueName').val("");
                                 } else {
                                     $('.alert').removeClass('alert-success');
-                                    $('.alert').addClass('alert-error');
+                                    $('.alert').addClass('alert-danger');
                                     $('.alert').show();
 
                                     $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added which is probably because it already exists.");
@@ -169,7 +169,7 @@
                         },
                         error: function (data) {
                             $('.alert').removeClass('alert-success');
-                            $('.alert').addClass('alert-error');
+                            $('.alert').addClass('alert-danger');
                             $('.alert').show();
 
                             $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added, please contact support.");
@@ -181,7 +181,7 @@
 
                 } else {
                     $('.alert').removeClass('alert-success');
-                    $('.alert').addClass('alert-error');
+                    $('.alert').addClass('alert-danger');
                     $('.alert').show();
 
                     $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name can not be empty.");

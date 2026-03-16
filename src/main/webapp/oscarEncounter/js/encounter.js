@@ -6,17 +6,19 @@
  * in encounter-head.jspf.
  *
  * Dependencies:
- *   - Prototype.js (Ajax.Request, $(), $A(), $F(), Event, Element)
- *   - Scriptaculous (Autocompleter.Local)
+ *   - CarlosAjax (carlos-ajax.js — AJAX requests with CSRF support)
+ *   - prototype-compat.js (shims for legacy popup menu scripts)
  *   - encounterConfig (inline JSP config block)
  *
- * Security note: AJAX responses that use $(div).update() are from trusted
+ * Security note: AJAX responses that use innerHTML assignment are from trusted
  * internal server endpoints only. XSS is mitigated by server-side OWASP
  * encoding in those response JSPs.
+ *
+ * Migration note (Phase 4a): Prototype.js/Scriptaculous replaced with
+ * vanilla JS + CarlosAjax. See docs/prototype-migration.md for details.
  */
 
-/* global encounterConfig, $, $A, $F, Ajax, Element, Event, Autocompleter,
-          changeObjectVisibility, getStyleObject, showPopup */
+/* global encounterConfig, CarlosAjax, changeObjectVisibility, getStyleObject, showPopup */
 
 // ============================================================
 // Size constants
@@ -247,10 +249,9 @@ function ajaxInsertTemplate(varpage) {
     if (varpage != 'null') {
         var page = encounterConfig.ctx + "/oscarEncounter/InsertTemplate.do";
         var params = "templateName=" + varpage + "&version=2";
-        new Ajax.Request(page, {
+        CarlosAjax.request(page, {
             method: 'post',
             postBody: params,
-            evalScripts: true,
             onSuccess: writeToEncounterNote,
             onFailure: function () {
                 alert("Inserting template " + varpage + " failed");
@@ -297,34 +298,30 @@ function onUnbilled(url) {
 // URL Encoding
 // ============================================================
 function urlencode(str) {
-    var ns = (navigator.appName == "Netscape") ? 1 : 0;
-    if (ns) return escape(str);
-    var ms = "%25#23 20+2B?3F<3C>3E{7B}7D[5B]5D|7C^5E~7E`60";
-    var msi = 0;
-    var i, c, rs, ts;
-    while (msi < ms.length) {
-        c = ms.charAt(msi);
-        rs = ms.substring(++msi, msi + 2);
-        msi += 2;
-        i = 0;
-        while (true) {
-            i = str.indexOf(c, i);
-            if (i == -1) break;
-            ts = str.substring(0, i);
-            str = ts + "%" + rs + str.substring(++i, str.length);
-        }
-    }
-    return str;
+    return encodeURIComponent(str);
 }
 
 // ============================================================
 // AJAX / Left Nav Loading
-// (uses Prototype.js Ajax.Request and $().update() for trusted
-// internal server responses — server-side OWASP encoding applied)
+// (uses CarlosAjax for trusted internal server responses —
+// server-side OWASP encoding applied in response JSPs)
 // ============================================================
+
+/**
+ * Sets trusted server HTML into a DOM element.
+ * All callers receive content from internal CARLOS server endpoints
+ * that apply OWASP encoding. This helper centralizes the assignment
+ * for auditability.
+ * @param {HTMLElement} el - target element
+ * @param {string} html - trusted server response HTML
+ */
+function setTrustedHtml(el, html) {
+    el.innerHTML = html; // trusted: server-side OWASP-encoded responses only
+}
+
 function updateDiv() {
     if (updateNeeded) {
-        var div = $F("reloadDiv");
+        var div = document.getElementById("reloadDiv").value;
         popLeftColumn(encounterConfig.urls.navSections[div], div, div);
         updateNeeded = false;
     }
@@ -332,21 +329,21 @@ function updateDiv() {
 }
 
 function clickLoadDiv(e) {
-    var data = $A(arguments);
-    Event.stop(e);
+    var data = Array.from(arguments);
+    e.preventDefault();
+    e.stopPropagation();
     data.shift();
     loadDiv(data[0], data[1]);
 }
 
 function loadDiv(div, url) {
-    new Ajax.Request(url, {
+    CarlosAjax.request(url, {
         method: 'post',
-        evalScripts: true,
         onSuccess: function (request) {
-            $(div).update(request.responseText);
+            carlosExtractAndExecScripts(document.getElementById(div), request.responseText);
         },
         onFailure: function (request) {
-            $(div).update("<h3>" + div + "<\/h3>Error: " + request.status);
+            setTrustedHtml(document.getElementById(div), "<h3>" + div + "<\/h3>Error: " + request.status);
         }
     });
     return false;
@@ -354,18 +351,18 @@ function loadDiv(div, url) {
 
 function popLeftColumn(url, div, params) {
     params = "cmd=" + params;
-    new Ajax.Request(url, {
+    CarlosAjax.request(url, {
         method: 'post',
         postBody: params,
-        evalScripts: true,
         onSuccess: function (request) {
-            while ($(div).firstChild)
-                $(div).removeChild($(div).firstChild);
-            $(div).update(request.responseText);
+            var el = document.getElementById(div);
+            while (el.firstChild)
+                el.removeChild(el.firstChild);
+            carlosExtractAndExecScripts(el, request.responseText);
             listDisplay(params);
         },
         onFailure: function (request) {
-            $(div).update("<h3>Error:<\/h3>" + request.status);
+            setTrustedHtml(document.getElementById(div), "<h3>Error:<\/h3>" + request.status);
         }
     });
 }
@@ -379,15 +376,15 @@ var obj = {};
 function listDisplay(Id, threshold) {
     if (threshold == 0) return;
     var listId = Id + "list";
-    var list = $(listId);
+    var list = document.getElementById(listId);
     var items = list.getElementsByTagName('li');
-    items = $A(items);
+    items = Array.from(items);
     var topName = "img" + Id + "0";
     var midName = "img" + Id + (threshold - 1);
     var lastName = "img" + Id + (items.length - 1);
-    var topImage = $(topName);
-    var midImage = $(midName);
-    var lastImage = $(lastName);
+    var topImage = document.getElementById(topName);
+    var midImage = document.getElementById(midName);
+    var lastImage = document.getElementById(lastName);
     var expand;
 
     for (var idx = threshold; idx < items.length; ++idx) {
@@ -405,25 +402,25 @@ function listDisplay(Id, threshold) {
         lastImage.src = encounterConfig.images.transparent;
         midImage.src = encounterConfig.images.expand;
         midImage.title = (items.length - threshold) + " items more";
-        Element.stopObserving(topImage, "click", imgfunc[topName]);
-        Element.stopObserving(lastImage, "click", imgfunc[lastName]);
-        imgfunc[midName] = clickListDisplay.bindAsEventListener(obj, Id, threshold);
-        Element.observe(midImage, "click", imgfunc[midName]);
+        if (imgfunc[topName]) topImage.removeEventListener("click", imgfunc[topName]);
+        if (imgfunc[lastName]) lastImage.removeEventListener("click", imgfunc[lastName]);
+        imgfunc[midName] = function(event) { return clickListDisplay.call(obj, event, Id, threshold); };
+        midImage.addEventListener("click", imgfunc[midName]);
     } else {
         topImage.src = encounterConfig.images.collapse;
         lastImage.src = encounterConfig.images.collapse;
         midImage.src = encounterConfig.images.transparent;
         midImage.title = "";
-        Element.stopObserving(midImage, "click", imgfunc[midName]);
-        imgfunc[topName] = clickListDisplay.bindAsEventListener(obj, Id, threshold);
-        Element.observe(topImage, "click", imgfunc[topName]);
-        imgfunc[lastName] = clickListDisplay.bindAsEventListener(obj, Id, threshold);
-        Element.observe(lastImage, "click", imgfunc[lastName]);
+        if (imgfunc[midName]) midImage.removeEventListener("click", imgfunc[midName]);
+        imgfunc[topName] = function(event) { return clickListDisplay.call(obj, event, Id, threshold); };
+        topImage.addEventListener("click", imgfunc[topName]);
+        imgfunc[lastName] = function(event) { return clickListDisplay.call(obj, event, Id, threshold); };
+        lastImage.addEventListener("click", imgfunc[lastName]);
     }
 }
 
 function clickListDisplay(e) {
-    var data = $A(arguments);
+    var data = Array.from(arguments);
     data.shift();
     listDisplay(data[0], data[1]);
 }
@@ -432,12 +429,13 @@ function clickListDisplay(e) {
 // Navbar Loader
 // ============================================================
 function navBarLoader() {
-    if ($("rightNavBar") != undefined) {
-        this.maxRightNumLines = Math.floor($("rightNavBar").getHeight() / 14);
+    var rightNavBar = document.getElementById("rightNavBar");
+    if (rightNavBar != undefined) {
+        this.maxRightNumLines = Math.floor(rightNavBar.offsetHeight / 14);
     } else {
         this.rightNumLines = 0;
     }
-    this.maxLeftNumLines = Math.floor($("leftNavbar").getHeight() / 14);
+    this.maxLeftNumLines = Math.floor(document.getElementById("leftNavbar").offsetHeight / 14);
     this.arrLeftDivs = [];
     this.arrRightDivs = [];
     this.rightTotal = 0;
@@ -458,7 +456,7 @@ function navBarLoader() {
                 div.className = "leftBox";
                 div.style.display = "block";
                 div.id = idx;
-                $(navbar).appendChild(div);
+                document.getElementById(navbar).appendChild(div);
                 if (navbar == "leftNavbar") this.arrLeftDivs.push(div);
                 if (navbar == "rightNavBar") this.arrRightDivs.push(div);
                 this.popColumn(URLs[j][idx], idx, idx, navbar, this);
@@ -468,17 +466,17 @@ function navBarLoader() {
 
     this.popColumn = function (url, div, params, navBar) {
         params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
-        new Ajax.Request(url, {
+        CarlosAjax.request(url, {
             method: 'post',
             postBody: params,
-            evalScripts: true,
             onSuccess: function (request) {
-                while ($(div).firstChild)
-                    $(div).removeChild($(div).firstChild);
-                $(div).update(request.responseText);
+                var el = document.getElementById(div);
+                while (el.firstChild)
+                    el.removeChild(el.firstChild);
+                carlosExtractAndExecScripts(el, request.responseText);
             },
             onFailure: function (request) {
-                $(div).update("<h3>Error:<\/h3>" + request.status);
+                setTrustedHtml(document.getElementById(div), "<h3>Error:<\/h3>" + request.status);
             }
         });
     };
@@ -487,11 +485,11 @@ function navBarLoader() {
         var reported = 0;
         var numDivs = 0;
         if (navBar == "leftNavbar") {
-            this.leftTotal += parseInt($F(div + "num")) + 1;
+            this.leftTotal += parseInt(document.getElementById(div + "num").value) + 1;
             reported = ++this.leftReported;
             numDivs = this.leftDivs;
         } else if (navBar == "rightNavBar") {
-            this.rightTotal += parseInt($F(div + "num")) + 1;
+            this.rightTotal += parseInt(document.getElementById(div + "num").value) + 1;
             reported = ++this.rightReported;
             numDivs = this.rightDivs;
         }
@@ -507,7 +505,7 @@ function navBarLoader() {
 
     this.adjust = function (divs, total, overflow) {
         for (var idx = 0; idx < divs.length; ++idx) {
-            var numLines = parseInt($F(divs[idx].id + "num"));
+            var numLines = parseInt(document.getElementById(divs[idx].id + "num").value);
             var num2reduce = Math.ceil(overflow * (numLines / total));
             if (num2reduce == numLines && num2reduce > 0) --num2reduce;
             listDisplay(divs[idx].id, numLines - num2reduce);
@@ -598,7 +596,7 @@ function getActiveText() {
 }
 
 // ============================================================
-// Template Autocompleter (Scriptaculous)
+// Template Autocompleter (vanilla JS dropdown)
 // ============================================================
 
 /**
@@ -646,18 +644,95 @@ function menuAction() {
 }
 
 /**
- * Initializes the Scriptaculous Autocompleter for encounter templates.
+ * Initializes a vanilla JS autocomplete dropdown for encounter templates
+ * and calculators. Replaces the Scriptaculous Autocompleter.Local.
  * Must be called after DOM elements 'enTemplate' and 'enTemplate_list' exist.
  */
 function initTemplateAutocompleter() {
     var input = document.getElementById('enTemplate');
-    var list = document.getElementById('enTemplate_list');
-    if (input && list && typeof Autocompleter !== 'undefined') {
-        new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
-            colours: itemColours,
-            afterUpdateElement: menuAction
+    var listEl = document.getElementById('enTemplate_list');
+    if (!input || !listEl) return;
+
+    // Style the dropdown container for autocomplete behavior
+    listEl.style.position = 'absolute';
+    listEl.style.zIndex = '1000';
+    listEl.style.display = 'none';
+    listEl.style.maxHeight = '200px';
+    listEl.style.overflowY = 'auto';
+    listEl.style.backgroundColor = '#fff';
+    listEl.style.border = '1px solid #ccc';
+
+    input.addEventListener('input', function () {
+        var term = this.value.toLowerCase();
+        listEl.textContent = '';
+
+        if (!term) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        var matches = autoCompList.filter(function (name) {
+            return name.toLowerCase().indexOf(term) !== -1;
         });
-    }
+
+        if (matches.length === 0) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        matches.forEach(function (name) {
+            var item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.style.padding = '4px 8px';
+            item.style.cursor = 'pointer';
+            if (itemColours[name]) {
+                item.style.borderLeft = '4px solid #' + itemColours[name];
+            }
+            item.textContent = name;
+            item.addEventListener('mousedown', function (e) {
+                // Use mousedown instead of click to fire before input blur
+                e.preventDefault();
+                input.value = name;
+                listEl.textContent = '';
+                listEl.style.display = 'none';
+                menuAction();
+            });
+            item.addEventListener('mouseover', function () {
+                this.style.backgroundColor = '#f0f0f0';
+            });
+            item.addEventListener('mouseout', function () {
+                this.style.backgroundColor = '';
+            });
+            listEl.appendChild(item);
+        });
+
+        listEl.style.display = 'block';
+    });
+
+    input.addEventListener('blur', function () {
+        // Delay hide to allow mousedown on items to fire first
+        setTimeout(function () {
+            listEl.style.display = 'none';
+        }, 200);
+    });
+
+    input.addEventListener('keydown', function (e) {
+        if (e.keyCode === 13) {
+            // Enter key — select first visible match or trigger menuAction
+            var firstItem = listEl.querySelector('.dropdown-item');
+            if (firstItem && listEl.style.display !== 'none') {
+                e.preventDefault();
+                input.value = firstItem.textContent;
+                listEl.textContent = '';
+                listEl.style.display = 'none';
+                menuAction();
+            }
+        } else if (e.keyCode === 27) {
+            // Escape key — close dropdown
+            listEl.textContent = '';
+            listEl.style.display = 'none';
+        }
+    });
 }
 
 // ============================================================
@@ -670,7 +745,7 @@ function loader() {
     document.encForm.enTextarea.scrollTop = document.encForm.enTextarea.scrollHeight;
 
     if (encounterConfig.popUrl) {
-        window.setTimeout(function () { popupPage(700, 900, encounterConfig.popUrl); }, 2);
+        window.setTimeout(function () { popupPage(700, 900, 'popUrl', encounterConfig.popUrl); }, 2);
     }
 
     initTemplateAutocompleter();
