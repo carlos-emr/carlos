@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 6.2.17, Struts 7.1.1, Hibernate 6.x, Maven 3, Tomcat 10.1, MariaDB/MySQL
+**Stack**: Java 21, Spring 6.2.17, Struts 7.1.1, Hibernate 6.x, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -443,7 +443,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Spring Framework 6.2.17**: IoC container, MVC, AOP, Security, transaction management
 - **Hibernate 6.6.40**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
 - **Maven 3**: Build management with 200+ healthcare-specific dependencies
-- **Apache Tomcat 10.1**: Web application server with debugging enabled (Jakarta EE 10)
+- **Apache Tomcat 11.0**: Web application server with debugging enabled (Jakarta EE 11)
 - **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
 
 ### Web Technologies
