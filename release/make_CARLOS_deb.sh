@@ -409,14 +409,24 @@ cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/
 cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
 chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
 
-# Bundle incremental update scripts (update-2026-*.sql) for CARLOS revision upgrades.
+# Bundle incremental update scripts after update-2026-02-14-facility-integrator-removal.sql
+# for CARLOS revision upgrades.  That update should not be run for compatability reasons.
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
 _update_sql_count=0
+# Flag to start copying files after update-2026-02-14-facility-integrator-removal.sql
+start_copying=false
+# Loop through the SQL files in the specified directory
 for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
     if [ -f "${_upd_sql}" ]; then
-        cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
-        _update_sql_count=$((_update_sql_count + 1))
+        if [[ "${_upd_sql}" == *"update-2026-02-14"* ]]; then
+            start_copying=true
+            continue  # Skip this file and move to the next one
+        fi
+        if $start_copying; then
+            cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
+            _update_sql_count=$((_update_sql_count + 1))
+        fi
     fi
 done
 echo "Bundled ${_update_sql_count} incremental update SQL files into package"
