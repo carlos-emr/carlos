@@ -8,32 +8,48 @@ releases. Covers version currency, Jakarta EE compatibility, and strategic recom
 ## Executive Summary
 
 - **Total dependencies audited**: 92 (including dependencyManagement, plugins, and profiles)
-- **Already at latest**: 74 dependencies (80%)
-- **Patch/minor updates available**: 10 dependencies
-- **Major version upgrades available**: 6 dependencies (require migration effort)
+- **Already at latest**: 82 dependencies (89%)
+- **Applied in this audit**: 13 drop-in upgrades (see Section 1a/1b)
+- **Patch/minor updates remaining**: 0 safe drop-in upgrades
+- **Medium-effort updates available**: 4 dependencies (test thoroughly)
+- **Major version upgrades available**: 4 dependencies (require migration effort)
 - **Dormant/unmaintained**: 5 dependencies (risk assessment included)
 
 ---
 
-## 1. Immediate Updates (Low Risk — Drop-In Replacements)
+## 1a. Applied Updates — Batch 1 (commit ce2f30a3)
 
-These are patch or minor version bumps with no breaking API changes.
+These drop-in patch/minor bumps were applied and pushed:
+
+| Dependency | Before | After | Risk |
+|-----------|--------|-------|------|
+| `commons-logging:commons-logging` | 1.3.5 | **1.3.6** | Trivial |
+| `org.hibernate.orm:hibernate-core` | 7.2.6.Final | **7.2.7.Final** | Low |
+| `net.sf.jasperreports:jasperreports` (×4) | 7.0.4 | **7.0.6** | Low |
+| `org.apache.pdfbox:pdfbox` | 2.0.35 | **2.0.36** | Trivial |
+| `org.mockito:mockito-core` | 5.21.0 | **5.23.0** | Low |
+| `org.mockito:mockito-junit-jupiter` | 5.21.0 | **5.23.0** | Low |
+| `org.jetbrains:annotations` | 26.0.2-1 | **26.1.0** | Trivial |
+
+## 1b. Applied Updates — Batch 2 (comprehensive audit follow-up)
+
+Additional drop-in upgrades discovered and applied:
+
+| Dependency | Before | After | Risk | Notes |
+|-----------|--------|-------|------|-------|
+| `org.springframework.security:spring-security-crypto` | 7.0.3 | **7.0.4** | Trivial | Released 2026-03-16, patch |
+| `net.bytebuddy:byte-buddy` | 1.18.6 | **1.18.7** | Trivial | Non-experimental Java 24 support |
+| `net.bytebuddy:byte-buddy-agent` | 1.18.6 | **1.18.7** | Trivial | Matches byte-buddy |
+| `org.codehaus.mojo:buildnumber-maven-plugin` | 3.2.0 | **3.3.0** | Trivial | Build plugin, released 2026-01-18 |
+
+## 1c. Still Pending — FHIR Core Libraries (Separate PR Recommended)
 
 | Dependency | Current | Latest | Risk | Notes |
 |-----------|---------|--------|------|-------|
-| `commons-logging:commons-logging` | 1.3.5 | **1.3.6** | Trivial | Released 2026-03-09, maintenance update |
-| `org.hibernate.orm:hibernate-core` | 7.2.6.Final | **7.2.7.Final** | Low | Released 2026-03-15, patch within same series |
-| `net.sf.jasperreports:jasperreports` | 7.0.4 | **7.0.6** | Low | Released 2026-03-13, includes dependency updates |
-| `net.sf.jasperreports:jasperreports-pdf` | 7.0.4 | **7.0.6** | Low | Follows core versioning |
-| `net.sf.jasperreports:jasperreports-jdt` | 7.0.4 | **7.0.6** | Low | Follows core versioning |
-| `net.sf.jasperreports:jasperreports-excel-poi` | 7.0.4 | **7.0.6** | Low | Follows core versioning |
-| `org.apache.pdfbox:pdfbox` | 2.0.35 | **2.0.36** | Trivial | Released 2026-03-12, patch update |
-| `org.mockito:mockito-core` | 5.21.0 | **5.23.0** | Low | Released 2026-03, minor update |
-| `org.jetbrains:annotations` | 26.0.2-1 | **26.1.0** | Trivial | Released ~2026-02, minor version bump |
-| `ca.uhn.hapi.fhir:org.hl7.fhir.utilities` | 6.4.0 | **6.8.2** | Low | Security fixes for CVE-2024-45294/51132; 6.8.2 is actual latest (6.6.0 also valid) |
-| `ca.uhn.hapi.fhir:org.hl7.fhir.dstu3` | 6.4.0 | **6.8.2** | Low | Follows org.hl7.fhir.core versioning; 6.8.2 is actual latest |
+| `ca.uhn.hapi.fhir:org.hl7.fhir.utilities` | 6.4.0 | **6.7.10** | Low | Security fixes for CVE-2024-45294/51132; must remain compatible with hapi-fhir-base 6.10.5 |
+| `ca.uhn.hapi.fhir:org.hl7.fhir.dstu3` | 6.4.0 | **6.7.10** | Low | Follows org.hl7.fhir.core versioning |
 
-**Recommended action**: Apply all of these in a single PR. These are safe, backward-compatible updates.
+**Recommended action**: Apply in a separate PR with FHIR integration testing.
 
 ---
 
@@ -149,7 +165,7 @@ All of these are confirmed current as of March 16, 2026:
 |-----------|-------|
 | `spring-framework-bom` | Released 2026-03-13 |
 | `spring-core`, `spring-tx`, `spring-orm`, `spring-web`, `spring-aop`, `spring-aspects`, `spring-test`, `spring-context-support`, `spring-webmvc` | All managed by BOM |
-| `spring-security-crypto` | 7.0.3 — latest GA |
+| `spring-security-crypto` | 7.0.4 — updated in this audit |
 
 ### Jakarta EE APIs
 | Dependency | Version | Notes |
@@ -203,7 +219,7 @@ All of these are confirmed current as of March 16, 2026:
 |-----------|---------|-------|
 | `commons-dbcp2` | 2.14.0 | |
 | `mysql-connector-j` | 9.6.0 | |
-| `byte-buddy` / `byte-buddy-agent` | 1.18.6 | |
+| `byte-buddy` / `byte-buddy-agent` | 1.18.7 | Updated in this audit |
 | `xstream` | 1.4.21 | |
 
 ### Testing
@@ -211,7 +227,7 @@ All of these are confirmed current as of March 16, 2026:
 |-----------|---------|-------|
 | `junit-jupiter` / `junit-jupiter-params` | 6.0.3 | |
 | `assertj-core` | 3.27.7 | |
-| `mockito-junit-jupiter` | 5.21.0 | |
+| `mockito-junit-jupiter` | 5.23.0 | Updated in this audit |
 
 ### Misc
 | Dependency | Version | Notes |
@@ -226,8 +242,9 @@ All of these are confirmed current as of March 16, 2026:
 
 ## 6. Strategic Recommendations
 
-### Immediate (This Sprint)
-1. Apply all Section 1 updates in a single PR (11 dependency bumps, all backward-compatible)
+### Immediate (This Sprint) — DONE
+1. ~~Apply all Section 1 updates~~ — **Applied**: 13 drop-in bumps in Sections 1a + 1b
+2. Apply FHIR core library updates (Section 1c) in a separate PR
 
 ### Short-Term (Next 2-4 Weeks)
 2. Upgrade XMLBeans 3.1.0 → 5.3.0
@@ -277,4 +294,5 @@ All of these are confirmed current as of March 16, 2026:
 ---
 
 *Generated by Claude Code — March 16, 2026*
+*Updated: March 16, 2026 — Applied 13 drop-in upgrades (Sections 1a + 1b)*
 *Source: Web searches against Maven Central, GitHub releases, and project websites*
