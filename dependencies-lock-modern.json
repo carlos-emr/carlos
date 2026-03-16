@@ -3277,12 +3277,12 @@
     "integrity" : "sha512:u0Pqyod3x7K0vOn8Gfm+V0KnNqI0FeJxZDw+FNPYL1ZfbeDinrrFcM5ms5Iezh69TeBqvrYzrijBeJHeVpc4Bw=="
   }, {
     "groupId" : "org.owasp.encoder",
-    "artifactId" : "encoder-jsp",
+    "artifactId" : "encoder-jakarta-jsp",
     "version" : "1.4.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:nFkgKNEx34lorhXcPLEceF4Hvq74H1sphErcu7ZT81oFWnoO5MKm5vbbYv+VggQDX7++zKdrbMf041znBFFkeQ=="
+    "integrity" : "sha512:ehHTIKf45JuOd0AdEoRsLcnebmHn2UUhM21xMkH2+82thZNmHfgyB6iTdCMb2XgqYZfhjHltODFPfJY+HVHQ0Q=="
   }, {
     "groupId" : "org.owasp.encoder",
     "artifactId" : "encoder",

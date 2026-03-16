@@ -91,6 +91,7 @@
         <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/css/print.css" media="print">
 
+        <script src="<c:out value="${ctx}/csrfguard"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
         <script src="<c:out value="${ctx}/library/jquery/jquery-compat.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.14.2.min.js" />"></script>

@@ -53,7 +53,7 @@
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <!-- end -->
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
 <%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>

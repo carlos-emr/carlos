@@ -53,7 +53,7 @@ public class FaxConfigDaoImpl extends AbstractDaoImpl<FaxConfig> implements FaxC
     }
 
     public FaxConfig getActiveConfigByNumber(String number) {
-        Query query = entityManager.createQuery("select config from FaxConfig config where config.faxNumber = :number and config.active = 1");
+        Query query = entityManager.createQuery("select config from FaxConfig config where config.faxNumber = :number and config.active = true");
 
         query.setParameter("number", number);
 

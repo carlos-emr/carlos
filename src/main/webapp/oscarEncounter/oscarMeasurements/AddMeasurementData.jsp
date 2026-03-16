@@ -50,7 +50,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String demographic_no = request.getParameter("demographic_no");
     String id = request.getParameter("id");
     String measurement = request.getParameter("measurement");
@@ -70,7 +70,7 @@
 
 
     String providerName = "";
-    String provider = (String) session.getValue("user");
+    String provider = (String) session.getAttribute("user");
     String prevDate = UtilDateUtilities.getToday("yyyy-MM-dd H:mm");
     String completed = "0";
     String nextDate = "";

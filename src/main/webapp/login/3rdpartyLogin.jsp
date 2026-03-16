@@ -30,7 +30,7 @@
 
 --%>
 
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ page import="com.github.scribejava.core.model.OAuth1RequestToken" %>

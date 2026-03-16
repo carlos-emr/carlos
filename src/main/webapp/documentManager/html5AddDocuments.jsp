@@ -75,7 +75,7 @@
             queueId = Integer.parseInt(queueIdStr);
         }
         String provider = CommonLabResultData.NOT_ASSIGNED_PROVIDER_NO;
-        //String providers ="";//(String) session.getValue("user");
+        //String providers ="";//(String) session.getAttribute("user");
     %>
 
     <style type="text/css">

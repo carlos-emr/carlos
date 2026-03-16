@@ -32,7 +32,7 @@
 <%@ include file="/casemgmt/taglibs.jsp" %>
 
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");

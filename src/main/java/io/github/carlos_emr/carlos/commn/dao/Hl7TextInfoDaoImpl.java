@@ -230,7 +230,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     @Override
     public List<Object[]> findByDemographicId(Integer demographicNo) {
         String sql =
-                "FROM Hl7TextInfo hl7, PatientLabRouting p " +
+                "SELECT hl7, p FROM Hl7TextInfo hl7, PatientLabRouting p " +
                         "WHERE p.labNo = hl7.labNumber " +
                         "AND p.labType = 'HL7' " +
                         "AND p.demographicNo = ?1 " +

@@ -34,7 +34,7 @@
 <%@ page import="java.util.ResourceBundle"%>
 <%@page import="java.util.*" %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
 
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());

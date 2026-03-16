@@ -119,8 +119,8 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
         String sql = "SELECT x.demographicNo FROM "
                 + modelClass.getSimpleName()
                 + " x WHERE x.consentTypeId = ?1"
-                + " AND x.optout = 0 "
-                + " AND x.deleted = 0";
+                + " AND x.optout = false "
+                + " AND x.deleted = false";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, consentTypeId);

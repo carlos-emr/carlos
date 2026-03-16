@@ -32,7 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String errormsg = "";

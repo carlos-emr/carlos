@@ -58,7 +58,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
     @Override
     public List<Allergy> findActiveAllergies(Integer demographic_no) {
         String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.archived = 0 order by x.severityOfReaction";
+                + " x where x.demographicNo=?1 and x.archived = false order by x.severityOfReaction";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographic_no);
 
@@ -70,7 +70,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
     @Override
     public List<Allergy> findActiveAllergiesOrderByDescription(Integer demographic_no) {
         String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.archived = 0 order by x.description";
+                + " x where x.demographicNo=?1 and x.archived = false order by x.description";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographic_no);
 

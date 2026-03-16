@@ -23,7 +23,7 @@
 
 --%>
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

@@ -47,7 +47,7 @@
 
 <%
 
-    String provider = (String) session.getValue("user");
+    String provider = (String) session.getAttribute("user");
 
 
 %>

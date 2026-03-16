@@ -37,7 +37,7 @@
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    if (session.getValue("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.htm");
+    if (session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.htm");
     if (session.getAttribute("userrole") == null)
         response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");

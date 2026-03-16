@@ -170,9 +170,11 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse(httpResponse);
-        chain.doFilter(request, delegatingResponse);
+        // Pass through without wrapping - Tomcat 11's RequestDispatcher.forward()
+        // is incompatible with response wrappers that suppress flush/close.
+        // The script is injected by CsrfGuardScriptInjectionFilter instead,
+        // or appended directly after the chain completes.
+        chain.doFilter(request, response);
 
         // Only inject for authenticated sessions
         HttpSession session = httpRequest.getSession(false);
@@ -180,8 +182,10 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
+
         // Only inject for HTML responses
-        String contentType = delegatingResponse.getContentType();
+        String contentType = httpResponse.getContentType();
         if (contentType == null || !contentType.toLowerCase().startsWith("text/html")) {
             return;
         }
@@ -192,7 +196,18 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        appendScript(response, delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+        // Don't inject if response is already committed (forward/redirect already sent)
+        if (httpResponse.isCommitted()) {
+            return;
+        }
+
+        try {
+            String script = buildScript(httpRequest.getContextPath(), httpRequest.getLocale());
+            httpResponse.getWriter().print(script);
+        } catch (IllegalStateException e) {
+            // getWriter() fails if getOutputStream() was already called - skip injection
+            logger.debug("Cannot inject logout script - output stream already obtained", e);
+        }
     }
 
     /**
@@ -382,7 +397,10 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void flush() {
-            // prevent premature flush
+            // Allow flush - Tomcat 11 requires this for Struts RequestDispatcher.forward()
+            // to deliver content. Only close() is suppressed to keep the writer open
+            // for script appending.
+            super.flush();
         }
 
         /**
@@ -513,7 +531,10 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void flushBuffer() throws IOException {
-            // defer flushing until after script is appended
+            // Allow flushing - Tomcat 11 requires this for RequestDispatcher.forward()
+            // to work correctly. The 1MB buffer size ensures the response body is still
+            // available for script appending in the common case.
+            super.flushBuffer();
         }
     }
 }

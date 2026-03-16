@@ -31,7 +31,7 @@ Ontario, Canada
 <!DOCTYPE html>
 <%
     //Lists forms available to add to patient
-    if (session.getValue("user") == null) {
+    if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
     String demographic_no = request.getParameter("demographic_no");

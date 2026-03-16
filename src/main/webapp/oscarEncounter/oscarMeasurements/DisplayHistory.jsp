@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String userroleName = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

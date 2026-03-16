@@ -264,7 +264,7 @@
             }
 
             //DemographicExt
-            String proNo = (String) session.getValue("user");
+            String proNo = (String) session.getAttribute("user");
             String demoNo = request.getParameter("demographic_no");
             int demographicNo = Integer.parseInt(demoNo);
             List<DemographicExt> extensions = new ArrayList<DemographicExt>();

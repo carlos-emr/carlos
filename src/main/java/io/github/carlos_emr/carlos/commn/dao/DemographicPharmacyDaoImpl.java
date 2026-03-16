@@ -183,7 +183,7 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
 
     @Override
     public Long getTotalDemographicsPreferedToPharmacyByPharmacyId(Integer pharmacyId) {
-        String sql = "SELECT COUNT(*) FROM DemographicPharmacy x WHERE x.pharmacyId = ?1 AND x.status = 1";
+        String sql = "SELECT COUNT(*) FROM DemographicPharmacy x WHERE x.pharmacyId = ?1 AND x.status = '1'";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, pharmacyId);
 

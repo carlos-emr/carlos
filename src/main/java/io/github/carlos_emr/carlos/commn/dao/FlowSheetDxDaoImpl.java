@@ -48,7 +48,7 @@ public class FlowSheetDxDaoImpl extends AbstractDaoImpl<FlowSheetDx> implements 
     }
 
     public List<FlowSheetDx> getFlowSheetDx(String flowsheet, Integer demographic) {
-        Query query = entityManager.createQuery("select fd from FlowSheetDx fd where fd.flowsheet = ?1 and fd.archived=0 and fd.demographicNo=?2");
+        Query query = entityManager.createQuery("select fd from FlowSheetDx fd where fd.flowsheet = ?1 and fd.archived=false and fd.demographicNo=?2");
         query.setParameter(1, flowsheet);
         query.setParameter(2, demographic);
         @SuppressWarnings("unchecked")

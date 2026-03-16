@@ -121,6 +121,15 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
+        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() commits
+        // the underlying response during the forward, making post-chain capture impossible.
+        // JSPs rendered by Struts already include <script src="csrfguard"> via their templates.
+        String servletPath = httpRequest.getServletPath();
+        if (servletPath != null && servletPath.endsWith(".do")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         // Skip if CsrfGuard is disabled
         CsrfGuard csrfGuard;
         try {
@@ -138,11 +147,16 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse);
+        LOGGER.warn("CsrfGuard: wrapping request {}", httpRequest.getRequestURI());
         chain.doFilter(request, wrapper);
+        LOGGER.warn("CsrfGuard: chain completed for {} committed={} writer={} stream={}",
+                httpRequest.getRequestURI(), wrapper.isResponseCommitted(),
+                wrapper.isUsingWriter(), wrapper.isUsingOutputStream());
 
         // If the response was committed by sendRedirect() or sendError(), the status and
         // headers have already been sent to the client — no post-processing is possible
         if (wrapper.isResponseCommitted()) {
+            LOGGER.warn("CsrfGuard: response committed for {}", httpRequest.getRequestURI());
             return;
         }
 
@@ -150,11 +164,16 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // client via the real response's output stream — no capture occurred and no injection
         // is possible
         if (wrapper.isUsingOutputStream()) {
+            LOGGER.warn("CsrfGuard: output stream used for {}", httpRequest.getRequestURI());
             return;
         }
 
         // If getWriter() was never called either, nothing to do
         if (!wrapper.isUsingWriter()) {
+            LOGGER.warn("CsrfGuard script injection skipped — getWriter() was never called "
+                    + "(usingOutputStream={}, committed={}, uri={})",
+                    wrapper.isUsingOutputStream(), wrapper.isResponseCommitted(),
+                    httpRequest.getRequestURI());
             return;
         }
 
@@ -166,6 +185,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         String captured = wrapper.getCapturedContent();
+        LOGGER.warn("CsrfGuard: captured {} bytes for {} contentType={}",
+                captured != null ? captured.length() : 0, httpRequest.getRequestURI(), contentType);
 
         // Idempotency: skip if the page already contains a <script src="...csrfguard..."> tag.
         // Regex is used rather than contains() to avoid false positives when the literal
@@ -226,19 +247,23 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      * Writes the final content to the real response, updating Content-Length.
      */
     private void writeToResponse(HttpServletResponse response, String content) throws IOException {
-        String encoding = response.getCharacterEncoding();
-        if (encoding == null) {
-            encoding = "UTF-8";
-        }
-        byte[] bytes;
+        // Reset the underlying response to clear any committed state from Tomcat 11's
+        // RequestDispatcher.forward(), then write the captured+modified content.
         try {
-            bytes = content.getBytes(encoding);
-        } catch (java.io.UnsupportedEncodingException e) {
-            LOGGER.warn("Response has unsupported encoding '{}' — falling back to UTF-8", encoding, e);
-            bytes = content.getBytes("UTF-8");
+            response.reset();
+        } catch (IllegalStateException e) {
+            // Response fully committed — try resetBuffer as fallback
+            try {
+                response.resetBuffer();
+            } catch (IllegalStateException e2) {
+                LOGGER.warn("writeToResponse: cannot reset response for {}-byte content", content.length());
+            }
         }
+        byte[] bytes = content.getBytes("UTF-8");
+        response.setContentType("text/html;charset=UTF-8");
         response.setContentLength(bytes.length);
         response.getOutputStream().write(bytes);
+        response.getOutputStream().flush();
     }
 
     @Override
@@ -267,12 +292,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             super(response);
             // Increase underlying response buffer to 1 MB to prevent premature flushing
             // before our wrapper can capture the complete HTML content for script injection
-            try {
-                response.setBufferSize(1024 * 1024);
-            } catch (IllegalStateException e) {
-                LOGGER.warn("Could not increase response buffer to 1 MB (response may already "
-                        + "be committed). Script injection may fail for large pages.");
-            }
+            // Note: setBufferSize removed for Tomcat 11 compatibility — the default
+            // buffer is sufficient since we capture via CharArrayWriter, not the response buffer
         }
 
         @Override
@@ -340,12 +361,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         @Override
         public void sendRedirect(String location) throws IOException {
             committed = true;
+            LOGGER.warn("CsrfGuard wrapper: sendRedirect called to {}", location);
             super.sendRedirect(location);
         }
 
         @Override
         public void sendError(int sc) throws IOException {
             committed = true;
+            LOGGER.warn("CsrfGuard wrapper: sendError called with {}", sc);
             super.sendError(sc);
         }
 
@@ -373,6 +396,21 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         public boolean isResponseCommitted() {
+            return committed;
+        }
+
+        /**
+         * Override isCommitted to report false during writer-capture mode.
+         * Tomcat 11 commits the underlying response during RequestDispatcher.forward(),
+         * but our CharArrayWriter still has the captured content. Reporting committed=true
+         * to downstream filters (e.g. LogoutBroadcastFilter) would prevent them from
+         * writing to the captured writer, and would cause writeToResponse to fail.
+         */
+        @Override
+        public boolean isCommitted() {
+            if (usingWriter && !committed) {
+                return false;
+            }
             return committed || super.isCommitted();
         }
 

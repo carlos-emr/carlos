@@ -263,7 +263,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<EFormData> findByFormId(Integer formId) {
 
         Query query = entityManager.createQuery(
-                "select x from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = 1");
+                "select x from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -276,7 +276,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<Integer> findDemographicNosByFormId(Integer formId) {
 
         Query query = entityManager.createQuery("select x.demographicId from " + modelClass.getSimpleName()
-                + " x where x.formId = ?1 and x.current = 1");
+                + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -317,7 +317,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<Integer> findAllCurrentFdidByFormId(Integer formId) {
 
         Query query = entityManager.createQuery(
-                "select distinct x.id from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = 1");
+                "select distinct x.id from " + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")
@@ -330,7 +330,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     public List<EFormData> findByFormIdProviderNo(List<String> providerNo, Integer formId) {
 
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.formId = ?1 and x.providerNo in (?2) and x.current = 1");
+                + " x where x.formId = ?1 and x.providerNo in (?2) and x.current = true");
         // query.setParameter(1,fid);
         query.setParameter(1, formId);
         query.setParameter(2, providerNo);

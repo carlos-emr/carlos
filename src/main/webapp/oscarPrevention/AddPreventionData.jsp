@@ -84,7 +84,7 @@
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String demographic_no = request.getParameter("demographic_no");
     String snomedId = request.getParameter("snomedId");
     String id = request.getParameter("id");
@@ -92,7 +92,7 @@
 
     String providerName = "";
     String lot = "";
-    String provider = (String) session.getValue("user");
+    String provider = (String) session.getAttribute("user");
     String dateFmt = "yyyy-MM-dd HH:mm";
     String prevDate = UtilDateUtilities.getToday(dateFmt);
     String completed = "0";

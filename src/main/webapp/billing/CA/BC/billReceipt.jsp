@@ -46,7 +46,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>

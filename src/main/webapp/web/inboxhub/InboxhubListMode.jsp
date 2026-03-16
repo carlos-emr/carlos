@@ -3,7 +3,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>

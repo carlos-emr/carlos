@@ -36,7 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
 
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no, userfirstname, userlastname;
     curUser_no = (String) session.getAttribute("user");

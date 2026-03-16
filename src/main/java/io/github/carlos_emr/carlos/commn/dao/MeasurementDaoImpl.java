@@ -531,8 +531,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public List<Object[]> findMeasurementsAndProviders(Integer measurementId) {
-        String sql = "FROM Measurement m, MeasurementType mt, Provider p " + "WHERE m.providerNo = p.ProviderNo "
-                + "AND m.id = ?1 " + "AND m.type = mt.type";
+        String sql = "SELECT m, mt, p FROM Measurement m, MeasurementType mt, Provider p WHERE m.providerNo = p.ProviderNo AND m.id = ?1 AND m.type = mt.type";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, measurementId);
         return query.getResultList();
@@ -540,8 +539,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public List<Object[]> findMeasurementsAndProvidersByType(String type, Integer demographicNo) {
-        String sql = "FROM Measurement m, Provider p, MeasurementType mt " + "WHERE m.providerNo = p.ProviderNo "
-                + "AND m.type = mt.type " + "AND m.type = ?1 " + "AND m.demographicId = ?2";
+        String sql = "SELECT m, p, mt FROM Measurement m, Provider p, MeasurementType mt WHERE m.providerNo = p.ProviderNo AND m.type = mt.type AND m.type = ?1 AND m.demographicId = ?2";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, type);
         query.setParameter(2, demographicNo);
@@ -550,9 +548,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public Object[] findMeasurementsAndProvidersByDemoAndType(Integer demographicNo, String type) {
-        String sql = "FROM Measurement m, Provider p, MeasurementType mt " + "WHERE m.demographicId = ?1 "
-                + "AND m.type = ?2 " + "AND (" + "	m.providerNo = p.ProviderNo " + "	OR m.providerNo = '0'"
-                + ") " + "AND m.type = mt.type " + "GROUP BY m.id " + "ORDER BY m.dateObserved DESC, m.createDate DESC";
+        String sql = "SELECT m, p, mt FROM Measurement m, Provider p, MeasurementType mt WHERE m.demographicId = ?1 AND m.type = ?2 AND (m.providerNo = p.ProviderNo OR m.providerNo = '0') AND m.type = mt.type GROUP BY m.id ORDER BY m.dateObserved DESC, m.createDate DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
         query.setParameter(2, type);

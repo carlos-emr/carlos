@@ -47,21 +47,21 @@ public class RelationshipsDaoImpl extends AbstractDaoImpl<Relationships> impleme
 
     @Override
     public Relationships findActive(Integer id) {
-        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.id = ?1 AND (r.deleted IS NULL OR r.deleted = '0')");
+        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.id = ?1 AND (r.deleted IS NULL OR r.deleted = false)");
         query.setParameter(1, id);
         return getSingleResultOrNull(query);
     }
 
     @Override
     public List<Relationships> findByDemographicNumber(Integer demographicNumber) {
-        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.demographicNo = ?1 AND (r.deleted IS NULL OR r.deleted = '0')");
+        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.demographicNo = ?1 AND (r.deleted IS NULL OR r.deleted = false)");
         query.setParameter(1, demographicNumber);
         return query.getResultList();
     }
 
     @Override
     public List<Relationships> findActiveSubDecisionMaker(Integer demographicNumber) {
-        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.demographicNo = ?1 AND r.subDecisionMaker = ?2 AND (r.deleted IS NULL OR r.deleted = '0')");
+        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.demographicNo = ?1 AND r.subDecisionMaker = ?2 AND (r.deleted IS NULL OR r.deleted = false)");
         query.setParameter(1, demographicNumber);
         query.setParameter(2, ConversionUtils.toBoolString(Boolean.TRUE));
         return query.getResultList();
@@ -69,7 +69,7 @@ public class RelationshipsDaoImpl extends AbstractDaoImpl<Relationships> impleme
 
     @Override
     public List<Relationships> findActiveByDemographicNumberAndFacility(Integer demographicNumber, Integer facilityId) {
-        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.demographicNo = ?1 AND r.facilityId = ?2 AND (r.deleted IS NULL OR r.deleted = '0')");
+        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.demographicNo = ?1 AND r.facilityId = ?2 AND (r.deleted IS NULL OR r.deleted = false)");
         query.setParameter(1, demographicNumber);
         query.setParameter(2, facilityId);
         return query.getResultList();

@@ -65,7 +65,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%
-    String provider = (String) session.getValue("user");
+    String provider = (String) session.getAttribute("user");
 
     String numeratorId = (String) request.getAttribute("numeratorId");
     String denominatorId = (String) request.getAttribute("denominatorId");

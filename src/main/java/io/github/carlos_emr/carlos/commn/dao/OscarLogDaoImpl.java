@@ -166,7 +166,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn) {
-        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 order by l.dateTime desc";
+        String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 order by l.created desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);

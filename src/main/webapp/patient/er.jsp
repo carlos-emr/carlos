@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getValue("patient") == null) response.sendRedirect("logout.jsp");
+    if (session.getAttribute("patient") == null) response.sendRedirect("logout.jsp");
     String demographic_no = (String) session.getAttribute("demo_no");
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*,java.net.*"

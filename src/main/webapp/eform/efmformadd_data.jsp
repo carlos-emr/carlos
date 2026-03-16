@@ -95,7 +95,7 @@
     /**
      * TODO: Move all JSP scriptlet code from efmshowform_data.jsp and efmformadd_data.jsp to the ShowEFormAction.java (create if necessary) action file.
      */
-    String provider_no = (String) session.getValue("user");
+    String provider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String appointment_no = request.getParameter("appointment");
     String fid = request.getParameter("fid");
