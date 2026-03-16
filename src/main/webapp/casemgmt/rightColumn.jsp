@@ -57,13 +57,9 @@
                 onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;"/>
             </c:when>
             <c:otherwise>
-                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"
-                     style="cursor: pointer; background: #e9ecef; border-radius: 4px;"
-                     title="Click to upload a new photo."
-                     onclick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;">
-                    <circle cx="40" cy="32" r="16" fill="#adb5bd"/>
-                    <ellipse cx="40" cy="82" rx="28" ry="22" fill="#adb5bd"/>
-                </svg>
+                <img style="cursor: pointer;" src="${pageContext.request.contextPath}/${ClientImage.imageMissingPlaceholderUrl}"
+                    alt="No_Id_Photo" height="100" title="Click to upload a new photo."
+                    onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;"/>
             </c:otherwise>
         </c:choose>
     </security:oscarSec>
