@@ -7,13 +7,15 @@ releases. Covers version currency, Jakarta EE compatibility, and strategic recom
 
 ## Executive Summary
 
-- **Total dependencies audited**: 92 (including dependencyManagement, plugins, and profiles)
-- **Already at latest**: 82 dependencies (89%)
-- **Applied in this audit**: 13 drop-in upgrades (see Section 1a/1b)
-- **Patch/minor updates remaining**: 0 safe drop-in upgrades
+- **Total dependencies audited**: 127 unique (deduplicated from 134 in pom.xml)
+- **Already at latest**: 115 dependencies (91%)
+- **Applied in this audit**: 13 drop-in upgrades (see Section 1a/1b) + PDFBox 3.0.7 migration (Section 1d)
+- **Patch/minor updates remaining**: 1 (HL7 FHIR Core 6.7.10 → 6.8.2)
 - **Medium-effort updates available**: 4 dependencies (test thoroughly)
 - **Major version upgrades available**: 4 dependencies (require migration effort)
-- **Dormant/unmaintained**: 5 dependencies (risk assessment included)
+- **Jakarta artifact swaps needed**: 1 (encoder-jsp → encoder-jakarta-jsp)
+- **Dormant/unmaintained**: 6 dependencies (risk assessment included)
+- **Recommended removals**: 1 (ultrabuk-htmltopdf-java — wraps dead wkhtmltopdf)
 
 ---
 
@@ -26,7 +28,7 @@ These drop-in patch/minor bumps were applied and pushed:
 | `commons-logging:commons-logging` | 1.3.5 | **1.3.6** | Trivial |
 | `org.hibernate.orm:hibernate-core` | 7.2.6.Final | **7.2.7.Final** | Low |
 | `net.sf.jasperreports:jasperreports` (×4) | 7.0.4 | **7.0.6** | Low |
-| `org.apache.pdfbox:pdfbox` | 2.0.35 | **2.0.36** | Trivial |
+| `org.apache.pdfbox:pdfbox` | 2.0.35 | **2.0.36 → 3.0.7** | See Section 3d |
 | `org.mockito:mockito-core` | 5.21.0 | **5.23.0** | Low |
 | `org.mockito:mockito-junit-jupiter` | 5.21.0 | **5.23.0** | Low |
 | `org.jetbrains:annotations` | 26.0.2-1 | **26.1.0** | Trivial |
@@ -41,6 +43,26 @@ Additional drop-in upgrades discovered and applied:
 | `net.bytebuddy:byte-buddy` | 1.18.6 | **1.18.7** | Trivial | Non-experimental Java 24 support |
 | `net.bytebuddy:byte-buddy-agent` | 1.18.6 | **1.18.7** | Trivial | Matches byte-buddy |
 | `org.codehaus.mojo:buildnumber-maven-plugin` | 3.2.0 | **3.3.0** | Trivial | Build plugin, released 2026-01-18 |
+
+## 1d. Applied — PDFBox 2.0.36 → 3.0.7 Migration
+
+Full API migration from PDFBox 2.x to 3.0.7. See Section 3d for complete details.
+
+**Files modified:**
+| File | Changes |
+|------|---------|
+| `pom.xml` | Updated version, added `pdfbox-io` module |
+| `ConcatPDF.java` | `Loader.loadPDF()`, byte[] for InputStream |
+| `PDFEncryptionUtil.java` | `Loader.loadPDF()` |
+| `RxWebService.java` | `Standard14Fonts`, `newLineAtOffset`, manual polygon path |
+| `NioFileManagerImpl.java` | `Loader.loadPDF()` |
+| `DocumentManagerImpl.java` | `Loader.loadPDF()` |
+| `ManageDocument2Action.java` | `Loader.loadPDF()`, `IOUtils.createTempFileOnlyStreamCache()` |
+| `SplitDocument2Action.java` | `Loader.loadPDF()` (4 instances) |
+| `DocumentAttachmentManagerImpl.java` | `Loader.loadPDF()` |
+| `EDocUtil.java` | `Loader.loadPDF()` |
+| `ConcatPDFUnitTest.java` | `Loader.loadPDF()`, `Standard14Fonts` |
+| `ImagePDFCreatorUnitTest.java` | `Loader.loadPDF()` |
 
 ## 1c. Still Pending — FHIR Core Libraries (Separate PR Recommended)
 
@@ -81,11 +103,11 @@ Additional drop-in upgrades discovered and applied:
 
 **Recommended action**: Dedicated issue and PR. This is the most impactful Jakarta alignment upgrade remaining.
 
-### 3b. HAPI FHIR: 6.10.5 → 8.6.0
+### 3b. HAPI FHIR: 6.10.5 → 8.8.0
 
 | Aspect | Details |
 |--------|---------|
-| **Version gap** | 2 major versions |
+| **Version gap** | 2 major versions (8.8.0 released March 2026) |
 | **Jakarta support** | v7.0.0 migrated `javax.*` → `jakarta.*` (breaking for interceptors) |
 | **Java requirement** | v8.0.0 requires Java 17+ (we use 21, OK) |
 | **Migration guide** | https://hapifhir.io/hapi-fhir/docs/interceptors/jakarta_upgrade.html |
@@ -106,16 +128,34 @@ Additional drop-in upgrades discovered and applied:
 
 **Recommended action**: Plan incremental migration. No urgent CVEs in 4.5.14, but no future fixes will be issued. OpenRewrite can automate much of the migration.
 
-### 3d. PDFBox: 2.0.x → 3.0.7 (Future)
+### 3d. PDFBox: 2.0.36 → 3.0.7 — COMPLETED
 
 | Aspect | Details |
 |--------|---------|
-| **Breaking changes** | `PDDocument.load()` removed → use `Loader.loadPDF()`, font/color API changes, new IO module |
-| **Benefits** | Incremental loading, better memory, actively developed |
-| **JAXB** | 3.x removed javax.xml.bind dependency (good for Jakarta) |
-| **Migration guide** | https://pdfbox.apache.org/3.0/migration.html |
+| **Status** | **DONE** — migrated in this audit session |
+| **Files changed** | 11 source files + 2 test files |
+| **Breaking changes applied** | `PDDocument.load()` → `Loader.loadPDF()`, `Standard14Fonts.FontName` enum for fonts, `drawPolygon()` → manual `moveTo/lineTo/closePath`, `MemoryUsageSetting` → `null` or `IOUtils.createTempFileOnlyStreamCache()`, new `pdfbox-io` module added |
+| **Benefits** | Incremental loading, better memory, actively developed, removed javax.xml.bind dependency |
 
-**Recommended action**: Apply 2.0.36 patch now. Plan 3.x migration as a separate effort — requires touching every file that uses PDFBox APIs.
+**Key API mappings applied:**
+- `PDDocument.load(File)` → `Loader.loadPDF(File)`
+- `PDDocument.load(InputStream)` → `Loader.loadPDF(inputStream.readAllBytes())`
+- `PDType1Font.HELVETICA_BOLD` → `new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD)`
+- `PDFParser + RandomAccessFile + ScratchFile` → `Loader.loadPDF(File, StreamCacheCreateFunction)`
+- `contentStream.drawPolygon(x[], y[])` → `moveTo` + `lineTo` loop + `closePath` + `stroke`
+
+---
+
+## 3e. Jakarta Artifact Swap: encoder-jsp → encoder-jakarta-jsp
+
+| Aspect | Details |
+|--------|---------|
+| **Current** | `org.owasp.encoder:encoder-jsp:1.4.0` |
+| **Replace with** | `org.owasp.encoder:encoder-jakarta-jsp:1.4.0` |
+| **Reason** | `encoder-jsp` depends on `javax.servlet.jsp-api`. The `-jakarta-jsp` artifact uses `jakarta.servlet.jsp-api` instead. Same version, same API, Jakarta-native. |
+| **Risk** | **Low** — drop-in swap, same version number and EL functions |
+
+**Recommended action**: Simple POM swap in next commit. The `encoder` (non-JSP) artifact has no servlet dependency and needs no change.
 
 ---
 
@@ -130,6 +170,7 @@ These libraries have not had releases in years and may never receive Jakarta upd
 | `xalan:xalan` + `serializer` | 2.7.3 | 2023-05 | Dormant | Transitive from JSTL. Required by Struts. No replacement available. |
 | `org.jdom:jdom2` | 2.0.6.1 | 2021-12 | Dormant | Unofficial fork exists (`com.github.hullbend:jdom2:2.0.6.2` with Java 17 fixes). |
 | `com.github.scribejava:scribejava-core` | 8.3.3 | 2022-11 | Low activity | OAuth 1.0a library. No alternative with same API. Monitor for CVEs. |
+| `io.github.nichetoolkit:ultrabuk-htmltopdf-java` | 1.0.0 | 2021 | Dormant | JitPack wrapper around wkhtmltopdf (itself archived). Consider replacing with Flying Saucer (`flying-saucer-pdf`) or `openpdf-html`, both already in deps. |
 
 ---
 
@@ -170,8 +211,8 @@ All of these are confirmed current as of March 16, 2026:
 ### Jakarta EE APIs
 | Dependency | Version | Notes |
 |-----------|---------|-------|
-| `jakarta.servlet-api` | 6.1.0 | Jakarta EE 11 |
-| `jakarta.servlet.jsp-api` | 4.0.0 | |
+| `jakarta.servlet-api` | 6.1.0 | EE 11 spec — **Note**: Tomcat 10.1 implements EE 10 (Servlet 6.0). Forward-compatible but monitor for edge cases. |
+| `jakarta.servlet.jsp-api` | 4.0.0 | EE 11 spec — same note as above |
 | `jakarta.annotation-api` | 3.0.0 | |
 | `jakarta.inject-api` | 2.0.1 | |
 | `jakarta.persistence-api` | 3.2.0 | JPA 3.2 |
@@ -199,6 +240,7 @@ All of these are confirmed current as of March 16, 2026:
 ### PDF/Charts/Reports
 | Dependency | Version | Notes |
 |-----------|---------|-------|
+| `pdfbox` / `pdfbox-io` | 3.0.7 | **Upgraded from 2.0.36** in this audit |
 | `openpdf` / `openpdf-html` | 3.0.3 | `org.openpdf` namespace |
 | `openrtf` | 3.0.0 | |
 | `jfreechart` | 1.5.6 | |
@@ -209,7 +251,8 @@ All of these are confirmed current as of March 16, 2026:
 ### Security
 | Dependency | Version | Notes |
 |-----------|---------|-------|
-| `owasp encoder` / `encoder-jsp` | 1.4.0 | |
+| `owasp encoder` | 1.4.0 | No servlet dependency — stays as-is |
+| `owasp encoder-jsp` | 1.4.0 | **Swap to `encoder-jakarta-jsp`** (see Section 3e) |
 | `csrfguard` / `csrfguard-*` | 4.5.0-jakarta | |
 | `bcpkix-jdk18on` | 1.83 | |
 | `zxing core` / `javase` | 3.5.4 | |
@@ -244,7 +287,9 @@ All of these are confirmed current as of March 16, 2026:
 
 ### Immediate (This Sprint) — DONE
 1. ~~Apply all Section 1 updates~~ — **Applied**: 13 drop-in bumps in Sections 1a + 1b
-2. Apply FHIR core library updates (Section 1c) in a separate PR
+2. ~~PDFBox 2.0.36 → 3.0.7 migration~~ — **Applied**: 11 source + 2 test files (Section 3d)
+3. Apply FHIR core library updates (Section 1c) in a separate PR
+4. Swap `encoder-jsp` → `encoder-jakarta-jsp` (Section 3e) — trivial POM change
 
 ### Short-Term (Next 2-4 Weeks)
 2. Upgrade XMLBeans 3.1.0 → 5.3.0
@@ -253,15 +298,16 @@ All of these are confirmed current as of March 16, 2026:
 
 ### Medium-Term (Next Quarter)
 5. **HAPI HL7v2 1.0.1 → 2.6.0** — critical Jakarta alignment for HL7 message processing
-6. **HAPI FHIR 6.10.5 → 8.6.0** — Jakarta-native FHIR stack
+6. **HAPI FHIR 6.10.5 → 8.8.0** — Jakarta-native FHIR stack
 7. **HttpClient 4.5.14 → 5.6** — EOL dependency removal (use OpenRewrite)
 
 ### Long-Term (Future Planning)
-8. PDFBox 2.x → 3.x migration (significant API changes)
+8. ~~PDFBox 2.x → 3.x migration~~ — **COMPLETED** in this audit
 9. Evaluate replacing `ultrabuk-htmltopdf-java` (JitPack/wkhtmltopdf) with Flying Saucer or OpenPDF-html (both already in deps)
-10. Monitor Jackson 3.x (new groupId `tools.jackson.core`) for eventual migration
-11. Monitor CXF 4.2.x for Jakarta EE 11 readiness
-12. Monitor Netty 4.2.x line stability
+10. Evaluate `jettison` — may already be excluded from CXF transitive deps; verify and remove if possible
+11. Monitor Jackson 3.x (new groupId `tools.jackson.core`) for eventual migration
+12. Monitor CXF 4.2.x for Jakarta EE 11 readiness
+13. Monitor Netty 4.2.x line stability
 
 ### Dependencies to Watch (Dormant Projects)
 - `commons-digester3` — dormant since 2012, no Jakarta version planned
@@ -289,10 +335,13 @@ All of these are confirmed current as of March 16, 2026:
 | **JasperReports** | Fully Jakarta (7.0.x) |
 | **HAPI HL7v2** | **NOT Jakarta** — 1.0.1 predates Jakarta. Upgrade to 2.6.0 required. |
 | **HAPI FHIR** | **NOT Jakarta** — 6.10.5 uses javax. Upgrade to 7.0.0+ required. |
+| **PDFBox** | Fully Jakarta (3.0.7) — removed javax.xml.bind dependency |
+| **OWASP Encoder** | `encoder` OK; **`encoder-jsp` needs swap to `-jakarta-jsp`** |
 | **HttpClient** | N/A — no servlet dependency, but 4.x is EOL |
 
 ---
 
 *Generated by Claude Code — March 16, 2026*
-*Updated: March 16, 2026 — Applied 13 drop-in upgrades (Sections 1a + 1b)*
-*Source: Web searches against Maven Central, GitHub releases, and project websites*
+*Updated: March 16, 2026 — Applied 13 drop-in upgrades (Sections 1a + 1b) + PDFBox 3.0.7 migration (Section 3d)*
+*Full audit: 127 dependencies checked across 12 parallel agents with web search verification*
+*Source: Maven Central, GitHub releases, project websites, and official documentation*
