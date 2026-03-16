@@ -180,9 +180,11 @@
                                 var id = data.id;
                                 document.getElementById('val' + id).textContent = data.value;
                                 var d = new Date(data.billingserviceDate.time);
-                                document.getElementById('billservice' + id).textContent = d.toLocaleDateString('en-CA');
+                                document.getElementById('billservice' + id).textContent =
+                                    d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
                                 var t = new Date(data.terminationDate.time);
-                                document.getElementById('termdate' + id).textContent = t.toLocaleDateString('en-CA');
+                                document.getElementById('termdate' + id).textContent =
+                                    t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
                                 document.getElementById('val' + id).style.display = '';
                                 document.getElementById('ival' + id).style.display = 'none';
                                 document.getElementById('billservice' + id).style.display = '';

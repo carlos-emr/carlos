@@ -408,7 +408,7 @@ var CarlosAjax = (function () {
      */
     function insertContent(element, html, insertion, evalScripts) {
         if (evalScripts) {
-            var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/script>/gi;
+            var scriptPattern = /<script[\s\S]*?>([\s\S]*?)<\/\s*script\s*>/gi;
             var scripts = [];
             var match;
             while ((match = scriptPattern.exec(html)) !== null) {
