@@ -50,7 +50,7 @@ import org.jCharts.chartData.AxisChartDataSet;
 import org.jCharts.chartData.DataSeries;
 import org.jCharts.chartData.ScatterPlotDataSeries;
 import org.jCharts.chartData.ScatterPlotDataSet;
-import org.jCharts.encoders.ServletEncoderHelper;
+import org.jCharts.encoders.JPEGEncoder13;
 import org.jCharts.properties.AxisProperties;
 import org.jCharts.properties.ChartProperties;
 import org.jCharts.properties.DataAxisProperties;
@@ -311,14 +311,16 @@ public class ScatterPlotChartServlet extends HttpServlet {
                 AxisProperties axisProperties = new AxisProperties(false);
                 DataSeries dataSeries = this.createBloodPressureDataSeries(demographicNo, type, mInstrc);
                 AxisChart axisChart = new AxisChart(dataSeries, chartProperties, axisProperties, legendProperties, 550, 360);
-                ServletEncoderHelper.encodeJPEG13(axisChart, 1.0f, httpServletResponse);
+                httpServletResponse.setContentType("image/jpeg");
+                JPEGEncoder13.encode(axisChart, 1.0f, httpServletResponse.getOutputStream());
             } else {
                 AxisProperties axisProperties = new AxisProperties(xAxisProperties, yAxisProperties);
                 ScatterPlotDataSeries scatterPlotDataSeries = this.createScatterPlotDataSeries(demographicNo, type, mInstrc);
                 if (scatterPlotDataSeries != null) {
                     ScatterPlotAxisChart scatterPlotAxisChart = new ScatterPlotAxisChart(scatterPlotDataSeries, chartProperties, axisProperties, legendProperties, 500, 400);
 
-                    ServletEncoderHelper.encodeJPEG13(scatterPlotAxisChart, 1.0f, httpServletResponse);
+                    httpServletResponse.setContentType("image/jpeg");
+                    JPEGEncoder13.encode(scatterPlotAxisChart, 1.0f, httpServletResponse.getOutputStream());
                 }
             }
         } catch (Exception t) {

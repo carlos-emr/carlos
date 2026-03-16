@@ -3421,7 +3421,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private Map<String, Object> mySessionMap;
 
     @Override
-    public void setSession(Map<String, Object> session) {
+    public void withSession(Map<String, Object> session) {
         this.mySessionMap = session;
     }
 

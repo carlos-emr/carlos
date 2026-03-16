@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockOptions;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.query.Query;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
@@ -270,7 +270,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void attachClean(SecProviderDao instance) {
         logger.debug("attaching clean Provider instance");
         try {
-            currentSession().buildLockRequest(LockOptions.NONE).lock(instance);
+            currentSession().lock(instance, LockMode.NONE);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

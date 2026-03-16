@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockOptions;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.StaffForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -359,7 +359,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("attaching clean Secuserrole instance");
         Session session = currentSession();
         try {
-            session.buildLockRequest(LockOptions.NONE).lock(instance);
+            session.lock(instance, LockMode.NONE);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);
