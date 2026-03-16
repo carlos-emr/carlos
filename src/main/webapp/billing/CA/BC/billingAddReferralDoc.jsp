@@ -60,7 +60,8 @@
 
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageReferralDoc"/></title>
-
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript">
 
@@ -120,10 +121,10 @@
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageReferralDoc"/></h3>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         <% if (request.getAttribute("Error") != null) { %>
-        <div class="alert alert-error">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <div class="alert alert-danger">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <%=request.getAttribute("Error") %>
         </div>
         <% }%>

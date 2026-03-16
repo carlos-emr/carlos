@@ -63,29 +63,22 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
         <title>OSCAR Products</title>
-        <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath()%>/css/datepicker.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath()%>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
-        <script src="<%=request.getContextPath()%>/js/bootstrap.js"></script>
-        <script src="<%=request.getContextPath()%>/js/bootstrap-datepicker.js"></script>
-        <script src="<%=request.getContextPath()%>/js/jquery.validate.js"></script>
+        <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery.validate.min.js"></script>
 
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
-
-        <link
-                href="<%=request.getContextPath()%>/library/bootstrap2-datepicker/datepicker3.css"
-                rel="stylesheet">
-
-        <script
-                src="<%=request.getContextPath()%>/library/bootstrap2-datepicker/bootstrap-datepicker.js"></script>
 
 
         <script>
@@ -319,7 +312,7 @@
 
 
     <!--  display list of existing tables made, with ability to delete any one of them -->
-    <table id="listTable" class="table table-striped table-hover table-condensed" style="width: 100%;">
+    <table id="listTable" class="table table-striped table-hover table-sm" style="width: 100%;">
         <thead>
         <th>&nbsp;</th>
         <th>Name</th>
@@ -335,7 +328,7 @@
     </table>
 
     <!-- button to add new  -->
-    <button id="btnAdd" class="btn">Add New</button>
+    <button id="btnAdd" class="btn btn-secondary">Add New</button>
 
     <!-- add new should show form with name, eform name, and expiry date -->
 
@@ -345,11 +338,11 @@
         <form id="reportForm">
 
             <div>
-                <div class="controls controls-row">
-                    <div class="control-group span8" id="group1">
-                        <label class="control-label" for="eformReportToolEformId">Choose
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-8" id="group1">
+                        <label class="form-label" for="eformReportToolEformId">Choose
                             EForm:</label>
-                        <div class="controls">
+                        <div>
                             <select id="eformReportToolEformId"
                                     name="eformReportTool.eformId">
                                 <option></option>
@@ -357,10 +350,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="controls controls-row">
-                    <div class="control-group span8" id="group2">
-                        <label class="control-label" for="eformReportToolName">Name:</label>
-                        <div class="controls">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-8" id="group2">
+                        <label class="form-label" for="eformReportToolName">Name:</label>
+                        <div>
                             <input type="text" name="eformReportTool.name"
                                    id="eformReportToolName"/>
                         </div>
@@ -368,12 +361,12 @@
 
 
                 </div>
-                <div class="controls controls-row">
+                <div class="d-flex gap-2">
 
-                    <div class="control-group span8" id="group3">
-                        <label class="control-label" for="eformExpiryDate">Expiry
+                    <div class="mb-3 col-md-8" id="group3">
+                        <label class="form-label" for="eformExpiryDate">Expiry
                             Date:</label>
-                        <div class="controls">
+                        <div>
                             <input type="text" name="eformReportTool.expiryDate"
                                    id="eformExpiryDate" value=""/>
                         </div>
@@ -388,12 +381,7 @@
 
 
     <script>
-        $('#eformExpiryDate').datepicker({
-            format: "yyyy-mm-dd",
-            todayBtn: "linked",
-            autoclose: true,
-            todayHighlight: true
-        });
+        flatpickr('#eformExpiryDate', {dateFormat: "Y-m-d", allowInput: true});
     </script>
 
     </body>

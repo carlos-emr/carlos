@@ -151,7 +151,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(status.getId()).isNotNull();
+            assertThat(status.getId()).isPositive();
             assertThat(status.getId()).isGreaterThan(0);
 
             ProgramClientStatus found = programClientStatusDAO.getProgramClientStatus(

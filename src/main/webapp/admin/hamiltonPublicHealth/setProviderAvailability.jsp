@@ -92,50 +92,49 @@
 %>
 
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>Set all Availabilities</h4>
 </div>
 
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.7.1.min.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
-<link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
 <script>
     var editing = false;
 
     function getProviders() {
-        var programId = $("#programId").val();
+        var programId = document.getElementById('programId').value;
         //alert(programId);
-        $("#theForm").submit();
+        document.getElementById('theForm').submit();
     }
 
     function edit() {
-        $("#viewBar").hide();
-        $("#editBar").show();
+        document.getElementById('viewBar').style.display = 'none';
+        document.getElementById('editBar').style.display = '';
         return false;
     }
 
     function save() {
-        $("#method").val('save');
-        $("#theForm").submit();
+        document.getElementById('method').value = 'save';
+        document.getElementById('theForm').submit();
     }
 
     function cancel() {
-        $("#viewBar").show();
-        $("#editBar").hide();
+        document.getElementById('viewBar').style.display = '';
+        document.getElementById('editBar').style.display = 'none';
         return false;
     }
 
 </script>
 
 
-<form class="well " action="setProviderAvailability.jsp" id="theForm" method="post">
+<form class="card card-body bg-body-tertiary " action="setProviderAvailability.jsp" id="theForm" method="post">
     <input type="hidden" name="method" id="method" value=""/>
 
-    <div id="programOptions" class="control-group">
-        <label class="control-label">Program:</label>
-        <div class="controls">
-            <select name="programId" id="programId" class="input-medium" onChange="getProviders()">
+    <div id="programOptions" class="mb-3">
+        <label class="form-label">Program:</label>
+        <div>
+            <select name="programId" id="programId" class="form-select" onChange="getProviders()">
                 <option value=""></option>
                 <%
                     List<Program> programs = programManager.getPrograms(loggedInInfo.getCurrentFacility().getId());
@@ -156,15 +155,15 @@
         </div>
     </div>
 
-    <div class="control-group">
+    <div class="mb-3">
         <%
             if (providers.size() > 0) {
         %>
         <div id="viewBar">
-            <button id="editBtn" class="btn" onClick="return edit();">Edit Mode</button>
+            <button id="editBtn" class="btn btn-secondary" onClick="return edit();">Edit Mode</button>
             <br/>
 
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <tr>
                     <th>Name</th>
                     <th>Status</th>
@@ -190,13 +189,13 @@
 
 
         <div id="editBar" style="display:none">
-            <button id="cancelBtn" class="btn" onClick="return cancel()">Cancel</button>
-            <button id="saveBtn" class="btn" onClick="save()">Save</button>
+            <button id="cancelBtn" class="btn btn-secondary" onClick="return cancel()">Cancel</button>
+            <button id="saveBtn" class="btn btn-secondary" onClick="save()">Save</button>
             <br/>
 
             <br/>
 
-            <table class="table table-striped  table-condensed">
+            <table class="table table-striped  table-sm">
                 <tr>
                     <th>Name</th>
                     <th>Status</th>

@@ -63,13 +63,14 @@
         <jsp:include page="/images/spinner.jsp" flush="true"/>
 
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
                 type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
                 type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"
                 type="text/javascript"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
               type="text/css"/>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
@@ -518,7 +519,7 @@
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.nameText"/>
                         <%=surname%>, <%=firstName%>
                     </span>
-                            <input type=button class="btn btn-default pull-right" onclick="returnToRx();"
+                            <input type=button class="btn btn-secondary float-end" onclick="returnToRx();"
                                    value="Return to RX"/>
                         </h2>
                     </th>
@@ -526,7 +527,7 @@
 
                 <tr>
                     <td>
-                        <table class="table-condensed">
+                        <table class="table table-sm">
                             <tr>
                                 <th class="DivContentSectionHeadTitle">
 
@@ -539,22 +540,22 @@
                                             href="javascript:void(0)"
                                             onclick="addPharmacy();">(add missing pharmacy
 									to clinic database)</a></span></h4>
-                                    <div class="form-inline">
-                                        <div class="form-group"><label for="pharmacySearch">Pharmacy Name </label>
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <div class="mb-3"><label for="pharmacySearch">Pharmacy Name </label>
                                             <input type="text" class="form-control" id="pharmacySearch"/></div>
-                                        <div class="form-group"><label
+                                        <div class="mb-3"><label
                                                 for="pharmacyAddressSearch">Address </label><input type="text"
                                                                                                    class="form-control"
                                                                                                    id="pharmacyAddressSearch"/>
                                         </div>
-                                        <div class="form-group"><label for="pharmacyCitySearch">City </label><input
+                                        <div class="mb-3"><label for="pharmacyCitySearch">City </label><input
                                                 type="text" class="form-control" id="pharmacyCitySearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPostalCodeSearch">Postal
+                                        <div class="mb-3"><label for="pharmacyPostalCodeSearch">Postal
                                             Code </label><input type="text" class="form-control"
                                                                 id="pharmacyPostalCodeSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyPhoneSearch">Phone </label><input
+                                        <div class="mb-3"><label for="pharmacyPhoneSearch">Phone </label><input
                                                 type="text" class="form-control" id="pharmacyPhoneSearch"/></div>
-                                        <div class="form-group"><label for="pharmacyFaxSearch">Fax </label><input
+                                        <div class="mb-3"><label for="pharmacyFaxSearch">Fax </label><input
                                                 type="text" class="form-control" id="pharmacyFaxSearch"/></div>
                                     </div>
                                     <p> Instructions: Add the patient&apos;s preferred pharmacies by clicking on a
@@ -565,7 +566,7 @@
                             </tr>
                             <tr>
                                 <td>
-                                    <table class="table-condensed">
+                                    <table class="table table-sm">
                                         <tr class="sticky-heading">
                                             <th id="preferredList" style="font-weight: normal;">
                                                 <div style="text-align: center">
@@ -583,7 +584,7 @@
                                     <% RxPharmacyData pharmacy = new RxPharmacyData();
                                         List<PharmacyInfo> pharList = pharmacy.getAllPharmacies();
                                     %>
-                                    <table id="pharmacyList" class="table-condensed table-striped"
+                                    <table id="pharmacyList" class="table table-sm table-striped"
                                            style="margin-top:5px;width:100%">
                                         <tr class="sticky-heading">
                                             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.table.pharmacyName"/></th>

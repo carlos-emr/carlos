@@ -31,43 +31,43 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/library/moment.js"></script>
-
-<script class="include" type="text/javascript"
-        src="${pageContext.request.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
+        src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
 
 <script type="text/javascript">
 
     //--> Date picker
-    jQuery(function () {
-        jQuery('.date-picker').datetimepicker({
-            format: 'YYYY-MM-DD',
-            useStrict: true,
-            minDate: new Date()
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr('.date-picker', {
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            minDate: 'today'
         });
 
 // --> Time picker
-        jQuery('.time-picker').datetimepicker({
-            format: 'hh:mm a',
-            useStrict: true,
-            useCurrent: false
+        flatpickr('.time-picker', {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: 'h:i K',
+            allowInput: true
+        });
+
+        // --> Message pre-select list action
+        document.querySelectorAll('.select-tickler-message').forEach(function (el) {
+            el.addEventListener('click', function () {
+                document.getElementById('message').value = this.textContent;
+            });
         });
     });
-
-    // --> Message pre-select list action
-
-    jQuery(".select-tickler-message").on("click", function () {
-        jQuery("#message").val(jQuery(this).text());
-    })
 
 </script>
 <form name="ticklerAddForm" id="ticklerAddForm">
     <input type="hidden" name="demographicNo" value="${ param.demographicNo }"/>
     <div class="row">
-        <div class="col-xs-12">
-            <div class="form-group">
+        <div class="col-12">
+            <div class="mb-3">
                 <label>Action:</label>
-                <select class="form-control required" name="categoryId" required="true">
+                <select class="form-select required" name="categoryId" required="true">
                     <option value="" selected></option>
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
                         <option title="${ ticklerCategory.description }" value="${ ticklerCategory.id }">
@@ -80,10 +80,10 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-6">
-            <div class="form-group">
+        <div class="col-6">
+            <div class="mb-3">
                 <label>Assign to:</label>
-                <select class="form-control required" name="taskAssignedTo" required="true">
+                <select class="form-select required" name="taskAssignedTo" required="true">
                     <option value=""></option>
                     <c:forEach items="${ providers }" var="provider">
                         <option value="${ provider.providerNo }">
@@ -94,10 +94,10 @@
             </div>
         </div>
 
-        <div class="col-xs-6">
-            <div class="form-group">
+        <div class="col-6">
+            <div class="mb-3">
                 <label>Priority:</label>
-                <select class="form-control required" name="priority" required="true">
+                <select class="form-select required" name="priority" required="true">
                     <option value="Low">Low</option>
                     <option value="Normal" selected>Normal</option>
                     <option value="High">High</option>
@@ -107,32 +107,32 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-6">
-            <div class="form-group">
-                <label for="datePickerServiceDate" class="control-label">
+        <div class="col-6">
+            <div class="mb-3">
+                <label for="datePickerServiceDate" class="form-label">
                     Service Date:
                 </label>
-                <div class="controls">
+                <div>
                     <div class="input-group">
                         <input name="serviceDate" id="datePickerServiceDate" type="text"
                                class="date-picker form-control required" required="true"/>
-                        <label for="datePickerServiceDate" class="input-group-addon">
-                            <span class="glyphicon glyphicon-calendar"></span>
+                        <label for="datePickerServiceDate" class="input-group-text">
+                            <span class="fa-solid fa-calendar"></span>
                         </label>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-xs-6">
-            <div class="form-group">
-                <label for="ticklerTime" class="control-label"> Time:</label>
-                <div class="controls">
+        <div class="col-6">
+            <div class="mb-3">
+                <label for="ticklerTime" class="form-label"> Time:</label>
+                <div>
                     <div class="input-group">
                         <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required"
                                required="true"/>
-                        <label for="ticklerTime" class="input-group-addon btn">
-                            <span class="glyphicon glyphicon-time"></span>
+                        <label for="ticklerTime" class="input-group-text btn">
+                            <span class="fa-solid fa-clock"></span>
                         </label>
                     </div>
                 </div>
@@ -141,33 +141,30 @@
     </div>
 
     <div class="row">
-        <div class="col-xs-12">
-            <div class="form-group">
+        <div class="col-12">
+            <div class="mb-3">
                 <label>Message:</label>
                 <div class="input-group">
                     <input type="text" id="message" name="message" class="form-control" aria-label="..." required/>
-                    <div class="input-group-btn">
-                        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"
-                                aria-haspopup="true" aria-expanded="false">
-                            <span class="caret"></span>
-                        </button>
-                        <ul class="dropdown-menu" style="height:300px;overflow-y:scroll;">
-                            <c:forEach items="${ textSuggestions }" var="textSuggestion">
-                                <li>
-                                    <a class="select-tickler-message" href="#"><c:out
-                                            value="${ textSuggestion.suggestedText }"/></a>
-                                </li>
-                            </c:forEach>
-                        </ul>
-                    </div>
+                    <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                    </button>
+                    <ul class="dropdown-menu" style="height:300px;overflow-y:scroll;">
+                        <c:forEach items="${ textSuggestions }" var="textSuggestion">
+                            <li>
+                                <a class="dropdown-item select-tickler-message" href="#"><c:out
+                                        value="${ textSuggestion.suggestedText }"/></a>
+                            </li>
+                        </c:forEach>
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-xs-12">
-            <div class="form-group">
+        <div class="col-12">
+            <div class="mb-3">
                 <label>Encounter Note:</label>
                 <textarea name="comments" class="form-control" rows="6" placeholder="Additional comments."></textarea>
             </div>

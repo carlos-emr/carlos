@@ -100,11 +100,11 @@
             : request.getParameter("xml_appointment_date");
 %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.title"/>
-        <div class="pull-right">
-            <button name='print' onClick='window.print()' class="btn">
+        <div class="float-end">
+            <button name='print' onClick='window.print()' class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
@@ -112,7 +112,7 @@
     </h4>
 </div>
 
-<table class="table table-bordered table-striped table-condensed table-hover">
+<table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
         <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>
@@ -161,19 +161,21 @@
             - Integer.parseInt(strLimit2);
 %>
 
-<ul class="pager">
-    <li class="previous <%=nLastPage >= 0 ? "" : "disabled"%>"><a
+<nav>
+<ul class="pagination justify-content-between">
+    <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
             href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"
-            class="contentLink"> &larr; Previous Page
+            class="page-link contentLink"> &larr; Previous Page
     </a></li>
     <li
-            class="next <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
+            class="page-item <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
         <a
                 href="${ctx}/oscarReport/oscarReportCatchment.jsp?limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"
-                class="contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
+                class="page-link contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
         </a>
     </li>
 </ul>
+</nav>
 
 <script>
     $(document).ready(function () {

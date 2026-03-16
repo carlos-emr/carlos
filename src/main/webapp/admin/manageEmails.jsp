@@ -22,16 +22,17 @@
     <title>Manage Faxes</title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
-    <link href="${ctx}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
-    <link href="${ctx}/css/datepicker.css" rel="stylesheet" type="text/css"/>
-    <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
+    <link href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
+    <link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css"/>
+    <link href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
-    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${ctx}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="${ctx}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
-    <script type="text/javascript" src="${ctx}/js/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
     <style type="text/css">
         .search-email-menu {
@@ -176,7 +177,7 @@
                     HideSpin();
                     if (resultdata && resultdata.trim() !== "") {
                         $("#results").empty().append(resultdata);
-                        $('#results [data-bs-toggle="popover"]').popover();
+                        document.querySelectorAll('#results [data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
                     } else {
                         $("#results").empty().append("<p>No data available.</p>");
                     }
@@ -249,7 +250,7 @@
             <fieldset class="search-email-menu border px-3 pb-3">
                 <legend class="float-none w-auto p-2">Search Emails</legend>
                 <div class="row">
-                    <div class="col-sm-3 form-group">
+                    <div class="col-sm-3 mb-3">
                         <label for="dateBegin">From</label>
                         <div class="input-group">
                             <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
@@ -257,7 +258,7 @@
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
-                    <div class="col-sm-3 form-group">
+                    <div class="col-sm-3 mb-3">
                         <label for="dateEnd">To</label>
                         <div class="input-group">
                             <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
@@ -265,14 +266,14 @@
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
-                    <div class="col-sm-6 form-group">
+                    <div class="col-sm-6 mb-3">
                         <label for="autocompletedemo">Patient Name</label>
                         <input class="form-control" type="text" placeholder="Last, First" id="autocompletedemo"/>
                         <input type="hidden" id="demographic_no" name="demographic_no" value="">
                     </div>
                 </div>
                 <div class="row mt-3">
-                    <div class="col-sm-8 form-group">
+                    <div class="col-sm-8 mb-3">
                         <label for="senderEmailAddress">Sender</label>
                         <select class="form-select" name="senderEmailAddress" id="senderEmailAddress">
                             <option value="-1">All</option>
@@ -285,7 +286,7 @@
                             </c:forEach>
                         </select>
                     </div>
-                    <div class="col-sm-4 form-group">
+                    <div class="col-sm-4 mb-3">
                         <label for="emailStatus">Status</label>
                         <select class="form-select" name="emailStatus" id="emailStatus">
                             <option value="-1">All</option>
@@ -325,12 +326,7 @@
 </div> <!-- body row -->
 
 <script language="javascript">
-    var startDate = $("#dateBegin").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDate = $("#dateEnd").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#dateBegin", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#dateEnd", {dateFormat: "Y-m-d", allowInput: true});
 </script>
 </body>

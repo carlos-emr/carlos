@@ -155,7 +155,7 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(ref.getId()).isNotNull();
+            assertThat(ref.getId()).isPositive();
             ClientReferral found = clientReferralDAO.getClientReferral(ref.getId());
             assertThat(found).isNotNull();
             assertThat(found.getNotes()).isEqualTo("Test referral note");

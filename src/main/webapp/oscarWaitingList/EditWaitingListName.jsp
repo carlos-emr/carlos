@@ -42,9 +42,8 @@
 <html>
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
-        <!-- Bootstrap 2.3.1 -->
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet">
+        <!-- Bootstrap -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <title>Change Waiting List Name</title>
 
@@ -96,13 +95,13 @@
         <%
             }
         %>
-        <div class="container-fluid  form-horizontal span12" id="editWrapper">
+        <div class="container-fluid  col-md-12" id="editWrapper">
             <div class="row">
-                <div class="span6">
+                <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="marc-hi.affinityDomains.manageExisting"/></legend>
-                        <label class="control-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
-                        <div class="controls">
+                        <label class="form-label" for="selectedWL"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.rename"/></label>
+                        <div>
                             <select name="selectedWL" id="selectedWL">
                                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%
@@ -116,28 +115,28 @@
                                 </option>
                                 <%}%>
                             </select>
-                            <input type="text" class="input-medium" name="wlChangedName" placeholder="" value="">
-                            <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                            <input type="text" class="form-control d-inline-block w-auto" name="wlChangedName" placeholder="" value="">
+                            <input type="submit" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('change');document.forms[0].actionChosen.value='change'">
                         </div> <!-- class="controls" -->
                     </fieldset>
-                </div> <!-- class="span4" -->
-                <div class="span6">
+                </div> <!-- class="col-md-4" -->
+                <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.search.formReportStatusNew"/></legend>
-                        <label class="control-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
-                        <div class="controls">
-                            <input type="text" class="input-medium" name="wlNewName" id="wlNewName" placeholder="" value="">
-                            <input type="submit" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
+                        <label class="form-label" for="wlNewName"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.config.MessengerAdmin.newGroup"/></label>
+                        <div>
+                            <input type="text" class="form-control d-inline-block w-auto" name="wlNewName" id="wlNewName" placeholder="" value="">
+                            <input type="submit" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/>"
                                    onclick="resetFields('create');document.forms[0].actionChosen.value='create'">
                         </div> <!-- class="controls" -->
                     </fieldset>
-                </div> <!-- class="span4" -->
-                <div class="span6">
+                </div> <!-- class="col-md-4" -->
+                <div class="col-md-6">
                     <fieldset>
                         <legend><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete"/></legend>
-                        <label class="control-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
-                        <div class="controls">
+                        <label class="form-label" for="selectedWL2"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDeleteList"/></label>
+                        <div>
                             <select name="selectedWL2" id="selectedWL2">
                                 <option value=""><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.cbselectwaitinglist"/></option>
                                 <%
@@ -155,7 +154,7 @@
                                    onclick="resetFields('remove');document.forms[0].actionChosen.value='remove'">
                         </div> <!-- class="controls" -->
                     </fieldset>
-                </div> <!-- class="span4" -->
+                </div> <!-- class="col-md-4" -->
             </div> <!-- class="row" -->
         </div>
         <!-- end editWrapper -->

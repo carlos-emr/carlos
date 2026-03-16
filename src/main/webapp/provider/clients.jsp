@@ -135,7 +135,7 @@
             </td>
             <td class="MainTableRightColumn" style="width:90%">
                 <h4>Request Tokens</h4>
-                <table id="requestTokenTable" name="requestTokenTable" class="table table-striped table-condensed"
+                <table id="requestTokenTable" name="requestTokenTable" class="table table-striped table-sm"
                        style="width: 100%;">
                     <thead>
                     <tr>
@@ -180,7 +180,7 @@
                 <br>
                 <h4>Access Tokens</h4>
 
-                <table id="accessTokenTable" name="accessTokenTable" class="table table-striped table-condensed"
+                <table id="accessTokenTable" name="accessTokenTable" class="table table-striped table-sm"
                        style="width: 100%;">
                     <thead>
                     <tr>

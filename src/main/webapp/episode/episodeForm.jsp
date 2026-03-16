@@ -57,12 +57,15 @@
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Episode Form</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
 
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <script>
@@ -70,8 +73,8 @@
 
             $(document).ready(function () {
 
-                $("#startDate").datepicker({dateFormat: "yy-mm-dd"});
-                $("#endDate").datepicker({dateFormat: "yy-mm-dd"});
+                flatpickr("#startDate", {dateFormat: "Y-m-d", allowInput: true});
+                flatpickr("#endDate", {dateFormat: "Y-m-d", allowInput: true});
                 $("#description").autocomplete({
                     source: ctx + '/CodeSearch.do?codingSystem=' + $("#search_coding_system").val(),
                     select: function (event, ui) {

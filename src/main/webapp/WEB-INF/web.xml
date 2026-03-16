@@ -76,6 +76,23 @@
         <url-pattern>*.do</url-pattern>
     </filter-mapping>
 
+    <!-- HttpMethodGuardFilter: blocks GET requests on mutator actions and JSPs.
+         Must be ordered after CSRFGuard (which validates POST tokens) and before Struts
+         (which does not call chain.doFilter for handled requests). This ensures mutator
+         GET requests are rejected before Struts processes them. -->
+    <filter>
+        <filter-name>HttpMethodGuardFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.app.HttpMethodGuardFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>HttpMethodGuardFilter</filter-name>
+        <url-pattern>*.do</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>HttpMethodGuardFilter</filter-name>
+        <url-pattern>*.jsp</url-pattern>
+    </filter-mapping>
+
 	<filter>
 		<filter-name>struts2</filter-name>
 		<filter-class>org.apache.struts2.dispatcher.filter.StrutsPrepareAndExecuteFilter</filter-class>

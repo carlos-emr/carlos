@@ -224,9 +224,13 @@ public class AgencyDaoIntegrationTest extends CarlosTestBase {
         // When - retrieve the local agency via DAO
         Agency result = agencyDao.getLocalAgency();
 
-        // Then - verify a non-null agency with a valid ID is returned
+        // Then - verify the returned agency matches the one we saved
         assertThat(result).isNotNull();
-        assertThat(result.getId()).isNotNull();
+        assertThat(result.getId()).isEqualTo(agency.getId());
+        assertThat(result.getIntakeQuick()).isEqualTo(10);
+        assertThat(result.getIntakeQuickState()).isEqualTo("AB");
+        assertThat(result.getIntakeIndepth()).isNull();
+        assertThat(result.getIntakeIndepthState()).isEqualTo("CD");
     }
 
     /**

@@ -60,8 +60,8 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <!-- Bootstrap -->
 
         <script>
 
@@ -151,7 +151,7 @@
 
     <form name="serviceform" method="post" action="manageBillingform.jsp">
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <table width="100%">
                 <tr>
                     <td style="width:30%; text-align:right">
@@ -184,7 +184,7 @@
                             </select></div>
                     </td>
                     <td style="width:30%;">
-                        <input type="submit" name="Submit" class="btn"
+                        <input type="submit" name="Submit" class="btn btn-secondary"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.manageBillingform.btnManage"/>">
                     </td>
                 </tr>

@@ -80,12 +80,11 @@
 
 <html>
 <head>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBatchBilling"/></title>
@@ -154,17 +153,6 @@
         //-->
     </script>
 
-    <style>
-        @media print {
-            .visible-print {
-                display: inherit !important;
-            }
-
-            .hidden-print {
-                display: none !important;
-            }
-        }
-    </style>
 </head>
 
 <body>
@@ -172,17 +160,17 @@
 
 <div class="container-fluid">
 
-    <div class="row well well-condensed hidden-print">
+    <div class="row card card-body bg-body-tertiary d-print-none">
 
         <%
             ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
         %>
-        <form name="serviceform" method="post" action="BatchBill.do" class="form-inline">
+        <form name="serviceform" method="post" action="BatchBill.do" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" id="method" name="method" value="">
 
-            <div class="span2">
+            <div class="col-md-2">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/><br>
-                <select name="providers" class="span2" onChange="jumpMenu('window',this)">
+                <select name="providers" class="form-select" onChange="jumpMenu('window',this)">
                     <option value="#"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgProvider"/></b></option>
                     <option value="all"
                             <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgAllProvider"/></option>
@@ -204,9 +192,9 @@
                 </select>
             </div>
 
-            <div class="span3">
+            <div class="col-md-3">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceCode"/>:
-                <select id="service_code" class="span3" name="service_code">
+                <select id="service_code" class="form-select" name="service_code">
                     <option value="all" <%=servicecode.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgAllServiceCode"/></option>
                     <%
                         List<String> serviceCodes = batchBillingDAO.findDistinctServiceCodes();
@@ -220,9 +208,9 @@
                 </select>
             </div>
 
-            <div class="span4">
+            <div class="col-md-4">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgClinicLocation"/>:
-                <select name="clinic_view" class="span4">
+                <select name="clinic_view" class="form-select">
                     <%
                         String clinic_location = "", clinic_code = "";
                         List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
@@ -257,12 +245,12 @@
 
         %>
 
-        <button class="btn pull-right" type='button' name='print' value='Print' onClick='window.print()'><i
+        <button class="btn float-end" type='button' name='print' value='Print' onClick='window.print()'><i
                 class="fa-solid fa-print"></i> Print
         </button>
         <br/><input type="checkbox" onclick="selectAll();"><br/><br/>
 
-        <table class="table table-striped table-hover table-condensed">
+        <table class="table table-striped table-hover table-sm">
             <thead>
             <tr>
                 <th><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.msgSelection"/></th>
@@ -348,20 +336,20 @@
 
             <tr>
                 <td colspan="7">
-                    <div class="span3">
+                    <div class="col-md-3">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.serviceDate"/>
-                        <div class="input-append">
-                            <input type="text" name="BillDate" id="BillDate"
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="BillDate" id="BillDate"
                                    value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
-                                   data-date-format="yyyy-m-d" style="width:90px" autocomplete="off" readonly/>
-                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                                   style="width:90px" autocomplete="off" readonly/>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
 
-                    <div class="span4">
+                    <div class="col-md-4">
                         <input type="button" class="btn btn-primary" onclick="return setMethod('doBatchBill');"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.btnSubmit"/>">
-                        <input type="button" class="btn" onclick="return askFirst('remove');"
+                        <input type="button" class="btn btn-secondary" onclick="return askFirst('remove');"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.batchbilling.btnRemove"/>">
                     </div>
                 </td>
@@ -390,12 +378,9 @@
 </div>
 
 <script>
-    $(function () {
-        $('#BillDate').datepicker();
-    });
-
-    $(document).ready(function () {
-        parent.parent.resizeIframe($('html').height() + 300);
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr('#BillDate', {dateFormat: "Y-m-d", allowInput: true});
+        parent.parent.resizeIframe(document.documentElement.scrollHeight + 300);
     });
 
 </script>

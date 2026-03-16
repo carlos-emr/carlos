@@ -501,9 +501,15 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
             secProviderDao.delete(toDelete);
             hibernateTemplate.flush();
 
-            // Then - other providers should still exist
-            assertThat(secProviderDao.findById(uniquePrefix + "01")).isNotNull();
-            assertThat(secProviderDao.findById(uniquePrefix + "02")).isNotNull();
+            // Then - other providers should still exist with correct data
+            SecProvider remaining1 = secProviderDao.findById(uniquePrefix + "01");
+            SecProvider remaining2 = secProviderDao.findById(uniquePrefix + "02");
+            assertThat(remaining1).isNotNull();
+            assertThat(remaining1.getLastName()).isNotEmpty();
+            assertThat(remaining2).isNotNull();
+            assertThat(remaining2.getLastName()).isNotEmpty();
+            // Deleted provider should be gone
+            assertThat(secProviderDao.findById(uniquePrefix + "03")).isNull();
         }
     }
 
@@ -1869,7 +1875,11 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
             //   - attachClean(SecProviderDao instance)
             //
             // The DAO is still functional for the remaining 24 methods.
-            assertThat(secProviderDao).isNotNull();
+            // Verify the DAO is an instance of the expected type and works for normal operations
+            assertThat(secProviderDao).isInstanceOf(SecProviderDao.class);
+            // Verify findById still works, confirming the DAO's core methods are functional
+            // despite the 4 methods with incorrect parameter types
+            assertThat(secProviderDao.findById("NONEXISTENT_PROVIDER")).isNull();
         }
     }
 }

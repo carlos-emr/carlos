@@ -87,13 +87,14 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></title>
 
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker-standalone.css"/>
+          href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <script language="JavaScript">
         //<!--
@@ -308,7 +309,7 @@
 <body onLoad="setfocus();showHideLayers('Layer1','','hide')">
 
 <div class="wrapper">
-    <form class="form-inline" action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling.do" method="post">
+    <form class="d-flex flex-wrap align-items-center gap-2" action="${pageContext.request.contextPath}/billing/CA/BC/SaveBilling.do" method="post">
 
         <div id="page-header">
             <table id="oscarBillingHeader">
@@ -326,7 +327,7 @@
             <table>
                 <tr>
                     <td>
-                        <table class="table table-condensed table-striped">
+                        <table class="table table-sm table-striped">
                             <tr class="table-heading">
                                 <td colspan="6">Patient Information</td>
                             </tr>
@@ -366,7 +367,7 @@
 
                         </table>
 
-                        <table class="table table-condensed table-striped">
+                        <table class="table table-sm table-striped">
                             <tr class="table-heading">
                                 <td colspan="8">Billing Information</td>
                             </tr>
@@ -449,7 +450,7 @@
                         <table>
                             <tr>
                                 <td>
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.code"/></td>
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.desc"/></td>
@@ -484,7 +485,7 @@
                                 </td>
                                 <td>
 
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/></td>
                                             <td><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.desc"/></td>
@@ -518,7 +519,7 @@
                             </tr>
                             <tr>
                                 <td>
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td>notes</td>
                                         </tr>
@@ -529,7 +530,7 @@
                                     </table>
                                 </td>
                                 <td>
-                                    <table class="table table-condensed table-striped">
+                                    <table class="table table-sm table-striped">
                                         <tr class="table-heading">
                                             <td>Internal Notes</td>
                                         </tr>
@@ -566,7 +567,7 @@
 
 
             <div class="container-fluid ">
-                <div class="pull-right button-bar">
+                <div class="float-end button-bar">
                     <%if ("pri".equalsIgnoreCase(bean.getBillingType())) {%>
                     <input class="btn btn-primary" type="submit" name="submit" value="Save & Print Receipt"/>
                     <%}%>

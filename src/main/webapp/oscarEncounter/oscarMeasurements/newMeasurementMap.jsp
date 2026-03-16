@@ -44,7 +44,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title>Measurement Mapping Configuration</title>
         <!-- css -->
-        <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
         <script>
 
             function newWindow(varpage, windowname) {
@@ -126,7 +126,7 @@
                 <td class="MainTableTopRow" colspan="9" align="left">
                     <table style="width:100%">
                         <tr>
-                            <td><input type="button" class="btn"
+                            <td><input type="button" class="btn btn-secondary"
                                        value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
                                        onClick="window.close()"></td>
                             <td style="text-align:right"><a
@@ -137,7 +137,7 @@
                 </td>
             </tr>
         </table>
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <table>
                 <tr>
                     <th colspan="2" class="Header">Add New Loinc
@@ -155,7 +155,7 @@
                 </tr>
                 <tr>
                     <td><input
-                            type="submit" class="btn" value=" Add Loinc Code " onclick="return addLoinc()">
+                            type="submit" class="btn btn-secondary" value=" Add Loinc Code " onclick="return addLoinc()">
                     </td>
                 </tr>
                 <tr>

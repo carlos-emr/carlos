@@ -75,7 +75,7 @@
 
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css"
               href="${ pageContext.request.contextPath }/hospitalReportManager/inbox.css">
 
@@ -90,9 +90,9 @@
             String statement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
         %>
         <form action="<%=request.getContextPath() %>/hospitalReportManager/Statement.do" method="post">
-            <div class="control-group">
-                <label class="control-label">Provider Confidentiality Statement</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label">Provider Confidentiality Statement</label>
+                <div>
                     <textarea name="statement"><%= Encode.forHtml(statement != null ? statement : "") %></textarea>
                 </div>
             </div>

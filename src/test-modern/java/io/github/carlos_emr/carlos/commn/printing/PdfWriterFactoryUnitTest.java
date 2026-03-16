@@ -72,10 +72,13 @@ class PdfWriterFactoryUnitTest extends CarlosUnitTestBase {
 
             PdfWriter writer = PdfWriterFactory.newInstance(doc, baos, FontSettings.HELVETICA_10PT);
 
-            assertThat(writer).isNotNull();
+            assertThat(writer).isInstanceOf(PdfWriter.class);
+            assertThat(writer.getPageEvent()).isNotNull();
             doc.open();
             doc.add(new Paragraph("test"));
             doc.close();
+            byte[] pdfBytes = baos.toByteArray();
+            assertThat(pdfBytes).startsWith(new byte[]{'%', 'P', 'D', 'F'});
         }
 
         @Test

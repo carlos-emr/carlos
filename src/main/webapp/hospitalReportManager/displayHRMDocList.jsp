@@ -17,6 +17,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.hospitalReportManager.*,io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -57,15 +58,14 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title>HRM Document List</title>
 
-        <link href="${ pageContext.request.contextPath }/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <!-- Bootstrap 2.3.1 -->
-        <link href="${ pageContext.request.contextPath }/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
-        <link href="${ pageContext.request.contextPath }/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
-              rel="stylesheet">
-        <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+        <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <!-- Bootstrap -->
+        <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+        <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
         <script src="${ pageContext.request.contextPath }/js/global.js"></script>
-        <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script>
-        <!-- DataTables 1.13.4 -->
+        <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
         <script>
             jQuery(document).ready(function () {
@@ -114,7 +114,7 @@
             <td class="MainTableLeftColumn">
             </td>
             <td class="MainTableRightColumn">
-                <table id="tblHRM" class="table table-striped table-hover table-condensed" style="width:100%">
+                <table id="tblHRM" class="table table-striped table-hover table-sm" style="width:100%">
                     <thead>
                     <tr>
 
@@ -136,19 +136,19 @@
                     <tr>
 
                         <td><a href="#"
-                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display.do?id=<%=curhrmdoc.get("id")%>', 'HRM Report'); return false;"
-                        ><%=curhrmdoc.get("report_type")%>
+                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display.do?id=<%=Encode.forUriComponent(String.valueOf(curhrmdoc.get("id")))%>', 'HRM Report'); return false;"
+                        ><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_type")))%>
                         </a></td>
-                        <td><%=curhrmdoc.get("description")%>
+                        <td><%=Encode.forHtml(String.valueOf(curhrmdoc.get("description")))%>
                         </td>
-                        <td><%=curhrmdoc.get("report_status")%>
+                        <td><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_status")))%>
                         </td>
-                        <td style="text-align: center;"><%=curhrmdoc.get("report_date")%>
+                        <td style="text-align: center;"><%=Encode.forHtml(String.valueOf(curhrmdoc.get("report_date")))%>
                         </td>
-                        <td style="text-align: center;"><%=curhrmdoc.get("time_received")%>
+                        <td style="text-align: center;"><%=Encode.forHtml(String.valueOf(curhrmdoc.get("time_received")))%>
                         </td>
-                        <td><%=curhrmdoc.get("category") != null ? curhrmdoc.get("category")  : "" %>
-                        <td><%=curhrmdoc.get("class_subclass") != null ? curhrmdoc.get("class_subclass")  : "" %>
+                        <td><%=curhrmdoc.get("category") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("category"))) : "" %>
+                        <td><%=curhrmdoc.get("class_subclass") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("class_subclass"))) : "" %>
                     </tr>
                     <%
                         }

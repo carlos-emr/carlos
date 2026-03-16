@@ -132,8 +132,17 @@ public class RoleProgramAccessDAOIntegrationTest extends CarlosTestBase {
             // When
             List<DefaultRoleAccess> results = roleProgramAccessDAO.getDefaultAccessRightByRole(testRoleId1);
 
-            // Then - Should return all access rights for the role
+            // Then - Should return a list (possibly empty if no data seeded for roleId 1)
+            // but never null; the DAO returns emptyList for null roleId
             assertThat(results).isNotNull();
+
+            // Verify a non-existent role returns empty
+            List<DefaultRoleAccess> noResults = roleProgramAccessDAO.getDefaultAccessRightByRole(99999L);
+            assertThat(noResults).isEmpty();
+
+            // Verify null role returns empty list (guard clause)
+            List<DefaultRoleAccess> nullResults = roleProgramAccessDAO.getDefaultAccessRightByRole(null);
+            assertThat(nullResults).isEmpty();
         }
     }
 }

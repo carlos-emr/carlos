@@ -38,15 +38,14 @@
 <head>
     <title>Manage Billing Payment Type</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link href="${ pageContext.request.contextPath }/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <!-- Bootstrap 2.3.1 -->
-    <link href="${ pageContext.request.contextPath }/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
-    <link href="${ pageContext.request.contextPath }/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
-          rel="stylesheet">
-    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+    <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <!-- Bootstrap -->
+    <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
     <script src="${ pageContext.request.contextPath }/js/global.js"></script>
-    <script src="${ pageContext.request.contextPath }/library/DataTables/datatables.min.js"></script>
-    <!-- DataTables 1.13.4 -->
+    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
         jQuery(document).ready(function () {
@@ -67,7 +66,7 @@
 <body>
 &nbsp;<h4>Manage Billing Payment Type</h4>
 
-<div class="well">
+<div class="card card-body bg-body-tertiary">
     <table style="width:80%" id="tblBillType" class="table table-striped">
         <thead>
         <tr>
@@ -102,7 +101,7 @@
     </table>
     <p>
     <hr/>
-    <a class="btn"
+    <a class="btn btn-secondary"
        href="<%=request.getContextPath()%>/billing/CA/ON/editBillingPaymentType.jsp">Create
         a new payment type</a>
 

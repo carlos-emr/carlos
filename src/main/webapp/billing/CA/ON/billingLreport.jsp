@@ -27,8 +27,6 @@
 <html>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/javascript/jquery/jquery-1.4.2.js"></script>
         <title>MOH Report</title>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/billing.css">
         <link rel="stylesheet" type="text/css" media="all"
@@ -106,11 +104,13 @@
                     xsltProcessor = new XSLTProcessor();
                     xsltProcessor.importStylesheet(xsl);
                     resultDocument = xsltProcessor.transformToFragment(xmlDoc, document);
-                    jQuery("#MOHreport").html(resultDocument);
+                    var mohReport = document.getElementById("MOHreport");
+                    mohReport.innerHTML = '';
+                    mohReport.appendChild(resultDocument);
                 } else if (window.ActiveXObject) {
-                    // code for IE
+                    // code for IE - uses transformNode which returns a string
                     ex = xmlDoc.transformNode(xsl);
-                    jQuery('#MOHreport').html(ex);
+                    document.getElementById('MOHreport').innerHTML = ex;
                 } else {
                     alert("Viewing report is not supported by this Browser.");
                 }

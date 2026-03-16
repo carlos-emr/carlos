@@ -376,7 +376,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(pfu.getId()).isNotNull();
+            assertThat(pfu.getId()).isPositive();
             assertThat(pfu.getId()).isGreaterThan(0L);
 
             ProgramFunctionalUser found = programFunctionalUserDAO.getFunctionalUser(pfu.getId());
@@ -414,7 +414,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(fut.getId()).isNotNull();
+            assertThat(fut.getId()).isPositive();
             assertThat(fut.getId()).isGreaterThan(0L);
 
             FunctionalUserType found = programFunctionalUserDAO.getFunctionalUserType(fut.getId());

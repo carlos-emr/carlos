@@ -88,7 +88,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <script language="JavaScript">
 
@@ -145,14 +145,14 @@
 
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></h3>
-<div class="container-fluid well noprint">
+<div class="container-fluid card card-body bg-body-tertiary noprint">
 
     <h4>Simulate Teleplan Report - <%=thisyear%>
     </h4>
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile.do"
-               onsubmit="return checkSubmit();" class="form-inline">
+               onsubmit="return checkSubmit();" class="d-flex flex-wrap align-items-center gap-2">
         <label for="provider">Select provider</label>
         <select id="provider" name="providers">
             <option value="all">All Providers</option>

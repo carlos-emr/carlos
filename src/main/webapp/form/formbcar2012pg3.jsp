@@ -106,7 +106,8 @@
         <title>Antenatal Record 2</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery.are-you-sure.js"></script>
 
         <link rel="stylesheet" type="text/css" href="<%=bView?"bcArStyleView.css" : "bcAr2007Style.css"%>">

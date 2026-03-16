@@ -61,16 +61,17 @@
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>OSCAR Products</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap2-datepicker/datepicker3.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css">
 
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script src="<%=request.getContextPath() %>/library/bootstrap2-datepicker/bootstrap-datepicker.js"></script>
+        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
         <style>
             .red {
@@ -489,7 +490,7 @@
         <span id="productFilterMessage"></span>
     </div>
 
-    <table id="productTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="productTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
@@ -507,8 +508,8 @@
 
 
     <div id="paginationControls">
-        <button class="btn" id="btnPrevPage" onClick="loadPreviousResults();">Prev</button>
-        <button class="btn" id="btnNextPage" onClick="loadNextResults()">Next</button>
+        <button class="btn btn-secondary" id="btnPrevPage" onClick="loadPreviousResults();">Prev</button>
+        <button class="btn btn-secondary" id="btnNextPage" onClick="loadNextResults()">Next</button>
         &nbsp;&nbsp;&nbsp;
         <select id="selPageSize" onChange="updatePageSize()">
             <option value="10">10</option>
@@ -529,10 +530,10 @@
             <input type="hidden" name="product.id" id="productId" value="0"/>
 
             <div>
-                <div class="controls controls-row">
-                    <div class="control-group span6" id="productNameTemplateGroup">
-                        <label class="control-label" for="productNameTemplate">Choose Existing:</label>
-                        <div class="controls">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-6" id="productNameTemplateGroup">
+                        <label class="form-label" for="productNameTemplate">Choose Existing:</label>
+                        <div>
                             <select id="productNameTemplate" name="productNameTemplate"
                                     onChange="copyNameFromTemplate()">
                                 <option>&nbsp;</option>
@@ -540,64 +541,64 @@
                         </div>
                     </div>
                 </div>
-                <div class="controls controls-row">
-                    <div class="control-group span3" id="productNameGroup">
-                        <label class="control-label" for="productName">Name:</label>
-                        <div class="controls">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-3" id="productNameGroup">
+                        <label class="form-label" for="productName">Name:</label>
+                        <div>
                             <input type="text" name="product.name" id="productName" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
-                    <div class="control-group span3" id="productCodeGroup">
-                        <label class="control-label" for="productCode">Code:</label>
-                        <div class="controls">
+                    <div class="mb-3 col-md-3" id="productCodeGroup">
+                        <label class="form-label" for="productCode">Code:</label>
+                        <div>
                             <input type="text" name="product.code" id="productCode" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
 
                 </div>
-                <div class="controls controls-row">
+                <div class="d-flex gap-2">
 
-                    <div class="control-group span3" id="productLotGroup">
-                        <label class="control-label" for="productLot">Lot:</label>
-                        <div class="controls">
+                    <div class="mb-3 col-md-3" id="productLotGroup">
+                        <label class="form-label" for="productLot">Lot:</label>
+                        <div>
                             <input type="text" name="product.lotNumber" id="productLot" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
 
-                    <div class="control-group span3" id="productExpiryDateGroup">
-                        <label class="control-label" for="productExpiryDate">Expiry Date:</label>
-                        <div class="controls">
+                    <div class="mb-3 col-md-3" id="productExpiryDateGroup">
+                        <label class="form-label" for="productExpiryDate">Expiry Date:</label>
+                        <div>
                             <input type="text" name="product.expiryDate" id="productExpiryDate" value=""/>
                             <span class="help-inline">Required</span>
                         </div>
                     </div>
 
                 </div>
-                <div class="controls controls-row">
-                    <div class="control-group span3" id="productAmountGroup">
-                        <label class="control-label" for="productAmount">Amount:</label>
-                        <div class="controls">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-3" id="productAmountGroup">
+                        <label class="form-label" for="productAmount">Amount:</label>
+                        <div>
                             <input type="text" name="product.amount" id="productAmount" value=""/>
                             <span class="help-inline">Required (number)</span>
                         </div>
                     </div>
 
-                    <div class="control-group span3" id="totalEntriesToCreateGroup">
-                        <label class="control-label" for="productExpiryDate">Total Entries to create:</label>
-                        <div class="controls">
+                    <div class="mb-3 col-md-3" id="totalEntriesToCreateGroup">
+                        <label class="form-label" for="productExpiryDate">Total Entries to create:</label>
+                        <div>
                             <input type="text" name="productBulkTotal" id="productBulkTotal" value="1"/>
                         </div>
                     </div>
 
                 </div>
 
-                <div class="controls controls-rw">
-                    <div class="control-group span3">
-                        <label class="control-label" for="productLocation">Location:</label>
-                        <div class="controls">
+                <div class="d-flex gap-2">
+                    <div class="mb-3 col-md-3">
+                        <label class="form-label" for="productLocation">Location:</label>
+                        <div>
                             <select name="product.location" id="productLocation">
                             </select>
                         </div>
@@ -612,12 +613,7 @@
 
     <script>
 
-        $('#productExpiryDate').datepicker({
-            format: "yyyy-mm-dd",
-            todayBtn: "linked",
-            autoclose: true,
-            todayHighlight: true
-        });
+        flatpickr('#productExpiryDate', {dateFormat: "Y-m-d", allowInput: true});
     </script>
 
 

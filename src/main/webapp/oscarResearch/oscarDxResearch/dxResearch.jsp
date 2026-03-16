@@ -88,20 +88,19 @@
                 src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
 
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+                <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+                src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/oscar-modal-dialog.js"></script>
 
         <link rel="stylesheet" type="text/css" media="all"
-              href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
+              href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" media="all"
-              href="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
-        <link rel="stylesheet" type="text/css" media="all"
-              href="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/css/bootstrap-theme.min.css"/>
+              href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/oscarResearch/oscarDxResearch/dxResearch.css">
 
         <script type="text/javascript">
@@ -251,11 +250,11 @@
                                     <tr>
                                         <td>
                                             <div class="input-group">
-								<span class="input-group-addon" id="basic-addon3">
+								<span class="input-group-text" id="basic-addon3">
 									<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.codingSystem"/>
 								</span>
 
-                                                <select class="form-control" name="selectedCodingSystem"
+                                                <select class="form-select" name="selectedCodingSystem"
                                                             <%=disabled%>>
                                                     <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
                                                         <option value="${codingSys}">

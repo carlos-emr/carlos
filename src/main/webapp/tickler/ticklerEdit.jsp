@@ -286,7 +286,9 @@
                 }
             }
         </script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
+              type="text/css">
+        <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"
               type="text/css">
 
     </head>
@@ -298,9 +300,9 @@
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
             <input type="hidden" name="parentAjaxId" value="<e:forHtml value='${param.parentAjaxId}' />"/>
             <h2><fmt:message key="tickler.ticklerEdit.title"/></h2>
-            <div id="error" class="alert alert-error" style="display:none;"></div>
+            <div id="error" class="alert alert-danger" style="display:none;"></div>
 
-            <table class="table table-condensed">
+            <table class="table table-sm">
 
                 <tr>
                     <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.demographicName"/></th>
@@ -377,7 +379,7 @@
                                                       style="font-weight:bold">
                         <fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</label></td>
                     <td>
-                        <select class="form-control" name="suggestedText" id="suggestedText">
+                        <select class="form-select" name="suggestedText" id="suggestedText">
                             <option value="">---</option>
                             <%
                                 TicklerTextSuggestDao ticklerTextSuggestDao = (TicklerTextSuggestDao) SpringUtils.getBean(TicklerTextSuggestDao.class);
@@ -389,7 +391,7 @@
                     </td>
 
                     <td colspan="2">
-                        <select class="form-control" name="status" id="status">
+                        <select class="form-select" name="status" id="status">
                                     <% if (t.getStatusDesc(vLocale).equals(stActive)){selected="selected";}else{selected="";}%>
                             <option <%=selected%> value="A"><fmt:message key="tickler.ticklerMain.stActive"/></option>
                                     <% if (t.getStatusDesc(vLocale).equals(stComplete)){selected="selected";}else{selected="";}%>
@@ -408,12 +410,12 @@
                     <td colspan="2" rowspan="7" style="border: none;">
                         <textarea class="form-control" rows="23" style="width:100%;" id="newMessage"
                                   name="newMessage"></textarea>
-                        <input type="button" class="btn" name="pasteMessage" onclick="pasteMessageText()"
+                        <input type="button" class="btn btn-secondary" name="pasteMessage" onclick="pasteMessageText()"
                                value="<fmt:message key="tickler.ticklerEdit.pasteMessage"/>"/>
                     </td>
 
                     <td colspan="2">
-                        <select class="form-control" name="priority" id="priority">
+                        <select class="form-select" name="priority" id="priority">
                             <% if (t.getPriorityWeb().equals(prHigh)) {
                                 selected = "selected";
                             } else {
@@ -446,7 +448,7 @@
                 </tr>
                 <tr>
                     <td colspan="2">
-                        <select class="form-control" name="assignedToProviders" id="assignedToProviders">
+                        <select class="form-select" name="assignedToProviders" id="assignedToProviders">
                             <%
                                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                                 List<Provider> providers = providerDao.getActiveProviders();
@@ -505,7 +507,7 @@
 
                         <input type="button" class="btn btn-primary" name="updateTickler"
                                value="<fmt:message key="tickler.ticklerEdit.update"/>" onClick="validate(this.form, false)"/>
-                        <input type="button" class="btn" name="cancelChangeTickler"
+                        <input type="button" class="btn btn-secondary" name="cancelChangeTickler"
                                value="<fmt:message key="tickler.ticklerEdit.cancel"/>" onClick="window.close()"/>
 
                     </td>

@@ -896,7 +896,7 @@ public class EForm extends EFormBase {
                 }
             }
 
-            String signatureCode = "<script type='text/javascript' src='oscar/library/jquery/jquery-3.6.4.min.js'></script>" +
+            String signatureCode = "<script type='text/javascript' src='oscar/library/jquery/jquery-3.7.1.min.js'></script>" +
                     "<script type='text/javascript' src='${oscar_javascript_path}signature.js'></script>" +
                     "<script type='text/javascript'>\n" +
                     "var _signatureRequestId = '" + signatureRequestId + "';\n" +

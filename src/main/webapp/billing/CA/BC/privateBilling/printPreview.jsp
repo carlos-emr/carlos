@@ -31,7 +31,7 @@
 <html>
 <head>
     <title>Private Billing Statement - Print Preview</title>
-    <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/3.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
     <style type="text/css">
         @media print, screen {
             body {
@@ -181,22 +181,20 @@
 </head>
 
 <body>
-<div class="noPrint btn-toolbar" role="toolbar" arial-label="Toolbar">
-    <div class="btn-group mr-2" role="group" arial-label="Button group 1">
+<div class="noPrint btn-toolbar" role="toolbar" aria-label="Toolbar">
+    <div class="btn-group me-2" role="group" aria-label="Button group 1">
         <button class="btn btn-primary" onclick="window.print();">
-            <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+            <span class="fa-solid fa-print" aria-hidden="true"></span>
             Print
         </button>
         <button class="btn btn-secondary" onclick="goBack();">Go Back</button>
     </div>
 
-    <div class="btn-group mr-2" role="group" arial-label="Button group 2">
-        <div class="checkbox">
-            <label>
-                <input type="checkbox" id="cbBillToClinic" style="margin-top:0px;" onclick="handleClickBillToClinic()"
-                       <c:if test="${billToClinic}">checked</c:if>
-                > Bill To Clinic
-            </label>
+    <div class="btn-group me-2" role="group" aria-label="Button group 2">
+        <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="cbBillToClinic" onclick="handleClickBillToClinic()"
+                       <c:if test="${billToClinic}">checked</c:if>>
+                <label class="form-check-label" for="cbBillToClinic">Bill To Clinic</label>
         </div>
     </div>
 </div>
@@ -490,21 +488,20 @@
     </div>
 </c:forEach>
 
-<div class="noPrint btn-toolbar" role="toolbar" arial-label="Toolbar">
-    <div class="btn-group mr-2" role="group" arial-label="Button group 1">
+<div class="noPrint btn-toolbar" role="toolbar" aria-label="Toolbar">
+    <div class="btn-group me-2" role="group" aria-label="Button group 1">
         <button class="btn btn-primary" onclick="window.print();">
-            <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+            <span class="fa-solid fa-print" aria-hidden="true"></span>
             Print
         </button>
         <button class="btn btn-secondary" onclick="goBack();">Go Back</button>
     </div>
 </div>
 
-<script type="text/javascript" src="${ctx}/js/jquery-1.12.3.js"></script>
-<script type="text/javascript" src="${ctx}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript">
     function handleClickBillToClinic() {
-        var billToClinic = $("input:checkbox#cbBillToClinic").is(":checked");
+        var billToClinic = document.getElementById('cbBillToClinic').checked;
         var encodedParams = encodeURIComponent('${billIds}');
         // redirect to print-ready page via controller
         window.location.href = "${ctx}/PrivateBillingController?action=printPreviewBills&billToClinic=" + billToClinic + "&billIds=" + encodedParams;

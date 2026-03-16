@@ -67,7 +67,7 @@ div#userSettings ul#userSettingsMenu li {
     display: inline-block;
 }
 
-div#userSettings ul#userSettingsMenu li .glyphicon {
+div#userSettings ul#userSettingsMenu li .fa-solid {
     position: relative;
     top: 1px;
     display: inline-block;
@@ -242,12 +242,12 @@ div#patient-label .copyable:hover {
 }
 
 
-.pull-right {
+.float-end {
     float: right !important;
     width: 10% !important;
 }
 
-.pull-right a {
+.float-end a {
     color: white;
     text-decoration: none;
     font-weight: normal;

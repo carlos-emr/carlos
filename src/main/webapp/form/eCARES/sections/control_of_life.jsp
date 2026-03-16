@@ -35,7 +35,7 @@
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_control_of_life_events" data-score="1">
-        <strong class="tt highlight" data-toggle="tooltip" data-field-name="control_of_life_events"
+        <strong class="tt highlight" data-bs-toggle="tooltip" data-field-name="control_of_life_events"
                 title="Reports positive ability to manage their life">
             Control of Life Events</strong>
     </div>
@@ -49,7 +49,7 @@
         <span class="pl-1">N</span>
     </label>
 
-    <span class="tt inline-block pl-8 font-bold" data-toggle="tooltip"
+    <span class="tt inline-block pl-8 font-bold" data-bs-toggle="tooltip"
           title="No recent change in ability to conduct usual activities" style="width: 210px;">
         <svg height="10" width="10">
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>

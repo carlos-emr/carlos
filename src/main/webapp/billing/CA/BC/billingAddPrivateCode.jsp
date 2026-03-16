@@ -53,7 +53,7 @@
 
     <head>
         <title>Add Private Billing Code</title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <script type="text/javascript">
 
             function isNumeric(strString) {
@@ -83,7 +83,7 @@
 
     <body>
     <h3>Add Private Billing Code</h3>
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do" method="post" onsubmit="return checkUnits();">
             <%
@@ -104,7 +104,7 @@
             Price:<br>
             <input type="text" name="value" id="value" /><br>
 
-            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="billingPrivateCodeAdjust.jsp" class="btn">Cancel</a>
+            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="billingPrivateCodeAdjust.jsp" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
     </body>

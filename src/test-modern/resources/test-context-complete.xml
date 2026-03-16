@@ -22,7 +22,7 @@
             <props>
                 <prop key="db_driver">org.h2.Driver</prop>
                 <prop key="db_uri">jdbc:h2:mem:testdb</prop>
-                <prop key="db_name">;MODE=MySQL;DB_CLOSE_DELAY=-1</prop>
+                <prop key="db_name">;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=VALUE,USER,VIEW,KEY,CHECK,ORDER,HOUR,TIME,YEAR,MONTH,DAY,FILE,TYPE,STATUS</prop>
                 <prop key="db_username">sa</prop>
                 <prop key="db_password"></prop>
                 <prop key="db_max_active">10</prop>

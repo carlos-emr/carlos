@@ -54,11 +54,11 @@
 
 <body>
 <div class="container-fluid">
-    <div class="row-fluid">
+    <div class="row">
 
         <h2>Resource Information</h2>
 
-        <table class="table table-striped  table-condensed">
+        <table class="table table-striped  table-sm">
             <c:forEach var="d" items="${detail.data}">
                 <tr>
                     <td>ID</td>

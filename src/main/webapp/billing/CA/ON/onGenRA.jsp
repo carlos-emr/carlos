@@ -81,7 +81,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script language="JavaScript">
@@ -132,13 +132,13 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></h3>
 
-<div class="container-fluid well">
-    <button class="btn btn-primary pull-right" type='button' name='print' value='Print'
+<div class="container-fluid card card-body bg-body-tertiary">
+    <button class="btn btn-primary float-end" type='button' name='print' value='Print'
             onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>
     <br/><br/>
 
-    <table class="table table-striped table-hover table-condensed">
+    <table class="table table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>Read Date</th>

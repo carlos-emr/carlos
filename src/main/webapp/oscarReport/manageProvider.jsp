@@ -95,7 +95,7 @@
             </div>
 
         <form name="form1" action="dbManageProvider.jsp" method="post">
-            <table class="table table-hover table-condensed table-striped">
+            <table class="table table-hover table-sm table-striped">
                 <thead>
                 <tr>
                     <th width="40%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgTeam"/></th>

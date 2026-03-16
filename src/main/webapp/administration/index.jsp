@@ -79,10 +79,9 @@
 
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-    <link href="<%=request.getContextPath() %>/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
-    <link href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
 
@@ -264,10 +263,6 @@
             color: #bd362f !important;
         }
 
-        .visible-print {
-            display: none !important;
-        }
-
         .dynamic-content, .dynamic-iframe-content {
             position: relative;
             overflow: hidden;
@@ -293,14 +288,6 @@
         }
 
         @media print {
-            .visible-print {
-                display: inherit !important;
-            }
-
-            .hidden-print {
-                display: none !important;
-            }
-
             /*this is so the link locatons don't display*/
             a:link:after, a:visited:after {
                 content: "";
@@ -308,14 +295,15 @@
         }
     </style>
 
-    <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery-1.9.1.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
 
     <oscar:customInterface section="main"/> <!--needs to be in header-->
 </head>
 
 <body>
 <div class="container-fluid">
-    <div class="row-fluid hidden-print" style="text-align:right">
+    <div class="row d-print-none" style="text-align:right">
         <i class=" fa-solid fa-circle-question"></i>
         <%if (resourcehelpHtml == "") { %>
         <a href="#" ONCLICK="popupPage(600,750,'<%=resourcebaseurl%>');return false;" title=""
@@ -342,13 +330,13 @@
         <i class=" fa-solid fa-circle-info" style="margin-left:10px;"></i> <a href="javascript:void(0)"
                                                                      onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></div>
 
-    <div class="row-fluid">
+    <div class="row">
 
 
         <%@ include file="leftNav.jspf" %>
 
 
-        <div class="span9 dynamic-content" id="dynamic-content">
+        <div class="col-md-9 dynamic-content" id="dynamic-content">
 
             <!-- ****DYNAMIC CONTENT**** -->
             <%
@@ -357,9 +345,9 @@
 
                 if (showMenu == null && loadPage == null) {
             %>
-            <div class="row-fluid">
+            <div class="row">
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.unlockAccount" rights="r">
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></h5></a>
@@ -368,13 +356,13 @@
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.provider"
                                    rights="r" reverse="<%=false%>">
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddProvider"/></h5></a>
                     </div>
 
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp"><i
                                 class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddLogin"/></h5></a>
@@ -383,7 +371,7 @@
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r"
                                    reverse="<%=false%>">
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href="${ctx}/eform/efmformmanager.jsp" class="contentLink defaultForms"><i
                                 class="fa-solid fa-file fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/></h5></a>
@@ -392,14 +380,14 @@
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.schedule" rights="r"
                                    reverse="<%=false%>">
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSetting"/></h5></a>
                     </div>
 
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><i
                                 class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h5></a>
@@ -408,7 +396,7 @@
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.encounter" rights="r"
                                    reverse="<%=false%>">
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providertemplate.jsp"><i
                                 class="fa-solid fa-suitcase-medical fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></h5></a>
@@ -417,7 +405,7 @@
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r"
                                    reverse="<%=false%>">
-                    <div class="well quick-links">
+                    <div class="card card-body bg-body-tertiary quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerPrivilege.jsp"><i
                                 class="fa-solid fa-wrench fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
@@ -434,12 +422,12 @@
     </div>
 </div>
 
-<!-- jquery-1.9.1.js - in nonPatientContextHeader.jspf -->
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.dataTables.js"></script>
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/DT_bootstrap.js"></script>
+<!-- jquery-3.7.1.min.js - in nonPatientContextHeader.jspf -->
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
 
 <script type="text/javascript">
@@ -455,7 +443,7 @@
                     }
 
                     // Re-initialize Bootstrap dropdowns for dynamically loaded content
-                    $("#dynamic-content .dropdown-toggle").dropdown();
+                    document.querySelectorAll('#dynamic-content .dropdown-toggle').forEach(function(el) { new bootstrap.Dropdown(el); });
 
                     // Toggle overflow for pages with CSS tooltips (for browser compatibility)
                     if ($("#dynamic-content .css-tooltip").length > 0) {
@@ -570,10 +558,10 @@
         jQuery.validator.setDefaults({
             debug: true,
             highlight: function (element) {
-                $(element).closest('.control-group').removeClass('success').addClass('error');
+                $(element).closest('.mb-3').removeClass('success').addClass('error');
             },
             success: function (element) {
-                element.closest('.control-group').removeClass('error').addClass('success');
+                element.closest('.mb-3').removeClass('error').addClass('success');
             }
         });
 
@@ -590,7 +578,7 @@
 
 
         // initialiaze toolstips
-        $('[rel=tooltip]').tooltip();
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) { new bootstrap.Tooltip(el); });
     });
 
     function popupPage(vheight, vwidth, varpage) {

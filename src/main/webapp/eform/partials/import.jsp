@@ -40,13 +40,14 @@
 %>
 <head>
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
-    <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
 
     <style>
         body {
@@ -54,13 +55,14 @@
         }
     </style>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 </head>
 
 <body>
 
 <c:if test="${ not empty status }">
     <div class="alert alert-success">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <strong>Success!</strong> Your eform was imported.
     </div>
 
@@ -77,7 +79,7 @@
         List<String> importErrors = (List<String>) request.getAttribute("importErrors");
         if (importErrors != null && importErrors.size() > 0) {
     %>
-    <div class="row-fluid">
+    <div class="row">
         <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
@@ -92,16 +94,16 @@
 <% } %>
         <ul>
             <%for (String importError : importErrors) {%>
-            <li class="text-error"><%=importError%>
+            <li class="text-danger"><%=importError%>
             </li>
             <%}%>
         </ul>
     </div>
     <%}%>
 
-    <div class="control-group">
-        <div class="controls">
-            <label class="control-label" for="zippedForm">Import eForm:</label>
+    <div class="mb-3">
+        <div>
+            <label class="form-label" for="zippedForm">Import eForm:</label>
             <input type="file" class="input-file" id="zippedForm" name="zippedForm" size="50" required/>
             <span style="color:red;">
 		         <i class="fa-solid fa-triangle-exclamation" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
@@ -110,8 +112,8 @@
         </div>
     </div>
 
-    <div class="row-fluid">
-        <span class="label label-info">Info: </span>
+    <div class="row">
+        <span class="badge bg-info">Info: </span>
         <span>Zip file format only</span>
     </div>
 

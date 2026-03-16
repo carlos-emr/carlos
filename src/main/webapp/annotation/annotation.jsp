@@ -233,7 +233,7 @@
         <input type="hidden" name="other_id" value="<%=oid%>"/>
         <input type="hidden" name="saved"/>
         <div class="header"></div>
-        <div class="panel">
+        <div class="card">
             <%=display%> Annotation:
             <%if (lastCmn != null) {%>
             <div class="label">Documentation Date: <%=lastCmn.getCreate_date()%>

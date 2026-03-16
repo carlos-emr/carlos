@@ -69,7 +69,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></title>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     </head>
     <script type="text/javascript">
         function setregexp() {
@@ -252,8 +252,8 @@
         <% } %>
 
         <!-- for MRP -->
-        <div class="well well-small">
-            <table class="table table-striped  table-condensed">
+        <div class="card card-body bg-body-tertiary">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDMRP" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp3())">
                     <tr>
@@ -316,8 +316,8 @@
         </div>
 
         <!-- for nurse -->
-        <div class="well well-small">
-            <table class="table table-striped  table-condensed">
+        <div class="card card-body bg-body-tertiary">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT1" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp1())">
                     <tr>
@@ -381,8 +381,8 @@
         </div>
 
         <!-- for midwife -->
-        <div class="well well-small">
-            <table class="table table-striped  table-condensed">
+        <div class="card card-body bg-body-tertiary">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT2" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp2())">
                     <tr>
@@ -448,8 +448,8 @@
         </div>
 
         <!--  for resident -->
-        <div class="well well-small">
-            <table class="table table-striped  table-condensed">
+        <div class="card card-body bg-body-tertiary">
+            <table class="table table-striped  table-sm">
                 <FORM NAME="ADDAPPT" METHOD="post"
                       ACTION="updatedemographicprovider.jsp" onsubmit="return(setregexp())">
                     <tr>

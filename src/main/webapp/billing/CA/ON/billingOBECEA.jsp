@@ -41,7 +41,7 @@
 <html>
     <head>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <title>EDT OBEC Response Report Generator</title>
     </head>
@@ -53,7 +53,7 @@
     <form action="${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload.do" method="POST" enctype="multipart/form-data">
 
 
-        <div class="alert alert-error">
+        <div class="alert alert-danger">
 
             <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
@@ -67,7 +67,7 @@
 <% } %>
         </div>
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             Select diskette <input type="file" name="file1" value="" required>
 
             <input type="submit" name="Submit" class="btn btn-primary" value="Create Report">

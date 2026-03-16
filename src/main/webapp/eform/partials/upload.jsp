@@ -40,11 +40,12 @@
 
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet">
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
 
         <style>
             body {
@@ -56,6 +57,7 @@
             }
         </style>
     <link rel="stylesheet" href="<%=Encode.forHtmlAttribute(request.getContextPath())%>/css/fontawesome-all.min.css">
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </head>
 
@@ -63,7 +65,7 @@
 
     <c:if test="${ not empty status }">
         <div class="alert alert-success">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success!</strong> Your eform was uploaded.
         </div>
 
@@ -75,7 +77,7 @@
 
     <form action="${pageContext.request.contextPath}/eform/uploadHtml.do" method="POST" onsubmit="return checkFormAndDisable()"
                enctype="multipart/form-data">
-        <div class="alert alert-error" style="display:none"><% 
+        <div class="alert alert-danger" style="display:none"><% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
@@ -89,7 +91,7 @@
 <% } %></div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/> <span class="text-error textExists" style='display:none;'>Name already exists</span><br>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/> <span class="text-danger textExists" style='display:none;'>Name already exists</span><br>
             <input type="text" name="formName" size="30" class="check" required>
         </div>
 
@@ -114,15 +116,13 @@
         </div>
 
         <div class='uploadEformTitle'>
-            <div>
-                <label class="checkbox">
-                    <input type="checkbox" name="showLatestFormOnly" value="true"/><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/>
-                </label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="showLatestFormOnly" id="showLatestFormOnly" value="true"/>
+                <label class="form-check-label" for="showLatestFormOnly"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.showLatestFormOnly"/></label>
             </div>
-            <div>
-                <label class="checkbox">
-                    <input type="checkbox" name="patientIndependent" value="true"/><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/>
-                </label>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="patientIndependent" id="patientIndependent" value="true"/>
+                <label class="form-check-label" for="patientIndependent"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.patientIndependent"/></label>
             </div>
         </div>
 
@@ -139,8 +139,6 @@
     </form>
 
     <div style="font-size:0; line-height:0">&nbsp;</div>
-
-    <script src="<%=request.getContextPath() %>/js/jquery-1.12.3.js"></script>
 
     <script>
         $(document).ready(function () {

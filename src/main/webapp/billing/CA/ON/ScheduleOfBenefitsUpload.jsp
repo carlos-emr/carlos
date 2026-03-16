@@ -48,7 +48,7 @@
 
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/></title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <script type="text/javascript" LANGUAGE="JavaScript">
 
@@ -107,10 +107,10 @@
 
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/> </h3>
-    <div class="container-fluid form-inline">
+    <div class="container-fluid d-flex flex-wrap align-items-center gap-2">
 
 
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
 
             <div>
                 1. Download the text file from <a
@@ -163,7 +163,7 @@
                 if (outcome != null && outcome.equals("success")) { %>
             <div class="alert alert-success">SOB File Successfully Uploaded</div>
             <%} else if (outcome != null && outcome.equals("exception")) { %>
-            <div class="alert alert-error">There was a problem uploading this SOB file</div>
+            <div class="alert alert-danger">There was a problem uploading this SOB file</div>
             <%} else if (outcome != null && outcome.equals("uploadedPreviously")) { %>
             <div class="alert ">This file has already been processed</div>
             <%}%>
@@ -175,7 +175,7 @@
 
                 <form action="${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleChange.do" method="POST"
                         id="sbForm">
-                    <table class="table table-striped  table-condensed">
+                    <table class="table table-striped  table-sm">
                         <tr>
                             <th nowrap><oscar:oscarPropertiesCheck property="SOB_CHECKALL"
                                                                    value="yes">

@@ -63,9 +63,10 @@
 <html>
     <head>
         <title>Flowsheet Editor</title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script src="<%=request.getContextPath() %>/js/global.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
 
@@ -74,7 +75,7 @@
             String measurementType = request.getParameter("measurementType");
         %>
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
 
             });
 

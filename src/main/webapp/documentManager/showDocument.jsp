@@ -300,8 +300,8 @@
 
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
-        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
@@ -323,6 +323,15 @@
 
         <script type="text/javascript">
 
+            function getCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!el) {
+                    console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
+                    return '';
+                }
+                return el.value;
+            }
+
             function renderCalendar(id, inputFieldId) {
                 Calendar.setup({inputField: inputFieldId, ifFormat: "%Y-%m-%d", showsTime: false, button: id});
 
@@ -330,14 +339,14 @@
 
             function handleDocSave(docid, action) {
                 var url = contextpath + "/documentManager/inboxManage.do";
-                var data = 'method=isDocumentLinkedToDemographic&docId=' + encodeURIComponent(docid);
+                var params = new URLSearchParams({method: 'isDocumentLinkedToDemographic', docId: docid, 'CSRF-TOKEN': getCsrfToken()});
 
                 fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
-                    body: data
+                    body: params.toString()
                 })
                 .then(function(response) {
                     return response.json();
@@ -373,7 +382,7 @@
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
-                    body: "method=rotate90&document=" + encodeURIComponent(id)
+                    body: "method=rotate90&document=" + encodeURIComponent(id) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken())
                 })
                 .then(function(response) {
                     if (btn) btn.disabled = false;
@@ -939,7 +948,8 @@
                 method: 'removeLinkFromDocument',
                 docType: docTypeStr,
                 docId: docId,
-                providerNo: providerNo
+                providerNo: providerNo,
+                'CSRF-TOKEN': getCsrfToken()
             });
             fetch(contextpath + '/documentManager/ManageDocument.do', {
                 method: 'POST',
@@ -1100,7 +1110,7 @@
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
         var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
-        var data = 'method=isDocumentLinkedToDemographic&docId=<%= Encode.forJavaScript(docId) %>';
+        var data = 'method=isDocumentLinkedToDemographic&docId=<%= Encode.forJavaScript(docId) %>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -1122,11 +1132,12 @@
     function runDocMacroInternal(name, formid, closeOnSuccess, demographicNo) {
         var url = '<%=request.getContextPath()%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
-        var data = new URLSearchParams(new FormData(formEl)).toString();
+        var params = new URLSearchParams(new FormData(formEl));
+        if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data
+            body: params.toString()
         })
         .then(function(response) {
             if (!response.ok) {

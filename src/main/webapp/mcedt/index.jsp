@@ -142,7 +142,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
 
             <h2>MCEDT Resources</h2>
 
@@ -153,11 +153,11 @@
                 <input id="method" name="method" type="hidden" value=""/>
 
                 <div class="navbar">
-                    <div class="navbar-inner"
+                    <div class="container-fluid"
                          style="vertical-align: middle !important;">
 
                         Resource Type:
-                        <select id="resourceType" name="resourceType" class="input-xxlarge">
+                        <select id="resourceType" name="resourceType" class="form-select w-auto d-inline-block">
                             <option value="" ${empty pageContext.request.getParameter('resourceType') ? 'selected' : ''}> - All - </option>
                             <c:forEach var="r" items="${mcedtTypeList.data}">
                                 <option value="${r.resourceType}"
@@ -190,7 +190,7 @@
                             </c:forEach>
                         </select>
 
-                        <button type="button" class="btn" onclick="return changeDisplay();">Display</button>
+                        <button type="button" class="btn btn-secondary" onclick="return changeDisplay();">Display</button>
                     </div>
                 </div>
                 <!-- navbar -->
@@ -221,11 +221,11 @@
                             <td><c:out value="${r.status}"/></td>
                             <td><c:out value="${r.description}"/></td>
                             <td>
-                                <button class="btn"
+                                <button class="btn btn-secondary"
                                         onclick="return updateSelected(${r.resourceID}, this)">Update
                                 </button>
 
-                                <button class="btn"
+                                <button class="btn btn-secondary"
                                         onclick="return getInfo(${r.resourceID}, this)">Display
                                     Info
                                 </button>
@@ -235,16 +235,16 @@
                 </table>
 
                 <div>
-                    <button class="btn" onclick="return deleteSelected(this);">Delete
+                    <button class="btn btn-secondary" onclick="return deleteSelected(this);">Delete
                         Selected
                     </button>
-                    <button class="btn" onclick="return submitSelected(this);">Submit
+                    <button class="btn btn-secondary" onclick="return submitSelected(this);">Submit
                         Selected
                     </button>
-                    <button class="btn" onclick="return downloadSelected();">Download
+                    <button class="btn btn-secondary" onclick="return downloadSelected();">Download
                         Selected
                     </button>
-                    <button class="btn" onclick="return createNew(this);">Create
+                    <button class="btn btn-secondary" onclick="return createNew(this);">Create
                         New Upload
                     </button>
                 </div>

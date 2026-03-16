@@ -253,7 +253,8 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
             List<CtlDocument> results = query.getResultList();
 
             // Then
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId().getModule()).isEqualTo("demographic");
         }
     }
 
@@ -291,7 +292,9 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
             List<Appointment> results = query.getResultList();
 
             // Then
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getStatus()).isEqualTo("t");
+            assertThat(results.get(0).getName()).isEqualTo("Test Patient");
         }
 
         @Test
@@ -311,8 +314,10 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
             @SuppressWarnings("unchecked")
             List<Facility> results = query.getResultList();
 
-            // Then
+            // Then - seed data may include other non-disabled facilities
             assertThat(results).isNotEmpty();
+            assertThat(results).allSatisfy(r -> assertThat(r.isDisabled()).isFalse());
+            assertThat(results).extracting(Facility::getName).contains("Bool Test");
         }
     }
 

@@ -32,12 +32,11 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></title>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
@@ -48,7 +47,7 @@
         }
 
         function demographicSearch() {
-            var search_param = $('#nameForlooksOnly').val();
+            var search_param = document.getElementById('nameForlooksOnly').value;
             var url = '<%= request.getContextPath() %>/demographic/demographicsearch2reportresults.jsp';
             url += '?originalpage=' + escape('<%=request.getContextPath()%>/billing/CA/ON/endYearStatement.do?demosearch=true');
             url += '&search_mode=search_name';
@@ -77,7 +76,7 @@
         }
 
         function validateFields() {
-            if ($('#nameForlooksOnly').val() == '') {
+            if (document.getElementById('nameForlooksOnly').value == '') {
                 alert('Please select a valid patient for this report.');
                 return false;
             }
@@ -91,7 +90,7 @@
     </script>
 
     <style>
-        .well {
+        .card-body {
             padding-left: 8px;
             padding-right: 8px;
         }
@@ -109,14 +108,14 @@
 
 <div class="container-fluid">
 
-    <div class="row well">
+    <div class="row card card-body bg-body-tertiary">
         <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do" method="post">
             <input type="hidden" name="demographicNoParam" id="demographicNoParam"/>
 
-            <div class="span5">
+            <div class="col-md-5">
                 Patient Name: <br>
-                <div class="input-append">
-                    <input class="span4" id="nameForlooksOnly" type="text" value="<%=name%>">
+                <div class="input-group">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<%=name%>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
@@ -126,32 +125,32 @@
             <input type="hidden" name="lastNameParam" id="lname" value="<%=request.getParameter("lastNameParam")%>"/>
 
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>Start Date:</label>
-                <div class="input-append">
-                    <input type="text" style="width:90px" name="fromDateParam" id="fromDateParam"
+                <div class="input-group">
+                    <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
                            value="<%= request.getAttribute("fromDateParam") != null ? request.getAttribute("fromDateParam") : "" %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
 
-            <div class="span2">
+            <div class="col-md-2">
                 <label>End Date:</label>
-                <div class="input-append">
-                    <input type="text" style="width:90px" name="toDateParam" id="toDateParam"
+                <div class="input-group">
+                    <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
                            value="<%= request.getAttribute("toDateParam") != null ? request.getAttribute("toDateParam") : "" %>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
-            <div class="span10">
-                <input class="btn" type="submit" name="search" value="Create Statement"
+            <div class="col-md-10">
+                <input class="btn btn-secondary" type="submit" name="search" value="Create Statement"
                        onclick="return validateFields();">
 
-                <input class="btn" type="submit" name="pdf" value="Print PDF"
+                <input class="btn btn-secondary" type="submit" name="pdf" value="Print PDF"
                        <c:if test="${empty result}">disabled="disabled"</c:if> >
             </div>
         </form>
@@ -174,7 +173,7 @@
 <% } %></div>
 
     <c:if test="${not empty summary}">
-        <table class="table table-striped table-condensed">
+        <table class="table table-striped table-sm">
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td align="left" colspan="2">Patient Information</td>
@@ -208,7 +207,7 @@
     <br/>
 
     <c:if test="${not empty result}">
-        <table class="table table-striped table-condensed">
+        <table class="table table-striped table-sm">
             <tr bgcolor="#ccffcc">
                 <th>INVOICE NUMBER</th>
                 <th>INVOICE DATE</th>
@@ -255,8 +254,8 @@
 </div><!--container-->
 </body>
 <script type="text/javascript">
-    var startDate = $("#fromDateParam").datepicker({format: "yyyy-mm-dd"});
-    var endDate = $("#toDateParam").datepicker({format: "yyyy-mm-dd"});
+    flatpickr("#fromDateParam", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#toDateParam", {dateFormat: "Y-m-d", allowInput: true});
 
 </script>
 </html>

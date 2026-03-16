@@ -19,7 +19,7 @@ if(!authed) {
 	return;
 }
 %>
-<table class="table table-striped table-hover table-condensed" id="content">
+<table class="table table-striped table-hover table-sm" id="content">
 	<thead>
 		<tr>
 			<th class="small">Type</th>

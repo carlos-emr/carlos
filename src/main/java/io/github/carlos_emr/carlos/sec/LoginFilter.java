@@ -203,7 +203,6 @@ public class LoginFilter implements Filter {
             "/provider/tabAlertsRefresh.jsp",
             "/SystemMessage.do",
             "/FacilityMessage.do",
-            "/js/jquery-1.7.1.min.js",
             "/js/bootstrap",
             "/css/bootstrap",
             "/css/Roboto.css",

@@ -192,7 +192,7 @@ Ontario, Canada
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.title"/></title>
@@ -532,7 +532,6 @@ Ontario, Canada
 
 
             $(document).ready(function () {
-		// $( document ).tooltip();
 
                 var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
 
@@ -755,7 +754,7 @@ Ontario, Canada
             });
 
             function checkPageLock() {
-                $("#searchBtn").attr("disabled", "disabled");
+                document.getElementById('searchBtn').setAttribute('disabled', 'disabled');
                 calculateEndTime();
                 var endTime = document.forms[0].end_time.value;
                 var startTime = document.forms[0].start_time.value;
@@ -805,25 +804,25 @@ Ontario, Canada
                             });
 
                             var lockedMsg = locked ? '<span style="color:red" title="' + lockedProviderName + '">&nbsp(locked)</span>' : '';
-                            $("#lock_notification").html(
+                            document.getElementById('lock_notification').innerHTML =
                                 '<span title="' + providerNames + '">Viewers:' + data.length + lockedMsg + '</span>'
-                            );
+                            ;
 
 
                             if (haveLock == true) { //i have the lock
-                                $("#addButton").show();
-                                $("#pasteButton").show();
-                                $("#apptRepeatButton").show();
+                                document.getElementById('addButton').style.display = '';
+                                document.getElementById('pasteButton').style.display = '';
+                                document.getElementById('apptRepeatButton').style.display = '';
                             } else if (locked && !haveLock) { //someone else has lock.
-                                $("#addButton").hide();
-                                $("#pasteButton").hide();
-                                $("#apptRepeatButton").hide();
+                                document.getElementById('addButton').style.display = 'none';
+                                document.getElementById('pasteButton').style.display = 'none';
+                                document.getElementById('apptRepeatButton').style.display = 'none';
                             } else { //no lock
-                                $("#addButton").show();
-                                $("#pasteButton").show();
-                                $("#apptRepeatButton").show();
+                                document.getElementById('addButton').style.display = '';
+                                document.getElementById('pasteButton').style.display = '';
+                                document.getElementById('apptRepeatButton').style.display = '';
                             }
-                            $("#searchBtn").removeAttr("disabled");
+                            document.getElementById('searchBtn').removeAttribute('disabled');
                         }
                     }
                 );
@@ -1442,7 +1441,7 @@ Ontario, Canada
                                 numSameDayGroupApptsPaste = appts.size() > 0 ? new Long(appts.size()) : 0;
                             }
                     %>
-                    <input type="button" id="pasteButton" value="Paste" class="btn"
+                    <input type="button" id="pasteButton" value="Paste" class="btn btn-secondary"
                            onclick="pasteAppt(<%=(numSameDayGroupApptsPaste > 0)%>);">
                     <% }%>
 

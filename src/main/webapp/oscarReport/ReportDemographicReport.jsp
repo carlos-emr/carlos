@@ -100,18 +100,18 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript">
-            $(document).ready(function () {
-                $("#select_demographic_no").on('change', function () {
+            document.addEventListener('DOMContentLoaded', function () {
+                document.getElementById('select_demographic_no').addEventListener('change', function () {
                     updateSetBox();
                 });
                 updateSetBox();
             });
 
             function updateSetBox() {
-                if ($("#select_demographic_no").is(":checked")) {
-                    $("#submitPatientSet").show();
+                if (document.getElementById('select_demographic_no').checked) {
+                    document.getElementById('submitPatientSet').style.display = '';
                 } else {
-                    $("#submitPatientSet").hide();
+                    document.getElementById('submitPatientSet').style.display = 'none';
                 }
             }
 

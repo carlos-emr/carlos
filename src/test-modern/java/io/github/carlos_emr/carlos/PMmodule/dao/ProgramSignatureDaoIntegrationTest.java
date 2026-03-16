@@ -416,8 +416,9 @@ public class ProgramSignatureDaoIntegrationTest extends CarlosTestBase {
         programSignatureDao.saveProgramSignature(ps);
 
         // Then - updateDate should be set to approximately "now" (not null, not before save)
-        assertThat(ps.getUpdateDate()).isNotNull();
+        Date afterSave = new Date();
         assertThat(ps.getUpdateDate()).isAfterOrEqualTo(beforeSave);
+        assertThat(ps.getUpdateDate()).isBeforeOrEqualTo(afterSave);
     }
 
     /**

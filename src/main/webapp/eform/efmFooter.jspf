@@ -30,19 +30,20 @@
 --%>
 
 
-<div id="confirmModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
+<div id="confirmModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
+<div class="modal-dialog"><div class="modal-content">
 <div class="modal-header">
-<button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
-<h3 id="myModalLabel">Modal header</h3>
+<h3 id="confirmModalLabel">Modal header</h3>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <div class="modal-body" id="confirmModalBody">
 <p></p>
 </div>
 <div class="modal-footer">
-<button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+<button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">Cancel</button>
 <a href="" class="btn btn-danger contentLink" id="dataConfirmed">Delete</a>
 </div>
-</div>
+</div></div></div>
 
 
 
@@ -63,7 +64,7 @@ $(document).ready(function() {
         } else {
             $('#dataConfirmed').attr('href', href).removeData('confirmForm');
         }
-        $('#confirmModal').modal('show');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).show();
         return false;
     });
 
@@ -74,7 +75,7 @@ $(document).ready(function() {
         if (confirmForm && confirmForm.length) {
             confirmForm.submit();
         }
-        $('#confirmModal').modal('hide');
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();
     });
     
     $(document).on("click", '#dataConfirmOK', function(e) {
@@ -96,7 +97,7 @@ $(document).ready(function() {
                 $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
             }
             // Re-initialize Bootstrap dropdowns for dynamically loaded content
-            $("#dynamic-content .dropdown-toggle").dropdown();
+            document.querySelectorAll('#dynamic-content .dropdown-toggle').forEach(function(el) { new bootstrap.Dropdown(el); });
         });
     });
 });

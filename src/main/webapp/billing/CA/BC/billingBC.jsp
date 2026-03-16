@@ -347,28 +347,27 @@
     </title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
 
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker-standalone.css"/>
+          href="${pageContext.servletContext.contextPath}/library/flatpickr/flatpickr.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/css/bootstrap-datetimepicker.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
+          href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
 
-    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/moment.js"></script>
+    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/flatpickr/flatpickr.min.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <script type="text/javascript"
@@ -381,12 +380,12 @@
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/boxover.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/dxJSONCodeSearch.js"></script>
     <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery.validate-1.19.5.min.js"></script>
+            src="${pageContext.servletContext.contextPath}/library/jquery/jquery.validate-1.21.0.min.js"></script>
 
     <style>
 
         :root * {
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif, 'Glyphicons Halflings';
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 
             line-height: 1 !important;
         }
@@ -568,7 +567,7 @@
             border: 0;
         }
 
-        .has-error {
+        .is-invalid {
             background-color: #f2dede;
         }
 
@@ -1029,8 +1028,13 @@
 
             /* for setting times */
             jQuery(function () {
-                jQuery('.datetimepicker').datetimepicker({
-                    format: 'HH:mm'
+                flatpickr('.datetimepicker', {
+                    enableTime: true,
+                    noCalendar: true,
+                    dateFormat: 'H:i',
+                    time_24hr: true,
+                    allowInput: true,
+                    wrap: true
                 });
             });
 
@@ -1226,10 +1230,10 @@
                  * Error highlight and message methods
                  */
                 highlight: function (element) {
-                    jQuery(element).addClass('has-error');
+                    jQuery(element).addClass('is-invalid');
                 },
                 unhighlight: function (element) {
-                    jQuery(element).removeClass('has-error');
+                    jQuery(element).removeClass('is-invalid');
                 },
                 submitHandler: function (form) {
                     toggleWCB();
@@ -1269,24 +1273,24 @@
         <img alt="OSCAR EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
     </div>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h3>
-    <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>
+    <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>
     <label class="label-text"><%=Encode.forHtmlContent(demo.getLastName())%>
         , <%=Encode.forHtmlContent(demo.getFirstName())%>
     </label>
 
-    <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.age"/></span>
+    <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.age"/></span>
     <label class="label-text"><%=demo.getAge()%>
     </label>
 
     <%-- 	Keep until confirmed not needed.
 
-            <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.status"/></span>
+            <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.status"/></span>
             <strong class="label-text"><%=demo.getPatientStatus()%></label>
 
-      <span class="badge badge-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.roster"/></span>
+      <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient.roster"/></span>
             <label><%=demo.getRosterStatus()%></label>
     --%>
-    <span class="badge badge-primary" title="Most Responsible Provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.assignedProvider"/></span>
+    <span class="badge bg-primary" title="Most Responsible Provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.assignedProvider"/></span>
     <label class="label-text">
         <c:choose>
             <c:when test="<%= demo.getProviderNo() != null && ! demo.getProviderNo().trim().isEmpty() %>">
@@ -1342,7 +1346,7 @@
         </div>
         <%}%>
 
-        <form style="bcBillingForm" class="form-inline" method="post"
+        <form style="bcBillingForm" class="d-flex flex-wrap align-items-center gap-2" method="post"
               action="${pageContext.request.contextPath}/billing/CA/BC/CreateBilling.do" onsubmit="toggleWCB();">
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">
@@ -1428,11 +1432,11 @@
                             <table class="tool-bar" id="billingPatientInfo">
                                 <tr>
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="selectBillingForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingform"/></label>
 
-                                            <select class="form-control" id="selectBillingForm">
+                                            <select class="form-select" id="selectBillingForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
                                                 <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
                                                         selected
@@ -1448,10 +1452,10 @@
                                     </td>
 
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_provider"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.provider.billProvider"/></label>
-                                            <select id="xml_provider" class="form-control"
+                                            <select id="xml_provider" class="form-select"
                                                          name="xml_provider">
 
                                                 <option value="">
@@ -1469,10 +1473,10 @@
                                     </td>
 
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_billtype"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingtype"/></label>
-                                            <select class="form-control" id="xml_billtype"
+                                            <select class="form-select" id="xml_billtype"
                                                          property="xml_billtype" onchange="CheckType();gotoPrivate();">
                                                 <option value="MSP">Bill MSP</option>
                                                 <option value="WCB">Bill WCB</option>
@@ -1485,10 +1489,10 @@
 
                                     </td>
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_location">Clarification Code</label>
-                                            <select class="form-control" id="xml_location"
+                                            <select class="form-select" id="xml_location"
                                                          name="xml_location">
                                                 <%
                                                     for (int i = 0; i < billlocation.length; i++) {
@@ -1505,10 +1509,10 @@
                                     </td>
 
                                     <td>
-                                        <div class="form-group">
+                                        <div class="mb-3">
 
                                             <label for="xml_visittype">Service Location</label>
-                                            <select class="form-control" id="xml_visittype"
+                                            <select class="form-select" id="xml_visittype"
                                                          name="xml_visittype">
                                                 <%
                                                     for (BillingFormData.BillingVisit billingVisit : billvisit) {
@@ -1533,7 +1537,7 @@
                         <table class="tool-bar">
                             <tr>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <a href="javascript:void(0)" id="hlSDate">
                                             <label for="xml_appointment_date"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.servicedate"/></label>
@@ -1545,7 +1549,7 @@
 
                                 </td>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <a href="javascript:void(0)" id="serviceToDate">
                                             <label for="service_to_date">To Date</label>
@@ -1557,10 +1561,10 @@
 
                                 </td>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="afterHours">After Hours</label>
-                                        <select class="form-control" name="afterHours"
+                                        <select class="form-select" name="afterHours"
                                                      id="afterHours">
                                             <option value="0">No</option>
                                             <option value="E">Evening</option>
@@ -1571,7 +1575,7 @@
 
                                 </td>
                                 <td title="(HHMM 24hr):">
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="timeCall">Time Call</label>
                                         <input type="text" class="form-control" name="timeCall" id="timeCall"/>
@@ -1581,28 +1585,28 @@
 
                                 <td>
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="serviceStartTime">Start</label>
                                         <div class='input-group date datetimepicker'>
 
-                                            <input type='text' id="serviceStartTime" class="form-control"/>
+                                            <input type='text' id="serviceStartTime" class="form-control" data-input/>
                                             <input type=hidden id="xml_starttime_hr" name="xml_starttime_hr"/>
                                             <input type=hidden id="xml_starttime_min" name="xml_starttime_min"/>
-                                            <span class="input-group-addon">
-		                        <span class="glyphicon glyphicon-time"></span>
+                                            <span class="input-group-text">
+		                        <span class="fa-solid fa-clock"></span>
 		                    </span>
                                         </div>
                                     </div>
                                 <td>
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="serviceEndTime">End</label>
                                         <div class='input-group date datetimepicker'>
-                                            <input type='text' id="serviceEndTime" class="form-control"/>
+                                            <input type='text' id="serviceEndTime" class="form-control" data-input/>
                                             <input type=hidden id="xml_endtime_hr" name="xml_endtime_hr"/>
                                             <input type=hidden id="xml_endtime_min" name="xml_endtime_min"/>
-                                            <span class="input-group-addon">
-		                        <span class="glyphicon glyphicon-time"></span>
+                                            <span class="input-group-text">
+		                        <span class="fa-solid fa-clock"></span>
 		                    </span>
                                         </div>
                                     </div>
@@ -1610,10 +1614,10 @@
                                 </td>
 
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="dependent">Dependent</label>
-                                        <select class="form-control" name="dependent" id="dependent">
+                                        <select class="form-select" name="dependent" id="dependent">
                                             <option value="00">No</option>
                                             <option value="66">Yes</option>
                                         </select>
@@ -1621,10 +1625,10 @@
 
                                 </td>
                                 <td title="Submission Code">
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="submissionCode">Sub Code</label>
-                                        <select class="form-control" name="submissionCode"
+                                        <select class="form-select" name="submissionCode"
                                                      id="submissionCode">
                                             <option value="0">O - Normal</option>
                                             <option value="D">D - Duplicate</option>
@@ -1641,7 +1645,7 @@
 
                                 </td>
                                 <td>
-                                    <div class="form-group">
+                                    <div class="mb-3">
 
                                         <label for="xml_encounter">Payment Method</label>
                                         <%
@@ -1666,7 +1670,7 @@
                                             request.setAttribute("paymentMethodList", types);
                                             request.setAttribute("defaultPaymentMethod", OscarProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
                                         %>
-                                        <select class="form-control" id="xml_encounter" name="xml_encounter">
+                                        <select class="form-select" id="xml_encounter" name="xml_encounter">
                                             <c:forEach items="${paymentMethodList}" var="paymentMethod">
                                                 <option value="${paymentMethod.id}" ${ defaultPaymentMethod eq paymentMethod.id ? 'selected' : ''}>${paymentMethod.paymentType}</option>
                                             </c:forEach>
@@ -1676,7 +1680,7 @@
                                 </td>
                                 <td>
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="facilityNum">BCP Facility</label>
                                         <input type="text" class="form-control" name="facilityNum"
                                                    id="facilityNum" size="5" maxlength="5"/>
@@ -1687,7 +1691,7 @@
                                 <!-- sub facility not currently used. But it does work. Unhide to use -->
                                 <td style="display: none;">
 
-                                    <div class="form-group">
+                                    <div class="mb-3">
                                         <label for="facilitySubNum">Sub Facility</label>
                                         <input type="text" class="form-control" name="facilitySubNum"
                                                    id="facilitySubNum" size="5" maxlength="5"/>
@@ -1705,7 +1709,7 @@
                                 <tr>
                                     <td>
                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.admissiondate"/>
-                                        <div class="form-group">
+                                        <div class="mb-3">
                                             <div class='input-group text'>
 
                                                 <input type="text" name="xml_vdate" readonly="true" value="" size="10"
@@ -1754,14 +1758,14 @@
                                 <tr>
                                     <td>
 
-                                        <div class='form-group'>
+                                        <div class='mb-3'>
                                             <label for="icbc_claim_no">ICBC Claim No</label>
                                             <input type="text" class="form-control" name="icbc_claim_no"
                                                        id="icbc_claim_no" maxlength="8"/>
                                         </div>
-                                        <div class='form-group'>
+                                        <div class='mb-3'>
                                             <label for="mva_claim_code">MVA?</label>
-                                            <select class="form-control" name="mva_claim_code"
+                                            <select class="form-select" name="mva_claim_code"
                                                          id="mva_claim_code">
                                                 <option value="N">No</option>
                                                 <option value="Y">Yes</option>
@@ -1781,10 +1785,10 @@
                     <td style="display:flex;gap:3px;">
 
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 25%;">
-                            <table class="table table-condensed table-borderless">
+                            <table class="table table-sm table-borderless">
                                 <tr>
                                     <td>
-                                        <table class="table table-condensed table-borderless">
+                                        <table class="table table-sm table-borderless">
                                             <tr>
                                                 <td>
                                                     <label>
@@ -1802,16 +1806,14 @@
                                                     <div class="input-group">
                                                         <input type="text" class="form-control" name="xml_refer1"
                                                                    onkeypress="return grabEnter(event,'ReferralScriptAttach1()')"/>
-                                                        <span class="input-group-btn">
-		                     	<button type="button" class="btn btn-primary"
-                                        onclick="ReferralScriptAttach('xml_refer1')">
-	                            	<span class="glyphicon glyphicon-search"></span>
-	                          	</button>
-                          	</span>
+                                                        <button type="button" class="btn btn-primary"
+                                                                onclick="ReferralScriptAttach('xml_refer1')">
+                                                            <span class="fa-solid fa-magnifying-glass"></span>
+                                                        </button>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <select class="form-control" name="refertype1">
+                                                    <select class="form-select" name="refertype1">
                                                         <option value="">Select Type</option>
                                                         <option value="T">Refer To</option>
                                                         <option value="B">Refer By</option>
@@ -1824,16 +1826,14 @@
                                                     <div class="input-group">
                                                         <input type="text" class="form-control" name="xml_refer2"
                                                                    onkeypress="return grabEnter(event,'ReferralScriptAttach2()')"/>
-                                                        <span class="input-group-btn">
-			                     	<button type="button" class="btn btn-primary"
-                                            onclick="ReferralScriptAttach('xml_refer2')">
-		                            	<span class="glyphicon glyphicon-search"></span>
-		                          	</button>
-	                          	</span>
+                                                        <button type="button" class="btn btn-primary"
+                                                                onclick="ReferralScriptAttach('xml_refer2')">
+                                                            <span class="fa-solid fa-magnifying-glass"></span>
+                                                        </button>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <select class="form-control" name="refertype2">
+                                                    <select class="form-select" name="refertype2">
                                                         <option value="">Select Type</option>
                                                         <option value="T">Refer To</option>
                                                         <option value="B">Refer By</option>
@@ -1848,12 +1848,12 @@
                                 <tr>
                                     <td>
 
-                                        <table class="table table-condensed table-borderless"
+                                        <table class="table table-sm table-borderless"
                                                style="max-height: 100px;display: block;overflow-y: scroll">
                                             <tr>
                                                 <td>
 
-                                                    <table class="table table-condensed table-borderless">
+                                                    <table class="table table-sm table-borderless">
                                                         <tr>
                                                             <td colspan="2">Recent Referral Doctors</td>
                                                         </tr>
@@ -1898,7 +1898,7 @@
                                                 </td>
                                                 <td>
 
-                                                    <table class="table table-condensed table-borderless">
+                                                    <table class="table table-sm table-borderless">
                                                         <tr>
                                                             <td style="border-top:none;" colspan="2">Referral Doctor on
                                                                 Master Record
@@ -1930,7 +1930,7 @@
                         </div>
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 25%;">
 
-                            <table class="table table-condensed table-borderless">
+                            <table class="table table-sm table-borderless">
                                 <tr>
                                     <td>
                                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.service.otherservice"/></label>
@@ -1942,91 +1942,79 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
- 							<span class="input-group-addon">
+ 							<span class="input-group-text">
 								1
 							</span>
                                             <input type="text" class="form-control" name="xml_other1"
                                                        onblur="checkSelectedCodes()"
                                                        onkeypress="return grabEnter(event,'OtherScriptAttach()')"/>
-                                            <span class="input-group-btn">
-		                     	<button type="button" class="btn btn-primary" title="Search code"
-                                        onclick="OtherScriptAttach('xml_other1')">
-	                            	<span class="glyphicon glyphicon-search"></span>
-	                          	</button>
-                          	</span>
+                                            <button type="button" class="btn btn-primary" title="Search code"
+                                                    onclick="OtherScriptAttach('xml_other1')">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                     <td style="width:40%;">
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other1_unit" size="6"
                                                        maxlength="6" id="xml_other1_unit"/>
-                                            <span class="input-group-btn">
-                            	<button type="button" class="btn btn-primary" value=".5"
-                                        onClick="$('xml_other1_unit').value = '0.5'">.5</button>
-                            </span>
+                                            <button type="button" class="btn btn-primary" value=".5"
+                                                    onClick="$('xml_other1_unit').value = '0.5'">.5</button>
                                         </div>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
                                         <div class="input-group">
- 							<span class="input-group-addon">
+ 							<span class="input-group-text">
 								2
 							</span>
                                             <input type="text" class="form-control" name="xml_other2"
                                                        onblur="checkSelectedCodes()"
                                                        onkeypress="return grabEnter(event,'OtherScriptAttach()')"/>
-                                            <span class="input-group-btn">
-		                     	<button type="button" class="btn btn-primary" title="Search code"
-                                        onclick="OtherScriptAttach('xml_other2')">
-	                            	<span class="glyphicon glyphicon-search"></span>
-	                          	</button>
-                          	</span>
+                                            <button type="button" class="btn btn-primary" title="Search code"
+                                                    onclick="OtherScriptAttach('xml_other2')">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other2_unit" size="6"
                                                        maxlength="6" id="xml_other2_unit"/>
-                                            <span class="input-group-btn">
-                             	<button type="button" class="btn btn-primary" value=".5"
-                                        onClick="$('xml_other2_unit').value = '0.5'">.5</button>
-                             </span>
+                                            <button type="button" class="btn btn-primary" value=".5"
+                                                    onClick="$('xml_other2_unit').value = '0.5'">.5</button>
                                         </div>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
                                         <div class="input-group">
- 							<span class="input-group-addon">
+ 							<span class="input-group-text">
 								3
 							</span>
                                             <input type="text" class="form-control" name="xml_other3"
                                                        onblur="checkSelectedCodes()"
                                                        onkeypress="return grabEnter(event,'OtherScriptAttach()')"/>
-                                            <span class="input-group-btn">
-		                     	<button type="button" class="btn btn-primary" title="Search code"
-                                        onclick="OtherScriptAttach('xml_other3')">
-	                            	<span class="glyphicon glyphicon-search"></span>
-	                          	</button>
-                          	</span>
+                                            <button type="button" class="btn btn-primary" title="Search code"
+                                                    onclick="OtherScriptAttach('xml_other3')">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other3_unit"
                                                        id="xml_other3_unit"/>
-                                            <span class="input-group-btn">
-                            	<button type="button" class="btn btn-primary" value=".5"
-                                        onClick="$('xml_other3_unit').value = '0.5'">.5</button>
-                            </span>
+                                            <button type="button" class="btn btn-primary" value=".5"
+                                                    onClick="$('xml_other3_unit').value = '0.5'">.5</button>
                                         </div>
                                     </td>
                                 </tr>
                                 <!-- <tr>
                                 <td></td>
                                   <td>
-                                    <button class="btn btn-info pull-right btn-xs" onclick="javascript:OtherScriptAttach()">
+                                    <button class="btn btn-info float-end btn-sm" onclick="javascript:OtherScriptAttach()">
                                         Code Search
                                     </button>
                                   </td>
@@ -2037,7 +2025,7 @@
                             <!-- ONSCREEN DX CODE DISPLAY -->
                         </div>
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 15%;">
-                            <table class="table table-condensed table-borderless">
+                            <table class="table table-sm table-borderless">
                                 <tr>
                                     <td style="width:60%">
                                         <div class="input-group">
@@ -2057,10 +2045,10 @@
                                                     </c:forEach>
                                             <c:choose>
                                                 <c:when test="${ isIcd10 }">
-										<span class="input-group-addon">
+										<span class="input-group-text">
 											<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.diagnostic.code"/>
 										</span>
-                                                    <select style="min-width: 70px;" class="form-control"
+                                                    <select style="min-width: 70px;" class="form-select"
                                                             name="dxCodeSystem" id="codingSystem">
                                                         <oscar:oscarPropertiesCheck value="false"
                                                                                     property="DISABLE_MSP_DX_SYSTEM">
@@ -2085,17 +2073,15 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
-								<span class="input-group-addon">
+								<span class="input-group-text">
 									1
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
                                                        id="jsonDxSearchInput-1" name="xml_diagnostic_detail1"/>
-                                            <span class="input-group-btn">
-		                     		<button type="button" title="Search diagnostic code"
-                                            class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-1">
-	                            		<span class="glyphicon glyphicon-search"></span>
-		                          	</button>
-	                          	</span>
+                                            <button type="button" title="Search diagnostic code"
+                                                    class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-1">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
 
@@ -2103,34 +2089,30 @@
                                 <tr>
                                     <td>
                                         <div class="input-group">
-  								<span class="input-group-addon">
+  								<span class="input-group-text">
 									2
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
                                                        id="jsonDxSearchInput-2" name="xml_diagnostic_detail2"/>
-                                            <span class="input-group-btn">
-		                     		<button type="button" title="Search Dx Description"
-                                            class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-2">
-	                            		<span class="glyphicon glyphicon-search"></span>
-	                          		</button>
-	                          	</span>
+                                            <button type="button" title="Search Dx Description"
+                                                    class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-2">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
                                         <div class="input-group">
-  								<span class="input-group-addon">
+  								<span class="input-group-text">
 									3
 								</span>
                                             <input type="text" class="form-control jsonDxSearchInput"
                                                        id="jsonDxSearchInput-3" name="xml_diagnostic_detail3"/>
-                                            <span class="input-group-btn">
-		                     		<button type="button" title="Search Dx Description"
-                                            class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-3">
-	                            		<span class="glyphicon glyphicon-search"></span>
-	                          		</button>
-	                          	</span>
+                                            <button type="button" title="Search Dx Description"
+                                                    class="btn btn-primary jsonDxSearchButton" value="jsonDxSearchInput-3">
+                                                <span class="fa-solid fa-magnifying-glass"></span>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -2148,7 +2130,7 @@
                         </div>
                         <div class="tool-table table-responsive" style="width:100%;flex-basis: 25%;">
 
-                            <table class="table table-condensed table-borderless" style="height:100%">
+                            <table class="table table-sm table-borderless" style="height:100%">
                                 <tr>
                                     <td>
                                         <label for="shortClaimNote">Short Claim Note</label>
@@ -2160,7 +2142,7 @@
 
                                 <tr>
                                     <td align="left" colspan="2">
-                                        <select class="form-control" name="correspondenceCode"
+                                        <select class="form-select" name="correspondenceCode"
                                                      onchange="correspondenceNote();">
                                             <option value="0">No Correspondence</option>
                                             <option value="N">Electronic Correspondence</option>
@@ -2186,13 +2168,12 @@
                                 </tr>
                                 <tr>
                                     <td style="height:100%;vertical-align: bottom;">
-                                        <div class="row-fluid pull-right ">
+                                        <div class="row float-end ">
                                             <div id="ignoreWarningsButton">
-                                                <label class="checkbox" for="ignoreWarn"
-                                                       title="Check to ignore validation warnings">
-                                                    <input type="checkbox" name="ignoreWarn" id="ignoreWarn"/>
-                                                    Ignore Warnings
-                                                </label>
+                                                <div class="form-check" title="Check to ignore validation warnings">
+                                                    <input type="checkbox" class="form-check-input" name="ignoreWarn" id="ignoreWarn"/>
+                                                    <label class="form-check-label" for="ignoreWarn">Ignore Warnings</label>
+                                                </div>
                                             </div>
                                             <div id="buttonRow" class="button-bar">
                                                 <input class="btn btn-md btn-primary" type="submit" name="Submit"
@@ -2223,7 +2204,7 @@
                             <table id="billingFormTable">
                                 <tr>
                                     <td style="width:33%;">
-                                        <table class="table table-condensed serviceCodesTable">
+                                        <table class="table table-sm serviceCodesTable">
                                             <tr style="background-color:#CCCCFF;">
                                                 <td width="25%">
                                                     <div align="left">
@@ -2247,10 +2228,10 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist1[i].getServiceCode() + "')"; %>
                                                 <td width="25%" valign="middle">
-                                                    <label class="checkbox">
-                                                        <input type="checkbox" name="service" value="<%=billlist1[i].getServiceCode()%>" onclick="<%=svcCall%>" />
+                                                    <div class="form-check"><label class="form-check-label">
+                                                        <input type="checkbox" class="form-check-input" name="service" value="<%=billlist1[i].getServiceCode()%>" onclick="<%=svcCall%>" />
                                                         <%=billlist1[i].getServiceCode()%>
-                                                    </label>
+                                                    </label></div>
                                                 </td>
                                                 <td width="61%">
                                                     <%=billlist1[i].getDescription()%>
@@ -2268,7 +2249,7 @@
 
                                     </td>
                                     <td valign="top" style="width:33%;">
-                                        <table class="table table-condensed serviceCodesTable">
+                                        <table class="table table-sm serviceCodesTable">
                                             <tr style="background-color:#CCCCFF;">
                                                 <td width="21%">
                                                     <label>
@@ -2286,10 +2267,10 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist2[i].getServiceCode() + "')"; %>
                                                 <td width="25%">
-                                                    <label class="checkbox">
-                                                        <input type="checkbox" name="service" value="<%=billlist2[i].getServiceCode()%>" onclick="<%=svcCall%>"/>
+                                                    <div class="form-check"><label class="form-check-label">
+                                                        <input type="checkbox" class="form-check-input" name="service" value="<%=billlist2[i].getServiceCode()%>" onclick="<%=svcCall%>"/>
                                                         <%=billlist2[i].getServiceCode()%>
-                                                    </label>
+                                                    </label></div>
                                                 </td>
                                                 <td width="61%">
                                                     <%=billlist2[i].getDescription()%>
@@ -2305,7 +2286,7 @@
                                         <!-- former tool table -->
                                     </td>
                                     <td valign="top" style="width:33%;">
-                                        <table class="table table-condensed serviceCodesTable">
+                                        <table class="table table-sm serviceCodesTable">
                                             <tr style="background-color:#CCCCFF;">
                                                 <td width="25%" align="left" valign="middle">
                                                     <label><%=group3Header%>
@@ -2322,10 +2303,10 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist3[i].getServiceCode() + "')"; %>
                                                 <td width="25%">
-                                                    <label class="checkbox">
-                                                        <input type="checkbox" name="service" value="<%=billlist3[i].getServiceCode()%>"/>
+                                                    <div class="form-check"><label class="form-check-label">
+                                                        <input type="checkbox" class="form-check-input" name="service" value="<%=billlist3[i].getServiceCode()%>"/>
                                                         <%=billlist3[i].getServiceCode()%>
-                                                    </label>
+                                                    </label></div>
                                                 </td>
                                                 <td width="61%">
                                                     <%=billlist3[i].getDescription()%>

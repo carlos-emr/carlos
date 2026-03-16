@@ -71,17 +71,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             <input type="hidden" name="query.searchAll" id="searchProviderAll" value="${query.searchAll}"/>
                             <!-- Any Provider -->
                             <div class="form-check">
-                                <input class="btn-check-input" type="radio" name="providerRadios" value="option1" id="anyProvider" ${query.searchAll eq 'true' ? 'checked' : ''} onClick="changeValueElementByName('query.searchAll', 'true');toggleInputVisibility('specificProvider', 'specificProviderId', 200);"/>
+                                <input class="form-check-input" type="radio" name="providerRadios" value="option1" id="anyProvider" ${query.searchAll eq 'true' ? 'checked' : ''} onClick="changeValueElementByName('query.searchAll', 'true');toggleInputVisibility('specificProvider', 'specificProviderId', 200);"/>
                                 <label class="form-check-label" for="anyProvider"><fmt:message key="oscarMDS.search.formAnyProvider"/></label>
                             </div>
                             <!-- No Provier -->
                             <div class="form-check">
-                                <input class="btn-check-input" type="radio" name="providerRadios" value="option2" id="noProvider" ${query.searchAll eq 'false' ? 'checked' : ''} onClick="changeValueElementByName('query.searchAll', 'false');toggleInputVisibility('specificProvider', 'specificProviderId', 200);"/>
+                                <input class="form-check-input" type="radio" name="providerRadios" value="option2" id="noProvider" ${query.searchAll eq 'false' ? 'checked' : ''} onClick="changeValueElementByName('query.searchAll', 'false');toggleInputVisibility('specificProvider', 'specificProviderId', 200);"/>
                                 <label class="form-check-label" for="noProvider"><fmt:message key="oscarMDS.search.formNoProvider"/></label>
                             </div>
                             <!-- Specific Provider -->
                             <div class="form-check">
-                                <input class="btn-check-input" type="radio" name="providerRadios" value="option3" id="specificProvider" ${query.searchAll eq '' ? 'checked' : ''} onclick="changeValueElementByName('query.searchAll', ''); changeValueElementByName('query.searchProviderNo', document.getElementsByName('query.searchProviderNo')[0].value);toggleInputVisibility('specificProvider', 'specificProviderId', 200);" />
+                                <input class="form-check-input" type="radio" name="providerRadios" value="option3" id="specificProvider" ${query.searchAll eq '' ? 'checked' : ''} onclick="changeValueElementByName('query.searchAll', ''); changeValueElementByName('query.searchProviderNo', document.getElementsByName('query.searchProviderNo')[0].value);toggleInputVisibility('specificProvider', 'specificProviderId', 200);" />
                                 <label class="form-check-label" for="specificProvider"><fmt:message key="oscarMDS.search.formSpecificProvider"/></label>
                                 <div id="specificProviderId" class="ms-3">
                                     <input type="hidden" name="query.searchProviderNo" id="findProvider" value="${query.searchProviderNo}"/>
@@ -100,17 +100,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             <!-- All Patients (including unmatched) -->
                             <input type="hidden" name="query.unmatched" id="unmatchedId" value="${query.unmatched}"/>
                             <div class="form-check">
-                                <input class="btn-check-input" type="radio" name="patientsRadios" value="patientsOption1" id="allPatients" ${query.unmatched eq 'false' and query.patientFirstName eq '' and query.patientLastName eq '' and query.patientHealthNumber eq '' ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'false');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);"/>
+                                <input class="form-check-input" type="radio" name="patientsRadios" value="patientsOption1" id="allPatients" ${query.unmatched eq 'false' and query.patientFirstName eq '' and query.patientLastName eq '' and query.patientHealthNumber eq '' ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'false');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);"/>
                                 <label class="form-check-label" for="allPatients"><fmt:message key="oscarMDS.search.formAllPatients"/></label>
                             </div>
                             <!-- Unmatched to Existing Patient -->
                             <div class="form-check">
-                                <input class="btn-check-input" type="radio" name="patientsRadios" value="patientsOption2" id="unmatchedPatients" ${query.unmatched eq 'true' ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'true');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);" />
+                                <input class="form-check-input" type="radio" name="patientsRadios" value="patientsOption2" id="unmatchedPatients" ${query.unmatched eq 'true' ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'true');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);" />
                                 <label class="form-check-label" for="unmatchedPatients"><fmt:message key="oscarMDS.search.formExistingPatient"/></label>
                             </div>
                             <!-- Specific Patient(s) -->
                             <div class="form-check">
-                                <input class="btn-check-input" type="radio" name="patientsRadios" value="patientsOption3" id="specificPatients" ${query.unmatched eq 'false' and (query.patientFirstName ne '' or query.patientLastName ne '' or query.patientHealthNumber ne '') ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'false');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);"/>
+                                <input class="form-check-input" type="radio" name="patientsRadios" value="patientsOption3" id="specificPatients" ${query.unmatched eq 'false' and (query.patientFirstName ne '' or query.patientLastName ne '' or query.patientHealthNumber ne '') ? 'checked' : ''} onClick="changeValueElementByName('query.unmatched', 'false');toggleInputVisibility('specificPatients', 'specificPatientsId', 200);"/>
                                 <label class="form-check-label" for="specificPatients"><fmt:message key="oscarMDS.search.formSpecificPatients"/></label> <br>
                                 <div id="specificPatientsId" class="d-grid ms-3">
                                     <div class="input-group input-group-sm">
@@ -158,18 +158,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <fmt:message key="inbox.inboxmanager.msgType"/>
                             </label>
                             <div class="form-check">
-                                <input type="checkbox" class="btn-check-input" name="query.doc" value="true" ${query.doc || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnDoc" autocomplete="off">
+                                <input type="checkbox" class="form-check-input" name="query.doc" value="true" ${query.doc || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnDoc" autocomplete="off">
                                 <label class="form-check-label" for="btnDoc"><fmt:message key="inbox.inboxmanager.msgTypeDocs"/></label><br>
                             </div>
                             <div class="form-check">
-                                <input type="checkbox" class="btn-check-input" name="query.lab" value="true" ${query.lab || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnLab" autocomplete="off">
+                                <input type="checkbox" class="form-check-input" name="query.lab" value="true" ${query.lab || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnLab" autocomplete="off">
                                 <label class="form-check-label" for="btnLab"><fmt:message key="inbox.inboxmanager.msgTypeLabs"/></label><br>
                             </div>
 
                             <c:if test="${!OscarProperties.getInstance().isBritishColumbiaBillingRegion()}">
                                 <div class="form-check">
-                                    <input type="checkbox" class="btn-check-input" name="query.hrm" value="true" ${query.hrm || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnHRM" autocomplete="off">
-                                    <label class="form-checkbox-label" for="btnHRM"><fmt:message key="inbox.inboxmanager.msgTypeHRM"/></label><br>
+                                    <input type="checkbox" class="form-check-input" name="query.hrm" value="true" ${query.hrm || (!query.doc && !query.lab && !query.hrm) ? 'checked' : ''} id="btnHRM" autocomplete="off">
+                                    <label class="form-check-label" for="btnHRM"><fmt:message key="inbox.inboxmanager.msgTypeHRM"/></label><br>
                                 </div>
                             </c:if>
                         </div>
@@ -181,22 +181,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             </label>
                             <input type="hidden" name="query.status" id="statusId" value="${query.status}"/>
                             <div class="form-check">
-                                <input type="radio" class="btn-check-input" name="statusReview" id="statusAll" id="All" value="All"
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusAll" id="All" value="All"
                                     ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', '')">
                                 <label class="form-check-label" for="statusAll"><fmt:message key="inbox.inboxmanager.msgAll"/>
                             </div>
                             <div class="form-check">
-                                <input type="radio" class="btn-check-input" name="statusReview" id="statusNew" value="N"
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusNew" value="N"
                                     ${query.status eq 'N' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'N')">
                                 <label class="form-check-label" for="statusNew"><fmt:message key="inbox.inboxmanager.msgNew"/></label>
                             </div>
                             <div class="form-check">
-                                <input type="radio" class="btn-check-input" name="statusReview" id="statusAcknowledged" value="A"
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusAcknowledged" value="A"
                                     ${query.status eq 'A' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'A')">
                                 <label class="form-check-label" for="statusAcknowledged"><fmt:message key="inbox.inboxmanager.msgAcknowledged"/></label>
                             </div>
                             <div class="form-check">
-                                <input type="radio" class="btn-check-input" name="statusReview" id="statusFiled" value="F"
+                                <input type="radio" class="form-check-input" name="statusReview" id="statusFiled" value="F"
                                     ${query.status eq 'F' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'F')">
                                 <label class="form-check-label" for="statusFiled"><fmt:message key="inbox.inboxmanager.msgFiled"/></label>
                             </div>
@@ -209,17 +209,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             </label>
                             <input type="hidden" name="query.abnormal" id="abnormalId" value="${query.abnormal}"/>
                             <div class="form-check">
-                                <input type="radio" class="btn-check-input" name="abnormalResult" id="All" value="All"
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="All" value="All"
                                     ${query.abnormal eq 'all' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'all')">
                                 <label class="form-check-label" for="All"><fmt:message key="inbox.inboxmanager.msgAll"/></label>
                             </div>
                             <div class="form-check">
-                                <input type="radio" class="btn-check-input" name="abnormalResult" id="Abnormal" value="Abnormal"
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="Abnormal" value="Abnormal"
                                     ${query.abnormal eq 'abnormalOnly' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'abnormalOnly')">
                                 <label class="form-check-label" for="Abnormal"><fmt:message key="global.abnormal"/></label>
                             </div>
                             <div class="form-check">
-                                <input type="radio" class="btn-check-input" name="abnormalResult" id="Normal" value="Normal"
+                                <input type="radio" class="form-check-input" name="abnormalResult" id="Normal" value="Normal"
                                     ${query.abnormal eq 'normalOnly' ? 'checked' : ''} onclick="changeValueElementByName('query.abnormal', 'normalOnly')">
                                 <label class="form-check-label" for="Normal"><fmt:message key="inbox.inboxmanager.msgNormal"/></label>
                             </div>
@@ -456,25 +456,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function setupDatepicker(dateInputId, clearBtnId) {
         let dateInput = jQuery(dateInputId);
         let clearBtn = jQuery(clearBtnId);
-        
-        dateInput.datetimepicker({
-            format: 'YYYY-MM-DD',
-            useCurrent: false,
-        }).on('dp.change', function(e) {
-            clearBtn.toggle(!!dateInput.val());
-        }).on('dp.hide', function(e) {
+        let inputEl = dateInput[0];
+
+        flatpickr(inputEl, {
+            dateFormat: 'Y-m-d',
+            allowInput: false,
+            onChange: function() {
+                clearBtn.toggle(!!dateInput.val());
+            },
+            onClose: function() {
+                clearBtn.toggle(!!dateInput.val());
+            }
         });
 
-        // Disable manual typing
-        dateInput.on('keydown paste', function(e) {
-            e.preventDefault();
-        });
-
-        // Attach event listeners for input change and clear button
-        dateInput.on('input', clearBtn.toggle(!!dateInput.val()));
+        // Clear button click handler
         clearBtn.on('click', function() {
-            dateInput.val('');
-            clearBtn.toggle(!!dateInput.val());
+            inputEl._flatpickr.clear();
+            clearBtn.toggle(false);
         });
 
         // Initialize clear button visibility
@@ -698,12 +696,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     // Show the toast and wrapper div
     function toastErrorMessage() {
         jQuery('#ajaxErrorToast').parent().css('display', 'block'); // Show the wrapper
-        jQuery('#ajaxErrorToast').toast('show'); // Show the toast
+        bootstrap.Toast.getOrCreateInstance(document.getElementById('ajaxErrorToast')).show(); // Show the toast
     }
 
     // Hide the toast and wrapper div completely when the toast is dismissed
-    jQuery('#ajaxErrorToast').on('hidden.bs.toast', function () {
-        jQuery(this).parent().css('display', 'none'); // Hide the wrapper to prevent background blocking
+    document.getElementById('ajaxErrorToast').addEventListener('hidden.bs.toast', function () {
+        this.parentElement.style.display = 'none'; // Hide the wrapper to prevent background blocking
     });
 
     function showInboxhubStats() {

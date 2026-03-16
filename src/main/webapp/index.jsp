@@ -157,12 +157,12 @@
                 margin: 0 auto;
             }
 
-            .loginContainer .panel-heading #oscar_logo {
+            .loginContainer .card-header #oscar_logo {
                 max-width: 300px;
                 margin: 0 auto;
             }
 
-            .loginContainer .panel-heading {
+            .loginContainer .card-header {
                 margin: 0 auto;
                 padding-top: 25px;
                 padding-bottom: 10px;
@@ -219,20 +219,20 @@
                 padding: 15px;
             }
 
-            .auaContainer .panel {
+            .auaContainer .card {
                 padding: 10px;
             }
 
-            .auaContainer .panel-heading {
+            .auaContainer .card-header {
                 font-size: small;
 			text-align: center;
             }
 
-            .auaContainer .panel-body {
+            .auaContainer .card-body {
                 font-size: x-small;
             }
 
-            .panel {
+            .card {
                 background-color: #fff;
                 border: 1px solid transparent;
                 border-radius: 4px;
@@ -240,34 +240,36 @@
                 box-shadow: 0 1px 1px rgba(0, 0, 0, .05);
             }
 
-            .panel-body {
+            .card-body {
                 padding: 10px 40px 40px;
             }
 
-            .panel-danger > .panel-heading {
+            .card.border-danger > .card-header {
                 color: #a94442;
                 background-color: #f2dede;
                 border-color: #ebccd1;
             }
 
-            .panel-danger > .panel-heading + .panel-collapse > .panel-body {
+            .card.border-danger > .card-header + .collapse > .card-body {
                 border-top-color: #ebccd1;
             }
 
-            .panel-danger > .panel-heading .badge {
+            .card.border-danger > .card-header .badge {
                 color: #f2dede;
                 background-color: #a94442;
             }
 
-            .panel-danger > .panel-footer + .panel-collapse > .panel-body {
+            .card.border-danger > .card-footer + .collapse > .card-body {
                 border-bottom-color: #ebccd1;
             }
 
-            .panel-default {
+            .card {
                 border-color: #ddd;
             }
 
-            .form-group {
+            /* Bootstrap 5 migration: .form-group replaced by .mb-3 utility class.
+               Custom margin-bottom kept here for login page styling. */
+            .mb-3 {
                 margin-bottom: 15px;
             }
 
@@ -290,7 +292,7 @@
                 transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
             }
 
-            .has-error .form-control {
+            .is-invalid .form-control {
                 border-color: #a94442;
                 -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
                 box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
@@ -326,11 +328,6 @@
                 color: #fff;
                 background-color: #53b848;
                 border-color: #3f9336;
-            }
-
-            .btn-block {
-                display: block;
-                width: 100%;
             }
 
             button, html input[type=button], input[type=reset], input[type=submit] {
@@ -372,20 +369,16 @@
                 border-color: #3f9336;
             }
 
-            .btn-primary.active, .btn-primary:active, .open > .dropdown-toggle.btn-primary {
+            .btn-primary.active, .btn-primary:active {
                 color: #fff;
                 background-color: #3f9336;
                 border-color: #3f9336;
             }
 
-            .btn-primary.active, .btn-primary:active, .open > .dropdown-toggle.btn-primary {
+            .btn-primary.active, .btn-primary:active {
                 background-image: none;
             }
 
-            input[type=button].btn-block, input[type=reset].btn-block, input[type=submit].btn-block {
-                width: 100%;
-                margin-bottom: 10px;
-            }
 
             .btn.active.focus, .btn.active:focus, .btn.focus, .btn:active.focus,
             .btn:active:focus, .btn:focus {
@@ -394,9 +387,7 @@
             }
 
             .btn-primary.active.focus, .btn-primary.active:focus, .btn-primary.active:hover,
-            .btn-primary:active.focus, .btn-primary:active:focus, .btn-primary:active:hover,
-            .open > .dropdown-toggle.btn-primary.focus, .open > .dropdown-toggle.btn-primary:focus,
-            .open > .dropdown-toggle.btn-primary:hover {
+            .btn-primary:active.focus, .btn-primary:active:focus, .btn-primary:active:hover {
                 color: #fff;
                 background-color: #3f9336;
                 border-color: #3f9336;
@@ -427,7 +418,7 @@
                     width: 350px;
                 }
 
-                .loginContainer .panel-heading {
+                .loginContainer .card-header {
                     width: 200px;
                 }
 
@@ -443,7 +434,7 @@
                     width: 450px;
                 }
 
-                .loginContainer .panel-heading {
+                .loginContainer .card-header {
                     width: 300px;
                 }
 
@@ -596,9 +587,9 @@ body {
         </div>
 
         <div class="loginContainer">
-            <div class="panel panel-default">
+            <div class="card">
 
-                <div class="panel-heading">
+                <div class="card-header">
 
                         <%--			    	<div id="oscar_logo">--%>
                         <%--				    	<!-- EMR logo -->--%>
@@ -613,13 +604,13 @@ body {
                 </div>
 
                 <c:if test='${ param.login eq "failed" }'>
-                    <c:set var="login_error" value="has-error" scope="page"/>
+                    <c:set var="login_error" value="is-invalid" scope="page"/>
                     <div class="alert">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formFailedLabel"/>
                     </div>
                 </c:if>
 
-                <div class="panel-body">
+                <div class="card-body">
                     <div class="leftinput">
                         <%--
                             Autocomplete attribute strategy (WHATWG HTML spec):
@@ -632,13 +623,13 @@ body {
                         --%>
                         <form action="login.do" method="POST" name="loginForm">
 
-                            <div class="form-group ${ login_error }">
+                            <div class="mb-3 ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.userName"/>"
                                        value="" size="15" maxlength="15" autocomplete="off"
                                        class="form-control" required>
                             </div>
 
-                            <div class="input-wrapper form-group ${ login_error }">
+                            <div class="input-wrapper mb-3 ${ login_error }">
                               <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
                               <button type="button"
                                       id="toggleBtn"
@@ -651,7 +642,7 @@ body {
 
 							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
                             <div class="pin-wrapper">
-                                <div class="input-wrapper form-group ${ login_error }">
+                                <div class="input-wrapper mb-3 ${ login_error }">
                                   <!-- The input starts with the secure-text class -->
                                   <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
@@ -675,14 +666,14 @@ body {
                             <div id="buttonContainer">
                                 <c:choose>
                                     <c:when test="${ isMobileDevice }">
-                                        <input class="btn btn-oscar btn-primary btn-block" name="submit" id="fullSubmit"
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit" id="fullSubmit"
                                                type="submit" onclick="enhancedOrClassic('C');" value="Full">
-                                        <input class="btn btn-oscar btn-primary btn-block" name="submit"
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit"
                                                id="mobileSubmit" type="submit" onclick="enhancedOrClassic('C');"
                                                value="Mobile">
                                     </c:when>
                                     <c:otherwise>
-                                        <input class="btn btn-oscar btn-primary btn-block" name="submit" type="submit"
+                                        <input class="btn btn-oscar btn-primary w-100 mb-2" name="submit" type="submit"
                                                onclick="enhancedOrClassic('C');" value="<fmt:message key="index.btnSignIn"/>">
                                     </c:otherwise>
                                 </c:choose>
@@ -704,14 +695,14 @@ body {
         </div>
 
         <div id="auaText" class="auaContainer" style="display:none;">
-            <div class="panel panel-default">
-                <div class="panel-heading">
+            <div class="card">
+                <div class="card-header">
                     Acceptable Use Agreement
                 </div>
-                <div class="panel-body">
+                <div class="card-body">
                     <c:out value="${ LoginResourceBean.acceptableUseAgreementManager.text }" escapeXml="false"/>
                 </div>
-                <div class="panel-footer"></div>
+                <div class="card-footer"></div>
             </div>
         </div>
 

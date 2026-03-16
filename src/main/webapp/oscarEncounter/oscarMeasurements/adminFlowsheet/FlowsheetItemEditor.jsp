@@ -65,9 +65,10 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>OSCAR Jobs</title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <script src="<%=request.getContextPath() %>/js/global.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <style>
@@ -81,7 +82,7 @@
             String measurementType = request.getParameter("measurementType");
         %>
         <script>
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
 
                 loadValidations();
                 loadWarnings();
@@ -91,11 +92,11 @@
             function loadItem() {
                 jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheetItem&flowsheetId=<%=flowsheetId%>&measurementType=<%=measurementType%>", {},
                     function (xml) {
-                        $("#displayName").val(xml.displayName);
-                        $("#guideline").val(xml.guideline);
-                        $("#graphable").val(xml.graphable);
-                        $("#measuringInstruction").val(xml.measuringInstruction);
-                        $("#validations").val(xml.validationId);
+                        document.getElementById('displayName').value = xml.displayName;
+                        document.getElementById('guideline').value = xml.guideline;
+                        document.getElementById('graphable').value = xml.graphable;
+                        document.getElementById('measuringInstruction').value = xml.measuringInstruction;
+                        document.getElementById('validations').value = xml.validationId;
                     });
             }
 
@@ -172,7 +173,7 @@
             }
 
             function updateDetails() {
-                var template = $("#template").val();
+                var template = document.getElementById('template').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTemplateDetails', {template: template}, function (data) {
                     //  loadFlowsheet();
@@ -253,7 +254,7 @@
     <br/>
 
     <b>Recommendations/Warnings:</b>
-    <table id="warningTable" class="table table-bordered table-striped table-hover table-condensed" style="width:70%">
+    <table id="warningTable" class="table table-bordered table-striped table-hover table-sm" style="width:70%">
         <thead>
         <th></th>
         <th>Type</th>
@@ -269,7 +270,7 @@
     <br/>
 
     <b>Targets:</b>
-    <table id="targetTable" class="table table-bordered table-striped table-hover table-condensed" style="width:70%">
+    <table id="targetTable" class="table table-bordered table-striped table-hover table-sm" style="width:70%">
         <thead>
         <th></th>
         <th>Indicator</th>

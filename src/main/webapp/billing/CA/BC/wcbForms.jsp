@@ -65,7 +65,7 @@
             onclick="popup(700,960,'viewformwcb.do?demographic_no=<%=demographicNo%>&formId=0&provNo=999998&parentAjaxId=forms&hideToBill=true','<%=demographicNo%>NEWWCB'); return false;"
             href="javascript:void(0);">New WCB Form</a> <br>
     </div>
-    <table class="table table-striped table-condensed">
+    <table class="table table-striped table-sm">
         <tr bgcolor="#CCCCFF">
             <td>&nbsp;</td>
             <td>&nbsp;</td>

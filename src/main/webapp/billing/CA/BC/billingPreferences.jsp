@@ -31,11 +31,9 @@
         <title></title>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
                 type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
-                type="text/javascript"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
               type="text/css"/>
 
 
@@ -51,13 +49,13 @@
         <form action="${pageContext.request.contextPath}/billing/CA/BC/saveBillingPreferencesAction.do" method="POST">
             <input type="hidden" name="providerNo" id="providerNo"/>
             <h2>Billing Preferences</h2>
-            <table class="table-condensed" id="scrollNumber1">
+            <table class="table-sm" id="scrollNumber1">
 
                 <tr>
                     <td class="MainTableRightColumn">
-                        <div class="form-group">
+                        <div class="mb-3">
                             <label for="defaultBillingProvider">Select Default Billing Provider:</label>
-                            <select name="defaultBillingProvider" class="form-control"
+                            <select name="defaultBillingProvider" class="form-select"
                                          id="defaultBillingProvider">
                                 <c:forEach var="billing" items="${billingProviderList}">
                                     <option value="${billing.providerNo}">
@@ -76,7 +74,7 @@
                 <tr>
                     <td class="MainTableRightColumn">
                         <label for="referral"> Select Default Referral Type:</label>
-                        <select id="referral" class="form-control" name="referral">
+                        <select id="referral" class="form-select" name="referral">
                         <option value="1">Refer To</option>
                         <option value="2">Refer By</option>
                         <option value="3">Neither</option>
@@ -98,7 +96,7 @@
                         }
                     %>
                     <td class="MainTableRightColumn">
-                        <label for="autoPopulateRefer" class="checkbox-inline">
+                        <label for="autoPopulateRefer" class="form-check form-check-inline">
                             <input type="checkbox" id="autoPopulateRefer" name="autoPopulateRefer" disabled="<%=globalAutoPopulateRefer%>"/>
                             Auto-populate Referring Physician on Billing Form</label>
                         <% if (globalAutoPopulateRefer) { %>
@@ -112,7 +110,7 @@
 
                     <td class="MainTableRightColumn">
                         <label for="defaultBillingForm">Select Default Billing Form:</label>
-                        <select name="defaultBillingForm" class="form-control"
+                        <select name="defaultBillingForm" class="form-select"
                                      id="defaultBillingForm">
                             <c:forEach var="billing" items="${billingFormList}">
                                 <option value="${billing.formCode}">
@@ -126,7 +124,7 @@
 
                     <td class="MainTableRightColumn"><label for="defaultServiceLocation">Select Default Service
                         Location:</label>
-                        <select name="defaultServiceLocation" class="form-control"
+                        <select name="defaultServiceLocation" class="form-select"
                                      id="defaultServiceLocation">
                             <c:forEach var="serviceLocation" items="${serviceLocationList}">
                                 <option value="${serviceLocation.visitType}">
@@ -139,7 +137,7 @@
                     <td class="MainTableRightColumn">
                         <label for="payeeProviderNo">Select Default Payee (select "Custom" to set a custom
                             payee):</label>
-                        <select name="payeeProviderNo" class="form-control" id="payeeProviderNo"
+                        <select name="payeeProviderNo" class="form-select" id="payeeProviderNo"
                                      onchange="defaultPayeeSelect()">
                             <c:forEach var="provider" items="${providerList}">
                                 <option value="${provider.providerNo}">
@@ -157,7 +155,7 @@
                 </tr>
                 <tr>
                     <td class="MainTableRightColumn">
-                        <label for="invoicePayeeDisplayClinicInfo" class="checkbox-inline">
+                        <label for="invoicePayeeDisplayClinicInfo" class="form-check form-check-inline">
                             <checkbox id="invoicePayeeDisplayClinicInfo" name="invoicePayeeDisplayClinicInfo"></checkbox>
                             Display Clinic Information Under Payee</label>
                     </td>
@@ -168,7 +166,7 @@
                         <div class="tableHeader rowSpacing">(This is the payee info displayed on your private
                             invoices)
                         </div>
-                        <table class="table-condensed" style="border:thin solid grey;">
+                        <table class="table-sm" style="border:thin solid grey;">
                             <%
                                 Provider payeeProvider = providerDao.getProvider(billingPreference != null ? "" + billingPreference.getDefaultPayeeNo() : null);
                                 String payeeInfo;
@@ -253,7 +251,7 @@
                 </tr>
                 <tr>
                     <td class="MainTableBottomRowRightColumn">
-                        <input type="submit" name="submit" class="btn btn-primary pull-right" value="Save"/></td>
+                        <input type="submit" name="submit" class="btn btn-primary float-end" value="Save"/></td>
                 </tr>
             </table>
         </form>
@@ -281,12 +279,12 @@
 
         defaultPayeeSelect();
 
-        $(document).ready(function () {
+        document.addEventListener('DOMContentLoaded', function () {
 
             const defaultValue = "<%= Property.PROPERTY_VALUE.clinicdefault.name() %>";
 
-            $("#defaultBillingProvider").on("change", function () {
-                let selected = $("#defaultBillingProvider option:selected").val();
+            document.getElementById("defaultBillingProvider").addEventListener("change", function () {
+                let selected = document.getElementById("defaultBillingProvider").value;
                 disableFields(selected);
             })
 
@@ -294,31 +292,15 @@
                 // disable other settings whenever a default providers is selected to override.
                 if (selected && selected !== defaultValue) {
 
-                    // $("#referral").prop('disabled', true);
-                    // $("#autoPopulateRefer").prop('disabled', true);
-                    // $("#defaultBillingForm").prop('disabled', true);
-                    // $("#defaultServiceLocation").prop('disabled', true);
-                    // $("#payeeProviderNo").prop('disabled', true);
-                    // $("#invoicePayeeInfo").prop('disabled', true);
-                    // $("#invoicePayeeDisplayClinicInfo").prop('disabled', true);
-
-                    $("#default-providers-alert").show();
+                    document.getElementById("default-providers-alert").style.display = '';
 
                 } else {
 
-                    // $("#referral").prop('disabled', false);
-                    // $("#autoPopulateRefer").prop('disabled', false);
-                    // $("#defaultBillingForm").prop('disabled', false);
-                    // $("#defaultServiceLocation").prop('disabled', false);
-                    // $("#payeeProviderNo").prop('disabled', false);
-                    // $("#invoicePayeeInfo").prop('disabled', false);
-                    // $("#invoicePayeeDisplayClinicInfo").prop('disabled', false);
-
-                    $("#default-providers-alert").hide();
+                    document.getElementById("default-providers-alert").style.display = 'none';
                 }
             }
 
-            disableFields($("#defaultBillingProvider option:selected").val());
+            disableFields(document.getElementById("defaultBillingProvider").value);
         })
     </script>
     </body>

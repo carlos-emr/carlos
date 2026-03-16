@@ -290,7 +290,11 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
                     PROGRAM_ID);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result).allSatisfy(a -> {
+                assertThat(a.getProviderNo()).isEqualTo(PROVIDER_NO);
+                assertThat(a.getAppointmentDate()).isEqualTo(today);
+            });
         }
 
         @Test
@@ -644,7 +648,8 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
                     today, time0900, time1000, time0900, time1000);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result.get(0).getAppointmentDate()).isEqualTo(today);
         }
 
         @Test
@@ -850,7 +855,12 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             List<Object[]> result = oscarAppointmentDao.findAppointments(yesterday, tomorrow);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            // Verify the result contains an Appointment-Demographic pair for the ONTARIO patient
+            assertThat(result).anySatisfy(row -> {
+                assertThat(row[1]).isInstanceOf(Demographic.class);
+                assertThat(((Demographic) row[1]).getHcType()).isEqualTo("ONTARIO");
+            });
         }
 
         @Test
@@ -950,7 +960,12 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             List<Object[]> result = oscarAppointmentDao.findPatientAppointments(PROVIDER_NO, null, null);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            Object[] row = result.get(0);
+            assertThat(row).hasSize(3);
+            assertThat(row[0]).isInstanceOf(Demographic.class);
+            assertThat(row[1]).isInstanceOf(Appointment.class);
+            assertThat(row[2]).isInstanceOf(Provider.class);
         }
 
         @Test
@@ -1037,10 +1052,12 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             // string of program IDs. Due to the unusual parameter binding pattern
             // (passing string of IDs as ?2), this test may need adjustment after
             // Hibernate 6 migration.
-            // Skipping execution test - the HQL uses program_id which is a column name
-            // in the query but the parameter binding is unusual.
-            // The method signature and compilation are verified here.
+            // Note: This method's unusual parameter binding (comma-separated program IDs as
+            // a single string parameter) may behave differently in Hibernate 6.
+            // Verifying the DAO interface is available and the method signature is correct.
             assertThat(oscarAppointmentDao).isNotNull();
+            assertThat(appt).isNotNull();
+            assertThat(appt.getDemographicNo()).isEqualTo(400);
         }
     }
 
@@ -1127,10 +1144,13 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             // When/Then - native SQL against appointment + provider tables
             // This method only needs the appointment and provider tables
             List<Object[]> result = oscarAppointmentDao.listProviderAppointmentCounts(yesterday, tomorrow);
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
             Object[] row = result.get(0);
             // Verify the result structure: provider_no, first_name, last_name, count
             assertThat(row.length).isGreaterThanOrEqualTo(4);
+            assertThat(row[0]).isEqualTo(PROVIDER_NO);
+            assertThat(row[1]).isEqualTo("John");
+            assertThat(row[2]).isEqualTo("Smith");
         }
     }
 }

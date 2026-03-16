@@ -108,7 +108,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
     <head>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></title>
         <script type="text/javascript" language="JavaScript">
@@ -134,7 +134,7 @@
             <%=msg%>
         </div>
         <% } %>
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.ID"/></b>
             <select name="userName">
                 <% for (int i = 0; i < vec.size(); i++) { %>

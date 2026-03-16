@@ -81,7 +81,7 @@
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
 
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.12.1.min.css"/>
+        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}/css/oscarRx.css" />">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
@@ -91,8 +91,9 @@
         <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/css/print.css" media="print">
 
-        <script type="text/javascript" src="<c:out value="${ctx}/js/jquery-1.7.1.min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.12.1.min.js" />"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
+        <script src="<c:out value="${ctx}/library/jquery/jquery-compat.js"/>"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.14.2.min.js" />"></script>
         <script type="text/javascript">
             jQuery.noConflict();
         </script>
@@ -357,13 +358,13 @@
             UserProperty maximizeP = uPropDao.getProp(providerNo, "encounterWindowMaximize");
 
             if (maximizeP != null && maximizeP.getValue().equals("yes")) {%>
-        <script> jQuery(window).load(function () {
+        <script> jQuery(window).on('load', function () {
             window.resizeTo(screen.width, screen.height);
         });</script>
         <% } else if (widthP != null && !widthP.getValue().isEmpty() && heightP != null && !heightP.getValue().isEmpty()) {
             String width = widthP.getValue();
             String height = heightP.getValue();%>
-        <script> jQuery(window).load(function () {
+        <script> jQuery(window).on('load', function () {
             window.resizeTo(<%=width%>, <%=height%>)
         }) </script>
         <% } %>

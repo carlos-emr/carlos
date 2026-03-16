@@ -146,15 +146,6 @@ input {
     padding: 0;
 }
 
-.bootstrap-datetimepicker-widget.dropdown-menu {
-    width: auto;
-    height: auto;
-}
-
-.bootstrap-datetimepicker-widget table td.today::before {
-    bottom: 1px;
-    right: 1px;
-}
 
 .inbox-form-datepicker-wrapper {
     position: relative;

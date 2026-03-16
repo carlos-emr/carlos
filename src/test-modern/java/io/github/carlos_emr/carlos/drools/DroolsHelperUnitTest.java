@@ -117,6 +117,9 @@ class DroolsHelperUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(MINIMAL_VALID_DRL);
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
 
         /**
@@ -223,6 +226,9 @@ class DroolsHelperUnitTest {
             KieBase kieBase = DroolsHelper.loadFromInputStream(is);
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(1);
         }
 
         /**
@@ -285,6 +291,9 @@ class DroolsHelperUnitTest {
             KieBase kieBase = DroolsHelper.loadMeasurementRuleBase("diab-A1C.drl", DroolsHelper.class);
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isGreaterThan(0);
         }
 
         /**
@@ -326,6 +335,9 @@ class DroolsHelperUnitTest {
             KieBase kieBase = DroolsHelper.loadFromUrl(url);
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isGreaterThan(0);
         }
 
         /**
@@ -362,6 +374,7 @@ class DroolsHelperUnitTest {
             KieBase kieBase = DroolsHelper.loadFromUrl(url);
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
 
             // Verify we can create a functional session from the compiled base
             KieSession session = kieBase.newKieSession();

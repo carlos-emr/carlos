@@ -73,7 +73,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
 
             <h2>Upload Details</h2>
 
@@ -83,11 +83,11 @@
 
             <input id="method" name="method" type="hidden" value=""/>
 
-            <div class="form-group">
-                <label class="control-label" for="resourceType">Resource
+            <div class="mb-3">
+                <label class="form-label" for="resourceType">Resource
                     Type</label>
 
-                <select name="resourceType" id="resourceType" class="input-xxlarge">
+                <select name="resourceType" id="resourceType" class="form-select w-auto d-inline-block">
                     <c:forEach var="r" items="${mcedtTypeList.data}">
                         <option value="${r.resourceType}">
                             <c:out value="${r.resourceType}"/> -
@@ -96,15 +96,15 @@
                         </option>
                     </c:forEach>
                 </select>
-                <label class="control-label" for="description">Description:</label>
+                <label class="form-label" for="description">Description:</label>
                 <input type="text" name="description" id="description" value=""/>
 
-                <label class="control-label" for="content">File Upload</label>
+                <label class="form-label" for="content">File Upload</label>
                 <input type="file" name="content" id="content" style="content"/>
 
                 <div style="margin-top: 1em;">
-                    <button class="btn" onclick="return create();">Create</button>
-                    <button class="btn" onclick="return cancel();">Cancel</button>
+                    <button class="btn btn-secondary" onclick="return create();">Create</button>
+                    <button class="btn btn-secondary" onclick="return cancel();">Cancel</button>
                 </div>
                 </form>
             </div>

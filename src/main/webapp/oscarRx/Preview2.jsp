@@ -578,12 +578,16 @@
                                         var img = document.getElementById("signature");
                                         img.src = '<%=imageUrl%>&rand=' + counter;
 
-                                        // Modern fetch API
+                                        // Modern fetch API — include CSRF token (not auto-injected for fetch)
+                                        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                        var csrfVal = csrfEl ? csrfEl.value : '';
                                         fetch('<%=statusUrl%>', {
                                             method: 'POST',
                                             headers: {
-                                                'Accept': 'text/html'
-                                            }
+                                                'Accept': 'text/html',
+                                                'Content-Type': 'application/x-www-form-urlencoded'
+                                            },
+                                            body: 'CSRF-TOKEN=' + encodeURIComponent(csrfVal)
                                         })
                                         .then(function(response) {
                                             return response.text();

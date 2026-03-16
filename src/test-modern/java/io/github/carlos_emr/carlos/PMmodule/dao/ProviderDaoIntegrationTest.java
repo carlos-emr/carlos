@@ -383,8 +383,15 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             // When
             List<Provider> results = providerDao.getBillableProviders();
 
-            // Then - Should contain the billable provider
-            assertThat(results).isNotEmpty();
+            // Then - Should contain the billable provider and only active providers with OHIP
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .contains("T005");
+            assertThat(results)
+                .allSatisfy(p -> {
+                    assertThat(p.getStatus()).isEqualTo("1");
+                    assertThat(p.getOhipNo()).isNotEmpty();
+                });
         }
 
         @Test
@@ -423,11 +430,17 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @Tag("filter")
         @DisplayName("should search providers using name pattern matching")
         void shouldSearchProviders_byNamePattern() {
-            // When
+            // When - search("John") matches FirstName LIKE 'John%' OR LastName LIKE 'John%'
             List<Provider> results = providerDao.search("John");
 
-            // Then
-            assertThat(results).isNotEmpty();
+            // Then - T001 (John Smith) and T002 (John Doe) match; T004 (Bob Johnson) matches
+            // via LastName LIKE 'John%' which matches "Johnson"
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .contains("T001", "T002", "T004");
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .doesNotContain("T003");
         }
 
         @Test

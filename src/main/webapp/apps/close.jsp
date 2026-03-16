@@ -34,7 +34,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></title>
 
-    <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 <br>
@@ -42,14 +42,14 @@
     <div class="row">
         <div class="col-md-12">
 
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.resources"/></h3>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.resources"/></h3>
                 </div>
-                <div class="panel-body">
+                <div class="card-body">
                     <%=session.getAttribute("oauthMessage") %>
                     <%session.removeAttribute("oauthMessage"); %>
-                    <a class="pull-right" onclick="window.close()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a>
+                    <a class="float-end" onclick="window.close()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/></a>
                 </div>
             </div>
 

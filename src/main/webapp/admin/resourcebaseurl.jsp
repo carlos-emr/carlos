@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -113,8 +114,9 @@
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.title"/></title>
 
 
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/css/bootstrap-wysihtml5.css">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
 
     <style>
         .info {
@@ -147,77 +149,88 @@
     <%}%>
 
     <!-- Help Link - Website -->
-    <div class="row well" id="websiteDiv" style="background-color:">
-        <div class="span1" style="background-color:">
+    <div class="row card card-body bg-body-tertiary" id="websiteDiv" style="background-color:">
+        <div class="col-md-1" style="background-color:">
             <input type="radio" name="helpOption" class="helpOption" value="website" <%=checkedWebsite%>>
-        </div><!-- span2 -->
+        </div><!-- col-md-2 -->
 
-        <div class="span8" style="background-color:">
-            <form method="post" name="baseurl" id="websiteForm" action="resourcebaseurl.jsp" class="form-inline">
+        <div class="col-md-8" style="background-color:">
+            <form method="post" name="baseurl" id="websiteForm" action="resourcebaseurl.jsp" class="d-flex flex-wrap align-items-center gap-2">
 
                 <h4>Website</h4>
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
                        placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
                        value="<%if(resource_baseurl_value!=null){ out.print(resource_baseurl_value);}%>">
-                <div class="span8">
-                    <input type="submit" class="btn pull-right" name="websiteSave" id="websiteSave"
+                <div class="col-md-8">
+                    <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
                 </div>
 
             </form>
-        </div><!-- span8 -->
+        </div><!-- col-md-8 -->
     </div>
 
-    <h4 class="muted text-center"><em>~ or ~</em></h4>
+    <h4 class="text-muted text-center"><em>~ or ~</em></h4>
 
     <!-- Help Link - Details -->
-    <div class="row well" id="detailsDiv">
-        <div class="span1" style="background-color:">
+    <div class="row card card-body bg-body-tertiary" id="detailsDiv">
+        <div class="col-md-1" style="background-color:">
             <input type="radio" name="helpOption" class="helpOption" value="details" <%=checkedDetails%>>
-        </div><!-- span2 -->
+        </div><!-- col-md-2 -->
 
-        <div class="span8" style="background-color:">
+        <div class="col-md-8" style="background-color:">
             <form method="post" name="baseurl" id="detailsForm" action="resourcebaseurl.jsp">
                 <h4>Details</h4>
-                <textarea class="textarea" name="resource_helpHtml" id="resource_helpHtml" placeholder="Enter text ..."
-                          style="width:100%;height:160px"><%
-                    if (resource_helpHtml_value != null) {
-                        out.print(resource_helpHtml_value);
-                    }
-                %></textarea>
-                <div class="span8" style="padding-left:0px;padding-right:0px;">
-                    <div class="span6" id="chars">
+                <input type="hidden" name="resource_helpHtml" id="resource_helpHtml_hidden"/>
+                <div id="resource_helpHtml_editor" style="width:100%;min-height:160px"></div>
+                <div class="col-md-8" style="padding-left:0px;padding-right:0px;">
+                    <div class="col-md-6" id="chars">
                         <div class='alert alert-plain'>Character Limit = 2000</div>
                     </div>
-                    <input type="submit" class="btn pull-right" name="detailsSave" id="detailsSave"
+                    <input type="submit" class="btn float-end" name="detailsSave" id="detailsSave"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.resourcebaseurl.btnSave"/>">
                 </div>
             </form>
-        </div><!-- span8 -->
+        </div><!-- col-md-8 -->
     </div>
 
 </div><!-- container fluid -->
 
-<script src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-<script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
-<script src="<%=request.getContextPath() %>/js/wysihtml5-0.3.0.js"></script>
-<script src="<%=request.getContextPath() %>/js/bootstrap-wysihtml5.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
 
 <script>
-    $('.textarea').wysihtml5();
-
-    editor.observe("load", function () {
-        editor.composer.element.addEventListener("keyup", function () {
-
-            char_count($(editor.composer.element).html().length);
-
-        });
+    var Editor = toastui.Editor;
+    var editor = new Editor({
+        el: document.querySelector('#resource_helpHtml_editor'),
+        height: '200px',
+        initialEditType: 'wysiwyg',
+        initialValue: '',
+        hideModeSwitch: true,
+        toolbarItems: [['bold', 'italic', 'strike'], ['ul', 'ol'], ['link']],
+        customHTMLSanitizer: function(html) {
+            return DOMPurify.sanitize(html);
+        }
     });
 
-    function char_count(c) {
-        $("#chars").html(c);
+    <%-- Load existing HTML content into the editor (OWASP-encoded for JS context, DOMPurify-sanitized by editor) --%>
+    <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
+    editor.setHTML('<%= Encode.forJavaScript(resource_helpHtml_value) %>');
+    <% } %>
 
+    <%-- Sync editor content to hidden input before form submit --%>
+    document.getElementById('detailsForm').addEventListener('submit', function() {
+        document.getElementById('resource_helpHtml_hidden').value = editor.getHTML();
+    });
+
+    <%-- Character count on editor change --%>
+    editor.on('change', function() {
+        var html = editor.getHTML();
+        var c = html.length;
         if (c > 2000) {
             $("#chars").html("<div class='alert'><strong>Warning!</strong> Character Limit = 2000. Character Count = " + c + "</div>");
             $("#detailsSave").prop("disabled", true);
@@ -225,8 +238,7 @@
             $("#chars").html("<div class='alert alert-success'><strong>Good!</strong> Character Limit = 2000. Character Count = " + c + "</div>");
             $("#detailsSave").prop("disabled", false);
         }
-    }
-
+    });
 
     helpOptionCheck();
 

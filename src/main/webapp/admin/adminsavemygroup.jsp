@@ -59,7 +59,7 @@
             //-->
         </script>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
 
     </head>
@@ -95,7 +95,7 @@
     <%
     } else {
     %>
-    <div class="alert alert-error">
+    <div class="alert alert-danger">
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.adminsavemygroup.msgAdditionFailure"/>
     </div>
     <%
@@ -105,9 +105,10 @@
 
     <a href="admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
 
-    <a href="adminnewgroup.jsp" class="btn"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+    <a href="adminnewgroup.jsp" class="btn btn-secondary"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
     <script>
         $(document).ready(function () {

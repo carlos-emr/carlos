@@ -80,14 +80,16 @@
                 }
             }
         </script>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body>
 
     <%@ include file="efmTopNav.jspf" %>
 
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <h3 style="display:inline"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
             class="fa-solid fa-circle-question"></i>
 
@@ -97,7 +99,7 @@
                 class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnDeleted"/></a></p>
 
 
-        <table class="table table-condensed table-striped">
+        <table class="table table-sm table-striped">
             <thead>
             <tr>
                 <th>

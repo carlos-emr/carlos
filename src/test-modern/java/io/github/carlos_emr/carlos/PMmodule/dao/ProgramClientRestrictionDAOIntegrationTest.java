@@ -491,7 +491,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(pcr.getId()).isNotNull();
+            assertThat(pcr.getId()).isPositive();
             assertThat(pcr.getId()).isGreaterThan(0);
 
             // Verify it can be retrieved

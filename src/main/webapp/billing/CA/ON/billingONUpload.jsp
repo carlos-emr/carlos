@@ -35,7 +35,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
     <script type="text/javascript">
         function onSubmit() {
@@ -70,7 +70,7 @@
 
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></h3>
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <form id="form1" name="form1" method="post" action="" ENCTYPE="multipart/form-data" onsubmit="return onSubmit();">
         Select diskette<input style="margin-left:40px;" type="file" name="file1" value="" required>
         <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">

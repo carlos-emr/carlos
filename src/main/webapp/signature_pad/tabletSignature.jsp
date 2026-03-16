@@ -39,9 +39,8 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/TabletSignature.css" media="screen"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/TabletSignature.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery-1.4.2.js"></script>
-    <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery.form.js"></script>
+            src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
 
 </head>
 <%
