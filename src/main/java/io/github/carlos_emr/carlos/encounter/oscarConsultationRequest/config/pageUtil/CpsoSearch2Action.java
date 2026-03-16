@@ -105,7 +105,7 @@ public class CpsoSearch2Action extends ActionSupport {
             writeJsonResponse(validatedJson);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error calling CPSO search API", e);
-            writeJsonResponse("{\"totalcount\":0,\"results\":[],\"error\":\"CPSO service unavailable\"}");
+            writeJsonResponse("{\"totalcount\":0,\"results\":[],\"errorCode\":\"CPSO_SERVICE_UNAVAILABLE\"}");
         }
 
         return null;

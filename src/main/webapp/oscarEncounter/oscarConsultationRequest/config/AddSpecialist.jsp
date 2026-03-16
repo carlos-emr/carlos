@@ -215,8 +215,8 @@
                     }
 
                     // Check for server-reported errors before checking result count
-                    if (data.error) {
-                        container.html('<div class="p-2 text-danger">' + $('<span>').text(data.error).html() + '</div>').show();
+                    if (data.errorCode) {
+                        container.html('<div class="p-2 text-danger">' + $('<span>').text(cpsoI18n.unavailable).html() + '</div>').show();
                         return;
                     }
 
@@ -231,7 +231,8 @@
                     }
 
                     $.each(data.results, function (i, doc) {
-                        var nameParts = doc.name.split(',');
+                        var safeName = (typeof doc.name === 'string') ? doc.name : '';
+                        var nameParts = safeName.split(',');
                         var docLastName = nameParts[0] ? nameParts[0].trim() : '';
                         var docFirstName = nameParts[1] ? nameParts[1].trim() : '';
 
