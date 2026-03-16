@@ -11,9 +11,9 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -29,6 +29,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opensymphony.xwork2.ActionSupport;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -48,18 +50,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public class CpsoSearch2Action extends ActionSupport {
 
+    private static final long serialVersionUID = 1L;
+
     private static final String CPSO_SEARCH_URL = "https://register.cpso.on.ca/Get-Search-Results/";
     private static final int CONNECT_TIMEOUT_MS = 5000;
     private static final int READ_TIMEOUT_MS = 10000;
     private static final int MAX_RESPONSE_BYTES = 512 * 1024;
+    private static final int MAX_INPUT_LENGTH = 100;
 
     private static final String EMPTY_RESPONSE = "{\"totalcount\":0,\"results\":[]}";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Proxies a physician search request to the CPSO register API.
@@ -71,23 +76,34 @@ public class CpsoSearch2Action extends ActionSupport {
      */
     @Override
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin,_admin.consult", "r", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
             throw new SecurityException("missing required security object _admin.consult");
         }
 
         String lastName = request.getParameter("lastName");
         String firstName = request.getParameter("firstName");
 
+        // Reject blank queries
         if ((lastName == null || lastName.trim().isEmpty()) && (firstName == null || firstName.trim().isEmpty())) {
             writeJsonResponse(EMPTY_RESPONSE);
             return null;
         }
 
+        // Enforce input length limits to prevent abuse
+        if ((lastName != null && lastName.length() > MAX_INPUT_LENGTH)
+                || (firstName != null && firstName.length() > MAX_INPUT_LENGTH)) {
+            MiscUtils.getLogger().warn("CPSO search input exceeded max length");
+            writeJsonResponse(EMPTY_RESPONSE);
+            return null;
+        }
+
         try {
+            LogAction.addLogSynchronous(loggedInInfo, LogConst.READ, "CPSO physician search");
             String cpsoResponse = callCpsoApi(lastName, firstName);
             String validatedJson = validateAndSanitizeJson(cpsoResponse);
             writeJsonResponse(validatedJson);
-        } catch (Exception e) {
+        } catch (IOException e) {
             MiscUtils.getLogger().error("Error calling CPSO search API", e);
             writeJsonResponse("{\"totalcount\":0,\"results\":[],\"error\":\"CPSO service unavailable\"}");
         }
@@ -103,8 +119,8 @@ public class CpsoSearch2Action extends ActionSupport {
      * @throws IOException if the response is not valid JSON
      */
     private String validateAndSanitizeJson(String rawResponse) throws IOException {
-        JsonNode node = objectMapper.readTree(rawResponse);
-        return objectMapper.writeValueAsString(node);
+        JsonNode node = OBJECT_MAPPER.readTree(rawResponse);
+        return OBJECT_MAPPER.writeValueAsString(node);
     }
 
     /**
@@ -113,7 +129,7 @@ public class CpsoSearch2Action extends ActionSupport {
      * @param lastName  physician last name (may be partial)
      * @param firstName physician first name (may be partial)
      * @return String JSON response from the CPSO API
-     * @throws IOException if the HTTP connection fails or response exceeds size limit
+     * @throws IOException if the HTTP connection fails, returns a non-200 status, or the response exceeds size limit
      */
     private String callCpsoApi(String lastName, String firstName) throws IOException {
         StringBuilder postData = new StringBuilder();
@@ -141,26 +157,25 @@ public class CpsoSearch2Action extends ActionSupport {
 
             int responseCode = conn.getResponseCode();
             if (responseCode != HttpURLConnection.HTTP_OK) {
-                MiscUtils.getLogger().warn("CPSO API returned HTTP {}", responseCode);
-                return EMPTY_RESPONSE;
+                throw new IOException("CPSO API returned non-200 HTTP status: " + responseCode);
             }
 
-            StringBuilder responseBody = new StringBuilder();
-            int totalChars = 0;
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    totalChars += line.length();
-                    if (totalChars > MAX_RESPONSE_BYTES) {
+            // Read raw bytes to enforce size limit accurately
+            try (InputStream in = conn.getInputStream();
+                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                long totalBytes = 0;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    totalBytes += bytesRead;
+                    if (totalBytes > MAX_RESPONSE_BYTES) {
                         MiscUtils.getLogger().warn("CPSO API response exceeded {} byte limit", MAX_RESPONSE_BYTES);
                         return EMPTY_RESPONSE;
                     }
-                    responseBody.append(line);
+                    out.write(buffer, 0, bytesRead);
                 }
+                return out.toString(StandardCharsets.UTF_8.name()).trim();
             }
-
-            return responseBody.toString().trim();
         } finally {
             conn.disconnect();
         }
