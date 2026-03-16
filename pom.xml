@@ -1100,13 +1100,6 @@
         <!-- ESAPI removed: ClickjackFilter replaced by security headers in ResponseDefaultsFilter -->
 
 
-        <!-- https://mvnrepository.com/artifact/org.codehaus.jettison/jettison -->
-        <dependency>
-            <groupId>org.codehaus.jettison</groupId>
-            <artifactId>jettison</artifactId>
-            <version>1.5.4</version>
-        </dependency>
-
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>

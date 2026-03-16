@@ -30,12 +30,12 @@
 
 package io.github.carlos_emr.carlos.scratch;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.commn.dao.ScratchPadDao;
 import io.github.carlos_emr.carlos.commn.model.JSONAction;
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.codehaus.jettison.json.JSONObject;
 import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -147,7 +147,7 @@ public class Scratch2Action extends JSONAction {
                MiscUtils.getLogger().debug("dirty field set");
            }
         }
-			JSONObject jsonObject = new JSONObject();
+			ObjectNode jsonObject = objectMapper.createObjectNode();
 			jsonObject.put("id", Encode.forHtmlContent(returnId));
 			jsonObject.put("text", Encode.forHtmlContent(returnText));
 			jsonObject.put("windowId", Encode.forHtmlContent(windowId));
@@ -164,7 +164,7 @@ public class Scratch2Action extends JSONAction {
     
     public String delete() {
     	String id = request.getParameter("id");
-	    JSONObject jsonObject = new JSONObject();
+	    ObjectNode jsonObject = objectMapper.createObjectNode();
 
         try {
             if (id != null && !id.isEmpty()) {
@@ -185,23 +185,11 @@ public class Scratch2Action extends JSONAction {
                 jsonObject.put("success", false);
             }
         } catch (Exception e) {
-            // Log the failure without including any PHI
-            MiscUtils.getLogger().error(
-                "Failed to delete ScratchPad entry with id: " + Encode.forJava(id),
-                e
-            );
-            try {
-                // Ensure callers can detect the failure via HTTP status and JSON payload
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                jsonObject = new JSONObject();
-                jsonObject.put("success", false);
-            } catch (Exception jsonException) {
-                // Avoid throwing from error handling; just log the secondary failure
-                MiscUtils.getLogger().error(
-                    "Failed to build error JSON response for ScratchPad delete operation",
-                    jsonException
-                );
-            }
+            MiscUtils.getLogger().error("Failed to delete ScratchPad entry with id: {}", Encode.forJava(id), e);
+            // Ensure callers can detect the failure via HTTP status and JSON payload
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
         }
 	    jsonResponse(jsonObject);
     	return null;

@@ -77,7 +77,9 @@
 <%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="org.apache.http.client.HttpClient" %>
 <%@page import="org.apache.http.HttpResponse" %>
-<%@page import="org.codehaus.jettison.json.*" %>
+<%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@page import="com.fasterxml.jackson.databind.JsonNode" %>
+<%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -335,8 +337,9 @@
 
                 <%
                     try {
+                        ObjectMapper dhirMapper = new ObjectMapper();
                         String theString = AbstractFhirMessageBuilder.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
-                        JSONObject jbundle = new JSONObject(theString);
+                        JsonNode jbundle = dhirMapper.readTree(theString);
 
                         String clientRequestId = UUID.randomUUID().toString();
 
@@ -349,10 +352,10 @@
                         httpPost.addHeader("x-oneid-email", providerEmail);
                         httpPost.addHeader("x-access-token", oneIdToken);
 
-                        JSONObject obj = new JSONObject();
+                        ObjectNode obj = dhirMapper.createObjectNode();
                         obj.put("url", OscarProperties.getInstance().getProperty("dhir.url"));
                         obj.put("service", "DHIR");
-                        obj.put("body", jbundle);
+                        obj.set("body", jbundle);
                         obj.put("client-request-id", clientRequestId);
                         obj.put("client-app-desc", "EMR");
 
@@ -364,25 +367,19 @@
                         HttpResponse httpResponse = httpClient.execute(httpPost);
                         String entity = EntityUtils.toString(httpResponse.getEntity());
 
-                        JSONObject object = new JSONObject(entity);
+                        JsonNode object = dhirMapper.readTree(entity);
                         logger.info("object=" + object.toString());
 
-                        Integer code = (Integer) object.get("code");
+                        int code = object.get("code").asInt();
 
                         if (code >= 200 && code < 300) {
                             String val = null;
                             String clientId = null;
                             if (object != null) {
-                                JSONObject headers = (JSONObject) object.get("headers");
-                                try {
-                                    val = (String) headers.get("hialTxId");
-                                } catch (JSONException je) {
-
-                                }
-                                try {
-                                    clientId = (String) headers.get("client-response-id");
-                                } catch (JSONException je) {
-
+                                JsonNode headers = object.get("headers");
+                                if (headers != null) {
+                                    val = headers.has("hialTxId") ? headers.get("hialTxId").asText() : null;
+                                    clientId = headers.has("client-response-id") ? headers.get("client-response-id").asText() : null;
                                 }
                             }
 
@@ -406,16 +403,10 @@
                         String clientId = null;
 
                         if (object != null) {
-                            JSONObject headers = (JSONObject) object.get("headers");
-                            try {
-                                val = (String) headers.get("hialTxId");
-                            } catch (JSONException je) {
-
-                            }
-                            try {
-                                clientId = (String) headers.get("client-response-id");
-                            } catch (JSONException je) {
-
+                            JsonNode headers = object.get("headers");
+                            if (headers != null) {
+                                val = headers.has("hialTxId") ? headers.get("hialTxId").asText() : null;
+                                clientId = headers.has("client-response-id") ? headers.get("client-response-id").asText() : null;
                             }
                         }
 
@@ -444,16 +435,10 @@
                         String val = null;
                         String clientId = null;
                         if (object != null) {
-                            JSONObject headers = (JSONObject) object.get("headers");
-                            try {
-                                val = (String) headers.get("hialTxId");
-                            } catch (JSONException je) {
-
-                            }
-                            try {
-                                clientId = (String) headers.get("client-response-id");
-                            } catch (JSONException je) {
-
+                            JsonNode headers = object.get("headers");
+                            if (headers != null) {
+                                val = headers.has("hialTxId") ? headers.get("hialTxId").asText() : null;
+                                clientId = headers.has("client-response-id") ? headers.get("client-response-id").asText() : null;
                             }
                         }
 
