@@ -1802,10 +1802,10 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             // Given - create SecUserRole entries linking providers to roles
             // SecUserRole is mapped via Secuserrole.hbm.xml with auto-increment id
             org.hibernate.Session session = hibernateTemplate.getSessionFactory().getCurrentSession();
-            session.createSQLQuery(
+            session.createNativeQuery(
                 "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T001', 'doctor', 'D')")
                 .executeUpdate();
-            session.createSQLQuery(
+            session.createNativeQuery(
                 "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T002', 'admin', 'A')")
                 .executeUpdate();
             session.flush();
