@@ -211,8 +211,8 @@ All of these are confirmed current as of March 16, 2026:
 ### Jakarta EE APIs
 | Dependency | Version | Notes |
 |-----------|---------|-------|
-| `jakarta.servlet-api` | 6.1.0 | EE 11 spec — **Note**: Tomcat 10.1 implements EE 10 (Servlet 6.0). Forward-compatible but monitor for edge cases. |
-| `jakarta.servlet.jsp-api` | 4.0.0 | EE 11 spec — same note as above |
+| `jakarta.servlet-api` | 6.1.0 | EE 11 spec — native match for Tomcat 11.0 (Servlet 6.1) |
+| `jakarta.servlet.jsp-api` | 4.0.0 | EE 11 spec — native match for Tomcat 11.0 (JSP 4.0) |
 | `jakarta.annotation-api` | 3.0.0 | |
 | `jakarta.inject-api` | 2.0.1 | |
 | `jakarta.persistence-api` | 3.2.0 | JPA 3.2 |
@@ -225,7 +225,7 @@ All of these are confirmed current as of March 16, 2026:
 |-----------|---------|-------|
 | `struts2-core` / `struts2-spring-plugin` | 7.1.1 | |
 | `caffeine` | 3.2.3 | |
-| `apache-cxf` / `cxf-*` | 4.1.5 | CXF 4.2.0 targets Jakarta EE 11 — not ready |
+| `apache-cxf` / `cxf-*` | 4.1.5 | CXF 4.2.0 targets Jakarta EE 11 — now relevant since we run Tomcat 11.0 (EE 11) |
 | `velocity-engine-core` | 2.4.1 | |
 | `velocity-tools-generic` | 3.1 | |
 | `jakarta.servlet.jsp.jstl` | 3.0.1 | |
@@ -321,7 +321,8 @@ All of these are confirmed current as of March 16, 2026:
 
 | Category | Status |
 |----------|--------|
-| **Servlet/JSP/JSTL** | Fully Jakarta EE 11 |
+| **Runtime** | **Tomcat 11.0** — Jakarta EE 11 (Servlet 6.1, JSP 4.0, EL 6.0) |
+| **Servlet/JSP/JSTL** | Fully Jakarta EE 11 — native match for Tomcat 11.0 |
 | **JPA/JTA** | Fully Jakarta EE 11 (Hibernate 7.2, JPA 3.2) |
 | **JAXB** | Fully Jakarta (4.0.x) |
 | **JAX-WS** | Fully Jakarta (Metro 4.0.3) |
@@ -329,14 +330,14 @@ All of these are confirmed current as of March 16, 2026:
 | **Mail** | Fully Jakarta (Angus Mail 2.0.5) |
 | **Spring** | Fully Jakarta EE 11 (Spring 7.0.6) |
 | **Struts** | Fully Jakarta (7.1.1) |
-| **CXF** | Fully Jakarta EE 10 (4.1.5) |
+| **CXF** | Jakarta EE 10 (4.1.5) — CXF 4.2.x targets EE 11 to match Tomcat 11.0 |
 | **Hibernate** | Fully Jakarta EE 11 (7.2.x) |
 | **Drools** | Fully Jakarta (10.1.0) |
 | **JasperReports** | Fully Jakarta (7.0.x) |
 | **HAPI HL7v2** | **NOT Jakarta** — 1.0.1 predates Jakarta. Upgrade to 2.6.0 required. |
 | **HAPI FHIR** | **NOT Jakarta** — 6.10.5 uses javax. Upgrade to 7.0.0+ required. |
 | **PDFBox** | Fully Jakarta (3.0.7) — removed javax.xml.bind dependency |
-| **OWASP Encoder** | `encoder` OK; **`encoder-jsp` needs swap to `-jakarta-jsp`** |
+| **OWASP Encoder** | Fully Jakarta — `encoder-jakarta-jsp` swapped in this audit |
 | **HttpClient** | N/A — no servlet dependency, but 4.x is EOL |
 
 ---
