@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import io.github.carlos_emr.OscarProperties;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -158,7 +159,7 @@ class ImagePDFCreatorUnitTest {
 
     /** Counts pages in a PDF byte array using PDFBox. */
     private int countPdfPages(byte[] pdfBytes) throws IOException {
-        try (PDDocument doc = PDDocument.load(pdfBytes)) {
+        try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
             return doc.getNumberOfPages();
         }
     }

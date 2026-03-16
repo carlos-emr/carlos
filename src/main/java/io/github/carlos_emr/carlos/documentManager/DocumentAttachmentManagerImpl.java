@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.managers.*;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
@@ -654,7 +655,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs while loading, processing, or saving the PDF file
      */
     public void flattenPDFFormFields(Path pdfPath) throws PDFGenerationException {
-        try (PDDocument document = PDDocument.load(pdfPath.toFile())) {
+        try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
             PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
             if (acroForm != null) {
                 acroForm.flatten();

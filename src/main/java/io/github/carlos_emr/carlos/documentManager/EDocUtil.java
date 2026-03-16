@@ -54,6 +54,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -1305,7 +1306,7 @@ public final class EDocUtil {
             Path path = Paths.get(resolvedPath);
 
             if (Files.exists(path)) {
-                try (PDDocument pdf = PDDocument.load(path.toFile())) {
+                try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
                     logger.error("Could not read PDF file: " + fileName, e);

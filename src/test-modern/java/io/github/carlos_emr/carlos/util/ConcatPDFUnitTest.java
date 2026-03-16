@@ -22,11 +22,13 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -70,7 +72,7 @@ class ConcatPDFUnitTest {
                 doc.addPage(page);
                 try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
                     cs.beginText();
-                    cs.setFont(PDType1Font.HELVETICA, 12);
+                    cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
                     cs.newLineAtOffset(50, 700);
                     cs.showText(pageText + " page " + (i + 1));
                     cs.endText();
@@ -91,7 +93,7 @@ class ConcatPDFUnitTest {
 
     /** Counts pages in a PDF byte array. */
     private int countPages(byte[] pdfBytes) throws IOException {
-        try (PDDocument doc = PDDocument.load(pdfBytes)) {
+        try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
             return doc.getNumberOfPages();
         }
     }
