@@ -182,18 +182,18 @@
                 <artifactId>serializer</artifactId>
                 <version>2.7.3</version>
             </dependency>
-            <!-- Override transitive org.hl7.fhir.core from hapi-fhir-structures-dstu3 to fix:
-                 - CVE-2024-45294 (XXE in XSLT transforms)
-                 - CVE-2024-51132 (XXE via crafted XML entities) -->
+            <!-- Override transitive org.hl7.fhir.core (6.1.2.2) from hapi-fhir-structures-dstu3.
+                 Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0).
+                 Aligned to 6.7.10 to reduce drift from HAPI FHIR development baseline (6.7.9). -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.4.0</version>
+                <version>6.7.10</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.4.0</version>
+                <version>6.7.10</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
