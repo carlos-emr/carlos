@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
-import javax.persistence.Column;
+import jakarta.persistence.Column;
 import java.util.Date;
 import java.util.Objects;
 

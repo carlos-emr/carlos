@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 7.0//EN" "https://struts.apache.org/dtds/struts-7.0.dtd">
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
 <struts>
     <constant name="struts.mapper.action.prefix.enabled" value="false"/>
 	<constant name="struts.action.extension" value="do" />
@@ -1130,7 +1130,7 @@
             <result name="continue">/oscarEncounter/oscarMeasurements/DisplayMeasurementStyleSheet.jsp</result>
         </action>
         <action name="oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/oscarEncounter/oscarMeasurements/AddMeasurementStyleSheet.jsp</result>
         </action>
@@ -1335,7 +1335,7 @@
         </action>
         <action name="dxCodeSearchJSON" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxCodeSearchJSON2Action"/>
         <action name="oscarResearch/oscarDxResearch/dxResearchLoadAssociations" class="io.github.carlos_emr.carlos.dxresearch.pageUtil.dxResearchLoadAssociations2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/oscarResearch/oscarDxResearch/dxResearchSelectAssociations.jsp</result>
         </action>
@@ -1447,7 +1447,7 @@
             <result name="success">/demographic/AddAlternateContact.jsp</result>
         </action>
         <action name="form/importUpload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/demographic/demographicImport.jsp</result>
         </action>
@@ -1570,7 +1570,7 @@
             <result name="success">/lab/CA/ALL/uploadComplete.jsp</result>
         </action>
         <action name="lab/CA/ALL/insideLabUpload" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
             <result name="success">/lab/CA/ALL/testUploader.jsp</result>
             <result name="input">/lab/CA/ALL/testUploader.jsp</result>
@@ -1811,7 +1811,7 @@
         <action name="OscarChartPrint" class="io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action"/>
         <action name="ClientImage" class="io.github.carlos_emr.carlos.casemgmt.web.ClientImage2Action" method="execute">
             <interceptor-ref name="defaultStack"/>
-            <interceptor-ref name="fileUpload">
+            <interceptor-ref name="actionFileUpload">
                 <param name="allowedTypes">image/jpeg,image/gif</param>
             </interceptor-ref>
             <result name="success">/casemgmt/uploadimage.jsp</result>
@@ -1866,8 +1866,8 @@
         <action name="provider/providerSignatureImage" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureImage2Action"/>
         <action name="provider/providerSignatureStamp" class="io.github.carlos_emr.carlos.provider.web.ProviderSignatureStamp2Action">
             <interceptor-ref name="defaultStack">
-                <param name="fileUpload.allowedTypes">image/png,image/jpeg,image/gif</param>
-                <param name="fileUpload.maximumSize">2097152</param>
+                <param name="actionFileUpload.allowedTypes">image/png,image/jpeg,image/gif</param>
+                <param name="actionFileUpload.maximumSize">2097152</param>
             </interceptor-ref>
             <result name="input" type="httpheader">
                 <param name="status">400</param>
@@ -2109,7 +2109,7 @@
         <action name="renal/Renal" class="io.github.carlos_emr.carlos.renal.web.Renal2Action"/>
         <action name="admin/GenerateTraceAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTrace2Action"/>
         <action name="admin/GenerateTraceabilityReportAction" class="io.github.carlos_emr.carlos.admin.traceability.GenerateTraceabilityReport2Action">
-            <interceptor-ref name="fileUpload" />
+            <interceptor-ref name="actionFileUpload" />
             <interceptor-ref name="defaultStack"/>
         </action>
         <action name="mcedt/mcedt" class="io.github.carlos_emr.carlos.integration.mcedt.Resource2Action">

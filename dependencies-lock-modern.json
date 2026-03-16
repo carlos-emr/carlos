@@ -1085,11 +1085,11 @@
   }, {
     "groupId" : "jakarta.transaction",
     "artifactId" : "jakarta.transaction-api",
-    "version" : "1.3.3",
+    "version" : "2.0.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:dkrei6gHaC3NHsc4LDUnXz2KsJoD1bRcSOcyUBGQ4nOCaQgKryiqjdZWwR7oS/t9rmlT3Sdo8qzs06jPDKSWHg=="
+    "integrity" : "sha512:E8GiGvPIAweUFVpitM3HC6HZUfv8CurZ6J8/Up57tEc6BwvUpsWTzhwM+3gTMr1i0hzws043UfmbDeRj9WbsYQ=="
   }, {
     "groupId" : "jakarta.ws.rs",
     "artifactId" : "jakarta.ws.rs-api",

@@ -161,6 +161,12 @@
                 <artifactId>jakarta.persistence-api</artifactId>
                 <version>3.2.0</version>
             </dependency>
+            <!-- JTA API (jakarta namespace) - required by Hibernate 7 at runtime -->
+            <dependency>
+                <groupId>jakarta.transaction</groupId>
+                <artifactId>jakarta.transaction-api</artifactId>
+                <version>2.0.1</version>
+            </dependency>
             <!-- Override transitive XStream from drools-engine to fix CVE-2024-47072
                  (stack overflow DoS when BinaryStreamDriver is configured) -->
             <dependency>
@@ -510,6 +516,11 @@
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-core</artifactId>
+        </dependency>
+        <!-- JTA API - required by Hibernate 7 at runtime for transaction management -->
+        <dependency>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
         </dependency>
 
         <!--  pdfbox -->

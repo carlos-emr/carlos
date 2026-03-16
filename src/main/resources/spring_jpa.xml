@@ -50,6 +50,63 @@
 	<!-- JPA -->
 	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
 		<property name="dataSource" ref="dataSource" />
+		<!-- Hibernate 7 requires the EMF to know about ALL entity types referenced
+		     by JPA associations. packagesToScan discovers @Entity classes;
+		     mappingResources loads HBM XML files so the EMF can resolve cross-references
+		     (e.g. Admission @ManyToOne -> Demographic which is HBM-only). -->
+		<property name="packagesToScan">
+			<list>
+				<value>io.github.carlos_emr.carlos.commn.model</value>
+				<value>io.github.carlos_emr.carlos.model</value>
+				<value>io.github.carlos_emr.carlos.PMmodule.model</value>
+				<value>io.github.carlos_emr.carlos.casemgmt.model</value>
+				<value>io.github.carlos_emr.carlos.entities</value>
+				<value>io.github.carlos_emr.carlos.billing</value>
+				<value>io.github.carlos_emr.carlos.billings</value>
+				<value>io.github.carlos_emr.carlos.hospitalReportManager.model</value>
+				<value>io.github.carlos_emr.carlos.form.model</value>
+				<value>io.github.carlos_emr.carlos.decisionSupport.model</value>
+			</list>
+		</property>
+		<property name="mappingResources">
+			<list>
+				<value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/Program.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientStatus.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramClientRestriction.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/ClientReferral.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/DefaultRoleAccess.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_cpp.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/casemgmt/model/ClientImage.hbm.xml</value>
+				<value>io/github/carlos_emr/carlos/casemgmt/model/issue.hbm.xml</value>
+				<value>com/quatro/model/FieldDefValue.hbm.xml</value>
+				<value>com/quatro/model/LookupCodeValue.hbm.xml</value>
+				<value>com/quatro/model/LookupTableDefValue.hbm.xml</value>
+				<value>com/quatro/model/LstOrgcd.hbm.xml</value>
+				<value>com/quatro/model/security/Secobjectname.hbm.xml</value>
+				<value>com/quatro/model/security/Secobjprivilege.hbm.xml</value>
+				<value>com/quatro/model/security/Secprivilege.hbm.xml</value>
+				<value>com/quatro/model/security/SecProvider.hbm.xml</value>
+				<value>com/quatro/model/security/Secrole.hbm.xml</value>
+				<value>com/quatro/model/security/Secuserrole.hbm.xml</value>
+				<value>com/quatro/model/security/UserAccessValue.hbm.xml</value>
+			</list>
+		</property>
 		<property name="jpaVendorAdapter">
 			<bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter" />
 		</property>
