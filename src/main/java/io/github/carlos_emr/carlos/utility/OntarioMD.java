@@ -34,8 +34,8 @@ import java.io.InputStream;
 import java.util.Hashtable;
 import java.util.Iterator;
 
-import org.apache.commons.collections.OrderedMap;
-import org.apache.commons.collections.map.LinkedMap;
+import org.apache.commons.collections4.OrderedMap;
+import org.apache.commons.collections4.map.LinkedMap;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;

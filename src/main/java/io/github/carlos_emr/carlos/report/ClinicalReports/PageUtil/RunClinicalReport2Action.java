@@ -40,7 +40,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.collections.KeyValue;
+import org.apache.commons.collections4.KeyValue;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -180,7 +180,7 @@ public class RunClinicalReport2Action extends ActionSupport {
                 if (extraVal == null) {
                     extraVal = new LinkedList();
                 }
-                KeyValue kv = new org.apache.commons.collections.keyvalue.DefaultKeyValue(requestParam, request.getParameter(requestParam));
+                KeyValue kv = new org.apache.commons.collections4.keyvalue.DefaultKeyValue(requestParam, request.getParameter(requestParam));
                 extraVal.add(kv);
                 request.setAttribute(requestParam, request.getParameter(requestParam));
             }

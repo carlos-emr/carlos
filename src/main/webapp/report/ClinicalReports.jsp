@@ -635,9 +635,9 @@
 
                     Hashtable forView = new Hashtable();
                     if (request.getAttribute("extraValues") != null) {
-                        List<org.apache.commons.collections.keyvalue.DefaultKeyValue> extraValues = (List) request.getAttribute("extraValues");
+                        List<org.apache.commons.collections4.keyvalue.DefaultKeyValue> extraValues = (List) request.getAttribute("extraValues");
 
-                        for (org.apache.commons.collections.keyvalue.DefaultKeyValue kv : extraValues) {
+                        for (org.apache.commons.collections4.keyvalue.DefaultKeyValue kv : extraValues) {
                             String[] temp = new String[outputfields.length + 1];
                             System.arraycopy(outputfields, 0, temp, 0, outputfields.length);
                             temp[outputfields.length] = "" + kv.getKey();
