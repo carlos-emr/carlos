@@ -41,7 +41,7 @@
  *
  * Responsibilities:
  *   • Retrieve the current HttpServletRequest from the CXF PhaseInterceptorChain.
- *   • Access the bound OAuth1AccessToken from the current CXF message.
+ *   • Access the authenticated provider from the current CXF message.
  *   • Resolve provider identifiers (providerNo) stored by OAuthInterceptor.
  *   • Expose convenience methods for retrieving the authenticated Provider
  *     and LoggedInInfo objects.
@@ -68,8 +68,6 @@ import org.apache.cxf.phase.PhaseInterceptorChain;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import com.github.scribejava.core.model.OAuth1AccessToken;
-
 /**
  * Base class for OAuth www services
  */
@@ -81,12 +79,6 @@ public abstract class AbstractServiceImpl {
         return (request);
     }
 
-    protected OAuth1AccessToken getOAuthAccessToken() {
-        Message m = PhaseInterceptorChain.getCurrentMessage();
-        OAuth1AccessToken token = m.getContent(OAuth1AccessToken.class);
-        return token;
-    }
-    
     protected String getOAuthProviderNo() {
         HttpServletRequest request = getHttpServletRequest();
         return (String) request.getAttribute("oauth.provider.no");

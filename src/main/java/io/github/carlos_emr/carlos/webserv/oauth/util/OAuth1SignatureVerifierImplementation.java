@@ -41,8 +41,6 @@ import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.github.scribejava.core.model.OAuthConstants;
-
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
@@ -60,8 +58,8 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
     public String verifySignature(HttpServletRequest req, AppOAuth1Config cfg) {
         // --- 1) OAuth params from Authorization header ---
         Map<String, String> oauth = OAuthRequestParser.extractOAuthParameters(req);
-        String token       = oauth.get(OAuthConstants.TOKEN);
-        String incomingSig = oauth.get(OAuthConstants.SIGNATURE);
+        String token       = oauth.get("oauth_token");
+        String incomingSig = oauth.get("oauth_signature");
         if (incomingSig == null) {
             throw new IllegalArgumentException("Missing OAuth signature");
         }
