@@ -79,7 +79,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -1033,7 +1033,7 @@ public class ClientManager2Action extends ActionSupport {
         return (StringEscapeUtils.escapeHtml4(display));
     }
 
-    @Required
+    @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;
     }

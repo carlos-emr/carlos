@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
@@ -556,7 +556,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     }
 
 
-    @Required
+    @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;
     }

@@ -45,8 +45,8 @@ import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
-import org.apache.struts2.interceptor.ServletRequestAware;
-import org.apache.struts2.interceptor.ServletResponseAware;
+import org.apache.struts2.action.ServletRequestAware;
+import org.apache.struts2.action.ServletResponseAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class GstControl2Action extends ActionSupport implements ServletRequestAware, ServletResponseAware  {

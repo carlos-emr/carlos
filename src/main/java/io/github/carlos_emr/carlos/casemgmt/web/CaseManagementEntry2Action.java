@@ -41,7 +41,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.SessionAware;
+import org.apache.struts2.action.SessionAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;

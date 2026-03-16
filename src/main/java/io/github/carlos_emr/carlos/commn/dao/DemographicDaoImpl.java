@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.HibernateException;
-import org.hibernate.Query;
+import org.hibernate.query.Query;
 import org.hibernate.query.NativeQuery;
 import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;

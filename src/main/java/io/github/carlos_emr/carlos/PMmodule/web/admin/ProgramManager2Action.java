@@ -84,7 +84,7 @@ import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.beans.factory.annotation.Required;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
@@ -1562,7 +1562,7 @@ public class ProgramManager2Action extends ActionSupport {
         return ((in1 == null && in2 == null) || in1.equals(in2));
     }
 
-    @Required
+    @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;
     }

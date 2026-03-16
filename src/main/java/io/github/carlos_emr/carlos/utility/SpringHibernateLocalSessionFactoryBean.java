@@ -31,9 +31,6 @@ import java.util.*;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.*;
-import org.hibernate.boot.spi.SessionFactoryOptions;
-import org.hibernate.engine.spi.FilterDefinition;
-import org.hibernate.stat.Statistics;
 import org.springframework.orm.jpa.hibernate.LocalSessionFactoryBean;
 
 /**
