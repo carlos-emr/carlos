@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements DefaultRoleAccessDAO {
 
     public void deleteDefaultRoleAccess(Long id) {
-        currentSession().delete(getDefaultRoleAccess(id));
+        currentSession().remove(getDefaultRoleAccess(id));
     }
 
     public DefaultRoleAccess getDefaultRoleAccess(Long id) {
@@ -59,7 +59,7 @@ public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements De
     }
 
     public void saveDefaultRoleAccess(DefaultRoleAccess dra) {
-        currentSession().saveOrUpdate(dra);
+        currentSession().merge(dra);
     }
 
     public DefaultRoleAccess find(Long roleId, Long accessTypeId) {

@@ -86,7 +86,7 @@ public class ProgramSignatureDaoImpl extends AbstractHibernateDao implements Pro
             throw new IllegalArgumentException();
         }
         programSignature.setUpdateDate(new Date());
-        currentSession().saveOrUpdate(programSignature);
+        currentSession().merge(programSignature);
         currentSession().flush();
 
         if (log.isDebugEnabled()) {

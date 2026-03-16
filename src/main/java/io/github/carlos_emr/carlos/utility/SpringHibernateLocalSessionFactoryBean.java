@@ -34,7 +34,7 @@ import org.hibernate.*;
 import org.hibernate.boot.spi.SessionFactoryOptions;
 import org.hibernate.engine.spi.FilterDefinition;
 import org.hibernate.stat.Statistics;
-import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
+import org.springframework.orm.jpa.hibernate.LocalSessionFactoryBean;
 
 /**
  * Session-tracking SessionFactory wrapper for Hibernate session leak detection.
@@ -42,11 +42,10 @@ import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
  * <p>Wraps a real SessionFactory to track opened sessions. Delegates all
  * operations to the wrapped factory.</p>
  *
- * <p>Note: This class extends Spring's LocalSessionFactoryBean. For Hibernate 6
- * with Spring 6, the spring-orm module still provides hibernate5 package classes
- * that work with Hibernate 6 (Spring 6.2 maintains backward compatibility).
- * If Spring drops this, switch to LocalSessionFactoryBean from spring-orm's
- * hibernate6 package or use JPA EntityManagerFactory directly.</p>
+ * <p>Note: This class extends Spring's LocalSessionFactoryBean from the
+ * {@code org.springframework.orm.jpa.hibernate} package (Spring 7.0+).
+ * Previously in the {@code hibernate5} package, it was relocated as part
+ * of Spring Framework 7.0's Hibernate ORM 7.x alignment.</p>
  */
 public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryBean {
 

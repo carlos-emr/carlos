@@ -434,7 +434,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @Transactional(readOnly = false)
     public void updateNote(CaseManagementNote note) {
         note.setUpdate_date(new Date());
-        currentSession().update(note);
+        currentSession().merge(note);
         currentSession().flush();
     }
 
@@ -448,7 +448,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        currentSession().save(note);
+        currentSession().persist(note);
         currentSession().flush();
     }
 
@@ -462,7 +462,8 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        return currentSession().save(note);
+        currentSession().persist(note);
+        return note;
     }
 
     @Override

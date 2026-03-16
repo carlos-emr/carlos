@@ -56,7 +56,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void save(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            currentSession().save(transientInstance);
+            currentSession().persist(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -68,7 +68,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void saveOrUpdate(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            currentSession().saveOrUpdate(transientInstance);
+            currentSession().merge(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -80,7 +80,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
         try {
-            currentSession().delete(persistentInstance);
+            currentSession().remove(persistentInstance);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -258,7 +258,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         logger.debug("attaching dirty Provider instance");
         Session session = currentSession();
         try {
-            session.saveOrUpdate(instance);
+            session.merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

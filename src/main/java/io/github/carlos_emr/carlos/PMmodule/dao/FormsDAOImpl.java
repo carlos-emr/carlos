@@ -53,7 +53,7 @@ public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
     private Logger log = MiscUtils.getLogger();
 
     public void saveForm(Object o) {
-        currentSession().save(o);
+        currentSession().persist(o);
 
         if (log.isDebugEnabled()) {
             log.debug("saveForm:" + o);

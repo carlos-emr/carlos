@@ -1482,7 +1482,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(demographic.getDemographicNo());
         }
 
-        currentSession().saveOrUpdate(demographic);
+        currentSession().merge(demographic);
 
         if (OscarProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
             (new HL7A04Generator()).generateHL7A04(demographic);
@@ -2056,7 +2056,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(client.getDemographicNo());
 
         client.setLastUpdateDate(new Date());
-        currentSession().saveOrUpdate(client);
+        currentSession().merge(client);
 
         if (OscarProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
             (new HL7A04Generator()).generateHL7A04(client);

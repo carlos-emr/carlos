@@ -109,7 +109,7 @@
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-framework-bom</artifactId>
-                <version>6.2.17</version>
+                <version>7.0.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -149,17 +149,17 @@
                <artifactId>byte-buddy-agent</artifactId>
                <version>1.17.7</version>
             </dependency>
-            <!-- Hibernate 6 core (Jakarta EE - jakarta.persistence namespace) -->
+            <!-- Hibernate 7 core (Jakarta EE 11 - JPA 3.2, jakarta.persistence namespace) -->
             <dependency>
                 <groupId>org.hibernate.orm</groupId>
                 <artifactId>hibernate-core</artifactId>
-                <version>6.6.40.Final</version>
+                <version>7.2.6.Final</version>
             </dependency>
-            <!-- JPA API (jakarta namespace) - provided by Hibernate 6 -->
+            <!-- JPA API (jakarta namespace) - provided by Hibernate 7 (JPA 3.2) -->
             <dependency>
                 <groupId>jakarta.persistence</groupId>
                 <artifactId>jakarta.persistence-api</artifactId>
-                <version>3.1.0</version>
+                <version>3.2.0</version>
             </dependency>
             <!-- Override transitive XStream from drools-engine to fix CVE-2024-47072
                  (stack overflow DoS when BinaryStreamDriver is configured) -->
@@ -241,7 +241,7 @@
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
-            <version>1.2</version>
+            <version>1.3.5</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -357,17 +357,12 @@
             <version>2.10.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
-            <scope>test</scope>
-        </dependency>
+        <!-- JUnit 4 removed — all tests migrated to JUnit 5/6 (PR #591) -->
 
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
-            <version>6.0.0</version>
+            <version>6.1.0</version>
             <scope>provided</scope>
         </dependency>
 
@@ -432,21 +427,21 @@
             <version>2.0.6.1</version>
         </dependency>
 
-        <!-- spring (Jakarta EE 10 — version aligned with spring-framework-bom in dependencyManagement) -->
+        <!-- spring (Jakarta EE 11 — version aligned with spring-framework-bom in dependencyManagement) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-orm</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
         </dependency>
         <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
              Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
@@ -454,29 +449,29 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
         </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aspects</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aop</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
             <exclusions>
                 <exclusion>
                     <groupId>cglib</groupId>
@@ -488,14 +483,14 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>6.3.9</version>
+            <version>7.0.3</version>
         </dependency>
 
         <!-- Spring Context Support (provides JavaMailSenderImpl for email) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context-support</artifactId>
-            <version>6.2.17</version>
+            <version>7.0.6</version>
         </dependency>
 
         <!-- hibernate / sql -->
@@ -1287,7 +1282,7 @@
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
-            <version>2.1.1</version>
+            <version>3.0.0</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/jakarta.inject/jakarta.inject-api -->
         <!-- Required for @Inject annotation in OAuth resources -->
@@ -1300,7 +1295,7 @@
         <dependency>
             <groupId>jakarta.servlet.jsp</groupId>
             <artifactId>jakarta.servlet.jsp-api</artifactId>
-            <version>3.1.0</version>
+            <version>4.0.0</version>
             <scope>provided</scope>
         </dependency>
 
@@ -1805,14 +1800,14 @@
                 <dependency>
                     <groupId>org.junit.jupiter</groupId>
                     <artifactId>junit-jupiter</artifactId>
-                    <version>5.10.1</version>
+                    <version>6.0.3</version>
                     <scope>test</scope>
                 </dependency>
                 <!-- JUnit 5 Params for parameterized tests -->
                 <dependency>
                     <groupId>org.junit.jupiter</groupId>
                     <artifactId>junit-jupiter-params</artifactId>
-                    <version>5.10.1</version>
+                    <version>6.0.3</version>
                     <scope>test</scope>
                 </dependency>
                 <!-- Mockito JUnit Jupiter integration -->
