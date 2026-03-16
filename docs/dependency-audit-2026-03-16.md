@@ -1,348 +1,139 @@
-# CARLOS EMR Dependency Audit — March 16, 2026
+# CARLOS EMR — Full Dependency Audit
 
-Comprehensive audit of all 92+ Maven dependencies in `pom.xml` against latest stable
-releases. Covers version currency, Jakarta EE compatibility, and strategic recommendations.
-
----
-
-## Executive Summary
-
-- **Total dependencies audited**: 127 unique (deduplicated from 134 in pom.xml)
-- **Already at latest**: 115 dependencies (91%)
-- **Applied in this audit**: 13 drop-in upgrades (see Section 1a/1b) + PDFBox 3.0.7 migration (Section 1d)
-- **Patch/minor updates remaining**: 1 (HL7 FHIR Core 6.7.10 → 6.8.2)
-- **Medium-effort updates available**: 4 dependencies (test thoroughly)
-- **Major version upgrades available**: 4 dependencies (require migration effort)
-- **Jakarta artifact swaps needed**: 1 (encoder-jsp → encoder-jakarta-jsp)
-- **Dormant/unmaintained**: 6 dependencies (risk assessment included)
-- **Recommended removals**: 1 (ultrabuk-htmltopdf-java — wraps dead wkhtmltopdf)
+**Date**: March 16, 2026
+**Stack**: Java 21 / Spring 7.0.6 / Hibernate 7.2.7 / Struts 7.1.1 / Tomcat 11.0 / Jakarta EE 11
 
 ---
 
-## 1a. Applied Updates — Batch 1 (commit ce2f30a3)
+## 1. Critical Issues
 
-These drop-in patch/minor bumps were applied and pushed:
+| Dependency | Version | Issue | Action |
+|---|---|---|---|
+| **HAPI FHIR** (`hapi-fhir-base`, `hapi-fhir-structures-dstu3`) | 6.10.5 | Uses `javax.*` namespace — incompatible with Jakarta EE 11 / Tomcat 11 / Spring 7. Runtime correctness risk. Latest is 8.8.0 (Feb 2026). | Upgrade to 7.x or 8.8.0 |
+| **HAPI HL7v2** (`hapi-base`, 5 structure JARs) | 1.0.1 | 4+ major versions behind (latest 2.6.0, Feb 2025). From ~2009. pom.xml exclusions for xalan/jdom are workarounds for issues fixed upstream. | Upgrade to 2.6.0 |
+| **ultrabuk-htmltopdf-java** (`com.github.openosp`) | 1.0.11 | Based on **deprecated wkhtmltopdf** (abandoned Jan 2023, obsolete WebKit). JitPack-only distribution, no public source repo, no security audit trail. pom.xml itself notes "Upgrades from this dependency are welcome." | Replace with `openhtmltopdf` (PDFBox-backed) or LibrePDF stack |
+| **H2** (`com.h2database`, test scope) | 2.2.224 | CVE-2025-32966 (RCE via case-sensitivity bypass on INIT/RUNSCRIPT) + CVE-2025-49002 (CVSS 8.2, patch bypass). Fixed in 2.4.240. | Upgrade to 2.4.240 |
 
-| Dependency | Before | After | Risk |
-|-----------|--------|-------|------|
-| `commons-logging:commons-logging` | 1.3.5 | **1.3.6** | Trivial |
-| `org.hibernate.orm:hibernate-core` | 7.2.6.Final | **7.2.7.Final** | Low |
-| `net.sf.jasperreports:jasperreports` (×4) | 7.0.4 | **7.0.6** | Low |
-| `org.apache.pdfbox:pdfbox` | 2.0.35 | **2.0.36 → 3.0.7** | See Section 3d |
-| `org.mockito:mockito-core` | 5.21.0 | **5.23.0** | Low |
-| `org.mockito:mockito-junit-jupiter` | 5.21.0 | **5.23.0** | Low |
-| `org.jetbrains:annotations` | 26.0.2-1 | **26.1.0** | Trivial |
+## 2. High Priority
 
-## 1b. Applied Updates — Batch 2 (comprehensive audit follow-up)
+| Dependency | Version | Latest | Issue |
+|---|---|---|---|
+| **HttpClient 4.x** (`org.apache.httpcomponents:httpclient`) | 4.5.14 | 5.6 (`client5`) | EOL trajectory. Spring 6+ dropped native HC4 support. Migration to `org.apache.httpcomponents.client5:httpclient5` recommended. |
+| **HttpMime 4.x** (`org.apache.httpcomponents:httpmime`) | 4.5.14 | absorbed into `httpclient5` | Same EOL trajectory. Multipart functionality moves to HC5. |
+| **ScribeJava** (`com.github.scribejava:scribejava-core`) | 8.3.3 | 8.3.3 (latest) | **Abandoned** — last release Nov 2022, maintainer unresponsive. OAuth library in PHI-adjacent context. Replace with Spring Security OAuth2 Client or Nimbus OAuth2/OIDC SDK. |
+| **TOTP** (`dev.samstevens.totp:totp`) | 1.7.1 | 1.7.1 (latest) | **Abandoned** — last release Nov 2020, no maintainer responses since 2022. Security-critical MFA library. Replace with `com.eatthepath:java-otp` or implement via `javax.crypto` HMAC directly. |
+| **XMLBeans** (`org.apache.xmlbeans:xmlbeans`) | 3.1.0 | 5.3.0 | 2 major versions behind (from 2019). Typically a transitive dependency of Apache POI. Upgrade may require schema regeneration. |
+| **commons-digester3** (`org.apache.commons:commons-digester3`) | 3.2 | 3.2 (latest) | **EOL** — last release 2011 (14 years ago). Transitive `commons-beanutils` may expose CVE-2025-48734 (CVSS 8.8). CARLOS already excludes beanutils, but digester3 itself needs replacement (JAXB, Jackson XML). |
 
-Additional drop-in upgrades discovered and applied:
+## 3. Medium Priority
 
-| Dependency | Before | After | Risk | Notes |
-|-----------|--------|-------|------|-------|
-| `org.springframework.security:spring-security-crypto` | 7.0.3 | **7.0.4** | Trivial | Released 2026-03-16, patch |
-| `net.bytebuddy:byte-buddy` | 1.18.6 | **1.18.7** | Trivial | Non-experimental Java 24 support |
-| `net.bytebuddy:byte-buddy-agent` | 1.18.6 | **1.18.7** | Trivial | Matches byte-buddy |
-| `org.codehaus.mojo:buildnumber-maven-plugin` | 3.2.0 | **3.3.0** | Trivial | Build plugin, released 2026-01-18 |
+| Dependency | Version | Latest | Issue |
+|---|---|---|---|
+| **Apache CXF** (all modules) | 4.1.5 | 4.2.0 | EE 10 library on EE 11 container. 4.2.0 requires Jackson 3.x + Spring 7 (which CARLOS now has). Upgrade blocked by Jackson 2→3 migration. CXF 4.1.5 works via forward compatibility. All CVEs patched at 4.1.5. |
+| **jaxws-ri** (`com.sun.xml.ws`) | 4.0.3 | 4.0.3 (latest) | EE 10 implementation on EE 11 container. Same forward-compat situation as CXF. Low activity but not abandoned. |
+| **saaj-impl** (`com.sun.xml.messaging.saaj`) | 3.0.4 | 3.0.4 (latest) | EE 10 implementation on EE 11 container. No CVEs. |
+| **Jettison** (`org.codehaus.jettison`) | 1.5.4 | 1.5.4 (latest) | Low activity (last release Mar 2023). All known CVEs patched. Transitive CXF dependency. |
+| **JDOM2** (`org.jdom:jdom2`) | 2.0.6.1 | 2.0.6.1 (latest) | **Unmaintained** — last release Dec 2021. CVE-2021-33813 (XXE) is patched in this version. Risk for healthcare XML parsing with no upstream to patch future vulnerabilities. Consider migration to Jackson XML, dom4j 2.x, or JDK built-in APIs. |
+| **Velocity Tools** (`velocity-tools-generic`) | 3.1 | 3.1 (latest) | **Dormant** — last release Feb 2021. No Jakarta `jakarta.*` support. OK since CARLOS only uses `velocity-tools-generic` (no servlet dependency). |
+| **PDFBox** (`org.apache.pdfbox`) | 3.0.7 | 3.0.7 (latest) | CVE-2026-23907 (path traversal in ExtractEmbeddedFiles, CVSS 5.4). Mitigated by CARLOS's mandatory `PathValidationUtils` usage. Watch for 3.0.8. |
+| **flying-saucer-pdf** (`org.xhtmlrenderer`) | 10.1.0 | 10.0.6 (confirmed on Maven Central) | Version 10.1.0 may not exist on Maven Central — verify resolution source. Potential classpath overlap with `openpdf-html` (LibrePDF's fork of Flying Saucer). |
+| **DBUnit** (`org.dbunit`) | 2.7.3 | 3.0.0 | Major version available (Jan 2025) with JUnit 5 native support. Since CARLOS uses JUnit 5, upgrading aligns with the modern test framework. Breaking API changes expected. |
+| **commons-io** (`commons-io`) | 2.21.0 | 2.22.0 | Minor bump available. Low risk. |
+| **org.hl7.fhir.utilities** / **org.hl7.fhir.dstu3** (overrides) | 6.7.10 | 6.8.2 | One minor version behind. Low-risk bump for validator improvements. |
 
-## 1d. Applied — PDFBox 2.0.36 → 3.0.7 Migration
+## 4. Low Priority / Monitor
 
-Full API migration from PDFBox 2.x to 3.0.7. See Section 3d for complete details.
+| Dependency | Version | Status |
+|---|---|---|
+| **Xalan** (`xalan:xalan`) | 2.7.3 | Current but stale project. No XSLT 2.0+ support. Consider JDK built-in or Saxon HE long-term. |
+| **Xerces** (`xerces:xercesImpl`) | 2.12.2 | Current but stale. JDK's built-in XML parser (Xerces-derived) may replace the explicit dependency. |
+| **XStream** (`com.thoughtworks.xstream`) | 1.4.21 | Current. Long CVE history — all patched at 1.4.21. Audit deserialization call sites for untrusted input; ensure allowed-type filtering is active. |
+| **ZXing** (`com.google.zxing:core`, `javase`) | 3.5.4 | Maintenance mode only (no new features). Current version. No CVEs. |
+| **Gson** (`com.google.code.gson`) | 2.13.2 | Maintenance mode (Google). Current and secure. |
+| **CommonMark** (`org.commonmark`) | 0.27.1 | Current. **XSS risk**: no built-in HTML sanitization. If rendering user-supplied markdown, output must pass through a sanitizer. |
+| **JFreeChart** (`org.jfree`) | 1.5.6 | Slow development pace. Current version. v2.0 on roadmap but unreleased. |
+| **Drools** (`org.drools:drools-engine`) | 10.1.0 | Current. 10.2 delayed in Apache incubator process. Used standalone via KIE API — no Spring coupling. |
+| **Jackson 2.x** (all modules) | 2.21.1 | Current 2.x LTS. Jackson 3.x migration will eventually be needed for CXF 4.2 and full Spring 7 ecosystem alignment. |
 
-**Files modified:**
-| File | Changes |
-|------|---------|
-| `pom.xml` | Updated version, added `pdfbox-io` module |
-| `ConcatPDF.java` | `Loader.loadPDF()`, byte[] for InputStream |
-| `PDFEncryptionUtil.java` | `Loader.loadPDF()` |
-| `RxWebService.java` | `Standard14Fonts`, `newLineAtOffset`, manual polygon path |
-| `NioFileManagerImpl.java` | `Loader.loadPDF()` |
-| `DocumentManagerImpl.java` | `Loader.loadPDF()` |
-| `ManageDocument2Action.java` | `Loader.loadPDF()`, `IOUtils.createTempFileOnlyStreamCache()` |
-| `SplitDocument2Action.java` | `Loader.loadPDF()` (4 instances) |
-| `DocumentAttachmentManagerImpl.java` | `Loader.loadPDF()` |
-| `EDocUtil.java` | `Loader.loadPDF()` |
-| `ConcatPDFUnitTest.java` | `Loader.loadPDF()`, `Standard14Fonts` |
-| `ImagePDFCreatorUnitTest.java` | `Loader.loadPDF()` |
+## 5. All Clear — Current, Maintained, No Issues
 
-## 1c. Still Pending — FHIR Core Libraries (Separate PR Recommended)
+These dependencies are at their latest versions with no known CVEs or compatibility concerns:
 
-| Dependency | Current | Latest | Risk | Notes |
-|-----------|---------|--------|------|-------|
-| `ca.uhn.hapi.fhir:org.hl7.fhir.utilities` | 6.4.0 | **6.7.10** | Low | Security fixes for CVE-2024-45294/51132; must remain compatible with hapi-fhir-base 6.10.5 |
-| `ca.uhn.hapi.fhir:org.hl7.fhir.dstu3` | 6.4.0 | **6.7.10** | Low | Follows org.hl7.fhir.core versioning |
+**Logging**: Log4j2 2.25.3, SLF4J 2.0.17, commons-logging 1.3.6
 
-**Recommended action**: Apply in a separate PR with FHIR integration testing.
+**Core Framework**: Spring Framework 7.0.6 (BOM), Spring Security 7.0.4, Hibernate 7.2.7.Final, Struts 7.1.1, struts2-spring-plugin 7.1.1, Caffeine 3.2.3
 
----
+**Database**: MySQL Connector/J 9.6.0, commons-dbcp2 2.14.0, ByteBuddy 1.18.7
 
-## 2. Medium-Effort Updates (Moderate Risk — Test Thoroughly)
+**Jackson/JSON**: jackson-databind 2.21.1, jackson-module-jakarta-xmlbind-annotations 2.21.1, jackson-dataformat-xml 2.21.1, jackson-jakarta-rs-json-provider 2.21.1
 
-| Dependency | Current | Latest | Risk | Migration Notes |
-|-----------|---------|--------|------|-----------------|
-| `org.apache.xmlbeans:xmlbeans` | 3.1.0 | **5.3.0** | Medium | 2 major versions behind. API is stable but some internal changes. Maintained by Apache POI team. Avoid 5.2.2 (log4j-api issue). |
-| `org.testng:testng` | 7.5.1 | **7.12.0** | Medium | Legacy test dependency only. 7.6+ requires Java 11+ (OK — we use 21). Large version gap may affect test behavior. |
-| `com.h2database:h2` | 2.2.224 | **2.4.240** | **High** | Test-only dependency but H2 version changes have historically broken HQL/SQL compatibility (see CLAUDE.md integration test pitfalls). Must test all integration tests thoroughly. |
-| `org.dbunit:dbunit` | 2.7.3 | **3.0.0** | **High** | Major version with potential breaking API changes. Test-only dependency. Review migration guide before upgrading. |
+**Security**: OWASP Encoder 1.4.0, encoder-jakarta-jsp 1.4.0, CSRFGuard 4.5.0-jakarta (all modules), Bouncy Castle bcpkix-jdk18on 1.83
 
-**Recommended action**: Create separate PRs for each. XMLBeans and TestNG can likely be done together. H2 and DBUnit need dedicated testing effort.
+**Jakarta EE APIs**: jakarta.servlet-api 6.1.0, jakarta.servlet.jsp-api 4.0.0, jakarta.servlet.jsp.jstl 3.0.1, jakarta.annotation-api 3.0.0, jakarta.inject-api 2.0.1, jakarta.xml.bind-api 4.0.5, jakarta.persistence-api 3.2.0, jakarta.transaction-api 2.0.1
 
----
+**JAXB**: jaxb-runtime 4.0.6, jaxb-core 4.0.6
 
-## 3. Major Version Upgrades (High Risk — Dedicated Migration Effort)
+**Networking**: Netty BOM 4.1.131.Final, Angus Mail 2.0.5
 
-### 3a. HAPI HL7v2: 1.0.1 → 2.6.0
+**PDF/Documents**: OpenPDF 3.0.3, openpdf-html 3.0.3, OpenRTF 3.0.0
 
-| Aspect | Details |
-|--------|---------|
-| **Version gap** | 15 years of releases (1.0.1 is from ~2009) |
-| **Jakarta support** | v2.5+ uses `jakarta.servlet`; v2.6.0 is Jakarta-native |
-| **Java requirement** | JDK 11+ (we use 21, OK) |
-| **Security** | Includes XML parser security fix |
-| **Impact** | All HL7 message processing code needs review |
-| **Artifacts** | `hapi-base`, `hapi-structures-v22`, `hapi-structures-v23`, `hapi-structures-v231`, `hapi-structures-v25`, `hapi-structures-v26` — all must upgrade together |
+**Imaging**: TwelveMonkeys common-lang 3.13.1, imageio-tiff 3.13.1
 
-**Recommended action**: Dedicated issue and PR. This is the most impactful Jakarta alignment upgrade remaining.
+**Reporting**: JasperReports 7.0.6 (core, pdf, jdt, excel-poi), Apache POI 5.5.1, JavaMelody 2.6.0, DisplayTag 3.7.0
 
-### 3b. HAPI FHIR: 6.10.5 → 8.8.0
+**Apache Commons**: commons-text 1.15.0, commons-validator 1.10.1, commons-collections4 4.5.0, commons-codec 1.21.0, commons-lang3 3.20.0, commons-csv 1.14.1
 
-| Aspect | Details |
-|--------|---------|
-| **Version gap** | 2 major versions (8.8.0 released March 2026) |
-| **Jakarta support** | v7.0.0 migrated `javax.*` → `jakarta.*` (breaking for interceptors) |
-| **Java requirement** | v8.0.0 requires Java 17+ (we use 21, OK) |
-| **Migration guide** | https://hapifhir.io/hapi-fhir/docs/interceptors/jakarta_upgrade.html |
-| **Impact** | Over 600 files changed in HAPI itself; check for custom interceptors using `javax.servlet` |
+**Utilities**: Guava 33.5.0-jre, Jsoup 1.22.1, JetBrains Annotations 26.1.0, Velocity Engine 2.4.1, Apache Ant 1.10.15
 
-**Recommended action**: Dedicated issue and PR. Aligns FHIR stack with Jakarta EE — critical for long-term compatibility.
+**Test**: Mockito 5.23.0, AssertJ 3.27.7
 
-### 3c. Apache HttpClient: 4.5.14 → 5.6
+**local_repo**: CDS JARs (cds 5.2.3, cds_cihi 1.0, cds_cihi_phcvrs 1.0, cds_rourke 1.0, cds_hrm 4.3.1) — XMLBeans-generated healthcare schema bindings. No CVEs, no transitive dependencies. Supply-chain opacity risk (binary blobs, no public upstream), but accepted pattern for Canadian healthcare schema bindings.
 
-| Aspect | Details |
-|--------|---------|
-| **Status** | HttpClient 4.x / HttpCore 4 is **officially End of Life** |
-| **New coordinates** | `org.apache.httpcomponents.client5:httpclient5:5.6` |
-| **httpmime** | Absorbed into httpclient5 (no separate artifact) |
-| **Package change** | `org.apache.http.*` → `org.apache.hc.client5.http.*` |
-| **Migration tool** | OpenRewrite recipe available: `org.openrewrite.apache.httpclient5` |
-| **Coexistence** | 5.x can coexist with 4.x on classpath (different packages) |
+## 6. Systemic Observations
 
-**Recommended action**: Plan incremental migration. No urgent CVEs in 4.5.14, but no future fixes will be issued. OpenRewrite can automate much of the migration.
+### EE 10 vs EE 11 Split
 
-### 3d. PDFBox: 2.0.36 → 3.0.7 — COMPLETED
+The core stack (Spring 7, Hibernate 7, Tomcat 11, Struts 7) is fully Jakarta EE 11. However, several dependencies still target EE 10:
 
-| Aspect | Details |
-|--------|---------|
-| **Status** | **DONE** — migrated in this audit session |
-| **Files changed** | 11 source files + 2 test files |
-| **Breaking changes applied** | `PDDocument.load()` → `Loader.loadPDF()`, `Standard14Fonts.FontName` enum for fonts, `drawPolygon()` → manual `moveTo/lineTo/closePath`, `MemoryUsageSetting` → `null` or `IOUtils.createTempFileOnlyStreamCache()`, new `pdfbox-io` module added |
-| **Benefits** | Incremental loading, better memory, actively developed, removed javax.xml.bind dependency |
+- **CXF 4.1.5** — EE 10 (4.2.0 is EE 11 but requires Jackson 3)
+- **HAPI FHIR 6.10.5** — still `javax.*` (pre-EE 10)
+- **jaxws-ri 4.0.3** — EE 10
+- **saaj-impl 3.0.4** — EE 10
+- **JSTL 3.0.1** — EE 10
 
-**Key API mappings applied:**
-- `PDDocument.load(File)` → `Loader.loadPDF(File)`
-- `PDDocument.load(InputStream)` → `Loader.loadPDF(inputStream.readAllBytes())`
-- `PDType1Font.HELVETICA_BOLD` → `new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD)`
-- `PDFParser + RandomAccessFile + ScratchFile` → `Loader.loadPDF(File, StreamCacheCreateFunction)`
-- `contentStream.drawPolygon(x[], y[])` → `moveTo` + `lineTo` loop + `closePath` + `stroke`
+These work via Tomcat 11's forward compatibility but represent a version tension that will need resolution as the ecosystem moves to EE 11-native releases.
 
----
+### Jackson 2→3 Migration Dependency Chain
 
-## 3e. Jakarta Artifact Swap: encoder-jsp → encoder-jakarta-jsp
+CXF 4.2.0 requires Jackson 3.x (`tools.jackson.*` packages). Since Jackson 2 and 3 use different package names, they can coexist on the classpath. However, a full migration would require:
 
-| Aspect | Details |
-|--------|---------|
-| **Current** | `org.owasp.encoder:encoder-jsp:1.4.0` |
-| **Replace with** | `org.owasp.encoder:encoder-jakarta-jsp:1.4.0` |
-| **Reason** | `encoder-jsp` depends on `javax.servlet.jsp-api`. The `-jakarta-jsp` artifact uses `jakarta.servlet.jsp-api` instead. Same version, same API, Jakarta-native. |
-| **Risk** | **Low** — drop-in swap, same version number and EL functions |
+1. Jackson 2.x → 3.x (package rename across codebase)
+2. CXF 4.1.5 → 4.2.x
+3. Verify all JAX-RS providers and Spring JSON handling
 
-**Recommended action**: Simple POM swap in next commit. The `encoder` (non-JSP) artifact has no servlet dependency and needs no change.
+This is a future epic, not a single upgrade task.
+
+### Abandoned Libraries in Security-Critical Roles
+
+Two abandoned libraries serve security-critical functions:
+- **ScribeJava** (OAuth) — last release Nov 2022
+- **TOTP** (MFA) — last release Nov 2020
+
+Both should be replaced with actively maintained alternatives before they accumulate unpatched vulnerabilities.
+
+## 7. Summary Statistics
+
+| Category | Count |
+|---|---|
+| Total dependencies audited | ~85 |
+| Current and clean | ~60 |
+| Critical (upgrade now) | 4 |
+| High priority | 6 |
+| Medium priority | 12 |
+| Low / monitor | 9 |
+| Abandoned / EOL | 4 (ScribeJava, TOTP, commons-digester3, ultrabuk-htmltopdf) |
+| Unmaintained but current | 3 (JDOM2, Velocity Tools, ZXing) |
 
 ---
 
-## 4. Dormant/Unmaintained Dependencies
-
-These libraries have not had releases in years and may never receive Jakarta updates.
-
-| Dependency | Current | Last Release | Status | Recommendation |
-|-----------|---------|-------------|--------|----------------|
-| `org.apache.commons:commons-digester3` | 3.2 | 2012 | Dormant | Works on Jakarta (no servlet dependency). Replace only if issues arise. Alternatives: JAXB, Jackson XML, SAX/StAX. |
-| `xerces:xercesImpl` | 2.12.2 | 2022-01 | Dormant | No newer release expected. Used for XML parsing overrides. |
-| `xalan:xalan` + `serializer` | 2.7.3 | 2023-05 | Dormant | Transitive from JSTL. Required by Struts. No replacement available. |
-| `org.jdom:jdom2` | 2.0.6.1 | 2021-12 | Dormant | Unofficial fork exists (`com.github.hullbend:jdom2:2.0.6.2` with Java 17 fixes). |
-| `com.github.scribejava:scribejava-core` | 8.3.3 | 2022-11 | Low activity | OAuth 1.0a library. No alternative with same API. Monitor for CVEs. |
-| `io.github.nichetoolkit:ultrabuk-htmltopdf-java` | 1.0.0 | 2021 | Dormant | JitPack wrapper around wkhtmltopdf (itself archived). Consider replacing with Flying Saucer (`flying-saucer-pdf`) or `openpdf-html`, both already in deps. |
-
----
-
-## 5. Dependencies Already at Latest (No Action Needed)
-
-All of these are confirmed current as of March 16, 2026:
-
-### Core Libraries
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `net.bull.javamelody:javamelody-core` | 2.6.0 | Jakarta EE 2.x line |
-| `org.apache.commons:commons-text` | 1.15.0 | |
-| `org.apache.logging.log4j:log4j-core/api/1.2-api` | 2.25.3 | |
-| `org.slf4j:slf4j-api` | 2.0.17 | |
-| `commons-validator:commons-validator` | 1.10.1 | |
-| `commons-io:commons-io` | 2.21.0 | |
-| `org.apache.commons:commons-collections4` | 4.5.0 | |
-| `commons-codec:commons-codec` | 1.21.0 | |
-| `org.apache.commons:commons-lang3` | 3.20.0 | |
-| `org.apache.commons:commons-csv` | 1.14.1 | |
-| `com.google.code.gson:gson` | 2.13.2 | Maintenance mode |
-
-### Jackson (all 2.21.1)
-| Dependency | Notes |
-|-----------|-------|
-| `jackson-databind` | LTS line. Jackson 3.1.0 exists under new groupId but is a major migration. |
-| `jackson-module-jakarta-xmlbind-annotations` | Jakarta-native |
-| `jackson-dataformat-xml` | |
-| `jackson-jakarta-rs-json-provider` | Jakarta RS namespace |
-
-### Spring Framework (all 7.0.6)
-| Dependency | Notes |
-|-----------|-------|
-| `spring-framework-bom` | Released 2026-03-13 |
-| `spring-core`, `spring-tx`, `spring-orm`, `spring-web`, `spring-aop`, `spring-aspects`, `spring-test`, `spring-context-support`, `spring-webmvc` | All managed by BOM |
-| `spring-security-crypto` | 7.0.4 — updated in this audit |
-
-### Jakarta EE APIs
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `jakarta.servlet-api` | 6.1.0 | EE 11 spec — native match for Tomcat 11.0 (Servlet 6.1) |
-| `jakarta.servlet.jsp-api` | 4.0.0 | EE 11 spec — native match for Tomcat 11.0 (JSP 4.0) |
-| `jakarta.annotation-api` | 3.0.0 | |
-| `jakarta.inject-api` | 2.0.1 | |
-| `jakarta.persistence-api` | 3.2.0 | JPA 3.2 |
-| `jakarta.transaction-api` | 2.0.1 | |
-| `jakarta.xml.bind-api` | 4.0.5 | |
-| `org.glassfish.jaxb:jaxb-runtime/core` | 4.0.6 | |
-
-### Web Frameworks
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `struts2-core` / `struts2-spring-plugin` | 7.1.1 | |
-| `caffeine` | 3.2.3 | |
-| `apache-cxf` / `cxf-*` | 4.1.5 | CXF 4.2.0 targets Jakarta EE 11 — now relevant since we run Tomcat 11.0 (EE 11) |
-| `velocity-engine-core` | 2.4.1 | |
-| `velocity-tools-generic` | 3.1 | |
-| `jakarta.servlet.jsp.jstl` | 3.0.1 | |
-| `saaj-impl` | 3.0.4 | |
-| `jaxws-ri` | 4.0.3 | |
-| `commonmark` | 0.27.1 | |
-| `displaytag` (hazendaz) | 3.7.0 | Jakarta fork |
-| `angus-mail` | 2.0.5 | Jakarta Mail 2.1 |
-| `netty-bom` | 4.1.131.Final | 4.2.x line exists but is new major |
-| `jettison` | 1.5.4 | |
-
-### PDF/Charts/Reports
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `pdfbox` / `pdfbox-io` | 3.0.7 | **Upgraded from 2.0.36** in this audit |
-| `openpdf` / `openpdf-html` | 3.0.3 | `org.openpdf` namespace |
-| `openrtf` | 3.0.0 | |
-| `jfreechart` | 1.5.6 | |
-| `poi` | 5.5.1 | |
-| `flying-saucer-pdf` | 10.1.0 | |
-| `twelvemonkeys common-lang` / `imageio-tiff` | 3.13.1 | |
-
-### Security
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `owasp encoder` | 1.4.0 | No servlet dependency — stays as-is |
-| `owasp encoder-jsp` | 1.4.0 | **Swap to `encoder-jakarta-jsp`** (see Section 3e) |
-| `csrfguard` / `csrfguard-*` | 4.5.0-jakarta | |
-| `bcpkix-jdk18on` | 1.83 | |
-| `zxing core` / `javase` | 3.5.4 | |
-
-### Database & ORM
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `commons-dbcp2` | 2.14.0 | |
-| `mysql-connector-j` | 9.6.0 | |
-| `byte-buddy` / `byte-buddy-agent` | 1.18.7 | Updated in this audit |
-| `xstream` | 1.4.21 | |
-
-### Testing
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `junit-jupiter` / `junit-jupiter-params` | 6.0.3 | |
-| `assertj-core` | 3.27.7 | |
-| `mockito-junit-jupiter` | 5.23.0 | Updated in this audit |
-
-### Misc
-| Dependency | Version | Notes |
-|-----------|---------|-------|
-| `jsoup` | 1.22.1 | |
-| `ant` | 1.10.15 | |
-| `guava` | 33.5.0-jre | |
-| `drools-engine` | 10.1.0 | |
-| `totp` | 1.7.1 | |
-
----
-
-## 6. Strategic Recommendations
-
-### Immediate (This Sprint) — DONE
-1. ~~Apply all Section 1 updates~~ — **Applied**: 13 drop-in bumps in Sections 1a + 1b
-2. ~~PDFBox 2.0.36 → 3.0.7 migration~~ — **Applied**: 11 source + 2 test files (Section 3d)
-3. Apply FHIR core library updates (Section 1c) in a separate PR
-4. Swap `encoder-jsp` → `encoder-jakarta-jsp` (Section 3e) — trivial POM change
-
-### Short-Term (Next 2-4 Weeks)
-2. Upgrade XMLBeans 3.1.0 → 5.3.0
-3. Upgrade TestNG 7.5.1 → 7.12.0 (legacy tests only)
-4. Evaluate H2 2.2.224 → 2.4.240 with full integration test run
-
-### Medium-Term (Next Quarter)
-5. **HAPI HL7v2 1.0.1 → 2.6.0** — critical Jakarta alignment for HL7 message processing
-6. **HAPI FHIR 6.10.5 → 8.8.0** — Jakarta-native FHIR stack
-7. **HttpClient 4.5.14 → 5.6** — EOL dependency removal (use OpenRewrite)
-
-### Long-Term (Future Planning)
-8. ~~PDFBox 2.x → 3.x migration~~ — **COMPLETED** in this audit
-9. Evaluate replacing `ultrabuk-htmltopdf-java` (JitPack/wkhtmltopdf) with Flying Saucer or OpenPDF-html (both already in deps)
-10. Evaluate `jettison` — may already be excluded from CXF transitive deps; verify and remove if possible
-11. Monitor Jackson 3.x (new groupId `tools.jackson.core`) for eventual migration
-12. Monitor CXF 4.2.x for Jakarta EE 11 readiness
-13. Monitor Netty 4.2.x line stability
-
-### Dependencies to Watch (Dormant Projects)
-- `commons-digester3` — dormant since 2012, no Jakarta version planned
-- `jdom2` — dormant since 2021
-- `scribejava-core` — low activity since 2022
-- `xerces` / `xalan` — effectively dormant, no alternatives
-
----
-
-## 7. Jakarta EE Compatibility Status
-
-| Category | Status |
-|----------|--------|
-| **Runtime** | **Tomcat 11.0** — Jakarta EE 11 (Servlet 6.1, JSP 4.0, EL 6.0) |
-| **Servlet/JSP/JSTL** | Fully Jakarta EE 11 — native match for Tomcat 11.0 |
-| **JPA/JTA** | Fully Jakarta EE 11 (Hibernate 7.2, JPA 3.2) |
-| **JAXB** | Fully Jakarta (4.0.x) |
-| **JAX-WS** | Fully Jakarta (Metro 4.0.3) |
-| **SOAP (SAAJ)** | Fully Jakarta (3.0.4) |
-| **Mail** | Fully Jakarta (Angus Mail 2.0.5) |
-| **Spring** | Fully Jakarta EE 11 (Spring 7.0.6) |
-| **Struts** | Fully Jakarta (7.1.1) |
-| **CXF** | Jakarta EE 10 (4.1.5) — CXF 4.2.x targets EE 11 to match Tomcat 11.0 |
-| **Hibernate** | Fully Jakarta EE 11 (7.2.x) |
-| **Drools** | Fully Jakarta (10.1.0) |
-| **JasperReports** | Fully Jakarta (7.0.x) |
-| **HAPI HL7v2** | **NOT Jakarta** — 1.0.1 predates Jakarta. Upgrade to 2.6.0 required. |
-| **HAPI FHIR** | **NOT Jakarta** — 6.10.5 uses javax. Upgrade to 7.0.0+ required. |
-| **PDFBox** | Fully Jakarta (3.0.7) — removed javax.xml.bind dependency |
-| **OWASP Encoder** | Fully Jakarta — `encoder-jakarta-jsp` swapped in this audit |
-| **HttpClient** | N/A — no servlet dependency, but 4.x is EOL |
-
----
-
-*Generated by Claude Code — March 16, 2026*
-*Updated: March 16, 2026 — Applied 13 drop-in upgrades (Sections 1a + 1b) + PDFBox 3.0.7 migration (Section 3d)*
-*Full audit: 127 dependencies checked across 12 parallel agents with web search verification*
-*Source: Maven Central, GitHub releases, project websites, and official documentation*
+*Generated with [Claude Code](https://claude.ai/code) — 12 parallel agents auditing dependency groups via web search against Maven Central, NVD, GitHub, and project documentation.*
