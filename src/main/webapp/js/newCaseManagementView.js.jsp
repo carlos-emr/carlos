@@ -282,6 +282,7 @@
 
     // Scrolls encMainDivWrapper so the active note textarea is at the top of the visible area
     function scrollToNote() {
+        if (!caseNote) return;
         var $note = jQuery("#" + caseNote);
         var $wrapper = jQuery("#encMainDivWrapper");
         if (!$note.length || !$wrapper.length) return;
