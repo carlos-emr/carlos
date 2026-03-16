@@ -547,6 +547,9 @@ span.footnote { background-color: var(--carlos-bg-light, #f5f5f5) !important; }
 /* ============================================================
    17. SEARCH BOX EMBEDDED ON THIS PAGE
    ============================================================ */
+/* Hide Back button from search fragment on this page (bottom bar has its own) */
+body#demographiceditdemographic .search-back-btn { display: none !important; }
+
 .searchBox { margin: 0 !important; }
 .searchBox .select-group,
 .searchBox div.input-group-btn {
