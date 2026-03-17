@@ -651,10 +651,6 @@
                 </h4>
             </div>
 
-            <form name="serviceform" method="get" action="ticklerMain.jsp">
-                <input type="hidden" name="Submit" value="">
-                <input type="hidden" name="demoview" value="<%= Encode.forHtmlAttribute(demoviewParam != null ? demoviewParam : "") %>">
-
         <h2>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-feather"
                  viewBox="0 0 16 16">
@@ -742,7 +738,7 @@
                             _providers["<%=Encode.forJavaScript(String.valueOf(sites.get(i).getSiteId()))%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
                             while (iter.hasNext()) {
                                 Provider p=iter.next();
-                                if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forHtmlAttribute(p.getProviderNo())%>'><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option><%}%>";
+                                if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo()))%>'><%=Encode.forJavaScript(Encode.forHtml(p.getLastName()))%>, <%=Encode.forJavaScript(Encode.forHtml(p.getFirstName()))%></option><%}%>";
                             <%}}%>
 
                             function changeSite(sel) {
@@ -814,14 +810,6 @@
                                value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnCreateReport'/>">
                         <input type="button" class="btn btn-sm btn-primary noprint" id="saveViewButton"
                                value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.msgSaveView'/>" onclick="saveView();">
-                    </div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-sm-9 offset-sm-3">
-                        <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>">
-                        <input type="button" class="btn btn-secondary ms-2" id="saveViewButton"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgSaveView"/>" onclick="saveView();">
                     </div>
                 </div>
 
