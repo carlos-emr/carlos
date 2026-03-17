@@ -56,14 +56,26 @@ public interface TicklerManager {
     public static String SORT_ASC = "asc";
     public static String SORT_DESC = "desc";
 
+    /**
+     * Retrieves a list of active tickler categories for the given logged-in user.
+     */
     public List<TicklerCategory> getActiveTicklerCategories(LoggedInInfo loggedInInfo);
 
+    /**
+     * Validates the given tickler.
+     */
     public boolean validateTicklerIsValid(Tickler tickler);
 
+    /**
+     * Adds a tickler link for the specified logged-in user.
+     */
     public boolean addTicklerLink(LoggedInInfo loggedInInfo, TicklerLink ticklerLink);
 
     public boolean addTickler(LoggedInInfo loggedInInfo, Tickler tickler);
 
+    /**
+     * Updates the specified tickler for the given logged-in user.
+     */
     public boolean updateTickler(LoggedInInfo loggedInInfo, Tickler tickler);
 
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, String providerNo,
@@ -71,31 +83,42 @@ public interface TicklerManager {
 
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter);
 
+    /**
+     * Retrieves a list of ticklers based on the provided parameters.
+     */
     public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit);
 
     public List<Tickler> getTicklerByLabId(LoggedInInfo loggedInInfo, int labId, Integer demoNo);
 
+    /**
+     * Retrieves a list of Tickler objects by lab ID for any provider.
+     */
     public List<Tickler> getTicklerByLabIdAnyProvider(LoggedInInfo loggedInInfo, int labId, Integer demoNo);
 
+    /**
+     * Filters ticklers based on the provided facility information.
+     */
     public List<Tickler> ticklerFacilityFiltering(LoggedInInfo loggedInInfo, List<Tickler> ticklers);
 
+    /**
+     * Filters ticklers based on access criteria.
+     */
     public List<Tickler> filterTicklersByAccess(List<Tickler> ticklers, String providerNo, String programNo);
 
+    /**
+     * Returns the count of active ticklers for the given provider.
+     */
     public int getActiveTicklerCount(LoggedInInfo loggedInInfo, String providerNo);
 
+    /**
+     * Retrieves the count of active ticklers based on the demographic number.
+     */
     public int getActiveTicklerByDemoCount(LoggedInInfo loggedInInfo, Integer demographicNo);
 
     public int getNumTicklers(LoggedInInfo loggedInInfo, CustomFilter filter);
 
     /**
-     * Returns the count of ticklers matching all filter criteria including
-     * the searchTerm field. Used by the DataTables server-side endpoint to
-     * return accurate {@code recordsFiltered} when the search box is used.
-     *
-     * @param loggedInInfo LoggedInInfo the session info for privilege checking
-     * @param filter CustomFilter the filter criteria, may include searchTerm
-     * @return int count of ticklers matching all criteria
-     * @since 2026-03-15
+     * Returns the count of ticklers matching the filter criteria.
      */
     public int getNumTicklersFiltered(LoggedInInfo loggedInInfo, CustomFilter filter);
 

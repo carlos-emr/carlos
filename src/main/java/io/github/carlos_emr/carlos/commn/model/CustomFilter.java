@@ -389,18 +389,30 @@ public class CustomFilter extends AbstractModel<Integer> {
         this.sort_order = sort_order;
     }
 
+    /**
+     * Returns the sort column.
+     */
     public String getSortColumn() {
         return sortColumn;
     }
 
+    /**
+     * Sets the sort column.
+     */
     public void setSortColumn(String sortColumn) {
         this.sortColumn = sortColumn;
     }
 
+    /**
+     * Returns the current search term.
+     */
     public String getSearchTerm() {
         return searchTerm;
     }
 
+    /**
+     * Sets the search term.
+     */
     public void setSearchTerm(String searchTerm) {
         this.searchTerm = searchTerm;
     }
