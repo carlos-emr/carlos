@@ -14,7 +14,4 @@ jQuery(document).ready(function () {
 function notifyIssueUpdate() {
 
 }
-
-function notifyDivLoaded(divId) {
-}
  

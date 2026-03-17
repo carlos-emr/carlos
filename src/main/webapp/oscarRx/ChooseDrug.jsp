@@ -73,7 +73,6 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ChooseDrug.title.DrugSearchResults"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
 
         <%
             RxDrugData.DrugSearch drugSearch = (RxDrugData.DrugSearch) request.getAttribute("drugSearch");//set from searchdrugaction

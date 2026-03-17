@@ -54,22 +54,9 @@
 <html>
     <head>
 
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
-        <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
-
-        <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <link rel="stylesheet" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css">
-        <link rel="stylesheet"
-              href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css">
-
-
-        <script>
-            $(function () {
-                $(document).tooltip();
-            });
-        </script>
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </head>
 
@@ -122,26 +109,26 @@
         <c:choose>
             <c:when test="${ not fn:startsWith(fn:toLowerCase(message), 'error') and not fn:startsWith(fn:toLowerCase(message), 'exception')}">
                 <div class="alert alert-success">
-                    <a href="#" data-dismiss="alert" class="close">&times;</a>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <c:out value="${ message }"/>
                 </div>
             </c:when>
             <c:otherwise>
-                <div class="alert alert-error">
-                    <a href="#" data-dismiss="alert" class="close">&times;</a>
+                <div class="alert alert-danger">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <c:out value="${ message }"/>
                 </div>
             </c:otherwise>
         </c:choose>
     </c:if>
     <c:if test="${ empty opentext and empty param.opentext }">
-        <!-- <form class="form-horizontal" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates.do"
+        <!-- <form class="" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates.do"
                         enctype="multipart/form-data">
-        <div class="row-fluid">
-        <div class="well">
-        <div class="control-group">
-        <label class="control-label" for="uploadReportXml">Select template</label>
-        <div class="controls">
+        <div class="row">
+        <div class="card card-body bg-body-tertiary">
+        <div class="mb-3">
+        <label class="form-label" for="uploadReportXml">Select template</label>
+        <div>
         <input type="file" id="uploadReportXml" class="input-file" name="templateFile" title="Upload a formatted template file. The extension is usually xml or txt">
         </div>
         </div>
@@ -149,21 +136,21 @@
         <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
         <input type="hidden" name="templateid" value="${ templateid }">
         <input type="hidden" name="uuid" value="${ curreport.uuid }">
-        <div class="control-group">
-        <div class="controls">
-        <input type="submit" class="btn btn-primary pull-right" value="Upload & <%=StringUtils.capitalize(action)%>">
+        <div class="mb-3">
+        <div>
+        <input type="submit" class="btn btn-primary float-end" value="Upload & <%=StringUtils.capitalize(action)%>">
         </div>
         </div>
         </div>
         </div>
     </form> -->
-        <form class="form-horizontal" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates.do"
+        <form class="" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates.do"
                    method="post" enctype="multipart/form-data" onsubmit="return validateFileUpload()">
-            <div class="row-fluid">
-                <div class="well">
-                    <div class="control-group">
-                        <label class="control-label" for="uploadReportXml">Select template</label>
-                        <div class="controls">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
+                    <div class="mb-3">
+                        <label class="form-label" for="uploadReportXml">Select template</label>
+                        <div>
                             <input type="file" id="uploadReportXml" class="input-file" name="templateFile"
                                    title="Upload a formatted template file. The extension is usually xml or txt">
                         </div>
@@ -172,9 +159,9 @@
                     <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
                     <input type="hidden" name="templateid" value="${ templateid }">
                     <input type="hidden" name="uuid" value="${ curreport.uuid }">
-                    <div class="control-group">
-                        <div class="controls">
-                            <input type="submit" class="btn btn-primary pull-right"
+                    <div class="mb-3">
+                        <div>
+                            <input type="submit" class="btn btn-primary float-end"
                                    value="Upload & <%=StringUtils.capitalize(action)%>">
                         </div>
                     </div>
@@ -185,8 +172,8 @@
     <c:if test="${ opentext eq '1' or param.opentext eq '1' }">
 
         <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/addEditTemplatesAction.do" method="post">
-            <div class="row-fluid">
-                <div class="well">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
                     <textarea id="xmltext" name="xmltext"
                               style="width:99%;height:300px;overflow-y:scroll;">${ templatexml }</textarea>
                     <input type="hidden" name="action" value="${ action }">
@@ -196,13 +183,13 @@
                 </div>
 
                 <div class="form-actions">
-                    <input type="submit" class="btn pull-right" value="Save">
+                    <input type="submit" class="btn float-end" value="Save">
 
                     <c:if test="${ action eq 'edit' }">
-                        <input type="submit" class="btn btn-primary pull-right" name="done" value="Done">
+                        <input type="submit" class="btn btn-primary float-end" name="done" value="Done">
                     </c:if>
                     <c:if test="${ action ne 'edit' }">
-                        <input type="button" class="btn pull-right" name="cancel" value="Cancel"
+                        <input type="button" class="btn float-end" name="cancel" value="Cancel"
                                onclick="document.location='homePage.jsp'">
                     </c:if>
                 </div>
@@ -212,8 +199,8 @@
     </c:if>
 
     <script type="text/javascript">
-        jQuery("#xmltext").on("keyup", function () {
-            jQuery(".alert").hide();
+        document.getElementById('xmltext')?.addEventListener('keyup', function () {
+            document.querySelectorAll('.alert').forEach(function (el) { el.style.display = 'none'; });
         });
     </script>
 
@@ -227,8 +214,8 @@
             return true;
         }
 
-        jQuery("#xmltext").on("keyup", function () {
-            jQuery(".alert").hide();
+        document.getElementById('xmltext')?.addEventListener('keyup', function () {
+            document.querySelectorAll('.alert').forEach(function (el) { el.style.display = 'none'; });
         });
     </script>
 

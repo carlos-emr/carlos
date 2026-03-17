@@ -78,31 +78,31 @@
 
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></h3>
 
-<form action="${ctx}/oscarReport/mis_report_form.jsp" class="well form-horizontal" id="misForm">
+<form action="${ctx}/oscarReport/mis_report_form.jsp" class="card card-body bg-body-tertiary" id="misForm">
 
-    <div class="control-group">
-        <label class="control-label">Report By</label>
-        <div class="controls">
-            <label class="radio inline">
-                <input
+    <div class="mb-3">
+        <label class="form-label">Report By</label>
+        <div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input"
                         type="radio" id="reportByFn" name="reportBy" value="functionalCentre"
                         checked="checked" onclick="toggleDivs()">
-                Functional Centre
-            </label>
-            <label class="radio inline">
-                <input type="radio" id="reportByPr" name="reportBy"
+                <label class="form-check-label" for="reportByFn">Functional Centre</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" id="reportByPr" name="reportBy"
                        value="programs" onclick="toggleDivs()">
-                Programs
-            </label>
+                <label class="form-check-label" for="reportByPr">Programs</label>
+            </div>
         </div>
     </div>
-    <div class="control-group">
-        <label class="control-label"></label>
-        <div class="controls">
+    <div class="mb-3">
+        <label class="form-label"></label>
+        <div>
             <div class="toggleDiv">
 
                 <%if (functionalCentres.size() > 0) {%>
-                <select id="functionalCentreId" name="functionalCentreId" class="input-medium">
+                <select id="functionalCentreId" name="functionalCentreId" class="form-select d-inline-block w-auto">
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
@@ -113,7 +113,7 @@
                     %>
                 </select>
                 <%} else {%>
-                <div class="alert span6">
+                <div class="alert col-md-6">
                     No function centre in use by facility
                 </div>
 
@@ -121,7 +121,7 @@
 
             </div>
             <div class="toggleDiv" style="display: none;">
-                <select id="programIds" name="programIds" multiple='multiple' class="input">
+                <select id="programIds" name="programIds" multiple='multiple' class="form-select">
                     <%
                         for (Program program : programs) {
                             if ("Service".equalsIgnoreCase(program.getType())) {
@@ -133,18 +133,19 @@
                         }
                     %>
                 </select>
-                <label class="checkbox">
-                    <input type="checkbox" name="reportProgramsIndividually"> Report Programs Separately
-                </label>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" name="reportProgramsIndividually" id="reportProgramsIndividually">
+                    <label class="form-check-label" for="reportProgramsIndividually">Report Programs Separately</label>
+                </div>
 
             </div>
         </div>
     </div>
     <hr style="border-bottom:1px solid #e5e5e5; width:100%;">
-    <div class="control-group">
-        <label class="control-label">Date Range Start</label>
-        <div class="controls">
-            <select name="startYear" class="input-medium">
+    <div class="mb-3">
+        <label class="form-label">Date Range Start</label>
+        <div>
+            <select name="startYear" class="form-select d-inline-block w-auto">
                 <%
                     GregorianCalendar cal = new GregorianCalendar();
                     int year = cal.get(GregorianCalendar.YEAR);
@@ -156,7 +157,7 @@
                     }
                 %>
             </select>
-            <select name="startMonth" class="input-mini">
+            <select name="startMonth" class="form-select form-select-sm d-inline-block w-auto">
                 <%
                     DateFormatSymbols dateFormatSymbols = DateFormatSymbols.getInstance();
                     String[] months = dateFormatSymbols.getShortMonths();
@@ -171,10 +172,10 @@
             </select>
         </div>
     </div>
-    <div class="control-group">
-        <label class="control-label">Date Range End (inclusive)</label>
-        <div class="controls">
-            <select name="endYear" class="input-medium">
+    <div class="mb-3">
+        <label class="form-label">Date Range End (inclusive)</label>
+        <div>
+            <select name="endYear" class="form-select d-inline-block w-auto">
                 <%
                     for (int i = 0; i < 10; i++) {
                 %>
@@ -183,7 +184,7 @@
                 <%
                     }
                 %>
-            </select> <select name="endMonth" class="input-mini">
+            </select> <select name="endMonth" class="form-select form-select-sm d-inline-block w-auto">
             <%
                 for (int i = 1; i < 13; i++) {
             %>
@@ -195,8 +196,8 @@
         </select>
         </div>
     </div>
-    <div class="control-group">
-        <div class="controls">
+    <div class="mb-3">
+        <div>
             <input type="submit" value="View Report" class="btn btn-primary"/>
         </div>
     </div>
@@ -233,7 +234,7 @@
         }
 %>
 
-<table class="table table-bordered table-striped table-condensed table-hover">
+<table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
         <%
@@ -275,13 +276,15 @@
 %>
 
 <script type="text/javascript">
-    var oldRadioVal = $("input:radio[name=reportBy]:checked").val();
+    var oldRadioVal = document.querySelector("input[type=radio][name=reportBy]:checked").value;
 
     function toggleDivs() {
-        var newVal = $("input:radio[name=reportBy]:checked").val();
+        var newVal = document.querySelector("input[type=radio][name=reportBy]:checked").value;
 
         if (oldRadioVal != newVal)
-            $(".toggleDiv").toggle();
+            document.querySelectorAll('.toggleDiv').forEach(function (el) {
+                el.style.display = el.style.display === 'none' ? '' : 'none';
+            });
 
         oldRadioVal = newVal;
     }

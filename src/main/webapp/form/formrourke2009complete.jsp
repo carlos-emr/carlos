@@ -86,8 +86,6 @@
     <!-- popup mouseover js code -->
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/mouseover.js"></script>
 
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-
     <!--Text Area text max limit code -->
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/javascript/txtCounter/x_core.js"></script>
@@ -190,16 +188,16 @@
                             colourIsSet = true;
 
                             if (colour == red) {
-                                $(child).setStyle({color: white})
+                                child.style.color = white;
                                 var anchorCheck = child.childNodes[0];
                                 if (anchorCheck.nodeName == "A") {
-                                    $(anchorCheck).setStyle({color: white});
+                                    anchorCheck.style.color = white;
                                 }
                             } else {
-                                $(child).setStyle({color: black})
+                                child.style.color = black;
                                 var anchorCheck = child.childNodes[0];
                                 if (anchorCheck.nodeName == "A") {
-                                    $(anchorCheck).setStyle({color: linkColour});
+                                    anchorCheck.style.color = linkColour;
                                 }
                             }
                             break;
@@ -296,7 +294,7 @@
                 for (var elemIdx = 0; elemIdx < measurements[dateIdx].length; ++elemIdx) {
                     var elem = document.forms["frmP1"].elements[measurements[dateIdx][elemIdx]];
 
-                    if ($(elem).value.length > 0 && (isNaN($(elem).value) || $(date).value.length == 0)) {
+                    if (elem.value.length > 0 && (isNaN(elem.value) || document.getElementById(date).value.length == 0)) {
                         alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formRourke2006.frmError"/>');
                         return false;
                     }
@@ -312,7 +310,7 @@
 
             if (checkMeasures()) {
                 reset();
-                $("frmP1").action += "?submit=save";
+                document.getElementById("frmP1").action += "?submit=save";
 
                 if (confirm("Are you sure you want to save this form?")) {
                     document.forms["frmP1"].submit();
@@ -327,7 +325,7 @@
 
             if (checkMeasures()) {
                 reset();
-                $("frmP1").action += "?submit=exit";
+                document.getElementById("frmP1").action += "?submit=exit";
 
                 if (confirm("Are you sure you wish to save and close this window?")) {
                     document.forms["frmP1"].submit();
@@ -424,7 +422,7 @@
                 curUnit = 0;
             }
 
-            var birthDateStr = $("c_birthDate").value;
+            var birthDateStr = document.getElementById("c_birthDate").value;
 
             if (birthDateStr != "") {
                 var birthDateArr = birthDateStr.split("/");
@@ -447,7 +445,7 @@
             }
 
             for (var idx = 0; idx < ageElements.length; ++idx) {
-                $(ageElements[idx]).value = age;
+                document.getElementById(ageElements[idx]).value = age;
             }
         }
 
@@ -599,6 +597,10 @@
         }
 
         function adjustSizes() {
+            // Helper: get element by ID and its offsetHeight (replaces Prototype's $() and .getHeight())
+            function _el(id) { return document.getElementById(id); }
+            function _h(id) { var e = _el(id); return e ? e.offsetHeight : 0; }
+            function _sh(id, h) { var e = _el(id); if (e) e.style.height = h + 'px'; }
 
             var divs = new Array("patientInfo", "growthA", "growthB", "nutrition", "education", "development", "physicalExam", "problemsPlans", "immunization");
             var curDiv;
@@ -614,7 +616,7 @@
 
                 for (page = 1; page < 5; ++page) {
                     curDiv = divs[divIdx] + "p" + page;
-                    tmpHeight = $(curDiv).getHeight();
+                    tmpHeight = _h(curDiv);
 
                     if (tmpHeight > maxHeight) {
                         maxHeight = tmpHeight;
@@ -624,7 +626,7 @@
 
                 for (page = 1; page < 5; ++page) {
                     curDiv = divs[divIdx] + "p" + page;
-                    $(curDiv).style.height = maxHeight;
+                    _sh(curDiv, maxHeight);
                 }
             }
 
@@ -638,31 +640,33 @@
             for (var idx = 0; idx < tables.length; ++idx) {
                 for (var tableIdx = 1; tableIdx < 4; ++tableIdx) {
                     curTable = tables[idx] + tableIdx;
-                    $(curTable).style.height = $(curDiv).getHeight();
+                    _sh(curTable, _h(curDiv));
                 }
             }
 
             //set education tables height
-            $("edt1").style.height = $("educationp1").getHeight();
-            $("edt2").style.height = $("educationp1").getHeight();
-            $("edt3").style.height = $("educationp1").getHeight();
-            $("edt41").style.height = $("educationp1").getHeight();
-            $("edt42").style.height = $("educationp1").getHeight();
+            var educationH = _h("educationp1");
+            _sh("edt1", educationH);
+            _sh("edt2", educationH);
+            _sh("edt3", educationH);
+            _sh("edt41", educationH);
+            _sh("edt42", educationH);
 
             //set development tables height
-            $("dt11").style.height = $("developmentp1").getHeight();
-            $("dt12").style.height = $("developmentp1").getHeight();
-            $("dt13").style.height = $("developmentp1").getHeight();
+            var developmentH = _h("developmentp1");
+            _sh("dt11", developmentH);
+            _sh("dt12", developmentH);
+            _sh("dt13", developmentH);
 
-            $("dt21").style.height = $("developmentp1").getHeight();
-            $("dt22").style.height = $("developmentp1").getHeight();
-            $("dt23").style.height = $("developmentp1").getHeight();
+            _sh("dt21", developmentH);
+            _sh("dt22", developmentH);
+            _sh("dt23", developmentH);
 
-            $("dt31").style.height = $("developmentp1").getHeight();
-            $("dt32").style.height = $("developmentp1").getHeight();
-            $("dt33").style.height = $("developmentp1").getHeight();
+            _sh("dt31", developmentH);
+            _sh("dt32", developmentH);
+            _sh("dt33", developmentH);
 
-            $("dt41").style.height = $("developmentp1").getHeight();
+            _sh("dt41", developmentH);
 
             //set physical exam tables height
             tables = new Array("pt1", "pt2", "pt3", "pt4");
@@ -670,53 +674,24 @@
             for (var idx = 0; idx < tables.length; ++idx) {
                 for (var tableIdx = 1; tableIdx < 4; ++tableIdx) {
                     curTable = tables[idx] + tableIdx;
-                    $(curTable).style.height = $(curDiv).getHeight();
+                    _sh(curTable, _h(curDiv));
                 }
             }
 
             //set problems and plan tables height
-            $("prbt23").style.height = $("problemsPlansp1").getHeight();
-            $("prbt31").style.height = $("problemsPlansp1").getHeight();
-            $("prbt32").style.height = $("problemsPlansp1").getHeight();
+            var problemsH = _h("problemsPlansp1");
+            _sh("prbt23", problemsH);
+            _sh("prbt31", problemsH);
+            _sh("prbt32", problemsH);
 
             //set immunization tables height
-            $("immt11").style.height = $("immunizationp1").getHeight();
-            $("immt12").style.height = $("immunizationp1").getHeight();
-            $("immt13").style.height = $("immunizationp1").getHeight();
+            var immunizationH = _h("immunizationp1");
+            _sh("immt11", immunizationH);
+            _sh("immt12", immunizationH);
+            _sh("immt13", immunizationH);
 
-            /*var patientInfoHeight = $("patientInfo1").getHeight();
-            $("patientInfo2").style.height = patientInfoHeight;
-            $("patientInfo3").style.height = patientInfoHeight;
-            $("patientInfo4").style.height = patientInfoHeight;
-
-            $("growthp1a").style.height = $("growthp4a").getHeight();
-            $("growthp1b").style.height = $("growthp4b").getHeight();
-            $("growthp2a").style.height = $("growthp4a").getHeight();
-            $("growthp2b").style.height = $("growthp4b").getHeight();
-            $("growthp3a").style.height = $("growthp4a").getHeight();
-            $("growthp3b").style.height = $("growthp4b").getHeight();
-
-            $("nutritionp1").style.height = $("nutritionp3").getHeight();
-            $("nutritionp2").style.height = $("nutritionp3").getHeight();
-            $("nutritionp4").style.height = $("nutritionp3").getHeight();
-
-            $("educationp1").style.height = $("educationp3").getHeight();
-            $("educationp2").style.height = $("educationp3").getHeight();
-            $("educationp4").style.height = $("educationp3").getHeight();
-
-            $("developmentp1").style.height = $("developmentp3").getHeight();
-            $("developmentp2").style.height = $("developmentp3").getHeight();
-
-            $("physicalExamp2").style.height = $("physicalExamp1").getHeight();
-            $("physicalExamp3").style.height = $("physicalExamp1").getHeight();
-            $("physicalExamp4b").style.height = $("physicalExamp4a").getHeight();
-            $("physicalExamp4c").style.height = $("physicalExamp4a").getHeight();
-
-            $("problemsPlansp1").style.height = $("problemsPlansp3").getHeight();
-            $("problemsPlansp2").style.height = $("problemsPlansp3").getHeight();
-
-            $("immunizationp3").style.height = $("immunizationp1").getHeight();
-              */
+            /* Commented-out legacy code removed — was already using Prototype $() API
+               which is no longer available. These sections were disabled before migration. */
         }
 
         function init() {

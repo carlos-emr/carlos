@@ -81,7 +81,7 @@
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
 
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.12.1.min.css"/>
+        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}/css/oscarRx.css" />">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
@@ -91,14 +91,13 @@
         <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/css/print.css" media="print">
 
-        <script type="text/javascript" src="<c:out value="${ctx}/js/jquery-1.7.1.min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.12.1.min.js" />"></script>
-        <script type="text/javascript">
-            jQuery.noConflict();
-        </script>
-
-        <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js" type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js" type="text/javascript"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
+        <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.14.2.min.js" />"></script>
+        <script type="text/javascript">jQuery.noConflict();</script>
+        <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
+        <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
+        <script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
+        <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 
         <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger-theme-future.js"></script>
@@ -118,10 +117,10 @@
         <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript" src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
 
-        <!-- js window size utility funcs since prototype's funcs are buggy in ie6 -->
+        <!-- js window size utility funcs -->
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/screen.js"/>"></script>
 
-        <!-- scriptaculous based select box -->
+        <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/select.js"/>"></script>
 
         <script type="text/javascript">
@@ -272,26 +271,24 @@
             function popColumn(url, div, params, navBar, navBarObj) {
                 params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
 
-                var objAjax = new Ajax.Request(
-                    url,
-                    {
-                        method: 'post',
-                        postBody: params,
-                        evalScripts: true,
-                        onSuccess: function (request) {
-                            $(div).update(request.responseText);
+                CarlosAjax.request(url, {
+                    method: 'post',
+                    postBody: params,
+                    evalScripts: true,
+                    onSuccess: function (transport) {
+                        $(div).update(transport.responseText);
 
-                            if ($("leftColLoader") != null)
-                                Element.remove("leftColLoader");
+                        if ($("leftColLoader") != null)
+                            Element.remove("leftColLoader");
 
-                            if ($("rightColLoader") != null)
-                                Element.remove("rightColLoader");
-                        },
-                        onFailure: function (request) {
-                            $(div).innerHTML = "<h3>" + div + "</h3>Error: " + request.status;
-                        }
+                        if ($("rightColLoader") != null)
+                            Element.remove("rightColLoader");
+                    },
+                    onFailure: function (transport) {
+                        var el = document.getElementById(div);
+                        if (el) el.textContent = div + " Error: " + transport.status;
                     }
-                );
+                });
             };
 
             function addLeftNavDiv(name) {
@@ -357,13 +354,13 @@
             UserProperty maximizeP = uPropDao.getProp(providerNo, "encounterWindowMaximize");
 
             if (maximizeP != null && maximizeP.getValue().equals("yes")) {%>
-        <script> jQuery(window).load(function () {
+        <script> jQuery(window).on('load', function () {
             window.resizeTo(screen.width, screen.height);
         });</script>
         <% } else if (widthP != null && !widthP.getValue().isEmpty() && heightP != null && !heightP.getValue().isEmpty()) {
             String width = widthP.getValue();
             String height = heightP.getValue();%>
-        <script> jQuery(window).load(function () {
+        <script> jQuery(window).on('load', function () {
             window.resizeTo(<%=width%>, <%=height%>)
         }) </script>
         <% } %>

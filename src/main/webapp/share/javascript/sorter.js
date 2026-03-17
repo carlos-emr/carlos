@@ -116,7 +116,7 @@ $(document).ready(function () {
             "<img style='box-shadow: none; -webkit-box-shadow: none; -moz-box-shadow: none' src='" + ctx + "/images/icons/114.png' /></span>";
     });
 
-    $(document).bind("contextmenu", function (e) {
+    $(document).on("contextmenu", function (e) {
         return false;
     });
 
@@ -245,4 +245,4 @@ $(document).ready(function () {
     });
 });
 
-$(window).load(resizeUl);
+$(window).on('load', resizeUl);

@@ -37,7 +37,8 @@
 <head>
     <title>Look-Up List Manager</title>
 
-    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
 
     <script type="text/javascript">
         $.fn.bindEvents = function () {
@@ -217,9 +218,6 @@
             border: none;
         }
 
-        .clearfix {
-            clear: both;
-        }
 
         footer {
             height: 25px;

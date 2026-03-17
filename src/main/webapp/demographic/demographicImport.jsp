@@ -66,13 +66,13 @@
     <head>
         <!--I18n-->
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
         <link rel="stylesheet" type="text/css"
               href="<%=request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"/>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
 
 
@@ -175,7 +175,6 @@
             }
 
             $(document).ready(function () {
-                $("#uploadWarn").tooltip();
             });
         </script>
 
@@ -194,7 +193,7 @@
     } else {
     %>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></h3>
 
         <form name="ImportDemographicDataForm" action="${pageContext.request.contextPath}/form/importUpload.do" method="POST"
@@ -229,7 +228,7 @@
         <div id="result"></div>
 
                 <% } %>
-        <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </body>
 </html>

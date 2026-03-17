@@ -91,7 +91,7 @@
 <html>
   <head>
     <title>Admin Backup Download</title>
-    <link href="<%= request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"/>
     <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"/>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}${calendarLangUrl}">
@@ -104,8 +104,8 @@
     </h3>
 
     <% if (exists) { %>
-      <div class="well">
-        <table class="table table-striped table-condensed">
+      <div class="card card-body bg-body-tertiary">
+        <table class="table table-striped table-sm">
           <thead>
             <tr><th>File Name</th><th>Size</th></tr>
           </thead>
@@ -161,7 +161,7 @@
         </table>
       </div>
     <% } else { %>
-      <div class="alert alert-error">
+      <div class="alert alert-danger">
         <strong>Warning!</strong>
         Backup directory not found—check <i>backup_path</i> in your properties.
       </div>

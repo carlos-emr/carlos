@@ -235,7 +235,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.title"/></title>
         <%@ include file="/includes/global-head.jspf" %>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
 
@@ -343,8 +343,6 @@
                 }
             }
 
-
-            jQuery.noConflict();
 
             function toggleView() {
                 showHideItem('editAppointment');
@@ -852,8 +850,8 @@
         <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
-            <div class="header deep">
-        <div class="time" id="header"><h4>
+    <div class="page-header-bar time" id="header">
+        <h4 class="page-header-title">
                     <!-- We display a shortened title for the mobile version -->
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgMainLabel"/>
 
@@ -872,15 +870,13 @@
                     <% }
                     }
                     %>
-</h4>
-                </div>
-
+                </h4>
             </div>
-
                     <%
 		if (appt == null) {
-%>
+%>              <div class="alert alert-danger" role="alert">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgNoSuchAppointment"/>
+                </div>
                     <%
 			return;
 		}
@@ -890,7 +886,7 @@
 </h4>
     </div>
 
-    </div>
+
     <%
         }
     %>
@@ -944,10 +940,10 @@
 		doctorNo = "";
     }
     %>
-
-    <div class="bg-light border rounded p-2">
+            <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
-    <table class="table table-condensed table-responsive">
+    <div class="table-responsive">
+    <table class="table table-sm">
                 <tr>
                     <td>
                         <label for="date"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>:</label>
@@ -1019,7 +1015,7 @@
                         <input type="hidden" name="limit1" value="0">
                         <input type="hidden" name="limit2" value="5">
                         <input type="hidden" name="ptstatus" value="active">
-                        <input type="submit" name="searchBtn" id="searchBtn" class="btn" style="margin-bottom:10px;"
+                        <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary" style="margin-bottom:10px;"
                                onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
@@ -1034,7 +1030,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>:</label>
                     </td>
                     <td>
-				<select name="reasonCode" class="form-control">
+				<select name="reasonCode" class="form-select">
                             <%
                                 String rCode = bFirstDisp && appt.getReasonCode() != null ? appt.getReasonCode().toString() : request.getParameter("reasonCode");
                                 pageContext.setAttribute("rCode", rCode);
@@ -1080,7 +1076,7 @@
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
 
                             if (bMultisites) { %>
-				        <select tabindex="4" name="location" class="form-control" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+				        <select tabindex="4" name="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
@@ -1099,7 +1095,7 @@
                             isSiteSelected = true;
                             if (locationEnabled) {
                         %>
-		<select name="location" class="form-control">
+		<select name="location" class="form-select">
                             <%
                                 String location = Encode.forJava(bFirstDisp ? (appt.getLocation()) : request.getParameter("location"));
                                 if (programs != null && !programs.isEmpty()) {
@@ -1182,8 +1178,10 @@
                 <% } %>
 
             </table>
+    </div>
 
-    <table class="table table-condensed table-responsive">
+    <div class="table-responsive">
+    <table class="table table-sm">
                 <tr>
                     <td>
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>:</label>
@@ -1193,7 +1191,7 @@
 
                             if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
 
-                <select name="status" class="form-control" style="background-color:<%=((AppointmentStatus)allStatus.get(curSelect)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <select name="status" class="form-select" style="background-color:<%=((AppointmentStatus)allStatus.get(curSelect)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
                             <option class="<%=((AppointmentStatus)allStatus.get(i)).getStatus()%>"
                                     style="background-color:<%=((AppointmentStatus)allStatus.get(i)).getColor()%>"
@@ -1218,7 +1216,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formType"/>:</label>
                     </td>
                     <td>
-                        <select name="type" class="form-control" id="type"
+                        <select name="type" class="form-select" id="type"
                                 title="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
                         <option data-dur="" data-reason=""></option><!-- important leave a blank top entry  -->
 
@@ -1348,7 +1346,7 @@
                                 }
                             }
                         %>
-            	<input type="checkbox" class="checkbox-inline" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
+            	<input type="checkbox" class="form-check-input" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
                     </td>
                 </tr>
                 <% String emailReminder = pros.getProperty("emailApptReminder");
@@ -1358,7 +1356,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formEmailReminder"/>:</label>
                     </td>
                     <td>
-                <input type="checkbox" class="checkbox-inline" name="emailPt" value="email reminder">
+                <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
                     </td>
                 </tr>
                 <% } else { %>
@@ -1368,6 +1366,7 @@
                 </tr>
                 <% }%>
             </table>
+    </div>
         </div>
         <% if (isSiteSelected) { %>
         <table class="buttonBar deep">
@@ -1377,11 +1376,11 @@
                                                      onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt'; onButUpdate();"
                                                      value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnUpdateAppointment"/>">
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
-                    <input type="submit" id="groupButton" class="btn"
+                    <input type="submit" id="groupButton" class="btn btn-secondary"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Group Action'; onButUpdate();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnGroupAction"/>">
                     <% }%>
-                    <input type="submit" id="printReceiptButton" class="btn"
+                    <input type="submit" id="printReceiptButton" class="btn btn-secondary"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';"
                            value="<fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
                     <input type="hidden" name="printReceipt" value="">
@@ -1392,17 +1391,16 @@
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnCancelAppointment"/>"
                            onClick="onButCancel();">
                     <input type="button"
-                           name="noShowButton" id="noShowButton" class="btn"
+                           name="noShowButton" id="noShowButton" class="btn btn-secondary"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnNoShow"/>"
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=appointment_no%>&amp;demo='+document.EDITAPPT.demographic_no.value,'anwin','width=400,height=500');">
-                        <img src="<%=request.getContextPath() %>/images/notes.gif" alt="Annotation" height="16"
-                             width="13">
+                    <a class="btn" href="javascript:void(0);" title="Annotation" aria-label="Annotation"
+                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=Encode.forUriComponent(annotation_display)%>&amp;table_id=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value) + '&amp;demo=' + encodeURIComponent(document.EDITAPPT.demographic_no.value),'anwin','width=400,height=500');">
+                        <i class="fa-regular fa-comment" aria-hidden="true"></i>
                     </a>
                     <a class="btn"
-                       onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent('<%=appointment_no%>')">
+                       onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
                        onClick="window.open('<%=request.getContextPath() %>/demographic/demographiclabelprintsetting.jsp?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
@@ -1547,86 +1545,6 @@
             if (numForms > 0) { %>
     </table>
     <% } %>
-
-
-        <%--<div id="viewAppointment" style="display:<%=(bFirstDisp && false) ? "block":"none"%>;">--%>
-        <%--    <%--%>
-        <%--        // Format date to be more readable--%>
-        <%--        java.text.SimpleDateFormat inform = new java.text.SimpleDateFormat ("yyyy-MM-dd");--%>
-        <%--        String strDate = bFirstDisp ? ConversionUtils.toDateString(appt.getAppointmentDate()) : request.getParameter("appointment_date");--%>
-        <%--        java.util.Date d = inform.parse(strDate);--%>
-        <%--        String formatDate = "";--%>
-        <%--        try { // attempt to change string format--%>
-        <%--        java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());--%>
-        <%--        formatDate = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(d, prop.getString("date.EEEyyyyMMdd"));--%>
-        <%--        } catch (Exception e) {--%>
-        <%--            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error", e);--%>
-        <%--            formatDate = io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");--%>
-        <%--        }--%>
-        <%--    %>--%>
-        <%--    <div class="header">--%>
-        <%--        <div class="title" id="appointmentTitle">--%>
-        <%--            <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnView"/>--%>
-        <%--        </div>--%>
-        <%--        <a href=# onclick="window.close();" id="backButton" class="leftButton top"><%= strDate%></a>--%>
-        <%--        <a href="javascript:toggleView();" id="editButton" class="rightButton top">Edit</a>--%>
-        <%--    </div>--%>
-        <%--    <div id="info" class="panel">--%>
-        <%--        <ul>--%>
-        <%--            <li class="mainInfo"><a href="#" onclick="demographicdetail(550,700)">--%>
-        <%--                <%--%>
-        <%--                    String apptName = (bFirstDisp ? appt.getName() : request.getParameter("name")).toString();--%>
-        <%--                    //If a comma exists, need to split name into first and last to prevent overflow--%>
-        <%--                    int comma = apptName.indexOf(",");--%>
-        <%--                    if (comma != -1)--%>
-        <%--                        apptName = apptName.substring(0, comma) + ", " + apptName.substring(comma+1);--%>
-        <%--                %>--%>
-        <%--                <%=Encode.forHtmlContent(apptName)%>--%>
-        <%--            </a></li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>: </div>--%>
-        <%--                <div class="info"><%=formatDate%></div>--%>
-        <%--            </li>--%>
-        <%--            <% // Determine appointment status from code so we can access--%>
-        <%--   // the description, colour, image, etc.--%>
-        <%--      AppointmentStatus apptStatus = (AppointmentStatus)allStatus.get(0);--%>
-        <%--      for (int i = 0; i < allStatus.size(); i++) {--%>
-        <%--            AppointmentStatus st = (AppointmentStatus) allStatus.get(i);--%>
-        <%--            if (st.getStatus().equals(statusCode)) {--%>
-        <%--                apptStatus = st;--%>
-        <%--                break;--%>
-        <%--            }--%>
-        <%--      }--%>
-        <%--%>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>: </div>--%>
-        <%--                <div class="info" style="background-color:<%=apptStatus.getColor()%>; font-weight:bold;">--%>
-        <%--                    <img src="<%=request.getContextPath() %>/images/<%=apptStatus.getIcon()%>" alt="image">--%>
-        <%--                    <%=Encode.forHtmlContent(apptStatus.getDescription())%>--%>
-        <%--                </div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgTime"/>: </div>--%>
-        <%--                <div class="info">From <%=bFirstDisp ? ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()) : request.getParameter("start_time")%>--%>
-        <%--                to <%=bFirstDisp ? ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()) : request.getParameter("end_time")%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formType"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getType() : request.getParameter("type"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getReason() : request.getParameter("reason"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getLocation() : request.getParameter("location"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li><div class="label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>: </div>--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getResources() : request.getParameter("resources"))%></div>--%>
-        <%--            </li>--%>
-        <%--            <li>&nbsp;</li>--%>
-        <%--            <li class="notes">--%>
-        <%--                <div class="info"><%=Encode.forHtmlContent(bFirstDisp ? appt.getNotes() : request.getParameter("notes"))%></div>--%>
-        <%--                <div class="info"><%=Encode.forHtml(bFirstDisp ? appt.getNotes() : request.getParameter("notes"))%></div>--%>
-        <%--            </li>--%>
-        <%--        </ul>--%>
-        <%--    </div>--%>
-        <%--</div>--%>
 
 </div> <!-- end of edit appointment screen -->
 </form>

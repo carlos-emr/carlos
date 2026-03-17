@@ -74,32 +74,6 @@
         text-align: left !important;
     }
 
-    .glyphicon-refresh-animate {
-        -animation: spin .7s infinite linear;
-        -webkit-animation: spin2 .7s infinite linear;
-        margin: 0px !important;
-        padding: 0px !important;
-        height: 17px !important;
-    }
-
-    @-webkit-keyframes spin2 {
-        from {
-            -webkit-transform: rotate(0deg);
-        }
-        to {
-            -webkit-transform: rotate(360deg);
-        }
-    }
-
-    @keyframes spin {
-        from {
-            transform: scale(1) rotate(0deg);
-        }
-        to {
-            transform: scale(1) rotate(360deg);
-        }
-    }
-
     .printonly {
         display: none;
     }
@@ -117,12 +91,6 @@
     .indicatorDefinition {
         height: 100px;
         overflow-y: hidden;
-    }
-
-    .img-responsive {
-        display: block;
-        height: auto;
-        max-width: 100%;
     }
 
     .indicatorWrapper {

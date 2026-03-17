@@ -70,7 +70,7 @@
 
         <link rel="stylesheet" type="text/css" href="styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <c:if test="${sessionScope.RxSessionBean == null}">
@@ -114,18 +114,18 @@
                 var addTextWordId = "addTextWord_" + randId;
                 oscarLog("randId=" + randId);
                 if (addTextView == 0) {
-                    $(addTextId).show();
+                    document.getElementById(addTextId).style.display = '';
                     addTextView = 1;
-                    $(addTextWordId).update("less")
+                    document.getElementById(addTextWordId).textContent = "less";
                 } else {
-                    $(addTextId).hide();
+                    document.getElementById(addTextId).style.display = 'none';
                     addTextView = 0;
-                    $(addTextWordId).update("more")
+                    document.getElementById(addTextWordId).textContent = "more";
                 }
             }
 
             var frm = document.forms.RxWriteScriptForm;
-            oscarLog("frm=" + frm + "$(frm)" + $(frm));
+            oscarLog("frm=" + frm);
             var freqMin;
             var freqMax;
             var orig = null;
@@ -369,11 +369,11 @@
                             addWarning(frm.method.options[frm.method.selectedIndex].text + " Not Added");
                         } else { // frequency is not at the start of the line words come before
                             var beforeFirstDigit = origMinusName.substring(0, b.index);
-                            var findMethodRegExp = /(Take|Apply|Rub well in)/;
+                            var findMethodRegExp = /(Take|Apply|Rub card card-body bg-body-tertiary in)/;
                             var c = findMethodRegExp.exec(beforeFirstDigit);
                             if (c) {
                                 //regexDebug(c);
-                                beforeFirstDigit = beforeFirstDigit.replace(/(Take|Apply|Rub well in)/, frm.method.options[frm.method.selectedIndex].text);
+                                beforeFirstDigit = beforeFirstDigit.replace(/(Take|Apply|Rub card card-body bg-body-tertiary in)/, frm.method.options[frm.method.selectedIndex].text);
                             } else {
                                 if (frm.method.options[frm.method.selectedIndex].text != "") {
                                     addWarning("Could not replace word for " + frm.method.options[frm.method.selectedIndex].text);
@@ -729,18 +729,18 @@
             }
 
             function prepareOutsideProvider() {
-                if (frm.outsideProviderName.value.length > 0) $('ocheck').checked = true;
+                if (frm.outsideProviderName.value.length > 0) document.getElementById('ocheck').checked = true;
                 showHideOutsideProvider();
             }
 
             function showHideOutsideProvider() {
-                if ($('ocheck').checked) {
-                    $('otext').show();
+                if (document.getElementById('ocheck').checked) {
+                    document.getElementById('otext').style.display = '';
                     frm.outsideProviderName.focus();
                 } else {
                     frm.outsideProviderName.value = "";
                     frm.outsideProviderOhip.value = "";
-                    $('otext').hide();
+                    document.getElementById('otext').style.display = 'none';
                 }
             }
         </script>
@@ -793,15 +793,15 @@
             var resHidden = 0;
 
             function showUntrustedRes() {
-                var list = $$('div.untrustedResource');
+                var list = document.querySelectorAll('div.untrustedResource');
 
                 if (resHidden == 0) {
-                    $('showUntrustedResWord').update('hide');
-                    list.invoke('show');
+                    document.getElementById('showUntrustedResWord').textContent = 'hide';
+                    list.forEach(function(el) { el.style.display = ''; });
                     resHidden = 1;
                 } else {
-                    $('showUntrustedResWord').update('show');
-                    list.invoke('hide');
+                    document.getElementById('showUntrustedResWord').textContent = 'show';
+                    list.forEach(function(el) { el.style.display = 'none'; });
                     resHidden = 0;
                 }
             }
@@ -812,15 +812,15 @@
             var resHidden2 = 0;
 
             function showHiddenRes() {
-                var list = $$('div.hiddenResource');
+                var list = document.querySelectorAll('div.hiddenResource');
 
                 if (resHidden2 == 0) {
-                    list.invoke('show');
+                    list.forEach(function(el) { el.style.display = ''; });
                     resHidden2 = 1;
-                    $('showHiddenResWord').update('hide');
+                    document.getElementById('showHiddenResWord').textContent = 'hide';
                 } else {
-                    $('showHiddenResWord').update('show');
-                    list.invoke('hide');
+                    document.getElementById('showHiddenResWord').textContent = 'show';
+                    list.forEach(function(el) { el.style.display = 'none'; });
                     resHidden2 = 0;
                 }
             }
@@ -1123,7 +1123,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                style="width:90px" onchange="calcQty();">
                                         <option value="Take">Take</option>
                                         <option value="Apply">Apply</option>
-                                        <option value="Rub">Rub well in</option>
+                                        <option value="Rub">Rub card card-body bg-body-tertiary in</option>
                                         <option value=""></option>
                                     </select></td>
                                     <td colspan=2><select name="take" style="width: 72px"
@@ -1622,7 +1622,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
                     //alert(params);
-                    new Ajax.Updater('renalDosing', url, {method: 'get', parameters: params, asynchronous: true});
+                    CarlosAjax.updater('renalDosing', url, {method: 'GET', parameters: params});
                     //alert(origRequest.responseText);
                 }
 
@@ -1633,7 +1633,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     oscarLog("in callReplacementWebService writescript.jsp: " + url + "--" + id);
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
-                    new Ajax.Updater(id, url, {method: 'get', parameters: params, asynchronous: true});
+                    CarlosAjax.updater(id, url, {method: 'GET', parameters: params});
                 }
 
                 // callReplacementWebService("InteractionDisplay.jsp",'interactionsRx');

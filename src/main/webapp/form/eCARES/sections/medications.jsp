@@ -29,12 +29,12 @@
 
 --%>
 <ul class="m-0 p-0 list-style-none">
-    <li class="tt highlight" title="Number of Medications" data-toggle="tooltip" data-field-name="num_medications">
+    <li class="tt highlight" title="Number of Medications" data-bs-toggle="tooltip" data-field-name="num_medications">
         <strong>Number of Medications:</strong>
         <input type="text" name="num_medication" class="form-control" value="0" style="width: 50px;" readonly/>
     </li>
 </ul>
-<%--<span class="tt mt-2 inline-block" data-toggle="tooltip" title="List of medications" data-field-name="associated_medications">Associated Medications:</span>--%>
+<%--<span class="tt mt-2 inline-block" data-bs-toggle="tooltip" title="List of medications" data-field-name="associated_medications">Associated Medications:</span>--%>
 <div class="medications-container"></div>
 
 

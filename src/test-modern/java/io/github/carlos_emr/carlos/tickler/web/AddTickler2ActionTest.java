@@ -93,6 +93,9 @@ import java.util.Date;
  * @since 2025-09-15
  */
 @DisplayName("AddTickler2Action Web Layer Tests")
+@Tag("integration")
+@Tag("web")
+@Tag("tickler")
 class AddTickler2ActionTest extends CarlosWebTestBase {
 
     /** Mocked TicklerManager for business logic isolation */

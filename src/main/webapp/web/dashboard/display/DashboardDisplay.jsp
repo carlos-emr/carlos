@@ -48,15 +48,17 @@
         <c:out value="${ dashboard.name }"/>
     </title>
     <link rel="stylesheet" type="text/css"
-          href="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/css/bootstrap.min.css"/>
+          href="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+    <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css"/>
     <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/js/jqplot/jquery.jqplot2.min.css"/>
     <script>var ctx = "${pageContext.request.contextPath}"</script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript"
-            src="${ pageContext.request.contextPath }/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+            src="${ pageContext.request.contextPath }/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/dashboardDisplayController.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/js/jqplot/jquery.jqplot2.min.js"></script>
@@ -108,13 +110,13 @@
                     <c:out value="${ dashboard.lastChecked }"/>
                     <a href="javascript:void(0)" title="refresh" class="reloadDashboardBtn"
                        id="getDashboard_${ dashboard.id }">
-                        <span class="glyphicon glyphicon-refresh"></span>
+                        <span class="fa-solid fa-arrows-rotate"></span>
                     </a>
                 </div>
                 <div class="col-md-6">
-                    <a href="javascript:void(0)" title="Dashboard Manager" class="pull-right dashboardManagerBtn"
+                    <a href="javascript:void(0)" title="Dashboard Manager" class="float-end dashboardManagerBtn"
                        id="${ dashboard.id }">
-                        <span class="glyphicon glyphicon glyphicon-cog"></span>
+                        <span class="fa-solid fa-gear"></span>
                     </a>
                 </div>
             </div>
@@ -125,29 +127,29 @@
                 <!-- dashboardPanels - by category.  -->
                 <c:forEach items="${ dashboard.panelBeans }" var="panelBean">
 
-                    <div class="panel panel-primary categoryPanel">
+                    <div class="card border-primary categoryPanel">
 
-                        <div class="panel-heading">
+                        <div class="card-header">
                             <strong><c:out value="${ panelBean.category }"/></strong>
                         </div>
 
-                        <div class="panel-body">
+                        <div class="card-body">
 
                             <c:forEach items="${ panelBean.indicatorPanelBeans }" var="indicatorPanel">
 
                                 <!-- Begin display of Indicator Panel -->
-                                <div class="panel panel-default indicatorPanel">
+                                <div class="card indicatorPanel">
 
                                     <!-- Indicator panel heading - by sub category -->
-                                    <div class="panel-heading">
+                                    <div class="card-header">
                                         <c:out value="${ indicatorPanel.category }"/>
                                     </div>
 
-                                    <div class="panel-body">
+                                    <div class="card-body">
                                         <c:forEach items="${ indicatorPanel.indicatorIdList }" var="indicatorId">
                                             <div class="col-md-3 indicatorWrapper" id="indicatorId_${ indicatorId }">
                                                 <div>
-                                                    <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span>
+                                                    <span class="fa-solid fa-arrows-rotate fa-spin"></span>
                                                     Loading...
                                                 </div>
                                             </div>

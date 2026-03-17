@@ -31,7 +31,7 @@
     <!-- DataSource configuration for tests -->
     <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
         <property name="driverClassName" value="${test.db.driver:org.h2.Driver}"/>
-        <property name="url" value="${test.db.url:jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1}"/>
+        <property name="url" value="${test.db.url:jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=VALUE,VIEW,HOUR,KEY,TYPE,FILE,USER,YEAR,MONTH,DAY,COMMENT,ORDER}"/>
         <property name="username" value="${test.db.username:sa}"/>
         <property name="password" value="${test.db.password:}"/>
     </bean>

@@ -87,6 +87,18 @@ public interface TicklerManager {
 
     public int getNumTicklers(LoggedInInfo loggedInInfo, CustomFilter filter);
 
+    /**
+     * Returns the count of ticklers matching all filter criteria including
+     * the searchTerm field. Used by the DataTables server-side endpoint to
+     * return accurate {@code recordsFiltered} when the search box is used.
+     *
+     * @param loggedInInfo LoggedInInfo the session info for privilege checking
+     * @param filter CustomFilter the filter criteria, may include searchTerm
+     * @return int count of ticklers matching all criteria
+     * @since 2026-03-15
+     */
+    public int getNumTicklersFiltered(LoggedInInfo loggedInInfo, CustomFilter filter);
+
     public Tickler getTickler(LoggedInInfo loggedInInfo, String tickler_no);
 
     public Tickler getTickler(LoggedInInfo loggedInInfo, Integer id);

@@ -139,7 +139,7 @@
             }
         }
     </script>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"
           type="text/css">
     <style>
         table {
@@ -167,7 +167,7 @@
             </tr>
             <tr>
                 <td style="vertical-align: top">
-                    <select class="form-control text-selection" name="activeText" multiple="true"
+                    <select class="form-select text-selection" name="activeText" multiple="true"
                                  size="10">
                         <% java.util.List<TicklerTextSuggest> activeTexts = ticklerTextSuggestDao.getActiveTicklerTextSuggests();
                             if (activeTexts.isEmpty()) {
@@ -186,14 +186,14 @@
                     </select>
                 </td>
                 <td>
-                    <input type="button" class="btn" name="movetoInactive" value=">>"
+                    <input type="button" class="btn btn-secondary" name="movetoInactive" value=">>"
                            onclick="swap('activeText','inactiveText')"/>
                     <br/>
-                    <input type="button" class="btn" name="movetoActive" value="<<"
+                    <input type="button" class="btn btn-secondary" name="movetoActive" value="<<"
                            onclick="swap('inactiveText','activeText')"/>
                 </td>
                 <td style="vertical-align: top">
-                    <select class="form-control text-selection" name="inactiveText" multiple="true"
+                    <select class="form-select text-selection" name="inactiveText" multiple="true"
                                  size="10">
                         <%
                             java.util.List<TicklerTextSuggest> inactiveTexts = ticklerTextSuggestDao.getInactiveTicklerTextSuggests();
@@ -219,8 +219,8 @@
                     <div class="input-group">
                         <input id="newTextSuggest" class="form-control" name="newTextSuggest" type="text"
                                maxlength="100"/>
-                        <div class="input-group-btn">
-                            <input type="button" class="btn btn-default" name="addNewTextSuggest"
+                        <div class="input-group">
+                            <input type="button" class="btn btn-secondary" name="addNewTextSuggest"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
                                    onclick="addToList('activeText','newTextSuggest')"/>
                         </div>
@@ -229,7 +229,7 @@
             </tr>
             <tr>
                 <td colspan="3">
-                    <div class="form-group pull-right">
+                    <div class="mb-3 float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
                                onclick="doSelect('activeText');doSelect('inactiveText');document.tsTicklerForm.submit();"/>

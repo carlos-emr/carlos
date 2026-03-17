@@ -34,7 +34,7 @@
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_exercise" data-score="1">
-        <strong class="tt highlight" data-toggle="tooltip" data-field-name="exercise"
+        <strong class="tt highlight" data-bs-toggle="tooltip" data-field-name="exercise"
                 title="Frequent being more than 150 minutes per week.">
             Exercise
         </strong>
@@ -55,7 +55,7 @@
                                                              data-score="1">
         <span class="pl-1">Not</span></label>
 
-    <span class="tt inline-block font-bold" data-toggle="tooltip" title="Smoker" style="padding-left: 46px;">
+    <span class="tt inline-block font-bold" data-bs-toggle="tooltip" title="Smoker" style="padding-left: 46px;">
         <svg height="10" width="10">
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg><input type="checkbox" class="action-required" name="action_required_smoke" data-score="1">

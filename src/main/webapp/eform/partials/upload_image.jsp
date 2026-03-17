@@ -41,16 +41,17 @@
 
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script>
             $(function () {
-                $(document).tooltip();
             });
         </script>
     </head>
@@ -86,7 +87,7 @@
 
     <c:if test="${ not empty status }">
         <div class="alert alert-success">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success!</strong> Your image was uploaded.
             <c:if test="${ not empty sanitizedFileName }">
                 <br/>Saved as: <strong>${Encode.formHtmlContent(sanitizedFileName)}</strong>
@@ -107,8 +108,8 @@
         </script>
     </c:if>
 
-    <div class="row-fluid">
-        <div class="well">
+    <div class="row">
+        <div class="card card-body bg-body-tertiary">
             <form action="${pageContext.request.contextPath}/eform/imageUpload.do" enctype="multipart/form-data" method="post">
 
                 <s:if test="hasActionErrors()">
@@ -121,9 +122,9 @@
                         <s:actionmessage/>
                     </div>
                 </s:if>
-                <div class="control-group">
-                    <div class="controls">
-                        <label class="control-label" for="zippedForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgFileName"/></label>
+                <div class="mb-3">
+                    <div>
+                        <label class="form-label" for="zippedForm"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgFileName"/></label>
                         <input type="file" name="image" id="image" class="check" size="40" required>
                         <span style="color:red;">
 		         <i class="fa-solid fa-triangle-exclamation" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>

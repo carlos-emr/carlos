@@ -38,7 +38,7 @@
     </div>
 
     <span class="mandatory tt ml-6 font-bold highlight" data-field-name="speech" data-names="wnl,impaired"
-          data-toggle="tooltip" title="Ability to articulate and communicate verbally">
+          data-bs-toggle="tooltip" title="Ability to articulate and communicate verbally">
         Speech
     </span>
 
@@ -53,7 +53,7 @@
     </label>
 
     <span class="mandatory tt font-bold ml-6 highlight" rel="hearing" data-names="wnl,impaired"
-          data-field-name="hearing" data-toggle="tooltip" title="Ability to hear with or without hearing aids">
+          data-field-name="hearing" data-bs-toggle="tooltip" title="Ability to hear with or without hearing aids">
         Hearing
     </span>
 
@@ -68,7 +68,7 @@
     </label>
 
     <span class="mandatory tt font-bold ml-6 highlight" rel="vision" data-names="wnl,impaired" data-field-name="vision"
-          data-toggle="tooltip" title="Ability to see with or without corrective lenses">
+          data-bs-toggle="tooltip" title="Ability to see with or without corrective lenses">
         Vision
     </span>
 

@@ -425,7 +425,8 @@
            adding a calendar a matter of 1 or 2 lines of code. -->
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript" language="JavaScript">
 
         <!--

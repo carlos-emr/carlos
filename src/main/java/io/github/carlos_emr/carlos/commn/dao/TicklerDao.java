@@ -72,6 +72,17 @@ public interface TicklerDao extends AbstractDao<Tickler> {
     public int getNumTicklers(CustomFilter filter);
 
     /**
+     * Returns the count of tickler DTOs matching all filter criteria including
+     * the searchTerm field. Used by the DataTables server-side endpoint to
+     * return accurate {@code recordsFiltered} counts when the search box is used.
+     *
+     * @param filter CustomFilter the filter criteria, may include searchTerm
+     * @return int count of ticklers matching all criteria
+     * @since 2026-03-15
+     */
+    public int getNumFilteredTicklerDTOs(CustomFilter filter);
+
+    /**
      * Returns paginated tickler data as lightweight DTOs using JPQL constructor
      * expression projection. Batch loads comments and links to avoid N+1 queries.
      *

@@ -60,6 +60,10 @@
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
+<link rel="stylesheet" href="${ctx}/library/flatpickr/flatpickr.min.css" type="text/css"/>
+<script src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="${ctx}/library/jquery/jquery-compat.js"></script>
+<script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
 <%
     FunctionalCentreDao functionalCentreDao = (FunctionalCentreDao) SpringUtils.getBean(FunctionalCentreDao.class);
@@ -70,21 +74,21 @@
     List<FunctionalCentre> functionalCentres = functionalCentreDao.findInUseByFacility(loggedInInfo.getCurrentFacility().getId());
 %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>CDS Reports</h4>
 </div>
 
-<form class="well form-horizontal" action="cds_4_report_results.jsp"
+<form class="card card-body bg-body-tertiary" action="cds_4_report_results.jsp"
       id="cdsForm">
     <fieldset>
 
         <!-- Form Name -->
         <legend>CDS-MH 4.05</legend>
 
-        <div class="control-group">
-            <label class="control-label">Functional Centre</label>
-            <div class="controls">
-                <select id="functionalCentreId" name="functionalCentreId" class="input-large">
+        <div class="mb-3">
+            <label class="form-label">Functional Centre</label>
+            <div>
+                <select id="functionalCentreId" name="functionalCentreId" class="form-select">
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
@@ -96,41 +100,37 @@
                 </select>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Date Start</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Date Start</label>
+            <div>
                 <input type="text" name="startDate" id="startDate"/>
                 <script type="text/javascript">
-                    jQuery('#startDate').datepicker({dateFormat: 'yy-mm-dd'});
-
-                    var d = new Date();
-                    var month = d.getMonth();
-                    if (month > 0) {
-                        d.setMonth(month - 1);
-                    } else {
-                        d.setMonth(11);
-                        d.setYear(d.getYear() - 1);
-                    }
-
-                    jQuery('#startDate').datepicker("setDate", d);
-                    jQuery('#startDate').attr("readonly", true);
+                    (function() {
+                        var d = new Date();
+                        var month = d.getMonth();
+                        if (month > 0) {
+                            d.setMonth(month - 1);
+                        } else {
+                            d.setMonth(11);
+                            d.setFullYear(d.getFullYear() - 1);
+                        }
+                        flatpickr('#startDate', {dateFormat: 'Y-m-d', defaultDate: d, allowInput: true});
+                    })();
                 </script>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Date End (inclusive)</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Date End (inclusive)</label>
+            <div>
                 <input type="text" name="endDate" id="endDate"/>
                 <script type="text/javascript">
-                    jQuery('#endDate').datepicker({dateFormat: 'yy-mm-dd'});
-                    jQuery('#endDate').datepicker("setDate", new Date());
-                    jQuery('#endDate').attr("readonly", true);
+                    flatpickr('#endDate', {dateFormat: 'Y-m-d', defaultDate: new Date(), allowInput: true});
                 </script>
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Filter By</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Filter By</label>
+            <div>
                 <select id="filterCriteriaSelection" onchange="showFilterCriteria()">
                     <option value="">None</option>
                     <option value="PROVIDER">Provider</option>
@@ -138,40 +138,34 @@
                 </select>
                 <script type="text/javascript">
                     function showFilterCriteria() {
-                        var selection = jQuery('#filterCriteriaSelection').val();
+                        var selection = document.getElementById('filterCriteriaSelection').value;
 
                         if (selection == "PROVIDER") {
-                            jQuery('#providerText').show();
-                            jQuery('#providerOptions').show();
-                            jQuery('#programText').hide();
-                            jQuery('#programOptions').hide();
+                            document.getElementById('providerOptions').style.display = '';
+                            document.getElementById('programOptions').style.display = 'none';
                         } else if (selection == "PROGRAM") {
-                            jQuery('#providerText').hide();
-                            jQuery('#providerOptions').hide();
-                            jQuery('#programText').show();
-                            jQuery('#programOptions').show();
+                            document.getElementById('providerOptions').style.display = 'none';
+                            document.getElementById('programOptions').style.display = '';
                         } else {
-                            jQuery('#providerText').hide();
-                            jQuery('#providerOptions').hide();
-                            jQuery('#programText').hide();
-                            jQuery('#programOptions').hide();
+                            document.getElementById('providerOptions').style.display = 'none';
+                            document.getElementById('programOptions').style.display = 'none';
                         }
                     }
 
-                    $(document).ready(function () {
+                    document.addEventListener('DOMContentLoaded', function () {
                         showFilterCriteria();
                     });
                 </script>
             </div>
         </div>
-        <div id="providerOptions" class="control-group">
-            <label class="control-label">Providers to include
+        <div id="providerOptions" class="mb-3">
+            <label class="form-label">Providers to include
                 <small>
                     (multi select is allowed)
                 </small>
             </label>
-            <div class="controls">
-                <select name="providerIds" class="input-medium" multiple="multiple">
+            <div>
+                <select name="providerIds" class="form-select d-inline-block w-auto" multiple="multiple">
                     <%
                         // null for both active and inactive because the report might be for a providers who's just left in the current reporting period.
                         List<Provider> providers = providerManager.getProviders(loggedInInfo, null);
@@ -190,14 +184,14 @@
             </div>
         </div>
 
-        <div id="programOptions" class="control-group">
-            <label class="control-label">Programs to include
+        <div id="programOptions" class="mb-3">
+            <label class="form-label">Programs to include
                 <small>
                     (multi select is allowed)
                 </small>
             </label>
-            <div class="controls">
-                <select name="programIds" class="input-medium" multiple="multiple">
+            <div>
+                <select name="programIds" class="form-select d-inline-block w-auto" multiple="multiple">
                     <%
                         List<Program> programs = programManager.getPrograms(loggedInInfo.getCurrentFacility().getId());
 
@@ -212,8 +206,8 @@
             </div>
         </div>
 
-        <div class="control-group">
-            <div class="controls">
+        <div class="mb-3">
+            <div>
                 <button type="submit" class="btn btn-primary">View Report</button>
             </div>
         </div>
