@@ -164,7 +164,7 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
     @SuppressWarnings("unchecked")
     @Override
     public List<DemographicPharmacy> findAllByDemographicId(Integer demographicNo) {
-        Query query = createQuery("dp", "dp.demographicNo = ?1 AND dp.status = 1");
+        Query query = createQuery("dp", "dp.demographicNo = ?1 AND dp.status = '1'");
         query.setParameter(1, demographicNo);
         return query.getResultList();
     }

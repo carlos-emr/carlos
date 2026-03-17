@@ -67,7 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 
 <%
-	if(session.getValue("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
+	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
     if(session.getAttribute("userrole") == null )  response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

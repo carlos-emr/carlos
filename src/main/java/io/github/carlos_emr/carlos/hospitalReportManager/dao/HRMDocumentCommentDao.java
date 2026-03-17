@@ -30,7 +30,7 @@ public class HRMDocumentCommentDao extends AbstractDaoImpl<HRMDocumentComment> {
 
     @SuppressWarnings("unchecked")
     public List<HRMDocumentComment> getCommentsForDocument(Integer documentId) {
-        String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.deleted=0 order by commentTime desc";
+        String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.deleted=false order by commentTime desc";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, documentId);
         return query.getResultList();

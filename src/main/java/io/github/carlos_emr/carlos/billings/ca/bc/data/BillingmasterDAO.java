@@ -198,7 +198,7 @@ public class BillingmasterDAO {
 
 
     public List<Object[]> findByStatus(String status) {
-        Query query = entityManager.createQuery("FROM Billing b, Billingmaster bm " +
+        Query query = entityManager.createQuery("SELECT b, bm FROM Billing b, Billingmaster bm " +
                 "WHERE b.id = bm.billingNo " +
                 "AND bm.billingstatus = :st");
         query.setParameter("st", status);

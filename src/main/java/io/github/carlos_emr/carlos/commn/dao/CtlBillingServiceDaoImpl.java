@@ -110,7 +110,7 @@ public class CtlBillingServiceDaoImpl extends AbstractDaoImpl<CtlBillingService>
     }
 
     public List<CtlBillingService> getServiceTypeList() {
-        Query query = entityManager.createQuery("SELECT bs FROM " + modelClass.getSimpleName() + " bs GROUP BY bs.serviceTypeName HAVING COUNT(bs.serviceTypeName) > -1");
+        Query query = entityManager.createQuery("SELECT bs FROM " + modelClass.getSimpleName() + " bs WHERE bs.id IN (SELECT MIN(bs2.id) FROM " + modelClass.getSimpleName() + " bs2 GROUP BY bs2.serviceTypeName)");
         List<CtlBillingService> results = query.getResultList();
         return results;
     }

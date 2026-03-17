@@ -251,7 +251,7 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
             sql.append("and cr.status = :status ");
             queryWithParams.addParam("status", String.valueOf(filter.getStatus()));
         } else {
-            sql.append("and cr.status!=4 and cr.status!=5 and cr.status!=7 ");
+            sql.append("and cr.status!='4' and cr.status!='5' and cr.status!='7' ");
         }
 
         if (StringUtils.isNotBlank(filter.getTeam())) {
