@@ -225,7 +225,7 @@
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
-        <script src="<%=request.getContextPath() %>/js/excellentexport.min.js"></script>
+        <script src="<%=request.getContextPath() %>/js/table-export.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
@@ -1130,9 +1130,9 @@
                     </tr>
                 </table><!-- inner -->
                 <%if (bList != null && !bList.isEmpty()) {%>
-                <a download="oscar_invoices.xls" href="#"
-                   onclick="return ExcellentExport.excel(this, 'bListTable', 'OSCAR Invoices');">Export to Excel</a>
-                <a download="oscar_invoices.csv" href="#" onclick="return ExcellentExport.csv(this, 'bListTable');">Export
+                <a download="carlos_invoices.xls" href="#"
+                   onclick="return TableExport.excel(this, 'bListTable', 'CARLOS Invoices');">Export to Excel</a>
+                <a download="carlos_invoices.csv" href="#" onclick="return TableExport.csv(this, 'bListTable');">Export
                     to CSV</a>
                 <%} %>
                 <% } %>
