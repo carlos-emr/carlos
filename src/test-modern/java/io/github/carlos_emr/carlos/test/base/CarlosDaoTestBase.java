@@ -34,16 +34,9 @@ import org.springframework.test.annotation.Rollback;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Method;
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
-
-import org.dbunit.database.DatabaseConnection;
-import org.dbunit.database.IDatabaseConnection;
-import org.dbunit.dataset.IDataSet;
-import org.dbunit.dataset.xml.FlatXmlDataSetBuilder;
-import org.dbunit.operation.DatabaseOperation;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -52,7 +45,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * This class handles:
  * - Database setup and teardown
  * - Transaction management
- * - DBUnit integration for test data
  * - Schema management compatibility with legacy SchemaUtils
  */
 @TestPropertySource(properties = {
@@ -69,7 +61,6 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
 
     protected JdbcTemplate jdbcTemplate;
     protected TransactionTemplate transactionTemplate;
-    protected IDatabaseConnection dbUnitConnection;
 
     /**
      * Tables to be preserved across test runs
@@ -98,37 +89,17 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.transactionTemplate = new TransactionTemplate(transactionManager);
 
-        // Set up DBUnit connection — release the raw connection if the
-        // DatabaseConnection constructor throws so it is not leaked.
-        Connection connection = dataSource.getConnection();
-        try {
-            this.dbUnitConnection = new DatabaseConnection(connection);
-        } catch (Exception e) {
-            connection.close();
-            throw e;
-        }
-
         // Initialize database schema if needed
         initializeSchema();
 
         // Clean tables before test
         cleanTables();
-
-        // Load test data if specified
-        loadTestData();
     }
 
     @AfterEach
-    public void tearDownDatabase() throws Exception {
-        // Always close the DBUnit connection, even if cleanTables() throws.
-        try {
-            if (!isTransactionRollback()) {
-                cleanTables();
-            }
-        } finally {
-            if (dbUnitConnection != null) {
-                dbUnitConnection.close();
-            }
+    public void tearDownDatabase() {
+        if (!isTransactionRollback()) {
+            cleanTables();
         }
     }
 
@@ -239,28 +210,6 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
             Integer.class, tableName
         );
         return count != null && count > 0;
-    }
-
-    /**
-     * Load test data from XML files or other sources
-     * Override this method to load specific test data
-     */
-    protected void loadTestData() throws Exception {
-        String testDataFile = getTestDataFile();
-        if (testDataFile != null) {
-            IDataSet dataSet = new FlatXmlDataSetBuilder()
-                .build(getClass().getResourceAsStream(testDataFile));
-            DatabaseOperation.CLEAN_INSERT.execute(dbUnitConnection, dataSet);
-            logger.info("Loaded test data from: {}", testDataFile);
-        }
-    }
-
-    /**
-     * Get the test data file path
-     * Override this to specify test data file
-     */
-    protected String getTestDataFile() {
-        return null;
     }
 
     /**

@@ -1130,21 +1130,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- DBUnit for database testing -->
-        <dependency>
-            <groupId>org.dbunit</groupId>
-            <artifactId>dbunit</artifactId>
-            <version>2.7.3</version>
-            <scope>test</scope>
-            <exclusions>
-                <!-- Exclude PostgreSQL driver - OpenO uses MariaDB/MySQL only -->
-                <!-- Fixes CVE GHSA-24rp-q3w6-vc56 false positive -->
-                <exclusion>
-                    <groupId>org.postgresql</groupId>
-                    <artifactId>postgresql</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
         <dependency>
