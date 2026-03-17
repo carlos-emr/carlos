@@ -75,13 +75,13 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.title"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-        <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap 2.3.1 -->
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
         <script>
@@ -105,8 +105,8 @@
     <body onLoad="setfocus()">
 
     <h4><i class="fa-solid fa-magnifying-glass" title=""></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchresults.description"/></h4>
-    <div name="alert" style="display:none;" class="alert alert-error"></div>
-    <div class="well">
+    <div name="alert" style="display:none;" class="alert alert-danger"></div>
+    <div class="card card-body bg-body-tertiary">
         <form method="post" action="securitysearchresults.jsp" name="searchprovider">
             <table style="width:100%">
                 <tr>
@@ -119,9 +119,9 @@
                         <input type="radio" checked name="search_mode"
                                value="search_providerno"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formProviderNo"/></td>
                     <td style="vertical-align:middle; text-align:left">
-                        <div class="input-append" name="keywordwrap">
-                            <input type="text" name="keyword" class="input input-large" maxlength="100">
-                            <button type="submit" name="button" class="btn add-on" style="height:30px; width:30px;">
+                        <div class="input-group" name="keywordwrap">
+                            <input type="text" name="keyword" class="form-control" maxlength="100">
+                            <button type="submit" name="button" class="btn input-group-text" style="height:30px; width:30px;">
                                 <i class="fa-solid fa-magnifying-glass"
                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securitysearchrecordshtm.btnSearch"/>"></i></button>
                         </div>
@@ -140,7 +140,7 @@
             </td>
         </tr>
     </table>
-    <table style="width:100%" id="tblResults" class="table table-hover table-striped table-condensed">
+    <table style="width:100%" id="tblResults" class="table table-hover table-striped table-sm">
         <thead>
         <tr>
             <th style="text-align:center; width:20%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityrecord.formUserName"/></b></th>

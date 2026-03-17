@@ -42,7 +42,7 @@
             <div class="flex flex-col">
                 <div class="flex">
                     <span class="mandatory tt font-bold w-10 pl-1" data-names="ind,asst,dep"
-                          data-toggle="tooltip" title="Cooking">
+                          data-bs-toggle="tooltip" title="Cooking">
                         <span class="highlight" data-field-name="cooking">Cooking</span>
                         </span>
 
@@ -63,7 +63,7 @@
                 </div>
                 <div class="flex">
                     <span class="mandatory tt font-bold w-10 pl-1" data-names="ind,asst,dep"
-                          data-toggle="tooltip" title="Shopping">
+                          data-bs-toggle="tooltip" title="Shopping">
                         <span class="highlight" data-field-name="shopping">Shopping</span>
                         </span>
 
@@ -84,7 +84,7 @@
                 </div>
                 <div class="flex">
                     <span class="mandatory tt  font-bold w-10 pl-1" data-names="ind,asst,dep"
-                          data-toggle="tooltip" title="Concerns around driving or not being able to get around, either by driving self, bus,
+                          data-bs-toggle="tooltip" title="Concerns around driving or not being able to get around, either by driving self, bus,
             taxi, handy dart.">
                     <span class="highlight" data-field-name="driving">Driving</span>
                     </span>
@@ -110,7 +110,7 @@
             <div class="flex flex-col">
                 <div class="flex">
                     <span class="mandatory tt font-bold w-9" data-names="ind,asst,dep"
-                          data-toggle="tooltip" title="Cleaning">
+                          data-bs-toggle="tooltip" title="Cleaning">
                         <span class="highlight" data-field-name="cleaning">Cleaning</span>
                         </span>
 
@@ -131,7 +131,7 @@
                 </div>
 
                 <div class="flex">
-                    <span class="mandatory tt font-bold w-9" data-names="ind,asst,dep" data-toggle="tooltip"
+                    <span class="mandatory tt font-bold w-9" data-names="ind,asst,dep" data-bs-toggle="tooltip"
                           title="Blister pack or medication administration">
                         <span class="highlight" data-field-name="meds">Meds</span></span>
 
@@ -153,7 +153,7 @@
 
                 <div class="flex">
                     <span class="mandatory tt font-bold w-9" data-names="ind,asst,dep"
-                          data-toggle="tooltip" title="Banking">
+                          data-bs-toggle="tooltip" title="Banking">
                         <span class="highlight" data-field-name="banking">Banking</span>
                         </span>
 

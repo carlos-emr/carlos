@@ -98,8 +98,8 @@ if(!authed) {
 	BigTotal = BigTotal.add(ooTotal);
 %>
 <h4>Encounter Statistics - Larry Kain Report</h4>
-<div class="well">
-	<dl class="dl-horizontal">
+<div class="card card-body bg-body-tertiary">
+	<dl class="row">
 		<dt>Clinic</dt>
 		<dd><%=clinic%></dd>
 		<dt>Visits Between</dt>
@@ -110,14 +110,14 @@ if(!authed) {
 		<dd><%=MyDateFormat.getMysqlStandardDate(curYear, curMonth,
 					curDay)%></dd>
 	</dl>
-	<dl class="dl-horizontal">
+	<dl class="row">
 		<dt>Clinic Visits</dt>
-		<dd><span class="badge"><%=cTotal%></span></dd>
+		<dd><span class="badge text-bg-secondary"><%=cTotal%></span></dd>
 		<dt>HHS Visits</dt>
-		<dd><span class="badge"><%=hTotal%></span></dd>
+		<dd><span class="badge text-bg-secondary"><%=hTotal%></span></dd>
 		<dt>All Other Visists</dt>
-		<dd><span class="badge"><%=oTotal%></span></dd>
+		<dd><span class="badge text-bg-secondary"><%=oTotal%></span></dd>
 		<dt>Total</dt>
-		<dd><span class="badge badge-success"><%=BigTotal%></span></dd>
+		<dd><span class="badge text-bg-success"><%=BigTotal%></span></dd>
 	</dl>
 </div>

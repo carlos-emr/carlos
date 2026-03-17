@@ -51,7 +51,7 @@
                 <span class="pl-1">INCONT</span></label>
 
             <span class="mandatory tt font-bold ml-2 highlight flex items-center" data-field-name="constipation"
-                  data-names="y,n" data-toggle="tooltip"
+                  data-names="y,n" data-bs-toggle="tooltip"
                   title="Constipated">
             Constip</span>
 

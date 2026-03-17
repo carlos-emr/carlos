@@ -101,7 +101,7 @@
                 document.getElementById("popupDisplay").style.display = 'none';
                 document.getElementById("panelDisplay").style.display = 'inline';
             } else {
-                document.write('<link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">');
+                document.write('<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">');
             }
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
@@ -111,6 +111,7 @@
             <%}%>
         </script>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </head>
 
@@ -127,11 +128,11 @@
     <form action="<%=request.getContextPath()%>/eform/editForm.do" method="POST" enctype="multipart/form-data"
           id="editform" name="eFormEdit">
 
-        <div class="well" style="position: relative;">
+        <div class="card card-body bg-body-tertiary" style="position: relative;">
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             <div class="alert alert-success">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgChangesSaved"/>.
             </div>
             <% } %>
@@ -140,13 +141,13 @@
                 String formNameMissing = errors.get("formNameMissing");
                 if (errors.containsKey("formNameMissing")) {
             %>
-            <div class="alert alert-error">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <div class="alert alert-danger">
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%} else if (errors.containsKey("formNameExists")) { %>
-            <div class="alert alert-error">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            <div class="alert alert-danger">
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=formNameMissing%>"/>
             </div>
             <%}%>
@@ -214,7 +215,7 @@
 
             <br/>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgEditHtml"/>:<br/>
-            <textarea wrap="off" name="formHtml" style="" class="span12" rows="40"><%= formHtml%></textarea><br/>
+            <textarea wrap="off" name="formHtml" style="" class="form-control" rows="40"><%= formHtml%></textarea><br/>
 
             <p>
             <div id="panelDisplay">
@@ -222,20 +223,20 @@
                     <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
                     <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
                 </a>
-                <input type="button" class="btn"
+                <input type="button" class="btn btn-secondary"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgPreviewLast"/>" <% if (curform.get("fid") == null) {%>
                        disabled    <%}%> name="previewlast" onclick="openLastSaved()">
                 <a href="<%=request.getContextPath()%>/eform/efmformmanageredit.jsp?fid=<%= curform.get("fid") %>"
                    class="btn contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.cancelChanges"/></a>
             </div>
 
-            <a href="#" class="btn" id="popupDisplay" onClick="window.close()">
+            <a href="#" class="btn btn-secondary" id="popupDisplay" onClick="window.close()">
                 <i class="fa-solid fa-circle-arrow-left"></i> Back to eForm Library
                 <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgBackToForms"/>-->
             </a>
 
             <input type="submit" class="btn btn-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.edithtml.msgSave"/>"
-                   data-loading-text="Saving..." name="savebtn" id="savebtn">
+                   data-bs-loading-text="Saving..." name="savebtn" id="savebtn">
 
             </p>
         </div>

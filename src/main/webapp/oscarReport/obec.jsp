@@ -49,6 +49,8 @@
 <head>
     <title>Overnight Batch Eligibility Checking Report</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
 
@@ -91,11 +93,11 @@
 %>
 
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         Overnight Batch Eligibility Checking Report
-        <div class="pull-right">
-            <button name="print" onclick="window.print()" class="btn">
+        <div class="float-end">
+            <button name="print" onclick="window.print()" class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
@@ -104,33 +106,33 @@
 </div>
 
 
-<form action="${ctx}/oscarReport/obec.do" class="well form-horizontal"
+<form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary"
       id="obecForm">
     <fieldset>
         <h4>
             OBEC Report <br> <small>Please select the service begin
             date and number of days.</small>
         </h4>
-        <div class="row-fluid">
-            <div class="control-group">
-                <label class="control-label">Begin Date</label>
-                <div class="controls">
+        <div class="row">
+            <div class="mb-3">
+                <label class="form-label">Begin Date</label>
+                <div>
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
                            value="<%=xml_vdate%>" placeholder="Service Begin Date">
                 </div>
             </div>
-            <div class="control-group" id="providerDiv">
-                <label class="control-label">Days</label>
+            <div class="mb-3" id="providerDiv">
+                <label class="form-label">Days</label>
 
-                <div class="controls">
+                <div>
 
                     <input type="text" id="numDays" name="numDays" value="<%=numDays%>"
-                           class="input-mini">
+                           class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <input type="submit" name="Submit" value="Create Report"
                            class="btn btn-primary">
                 </div>
@@ -154,7 +156,7 @@
 <%
 } else {
 %>
-<div class="alert alert-block">
+<div class="alert">
     <h4>Warning!</h4>
     File not created!
 </div>
@@ -164,9 +166,7 @@
 
 
 <script>
-    var startDt = $("#xml_vdate").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
 
     $(document).ready(function () {
         $('#obecForm').validate({

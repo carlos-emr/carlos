@@ -16,7 +16,7 @@
 
  Therefore, it is essential that you include the following line in your richeform. 
  
- <script language="javascript" type="text/javascript" src="${oscar_image_path}jquery-1.4.2.js"></script>
+ <script type="text/javascript" src="${oscar_image_path}jquery-3.7.1.min.js"></script>
 
  
  ------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ Below we will modify some of the examples above to create a fully working eform 
         <title>AP Cache Example</title>
         
         <!-- APCache requires jQuery. !-->
-        <script language="javascript" type="text/javascript" src="${oscar_image_path}jquery-1.4.2.js"></script>
+        <script type="text/javascript" src="${oscar_image_path}jquery-3.7.1.min.js"></script>
         
         <!-- APCache requires APCache. !-->
         <script language="javascript" type="text/javascript" src="${oscar_image_path}APCache.js"></script>        

@@ -159,7 +159,8 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-1.12.0.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script>
             jQuery.noConflict();
         </script>
@@ -535,8 +536,8 @@
 
             function ignoreDuplicates() {
                 let ignore = true;
-                const lastName = jQuery.trim(jQuery("#last_name").val());
-                const firstName = jQuery.trim(jQuery("#first_name").val());
+                const lastName = jQuery("#last_name").val().trim();
+                const firstName = jQuery("#first_name").val().trim();
 
                 if (!lastName || !firstName) {
                     return true;
@@ -605,11 +606,11 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
 %>
             jQuery(document).ready(function () {
 
-                jQuery("#country").bind('change', function () {
+                jQuery("#country").on('change', function () {
                     updateProvinces('');
                 });
 
-                jQuery("#residentialCountry").bind('change', function () {
+                jQuery("#residentialCountry").on('change', function () {
                     updateResidentialProvinces('');
                 });
 
@@ -731,7 +732,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
             /* for the search buttons at the top of the page
 			this should be removed if the page is updated to bootstrap
 		*/
-            .searchBox .select-group, .searchBox div.input-group-btn {
+            .searchBox .select-group, .searchBox div.input-group {
                 display: flex;
                 flex-direction: row;
                 align-items: stretch;

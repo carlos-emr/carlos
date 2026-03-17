@@ -218,7 +218,8 @@
             padding-left: .5em;
         }
     </style>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
     <script>
         jQuery.noConflict();
     </script>
@@ -237,10 +238,6 @@
         }
     </script>
     <title>Billing Invoice</title>
-    <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
     <oscar:customInterface section="invoice"/>
 </head>
 <body>

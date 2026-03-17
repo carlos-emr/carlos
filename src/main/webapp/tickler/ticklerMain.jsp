@@ -263,9 +263,13 @@
         </style>
         <script type="application/javascript">
 
-            const ctx = '<%= request.getContextPath() %>';
+
+            const ctx = '${pageContext.request.contextPath}';
+            const i18nEditTickler = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.tooltipEdit"/>';
+            const i18nAddNote = '<fmt:message key="tickler.ticklerMain.tooltipAddNote"/>';
+            const i18nViewAttachment = '<fmt:message key="tickler.ticklerMain.tooltipViewAttachment"/>';
             let ticklerResultsTable;
-            jQuery(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
                     autoOpen: false,
                     height: 200,
@@ -278,26 +282,29 @@
 
                 var savedPageLength = localStorage.getItem('ticklerPageLength');
                 var parsedPageLength = savedPageLength ? parseInt(savedPageLength, 10) : 50;
-                var initialPageLength = [25, 50, 75, 100].indexOf(parsedPageLength) !== -1 ? parsedPageLength : 50;
+                var initialPageLength = [25, 50, 100].indexOf(parsedPageLength) !== -1 ? parsedPageLength : 50;
 
                 ticklerResultsTable = jQuery("#ticklerResults").DataTable({
                     serverSide: true,
                     processing: true,
-                    searching: false,
-                    lengthMenu: [[25, 50, 75, 100], [25, 50, 75, 100]],
+                    searching: true,
+                    lengthMenu: [[25, 50, 100, -1], [25, 50, 100, '<fmt:message key="oscarEncounter.LeftNavBar.AllLabs"/>']],
                     pageLength: initialPageLength,
                     order: [[4, 'desc']],
+                    language: {
+                        url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18nLanguagecode"/>.json'
+                        },
                     ajax: {
                         url: ctx + '/tickler/ListTicklers.do',
                         type: 'GET',
                         data: function(d) {
-                            d.status = jQuery('#ticklerview').val() || 'A';
-                            d.provider = jQuery('#providerview').length ? jQuery('#providerview').val() : '';
-                            d.assignee = jQuery('#assignedTo').length ? jQuery('#assignedTo').val() : '';
-                            d.mrp = jQuery('#mrpview').length ? jQuery('#mrpview').val() : '';
-                            d.startDate = jQuery('#xml_vdate').length ? jQuery('#xml_vdate').val() : '';
-                            d.endDate = jQuery('#xml_appointment_date').length ? jQuery('#xml_appointment_date').val() : '';
-                            d.demographicNo = jQuery('input[name=demoview]').val() || '';
+                            d.status = document.getElementById('ticklerview').value || 'A';
+                            d.provider = document.getElementById('providerview') ? document.getElementById('providerview').value : '';
+                            d.assignee = document.getElementById('assignedTo') ? document.getElementById('assignedTo').value : '';
+                            d.mrp = document.getElementById('mrpview') ? document.getElementById('mrpview').value : '';
+                            d.startDate = document.getElementById('xml_vdate') ? document.getElementById('xml_vdate').value : '';
+                            d.endDate = document.getElementById('xml_appointment_date') ? document.getElementById('xml_appointment_date').value : '';
+                            d.demographicNo = (document.querySelector('input[name=demoview]') || {}).value || '';
                             if (d.provider === 'all') d.provider = '';
                             if (d.assignee === 'all') d.assignee = '';
                             if (d.mrp === 'all') d.mrp = '';
@@ -320,7 +327,7 @@
                             data: 'id',
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" title="Edit Tickler" onClick="window.open(\'' + ctx + '/tickler/ticklerEdit.jsp?tickler_no=' + encodeURIComponent(data) + '\', \'edit_tickler\', \'width=800, height=650\')"><span class="fas fa-pencil-alt"></span></a>';
+                                return '<a href="javascript:void(0)" title="' + i18nEditTickler + '" onClick="openTicklerEdit(this,' + encodeURIComponent(data) + ')"><span class="fas fa-pencil-alt"></span></a>';
                             }
                         },
                         {
@@ -328,7 +335,7 @@
                             orderable: false,
                             render: function(data) {
                                 var name = escapeHtml(data.demographicName || 'N/A');
-                                return '<a href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/demographiccontrol.jsp?demographic_no=' + encodeURIComponent(data.demographicNo) + '&displaymode=edit&dboperation=search_detail\')">' + name + '</a>';
+                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/demographiccontrol.jsp?demographic_no=' + encodeURIComponent(data.demographicNo) + '&displaymode=edit&dboperation=search_detail\')">' + name + '</a>';
                             }
                         },
                         {
@@ -388,13 +395,13 @@
                             data: null,
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="Add Encounter Note"><span class="fas fa-comment"></span></a>';
+                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="' + i18nAddNote + '"><span class="fas fa-comment"></span></a>';
                             }
                         }
                     ],
                     createdRow: function(row, data) {
                         if (data.warning) {
-                            jQuery(row).addClass('error');
+                            row.classList.add('error');
                         }
                     },
                     drawCallback: function(settings) {
@@ -428,7 +435,7 @@
                     }
                 });
 
-                jQuery("#ticklerview").change(function () {
+                document.getElementById('ticklerview').addEventListener('change', function () {
                     ticklerResultsTable.ajax.reload();
                 });
 
@@ -438,6 +445,20 @@
                 });
 
             });
+
+            /**
+             * Opens the tickler edit popup and toggles the row's pencil icon to a
+             * checkmark so the user has a visual cue that this tickler has been opened.
+             */
+            function openTicklerEdit(link, ticklerNo) {
+                window.open(ctx + '/tickler/ticklerEdit.jsp?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
+                var icon = link.querySelector('span');
+                if (icon) {
+                    icon.classList.remove('fa-pencil-alt');
+                    icon.classList.add('fa-check');
+                    icon.style.color = '#198754'; // Bootstrap success green
+                }
+            }
 
             function escapeHtml(text) {
                 if (!text) return '';
@@ -461,33 +482,33 @@
                 } else {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/labDisplay.jsp?segmentID=' + tableId + '\')';
                 }
-                return ' <a title="View attachment" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
+                return ' <a title="' + i18nViewAttachment + '" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
             }
 
             function openNoteDialog(demographicNo, ticklerNo) {
 
-                jQuery("#tickler_note_demographicNo").val(demographicNo);
-                jQuery("#tickler_note_ticklerNo").val(ticklerNo);
-                jQuery("#tickler_note_noteId").val('');
-                jQuery("#tickler_note").val('');
-                jQuery("#tickler_note_revision").html('');
-                jQuery("#tickler_note_revision_url").attr('onclick', '');
-                jQuery("#tickler_note_editor").html('');
-                jQuery("#tickler_note_obsDate").html('');
+                document.getElementById('tickler_note_demographicNo').value = demographicNo;
+                document.getElementById('tickler_note_ticklerNo').value = ticklerNo;
+                document.getElementById('tickler_note_noteId').value = '';
+                document.getElementById('tickler_note').value = '';
+                document.getElementById('tickler_note_revision').innerHTML = '';
+                document.getElementById('tickler_note_revision_url').setAttribute('onclick', '');
+                document.getElementById('tickler_note_editor').innerHTML = '';
+                document.getElementById('tickler_note_obsDate').innerHTML = '';
 
                 jQuery.ajax({
                     method: "POST", url: ctx + '/CaseManagementEntry.do',
-                    data: {method: "ticklerGetNote", ticklerNo: jQuery('#tickler_note_ticklerNo').val()},
+                    data: {method: "ticklerGetNote", ticklerNo: document.getElementById('tickler_note_ticklerNo').value},
                     async: false,
                     dataType: 'json',
                     success: function (data) {
                         if (data != null) {
-                            jQuery("#tickler_note_noteId").val(data.noteId);
-                            jQuery("#tickler_note").val(data.note);
-                            jQuery("#tickler_note_revision").html(data.revision);
-                            jQuery("#tickler_note_revision_url").attr("onclick", "window.open(" + ctx + "'/CaseManagementEntry.do?method=notehistory&noteId='+data.noteId')')");
-                            jQuery("#tickler_note_editor").html(data.editor);
-                            jQuery("#tickler_note_obsDate").html(data.obsDate);
+                            document.getElementById('tickler_note_noteId').value = data.noteId;
+                            document.getElementById('tickler_note').value = data.note;
+                            document.getElementById('tickler_note_revision').textContent = data.revision;
+                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open(" + ctx + "'/CaseManagementEntry.do?method=notehistory&noteId='+data.noteId')')");
+                            document.getElementById('tickler_note_editor').textContent = data.editor;
+                            document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
                         }
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
@@ -507,10 +528,10 @@
                     url: ctx + '/CaseManagementEntry.do',
                     data: {
                         method: "ticklerSaveNote",
-                        noteId: jQuery("#tickler_note_noteId").val(),
-                        value: jQuery('#tickler_note').val(),
-                        demographicNo: jQuery('#tickler_note_demographicNo').val(),
-                        ticklerNo: jQuery('#tickler_note_ticklerNo').val()
+                        noteId: document.getElementById('tickler_note_noteId').value,
+                        value: document.getElementById('tickler_note').value,
+                        demographicNo: document.getElementById('tickler_note_demographicNo').value,
+                        ticklerNo: document.getElementById('tickler_note_ticklerNo').value
                     },
                     async: false,
                     success: function (data) {
@@ -590,7 +611,7 @@
             }
 
             function generateRenalLabReq(demographicNo) {
-                var url = ctx + '/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=Encode.forJavaScript((String)session.getAttribute("user"))%>&fromSession=true';
+                var url = ctx + '/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=org.owasp.encoder.Encode.forJavaScript(org.owasp.encoder.Encode.forUriComponent(session.getAttribute("user").toString()))%>&fromSession=true';
                 jQuery.ajax({
                     type: 'POST',
                     url: ctx + '/renal/Renal.do',
@@ -639,54 +660,89 @@
                 <input type="hidden" name="Submit" value="">
                 <input type="hidden" name="demoview" value="<%= Encode.forHtmlAttribute(demoviewParam != null ? demoviewParam : "") %>">
 
-                <% if (!isDemoView) { %>
-                    <div class="tickler-filters d-flex flex-wrap align-items-center gap-2">
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/></label>
-                        <a href="javascript:void(0)" onClick="allYear()" style="font-size:11px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/></a>
+        <h2>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-feather"
+                 viewBox="0 0 16 16">
+                <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"/>
+            </svg>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.title"/>
+        </h2>
 
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.labelFrom"/></label>
+        <form name="serviceform" method="get" action="ticklerMain.jsp">
+            <input type="hidden" name="Submit" value="">
+            <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(hasDemoView ? demographic_no : "")%>">
+
+            <c:if test="${not hasDemoView}">
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <label class="fw-semibold">
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/>
+                            <a href="javascript:void(0)" id="dateRange" onClick="allYear()">
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/>
+                            </a>
+                        </label>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFrom"/></label>
+                    <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
-                               value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.labelTo"/></label>
+                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formTo"/></label>
+                    <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
-
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/></label>
-                        <%
-                            ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-                            List<Provider> providers = providerDao.getActiveProviders();
-                        %>
+                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <label for="mrpview" class="col-sm-3 col-form-label">
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/>
+                    </label>
+                    <div class="col-sm-9">
                         <select id="mrpview" class="form-select" name="mrpview">
                             <option value="all" <%=mrpview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>,<%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
                             <%
                                 }
                             %>
                         </select>
-
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></label>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <label for="providerview" class="col-sm-3 col-form-label">
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/>
+                    </label>
+                    <div class="col-sm-9">
                         <select id="providerview" class="form-select" name="providerview">
                             <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>,<%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
                             <%
                                 }
                             %>
                         </select>
-
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/></label>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <label for="assignedTo" class="col-sm-3 col-form-label">
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/>
+                    </label>
+                    <div class="col-sm-9">
                         <%
                             if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
                                 SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
                                 List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
                         %>
                         <script>
-                            let _providers = [];
+                            let _providers = {};
                             <%for (int i=0; i<sites.size(); i++) {%>
                             _providers["<%=Encode.forJavaScript(String.valueOf(sites.get(i).getSiteId()))%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
                             while (iter.hasNext()) {
@@ -698,12 +754,12 @@
                                 sel.form.assignedTo.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
                             }
                         </script>
-                        <select id="site" class="form-select" name="site" onchange="changeSite(this)">
-                            <option value="none">---select clinic---</option>
+                        <select id="site" class="form-select mb-1" name="site" onchange="changeSite(this)">
+                            <option value="none"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.selectClinic"/></option>
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(String.valueOf(sites.get(i).getSiteId()))%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=Encode.forHtml(sites.get(i).getName())%></option>
+                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(sites.get(i).getSiteId().toString())%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(sites.get(i).getName())%></option>
                             <%
                                 }
                             %>
@@ -714,7 +770,7 @@
                         %>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("assignedTo").value = '<%=Encode.forJavaScript(request.getParameter("assignedTo"))%>';
+                            document.getElementById("assignedTo").value = '<%=org.owasp.encoder.Encode.forJavaScript(request.getParameter("assignedTo"))%>';
                         </script>
                         <%
                             }
@@ -734,7 +790,7 @@
                                 List<Provider> providersActive = providerDao.getActiveProviders();
                                 for (Provider p : providersActive) {
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>, <%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
                             <%
                                 }
                             %>
@@ -742,12 +798,21 @@
                         <%
                             }
                         %>
-
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.status"/></label>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFilter"/></label>
+                    <div class="col-sm-9">
                         <select id="ticklerview" class="form-select" name="ticklerview">
-                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
-                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
-                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
+                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
+                                <fmt:setBundle basename="oscarResources"/>
+                                <fmt:message key="tickler.ticklerMain.formActive"/></option>
+                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>>
+                                <fmt:setBundle basename="oscarResources"/>
+                                <fmt:message key="tickler.ticklerMain.formCompleted"/></option>
+                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>>
+                                <fmt:setBundle basename="oscarResources"/>
+                                <fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                         </select>
 
                         <input type="button" class="btn btn-sm btn-primary noprint" id="formSubmitBtn"
@@ -755,23 +820,34 @@
                         <input type="button" class="btn btn-sm btn-primary noprint" id="saveViewButton"
                                value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.msgSaveView'/>" onclick="saveView();">
                     </div>
-                <% } else { %>
-                    <div class="tickler-filters d-flex flex-wrap align-items-center gap-2">
-                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.status"/></label>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-9 offset-sm-3">
+                        <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>">
+                        <input type="button" class="btn btn-secondary ms-2" id="saveViewButton"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgSaveView"/>" onclick="saveView();">
+                    </div>
+                </div>
+
+            </c:if>
+            <c:if test="${hasDemoView}">
+                <div class="row mb-3">
+                    <label for="ticklerview" class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formFilter"/></label>
+                    <div class="col-sm-9">
                         <select id="ticklerview" class="form-select" name="ticklerview">
                             <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
                             <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
                             <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                         </select>
                     </div>
-                <% } %>
-            </form>
-
-        </div>
+                </div>
+            </c:if>
+        </form>
 
         <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
-            <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId != null ? parentAjaxId : "") %>"/>
-            <table id="ticklerResults" class="table table-sm table-striped table-hover" style="width:100%; margin-top:10px;">
+            <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
+            <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>
                     <th class="col-checkbox">&nbsp;</th>
@@ -791,32 +867,40 @@
                 </tbody>
             </table>
 
-            <div class="action-bar noprint">
-                <input type="hidden" name="submit_form" value="">
+            <table id="tablefoot">
 
-                <div class="action-group">
-                    <a href="javascript:CheckAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a>
-                    <span style="color:#999;">|</span>
-                    <a href="javascript:ClearAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
-                    <%
-                        if (ticklerview.compareTo("D") == 0) {
-                    %>
-                    <input type="button" class="btn btn-sm btn-danger"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnEraseCompletely'/>"
-                           onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
-                    <%
-                    } else {
-                    %>
-                    <input type="button" class="btn btn-sm btn-primary"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnComplete'/>"
-                           onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
-                    <input type="button" class="btn btn-sm btn-danger"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnDelete'/>"
-                           onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
-                    <%
-                        }
-                    %>
-                </div>
+                <tr class="noprint">
+                    <td class="white"><a id="checkAllLink" name="checkAllLink"
+                                         href="javascript:CheckAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
+
+                        <input type="hidden" name="submit_form" value="">
+                        <%
+                            if (ticklerview.compareTo("D") == 0) {
+                        %>
+                        <input type="button" class="btn btn-secondary"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
+                               onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
+                        <%
+                        } else {
+                        %>
+                        <input type="button" class="btn btn-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnComplete"/>"
+                               class="sbttn"
+                               onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
+                        <input type="button" class="btn btn-danger"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnDelete"/>" class="sbttn"
+                               onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
+                        <%
+                            }
+                        %>
+                        <input type="button" class="btn btn-primary" name="button"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnAddTickler"/>"
+                               onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=${parentAjaxId}&bFirstDisp=false&messageID=null&demographic_no=${param.demoview}')"
+                               class="sbttn">
+                        <input type="button" name="button" class="btn btn-warning"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>" onClick="window.close()" class="sbttn">
+                    </td>
+                </tr>
+            </table>
 
                 <div class="action-separator"></div>
 
@@ -834,35 +918,41 @@
             <%=OscarProperties.getConfidentialityStatement()%>
         </p>
 
-        <fmt:setBundle basename="oscarResources"/>
-        <div id="note-form" title="<fmt:message key="tickler.ticklerMain.noteTitle"/>" style="display:none;">
+        <div id="note-form" title="<fmt:message key='tickler.ticklerMain.noteDialogTitle'/>" style="display:none;">
             <form>
                 <input type="hidden" name="tickler_note_demographicNo" id="tickler_note_demographicNo" value=""/>
                 <input type="hidden" name="tickler_note_ticklerNo" id="tickler_note_ticklerNo" value=""/>
                 <input type="hidden" name="tickler_note_noteId" id="tickler_note_noteId" value=""/>
 
-                <div style="margin-bottom:8px;">
-                    <label for="tickler_note"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteTitle"/></label>
-                    <textarea class="form-control" id="tickler_note" rows="5" name="tickler_note"
-                              style="width:100%;"
-                              oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'
-                              onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'></textarea>
-                </div>
-                <div style="font-size:12px; color:#666; margin-bottom:8px;">
-                    <label for="tickler_note_obsDate"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteDate"/></label>
-                    <span id="tickler_note_obsDate"></span>
-                    &nbsp;
-                    <label for="tickler_note_revision_url"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteRev"/></label>
-                    <a id="tickler_note_revision_url" href="javascript:void(0)" onClick="">
-                        <span id="tickler_note_revision"></span>
-                    </a>
-                    &nbsp;
-                    <label for="tickler_note_editor"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteEditor"/></label>
-                    <span id="tickler_note_editor"></span>
-                </div>
-                <div style="text-align:right;">
-                    <button type="button" class="btn btn-sm btn-primary" onclick="saveNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnSave"/></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/></button>
+                <table style="width:100%;">
+                    <tr>
+                        <td>
+                            <label for="tickler_note"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteLabel"/></label>
+                            <textarea class="form-control" id="tickler_note" rows="5" name="tickler_note"
+                                      style="width:100%;"
+                                      oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                                      onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td nowrap="nowrap">
+                            <label for="tickler_note_obsDate"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteDate"/></label>
+                            <span id="tickler_note_obsDate"></span>
+
+                            <label for="tickler_note_revision_url"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteRev"/></label>
+                            <a id="tickler_note_revision_url" href="javascript:void(0)" onClick="">
+                                <span id="tickler_note_revision"></span>
+                            </a>
+
+                            <label for="tickler_note_editor"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.noteEditor"/></label>
+                            <span id="tickler_note_editor"></span>
+                        </td>
+                    </tr>
+
+                </table>
+                <div class="float-end">
+                    <button class="btn btn-primary" onclick="saveNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.save"/></button>
+                    <button class="btn btn-danger" onclick="closeNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/></button>
                 </div>
             </form>
         </div>

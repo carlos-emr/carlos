@@ -315,14 +315,16 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script>
             jQuery.noConflict();
         </script>
             <%--        <oscar:customInterface section="monthview"/>--%>
 
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/3.0.0/css/bootstrap.min.css"
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css"
               type="text/css">
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css" type="text/css">
 
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/helpdetails.css" type="text/css">
@@ -353,7 +355,7 @@
 
         </style>
 
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script language="JavaScript">
             //<!--
@@ -449,7 +451,7 @@
                 var url = "<%= request.getContextPath() %>/provider/tabAlertsRefresh.jsp";
                 var pars = "id=" + id;
 
-                var myAjax = new Ajax.Updater(id, url, {method: 'get', parameters: pars});
+                CarlosAjax.updater(id, url, {method: 'get', parameters: pars});
             }
 
             //-->
@@ -489,12 +491,12 @@
         <tr BGCOLOR="whitesmoke">
             <td width="33%">
                 <a href="providercontrol.jsp?year=<%=year%>&month=<%=(month-1)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%=providerview%>">
-                    <span class="glyphicon glyphicon-step-backward"
+                    <span class="fa-solid fa-backward-step"
                           title="<%=arrayMonthOfYear[((month+10)%12)]%>"></span>&nbsp;&nbsp;
                 </a>
                 <b><span CLASS=title><%=strYear%>-<%=strMonth%></span></b>
                 <a href="providercontrol.jsp?year=<%=year%>&month=<%=(month+1)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<%=providerview%>">
-                    <span class="glyphicon glyphicon-step-forward" title="<%=arrayMonthOfYear[month%12]%>"></span></a>
+                    <span class="fa-solid fa-forward-step" title="<%=arrayMonthOfYear[month%12]%>"></span></a>
                 |
                 <u><a href="providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1"
                       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewAllProv"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewAll"/></a></u>
@@ -761,7 +763,7 @@
                                         <b>
                                             <a href="providercontrol.jsp?year=<%=year%>&month=<%=(month)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth"
                                                title="Last Month: <%=arrayMonthOfYear[((month+10)%12)]%>">
-                                                &nbsp;&nbsp;<span class="glyphicon glyphicon-step-backward"
+                                                &nbsp;&nbsp;<span class="fa-solid fa-backward-step"
                                                                   title="Last Month: <%=arrayMonthOfYear[((month+10)%12)]%>"></span>
                                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnLastMonth"/>
                                             </a>&nbsp;
@@ -868,7 +870,7 @@
                                             href="providercontrol.jsp?year=<%=year%>&month=<%=(month)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth"
                                             title="Next Month: <%=arrayMonthOfYear[month%12]%>"> &nbsp;
                                         &nbsp; &nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentprovideradminmonth.btnNextMonth"/>
-                                        <span class="glyphicon glyphicon-step-forward"
+                                        <span class="fa-solid fa-forward-step"
                                               title="Next Month: <%=arrayMonthOfYear[(month)%12]%>"></span>
                                     </a><br>
 

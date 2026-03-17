@@ -237,26 +237,32 @@
         %>
             <%--<link rel="stylesheet" type="text/css" href="styles.css" />--%>
 
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <script type="text/javascript">
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            var csrfToken = csrfEl ? csrfEl.value : '';
+
             function resetStash() {
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/deleteRx.do?parameterValue=clearStash";
-                var data = "";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        parent.document.getElementById('rxText').innerHTML = "";//make pending prescriptions disappear.
-                        parent.document.getElementById('searchString').focus();
-                    }
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    credentials: 'same-origin',
+                    body: ''
+                }).then(function() {
+                    parent.document.getElementById('rxText').textContent = "";//make pending prescriptions disappear.
+                    parent.document.getElementById('searchString').focus();
                 });
             }
 
             function resetReRxDrugList() {
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/deleteRx.do?parameterValue=clearReRxDrugList";
-                var data = "";
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    credentials: 'same-origin',
+                    body: ''
                 });
             }
 
@@ -264,7 +270,7 @@
             function onPrint2(method, scriptId) {
                 var useSC = false;
                 var scAddress = "";
-                var rxPageSize = $('printPageSize').value;
+                var rxPageSize = document.getElementById('printPageSize').value;
                 console.log("rxPagesize  " + rxPageSize);
 
                 <% if(vecAddressName != null) { %>
@@ -295,7 +301,12 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
-                new Ajax.Request(url, {method: 'post', parameters: params});
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    credentials: 'same-origin',
+                    body: params
+                });
             }
 
 
@@ -306,8 +317,15 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
-                new Ajax.Request(url, {method: 'post', parameters: params});
-                frames['preview'].document.getElementById('additNotes').innerHTML = document.getElementById('additionalNotes').value.replace(/\n/g, "<br>");
+                fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+                    credentials: 'same-origin',
+                    body: params
+                });
+                var additNotesEl = frames['preview'].document.getElementById('additNotes');
+                additNotesEl.style.whiteSpace = 'pre-wrap';
+                additNotesEl.textContent = document.getElementById('additionalNotes').value;
                 frames['preview'].document.getElementsByName('additNotes')[0].value = document.getElementById('additionalNotes').value.replace(/\n/g, "\r\n");
             }
 
@@ -420,24 +438,25 @@
     	try {
 			var url = "<%=request.getContextPath() %>/oscarRx/WriteToEncounter.do";
 			var prefPharmacy = "<%=prefPharmacy != null ? Encode.forJavaScriptBlock(prefPharmacy) : ""%>";
-			new Ajax.Request(url, {method: 'post',
-				parameters: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
+			fetch(url, {
+				method: 'POST',
+				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+				credentials: 'same-origin',
+				body: "prefPharmacy=" + encodeURIComponent(prefPharmacy) +
 						"&additionalNotes=" +
-						"&body="+ encodeURIComponent(text),
-				onSuccess:function(ret){
-					//console.log("success")
-					if (print) {
-						printIframe();
-					}
-					openEncounter();
-				},
-				onError: function(e) {
-					alert("ERROR: could not paste to EMR" + e);
-					if (print) {
-						printIframe();
-					}
-					openEncounter();
-				}});
+						"&body="+ encodeURIComponent(text)
+			}).then(function(ret){
+				if (print) {
+					printIframe();
+				}
+				openEncounter();
+			}).catch(function(e) {
+				alert("ERROR: could not paste to EMR" + e);
+				if (print) {
+					printIframe();
+				}
+				openEncounter();
+			});
 		} catch (e) {
 			alert("ERROR: could not paste to EMR" + e);
 		}
@@ -574,9 +593,11 @@
             }
 
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
-	new Ajax.Request('<%=request.getContextPath() %>/oscarRx/saveDigitalSignature.do', {
-		method: 'post',
-		parameters: {method: 'saveDigitalSignature', digitalSignatureId: digitalSignatureId, scriptId: scriptId}
+	fetch('<%=request.getContextPath() %>/oscarRx/saveDigitalSignature.do', {
+		method: 'POST',
+		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
+		credentials: 'same-origin',
+		body: 'method=saveDigitalSignature&digitalSignatureId=' + encodeURIComponent(digitalSignatureId) + '&scriptId=' + encodeURIComponent(scriptId)
 	});
 }
 
@@ -674,7 +695,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                         function clearPendingFax() {
                                             parent.window.location = "<%= request.getContextPath() %>/oscarRx/close.html";
-                                            parent.myLightWindow.deactivate();
+                                            try { var m = parent.document.getElementById('carlosModal'); if (m) { bootstrap.Modal.getInstance(m)?.hide(); } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/oscarRx/close.html'; }
                                         }
 
                                         function ShowDrugInfo(drug) {
@@ -689,10 +710,13 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 	                                if(! id) {
 										return;
 	                                }
-                                    var url="<c:out value="${ctx}"/>"+"/oscarRx/managePharmacy2.do?";
-                                    var data="method=getPharmacyInfo&pharmacyId="+id;
-                                    new Ajax.Request(url, {method: 'get',parameters:data, onSuccess:function(transport){
-                                        var json=transport.responseText.evalJSON();
+                                    var url="<c:out value="${ctx}"/>"+"/oscarRx/managePharmacy2.do?method=getPharmacyInfo&pharmacyId="+id;
+                                    fetch(url, {
+                                        method: 'GET',
+                                        headers: {'X-Requested-With': 'XMLHttpRequest'},
+                                        credentials: 'same-origin'
+                                    }).then(function(resp){ return resp.text(); }).then(function(responseText){
+                                        var json = JSON.parse(responseText);
 
                                                     if (json != null) {
                                                         var text = json.name + "<br>" + json.address + "<br>" + json.city + ", " + json.province + ", "
@@ -702,25 +726,22 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                         text += "<input type='hidden' name='pharmacyInfo' value=" + id + " />"
                                                         expandPreview(text);
                                                     }
-                                                }
-                                            });
+                                                });
 
                                         }
 
                                         function expandPreview(text) {
-                                            parent.document.getElementById('lightwindow_container').style.width = "1140px";
-                                            parent.document.getElementById('lightwindow_contents').style.width = "1120px";
+                                            try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.add('modal-xl'); } catch(e) {}
                                             document.getElementById('preview').style.width = "600px";
                                             frames['preview'].document.getElementById('pharmInfo').innerHTML = text;
-                                            $("selectedPharmacy").innerHTML = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
+                                            document.getElementById("selectedPharmacy").innerHTML = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/>';
                                         }
 
                                         function reducePreview() {
-                                            parent.document.getElementById('lightwindow_container').style.width = "1000px";
-                                            parent.document.getElementById('lightwindow_contents').style.width = "980px";
+                                            try { var dlg = parent.document.querySelector('#carlosModal .modal-dialog'); if (dlg) dlg.classList.remove('modal-xl'); } catch(e) {}
                                             document.getElementById('preview').style.width = "460px";
                                             frames['preview'].document.getElementById('pharmInfo').innerHTML = "";
-                                            $("selectedPharmacy").innerHTML = "";
+                                            document.getElementById("selectedPharmacy").innerHTML = "";
                                         }
                                     </script>
 
@@ -831,7 +852,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                              value="<fmt:setBundle basename="oscarResources"/><fmt:message key="ViewScript.msgCreateNewRx"/>"
                                                              class="ControlPushButton"
                                                              style="width: 210px"
-                                                             onClick="resetStash();resetReRxDrugList();javascript:parent.myLightWindow.deactivate();"/></span>
+                                                             onClick="resetStash();resetReRxDrugList();try{var m=parent.document.getElementById('carlosModal');if(m){bootstrap.Modal.getInstance(m)?.hide();}}catch(e){}"/></span>
                                             </td>
                                         </tr>
                                         <tr>

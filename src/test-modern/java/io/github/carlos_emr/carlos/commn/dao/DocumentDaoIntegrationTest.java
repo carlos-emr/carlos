@@ -246,7 +246,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
             Integer result = documentDao.findMaxDocNo();
 
             // Then
-            assertThat(result).isNotNull();
+            assertThat(result).isEqualTo(0);
         }
     }
 
@@ -342,7 +342,8 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
             List<Document> result = documentDao.findByUpdateDate(yesterday, 10);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDoctype()).isEqualTo("lab");
         }
 
         @Test
@@ -415,7 +416,9 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
             List<Document> result = documentDao.findByDoctypeAndProviderNo("lab", PROVIDER_NO, 0);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDoctype()).isEqualTo("lab");
+            assertThat(result.get(0).getDoccreator()).isEqualTo(PROVIDER_NO);
         }
 
         @Test
@@ -943,7 +946,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, lastWeek, tomorrow);
 
             // Then
-            assertThat(result).isGreaterThanOrEqualTo(1);
+            assertThat(result).isEqualTo(1);
         }
 
         @Test

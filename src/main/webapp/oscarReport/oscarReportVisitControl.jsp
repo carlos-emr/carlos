@@ -107,19 +107,21 @@
         }
     </script>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
-<div class="hidden-print" style="float:right;">
+<div class="d-print-none" style="float:right;">
     <a style="font-size:10px" href="#"
        onclick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=visitreport')">Manage Visit Report
         Providers</a>
 </div>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h3>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
-        <div class="pull-right">
-            <button name="print" onclick="window.print()" class="btn hidden-print">
+        <div class="float-end">
+            <button name="print" onclick="window.print()" class="btn d-print-none">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
@@ -128,30 +130,34 @@
 </div>
 
 <form action="${ctx}/oscarReport/oscarReportVisitControl.jsp"
-      class="well form-horizontal hidden-print" id="visitForm">
+      class="card card-body bg-body-tertiary d-print-none" id="visitForm">
     <fieldset>
         <h4>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
             <br> <small>Please select the report type, provider and
             service begin and end dates.</small>
         </h4>
-        <div class="control-group">
-            <label class="control-label">Select Report</label>
-            <div class="controls">
-                <label class="radio inline"> <input type="radio"
-                                                    name="reportAction" onClick="toggleDivs();" value="lk"
-                    <%=reportAction.equals("lk")?"checked":""%>> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgLarryKainReport"/>
-                </label> <label class="radio inline"> <input type="radio"
-                                                             name="reportAction" onClick="toggleDivs();" value="vr"
-                <%=reportAction.equals("vr") || reportAction.equals("")?"checked":""%>>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgVisitReport"/>
-            </label>
+        <div class="mb-3">
+            <label class="form-label">Select Report</label>
+            <div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" id="reportActionLk"
+                           name="reportAction" onClick="toggleDivs();" value="lk"
+                        <%=reportAction.equals("lk")?"checked":""%>>
+                    <label class="form-check-label" for="reportActionLk"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgLarryKainReport"/></label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" id="reportActionVr"
+                           name="reportAction" onClick="toggleDivs();" value="vr"
+                        <%=reportAction.equals("vr") || reportAction.equals("")?"checked":""%>>
+                    <label class="form-check-label" for="reportActionVr"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.msgVisitReport"/></label>
+                </div>
             </div>
         </div>
-        <div class="control-group" id="providerDiv">
-            <label class="control-label">Provider</label>
+        <div class="mb-3" id="providerDiv">
+            <label class="form-label">Provider</label>
 
-            <div class="controls">
+            <div>
                 <select id="providerview" name="providerview"
                         <%=reportAction.equals("lk") ? "disabled" : ""%>>
                     <option value="%">
@@ -174,23 +180,23 @@
 
         </div>
 
-        <div class="control-group">
-            <label class="control-label">Service Date Begin</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Service Date Begin</label>
+            <div>
                 <input type="text" id="xml_vdate" name="xml_vdate"
                        value="<%=xml_vdate%>">
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Service Date End</label>
-            <div class="controls">
+        <div class="mb-3">
+            <label class="form-label">Service Date End</label>
+            <div>
 
                 <input type="text" id="xml_appointment_date"
                        name="xml_appointment_date" value="<%=xml_appointment_date%>">
             </div>
         </div>
-        <div class="control-group">
-            <div class="controls">
+        <div class="mb-3">
+            <div>
                 <button type="submit" class="btn btn-primary">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.btnCreateReport"/>
                 </button>
@@ -219,13 +225,8 @@
 %>
 
 <script>
-    var startDt = $("#xml_vdate").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDt = $("#xml_appointment_date").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#xml_vdate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
     $(document).ready(function () {
         $('#visitform').validate({
@@ -245,10 +246,10 @@
     registerFormSubmit('visitForm', 'dynamic-content');
 
     function toggleDivs() {
-        if ($('input[name=reportAction]:checked').val() == 'vr')
-            $("#providerview").removeAttr('disabled');
+        if (document.querySelector('input[name=reportAction]:checked').value == 'vr')
+            document.getElementById('providerview').disabled = false;
         else
-            $("#providerview").attr('disabled', 'disabled');
+            document.getElementById('providerview').disabled = true;
     }
 </script>
 </body>

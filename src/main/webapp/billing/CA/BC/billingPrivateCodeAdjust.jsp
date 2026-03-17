@@ -38,12 +38,12 @@
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     </head>
 
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <a href="billingAddPrivateCode.jsp?addNew=true" class="btn btn-primary">Add Code</a>
 

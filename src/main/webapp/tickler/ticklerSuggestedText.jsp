@@ -213,15 +213,17 @@
                     <div class="input-group">
                         <input id="newTextSuggest" class="form-control" name="newTextSuggest" type="text"
                                maxlength="100"/>
-                        <input type="button" class="btn btn-outline-secondary" name="addNewTextSuggest"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
-                               onclick="addToList('activeText','newTextSuggest')"/>
+                        <div class="input-group">
+                            <input type="button" class="btn btn-secondary" name="addNewTextSuggest"
+                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
+                                   onclick="addToList('activeText','newTextSuggest')"/>
+                        </div>
                     </div>
                 </td>
             </tr>
             <tr>
                 <td colspan="3">
-                    <div class="float-end">
+                    <div class="mb-3 float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
                                onclick="doSelect('activeText');doSelect('inactiveText');this.form.submit();"/>

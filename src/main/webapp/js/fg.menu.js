@@ -110,8 +110,8 @@ function Menu(caller, options) {
         ;
         container.parent().hide();
         menu.menuOpen = false;
-        $(document).unbind('click', killAllMenus);
-        $(document).unbind('keydown');
+        $(document).off('click', killAllMenus);
+        $(document).off('keydown');
     };
 
     this.showLoading = function () {
@@ -152,7 +152,7 @@ function Menu(caller, options) {
                 case 37: // left arrow
                     if (menuType == 'flyout') {
                         $(event.target).trigger('mouseout');
-                        if ($('.' + options.flyOutOnState).size() > 0) {
+                        if ($('.' + options.flyOutOnState).length > 0) {
                             $('.' + options.flyOutOnState).trigger('mouseover');
                         }
                         ;
@@ -161,11 +161,11 @@ function Menu(caller, options) {
 
                     if (menuType == 'ipod') {
                         $(event.target).trigger('mouseout');
-                        if ($('.fg-menu-footer').find('a').size() > 0) {
+                        if ($('.fg-menu-footer').find('a').length > 0) {
                             $('.fg-menu-footer').find('a').trigger('click');
                         }
                         ;
-                        if ($('.fg-menu-header').find('a').size() > 0) {
+                        if ($('.fg-menu-header').find('a').length > 0) {
                             $('.fg-menu-current-crumb').prev().find('a').trigger('click');
                         }
                         ;
@@ -181,7 +181,7 @@ function Menu(caller, options) {
                 case 38: // up arrow
                     if ($(event.target).is('.' + options.linkHover)) {
                         var prevLink = $(event.target).parent().prev().find('a:eq(0)');
-                        if (prevLink.size() > 0) {
+                        if (prevLink.length > 0) {
                             $(event.target).trigger('mouseout');
                             prevLink.trigger('mouseover');
                         }
@@ -211,7 +211,7 @@ function Menu(caller, options) {
                 case 40: // down arrow
                     if ($(event.target).is('.' + options.linkHover)) {
                         var nextLink = $(event.target).parent().next().find('a:eq(0)');
-                        if (nextLink.size() > 0) {
+                        if (nextLink.length > 0) {
                             $(event.target).trigger('mouseout');
                             nextLink.trigger('mouseover');
                         }
@@ -251,7 +251,7 @@ function Menu(caller, options) {
         container.find('a').attr('tabindex', '-1');
 
         // when there are multiple levels of hierarchy, create flyout or drilldown menu
-        if (container.find('ul').size() > 1) {
+        if (container.find('ul').length > 1) {
             if (options.flyOut) {
                 menu.flyout(container, options);
             } else {
@@ -323,10 +323,17 @@ Menu.prototype.flyout = function (container, options) {
 
         allSubLists.css({left: linkWidth, width: linkWidth}).hide();
 
-        $(this).find('a:eq(0)').addClass('fg-menu-indicator').html('<span>' + $(this).find('a:eq(0)').text() + '</span><span class="ui-icon ' + options.nextMenuLink + '"></span>').hover(
-            function () {
-                clearTimeout(hideTimer);
-                var subList = $(this).next();
+        var $firstLink = $(this).find('a:eq(0)');
+        var linkText = $firstLink.text();
+        $firstLink
+            .empty()
+            .addClass('fg-menu-indicator')
+            .append($('<span></span>').text(linkText))
+            .append($('<span></span>').addClass('ui-icon ' + options.nextMenuLink))
+            .hover(
+                function () {
+                    clearTimeout(hideTimer);
+                    var subList = $(this).next();
                 if (!fitVertical(subList, $(this).offset().top)) {
                     subList.css({top: 'auto', bottom: 0});
                 }
@@ -466,7 +473,7 @@ Menu.prototype.drilldown = function (container, options) {
 
                     // initialize "back" link
                     if (options.backLink) {
-                        if (footer.find('a').size() == 0) {
+                        if (footer.find('a').length == 0) {
                             footer.show();
                             $('<a href="#"><span class="ui-icon ui-icon-triangle-1-w"></span> <span>Back</span></a>')
                                 .appendTo(footer)
@@ -482,7 +489,7 @@ Menu.prototype.drilldown = function (container, options) {
                     }
                     // or initialize top breadcrumb
                     else {
-                        if (breadcrumb.find('li').size() == 1) {
+                        if (breadcrumb.find('li').length == 1) {
                             breadcrumb.empty().append(firstCrumb);
                             firstCrumb.find('a').click(function () {
                                 menu.resetDrilldownMenu();
@@ -491,14 +498,15 @@ Menu.prototype.drilldown = function (container, options) {
                         }
                         $('.fg-menu-current-crumb').removeClass('fg-menu-current-crumb');
                         var crumbText = $(this).find('span:eq(0)').text();
-                        var newCrumb = $('<li class="fg-menu-current-crumb"><a href="javascript://" class="fg-menu-crumb">' + crumbText + '</a></li>');
+                        var newCrumb = $('<li class="fg-menu-current-crumb"></li>');
+                        $('<a href="javascript://" class="fg-menu-crumb"></a>').text(crumbText).appendTo(newCrumb);
                         newCrumb
                             .appendTo(breadcrumb)
                             .find('a').click(function () {
                             if ($(this).parent().is('.fg-menu-current-crumb')) {
                                 menu.chooseItem(this);
                             } else {
-                                var newLeftVal = -($('.fg-menu-current').parents('ul').size() - 1) * 180;
+                                var newLeftVal = -($('.fg-menu-current').parents('ul').length - 1) * 180;
                                 topList.animate({left: newLeftVal}, options.crossSpeed, function () {
                                     setPrevMenu();
                                 });
@@ -725,7 +733,7 @@ Number.prototype.pxToEm = String.prototype.pxToEm = function (settings) {
         When this happens, we calculate the correct body font-size (%) and multiply it by 16 (the standard browser font size)
         to get an accurate em value. */
 
-    if (settings.scope == 'body' && $.browser.msie && (parseFloat($('body').css('font-size')) / getWindowWidth()).toFixed(1) > 0.0) {
+    if (settings.scope == 'body' && false /* $.browser.msie removed — IE no longer supported */ && (parseFloat($('body').css('font-size')) / getWindowWidth()).toFixed(1) > 0.0) {
         var calcFontSize = function () {
             return (parseFloat($('body').css('font-size')) / getWindowWidth()).toFixed(3) * 16;
         };

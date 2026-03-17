@@ -46,20 +46,20 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageTeleplan"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <style type="text/css">
             input[type="submit"] {
                 margin-bottom: 10px;
             }
         </style>
-
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageTeleplan"/></h3>
 
-    <div class="container-fluid well well-small">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <div class="alert alert-info">
             Teleplan
@@ -73,8 +73,8 @@
 
 
         <%if (request.getAttribute("error") != null) { %>
-        <div class="alert alert-error">
-            <button type="button" class="close" data-dismiss="alert">&times;</button>
+        <div class="alert alert-danger">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <%=request.getAttribute("error")%>
         </div>
         <%}%>
@@ -84,7 +84,7 @@
             <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
                 <input type="hidden" name="method" value="setSequenceNumber"/>
                 Sequence #: <input type="text" name="num"/>
-                <input class="btn" type="submit" value="save"/>
+                <input class="btn btn-secondary" type="submit" value="save"/>
             </form>
         </oscar:oscarPropertiesCheck>
 
@@ -94,7 +94,7 @@
                 <input type="hidden" name="method" value="setUserName"/>
                 Username: <input type="text" name="user"/>
                 Password: <input type="password" name="pass"/>
-                <input class="btn" type="submit" value="save"/>
+                <input class="btn btn-secondary" type="submit" value="save"/>
             </form>
         </oscar:oscarPropertiesCheck>
 
@@ -104,26 +104,26 @@
             <h4>Get Teleplan Sequence #</h4>
             <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
                 <input type="hidden" name="method" value="getSequenceNumber"/>
-                <input class="btn" type="submit" value="Get Teleplan Sequence #"/>
+                <input class="btn btn-secondary" type="submit" value="Get Teleplan Sequence #"/>
             </form>
         </oscar:oscarPropertiesCheck>
 
         <h4>Update Billing Codes</h4>
         <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
             <input type="hidden" name="method" value="updateBillingCodes"/>
-            <input class="btn" type="submit" value="update"/>
+            <input class="btn btn-secondary" type="submit" value="update"/>
         </form>
 
         <h4>Update Explanatory Codes</h4>
         <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
             <input type="hidden" name="method" value="updateExplanatoryCodesList"/>
-            <input class="btn" type="submit" value="update"/>
+            <input class="btn btn-secondary" type="submit" value="update"/>
         </form>
 
         <h4>Update MSP ICD9 Codes</h4>
         <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
             <input type="hidden" name="method" value="updateteleplanICDCodesList"/>
-            <input class="btn" type="submit" value="update"/>
+            <input class="btn btn-secondary" type="submit" value="update"/>
         </form>
 
         <h4>Change Teleplan Password</h4>
@@ -133,20 +133,20 @@
             <br>
             New Password: <input type="password" name="newpass"/>
             Confirm Password: <input type="password" name="confpass"/>
-            <input class="btn" type="submit" value="save"/>
+            <input class="btn btn-secondary" type="submit" value="save"/>
         </form>
 
         <h4>Set Teleplan Password</h4>
         <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
             <input type="hidden" name="method" value="setPass"/>
             New Password: <input type="password" name="newpass"/>
-            <input class="btn" type="submit" value="save"/>
+            <input class="btn btn-secondary" type="submit" value="save"/>
         </form>
 
         <h4>Get Remittance</h4>
         <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan.do" method="post">
             <input type="hidden" name="method" value="remit"/>
-            <input class="btn" type="submit" value="Get Remittance"/>
+            <input class="btn btn-secondary" type="submit" value="Get Remittance"/>
         </form>
         <%}%>
 

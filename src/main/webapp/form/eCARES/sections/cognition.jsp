@@ -30,12 +30,12 @@
 --%>
 <div class="flex items-center">
     <div>
-        <svg height="10" width="10" class="tt" data-toggle="tooltip" data-html="true" data-container="body"
+        <svg height="10" width="10" class="tt" data-bs-toggle="tooltip" data-bs-html="true" data-bs-container="body"
              title="CIND: Cognitive Impairment Non-Dementia<br>MCI: Mild Cognitive Impairment">
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_cognition" data-score="1">
-        <strong class="tt highlight" data-toggle="tooltip" data-html="true" data-field-name="cognition"
+        <strong class="tt highlight" data-bs-toggle="tooltip" data-bs-html="true" data-field-name="cognition"
                 title="CIND: Cognitive Impairment Non-Dementia<br><br>MCI: Mild Cognitive Impairment">Cognition</strong>
     </div>
     <div class="pl-4">

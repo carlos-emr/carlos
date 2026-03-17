@@ -47,8 +47,8 @@
 <head>
     <title>Provider Service Report</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-    <script src="<%=request.getContextPath()%>/js/jquery.js"></script>
-    <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
     <script src="<%=request.getContextPath()%>/js/jquery.validate.min.js"></script>
 </head>
@@ -65,12 +65,12 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>Provider Service Report Form</h4>
 </div>
 
 <form action="${ctx}/oscarReport/provider_service_report_export.jsp"
-      class="well form-horizontal" id="psrForm">
+      class="card card-body bg-body-tertiary" id="psrForm">
 
     <fieldset>
         <h4>
@@ -80,23 +80,23 @@
                 for the entire interval as well. This only does the numbers for a
                 program of type bed or service.</small>
         </h4>
-        <div class="row-fluid">
-            <div class="control-group">
-                <label class="control-label">Start Date</label>
-                <div class="controls">
-                    <input id="startDate" name="startDate" class="input-mini" size="7"
+        <div class="row">
+            <div class="mb-3">
+                <label class="form-label">Start Date</label>
+                <div>
+                    <input id="startDate" name="startDate" class="form-control form-control-sm d-inline-block w-auto" size="7"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label">EndDate (inclusive)</label>
-                <div class="controls">
-                    <input id="endDate" name="endDate" class="input-mini" size="7"
+            <div class="mb-3">
+                <label class="form-label">EndDate (inclusive)</label>
+                <div>
+                    <input id="endDate" name="endDate" class="form-control form-control-sm d-inline-block w-auto" size="7"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <button type="submit" class="btn btn-primary">
                         <i class="fa-solid fa-download"></i> Export
                     </button>
@@ -107,17 +107,8 @@
 </form>
 
 <script>
-    var startDt = $("#startDate").datepicker({
-        format: "mm/yyyy",
-        viewMode: "months",
-        minViewMode: "months"
-    });
-
-    var endDt = $("#endDate").datepicker({
-        format: "mm/yyyy",
-        viewMode: "months",
-        minViewMode: "months"
-    });
+    flatpickr("#startDate", {dateFormat: "m/Y", allowInput: true});
+    flatpickr("#endDate", {dateFormat: "m/Y", allowInput: true});
 
     $(document).ready(function () {
         $('#psrForm').validate({

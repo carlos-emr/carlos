@@ -91,7 +91,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/></title>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <SCRIPT LANGUAGE="JavaScript">
 
@@ -371,21 +371,21 @@
 
     <%
         if (!userRole.toLowerCase().contains("admin")) { %>
-    <div class="alert alert-block alert-error">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+    <div class="alert alert-danger">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgsorry"/>
     </div>
     <%
     } else if (!tmp_dir_ready) { %>
-    <div class="alert alert-block alert-error">
-        <button type="button" class="close" data-dismiss="alert">&times;</button>
+    <div class="alert alert-danger">
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgerror"/>
     </div>
     <%
     } else {
     %>
 
-    <div class="container-fluid well" style="position: relative;">
+    <div class="container-fluid card card-body bg-body-tertiary" style="position: relative;">
         <!-- Loading overlay shown during export -->
         <div id="exportLoadingOverlay">
             <div id="exportLoadingContent">
@@ -395,14 +395,14 @@
         </div>
         <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/> </h3>
 
-        <div class="span2">
+        <div class="col-md-2">
             <% if (demographicNo == null) { %>
             <a href='<c:out value="${ctx}/demographic/cihiExportOMD4.do"></c:out>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.cihiexport"/></a><br>
             <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
             <%} %>
         </div><!--span2-->
 
-        <div class="span4">
+        <div class="col-md-4">
 
             <!-- Success message shown after export completes -->
             <div id="exportSuccessMessage" class="alert alert-success">
@@ -412,10 +412,10 @@
             </div>
 
             <!-- Error message shown if export fails -->
-            <div id="exportErrorMessage" class="alert alert-error">
+            <div id="exportErrorMessage" class="alert alert-danger">
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.exportError"/>
                 <br/><br/>
-                <button type="button" class="btn" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
+                <button type="button" class="btn btn-secondary" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">
@@ -504,8 +504,8 @@
 //    pgpReady = true; //To be removed after CMS4
                     if (!pgpReady) { %>
 
-                <div class="alert alert-block alert-error">
-                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <div class="alert alert-danger">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.msgwarning"/>
                 </div>
 
@@ -520,8 +520,9 @@
     </div><!--container-->
     <%}%>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </body>
 </html>

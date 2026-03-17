@@ -25,25 +25,27 @@
 <head>
     <title>Patient List Report</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>Patient List</h4>
 </div>
 
-<form id="plForm" action="<%=request.getContextPath() %>/patientlistbyappt" class="well form-horizontal">
+<form id="plForm" action="<%=request.getContextPath() %>/patientlistbyappt" class="card card-body bg-body-tertiary">
 
     <fieldset>
         <h4>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.exportPatientbyAppt"/> <br> <small>Please select
             the provider and appointment date from &amp; to.</small>
         </h4>
-        <div class="row-fluid">
-            <div class="control-group">
-                <label class="control-label">Doctor</label>
-                <div class="controls">
-                    <select name="provider_no" class="span3">
+        <div class="row">
+            <div class="mb-3">
+                <label class="form-label">Doctor</label>
+                <div>
+                    <select name="provider_no" class="form-select">
                         <option value="all">All Doctors</option>
                         <%
                             ArrayList<ProviderNameBean> dnl = new DoctorList().getDoctorNameList();
@@ -58,22 +60,22 @@
                     </select>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label">Date From</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label">Date From</label>
+                <div>
                     <input id="date_from" name="date_from" size="10"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
-                <label class="control-label">Date To</label>
-                <div class="controls">
+            <div class="mb-3">
+                <label class="form-label">Date To</label>
+                <div>
                     <input id="date_to" name="date_to" size="10"
                            type="text"/>
                 </div>
             </div>
-            <div class="control-group">
-                <div class="controls">
+            <div class="mb-3">
+                <div>
                     <button type="submit" class="btn btn-primary">
                         <i class="fa-solid fa-download"></i> Export
                     </button>
@@ -84,13 +86,8 @@
 </form>
 
 <script>
-    var startDt = $("#date_from").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDt = $("#date_to").datepicker({
-        format: "yyyy-mm-dd"
-    });
+    flatpickr("#date_from", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#date_to", {dateFormat: "Y-m-d", allowInput: true});
 
     $(document).ready(function () {
         $('#plForm').validate({

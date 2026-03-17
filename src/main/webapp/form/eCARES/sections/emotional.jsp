@@ -37,7 +37,7 @@
         <strong class="highlight" data-field-name="emotional">Emotional</strong>
     </div>
 
-    <div class="mandatory tt font-bold ml-4 highlight" data-field-name="low_mood" data-toggle="tooltip" title="Low Mood"
+    <div class="mandatory tt font-bold ml-4 highlight" data-field-name="low_mood" data-bs-toggle="tooltip" title="Low Mood"
          rel="low_mood" data-names="y,n">
         <font size="4" style="line-height:10px;">&#8595;</font>
         Mood
@@ -54,7 +54,7 @@
     </div>
 
 
-    <div class="tt mandatory font-bold ml-2 highlight" data-toggle="tooltip" data-field-name="depression"
+    <div class="tt mandatory font-bold ml-2 highlight" data-bs-toggle="tooltip" data-field-name="depression"
          title="Clinical diagnosis of depression, not low mood" rel="depression" data-names="y,n">
         Depression
     </div>
@@ -69,7 +69,7 @@
         <span class="pl-1">N</span>
     </label>
 
-    <div class="tt mandatory font-bold ml-2 highlight" data-field-name="anxiety" data-toggle="tooltip"
+    <div class="tt mandatory font-bold ml-2 highlight" data-field-name="anxiety" data-bs-toggle="tooltip"
          title="Clinical diagnosis of anxiety disorder" data-names="y,n">Anxiety
     </div>
     <div class="pl-1 flex">
@@ -93,7 +93,7 @@
             <span class="pl-1">N</span>
         </label>
     </div>
-    <div class="tt mandatory ml-2 font-bold highlight" data-toggle="tooltip" data-field-name="hallucination"
+    <div class="tt mandatory ml-2 font-bold highlight" data-bs-toggle="tooltip" data-field-name="hallucination"
          title="Visual or Auditory" rel="hallucination"
          data-names="y,n">Hallucination
     </div>
@@ -107,7 +107,7 @@
             <span class="pl-1">N</span>
         </label>
     </div>
-    <div class="tt mandatory ml-2 font-bold highlight" data-field-name="delusion" data-toggle="tooltip"
+    <div class="tt mandatory ml-2 font-bold highlight" data-field-name="delusion" data-bs-toggle="tooltip"
          title="Visual or Auditory" rel="delusion"
          data-names="y,n">Delusion
     </div>

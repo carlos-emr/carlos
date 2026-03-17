@@ -59,10 +59,14 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.title"/></title>
     <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 
     <script type="text/javascript">
         var useDocumentDescriptionTemplateType;
+
+        function getCsrfToken() {
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            return csrfEl ? csrfEl.value : '';
+        }
 
         function adddocDescription() {
             if (document.docDescriptionForm.docDescription.value.length > 0 && document.docDescriptionForm.docDescriptionShortcut.value.length > 0) {
@@ -72,10 +76,17 @@
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var providerNo = document.docDescriptionForm.providerNo.value;
                 var data = 'method=addDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&providerNo=' + providerNo;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        getDocumentDescriptionTemplateFromSelectedDocType();
-                    }
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': getCsrfToken()
+                    },
+                    body: data
+                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                    getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
@@ -91,10 +102,17 @@
                 var providerNo = document.docDescriptionForm.providerNo.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var data = 'method=updateDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&id=' + id + '&providerNo=' + providerNo;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        getDocumentDescriptionTemplateFromSelectedDocType();
-                    }
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': getCsrfToken()
+                    },
+                    body: data
+                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                    getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
@@ -106,10 +124,17 @@
                 var id = document.docDescriptionForm.descriptionId.value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var data = 'method=deleteDocumentDescription&id=' + id;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        getDocumentDescriptionTemplateFromSelectedDocType();
-                    }
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': getCsrfToken()
+                    },
+                    body: data
+                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                    getDocumentDescriptionTemplateFromSelectedDocType();
                 });
             } else {
                 alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.setDocumentDescriptionTemplate.DescriptionCannotBeEmpty"/>");
@@ -123,7 +148,7 @@
             var providerNo = document.docDescriptionForm.providerNo.value;
             var docDescriptionList;
             var adoc;
-            docDescriptionList = $('docDescriptionList');
+            docDescriptionList = document.getElementById('docDescriptionList');
 
             while (docDescriptionList.hasChildNodes()) {
                 docDescriptionList.removeChild(docDescriptionList.lastChild);
@@ -146,32 +171,39 @@
             docDescriptionList.appendChild(adoc);
             var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
             var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=" + providerNo + "&useDocumentDescriptionTemplateType=" + useDocumentDescriptionTemplateType;
-            new Ajax.Request(url, {
-                method: 'post', parameters: data, onSuccess: function (transport) {
-                    var json = transport.responseText.evalJSON();
+            fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'CSRF-TOKEN': getCsrfToken()
+                },
+                body: data
+            }).then(function(response) { return response.text(); }).then(function(responseText) {
+                var json = JSON.parse(responseText);
 
-                    if (json != null) {
+                if (json != null) {
 
-                        var mySelect = document.createElement("select");
-                        mySelect.setAttribute("id", "docDescList");
-                        mySelect.setAttribute("onchange", "getDescriptionAndShortcutFromSelectedList()");
-                        var myOption1 = document.createElement("option");
-                        myOption1.text = "";
-                        myOption1.value = "";
+                    var mySelect = document.createElement("select");
+                    mySelect.setAttribute("id", "docDescList");
+                    mySelect.setAttribute("onchange", "getDescriptionAndShortcutFromSelectedList()");
+                    var myOption1 = document.createElement("option");
+                    myOption1.text = "";
+                    myOption1.value = "";
+                    mySelect.appendChild(myOption1);
+
+                    for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
+
+                        myOption1 = document.createElement("option");
+                        myOption1.text = "(" + json.documentDescriptionTemplate[i].descriptionShortcut + ")      " + json.documentDescriptionTemplate[i].description;
+                        myOption1.value = json.documentDescriptionTemplate[i].id;
+
                         mySelect.appendChild(myOption1);
-
-                        for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
-
-                            myOption1 = document.createElement("option");
-                            myOption1.text = "(" + json.documentDescriptionTemplate[i].descriptionShortcut + ")      " + json.documentDescriptionTemplate[i].description;
-                            myOption1.value = json.documentDescriptionTemplate[i].id;
-
-                            mySelect.appendChild(myOption1);
-                        }
-                        docDescriptionList = $('docDescriptionList');
-                        docDescriptionList.appendChild(mySelect);
-                        getDescriptionAndShortcutFromSelectedList();
                     }
+                    docDescriptionList = document.getElementById('docDescriptionList');
+                    docDescriptionList.appendChild(mySelect);
+                    getDescriptionAndShortcutFromSelectedList();
                 }
             });
 
@@ -189,17 +221,24 @@
                 var id = document.getElementById('docDescList').options[document.getElementById('docDescList').selectedIndex].value;
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var data = 'method=getDocumentDescriptionFromId&id=' + id;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                        var json = transport.responseText.evalJSON();
-                        if (json != null) {
-                            document.docDescriptionForm.addDescription.style.visibility = 'hidden';
-                            document.docDescriptionForm.updateDescription.style.visibility = 'visible';
-                            document.docDescriptionForm.deleteDescription.style.visibility = 'visible';
-                            document.docDescriptionForm.descriptionId.value = json.documentDescriptionTemplate.id;
-                            document.docDescriptionForm.docDescription.value = json.documentDescriptionTemplate.description;
-                            document.docDescriptionForm.docDescriptionShortcut.value = json.documentDescriptionTemplate.descriptionShortcut;
-                        }
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': getCsrfToken()
+                    },
+                    body: data
+                }).then(function(response) { return response.text(); }).then(function(responseText) {
+                    var json = JSON.parse(responseText);
+                    if (json != null) {
+                        document.docDescriptionForm.addDescription.style.visibility = 'hidden';
+                        document.docDescriptionForm.updateDescription.style.visibility = 'visible';
+                        document.docDescriptionForm.deleteDescription.style.visibility = 'visible';
+                        document.docDescriptionForm.descriptionId.value = json.documentDescriptionTemplate.id;
+                        document.docDescriptionForm.docDescription.value = json.documentDescriptionTemplate.description;
+                        document.docDescriptionForm.docDescriptionShortcut.value = json.documentDescriptionTemplate.descriptionShortcut;
                     }
                 });
             }
@@ -215,17 +254,29 @@
                 document.docDescriptionForm.addDescription.style.visibility = 'hidden';
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=<%=UserProperty.CLINIC%>';
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                    }
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': getCsrfToken()
+                    },
+                    body: data
                 });
             } else {
                 useDocumentDescriptionTemplateType = document.docDescriptionForm.providerNo.value != "null" ? "<%=UserProperty.USER%>" : "<%=UserProperty.CLINIC%>";
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=' + useDocumentDescriptionTemplateType;
-                new Ajax.Request(url, {
-                    method: 'post', parameters: data, onSuccess: function (transport) {
-                    }
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': getCsrfToken()
+                    },
+                    body: data
                 });
                 document.getElementById('docTypeTable').style.visibility = 'visible';
                 document.getElementById('docType').selectedIndex = -1;

@@ -80,7 +80,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
 
             <h2>Update Resource</h2>
 
@@ -90,7 +90,7 @@
 
                 <input id="method" name="method" type="hidden" value="cancel"/>
 
-                <table class="table table-striped  table-condensed">
+                <table class="table table-striped  table-sm">
                     <c:forEach var="d" items="${mcedtUploadDetails.data}" varStatus="i">
                         <tr>
                             <td><c:out value="${d.resourceID}"/> <c:out
@@ -98,10 +98,10 @@
                             </td>
                             <td><c:choose>
                                 <c:when test="${empty d.modifyTimestamp}">
-                                    <button class="btn" onclick="return modifyResource(${d.resourceID})">Modify</button>
+                                    <button class="btn btn-secondary" onclick="return modifyResource(${d.resourceID})">Modify</button>
                                 </c:when>
                                 <c:otherwise>
-                                    <button class="btn" disabled="disabled">Modify</button>
+                                    <button class="btn btn-secondary" disabled="disabled">Modify</button>
                                 </c:otherwise>
                             </c:choose></td>
                         </tr>
@@ -110,7 +110,7 @@
 
                 <div>
                     <button class="btn btn-primary" onclick="modify(this)">Save Changes</button>
-                    <button class="btn" onclick="return cancel(this)">Cancel</button>
+                    <button class="btn btn-secondary" onclick="return cancel(this)">Cancel</button>
                 </div>
 
             </form>

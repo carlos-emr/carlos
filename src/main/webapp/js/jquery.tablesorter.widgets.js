@@ -150,8 +150,8 @@
                 // icon class names
                 icons: '', // add 'bootstrap-icon-white' to make them white; this icon class is added to the <i> in the header
                 iconSortNone: 'bootstrap-icon-unsorted', // class name added to icon when column is not sorted
-                iconSortAsc: 'glyphicon glyphicon-chevron-up', // class name added to icon when column has ascending sort
-                iconSortDesc: 'glyphicon glyphicon-chevron-down', // class name added to icon when column has descending sort
+                iconSortAsc: 'fa-solid fa-chevron-up', // class name added to icon when column has ascending sort
+                iconSortDesc: 'fa-solid fa-chevron-down', // class name added to icon when column has descending sort
                 filterRow: '', // filter row class
                 footerRow: '',
                 footerCells: '',
@@ -243,8 +243,8 @@
                         .removeClass((hasOldTheme ? [oldtheme.header, oldtheme.hover, oldremove].join(' ') : '') || '')
                         .addClass(themes.header)
                         .not('.sorter-false')
-                        .unbind('mouseenter.tsuitheme mouseleave.tsuitheme')
-                        .bind('mouseenter.tsuitheme mouseleave.tsuitheme', function (event) {
+                        .off('mouseenter.tsuitheme mouseleave.tsuitheme')
+                        .on('mouseenter.tsuitheme mouseleave.tsuitheme', function (event) {
                             // toggleClass with switch added in jQuery 1.3
                             $(this)[event.type === 'mouseenter' ? 'addClass' : 'removeClass'](themes.hover || '');
                         });
@@ -328,7 +328,7 @@
                 }
                 $table.find(ts.css.header).removeClass(themes.header);
                 $headers
-                    .unbind('mouseenter.tsuitheme mouseleave.tsuitheme') // remove hover
+                    .off('mouseenter.tsuitheme mouseleave.tsuitheme') // remove hover
                     .removeClass(themes.hover + ' ' + remove + ' ' + themes.active)
                     .filter('.' + ts.css.filterRow)
                     .removeClass(themes.filterRow);
@@ -496,7 +496,7 @@
                 $table
                     .removeClass('hasFilters')
                     // add filter namespace to all BUT search
-                    .unbind(events.replace(ts.regex.spaces, ' '))
+                    .off(events.replace(ts.regex.spaces, ' '))
                     // remove the filter row even if refreshing, because the column might have been moved
                     .find('.' + tscss.filterRow).remove();
                 wo.filter_initialized = false;
@@ -843,7 +843,7 @@
 
                 txt = 'addRows updateCell update updateRows updateComplete appendCache filterReset ' +
                     'filterAndSortReset filterResetSaved filterEnd search '.split(' ').join(c.namespace + 'filter ');
-                c.$table.bind(txt, function (event, filter) {
+                c.$table.on(txt, function (event, filter) {
                     val = wo.filter_hideEmpty &&
                         $.isEmptyObject(c.cache) &&
                         !(c.delayInit && event.type === 'appendCache');
@@ -973,8 +973,8 @@
                 if (c.showProcessing) {
                     txt = 'filterStart filterEnd '.split(' ').join(c.namespace + 'filter-sp ');
                     c.$table
-                        .unbind(txt.replace(ts.regex.spaces, ' '))
-                        .bind(txt, function (event, columns) {
+                        .off(txt.replace(ts.regex.spaces, ' '))
+                        .on(txt, function (event, columns) {
                             // only add processing to certain columns to all columns
                             $header = (columns) ?
                                 c.$table
@@ -993,8 +993,8 @@
                 // add default values
                 txt = 'tablesorter-initialized pagerBeforeInitialized '.split(' ').join(c.namespace + 'filter ');
                 c.$table
-                    .unbind(txt.replace(ts.regex.spaces, ' '))
-                    .bind(txt, function () {
+                    .off(txt.replace(ts.regex.spaces, ' '))
+                    .on(txt, function () {
                         tsf.completeInit(this);
                     });
                 // if filter widget is added after pager has initialized; then set filter init flag
@@ -1250,14 +1250,14 @@
                     // use data attribute instead of jQuery data since the head is cloned without including
                     // the data/binding
                     .attr('data-lastSearchTime', new Date().getTime())
-                    .unbind(tmp.replace(ts.regex.spaces, ' '))
-                    .bind('keydown' + namespace, function (event) {
+                    .off(tmp.replace(ts.regex.spaces, ' '))
+                    .on('keydown' + namespace, function (event) {
                         if (event.which === tskeyCodes.escape && !table.config.widgetOptions.filter_resetOnEsc) {
                             // prevent keypress event
                             return false;
                         }
                     })
-                    .bind('keyup' + namespace, function (event) {
+                    .on('keyup' + namespace, function (event) {
                         wo = table.config.widgetOptions; // make sure "wo" isn't cached
                         var column = parseInt($(this).attr('data-column'), 10),
                             liveSearch = typeof wo.filter_liveSearch === 'boolean' ? wo.filter_liveSearch :
@@ -1288,7 +1288,7 @@
                         tsf.searching(table, true, true, column);
                     })
                     // include change for select - fixes #473
-                    .bind('search change keypress input blur '.split(' ').join(namespace + ' '), function (event) {
+                    .on('search change keypress input blur '.split(' ').join(namespace + ' '), function (event) {
                         // don't get cached data, in case data-column changes dynamically
                         var column = parseInt($(this).attr('data-column'), 10),
                             eventType = event.type,
@@ -1432,7 +1432,7 @@
                 ($table || c.$table)
                     .find('.' + tscss.filterRow)
                     .addClass(tscss.filterRowHide)
-                    .bind('mouseenter mouseleave', function (e) {
+                    .on('mouseenter mouseleave', function (e) {
                         // save event object - http://bugs.jquery.com/ticket/12140
                         var event = e,
                             $row = $(this);
@@ -1450,7 +1450,7 @@
                             }
                         }, 200);
                     })
-                    .find('input, select').bind('focus blur', function (e) {
+                    .find('input, select').on('focus blur', function (e) {
                     var event = e,
                         $row = $(this).closest('tr');
                     clearTimeout(timer);
@@ -2631,7 +2631,7 @@
                 // update sticky header class names to match real header after sorting
                 $table
                     .addClass('hasStickyHeaders')
-                    .bind('pagerComplete' + namespace, function () {
+                    .on('pagerComplete' + namespace, function () {
                         resizeHeader();
                     });
 
@@ -2655,13 +2655,13 @@
                 }
                 // make it sticky!
                 $xScroll.add($yScroll)
-                    .unbind(('scroll resize '.split(' ').join(namespace)).replace(/\s+/g, ' '))
-                    .bind('scroll resize '.split(' ').join(namespace), function (event) {
+                    .off(('scroll resize '.split(' ').join(namespace)).replace(/\s+/g, ' '))
+                    .on('scroll resize '.split(' ').join(namespace), function (event) {
                         scrollSticky(event.type === 'resize');
                     });
                 c.$table
-                    .unbind('stickyHeadersUpdate' + namespace)
-                    .bind('stickyHeadersUpdate' + namespace, function () {
+                    .off('stickyHeadersUpdate' + namespace)
+                    .on('stickyHeadersUpdate' + namespace, function () {
                         scrollSticky(true);
                     });
 
@@ -2672,7 +2672,7 @@
                 // look for filter widget
                 if ($table.hasClass('hasFilters') && wo.filter_columnFilters) {
                     // scroll table into view after filtering, if sticky header is active - #482
-                    $table.bind('filterEnd' + namespace, function () {
+                    $table.on('filterEnd' + namespace, function () {
                         // $(':focus') needs jQuery 1.6+
                         var $td = $(document.activeElement).closest('td'),
                             column = $td.parent().children().index($td);
@@ -2695,7 +2695,7 @@
 
                 // resize table (Firefox)
                 if (wo.stickyHeaders_addResizeEvent) {
-                    $table.bind('resize' + c.namespace + 'stickyheaders', function () {
+                    $table.on('resize' + c.namespace + 'stickyheaders', function () {
                         resizeHeader();
                     });
                 }
@@ -2709,7 +2709,7 @@
                 var namespace = c.namespace + 'stickyheaders ';
                 c.$table
                     .removeClass('hasStickyHeaders')
-                    .unbind(('pagerComplete resize filterEnd stickyHeadersUpdate '.split(' ').join(namespace)).replace(/\s+/g, ' '))
+                    .off(('pagerComplete resize filterEnd stickyHeadersUpdate '.split(' ').join(namespace)).replace(/\s+/g, ' '))
                     .next('.' + ts.css.stickyWrap).remove();
                 if (wo.$sticky && wo.$sticky.length) {
                     wo.$sticky.remove();
@@ -2718,7 +2718,7 @@
                     .add(wo.stickyHeaders_xScroll)
                     .add(wo.stickyHeaders_yScroll)
                     .add(wo.stickyHeaders_attachTo)
-                    .unbind(('scroll resize '.split(' ').join(namespace)).replace(/\s+/g, ' '));
+                    .off(('scroll resize '.split(' ').join(namespace)).replace(/\s+/g, ' '));
                 ts.addHeaderResizeEvent(table, true);
             }
         });
@@ -2828,7 +2828,7 @@
                                 'unselectable': 'on'
                             })
                             .data('header', $header)
-                            .bind('selectstart', false);
+                            .on('selectstart', false);
                     }
                 }
                 ts.resizable.bindings(c, wo);
@@ -2940,17 +2940,17 @@
                 if (toggle) {
                     $('body')
                         .attr('unselectable', 'on')
-                        .bind('selectstart' + namespace, false);
+                        .on('selectstart' + namespace, false);
                 } else {
                     $('body')
                         .removeAttr('unselectable')
-                        .unbind('selectstart' + namespace);
+                        .off('selectstart' + namespace);
                 }
             },
 
             bindings: function (c, wo) {
                 var namespace = c.namespace + 'tsresize';
-                wo.$resizable_container.children().bind('mousedown', function (event) {
+                wo.$resizable_container.children().on('mousedown', function (event) {
                     // save header cell and mouse position
                     var column,
                         vars = wo.resizable_vars,
@@ -2976,7 +2976,7 @@
                 });
 
                 $(document)
-                    .bind('mousemove' + namespace, function (event) {
+                    .on('mousemove' + namespace, function (event) {
                         var vars = wo.resizable_vars;
                         // ignore mousemove if no mousedown
                         if (!vars.disabled || vars.mouseXPosition === 0 || !vars.$target) {
@@ -2991,7 +2991,7 @@
                             ts.resizable.mouseMove(c, wo, event);
                         }
                     })
-                    .bind('mouseup' + namespace, function () {
+                    .on('mouseup' + namespace, function () {
                         if (!wo.resizable_vars.disabled) {
                             return;
                         }
@@ -3001,21 +3001,21 @@
                     });
 
                 // resizeEnd event triggered by scroller widget
-                $(window).bind('resize' + namespace + ' resizeEnd' + namespace, function () {
+                $(window).on('resize' + namespace + ' resizeEnd' + namespace, function () {
                     ts.resizable.setHandlePosition(c, wo);
                 });
 
                 // right click to reset columns to default widths
                 c.$table
-                    .bind('columnUpdate pagerComplete resizableUpdate '.split(' ').join(namespace + ' '), function () {
+                    .on('columnUpdate pagerComplete resizableUpdate '.split(' ').join(namespace + ' '), function () {
                         ts.resizable.setHandlePosition(c, wo);
                     })
-                    .bind('resizableReset' + namespace, function () {
+                    .on('resizableReset' + namespace, function () {
                         ts.resizableReset(c.table);
                     })
                     .find('thead:first')
                     .add($(c.namespace + '_extra_table').find('thead:first'))
-                    .bind('contextmenu' + namespace, function () {
+                    .on('contextmenu' + namespace, function () {
                         // $.isEmptyObject() needs jQuery 1.4+; allow right click if already reset
                         var allowClick = wo.resizable_vars.storedSizes.length === 0;
                         ts.resizableReset(c.table);
@@ -3106,12 +3106,12 @@
                     c.$table.add($(c.namespace + '_extra_table'))
                         .removeClass('hasResizable')
                         .children('thead')
-                        .unbind('contextmenu' + namespace);
+                        .off('contextmenu' + namespace);
 
                     wo.$resizable_container.remove();
                     ts.resizable.toggleTextSelection(c, wo, false);
                     ts.resizableReset(table, refreshing);
-                    $(document).unbind('mousemove' + namespace + ' mouseup' + namespace);
+                    $(document).off('mousemove' + namespace + ' mouseup' + namespace);
                 }
             }
         });
@@ -3208,7 +3208,7 @@
                         if (debug) {
                             console.log('saveSort >> Last sort loaded: "' + sortList + '"' + ts.benchmark(time));
                         }
-                        $table.bind('saveSortReset', function (event) {
+                        $table.on('saveSortReset', function (event) {
                             event.stopPropagation();
                             ts.storage(table, 'tablesorter-savesort', '');
                         });

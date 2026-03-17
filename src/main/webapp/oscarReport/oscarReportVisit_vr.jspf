@@ -47,7 +47,7 @@ if(!authed) {
 <%@page import="java.math.BigDecimal" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.VisitReportData" %>
 
-<table class="table table-bordered table-striped table-hover table-condensed" style="font-size:12px;">
+<table class="table table-bordered table-striped table-hover table-sm" style="font-size:12px;">
 	<thead>
 		<tr>
 		<th bgcolor="#CCCCFF">Provider</th>

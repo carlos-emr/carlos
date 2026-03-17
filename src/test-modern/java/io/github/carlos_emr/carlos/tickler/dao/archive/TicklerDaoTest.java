@@ -106,6 +106,9 @@ import java.time.ZoneId;
  * @since 2025-09-15
  */
 @DisplayName("TicklerDao Integration Tests")
+@Tag("integration")
+@Tag("dao")
+@Tag("tickler")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TicklerDaoTest extends CarlosDaoTestBase {
 
