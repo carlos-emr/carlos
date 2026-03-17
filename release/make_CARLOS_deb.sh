@@ -127,10 +127,19 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/DEBIAN/"
 # so use ${RELEASE_DIR}/xxx for release/ files and ./xxx for repo-root files.
 cd "${REPO_ROOT}" || { echo "ERROR: Failed to cd to ${REPO_ROOT}" >&2; exit 1; }
 mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
+MVN_EXIT=$?
 
-# Fail fast if the WAR was not produced — abort before doing any more package setup work.
+# Note: bash runs commands sequentially — mvn above is fully finished before this check runs.
+# There is no race condition; we explicitly capture the exit code for a clear failure message.
+if [ $MVN_EXIT -ne 0 ]; then
+    echo "ERROR: Maven build failed (exit code $MVN_EXIT), aborting deb creation." >&2
+    exit $MVN_EXIT
+fi
+
+# Sanity check: WAR should always exist after a successful Maven build.
+# If it is somehow missing despite exit 0, catch it here before wasting time on the rest of packaging.
 if [ ! -f "${REPO_ROOT}/target/${TARGET}" ]; then
-    echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — Maven build failed, aborting deb creation." >&2
+    echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — Maven reported success but WAR not found." >&2
     exit 1
 fi
 
