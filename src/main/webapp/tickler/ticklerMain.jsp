@@ -150,12 +150,6 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
         <%@ include file="/includes/global-head.jspf" %>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
-        <link href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
-              rel="stylesheet" type="text/css"/>
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/css/print.css"/>
 
         <style>
