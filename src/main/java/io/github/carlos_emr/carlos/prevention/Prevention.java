@@ -279,7 +279,7 @@ public class Prevention {
     }
 
     public boolean isNotPreventionNever(String preventionType) {
-        return !isNotPreventionNever(preventionType);
+        return !isPreventionNever(preventionType);
     }
 
 
