@@ -1138,11 +1138,11 @@
             <version>33.5.0-jre</version>
         </dependency>
 
-        <!-- Flying Saucer 10.0.7 - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
+        <!-- Flying Saucer - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
         <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
-            <version>10.1.0</version>
+            <version>10.0.6</version>
         </dependency>
 
 
