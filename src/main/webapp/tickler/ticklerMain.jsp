@@ -260,9 +260,13 @@
 
 
             const ctx = '${pageContext.request.contextPath}';
-            const i18nEditTickler = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.tooltipEdit"/>';
-            const i18nAddNote = '<fmt:message key="tickler.ticklerMain.tooltipAddNote"/>';
-            const i18nViewAttachment = '<fmt:message key="tickler.ticklerMain.tooltipViewAttachment"/>';
+            <fmt:setBundle basename="oscarResources"/>
+            <fmt:message key="tickler.ticklerMain.tooltipEdit" var="msgTooltipEdit"/>
+            <fmt:message key="tickler.ticklerMain.tooltipAddNote" var="msgTooltipAddNote"/>
+            <fmt:message key="tickler.ticklerMain.tooltipViewAttachment" var="msgTooltipViewAttachment"/>
+            const i18nEditTickler = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipEdit"))%>';
+            const i18nAddNote = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipAddNote"))%>';
+            const i18nViewAttachment = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipViewAttachment"))%>';
             let ticklerResultsTable;
             document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
@@ -661,7 +665,7 @@
 
         <form name="serviceform" method="get" action="ticklerMain.jsp">
             <input type="hidden" name="Submit" value="">
-            <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(hasDemoView ? demographic_no : "")%>">
+            <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(isDemoView ? demographic_no : "")%>">
 
             <c:if test="${not hasDemoView}">
                 <div class="row mb-2">
@@ -881,14 +885,16 @@
                 </tr>
             </table>
 
-                <div class="action-separator"></div>
+                <div class="action-bar">
+                    <div class="action-separator"></div>
 
-                <div class="action-group">
-                    <input type="button" class="btn btn-sm btn-primary"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
-                           onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
-                    <input type="button" class="btn btn-sm btn-secondary"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnBack'/>" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()">
+                    <div class="action-group">
+                        <input type="button" class="btn btn-sm btn-primary"
+                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
+                               onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
+                        <input type="button" class="btn btn-sm btn-secondary"
+                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnBack'/>" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()">
+                    </div>
                 </div>
             </div>
         </form>
