@@ -78,13 +78,6 @@ public class RestResponse<T> extends GenericRestResponse<RestResponseHeaders, T,
 
 	/**
 	 * Creates a success response with default headers and a body.
-	 *
-	 * <p>Equivalent to {@code successResponse(new RestResponseHeaders(), body)}.</p>
-	 *
-	 * @param <T>  the type of the body object
-	 * @param body {@code T} the domain data to return to the caller; may be {@code null}
-	 * @return {@link RestResponse}{@code <T>} with {@link ResponseStatus#SUCCESS}, the given body,
-	 *         default headers, and no error
 	 */
 	public static <T> RestResponse<T> successResponse(T body)
 	{
@@ -132,14 +125,7 @@ public class RestResponse<T> extends GenericRestResponse<RestResponseHeaders, T,
 	}
 
 	/**
-	 * Creates an error response with default headers, a plain error message, and additional data.
-	 *
-	 * @param <T>          the declared body type (body will be {@code null})
-	 * @param errorMessage String the human-readable error description; must not include PHI
-	 * @param data         {@link Serializable} optional additional context about the error;
-	 *                     may be {@code null}; must not contain PHI
-	 * @return {@link RestResponse}{@code <T>} with {@link ResponseStatus#ERROR}, no body,
-	 *         default headers, and a {@link RestResponseError} wrapping both the message and data
+	 * Creates an error response using the provided error message and additional data.
 	 */
 	public static <T> RestResponse<T> errorResponse(String errorMessage, Serializable data)
 	{
