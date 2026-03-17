@@ -139,8 +139,6 @@
         <script type="text/javascript" src="<%= context %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%= context %>/library/jquery/jquery-compat.js"></script>
         <script src="<%= context %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
-        <script type="text/javascript" src="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.pack.js"></script>
-        <link rel="stylesheet" type="text/css" href="<%= context %>/js/fancybox/jquery.fancybox-1.3.4.css" media="screen"/>
         <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.14.2.min.css">
         <script>
             /* Bootstrap 5 dropdown shim replacing fg.menu plugin */
@@ -1777,14 +1775,26 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 <% } %>
 
                 $('#graph_menu').bind('click', function () {
-                    fancyBoxFundal();
+                    showFundalModal();
                 });
 
-                function fancyBoxFundal() {
-                    $("#fundal_link").attr('href', getFundalImageUrl('1'));
-                    $("#fundal_link").fancybox({type: 'image'});
-                    $("#fundal_link").click();
+                function showFundalModal() {
+                    var url = getFundalImageUrl('1');
+                    var overlay = document.getElementById('fundalOverlay');
+                    var img = document.getElementById('fundalModalImg');
+                    img.src = url;
+                    overlay.style.display = 'flex';
                 }
+
+                function closeFundalModal() {
+                    var overlay = document.getElementById('fundalOverlay');
+                    overlay.style.display = 'none';
+                    document.getElementById('fundalModalImg').src = '';
+                }
+
+                $(document).on('keydown', function(e) {
+                    if (e.key === 'Escape') closeFundalModal();
+                });
 
                 function getFundalImageUrl(c) {
                     var url = "<%= context %>/Pregnancy.do?method=getFundalImage";
@@ -2341,7 +2351,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         <td>
                             <span id="fundal_graph_text">Fundus Height Graph</span><span style="float:right"><img
                                 id="graph_menu" src="<%= context %>/images/right-circle-arrow-Icon.png" border="0"></span>
-                            <div style="display:none"><a href="#" id="fundal_link">dummy link</a></div>
+                            <div id="fundalOverlay" onclick="if(event.target===this)closeFundalModal()"
+                                 style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+                                        background:rgba(0,0,0,0.75);z-index:10000;justify-content:center;
+                                        align-items:center;cursor:pointer">
+                                <img id="fundalModalImg" src="" alt="Fundal Height Chart"
+                                     style="max-width:90%;max-height:90%;border-radius:4px;cursor:default">
+                            </div>
                         </td>
                     </tr>
                     <tr>
