@@ -4867,6 +4867,9 @@
                                                                 </c:if>
                                                             </security:oscarSec>
                                                         </oscar:oscarPropertiesCheck>
+                                                        <input type="button" class="btn-toolbar-secondary"
+                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
+                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/demographicAudit.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">
