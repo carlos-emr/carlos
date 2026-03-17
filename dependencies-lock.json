@@ -162,11 +162,11 @@
   }, {
     "groupId" : "com.fasterxml.jackson.core",
     "artifactId" : "jackson-annotations",
-    "version" : "2.19.2",
+    "version" : "2.16.2",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:gJ0jlw/kr2FXz9/Xo/m5yj+A55D6rbMxPbBhVcpPth40djqWGUzpDVqiUmTdoRJkKKwHg3yZV17t9Cc8J+RJ8w=="
+    "integrity" : "sha512:tuc4rtX9T6mzBA/6ZSWTqykTPIvWA93prfiJe1Lpw3Rsrk33eN9tJe+ftaqKsBgymF7czAIT1ebXquY7+aMiyg=="
   }, {
     "groupId" : "com.fasterxml.jackson.core",
     "artifactId" : "jackson-core",
@@ -191,6 +191,14 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:U8+dDliUNfi1wuatNSKRyChfarhfTCWSumD/u3oprHznhrDi6XKKC83pkXRCL8lvmabZrYsHXVAA4oatcAGfDw=="
+  }, {
+    "groupId" : "com.fasterxml.jackson.dataformat",
+    "artifactId" : "jackson-dataformat-yaml",
+    "version" : "2.16.2",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:KzY57FQUa5qQDM2yE0d4h3fdAXpP9BQo1lBfEEIWnUrPvSQFl/o4BTD21V34IuCZuZW1JAnsiWp5lmg6cRHp0w=="
   }, {
     "groupId" : "com.fasterxml.jackson.datatype",
     "artifactId" : "jackson-datatype-jsr310",
@@ -825,6 +833,14 @@
     "optional" : false,
     "integrity" : "sha512:TSXsVUMPPIBP0lpkm4GwlaH3QqmLmWsjEM14Vn7zBZZDzE04U24FyezojodAnXbFcEctPBfGrM4bvSInnVlyDw=="
   }, {
+    "groupId" : "io.github.classgraph",
+    "artifactId" : "classgraph",
+    "version" : "4.8.165",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:0MF2B+7lXhgbqgPxq7LPd/UOURTEccIDFgcgZ2jYVJx067Cidth90/jqRNteVOVghzEcIpuhitYBPDiPyGG+7Q=="
+  }, {
     "groupId" : "io.github.x-stream",
     "artifactId" : "mxparser",
     "version" : "1.2.2",
@@ -872,6 +888,46 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:3ulAVVAU1Ng/XJrXMIUomsIeAzf9x+svAjqmt4v+7iS2uhdUREU1+4JrIoe+AKY8fBI2Ay74MBl6l3lJs2hZpA=="
+  }, {
+    "groupId" : "io.swagger.core.v3",
+    "artifactId" : "swagger-annotations",
+    "version" : "2.2.21",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:sYi7iVtXXRTRsMzMI+M2tzulupSmpWJ83R46pt3yALU7RnCf+V82P0dN3xTODJ/7ZDlotCouZ8VoJig+HXasfw=="
+  }, {
+    "groupId" : "io.swagger.core.v3",
+    "artifactId" : "swagger-core",
+    "version" : "2.2.21",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:Ft2OREv4ikrdldT9KIZYrbuI3ISxDJ4V74x2xgisWnByO/TUwf6wbPNmogyb+PnSVlt5kQNB7mynUyKhN4rYPw=="
+  }, {
+    "groupId" : "io.swagger.core.v3",
+    "artifactId" : "swagger-integration",
+    "version" : "2.2.21",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:RvW1E6c+qci/9mzcXeJw6/Mj6mEMClAdTHoNIEHSgX2wsiS1JETwt48xmyoe6qkOjE0V1DD36i4hHtvn8BMJuA=="
+  }, {
+    "groupId" : "io.swagger.core.v3",
+    "artifactId" : "swagger-jaxrs2",
+    "version" : "2.2.21",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:HJH5Ynur0pRTbGBomuZ1cDAlheEdVKnfRCgbVaxvSCxYZDnapmAE42W/UarFsGQ9sZ8WFcqD4g3RvPbzdXAiuw=="
+  }, {
+    "groupId" : "io.swagger.core.v3",
+    "artifactId" : "swagger-models",
+    "version" : "2.2.21",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:Hd2k2/u9wcPq7MZLBRLhnZ2rH15aUy8WwOq3nS/QKL8wAoVUtQrUcXEmtsjYw7U1cWeosoiUeGHYUwpbXl5q3g=="
   }, {
     "groupId" : "io.undertow",
     "artifactId" : "undertow-servlet",
@@ -952,6 +1008,14 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:dkrei6gHaC3NHsc4LDUnXz2KsJoD1bRcSOcyUBGQ4nOCaQgKryiqjdZWwR7oS/t9rmlT3Sdo8qzs06jPDKSWHg=="
+  }, {
+    "groupId" : "jakarta.validation",
+    "artifactId" : "jakarta.validation-api",
+    "version" : "2.0.2",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:PKhVa4DKgJs6Q/rDFGlwK7rWKgDmOxGjBNrR43LZ9sEoNXRjpMcMQjBVlBx+LkF/h6lHSiBNGJyOS2L0IEfI6w=="
   }, {
     "groupId" : "jakarta.ws.rs",
     "artifactId" : "jakarta.ws.rs-api",
@@ -2491,11 +2555,11 @@
   }, {
     "groupId" : "org.javassist",
     "artifactId" : "javassist",
-    "version" : "3.29.0-GA",
+    "version" : "3.30.2-GA",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:4o6YOB5H8/H5BMAfUQ8rdk5AKuYULmcOHf+vsf/FSbDCPcQNy6B87UXyBUNxCLsTgslVXaV8o4U85np+nNpn6Q=="
+    "integrity" : "sha512:BGxbh3Mu8oVAxW+IiRI45JrBX8wj4fE+CxLegWgxuj3lTminJ7YWOHensZsT8TYsDmr/omZK8f2sV0hjLtegng=="
   }, {
     "groupId" : "org.jboss.logging",
     "artifactId" : "jboss-logging",
@@ -3192,6 +3256,14 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:Asa/H7El33snkpQRWy/Zuq0FS4Tnyi+XXiJvgEvTQ1QlmH299YdNBA6hHnUlyfUoBd3hjhcHK7jBnHWRpuZi5w=="
+  }, {
+    "groupId" : "org.yaml",
+    "artifactId" : "snakeyaml",
+    "version" : "2.2",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:EVR+dcyAvuJvUy4lmLxuT/qAKUFJbcDYzgF/GxXgHru4DpHtF9EEeRbjK/L8WNpTK8caHf6Tr8zCd6KW2GY0ug=="
   }, {
     "groupId" : "wsdl4j",
     "artifactId" : "wsdl4j",

@@ -43,9 +43,9 @@ import java.io.Serializable;
  *
  * @param <T> the type of the domain object carried in the response body
  *
- * @since 2018-01-01
+ * @since 2026-03-13
  */
-@Schema(description = "Response wrapper object for single results")
+@Schema(description = "Standard response wrapper object")
 public class RestResponse<T> extends GenericRestResponse<RestResponseHeaders, T, RestResponseError>
 {
 	/**

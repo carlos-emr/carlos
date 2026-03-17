@@ -22,10 +22,34 @@
     Canada
 
 --%>
+<%--
+    Visual eForm Editor — CARLOS EMR
+
+    Purpose: Drag-and-drop visual editor for creating and editing eForm templates.
+    Supports both standalone mode (for testing without a server) and integrated mode
+    (with full CARLOS REST API connectivity for loading, saving, and updating eForms).
+
+    Features:
+    - Visual drag-and-drop form builder with text boxes, checkboxes, labels, shapes, images, and signatures
+    - Background image support from the configured eForm image directory
+    - Database tag insertion for dynamic patient/provider data binding
+    - Multi-page eForm support with configurable page dimensions (portrait, landscape, custom)
+    - Import/export of eForm HTML files
+    - eForm function attachment (submit, print, fax, tickler, calendar)
+    - Snap guides and ruler marks for precise element alignment
+    - i18n support for 5 locales (EN, FR, ES, PL, pt_BR)
+
+    Security: Requires _admin.eform write privilege.
+    REST endpoints: /ws/rs/eform (single), /ws/rs/eforms (listings)
+
+    @since 2026-03-13
+--%>
 <%@ taglib uri="/WEB-INF/struts-bean.tld" prefix="bean"%>
 <%@ taglib uri="/WEB-INF/struts-html.tld" prefix="html"%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed=true;
@@ -100,109 +124,210 @@ FOR STAND ALONE USE
     </script>
 
 <fmt:setBundle basename="oscarResources"/>
+<%-- Capture i18n messages into page-scoped variables for safe JavaScript encoding --%>
+<c:set var="i18n_alertTitle"><fmt:message key="eform.visual.editor.dialog.alertTitle"/></c:set>
+<c:set var="i18n_noMessage"><fmt:message key="eform.visual.editor.dialog.noMessage"/></c:set>
+<c:set var="i18n_buttonOk"><fmt:message key="eform.visual.editor.button.ok"/></c:set>
+<c:set var="i18n_buttonCancel"><fmt:message key="eform.visual.editor.button.cancel"/></c:set>
+<c:set var="i18n_buttonClose"><fmt:message key="eform.visual.editor.button.close"/></c:set>
+<c:set var="i18n_buttonDelete"><fmt:message key="eform.visual.editor.button.delete"/></c:set>
+<c:set var="i18n_buttonClear"><fmt:message key="eform.visual.editor.button.clear"/></c:set>
+<c:set var="i18n_buttonAddPage"><fmt:message key="eform.visual.editor.button.addPage"/></c:set>
+<c:set var="i18n_buttonRemovePage"><fmt:message key="eform.visual.editor.button.removePage"/></c:set>
+<c:set var="i18n_buttonSubmit"><fmt:message key="eform.visual.editor.button.submit"/></c:set>
+<c:set var="i18n_buttonPrint"><fmt:message key="eform.visual.editor.button.print"/></c:set>
+<c:set var="i18n_buttonPrintAndSubmit"><fmt:message key="eform.visual.editor.button.printAndSubmit"/></c:set>
+<c:set var="i18n_buttonViewSource"><fmt:message key="eform.visual.editor.button.viewEformSource"/></c:set>
+<c:set var="i18n_buttonDownload"><fmt:message key="eform.visual.editor.button.downloadAsFile"/></c:set>
+<c:set var="i18n_buttonPrintPreview"><fmt:message key="eform.visual.editor.button.printPreview"/></c:set>
+<c:set var="i18n_buttonLoadEForm"><fmt:message key="eform.visual.editor.button.loadSelectedEForm"/></c:set>
+<c:set var="i18n_buttonAttachFunction"><fmt:message key="eform.visual.editor.button.attachFunction"/></c:set>
+<c:set var="i18n_buttonAllNo"><fmt:message key="eform.visual.editor.button.allNo"/></c:set>
+<c:set var="i18n_buttonGroupYellowRadios"><fmt:message key="eform.visual.editor.button.groupYellowRadios"/></c:set>
+<c:set var="i18n_buttonResetYellowRadios"><fmt:message key="eform.visual.editor.button.resetYellowRadios"/></c:set>
+<c:set var="i18n_buttonGroupNoRadios"><fmt:message key="eform.visual.editor.button.groupNoRadioButtons"/></c:set>
+<c:set var="i18n_buttonGroupCompleted"><fmt:message key="eform.visual.editor.button.groupCompletedStartNew"/></c:set>
+<c:set var="i18n_buttonLinkOrangeBoxes"><fmt:message key="eform.visual.editor.button.linkOrangeBoxes"/></c:set>
+<c:set var="i18n_buttonResetOrangeBoxes"><fmt:message key="eform.visual.editor.button.resetOrangeBoxes"/></c:set>
+<c:set var="i18n_labelSubject"><fmt:message key="eform.visual.editor.label.subject"/></c:set>
+<c:set var="i18n_labelSelectEForm"><fmt:message key="eform.visual.editor.label.selectEForm"/></c:set>
+<c:set var="i18n_labelSelectBgImage"><fmt:message key="eform.visual.editor.label.selectBackgroundImage"/></c:set>
+<c:set var="i18n_labelWidth"><fmt:message key="eform.visual.editor.label.width"/></c:set>
+<c:set var="i18n_labelHeight"><fmt:message key="eform.visual.editor.label.height"/></c:set>
+<c:set var="i18n_labelPageDimensions"><fmt:message key="eform.visual.editor.label.pageDimensions"/></c:set>
+<c:set var="i18n_labelCustomTitle"><fmt:message key="eform.visual.editor.label.customTitle"/></c:set>
+<c:set var="i18n_labelLinkTo"><fmt:message key="eform.visual.editor.label.linkTo"/></c:set>
+<c:set var="i18n_labelTemplateSize"><fmt:message key="eform.visual.editor.label.templateSize"/></c:set>
+<c:set var="i18n_labelTemplateWidth"><fmt:message key="eform.visual.editor.label.templateWidth"/></c:set>
+<c:set var="i18n_labelTemplateHeight"><fmt:message key="eform.visual.editor.label.templateHeight"/></c:set>
+<c:set var="i18n_labelPreCheck"><fmt:message key="eform.visual.editor.label.preCheck"/></c:set>
+<c:set var="i18n_labelAllNoFunction"><fmt:message key="eform.visual.editor.label.allNoFunction"/></c:set>
+<c:set var="i18n_labelPreCheckByGender"><fmt:message key="eform.visual.editor.label.preCheckByGender"/></c:set>
+<c:set var="i18n_labelCheckWhen"><fmt:message key="eform.visual.editor.label.checkWhen"/></c:set>
+<c:set var="i18n_labelAddFunction"><fmt:message key="eform.visual.editor.label.addFunction"/></c:set>
+<c:set var="i18n_labelAddSideBar"><fmt:message key="eform.visual.editor.label.addSideBar"/></c:set>
+<c:set var="i18n_labelShowRulerMarks"><fmt:message key="eform.visual.editor.label.showRulerMarks"/></c:set>
+<c:set var="i18n_labelEnableSnapGuides"><fmt:message key="eform.visual.editor.label.enableSnapGuides"/></c:set>
+<c:set var="i18n_labelTextBorders"><fmt:message key="eform.visual.editor.label.textBorders"/></c:set>
+<c:set var="i18n_labelXboxBorders"><fmt:message key="eform.visual.editor.label.xboxBorders"/></c:set>
+<c:set var="i18n_labelEformName"><fmt:message key="eform.visual.editor.label.eformName"/></c:set>
+<c:set var="i18n_labelIncludeFaxControls"><fmt:message key="eform.visual.editor.label.includeFaxControls"/></c:set>
+<c:set var="i18n_labelDefaultFaxNo"><fmt:message key="eform.visual.editor.label.defaultFaxNo"/></c:set>
+<c:set var="i18n_labelIncludeSetTickler"><fmt:message key="eform.visual.editor.label.includeSetTickler"/></c:set>
+<c:set var="i18n_labelStandAloneTesting"><fmt:message key="eform.visual.editor.label.standAloneTesting"/></c:set>
+<c:set var="i18n_labelTriggeringEvent"><fmt:message key="eform.visual.editor.label.triggeringEventName"/></c:set>
+<c:set var="i18n_labelFunctionParams"><fmt:message key="eform.visual.editor.label.functionParameters"/></c:set>
+<c:set var="i18n_headingLoadEForm"><fmt:message key="eform.visual.editor.heading.loadExistingEForm"/></c:set>
+<c:set var="i18n_headingPageSetup"><fmt:message key="eform.visual.editor.heading.pageSetup"/></c:set>
+<c:set var="i18n_headingFormBuilding"><fmt:message key="eform.visual.editor.heading.formBuilding"/></c:set>
+<c:set var="i18n_headingFormStylization"><fmt:message key="eform.visual.editor.heading.formStylization"/></c:set>
+<c:set var="i18n_headingFinalize"><fmt:message key="eform.visual.editor.heading.finalize"/></c:set>
+<c:set var="i18n_tabCheckbox"><fmt:message key="eform.visual.editor.tab.checkbox"/></c:set>
+<c:set var="i18n_tabTextBox"><fmt:message key="eform.visual.editor.tab.textBox"/></c:set>
+<c:set var="i18n_tabLabel"><fmt:message key="eform.visual.editor.tab.label"/></c:set>
+<c:set var="i18n_tabShapes"><fmt:message key="eform.visual.editor.tab.shapes"/></c:set>
+<c:set var="i18n_tabImages"><fmt:message key="eform.visual.editor.tab.images"/></c:set>
+<c:set var="i18n_tabSignature"><fmt:message key="eform.visual.editor.tab.signature"/></c:set>
+<c:set var="i18n_optPortrait"><fmt:message key="eform.visual.editor.option.portrait"/></c:set>
+<c:set var="i18n_optLandscape"><fmt:message key="eform.visual.editor.option.landscape"/></c:set>
+<c:set var="i18n_optCustom"><fmt:message key="eform.visual.editor.option.custom"/></c:set>
+<c:set var="i18n_optAlwaysVisible"><fmt:message key="eform.visual.editor.option.alwaysVisible"/></c:set>
+<c:set var="i18n_optInvisibleOnPrint"><fmt:message key="eform.visual.editor.option.invisibleOnPrint"/></c:set>
+<c:set var="i18n_optAlwaysInvisible"><fmt:message key="eform.visual.editor.option.alwaysInvisible"/></c:set>
+<c:set var="i18n_tooltipDragActivate"><fmt:message key="eform.visual.editor.tooltip.dragActivate"/></c:set>
+<c:set var="i18n_tooltipXBoxActivate"><fmt:message key="eform.visual.editor.tooltip.xBoxActivate"/></c:set>
+<c:set var="i18n_tooltipRadioBoxActivate"><fmt:message key="eform.visual.editor.tooltip.radioBoxActivate"/></c:set>
+<c:set var="i18n_tooltipButtonFrameActivate"><fmt:message key="eform.visual.editor.tooltip.buttonFrameActivate"/></c:set>
+<c:set var="i18n_tooltipNotInUse"><fmt:message key="eform.visual.editor.tooltip.notInUse"/></c:set>
+<c:set var="i18n_dialogAttachNewFunction"><fmt:message key="eform.visual.editor.dialog.attachNewFunction"/></c:set>
+<c:set var="i18n_dialogFunctionParticularsPrefix"><fmt:message key="eform.visual.editor.dialog.functionParticularsPrefix"/></c:set>
+<c:set var="i18n_dialogFunctionParticularsSuffix"><fmt:message key="eform.visual.editor.dialog.functionParticularsSuffix"/></c:set>
+<c:set var="i18n_dialogConfirmPageRemoval"><fmt:message key="eform.visual.editor.dialog.confirmPageRemoval"/></c:set>
+<c:set var="i18n_dialogConfirmPageRemovalMsg"><fmt:message key="eform.visual.editor.dialog.confirmPageRemovalMessage"/></c:set>
+<c:set var="i18n_dialogSaveAsNewEform"><fmt:message key="eform.visual.editor.dialog.saveAsNewEform"/></c:set>
+<c:set var="i18n_dialogUpdateEform"><fmt:message key="eform.visual.editor.dialog.updateEform"/></c:set>
+<c:set var="i18n_alertSaveSuccessful"><fmt:message key="eform.visual.editor.alert.saveSuccessful"/></c:set>
+<c:set var="i18n_alertSaveFailure"><fmt:message key="eform.visual.editor.alert.saveFailure"/></c:set>
+<c:set var="i18n_alertOnlyOneMasterBox"><fmt:message key="eform.visual.editor.alert.onlyOneMasterBox"/></c:set>
+<c:set var="i18n_alertSelectMasterCheckbox"><fmt:message key="eform.visual.editor.alert.selectMasterCheckbox"/></c:set>
+<c:set var="i18n_alertWouldSubmitEform"><fmt:message key="eform.visual.editor.alert.wouldSubmitEform"/></c:set>
+<c:set var="i18n_alertActLikeCheckbox"><fmt:message key="eform.visual.editor.alert.actLikeCheckbox"/></c:set>
+<c:set var="i18n_alertBrowserNotSupported"><fmt:message key="eform.visual.editor.alert.browserNotSupported"/></c:set>
+<c:set var="i18n_confirmRadioboxGrouping"><fmt:message key="eform.visual.editor.confirm.completedRadioboxGrouping"/></c:set>
+<c:set var="i18n_confirmUnsavedChanges"><fmt:message key="eform.visual.editor.confirm.unsavedChanges"/></c:set>
+<c:set var="i18n_helpAltResize"><fmt:message key="eform.visual.editor.help.altDraggableResize"/></c:set>
+<c:set var="i18n_helpShiftAspectRatio"><fmt:message key="eform.visual.editor.help.shiftAspectRatio"/></c:set>
+<c:set var="i18n_helpCtrlCVCopy"><fmt:message key="eform.visual.editor.help.ctrlCVCopy"/></c:set>
+<c:set var="i18n_noteCustomScripts"><fmt:message key="eform.visual.editor.note.customScriptsNotPreserved"/></c:set>
+<c:set var="i18n_textTextBox"><fmt:message key="eform.visual.editor.text.textBox"/></c:set>
+<c:set var="i18n_textCheckbox"><fmt:message key="eform.visual.editor.text.checkbox"/></c:set>
+<c:set var="i18n_textTrash"><fmt:message key="eform.visual.editor.text.trash"/></c:set>
+<c:set var="i18n_textAddWetSignature"><fmt:message key="eform.visual.editor.text.addWetSignature"/></c:set>
+<c:set var="i18n_textControls"><fmt:message key="eform.visual.editor.text.controls"/></c:set>
+<c:set var="i18n_textGuideOptions"><fmt:message key="eform.visual.editor.text.guideOptions"/></c:set>
 <script>
-/* i18n strings for Visual eForm Editor - populated server-side */
+/* i18n strings for Visual eForm Editor - populated server-side, OWASP JS-encoded */
 var EFORM_I18N = {
-    alertTitle: '<fmt:message key="eform.visual.editor.dialog.alertTitle"/>',
-    noMessage: '<fmt:message key="eform.visual.editor.dialog.noMessage"/>',
-    buttonOk: '<fmt:message key="eform.visual.editor.button.ok"/>',
-    buttonCancel: '<fmt:message key="eform.visual.editor.button.cancel"/>',
-    buttonClose: '<fmt:message key="eform.visual.editor.button.close"/>',
-    buttonDelete: '<fmt:message key="eform.visual.editor.button.delete"/>',
-    buttonClear: '<fmt:message key="eform.visual.editor.button.clear"/>',
-    buttonAddPage: '<fmt:message key="eform.visual.editor.button.addPage"/>',
-    buttonRemovePage: '<fmt:message key="eform.visual.editor.button.removePage"/>',
-    buttonSubmit: '<fmt:message key="eform.visual.editor.button.submit"/>',
-    buttonPrint: '<fmt:message key="eform.visual.editor.button.print"/>',
-    buttonPrintAndSubmit: '<fmt:message key="eform.visual.editor.button.printAndSubmit"/>',
-    buttonViewSource: '<fmt:message key="eform.visual.editor.button.viewEformSource"/>',
-    buttonDownload: '<fmt:message key="eform.visual.editor.button.downloadAsFile"/>',
-    buttonPrintPreview: '<fmt:message key="eform.visual.editor.button.printPreview"/>',
-    buttonLoadEForm: '<fmt:message key="eform.visual.editor.button.loadSelectedEForm"/>',
-    buttonAttachFunction: '<fmt:message key="eform.visual.editor.button.attachFunction"/>',
-    buttonAllNo: '<fmt:message key="eform.visual.editor.button.allNo"/>',
-    buttonGroupYellowRadios: '<fmt:message key="eform.visual.editor.button.groupYellowRadios"/>',
-    buttonResetYellowRadios: '<fmt:message key="eform.visual.editor.button.resetYellowRadios"/>',
-    buttonGroupNoRadios: '<fmt:message key="eform.visual.editor.button.groupNoRadioButtons"/>',
-    buttonGroupCompleted: '<fmt:message key="eform.visual.editor.button.groupCompletedStartNew"/>',
-    buttonLinkOrangeBoxes: '<fmt:message key="eform.visual.editor.button.linkOrangeBoxes"/>',
-    buttonResetOrangeBoxes: '<fmt:message key="eform.visual.editor.button.resetOrangeBoxes"/>',
-    labelSubject: '<fmt:message key="eform.visual.editor.label.subject"/>',
-    labelSelectEForm: '<fmt:message key="eform.visual.editor.label.selectEForm"/>',
-    labelSelectBgImage: '<fmt:message key="eform.visual.editor.label.selectBackgroundImage"/>',
-    labelWidth: '<fmt:message key="eform.visual.editor.label.width"/>',
-    labelHeight: '<fmt:message key="eform.visual.editor.label.height"/>',
-    labelPageDimensions: '<fmt:message key="eform.visual.editor.label.pageDimensions"/>',
-    labelCustomTitle: '<fmt:message key="eform.visual.editor.label.customTitle"/>',
-    labelLinkTo: '<fmt:message key="eform.visual.editor.label.linkTo"/>',
-    labelTemplateSize: '<fmt:message key="eform.visual.editor.label.templateSize"/>',
-    labelTemplateWidth: '<fmt:message key="eform.visual.editor.label.templateWidth"/>',
-    labelTemplateHeight: '<fmt:message key="eform.visual.editor.label.templateHeight"/>',
-    labelPreCheck: '<fmt:message key="eform.visual.editor.label.preCheck"/>',
-    labelAllNoFunction: '<fmt:message key="eform.visual.editor.label.allNoFunction"/>',
-    labelPreCheckByGender: '<fmt:message key="eform.visual.editor.label.preCheckByGender"/>',
-    labelCheckWhen: '<fmt:message key="eform.visual.editor.label.checkWhen"/>',
-    labelAddFunction: '<fmt:message key="eform.visual.editor.label.addFunction"/>',
-    labelAddSideBar: '<fmt:message key="eform.visual.editor.label.addSideBar"/>',
-    labelShowRulerMarks: '<fmt:message key="eform.visual.editor.label.showRulerMarks"/>',
-    labelEnableSnapGuides: '<fmt:message key="eform.visual.editor.label.enableSnapGuides"/>',
-    labelTextBorders: '<fmt:message key="eform.visual.editor.label.textBorders"/>',
-    labelXboxBorders: '<fmt:message key="eform.visual.editor.label.xboxBorders"/>',
-    labelEformName: '<fmt:message key="eform.visual.editor.label.eformName"/>',
-    labelIncludeFaxControls: '<fmt:message key="eform.visual.editor.label.includeFaxControls"/>',
-    labelDefaultFaxNo: '<fmt:message key="eform.visual.editor.label.defaultFaxNo"/>',
-    labelIncludeSetTickler: '<fmt:message key="eform.visual.editor.label.includeSetTickler"/>',
-    labelStandAloneTesting: '<fmt:message key="eform.visual.editor.label.standAloneTesting"/>',
-    labelTriggeringEvent: '<fmt:message key="eform.visual.editor.label.triggeringEventName"/>',
-    labelFunctionParams: '<fmt:message key="eform.visual.editor.label.functionParameters"/>',
-    headingLoadEForm: '<fmt:message key="eform.visual.editor.heading.loadExistingEForm"/>',
-    headingPageSetup: '<fmt:message key="eform.visual.editor.heading.pageSetup"/>',
-    headingFormBuilding: '<fmt:message key="eform.visual.editor.heading.formBuilding"/>',
-    headingFormStylization: '<fmt:message key="eform.visual.editor.heading.formStylization"/>',
-    headingFinalize: '<fmt:message key="eform.visual.editor.heading.finalize"/>',
-    tabCheckbox: '<fmt:message key="eform.visual.editor.tab.checkbox"/>',
-    tabTextBox: '<fmt:message key="eform.visual.editor.tab.textBox"/>',
-    tabLabel: '<fmt:message key="eform.visual.editor.tab.label"/>',
-    tabShapes: '<fmt:message key="eform.visual.editor.tab.shapes"/>',
-    tabImages: '<fmt:message key="eform.visual.editor.tab.images"/>',
-    tabSignature: '<fmt:message key="eform.visual.editor.tab.signature"/>',
-    optPortrait: '<fmt:message key="eform.visual.editor.option.portrait"/>',
-    optLandscape: '<fmt:message key="eform.visual.editor.option.landscape"/>',
-    optCustom: '<fmt:message key="eform.visual.editor.option.custom"/>',
-    optAlwaysVisible: '<fmt:message key="eform.visual.editor.option.alwaysVisible"/>',
-    optInvisibleOnPrint: '<fmt:message key="eform.visual.editor.option.invisibleOnPrint"/>',
-    optAlwaysInvisible: '<fmt:message key="eform.visual.editor.option.alwaysInvisible"/>',
-    tooltipDragActivate: '<fmt:message key="eform.visual.editor.tooltip.dragActivate"/>',
-    tooltipXBoxActivate: '<fmt:message key="eform.visual.editor.tooltip.xBoxActivate"/>',
-    tooltipRadioBoxActivate: '<fmt:message key="eform.visual.editor.tooltip.radioBoxActivate"/>',
-    tooltipButtonFrameActivate: '<fmt:message key="eform.visual.editor.tooltip.buttonFrameActivate"/>',
-    tooltipNotInUse: '<fmt:message key="eform.visual.editor.tooltip.notInUse"/>',
-    dialogAttachNewFunction: '<fmt:message key="eform.visual.editor.dialog.attachNewFunction"/>',
-    dialogFunctionParticularsPrefix: '<fmt:message key="eform.visual.editor.dialog.functionParticularsPrefix"/>',
-    dialogFunctionParticularsSuffix: '<fmt:message key="eform.visual.editor.dialog.functionParticularsSuffix"/>',
-    dialogConfirmPageRemoval: '<fmt:message key="eform.visual.editor.dialog.confirmPageRemoval"/>',
-    dialogConfirmPageRemovalMsg: '<fmt:message key="eform.visual.editor.dialog.confirmPageRemovalMessage"/>',
-    dialogSaveAsNewEform: '<fmt:message key="eform.visual.editor.dialog.saveAsNewEform"/>',
-    dialogUpdateEform: '<fmt:message key="eform.visual.editor.dialog.updateEform"/>',
-    alertSaveSuccessful: '<fmt:message key="eform.visual.editor.alert.saveSuccessful"/>',
-    alertSaveFailure: '<fmt:message key="eform.visual.editor.alert.saveFailure"/>',
-    alertOnlyOneMasterBox: '<fmt:message key="eform.visual.editor.alert.onlyOneMasterBox"/>',
-    alertSelectMasterCheckbox: '<fmt:message key="eform.visual.editor.alert.selectMasterCheckbox"/>',
-    alertWouldSubmitEform: '<fmt:message key="eform.visual.editor.alert.wouldSubmitEform"/>',
-    alertActLikeCheckbox: '<fmt:message key="eform.visual.editor.alert.actLikeCheckbox"/>',
-    alertBrowserNotSupported: '<fmt:message key="eform.visual.editor.alert.browserNotSupported"/>',
-    confirmRadioboxGrouping: '<fmt:message key="eform.visual.editor.confirm.completedRadioboxGrouping"/>',
-    confirmUnsavedChanges: '<fmt:message key="eform.visual.editor.confirm.unsavedChanges"/>',
-    helpAltResize: '<fmt:message key="eform.visual.editor.help.altDraggableResize"/>',
-    helpShiftAspectRatio: '<fmt:message key="eform.visual.editor.help.shiftAspectRatio"/>',
-    helpCtrlCVCopy: '<fmt:message key="eform.visual.editor.help.ctrlCVCopy"/>',
-    noteCustomScripts: '<fmt:message key="eform.visual.editor.note.customScriptsNotPreserved"/>',
-    textTextBox: '<fmt:message key="eform.visual.editor.text.textBox"/>',
-    textCheckbox: '<fmt:message key="eform.visual.editor.text.checkbox"/>',
-    textTrash: '<fmt:message key="eform.visual.editor.text.trash"/>',
-    textAddWetSignature: '<fmt:message key="eform.visual.editor.text.addWetSignature"/>',
-    textControls: '<fmt:message key="eform.visual.editor.text.controls"/>',
-    textGuideOptions: '<fmt:message key="eform.visual.editor.text.guideOptions"/>'
+    alertTitle: '${e:forJavaScript(i18n_alertTitle)}',
+    noMessage: '${e:forJavaScript(i18n_noMessage)}',
+    buttonOk: '${e:forJavaScript(i18n_buttonOk)}',
+    buttonCancel: '${e:forJavaScript(i18n_buttonCancel)}',
+    buttonClose: '${e:forJavaScript(i18n_buttonClose)}',
+    buttonDelete: '${e:forJavaScript(i18n_buttonDelete)}',
+    buttonClear: '${e:forJavaScript(i18n_buttonClear)}',
+    buttonAddPage: '${e:forJavaScript(i18n_buttonAddPage)}',
+    buttonRemovePage: '${e:forJavaScript(i18n_buttonRemovePage)}',
+    buttonSubmit: '${e:forJavaScript(i18n_buttonSubmit)}',
+    buttonPrint: '${e:forJavaScript(i18n_buttonPrint)}',
+    buttonPrintAndSubmit: '${e:forJavaScript(i18n_buttonPrintAndSubmit)}',
+    buttonViewSource: '${e:forJavaScript(i18n_buttonViewSource)}',
+    buttonDownload: '${e:forJavaScript(i18n_buttonDownload)}',
+    buttonPrintPreview: '${e:forJavaScript(i18n_buttonPrintPreview)}',
+    buttonLoadEForm: '${e:forJavaScript(i18n_buttonLoadEForm)}',
+    buttonAttachFunction: '${e:forJavaScript(i18n_buttonAttachFunction)}',
+    buttonAllNo: '${e:forJavaScript(i18n_buttonAllNo)}',
+    buttonGroupYellowRadios: '${e:forJavaScript(i18n_buttonGroupYellowRadios)}',
+    buttonResetYellowRadios: '${e:forJavaScript(i18n_buttonResetYellowRadios)}',
+    buttonGroupNoRadios: '${e:forJavaScript(i18n_buttonGroupNoRadios)}',
+    buttonGroupCompleted: '${e:forJavaScript(i18n_buttonGroupCompleted)}',
+    buttonLinkOrangeBoxes: '${e:forJavaScript(i18n_buttonLinkOrangeBoxes)}',
+    buttonResetOrangeBoxes: '${e:forJavaScript(i18n_buttonResetOrangeBoxes)}',
+    labelSubject: '${e:forJavaScript(i18n_labelSubject)}',
+    labelSelectEForm: '${e:forJavaScript(i18n_labelSelectEForm)}',
+    labelSelectBgImage: '${e:forJavaScript(i18n_labelSelectBgImage)}',
+    labelWidth: '${e:forJavaScript(i18n_labelWidth)}',
+    labelHeight: '${e:forJavaScript(i18n_labelHeight)}',
+    labelPageDimensions: '${e:forJavaScript(i18n_labelPageDimensions)}',
+    labelCustomTitle: '${e:forJavaScript(i18n_labelCustomTitle)}',
+    labelLinkTo: '${e:forJavaScript(i18n_labelLinkTo)}',
+    labelTemplateSize: '${e:forJavaScript(i18n_labelTemplateSize)}',
+    labelTemplateWidth: '${e:forJavaScript(i18n_labelTemplateWidth)}',
+    labelTemplateHeight: '${e:forJavaScript(i18n_labelTemplateHeight)}',
+    labelPreCheck: '${e:forJavaScript(i18n_labelPreCheck)}',
+    labelAllNoFunction: '${e:forJavaScript(i18n_labelAllNoFunction)}',
+    labelPreCheckByGender: '${e:forJavaScript(i18n_labelPreCheckByGender)}',
+    labelCheckWhen: '${e:forJavaScript(i18n_labelCheckWhen)}',
+    labelAddFunction: '${e:forJavaScript(i18n_labelAddFunction)}',
+    labelAddSideBar: '${e:forJavaScript(i18n_labelAddSideBar)}',
+    labelShowRulerMarks: '${e:forJavaScript(i18n_labelShowRulerMarks)}',
+    labelEnableSnapGuides: '${e:forJavaScript(i18n_labelEnableSnapGuides)}',
+    labelTextBorders: '${e:forJavaScript(i18n_labelTextBorders)}',
+    labelXboxBorders: '${e:forJavaScript(i18n_labelXboxBorders)}',
+    labelEformName: '${e:forJavaScript(i18n_labelEformName)}',
+    labelIncludeFaxControls: '${e:forJavaScript(i18n_labelIncludeFaxControls)}',
+    labelDefaultFaxNo: '${e:forJavaScript(i18n_labelDefaultFaxNo)}',
+    labelIncludeSetTickler: '${e:forJavaScript(i18n_labelIncludeSetTickler)}',
+    labelStandAloneTesting: '${e:forJavaScript(i18n_labelStandAloneTesting)}',
+    labelTriggeringEvent: '${e:forJavaScript(i18n_labelTriggeringEvent)}',
+    labelFunctionParams: '${e:forJavaScript(i18n_labelFunctionParams)}',
+    headingLoadEForm: '${e:forJavaScript(i18n_headingLoadEForm)}',
+    headingPageSetup: '${e:forJavaScript(i18n_headingPageSetup)}',
+    headingFormBuilding: '${e:forJavaScript(i18n_headingFormBuilding)}',
+    headingFormStylization: '${e:forJavaScript(i18n_headingFormStylization)}',
+    headingFinalize: '${e:forJavaScript(i18n_headingFinalize)}',
+    tabCheckbox: '${e:forJavaScript(i18n_tabCheckbox)}',
+    tabTextBox: '${e:forJavaScript(i18n_tabTextBox)}',
+    tabLabel: '${e:forJavaScript(i18n_tabLabel)}',
+    tabShapes: '${e:forJavaScript(i18n_tabShapes)}',
+    tabImages: '${e:forJavaScript(i18n_tabImages)}',
+    tabSignature: '${e:forJavaScript(i18n_tabSignature)}',
+    optPortrait: '${e:forJavaScript(i18n_optPortrait)}',
+    optLandscape: '${e:forJavaScript(i18n_optLandscape)}',
+    optCustom: '${e:forJavaScript(i18n_optCustom)}',
+    optAlwaysVisible: '${e:forJavaScript(i18n_optAlwaysVisible)}',
+    optInvisibleOnPrint: '${e:forJavaScript(i18n_optInvisibleOnPrint)}',
+    optAlwaysInvisible: '${e:forJavaScript(i18n_optAlwaysInvisible)}',
+    tooltipDragActivate: '${e:forJavaScript(i18n_tooltipDragActivate)}',
+    tooltipXBoxActivate: '${e:forJavaScript(i18n_tooltipXBoxActivate)}',
+    tooltipRadioBoxActivate: '${e:forJavaScript(i18n_tooltipRadioBoxActivate)}',
+    tooltipButtonFrameActivate: '${e:forJavaScript(i18n_tooltipButtonFrameActivate)}',
+    tooltipNotInUse: '${e:forJavaScript(i18n_tooltipNotInUse)}',
+    dialogAttachNewFunction: '${e:forJavaScript(i18n_dialogAttachNewFunction)}',
+    dialogFunctionParticularsPrefix: '${e:forJavaScript(i18n_dialogFunctionParticularsPrefix)}',
+    dialogFunctionParticularsSuffix: '${e:forJavaScript(i18n_dialogFunctionParticularsSuffix)}',
+    dialogConfirmPageRemoval: '${e:forJavaScript(i18n_dialogConfirmPageRemoval)}',
+    dialogConfirmPageRemovalMsg: '${e:forJavaScript(i18n_dialogConfirmPageRemovalMsg)}',
+    dialogSaveAsNewEform: '${e:forJavaScript(i18n_dialogSaveAsNewEform)}',
+    dialogUpdateEform: '${e:forJavaScript(i18n_dialogUpdateEform)}',
+    alertSaveSuccessful: '${e:forJavaScript(i18n_alertSaveSuccessful)}',
+    alertSaveFailure: '${e:forJavaScript(i18n_alertSaveFailure)}',
+    alertOnlyOneMasterBox: '${e:forJavaScript(i18n_alertOnlyOneMasterBox)}',
+    alertSelectMasterCheckbox: '${e:forJavaScript(i18n_alertSelectMasterCheckbox)}',
+    alertWouldSubmitEform: '${e:forJavaScript(i18n_alertWouldSubmitEform)}',
+    alertActLikeCheckbox: '${e:forJavaScript(i18n_alertActLikeCheckbox)}',
+    alertBrowserNotSupported: '${e:forJavaScript(i18n_alertBrowserNotSupported)}',
+    confirmRadioboxGrouping: '${e:forJavaScript(i18n_confirmRadioboxGrouping)}',
+    confirmUnsavedChanges: '${e:forJavaScript(i18n_confirmUnsavedChanges)}',
+    helpAltResize: '${e:forJavaScript(i18n_helpAltResize)}',
+    helpShiftAspectRatio: '${e:forJavaScript(i18n_helpShiftAspectRatio)}',
+    helpCtrlCVCopy: '${e:forJavaScript(i18n_helpCtrlCVCopy)}',
+    noteCustomScripts: '${e:forJavaScript(i18n_noteCustomScripts)}',
+    textTextBox: '${e:forJavaScript(i18n_textTextBox)}',
+    textCheckbox: '${e:forJavaScript(i18n_textCheckbox)}',
+    textTrash: '${e:forJavaScript(i18n_textTrash)}',
+    textAddWetSignature: '${e:forJavaScript(i18n_textAddWetSignature)}',
+    textControls: '${e:forJavaScript(i18n_textControls)}',
+    textGuideOptions: '${e:forJavaScript(i18n_textGuideOptions)}'
 };
 </script>
 
@@ -335,8 +460,8 @@ var EFORM_I18N = {
                         i = i + 1;
                     }
                 },
-                failure: function(data) {
-                    console.error(data);
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error("Failed to load measurements:", textStatus, errorThrown);
                 }
             });
 
@@ -1514,12 +1639,12 @@ var EFORM_I18N = {
                             dbTagList = data.body;
                         }
                     },
-                    failure: function(data) {
-                        console.error(data);
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        console.error("Failed to load database tags:", textStatus, errorThrown);
                     }
                 });
             }
-            return dbTagList.sort();
+            return dbTagList ? dbTagList.sort() : [];
         }
 
         function addOscarImagePath(string) {
@@ -1938,8 +2063,8 @@ var EFORM_I18N = {
                         custom_alert(data.error.message);
                     }
                 },
-                failure: function(data) {
-                    console.error(data);
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error("Failed to save eForm:", textStatus, errorThrown);
                     custom_alert(EFORM_I18N.alertSaveFailure);
                 }
             });
@@ -2732,8 +2857,12 @@ var EFORM_I18N = {
                                                 setEformId(data.body.id);
                                                 console.info("EForm Loaded from Server");
                                             } else {
-                                                custom_alert(data.error);
+                                                custom_alert(data.error.message);
                                             }
+                                        },
+                                        error: function(jqXHR, textStatus, errorThrown) {
+                                            console.error("Failed to load eForm:", textStatus, errorThrown);
+                                            custom_alert(EFORM_I18N.alertSaveFailure);
                                         }
                                     });
                                 }
@@ -2745,8 +2874,8 @@ var EFORM_I18N = {
                             }));
                         }
                     },
-                    failure: function(data) {
-                        console.error(data);
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        console.error("Failed to load eForm list:", textStatus, errorThrown);
                     }
                 });
             } else {
@@ -2993,8 +3122,8 @@ var EFORM_I18N = {
                             eFormImageList = data.body;
                         }
                     },
-                    failure: function(data) {
-                        console.error(data);
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        console.error("Failed to load eForm images:", textStatus, errorThrown);
                     }
                 });
             }

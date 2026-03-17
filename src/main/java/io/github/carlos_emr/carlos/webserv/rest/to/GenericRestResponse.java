@@ -53,7 +53,7 @@ import java.io.Serializable;
  * @param <B> the type of the response body object (populated on success)
  * @param <E> the type of the response error object (populated on error)
  *
- * @since 2018-01-01
+ * @since 2026-03-13
  */
 @Schema(description = "Generic response wrapper object")
 public class GenericRestResponse<H, B, E> implements Serializable
@@ -92,8 +92,17 @@ public class GenericRestResponse<H, B, E> implements Serializable
 	 */
 	protected GenericRestResponse(H headers, B body, E error, ResponseStatus status)
 	{
+		if (status == null) {
+			throw new IllegalArgumentException("status must not be null");
+		}
+		if (status == ResponseStatus.SUCCESS && error != null) {
+			throw new IllegalArgumentException("error must be null for SUCCESS responses");
+		}
+		if (status == ResponseStatus.ERROR && body != null) {
+			throw new IllegalArgumentException("body must be null for ERROR responses");
+		}
 		this.headers = headers;
-		this.body= body;
+		this.body = body;
 		this.error = error;
 		this.status = status;
 	}

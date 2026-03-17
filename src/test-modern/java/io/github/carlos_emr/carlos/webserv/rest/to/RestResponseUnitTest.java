@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mockStatic;
 
 /**
@@ -166,6 +167,37 @@ class RestResponseUnitTest {
     }
 
     // ─── GenericRestResponse ───────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("GenericRestResponse constructor validation")
+    class GenericRestResponseConstructorValidation {
+
+        @Test
+        @DisplayName("should throw IllegalArgumentException when status is null")
+        void shouldThrowIllegalArgumentException_whenStatusIsNull() {
+            assertThatThrownBy(() -> new RestResponse<>(new RestResponseHeaders(), "body", null, null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("status must not be null");
+        }
+
+        @Test
+        @DisplayName("should throw IllegalArgumentException when SUCCESS response has non-null error")
+        void shouldThrowIllegalArgumentException_whenSuccessResponseHasError() {
+            assertThatThrownBy(() -> new RestResponse<>(new RestResponseHeaders(), "body",
+                    new RestResponseError("oops"), ResponseStatus.SUCCESS))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("error must be null for SUCCESS");
+        }
+
+        @Test
+        @DisplayName("should throw IllegalArgumentException when ERROR response has non-null body")
+        void shouldThrowIllegalArgumentException_whenErrorResponseHasBody() {
+            assertThatThrownBy(() -> new RestResponse<>(new RestResponseHeaders(), "body",
+                    new RestResponseError("oops"), ResponseStatus.ERROR))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("body must be null for ERROR");
+        }
+    }
 
     @Nested
     @DisplayName("GenericRestResponse toString")

@@ -39,7 +39,7 @@ import java.io.Serializable;
  *
  * <p>Instances are immutable after construction and safe for shared reads across threads.</p>
  *
- * @since 2018-01-01
+ * @since 2026-03-13
  */
 @Schema(description = "Response wrapper object for error information")
 public class RestResponseError implements Serializable
@@ -51,7 +51,11 @@ public class RestResponseError implements Serializable
 	 * Constructs an error with no message and no additional data.
 	 *
 	 * <p>Both {@link #getMessage()} and {@link #getData()} will return {@code null}.</p>
+	 *
+	 * @deprecated Use {@link #RestResponseError(String)} or {@link #RestResponseError(String, Serializable)}
+	 *             instead. An error with no message provides no useful information to API consumers.
 	 */
+	@Deprecated
 	public RestResponseError()
 	{
 		this(null, null);
@@ -102,5 +106,19 @@ public class RestResponseError implements Serializable
 	public Serializable getData()
 	{
 		return this.data;
+	}
+
+	/**
+	 * Returns a concise, non-sensitive summary for logging purposes.
+	 *
+	 * <p>Deliberately excludes the message and data content to prevent PHI leakage
+	 * in application logs, consistent with {@link GenericRestResponse#toString()}.</p>
+	 *
+	 * @return String a summary string indicating an error exists, without content
+	 */
+	@Override
+	public String toString()
+	{
+		return "RestResponseError{hasMessage=" + (message != null) + ", hasData=" + (data != null) + "}";
 	}
 }

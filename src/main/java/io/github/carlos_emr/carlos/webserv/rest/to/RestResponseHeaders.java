@@ -38,7 +38,7 @@ import java.io.Serializable;
  * allowing API consumers to correlate responses with specific CARLOS EMR build versions.
  * Instances are immutable after construction.</p>
  *
- * @since 2018-01-01
+ * @since 2026-03-13
  */
 @Schema(description = "Generic response header object")
 public class RestResponseHeaders implements Serializable
