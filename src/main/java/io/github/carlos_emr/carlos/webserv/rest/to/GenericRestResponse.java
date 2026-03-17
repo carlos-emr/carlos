@@ -100,8 +100,6 @@ public class GenericRestResponse<H, B, E> implements Serializable
 
 	/**
 	 * Returns the response header metadata.
-	 *
-	 * @return {@code H} the header object; non-null in normal usage
 	 */
 	public H getHeaders()
 	{
@@ -109,10 +107,7 @@ public class GenericRestResponse<H, B, E> implements Serializable
 	}
 
 	/**
-	 * Returns the response body containing domain data.
-	 *
-	 * @return {@code B} the body object; non-null on {@link ResponseStatus#SUCCESS},
-	 *         {@code null} on {@link ResponseStatus#ERROR}
+	 * Returns the response body.
 	 */
 	public B getBody()
 	{
@@ -120,10 +115,7 @@ public class GenericRestResponse<H, B, E> implements Serializable
 	}
 
 	/**
-	 * Returns the response error details.
-	 *
-	 * @return {@code E} the error object; non-null on {@link ResponseStatus#ERROR},
-	 *         {@code null} on {@link ResponseStatus#SUCCESS}
+	 * Returns the error object.
 	 */
 	public E getError()
 	{
@@ -141,14 +133,9 @@ public class GenericRestResponse<H, B, E> implements Serializable
 	}
 
 	/**
-	 * Returns a concise, non-sensitive summary of this response for logging purposes.
-	 *
-	 * <p>Deliberately does not include body or error content to prevent PHI leakage
-	 * in application logs.</p>
-	 *
-	 * @return String a summary string containing only the response status
+	/**
+	 * Returns a summary of the response status.
 	 */
-	@Override
 	public String toString()
 	{
 		return "GenericRestResponse{status=" + status + "}";
