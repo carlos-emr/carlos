@@ -5,6 +5,7 @@
  * Usage:
  *   <span onmouseover="nhpup.popup('content')">hover me</span>
  *   <span onmouseover="nhpup.popup(htmlVar, {'width': 350})">hover me</span>
+ *   <span onmouseover="nhpup.popup('content'); nhpup.attachHideHandler(event);">hover me</span>
  *
  * Security note: popup() sets innerHTML because callers pass pre-built HTML
  * table markup from same-origin JavaScript variables (e.g., phone/address
@@ -70,17 +71,19 @@ var nhpup = (function () {
             pup.innerHTML = msg;  // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
             pup.style.display = "block";
 
-            var evt = arguments.callee.caller && arguments.callee.caller.arguments
-                ? arguments.callee.caller.arguments[0]
-                : null;
-            if (evt && evt.target) {
-                var target = evt.target;
-                var hideHandler = function () {
-                    pup.style.display = "none";
-                    target.removeEventListener("mouseout", hideHandler);
-                };
-                target.addEventListener("mouseout", hideHandler);
-            }
+        },
+
+        // Attaches a mouseout hide handler to the hovered element.
+        // Call from inline onmouseover handlers that need auto-hide:
+        //   onmouseover="nhpup.popup('content'); nhpup.attachHideHandler(event);"
+        attachHideHandler: function (evt) {
+            if (!evt || !evt.target) return;
+            var target = evt.target;
+            var hideHandler = function () {
+                if (pup) pup.style.display = "none";
+                target.removeEventListener("mouseout", hideHandler);
+            };
+            target.addEventListener("mouseout", hideHandler);
         }
     };
 })();

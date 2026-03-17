@@ -81,8 +81,10 @@
 
         wrapper.appendChild(panel);
 
-        // Update toggle text and sync <select>
-        function syncState() {
+        // Update toggle text and sync <select>.
+        // Pass silent=true during initialization to avoid firing change handlers
+        // on page load (callers may have AJAX or other side effects on change).
+        function syncState(silent) {
             var checked = panel.querySelectorAll('input[type=checkbox]:checked');
             var count = checked.length;
             if (count === 0) {
@@ -98,6 +100,8 @@
                 var cb = panel.querySelectorAll('input[type=checkbox]')[j];
                 options[j].selected = cb.checked;
             }
+
+            if (silent) return;
 
             // Fire native change event
             var evt;
@@ -146,12 +150,13 @@
                 for (var k = 0; k < cbs.length; k++) {
                     cbs[k].checked = vals.indexOf(cbs[k].value) !== -1;
                 }
-                syncState();
+                // Silent: programmatic set should not trigger change handlers
+                syncState(true);
             }
         };
 
-        // Initial sync
-        syncState();
+        // Initial sync — silent to avoid triggering change handlers on page load
+        syncState(true);
     }
 
     // Auto-init on DOM ready

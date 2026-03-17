@@ -99,9 +99,8 @@
                 src="<%=request.getContextPath()%>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
-                type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js" type="text/javascript"></script>
 
         <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath() %>/js/multiselect-dropdown.js" type="text/javascript"></script>

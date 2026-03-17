@@ -226,6 +226,7 @@
     /**
      * Shows a confirm-style dialog with Save and Okay buttons.
      * Calls callback(true) on Save, callback(false) on Okay.
+     * Supports keyboard dismissal (ESC cancels) and overlay-click to cancel.
      * Note: bodyHtml is constructed from server measurement data within displayDemographicMeasurements(),
      * not from user input, so innerHTML assignment is safe here (same pattern as the former alertify.confirm).
      */
@@ -260,10 +261,30 @@
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
 
+        // Move focus into the dialog so keyboard events are scoped correctly
+        dialog.setAttribute('tabindex', '-1');
+        dialog.focus();
+
         function close(result) {
+            document.removeEventListener('keydown', keyHandler);
             document.body.removeChild(overlay);
             if (callback) callback(result);
         }
+
+        // ESC key cancels the dialog
+        function keyHandler(e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                close(false);
+            }
+        }
+        document.addEventListener('keydown', keyHandler);
+
+        // Click on the overlay background (outside the dialog) cancels
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) {
+                close(false);
+            }
+        });
 
         saveBtn.addEventListener('click', function () { close(true); });
         cancelBtn.addEventListener('click', function () { close(false); });
