@@ -141,22 +141,35 @@
         <script src="<%= context %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link rel="stylesheet" href="<%= context %>/library/jquery/jquery-ui-1.14.2.min.css">
         <script>
-            /* Bootstrap 5 dropdown shim replacing fg.menu plugin */
+            /* Vanilla JS dropdown shim replacing fg.menu plugin */
             $.fn.menu = function(opts) {
                 return this.each(function() {
                     var $trigger = $(this);
                     if (!opts || !opts.content) return;
-                    var $wrapper = $('<div class="dropdown d-inline-block"></div>');
-                    $trigger.wrap($wrapper);
-                    $trigger.attr({'data-bs-toggle': 'dropdown', 'role': 'button'}).css('cursor', 'pointer');
-                    var $menu = $('<ul class="dropdown-menu"></ul>');
+                    var $menu = $('<ul class="fg-menu-dropdown"></ul>');
                     $(opts.content).find('a').each(function() {
-                        var $a = $(this).clone().addClass('dropdown-item');
+                        var $a = $(this).clone();
                         $menu.append($('<li></li>').append($a));
                     });
+                    $trigger.css({cursor: 'pointer', position: 'relative'});
+                    $menu.css({display: 'none', position: 'absolute', zIndex: 9999,
+                        background: '#fff', border: '1px solid #ccc', borderRadius: '4px',
+                        padding: '4px 0', margin: '2px 0 0', listStyle: 'none',
+                        minWidth: '160px', boxShadow: '0 2px 6px rgba(0,0,0,.15)'});
+                    $menu.find('a').css({display: 'block', padding: '4px 12px',
+                        textDecoration: 'none', color: '#333', whiteSpace: 'nowrap'});
+                    $menu.find('a').on('mouseenter', function(){ $(this).css({background:'#f0f0f0'}); })
+                         .on('mouseleave', function(){ $(this).css({background:'transparent'}); });
                     $trigger.after($menu);
+                    $trigger.on('click', function(e) {
+                        e.stopPropagation();
+                        var wasOpen = $menu.is(':visible');
+                        $('.fg-menu-dropdown').hide();
+                        if (!wasOpen) $menu.show();
+                    });
                 });
             };
+            $(document).on('click', function() { $('.fg-menu-dropdown').hide(); });
         </script>
 
         <style type="text/css">
