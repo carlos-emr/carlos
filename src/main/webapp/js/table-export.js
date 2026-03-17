@@ -30,12 +30,22 @@ var TableExport = (function () {
         return btoa(unescape(encodeURIComponent(str)));
     }
 
+    // Characters that trigger formula execution in Excel/LibreOffice when they
+    // appear at the start of a cell value (CSV injection / formula injection).
+    var FORMULA_PREFIX_RE = /^[=+\-@\t\r]/;
+
     function escapeCsvCell(text) {
+        // Guard against formula injection: prefix with a tab so spreadsheet
+        // applications treat the cell as a text value, not a formula.
+        if (FORMULA_PREFIX_RE.test(text)) {
+            text = "\t" + text;
+        }
         var needsQuoting =
             text.indexOf(CSV_SEP) !== -1 ||
             text.indexOf("\r") !== -1 ||
             text.indexOf("\n") !== -1 ||
-            text.indexOf('"') !== -1;
+            text.indexOf('"') !== -1 ||
+            text.charAt(0) === "\t"; // always quote tab-prefixed cells
         if (needsQuoting) {
             return '"' + text.replace(/"/g, '""') + '"';
         }

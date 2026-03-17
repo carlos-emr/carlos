@@ -46,7 +46,7 @@ function init(pageNo) {
         var ethnicity = $("textarea[name='t_ethnicity']").val();
         var picker = document.getElementById('ethnicitySelectPicker');
         if (picker && picker.multiselectDropdown) {
-            picker.multiselectDropdown.setValues(ethnicity ? ethnicity.split(',') : []);
+            picker.multiselectDropdown.setValues(ethnicity ? ethnicity.split(',').map(function (v) { return v.trim(); }).filter(Boolean) : []);
             picker.addEventListener('change', function () {
                 var pickerValue = picker.multiselectDropdown.getValues();
                 $("textarea[name='t_ethnicity']").val(pickerValue.join(','));

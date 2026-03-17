@@ -151,7 +151,11 @@
                         var $a = $(this).clone();
                         $menu.append($('<li></li>').append($a));
                     });
-                    $trigger.css({cursor: 'pointer', position: 'relative'});
+                    $trigger.css({cursor: 'pointer'});
+                    // Wrap trigger in a positioned container so the absolutely-positioned
+                    // menu is anchored correctly below the trigger element.
+                    $trigger.wrap('<span style="position:relative;display:inline-block;"></span>');
+                    var $anchor = $trigger.parent();
                     $menu.css({display: 'none', position: 'absolute', zIndex: 9999,
                         background: '#fff', border: '1px solid #ccc', borderRadius: '4px',
                         padding: '4px 0', margin: '2px 0 0', listStyle: 'none',
@@ -160,7 +164,7 @@
                         textDecoration: 'none', color: '#333', whiteSpace: 'nowrap'});
                     $menu.find('a').on('mouseenter', function(){ $(this).css({background:'#f0f0f0'}); })
                          .on('mouseleave', function(){ $(this).css({background:'transparent'}); });
-                    $trigger.after($menu);
+                    $anchor.append($menu);
                     $trigger.on('click', function(e) {
                         e.stopPropagation();
                         var wasOpen = $menu.is(':visible');
@@ -1799,11 +1803,12 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     overlay.style.display = 'flex';
                 }
 
-                function closeFundalModal() {
+                // Exposed globally so the overlay's inline onclick can call it
+                window.closeFundalModal = function closeFundalModal() {
                     var overlay = document.getElementById('fundalOverlay');
                     overlay.style.display = 'none';
                     document.getElementById('fundalModalImg').src = '';
-                }
+                };
 
                 $(document).on('keydown', function(e) {
                     if (e.key === 'Escape') closeFundalModal();
@@ -1858,9 +1863,10 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     return n;
                 }
 
+                // fundalImageLink shows the full-size fundal chart in the modal
+                // (replaces fancyBoxFundal which was removed with the fancyBox dependency)
                 $("#fundalImageLink").click(function () {
-                    getFundalImageUrl();
-                    fancyBoxFundal();
+                    showFundalModal();
                 });
 
                 //$("#fundalImage").attr('src',getFundalImageUrl());

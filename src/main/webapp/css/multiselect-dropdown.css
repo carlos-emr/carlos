@@ -11,6 +11,8 @@
 
 .msd-toggle {
     display: inline-block;
+    width: 100%; /* fill wrapper when data-width is set */
+    box-sizing: border-box;
     padding: 4px 24px 4px 8px;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -34,7 +36,7 @@
     top: 100%;
     left: 0;
     z-index: 1050;
-    min-width: 220px;
+    min-width: 100%; /* at least as wide as the wrapper */
     max-height: 300px;
     overflow-y: auto;
     background: #fff;

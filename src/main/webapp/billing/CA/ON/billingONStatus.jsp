@@ -1130,9 +1130,9 @@
                     </tr>
                 </table><!-- inner -->
                 <%if (bList != null && !bList.isEmpty()) {%>
-                <a download="oscar_invoices.xls" href="#"
-                   onclick="return TableExport.excel(this, 'bListTable', 'OSCAR Invoices');">Export to Excel</a>
-                <a download="oscar_invoices.csv" href="#" onclick="return TableExport.csv(this, 'bListTable');">Export
+                <a download="carlos_invoices.xls" href="#"
+                   onclick="return TableExport.excel(this, 'bListTable', 'CARLOS Invoices');">Export to Excel</a>
+                <a download="carlos_invoices.csv" href="#" onclick="return TableExport.csv(this, 'bListTable');">Export
                     to CSV</a>
                 <%} %>
                 <% } %>

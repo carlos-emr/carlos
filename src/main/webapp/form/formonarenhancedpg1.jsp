@@ -118,7 +118,11 @@
                         var $a = $(this).clone();
                         $menu.append($('<li></li>').append($a));
                     });
-                    $trigger.css({cursor: 'pointer', position: 'relative'});
+                    $trigger.css({cursor: 'pointer'});
+                    // Wrap trigger in a positioned container so the absolutely-positioned
+                    // menu is anchored correctly below the trigger element.
+                    $trigger.wrap('<span style="position:relative;display:inline-block;"></span>');
+                    var $anchor = $trigger.parent();
                     $menu.css({display: 'none', position: 'absolute', zIndex: 9999,
                         background: '#fff', border: '1px solid #ccc', borderRadius: '4px',
                         padding: '4px 0', margin: '2px 0 0', listStyle: 'none',
@@ -127,7 +131,7 @@
                         textDecoration: 'none', color: '#333', whiteSpace: 'nowrap'});
                     $menu.find('a').on('mouseenter', function(){ $(this).css({background:'#f0f0f0'}); })
                          .on('mouseleave', function(){ $(this).css({background:'transparent'}); });
-                    $trigger.after($menu);
+                    $anchor.append($menu);
                     $trigger.on('click', function(e) {
                         e.stopPropagation();
                         var wasOpen = $menu.is(':visible');
