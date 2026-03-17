@@ -245,11 +245,15 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
      * smoking history status: {@code 0}=Yes (current smoker), {@code 1}=No (non-smoker),
      * {@code 2}=Previous (ex-smoker).
      *
-     * @return int raw refused status value (0, 1, 2, or 3)
+     * @return int raw refused status value (0, 1, 2, or 3), or {@code -1} if the stored
+     *         value is outside the expected range
      * @since 2026-03-14
      */
     public int getRefusedRawValue() {
-        return refused - '0';
+        if (refused >= '0' && refused <= '3') {
+            return refused - '0';
+        }
+        return -1;
     }
 
     public List<PreventionExt> getPreventionExts() {

@@ -348,11 +348,16 @@ public class Prevention {
      * checks. The {@code never} column is always {@code 0} for all smoking states and cannot
      * distinguish current smokers from non-smokers.
      *
-     * @param preventionType String the prevention type key (e.g. "Smoking")
-     * @return boolean {@code true} if the most recent record has refused status = 0
+     * @param preventionType String the prevention type key; must be {@code "Smoking"} —
+     *                       returns {@code false} for any other type to prevent semantic misuse
+     * @return boolean {@code true} if preventionType is "Smoking" and the most recent record
+     *         has refused status = 0 (current smoker)
      * @since 2026-03-14
      */
     public boolean isCurrentlySmoking(String preventionType) {
+        if (!"Smoking".equals(preventionType)) {
+            return false;
+        }
         return getRefusedStatus(preventionType) == 0;
     }
 

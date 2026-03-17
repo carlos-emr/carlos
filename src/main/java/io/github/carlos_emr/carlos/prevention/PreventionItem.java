@@ -48,7 +48,9 @@ public class PreventionItem {
     boolean refused;
     // Raw refused status value (0=active, 1=refused, 2=ineligible, 3=completedExternally).
     // For the "Smoking" type: 0=Yes (current), 1=No (non-smoker), 2=Previous (ex-smoker).
-    private int refusedStatus = 0;
+    // Defaults to -1 (unknown/uninitialized) to avoid misclassifying items built via
+    // constructors that do not hydrate this field from a Prevention record.
+    private int refusedStatus = -1;
     private boolean inelligible = false;
     private boolean remoteEntry = false;
 
