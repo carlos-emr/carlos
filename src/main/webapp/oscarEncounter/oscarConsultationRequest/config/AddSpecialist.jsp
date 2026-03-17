@@ -80,6 +80,15 @@
     pageContext.setAttribute("specialties", specialties);
 
     java.util.Properties oscarVariables = OscarProperties.getInstance();
+
+    // CPSO_SEARCH feature flag — defaults to true when absent so Ontario deployments
+    // work out of the box.  Set to false/no/off in carlos.properties for non-Ontario
+    // installations (e.g. BC, international) to hide the widget and suppress API calls.
+    String cpsoSearchRaw = OscarProperties.getInstance().getProperty("CPSO_SEARCH", "true").trim();
+    boolean cpsoSearchEnabled = !"false".equalsIgnoreCase(cpsoSearchRaw)
+            && !"no".equalsIgnoreCase(cpsoSearchRaw)
+            && !"off".equalsIgnoreCase(cpsoSearchRaw)
+            && !"0".equals(cpsoSearchRaw);
 %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -143,6 +152,177 @@
                 }
             }
         </script>
+        <%-- CPSO Physician Search — conditionally rendered based on CPSO_SEARCH property --%>
+        <% if (cpsoSearchEnabled) { %>
+        <%-- Capture CPSO i18n messages for safe JS injection via OWASP forJavaScript encoding --%>
+        <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.unavailable"   var="cpsoMsgUnavailable"/>
+        <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.noResults"     var="cpsoMsgNoResults"/>
+        <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.tooManyResults" var="cpsoMsgTooMany"/>
+        <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.phoneLabel"    var="cpsoMsgPhone"/>
+        <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.faxLabel"      var="cpsoMsgFax"/>
+        <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.cpsoLabel"     var="cpsoMsgCpso"/>
+        <script>
+            /* i18n strings for CPSO search – rendered server-side so JS stays locale-aware */
+            var cpsoI18n = {
+                unavailable:   '${e:forJavaScript(cpsoMsgUnavailable)}',
+                noResults:     '${e:forJavaScript(cpsoMsgNoResults)}',
+                tooMany:       '${e:forJavaScript(cpsoMsgTooMany)}',
+                phoneLabel:    '${e:forJavaScript(cpsoMsgPhone)}',
+                faxLabel:      '${e:forJavaScript(cpsoMsgFax)}',
+                cpsoLabel:     '${e:forJavaScript(cpsoMsgCpso)}'
+            };
+        </script>
+        <script>
+            $(document).ready(function () {
+                var cpsoTimer = null;
+                var cpsoDelay = 1000;
+                var currentCpsoRequest = null;
+
+                function doCpsoSearch() {
+                    var lastName = $('#cpsoLastName').val().trim();
+                    var firstName = $('#cpsoFirstName').val().trim();
+
+                    // Abort any in-flight request before the early return so stale results
+                    // cannot overwrite the cleared UI when input drops below the minimum length
+                    if (currentCpsoRequest) {
+                        currentCpsoRequest.abort();
+                        currentCpsoRequest = null;
+                    }
+
+                    if (lastName.length < 2 && firstName.length < 2) {
+                        $('#cpsoSpinner').hide();
+                        $('#cpsoResults').hide().empty();
+                        return;
+                    }
+
+                    $('#cpsoSpinner').show();
+
+                    currentCpsoRequest = $.ajax({
+                        url: '${pageContext.request.contextPath}/oscarEncounter/CpsoSearch.do',
+                        method: 'GET',
+                        data: { lastName: lastName, firstName: firstName },
+                        dataType: 'json',
+                        success: function (data) {
+                            $('#cpsoSpinner').hide();
+                            currentCpsoRequest = null;
+                            renderCpsoResults(data);
+                        },
+                        error: function (jqXHR) {
+                            if (jqXHR.statusText === 'abort') return;
+                            $('#cpsoSpinner').hide();
+                            currentCpsoRequest = null;
+                            $('#cpsoResults').html('<div class="p-2 text-danger">' + $('<span>').text(cpsoI18n.unavailable).html() + '</div>').show();
+                        }
+                    });
+                }
+
+                function renderCpsoResults(data) {
+                    var container = $('#cpsoResults');
+                    container.empty();
+
+                    if (!data) {
+                        container.html('<div class="p-2 text-danger">' + $('<span>').text(cpsoI18n.unavailable).html() + '</div>').show();
+                        return;
+                    }
+
+                    // Check for server-reported errors before checking result count
+                    if (data.errorCode) {
+                        container.html('<div class="p-2 text-danger">' + $('<span>').text(cpsoI18n.unavailable).html() + '</div>').show();
+                        return;
+                    }
+
+                    if (data.totalcount === -1) {
+                        container.html('<div class="p-2 text-warning">' + $('<span>').text(cpsoI18n.tooMany).html() + '</div>').show();
+                        return;
+                    }
+
+                    if (!Array.isArray(data.results) || data.results.length === 0) {
+                        container.html('<div class="p-2 text-muted">' + $('<span>').text(cpsoI18n.noResults).html() + '</div>').show();
+                        return;
+                    }
+
+                    $.each(data.results, function (i, doc) {
+                        var safeName = (typeof doc.name === 'string') ? doc.name : '';
+                        var nameParts = safeName.split(',');
+                        var docLastName = nameParts[0] ? nameParts[0].trim() : '';
+                        var docFirstName = nameParts[1] ? nameParts[1].trim() : '';
+
+                        var addressParts = [];
+                        if (doc.street1) addressParts.push(doc.street1);
+                        if (doc.street2) addressParts.push(doc.street2);
+                        if (doc.street3) addressParts.push(doc.street3);
+                        if (doc.city) addressParts.push(doc.city);
+                        if (doc.province) addressParts.push(doc.province);
+                        if (doc.postalcode) addressParts.push(doc.postalcode.trim());
+                        var fullAddress = addressParts.join(', ');
+
+                        var specialty = doc.specialties ? doc.specialties.trim() : '';
+                        var phone = doc.phonenumber ? doc.phonenumber.trim() : '';
+                        var fax = doc.fax ? doc.fax.trim() : '';
+                        var cpsoNum = doc.cpsonumber || '';
+                        var status = doc.registrationstatus || '';
+
+                        var statusBadge = '';
+                        if (status === 'Active') {
+                            statusBadge = '<span class="badge bg-success ms-2">' + $('<span>').text(status).html() + '</span>';
+                        } else {
+                            statusBadge = '<span class="badge bg-secondary ms-2">' + $('<span>').text(status).html() + '</span>';
+                        }
+
+                        var row = $('<div>')
+                            .addClass('cpso-result-item p-2')
+                            .css({ cursor: 'pointer', borderBottom: '1px solid #eee' })
+                            .attr('tabindex', '0')
+                            .attr('role', 'option')
+                            .data('physician', {
+                                firstName: docFirstName,
+                                lastName: docLastName,
+                                address: fullAddress,
+                                phone: phone,
+                                fax: fax,
+                                specialty: specialty,
+                                cpsoNum: cpsoNum
+                            });
+
+                        row.html(
+                            '<div><strong>' + $('<span>').text(docLastName + ', ' + docFirstName).html() + '</strong>'
+                            + statusBadge
+                            + ' <small class="text-muted">' + $('<span>').text(cpsoI18n.cpsoLabel).html() + $('<span>').text(cpsoNum).html() + '</small></div>'
+                            + (specialty ? '<div><small class="text-primary">' + $('<span>').text(specialty).html() + '</small></div>' : '')
+                            + (fullAddress ? '<div><small class="text-muted">' + $('<span>').text(fullAddress).html() + '</small></div>' : '')
+                            + ((phone || fax) ? '<div>'
+                                + (phone ? '<small class="text-muted">' + $('<span>').text(cpsoI18n.phoneLabel).html() + $('<span>').text(phone).html() + '</small>' : '')
+                                + (fax ? ' <small class="text-muted">' + $('<span>').text(cpsoI18n.faxLabel).html() + $('<span>').text(fax).html() + '</small>' : '')
+                                + '</div>' : '')
+                        );
+
+                        row.on('mouseenter', function () { $(this).css('background-color', '#e8f0fe'); });
+                        row.on('mouseleave', function () { $(this).css('background-color', ''); });
+
+                        row.on('click keypress', function (e) {
+                            if (e.type === 'keypress' && e.which !== 13) return;
+                            var physician = $(this).data('physician');
+                            $('#firstName').val(physician.firstName);
+                            $('#lastName').val(physician.lastName);
+                            $('#address').val(physician.address);
+                            $('#phone').val(physician.phone);
+                            $('#fax').val(physician.fax);
+                            container.hide();
+                        });
+
+                        container.append(row);
+                    });
+
+                    container.show();
+                }
+
+                $('#cpsoLastName, #cpsoFirstName').on('input', function () {
+                    clearTimeout(cpsoTimer);
+                    cpsoTimer = setTimeout(doCpsoSearch, cpsoDelay);
+                });
+            });
+        </script>
+        <% } %>
     </head>
 
     <body>
@@ -229,6 +409,39 @@
                     <% } %>
 
                     <input type="hidden" name="specId" id="specId" value="<%= specId != null ? specId : "" %>"/>
+
+                    <%-- CPSO Physician Search card — placed above name fields for a natural search → auto-fill flow --%>
+                    <% if (cpsoSearchEnabled) { %>
+                    <%-- Capture attribute strings for OWASP HTML-attribute encoding --%>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.lastNamePlaceholder"  var="cpsoAttrLNPlaceholder"/>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.firstNamePlaceholder" var="cpsoAttrFNPlaceholder"/>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.ariaSearching"        var="cpsoAttrAriaSearching"/>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.ariaResults"          var="cpsoAttrAriaResults"/>
+                    <div class="card mb-3" style="border: 1px solid var(--carlos-primary, #337ab7);">
+                        <div class="card-header text-white py-2" style="background-color: var(--carlos-primary, #337ab7);">
+                            <strong><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.title"/></strong>
+                            <small class="ms-2"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.subtitle"/></small>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row mb-2">
+                                <div class="col-md-5">
+                                    <label for="cpsoLastName" class="form-label form-label-sm mb-1"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.lastNameLabel"/></label>
+                                    <input type="text" id="cpsoLastName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrLNPlaceholder)}" autocomplete="off"/>
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="cpsoFirstName" class="form-label form-label-sm mb-1"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.firstNameLabel"/></label>
+                                    <input type="text" id="cpsoFirstName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrFNPlaceholder)}" autocomplete="off"/>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <span id="cpsoSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status" aria-label="${e:forHtmlAttribute(cpsoAttrAriaSearching)}"></span>
+                                </div>
+                            </div>
+                            <div id="cpsoResults" role="listbox" aria-live="polite" aria-label="${e:forHtmlAttribute(cpsoAttrAriaResults)}" style="display:none; max-height:200px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px;">
+                            </div>
+                            <small class="form-text text-muted"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.hint"/></small>
+                        </div>
+                    </div>
+                    <% } %>
 
                     <div class="row mb-2">
                         <div class="col-md-4">
