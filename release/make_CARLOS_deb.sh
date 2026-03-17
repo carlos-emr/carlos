@@ -131,14 +131,14 @@ MVN_EXIT=$?
 
 # Note: bash runs commands sequentially — mvn above is fully finished before this check runs.
 # There is no race condition; we explicitly capture the exit code for a clear failure message.
-if [ $MVN_EXIT -ne 0 ]; then
+if [ "$MVN_EXIT" -ne 0 ]; then
     echo "ERROR: Maven build failed (exit code $MVN_EXIT), aborting deb creation." >&2
     exit $MVN_EXIT
 fi
 
 # Sanity check: WAR should always exist after a successful Maven build.
 # If it is somehow missing despite exit 0, catch it here before wasting time on the rest of packaging.
-if [ ! -f "${REPO_ROOT}/target/${TARGET}" ]; then
+if [ -z "${TARGET}" ] || [ ! -f "${REPO_ROOT}/target/${TARGET}" ]; then
     echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — Maven reported success but WAR not found." >&2
     exit 1
 fi
@@ -432,11 +432,12 @@ chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.s
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
 _update_sql_count=0
+mkdir -p "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
 # Loop through the SQL files in the specified directory
 for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
     if [ -f "${_upd_sql}" ]; then
         # Skip the specific destructive SQL file for compatibility reasons.
-        if [[ "${_upd_sql}" == *"/update-2026-02-14-facility-integrator-removal.sql" ]]; then
+        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ]]; then
             continue
         fi
         cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
