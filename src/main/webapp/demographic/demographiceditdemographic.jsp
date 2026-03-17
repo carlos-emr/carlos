@@ -278,7 +278,7 @@
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
 
         <% if (isMobileOptimized) { %>
         <meta name="viewport"
