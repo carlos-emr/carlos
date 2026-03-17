@@ -33,18 +33,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import org.apache.cxf.common.util.Base64Utility;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpStatus;
-import org.apache.http.NameValuePair;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.http.NameValuePair;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
+import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -448,9 +449,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     private JsonNode postForm(String endpoint, List<NameValuePair> params) throws FaxProviderException {
         RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(30_000)           // Connection establishment timeout
-                .setSocketTimeout(60_000)            // Socket read timeout
-                .setConnectionRequestTimeout(30_000) // Connection pool timeout
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofSeconds(60))
                 .build();
 
         HttpPost httpPost = new HttpPost(endpoint);
@@ -459,17 +459,15 @@ public class SRFaxProviderClient implements FaxProviderClient {
         try (CloseableHttpClient client = HttpClients.custom()
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
-            httpPost.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));
+            httpPost.setEntity(new UrlEncodedFormEntity(params));
 
             try (CloseableHttpResponse response = client.execute(httpPost)) {
-                // Validate HTTP status code
-                int statusCode = response.getStatusLine().getStatusCode();
+                int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
-                    throw new FaxProviderException("SRFax API returned HTTP " + statusCode + 
-                            ": " + response.getStatusLine().getReasonPhrase());
+                    throw new FaxProviderException("SRFax API returned HTTP " + statusCode +
+                            ": " + response.getReasonPhrase());
                 }
 
-                // Validate entity is not null
                 HttpEntity entity = response.getEntity();
                 if (entity == null) {
                     throw new FaxProviderException("SRFax API returned null response entity");

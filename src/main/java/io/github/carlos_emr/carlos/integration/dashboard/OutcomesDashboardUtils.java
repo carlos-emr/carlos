@@ -35,16 +35,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.http.NameValuePair;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
@@ -173,24 +172,23 @@ public class OutcomesDashboardUtils {
         urlParameters.add(new BasicNameValuePair("data", data.toString()));
 
         //send to shared dashboard
-
-        HttpClient httpClient = new DefaultHttpClient();
         HttpPost postMethod = new HttpPost(OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_send_url"));
-
         postMethod.setEntity(new UrlEncodedFormEntity(urlParameters));
 
         logger.info(data);
 
         postMethod.setHeader("Content-Type", "application/x-www-form-urlencoded");
 
-        HttpResponse response = httpClient.execute(postMethod);
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            var response = httpClient.execute(postMethod);
 
-        logger.info(response.getStatusLine().getStatusCode());
-        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-            HttpEntity httpEntity = response.getEntity();
-            String content = EntityUtils.toString(httpEntity);
-            logger.info(content);
-            logger.info("sent");
+            logger.info(response.getCode());
+            if (response.getCode() == HttpStatus.SC_OK) {
+                HttpEntity httpEntity = response.getEntity();
+                String content = EntityUtils.toString(httpEntity);
+                logger.info(content);
+                logger.info("sent");
+            }
         }
     }
 

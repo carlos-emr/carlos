@@ -38,20 +38,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.BasicCookieStore;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.NameValuePair;
-import org.apache.http.impl.cookie.BasicClientCookie;
-import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.client.config.CookieSpecs;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.entity.ContentType;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.cookie.BasicCookieStore;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
+import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
+import org.apache.hc.core5.http.NameValuePair;
+import org.apache.hc.client5.http.impl.cookie.BasicClientCookie;
+import org.apache.hc.client5.http.protocol.HttpClientContext;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.util.Timeout;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -108,8 +108,8 @@ public class TeleplanAPI {
         httpContext.setCookieStore(cookieStore);
 
         RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(30_000)
-                .setCookieSpec(CookieSpecs.STANDARD)
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofSeconds(30))
                 .build();
 
         httpclient = HttpClients.custom()
@@ -123,7 +123,7 @@ public class TeleplanAPI {
         TeleplanResponse tr = null;
         try {
             HttpPost post = new HttpPost(url);
-            post.setEntity(new UrlEncodedFormEntity(data, "UTF-8"));
+            post.setEntity(new UrlEncodedFormEntity(data));
             try (CloseableHttpResponse response = httpclient.execute(post)) {
                 InputStream in = response.getEntity().getContent();
                 tr = new TeleplanResponse();

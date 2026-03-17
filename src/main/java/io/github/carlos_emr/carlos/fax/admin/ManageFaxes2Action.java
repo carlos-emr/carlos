@@ -42,15 +42,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.http.HttpStatus;
+import org.apache.hc.core5.http.HttpStatus;
 import org.apache.commons.lang3.time.DateUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.classic.methods.HttpPut;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -135,17 +136,21 @@ public class ManageFaxes2Action extends Fax2Action {
             if (faxJob.getJobId() != null) {
 
                 if (faxJob.getStatus().equals(FaxJob.STATUS.WAITING)) {
-                    try (DefaultHttpClient client = new DefaultHttpClient()) {
-                        client.getCredentialsProvider().setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd()));
+                    BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                    credentialsProvider.setCredentials(new AuthScope(null, -1),
+                            new UsernamePasswordCredentials(faxConfig.getSiteUser(), faxConfig.getPasswd().toCharArray()));
+
+                    try (CloseableHttpClient client = HttpClients.custom()
+                            .setDefaultCredentialsProvider(credentialsProvider).build()) {
 
                         HttpPut mPut = new HttpPut(faxConfig.getUrl() + "/fax/" + faxJob.getJobId());
                         mPut.setHeader("accept", "application/json");
                         mPut.setHeader("user", faxConfig.getFaxUser());
                         mPut.setHeader("passwd", faxConfig.getFaxPasswd());
 
-                        HttpResponse httpResponse = client.execute(mPut);
+                        var httpResponse = client.execute(mPut);
 
-                        if (httpResponse.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                        if (httpResponse.getCode() == HttpStatus.SC_OK) {
 
                             HttpEntity httpEntity = httpResponse.getEntity();
                             result = objectMapper.createObjectNode();
