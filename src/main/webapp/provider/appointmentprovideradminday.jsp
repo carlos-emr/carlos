@@ -890,7 +890,7 @@
 
             <td id="firstMenu">
                 <div class="icon-container">
-                    <img alt="OSCAR EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
+                    <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
                 </div>
                 <ul id="navlist">
                     <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -1927,7 +1927,7 @@
                                                                       String notes = String.valueOf(appointment.getNotes()).trim();
                                                                       String status = String.valueOf(appointment.getStatus()).trim();
                                                                       String sitename = String.valueOf(appointment.getLocation()).trim();
-                                                                      String type = appointment.getType();
+                                                                      String type = appointment.getType() != null ? appointment.getType() : "";
                                                                       String urgency = appointment.getUrgency();
                                                                       String reasonCodeName = "";
                                                                       if(appointment.getReasonCode() != null)    {

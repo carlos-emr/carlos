@@ -208,9 +208,9 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css">
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
         <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
-        <script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+        <script src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script src="<%= request.getContextPath() %>/share/javascript/popupmenu.js" type="text/javascript"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/menutility.js" type="text/javascript"></script>

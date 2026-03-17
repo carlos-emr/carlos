@@ -83,7 +83,7 @@
 <table id="firstTable" class="noprint">
     <tr>
         <td class="icon-container">
-            <img alt="OSCAR EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19">
+            <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19">
         </td>
         <td id="firstMenu">
             <ul id="navlist">

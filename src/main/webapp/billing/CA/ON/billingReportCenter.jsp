@@ -25,8 +25,10 @@
 <%
 
     if (((String) session.getAttribute("userrole")).indexOf("admin") >= 0 ||
-            ((String) session.getAttribute("userrole")).indexOf("doctor") >= 0)
-        response.sendRedirect("billingONReport.jsp");
+            ((String) session.getAttribute("userrole")).indexOf("doctor") >= 0) {
+        request.getRequestDispatcher("billingONNewReport.jsp").include(request, response);
+        return;
+    }
     String user_no = (String) session.getAttribute("user");
     int nItems = 0;
     String strLimit1 = "0";

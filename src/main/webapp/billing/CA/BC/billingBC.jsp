@@ -1270,7 +1270,7 @@
 <body style="background-color:#FFFFFF;" onLoad="CheckType();correspondenceNote();">
 <div id="page-header">
     <div class="icon-container">
-        <img alt="OSCAR EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
+        <img alt="CARLOS EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
     </div>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h3>
     <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>

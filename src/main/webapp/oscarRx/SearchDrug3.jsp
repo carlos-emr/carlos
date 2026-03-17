@@ -1405,6 +1405,8 @@ function renderRxStage() {
     function iterateStash(){
         var url=ctx + "/oscarRx/WriteScript.do";
         var data="parameterValue=iterateStash&rand="+ Math.floor(Math.random()*10001);
+        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (csrfEl) { data += "&CSRF-TOKEN=" + encodeURIComponent(csrfEl.value); }
         new Ajax.Updater('rxText',url, {method:'POST',parameters:data,asynchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,
