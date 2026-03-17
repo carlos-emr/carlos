@@ -80,6 +80,15 @@
     pageContext.setAttribute("specialties", specialties);
 
     java.util.Properties oscarVariables = OscarProperties.getInstance();
+
+    // CPSO_SEARCH feature flag — defaults to true when absent so Ontario deployments
+    // work out of the box.  Set to false/no/off in carlos.properties for non-Ontario
+    // installations (e.g. BC, international) to hide the widget and suppress API calls.
+    String cpsoSearchRaw = OscarProperties.getInstance().getProperty("CPSO_SEARCH", "true").trim();
+    boolean cpsoSearchEnabled = !"false".equalsIgnoreCase(cpsoSearchRaw)
+            && !"no".equalsIgnoreCase(cpsoSearchRaw)
+            && !"off".equalsIgnoreCase(cpsoSearchRaw)
+            && !"0".equals(cpsoSearchRaw);
 %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -143,6 +152,8 @@
                 }
             }
         </script>
+        <%-- CPSO Physician Search — conditionally rendered based on CPSO_SEARCH property --%>
+        <% if (cpsoSearchEnabled) { %>
         <%-- Capture CPSO i18n messages for safe JS injection via OWASP forJavaScript encoding --%>
         <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.unavailable"   var="cpsoMsgUnavailable"/>
         <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.noResults"     var="cpsoMsgNoResults"/>
@@ -311,6 +322,7 @@
                 });
             });
         </script>
+        <% } %>
     </head>
 
     <body>
@@ -397,6 +409,39 @@
                     <% } %>
 
                     <input type="hidden" name="specId" id="specId" value="<%= specId != null ? specId : "" %>"/>
+
+                    <%-- CPSO Physician Search card — placed above name fields for a natural search → auto-fill flow --%>
+                    <% if (cpsoSearchEnabled) { %>
+                    <%-- Capture attribute strings for OWASP HTML-attribute encoding --%>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.lastNamePlaceholder"  var="cpsoAttrLNPlaceholder"/>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.firstNamePlaceholder" var="cpsoAttrFNPlaceholder"/>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.ariaSearching"        var="cpsoAttrAriaSearching"/>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.ariaResults"          var="cpsoAttrAriaResults"/>
+                    <div class="card mb-3" style="border: 1px solid var(--carlos-primary, #337ab7);">
+                        <div class="card-header text-white py-2" style="background-color: var(--carlos-primary, #337ab7);">
+                            <strong><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.title"/></strong>
+                            <small class="ms-2"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.subtitle"/></small>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="row mb-2">
+                                <div class="col-md-5">
+                                    <label for="cpsoLastName" class="form-label form-label-sm mb-1"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.lastNameLabel"/></label>
+                                    <input type="text" id="cpsoLastName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrLNPlaceholder)}" autocomplete="off"/>
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="cpsoFirstName" class="form-label form-label-sm mb-1"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.firstNameLabel"/></label>
+                                    <input type="text" id="cpsoFirstName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrFNPlaceholder)}" autocomplete="off"/>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <span id="cpsoSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status" aria-label="${e:forHtmlAttribute(cpsoAttrAriaSearching)}"></span>
+                                </div>
+                            </div>
+                            <div id="cpsoResults" role="listbox" aria-live="polite" aria-label="${e:forHtmlAttribute(cpsoAttrAriaResults)}" style="display:none; max-height:200px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px;">
+                            </div>
+                            <small class="form-text text-muted"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.hint"/></small>
+                        </div>
+                    </div>
+                    <% } %>
 
                     <div class="row mb-2">
                         <div class="col-md-4">
@@ -563,37 +608,6 @@
                                 </option>
                             </c:forEach>
                         </select>
-                        </div>
-                    </div>
-
-                    <%-- CPSO Physician Search --%>
-                    <%-- Capture attribute strings for OWASP HTML-attribute encoding --%>
-                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.lastNamePlaceholder"  var="cpsoAttrLNPlaceholder"/>
-                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.firstNamePlaceholder" var="cpsoAttrFNPlaceholder"/>
-                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.ariaSearching"        var="cpsoAttrAriaSearching"/>
-                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.ariaResults"          var="cpsoAttrAriaResults"/>
-                    <div class="card mb-3" style="border: 1px solid var(--carlos-primary, #337ab7);">
-                        <div class="card-header text-white py-2" style="background-color: var(--carlos-primary, #337ab7);">
-                            <strong><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.title"/></strong>
-                            <small class="ms-2"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.subtitle"/></small>
-                        </div>
-                        <div class="card-body py-2">
-                            <div class="row mb-2">
-                                <div class="col-md-5">
-                                    <label for="cpsoLastName" class="form-label form-label-sm mb-1"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.lastNameLabel"/></label>
-                                    <input type="text" id="cpsoLastName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrLNPlaceholder)}" autocomplete="off"/>
-                                </div>
-                                <div class="col-md-5">
-                                    <label for="cpsoFirstName" class="form-label form-label-sm mb-1"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.firstNameLabel"/></label>
-                                    <input type="text" id="cpsoFirstName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrFNPlaceholder)}" autocomplete="off"/>
-                                </div>
-                                <div class="col-md-2 d-flex align-items-end">
-                                    <span id="cpsoSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status" aria-label="${e:forHtmlAttribute(cpsoAttrAriaSearching)}"></span>
-                                </div>
-                            </div>
-                            <div id="cpsoResults" role="listbox" aria-live="polite" aria-label="${e:forHtmlAttribute(cpsoAttrAriaResults)}" style="display:none; max-height:200px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px;">
-                            </div>
-                            <small class="form-text text-muted"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.hint"/></small>
                         </div>
                     </div>
 
