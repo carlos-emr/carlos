@@ -127,6 +127,13 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/DEBIAN/"
 # so use ${RELEASE_DIR}/xxx for release/ files and ./xxx for repo-root files.
 cd "${REPO_ROOT}" || { echo "ERROR: Failed to cd to ${REPO_ROOT}" >&2; exit 1; }
 mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
+
+# Fail fast if the WAR was not produced — abort before doing any more package setup work.
+if [ ! -f "${REPO_ROOT}/target/${TARGET}" ]; then
+    echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — Maven build failed, aborting deb creation." >&2
+    exit 1
+fi
+
 mkdir -p "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/"
 # WAR is copied generically below (after drugref download) using ${TARGET} and ${PROGRAM} variables.
 
@@ -409,24 +416,22 @@ cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/
 cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
 chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
 
-# Bundle incremental update scripts after update-2026-02-14-facility-integrator-removal.sql
-# for CARLOS revision upgrades.  That update should not be run for compatability reasons.
+# Bundle incremental update scripts for CARLOS revision upgrades.
+# update-2026-02-14-facility-integrator-removal.sql is intentionally excluded because it
+# drops facility columns that are incompatible with OSCAR 19 installations and cannot be
+# safely applied during a package upgrade.  All other update scripts are included.
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
 _update_sql_count=0
-# Flag to start copying files after update-2026-02-14-facility-integrator-removal.sql
-start_copying=false
 # Loop through the SQL files in the specified directory
 for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
     if [ -f "${_upd_sql}" ]; then
-        if [[ "${_upd_sql}" == *"update-2026-02-14"* ]]; then
-            start_copying=true
-            continue  # Skip this file and move to the next one
+        # Skip the specific destructive SQL file for compatibility reasons.
+        if [[ "${_upd_sql}" == *"/update-2026-02-14-facility-integrator-removal.sql" ]]; then
+            continue
         fi
-        if $start_copying; then
-            cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
-            _update_sql_count=$((_update_sql_count + 1))
-        fi
+        cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
+        _update_sql_count=$((_update_sql_count + 1))
     fi
 done
 echo "Bundled ${_update_sql_count} incremental update SQL files into package"
