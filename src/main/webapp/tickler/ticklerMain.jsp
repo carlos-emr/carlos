@@ -84,6 +84,7 @@
         demographic_no = "0";
     }
     boolean isDemoView = !"0".equals(demographic_no) && demographic_no != null;
+    pageContext.setAttribute("hasDemoView", isDemoView);
 
     Map<String, View> ticklerView = viewDao.getView("tickler", userRole, user_no);
 
@@ -150,10 +151,10 @@
 
         <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+                src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
-        <link href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
+        <link href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/css/print.css"/>
 
@@ -892,10 +893,6 @@
                         <%
                             }
                         %>
-                        <input type="button" class="btn btn-primary" name="button"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnAddTickler"/>"
-                               onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=${parentAjaxId}&bFirstDisp=false&messageID=null&demographic_no=${param.demoview}')"
-                               class="sbttn">
                         <input type="button" name="button" class="btn btn-warning"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>" onClick="window.close()" class="sbttn">
                     </td>
@@ -951,8 +948,8 @@
 
                 </table>
                 <div class="float-end">
-                    <button class="btn btn-primary" onclick="saveNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.save"/></button>
-                    <button class="btn btn-danger" onclick="closeNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/></button>
+                    <button type="button" class="btn btn-primary" onclick="saveNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.save"/></button>
+                    <button type="button" class="btn btn-danger" onclick="closeNoteDialog()"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/></button>
                 </div>
             </form>
         </div>

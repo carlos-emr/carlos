@@ -358,7 +358,6 @@
                 }
             }
         </script>
-        <%@ include file="/includes/global-head.jspf" %>
 
     </head>
 
