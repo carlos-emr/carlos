@@ -15,9 +15,10 @@
 <head>
     <title>Set HL7 Lab Result Preferences</title>
 
-    <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" media="screen">
-    <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-    <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+    <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
+    <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
 <jsp:include page="../images/spinner.jsp" flush="true"/>

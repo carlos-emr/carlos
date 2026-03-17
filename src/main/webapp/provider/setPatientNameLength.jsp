@@ -55,7 +55,7 @@
         <title><%=bundle.getString(providertitle)%></title>
         <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"></script>
         <script src="<c:out value="${ctx}"/>/js/global.js"></script>
-        <link href="<c:out value="${ctx}"/>/css/bootstrap.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="<c:out value="${ctx}"/>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
 
     </head>
 

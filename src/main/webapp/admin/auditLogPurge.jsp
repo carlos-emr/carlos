@@ -66,29 +66,22 @@
     <head>
         <title>Audit Log Purge Tool</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css" type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" type="text/css">
-        <link rel="stylesheet"
-              href="<%=request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"
-              type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" type="text/css">
+
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
-
-
-        <SCRIPT LANGUAGE="JavaScript">
-            jQuery(document).ready(function () {
-                jQuery("#dateBegin").datepicker();
-                //jQuery("#dateBegin").datepicker("option","showAnim","blind");
-                jQuery("#dateBegin").datepicker("option", "dateFormat", "yy-mm-dd");
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                flatpickr("#dateBegin", {dateFormat: "Y-m-d", allowInput: true});
             });
 
             function submitForm() {
 
-                if (jQuery("#dateBegin").val().length == 0) {
+                if (document.getElementById('dateBegin').value.length == 0) {
                     alert('Please fill in a date');
                     return false;
                 }
@@ -96,7 +89,7 @@
             }
 
             function resetForm() {
-                jQuery("#dateBegin").val("");
+                document.getElementById('dateBegin').value = "";
             }
 
         </SCRIPT>
@@ -112,14 +105,15 @@
 
     <body>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         <h3>Audit Log Purge Tool</h3>
 
-        <div class="span2">
+        <div class="row">
+        <div class="col-md-2">
 
         </div><!--span2-->
 
-        <div class="span12">
+        <div class="col-md-12">
 
             <%
                 String minDays = OscarProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
@@ -161,7 +155,7 @@
                     chosen date.
                 </p>
 
-                Most Recent Day to purge: <input class="span4" type="text" id="dateBegin" name="dateBegin" value=""/>
+                Most Recent Day to purge: <input class="form-control" type="text" id="dateBegin" name="dateBegin" value=""/>
 
                 <br/>
 
@@ -178,6 +172,7 @@
             <% } %>
         </div><!--span4-->
 
+        </div><!--row-->
     </div><!--container-->
 
 

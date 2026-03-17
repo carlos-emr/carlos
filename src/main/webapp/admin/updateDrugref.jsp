@@ -57,18 +57,33 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
-        <link href="<c:out value="${ctx}/css/bootstrap.css"/>" rel="stylesheet" type="text/css">
+        <link href="<c:out value="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>" rel="stylesheet" type="text/css">
 
         <script>
+            function getCsrfToken() {
+                var el = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!el) {
+                    console.warn('CSRF-TOKEN hidden input not found. POST requests will be rejected.');
+                    return '';
+                }
+                return el.value;
+            }
+
             function getUpdateTime() {
                 const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'verify');
+                formData.append('CSRF-TOKEN', getCsrfToken());
 
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: formData.toString()
                 })
@@ -88,9 +103,9 @@
                         document.getElementById('statusDisplay').style.display = 'none';
                         document.getElementById('updateButton').style.display = 'none';
                     } else {
-                        document.getElementById('dbDateTime').innerHTML = json.lastUpdate;
-                        document.getElementById('drugDatabaseVersion').innerHTML = json.version;
-                        document.getElementById('drugDatabase').innerHTML = json.drugDatabase;
+                        document.getElementById('dbDateTime').textContent = json.lastUpdate;
+                        document.getElementById('drugDatabaseVersion').textContent = json.version;
+                        document.getElementById('drugDatabase').textContent = json.drugDatabase;
                         document.getElementById('dbInfo').style.display = 'none';
                         document.getElementById('statusDisplay').style.display = 'block';
                     }
@@ -106,11 +121,17 @@
                 const url = "<c:out value='${ctx}'/>" + "/oscarRx/updateDrugrefDB.do";
                 const formData = new URLSearchParams();
                 formData.append('method', 'updateDB');
+                formData.append('CSRF-TOKEN', getCsrfToken());
 
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: formData.toString()
                 })
@@ -145,8 +166,10 @@
       </style>
     </head>
     <body class="mainbody">
+    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
+    <form id="csrfForm" method="post" style="display:none;"></form>
     <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
-    <div class="well">
+    <div class="card card-body bg-body-tertiary">
         <div id="dbInfo"></div>
         <div id="statusDisplay" style="display:none;">
           <div>

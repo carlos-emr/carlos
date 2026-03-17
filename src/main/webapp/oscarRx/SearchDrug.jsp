@@ -103,7 +103,6 @@
 <html>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.title"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
 
@@ -293,7 +292,7 @@
                         <td>
                             <div class="DivContentSectionHead"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.section2Title"/> (<a
                                     href="javascript:popupWindow(720,700,'<%= request.getContextPath() %>/oscarRx/PrintDrugProfile.jsp','PrintDrugProfile')"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Print"/></a>) &nbsp;&nbsp;(<a href="#"
-                                                                                  onclick="$('reprint').toggle();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>)
+                                                                                  onclick="var el=document.getElementById('reprint');el.style.display=el.style.display==='none'?'':'none';return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>)
                             </div>
                         </td>
                     </tr>

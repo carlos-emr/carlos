@@ -513,23 +513,9 @@ select {
 }
 
 /*
-*
-Bootstrap 3 Modal Open shift left issue - START
-*
-*/
-.modal {
-    overflow-y: auto !important;
-}
-
-.modal-open {
-    overflow: auto !important;
-}
-
-/*
-*
-Bootstrap 3 Modal Open shift left issue - END
-*
-*/
+ * Bootstrap 3 modal-open workaround removed during BS5 migration.
+ * BS5 manages modal scroll lock natively; the old override fought it.
+ */
 
 /* 
 *
@@ -566,7 +552,7 @@ label {
     display: none;
 }
 
-.radio input[type="radio"], .radio-inline input[type="radio"], .checkbox input[type="checkbox"], .checkbox-inline input[type="checkbox"] {
+.radio input[type="radio"], .form-check-inline input[type="radio"], .checkbox input[type="checkbox"], .form-check-inline input[type="checkbox"] {
     float: none !important;
 }
 

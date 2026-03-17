@@ -132,7 +132,7 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <script language="JavaScript">
         function setfocus() {
             document.titlesearch.keyword.focus();
@@ -197,10 +197,10 @@
 
 </head>
 <body onLoad="setfocus()">
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></h3>
 
-    <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="form-inline"
+    <form method="post" name="titlesearch" action="demographicmergerecord.jsp" class="d-flex flex-wrap align-items-center gap-2"
           onSubmit="return checkTypeIn()">
 
         Search:
@@ -215,13 +215,13 @@
                value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> Address
         <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> HIN
 
-        <input type="text" NAME="keyword" class="span6" MAXLENGTH="100" value="<%=(keyword != null)?keyword:""%>">
+        <input type="text" NAME="keyword" class="form-control" MAXLENGTH="100" value="<%=(keyword != null)?keyword:""%>">
         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">
         <INPUT TYPE="hidden" NAME="limit2" VALUE="10">
 
-        <INPUT class="btn" TYPE="SUBMIT" NAME="button" VALUE="Search">
-        <input class="btn" type="submit" name="mergebutton" value="Search Merged Records" onclick="searchMerged()">
+        <INPUT class="btn btn-secondary" TYPE="SUBMIT" NAME="button" VALUE="Search">
+        <input class="btn btn-secondary" type="submit" name="mergebutton" value="Search Merged Records" onclick="searchMerged()">
     </form>
 </div><!--well-->
 
@@ -234,7 +234,7 @@
         <input type="hidden" name="mergeAction" value="merge"/>
         <input type="hidden" name="provider_no" value="<%= session.getAttribute("user") %>"/>
 
-        <table class="table table-striped  table-condensed">
+        <table class="table table-striped  table-sm">
             <tr>
                 <TH align="CENTER" width="5%"></th>
                 <% if (!mergedSearch) {%>
@@ -379,11 +379,11 @@
         <br>
         <% if (mergedSearch) {%>
 
-        <input type="submit" class="btn btn-warning btn-large" value="UnMerge Selected Records" onclick="UnMerge()"/>
+        <input type="submit" class="btn btn-warning btn-lg" value="UnMerge Selected Records" onclick="UnMerge()"/>
 
         <%} else {%>
 
-        <input type="submit" class="btn btn-primary btn-large" value="Merge Selected Records"/>
+        <input type="submit" class="btn btn-primary btn-lg" value="Merge Selected Records"/>
 
         <%}%> <br/>
 

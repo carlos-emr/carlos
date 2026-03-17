@@ -9,10 +9,12 @@ function refresh() {
 }
 
 function showHideItem(id) {
-    if (document.getElementById(id).style.display == 'none')
-        document.getElementById(id).style.display = 'block';
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.style.display == 'none')
+        el.style.display = 'block';
     else
-        document.getElementById(id).style.display = 'none';
+        el.style.display = 'none';
 }
 
 var currentWidth;

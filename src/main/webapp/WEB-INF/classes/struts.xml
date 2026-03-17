@@ -949,6 +949,8 @@
         <action name="oscarEncounter/ShowAllInstitutions" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllInstitutions2Action">
             <result name="success">/oscarEncounter/oscarConsultationRequest/config/DisplayInstitution.jsp</result>
         </action>
+        <action name="oscarEncounter/CpsoSearch" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.CpsoSearch2Action">
+        </action>
         <action name="oscarEncounter/AddSpecialist" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialist2Action">
             <result name="success">/oscarEncounter/oscarConsultationRequest/config/AddSpecialist.jsp</result>
             <result name="edited">/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp</result>

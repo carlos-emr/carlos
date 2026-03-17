@@ -59,7 +59,6 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="screen" href="<%= request.getContextPath() %>/form/labReqStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/form/print.css">
-        <script src="<%= request.getContextPath() %>/share/javascript/prototype.js" type="text/javascript"></script>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
 

@@ -66,7 +66,8 @@
         <title>OSCAR Jobs</title>
 
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
-        <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
         <script src="<%=request.getContextPath()%>/share/yui/js/yahoo-dom-event.js"></script>
         <script src="<%=request.getContextPath()%>/share/yui/js/connection-min.js"></script>
@@ -75,8 +76,7 @@
         <script src="<%=request.getContextPath()%>/share/yui/js/autocomplete-min.js"></script>
         <script src="<%=request.getContextPath()%>/js/demographicProviderAutocomplete.js"></script>
 
-        <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet">
-        <link href="<%=request.getContextPath()%>/css/bootstrap-responsive.css" rel="stylesheet">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/yui/css/fonts-min.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/yui/css/autocomplete.css" rel="stylesheet">
         <link href="<%=request.getContextPath()%>/share/css/demographicProviderAutocomplete.css" media="all"
@@ -95,21 +95,22 @@
         <script>
 
             function updateScope() {
-                if ($("#scope").val() == "clinic" || $("#scope").val() == "") {
-                    $("#providerTR").hide();
-                    $("#patientTR").hide();
+                var scopeVal = document.getElementById('scope').value;
+                if (scopeVal == "clinic" || scopeVal == "") {
+                    document.getElementById('providerTR').style.display = 'none';
+                    document.getElementById('patientTR').style.display = 'none';
                 }
-                if ($("#scope").val() == "provider") {
-                    $("#providerTR").show();
-                    $("#patientTR").hide();
+                if (scopeVal == "provider") {
+                    document.getElementById('providerTR').style.display = '';
+                    document.getElementById('patientTR').style.display = 'none';
                 }
-                if ($("#scope").val() == "patient") {
-                    $("#providerTR").hide();
-                    $("#patientTR").show();
+                if (scopeVal == "patient") {
+                    document.getElementById('providerTR').style.display = 'none';
+                    document.getElementById('patientTR').style.display = '';
                 }
             }
 
-            $(document).ready(function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 updateScope();
                 getSystemFlowsheets();
             });
@@ -143,14 +144,14 @@
             }
 
             function updateDetails() {
-                var template = $("#template").val();
+                var template = document.getElementById('template').value;
 
                 if (template != '') {
                     jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTemplateDetails&template=" + template, {},
                         function (xml) {
-                            $("#recommendationColour").val(xml.recommendationColour);
-                            $("#warningColour").val(xml.warningColour);
-                            $("#triggers").val(xml.dxTriggers);
+                            document.getElementById('recommendationColour').value = xml.recommendationColour;
+                            document.getElementById('warningColour').value = xml.warningColour;
+                            document.getElementById('triggers').value = xml.dxTriggers;
                         });
                 }
             }
@@ -161,7 +162,7 @@
     <h2>Add New Custom Flowsheet</h2>
     <br/>
     <form id="theForm">
-        <table style="width:30%" class="table table-striped table-hover table-condensed">
+        <table style="width:30%" class="table table-striped table-hover table-sm">
 
             <tr>
                 <td><b>Name:</b></td>
@@ -251,8 +252,8 @@
                 var oData = args[2];
                 var demographicNo = args[2][2];
                 var demographicName = args[2][0];
-                $("#demographicNo").val(demographicNo);
-                $("#demographicAC").val(demographicName);
+                document.getElementById('demographicNo').value = demographicNo;
+                document.getElementById('demographicAC').value = demographicName;
             });
             return {
                 oDS: oDS,
@@ -280,8 +281,8 @@
                 var oData = args[2];
                 var providerNo = args[2][0];
                 var providerName = args[2][2] + "," + args[2][1];
-                $("#providerNo").val(providerNo);
-                $("#providerAC").val(providerName);
+                document.getElementById('providerNo').value = providerNo;
+                document.getElementById('providerAC').value = providerName;
             });
             return {
                 oDS: oDS,

@@ -50,6 +50,8 @@
 <head>
     <title>Server Log Viewer</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 </head>
 <body>
 
@@ -60,7 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.serverLog"/>
     </h4>
@@ -80,24 +82,24 @@
         reportType = "general";
     }
 %>
-<form id="logForm" action="${ctx}/admin/oscarLogging.jsp" class="well form-horizontal">
+<form id="logForm" action="${ctx}/admin/oscarLogging.jsp" class="card card-body bg-body-tertiary">
 
     <fieldset>
         <h4>
             View Server Log <br>
             <small>Please select the date to view report on and log type.</small>
         </h4>
-        <div class="control-group">
-            <label class="control-label">Date</label>
-            <div class="controls">
-                <input type="text" id="reportDate" name="reportDate" class="span3"
+        <div class="mb-3">
+            <label class="form-label">Date</label>
+            <div>
+                <input type="text" id="reportDate" name="reportDate" class="form-control"
                        size="10" value="<%=reportDate%>">
             </div>
         </div>
-        <div class="control-group">
-            <label class="control-label">Select Report to view</label>
-            <div class="controls">
-                <select name="reportType" id="reportType" class="span3">
+        <div class="mb-3">
+            <label class="form-label">Select Report to view</label>
+            <div>
+                <select name="reportType" id="reportType" class="form-select">
                     <option value="general" <%if (reportType.equals("general")) {%>
                             selected <%}%>>General Report
                     </option>
@@ -107,8 +109,8 @@
                 </select>
             </div>
         </div>
-        <div class="control-group">
-            <div class="controls">
+        <div class="mb-3">
+            <div>
                 <button type="submit" class="btn btn-primary">
                     <i class="fa-solid fa-download"></i> Get Report
                 </button>
@@ -138,15 +140,8 @@
 %>
 
 <script>
-    var startDt = $("#reportDate").datepicker({
-        format: "yyyy-mm-dd"
-    });
-
-    var endDt = $("#endDate").datepicker({
-        format: "mm/yyyy",
-        viewMode: "months",
-        minViewMode: "months"
-    });
+    flatpickr("#reportDate", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#endDate", {dateFormat: "m/Y", allowInput: true});
 
     $(document).ready(function () {
         $('#logForm').validate(

@@ -69,7 +69,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/> Start Time
             : <%=OscarProperties.getInstance().getStartTime()%>
@@ -77,9 +78,6 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
         <oscar:customInterface section="admin"/>
 
         <script type="text/JavaScript">

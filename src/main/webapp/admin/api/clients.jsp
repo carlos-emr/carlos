@@ -55,20 +55,18 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Manage REST Clients (OAuth)</title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath() %>/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/cupertino/jquery-ui-1.8.18.custom.css">
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.css">
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.7.1.min.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-ui-1.8.18.custom.min.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.dataTables.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/DT_bootstrap.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery.validate.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
         <script type="text/javascript" language="JavaScript"
                 src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
@@ -88,7 +86,17 @@
                             var secret = data[x].secret;
                             var uri = data[x].uri;
                             var lifetime = data[x].lifetime;
-                            $('#clientTable > tbody:last').append('<tr><td>' + name + '</td><td>' + key + '</td><td>' + secret + '</td><td>' + uri + '</td><td>' + lifetime + '</td><td><a href="javascript:void(0);" onclick="deleteClient(' + id + ');"><img border="0" title="delete" src="<%= request.getContextPath() %>/images/Delete16.gif"/></a></td></tr>');
+                            var $row = $('<tr>');
+                            $row.append($('<td>').text(name));
+                            $row.append($('<td>').text(key));
+                            $row.append($('<td>').text(secret));
+                            $row.append($('<td>').text(uri));
+                            $row.append($('<td>').text(lifetime));
+                            var $delLink = $('<a>').attr('href', 'javascript:void(0);')
+                                .on('click', (function(delId) { return function() { deleteClient(delId); }; })(id))
+                                .append($('<img>').attr({border: '0', title: 'delete', src: '<%= request.getContextPath() %>/images/Delete16.gif'}));
+                            $row.append($('<td>').append($delLink));
+                            $('#clientTable > tbody:last').append($row);
                         }
                     });
             }
@@ -112,7 +120,13 @@
                             var tokenId = data[x].tokenId;
                             var tokenSecret = data[x].tokenSecret;
 
-                            $('#tokenTable > tbody:last').append('<tr><td>' + tokenId + '</td><td>' + lifetime + '</td><td>' + issued + '</td><td>' + providerNo + '</td><td></td></tr>');
+                            var $trow = $('<tr>');
+                            $trow.append($('<td>').text(tokenId));
+                            $trow.append($('<td>').text(lifetime));
+                            $trow.append($('<td>').text(issued));
+                            $trow.append($('<td>').text(providerNo));
+                            $trow.append($('<td>'));
+                            $('#tokenTable > tbody:last').append($trow);
                         }
                     });
             }
@@ -180,7 +194,7 @@
 
     <body vlink="#0000FF" class="BodyStyle">
     <h4>Manage Clients</h4>
-    <table id="clientTable" name="clientTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="clientTable" name="clientTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>Name</th>
@@ -201,7 +215,7 @@
     %>
     <hr/>
     <h4>Tokens</h4>
-    <table id="tokenTable" name="tokenTable" class="table table-bordered table-striped table-hover table-condensed">
+    <table id="tokenTable" name="tokenTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th>ID</th>
@@ -215,7 +229,7 @@
     </table>
 
     <hr/>
-    <table class="table table-bordered table-striped table-hover table-condensed">
+    <table class="table table-bordered table-striped table-hover table-sm">
         <tr>
             <td>Temporary Credential Request:</td>
             <td><%=here%>/ws/oauth/initiate</td>
@@ -234,21 +248,21 @@
         <p class="validateTips"></p>
         <form>
             <fieldset>
-                <div class="control-group">
-                    <label class="control-label" for="clientName">Name:</label>
-                    <div class="controls">
+                <div class="mb-3">
+                    <label class="form-label" for="clientName">Name:</label>
+                    <div>
                         <input type="text" name="clientName" id="clientName"/>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="clientURI">URI:</label>
-                    <div class="controls">
+                <div class="mb-3">
+                    <label class="form-label" for="clientURI">URI:</label>
+                    <div>
                         <input type="text" name="clientURI" id="clientURI"/>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label class="control-label" for="lifetime">Token Lifetime (seconds):</label>
-                    <div class="controls">
+                <div class="mb-3">
+                    <label class="form-label" for="lifetime">Token Lifetime (seconds):</label>
+                    <div>
                         <input type="text" name="lifetime" id="lifetime"/>
                     </div>
                 </div>

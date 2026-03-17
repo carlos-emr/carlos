@@ -50,41 +50,42 @@
     </div>
 
     <div class="row indicatorFooter">
-        <div class="col-md-12 text-right">
-
-            <a href="javascript:void(0)" class="dropdown-toggle" data-toggle="dropdown" role="button"
+        <div class="col-md-12 text-end">
+            <div class="dropdown d-inline-block">
+            <a href="javascript:void(0)" class="dropdown-toggle" data-bs-toggle="dropdown" role="button"
                aria-haspopup="true" aria-expanded="false">
-                options <span class="caret"></span>
+                options
             </a>
 
-            <ul class="dropdown-menu pull-right text-left">
+            <ul class="dropdown-menu float-end text-start">
                 <li>
-                    <a href="javascript:void(0)" data-toggle="modal"
-                       data-target="#indicatorInfo_${ indicatorPanel.id }">
+                    <a class="dropdown-item" href="javascript:void(0)" data-bs-toggle="modal"
+                       data-bs-target="#indicatorInfo_${ indicatorPanel.id }">
                         Indicator Info
                     </a>
                 </li>
                 <li>
-                    <a href="javascript:void(0)" class="indicatorDrilldownBtn" id="getDrilldown_${ indicatorPanel.id }">
+                    <a class="dropdown-item indicatorDrilldownBtn" href="javascript:void(0)" id="getDrilldown_${ indicatorPanel.id }">
                         Drill Down
                     </a>
                 </li>
             </ul>
 
+            </div><!-- /.dropdown -->
         </div>
     </div>
 
 
     <!-- modal panel for displaying this indicators details -->
-    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" role="dialog">
+    <div id="indicatorInfo_${ indicatorPanel.id }" class="modal fade" tabindex="-1" aria-labelledby="indicatorTitle_${ indicatorPanel.id }">
         <div class="modal-dialog">
 
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                    <h4 class="modal-title">
+                    <h4 class="modal-title" id="indicatorTitle_${ indicatorPanel.id }">
                         <c:out value="${ indicatorPanel.name }"/>
                     </h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
@@ -107,7 +108,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         Close
                     </button>
                 </div>

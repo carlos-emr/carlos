@@ -24,8 +24,4 @@ function restoreCheckboxStates() {
 }
 
 // attach once
-if (window.addEventListener) {
-  window.addEventListener('load', restoreCheckboxStates, false);
-} else {
-  window.attachEvent('onload', restoreCheckboxStates);
-}
+window.addEventListener('load', restoreCheckboxStates, false);

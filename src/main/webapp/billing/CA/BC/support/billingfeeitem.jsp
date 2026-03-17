@@ -89,7 +89,7 @@
 
     var valDisp = opener.document.getElementById('valueDisplay');
     if (valDisp){
-    valDisp.innerHTML = fee;
+    valDisp.textContent = fee;
     }
 
     opener.document.focus();

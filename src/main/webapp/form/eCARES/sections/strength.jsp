@@ -34,7 +34,7 @@
             <circle cx="5" cy="5" r="4" stroke="black" stroke-width="1" fill="white"/>
         </svg>
         <input type="checkbox" class="action-required" name="action_required_strength" data-score="1">
-        <strong class="tt highlight" data-field-name="strength" data-toggle="tooltip"
+        <strong class="tt highlight" data-field-name="strength" data-bs-toggle="tooltip"
                 title="Especially Hip Flexors">Strength</strong>
     </div>
 

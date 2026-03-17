@@ -124,7 +124,7 @@ public class IssueDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(issue.getId()).isNotNull();
+            assertThat(issue.getId()).isPositive();
             Issue found = issueDAO.getIssue(issue.getId());
             assertThat(found).isNotNull();
             assertThat(found.getCode()).isEqualTo("NEW001");

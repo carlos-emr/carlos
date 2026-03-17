@@ -130,6 +130,10 @@ public class CustomFilter extends AbstractModel<Integer> {
     private String mrp;
     @Transient
     private String sort_order = "asc";
+    @Transient
+    private String sortColumn = "serviceDate";
+    @Transient
+    private String searchTerm;
 
     @Transient
     private String demographic_webName;
@@ -385,6 +389,21 @@ public class CustomFilter extends AbstractModel<Integer> {
         this.sort_order = sort_order;
     }
 
+    public String getSortColumn() {
+        return sortColumn;
+    }
+
+    public void setSortColumn(String sortColumn) {
+        this.sortColumn = sortColumn;
+    }
+
+    public String getSearchTerm() {
+        return searchTerm;
+    }
+
+    public void setSearchTerm(String searchTerm) {
+        this.searchTerm = searchTerm;
+    }
 
     public String getDemographic_webName() {
         return demographic_webName;

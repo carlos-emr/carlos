@@ -305,7 +305,7 @@ return false;
 
 
 function setProvince(sdCode) {
-jQuery("#country").bind('change',function(){
+jQuery("#country").on('change',function(){
 updateProvinces('');
 });
 
@@ -363,7 +363,7 @@ jQuery("#province").val(province);
 
 
 function setResidentialProvince(sdCode) {
-jQuery("#residentialCountry").bind('change',function(){
+jQuery("#residentialCountry").on('change',function(){
 updateResidentialProvinces('');
 });
 

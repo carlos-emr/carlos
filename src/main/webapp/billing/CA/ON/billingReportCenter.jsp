@@ -62,7 +62,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Billing Report Center</title>
 
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/searchBox.css">
 
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -107,30 +107,35 @@
             &nbsp;Billing Report Center
         </h4>
         <span style="float:right;">
-            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-default">Manage Provider List</a>
+            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-secondary">Manage Provider List</a>
         </span>
     </div>
 
     <form name="serviceform" method="post" action="billingReportControl.jsp">
-        <div class="form-inline" style="margin-bottom:10px;">
-            <label class="radio-inline">
-                <input type="radio" name="reportAction" value="unbilled" checked> Unbilled
-            </label>
-            <label class="radio-inline">
-                <input type="radio" name="reportAction" value="billed"> Billed
-            </label>
-            <label class="radio-inline">
-                <input type="radio" name="reportAction" value="unsettled"> Unsettled
-            </label>
-            <label class="radio-inline">
-                <input type="radio" name="reportAction" value="billob"> OB
-            </label>
-            <label class="radio-inline">
-                <input type="radio" name="reportAction" value="flu"> FLU
-            </label>
+        <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="unbilled" checked>
+                <label class="form-check-label">Unbilled</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="billed">
+                <label class="form-check-label">Billed</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="unsettled">
+                <label class="form-check-label">Unsettled</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="billob">
+                <label class="form-check-label">OB</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="reportAction" value="flu">
+                <label class="form-check-label">FLU</label>
+            </div>
 
             &nbsp;&nbsp;Provider
-            <select name="providerview" class="form-control input-sm" style="width:auto; display:inline-block;">
+            <select name="providerview" class="form-select form-select-sm" style="width:auto; display:inline-block;">
                 <%
                     String proFirst = "";
                     String proLast = "";
@@ -155,10 +160,10 @@
             <input type="hidden" name="verCode" value="V03">
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+                <input type="date" name="xml_vdate" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
+                <input type="date" name="xml_appointment_date" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

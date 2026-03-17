@@ -61,9 +61,9 @@
             src="<%=request.getContextPath()%>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
-    <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
-    <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+    <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
 
     <style>
         form[name="testForm"] fieldset table td {
@@ -81,13 +81,13 @@
     </style>
 
     <!-- jquery -->
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-migrate-3.4.0.js"></script>
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
 
     <script>
         $(document).ready(function() {
-            $( document ).tooltip();
 
             var url = "<%= request.getContextPath() %>/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=true";
 
@@ -203,7 +203,7 @@
 
 </head>
 <body>
-<div class="well">
+<div class="card card-body bg-body-tertiary">
 
     <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab.do?method=saveManage"
           onsubmit="return confirmSave();">
@@ -230,8 +230,8 @@
                         </tr>
                         <tr>
                             <td><label>Lab Req Date/Time:</label></td>
-                            <td class="input-append"><input type="text" class="input-medium" name="lab_req_date" id="lab_req_date" required><img
-                                    src="<%=request.getContextPath()%>/images/cal.gif" id="lab_req_date_cal" class="add-on"></td>
+                            <td class="input-group"><input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required><img
+                                    src="<%=request.getContextPath()%>/images/cal.gif" id="lab_req_date_cal" class="input-group-text"></td>
                         </tr>
                         </table>
                     </fieldset>
@@ -277,8 +277,8 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="input-append"><label>DOB:</label><input type="text" class="input-medium" required name="dob" id="dob"/><img src="<%=request.getContextPath()%>/images/cal.gif"
-                                                                     id="dob_cal" class="add-on"></td>
+                    <td class="input-group"><label>DOB:</label><input type="text" class="form-control" required name="dob" id="dob"/><img src="<%=request.getContextPath()%>/images/cal.gif"
+                                                                     id="dob_cal" class="input-group-text"></td>
                     <td><label>HIN:</label><input type="text" name="hin" id="hin"/></td>
                     <td><label>Phone:</label><input type="text" name="phone" id="phone"/></td>
                 </tr>

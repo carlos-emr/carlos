@@ -51,11 +51,11 @@
 
 <%@ include file="/taglibs.jsp" %>
 
-<div class="page-header">
+<div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/>
-        <div class="pull-right">
-            <button name='print' onClick='window.print()' class="btn">
+        <div class="float-end">
+            <button name='print' onClick='window.print()' class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
@@ -64,10 +64,10 @@
 </div>
 
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
-        <col class="span7"></col>
-        <col class="span2"></col>
+        <col style="width:58.333%">
+        <col style="width:16.667%">
     </colgroup>
     <thead>
     <tr>
@@ -88,10 +88,10 @@
 
 <!-- Shelter Population -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
-        <col class="span7"></col>
-        <col class="span2"></col>
+        <col style="width:58.333%">
+        <col style="width:16.667%">
     </colgroup>
     <caption>Homeless Shelter Population</caption>
     <tbody>
@@ -108,10 +108,10 @@
 
 <!-- Shelter Usage -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <colgroup>
-        <col class="span4"></col>
-        <col class="span4"></col>
+        <col style="width:33.333%">
+        <col style="width:33.333%">
     </colgroup>
     <caption>Intensity of Shelter Use</caption>
     <tbody>
@@ -133,10 +133,10 @@
 <!-- Mortality -->
 <c:if test="${not empty mortalities}">
     <table
-            class="table table-bordered table-striped table-condensed table-hover">
+            class="table table-bordered table-striped table-sm table-hover">
         <colgroup>
-            <col class="span5"></col>
-            <col class="span4"></col>
+            <col style="width:41.667%">
+            <col style="width:33.333%">
         </colgroup>
         <caption>Mortality In Shelters</caption>
         <tbody>
@@ -154,12 +154,12 @@
 
 <!-- Major Medical Condition -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Major Medical Condition</caption>
     <colgroup>
-        <col class="span2"></col>
-        <col class="span3"></col>
-        <col class="span4"></col>
+        <col style="width:16.667%">
+        <col style="width:25%">
+        <col style="width:33.333%">
     </colgroup>
     <thead>
     <tr>
@@ -188,12 +188,12 @@
 
 <!-- Major Mental Illness -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Major Mental Illness</caption>
     <colgroup>
-        <col class="span2"></col>
-        <col class="span3"></col>
-        <col class="span4"></col>
+        <col style="width:16.667%">
+        <col style="width:25%">
+        <col style="width:33.333%">
     </colgroup>
     <thead>
     <tr>
@@ -222,14 +222,14 @@
 
 <!-- Serious Medical Conditions -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Incidence in the past year of Serious Medical
         Conditions
     </caption>
     <colgroup>
-        <col class="span2"></col>
-        <col class="span3"></col>
-        <col class="span4"></col>
+        <col style="width:16.667%">
+        <col style="width:25%">
+        <col style="width:33.333%">
     </colgroup>
     <thead>
     <tr>
@@ -258,10 +258,10 @@
 
 <!-- Notes -->
 <table
-        class="table table-bordered table-striped table-condensed table-hover">
+        class="table table-bordered table-striped table-sm table-hover">
     <caption>Notes on the Data</caption>
     <colgroup>
-        <col class="span9"></col>
+        <col style="width:75%">
     </colgroup>
     <tbody>
     <tr>
@@ -301,13 +301,13 @@
 <c:forEach var="categoryCodeDescription"
            items="${categoryCodeDescriptions}">
     <table
-            class="table table-bordered table-striped table-condensed table-hover">
+            class="table table-bordered table-striped table-sm table-hover">
         <caption>
             <c:out value="${categoryCodeDescription.key}"></c:out>
         </caption>
         <colgroup>
-            <col class="span2"></col>
-            <col class="span7"></col>
+            <col style="width:16.667%">
+            <col style="width:58.333%">
         </colgroup>
         <thead>
         <tr>

@@ -59,7 +59,8 @@
                 }
             }
         </script>
-
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     </head>
 
     <body topmargin="0" leftmargin="0" rightmargin="0">
@@ -72,7 +73,7 @@
     <iframe id="uploadFrame" name="uploadFrame" frameborder="0" width="100%" height="auto" scrolling="no"
             src="<%=request.getContextPath()%>/eform/partials/upload_image.jsp"></iframe>
 
-    <table class="table table-condensed table-striped table-hover" id="tblImage">
+    <table class="table table-sm table-striped table-hover" id="tblImage">
         <thead>
         <tr>
             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.msgimgName"/></th>
@@ -112,9 +113,9 @@
     <%@ include file="efmFooter.jspf" %>
 
     <script>
-        $('#tblImage').dataTable({
-            "aaSorting": [[0, "asc"]],
-            "bPaginate": false
+        $('#tblImage').DataTable({
+            "order": [[0, "asc"]],
+            "paging": false
         });
     </script>
     </body>

@@ -57,13 +57,13 @@
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.title"/></title>
-        <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
               rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap 2.3.1 -->
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
         <!-- DataTables 1.13.4 -->
 
@@ -124,7 +124,7 @@
         <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.description"/></h4>
 
     <form method="post" action="providersearchresults.jsp" name="searchprovider" onsubmit="return onsub()">
-        <div class="well">
+        <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr>
                     <td rowspan="2" style="text-align:right; vertical-align:middle">
@@ -154,10 +154,10 @@
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearch.formInactiveStatus"/>
                     </td>
                     <td style="vertical-align:middle; text-align:left" rowspan="2">
-                        <div class="input-append">
-                            <input type="text" name="keyword" class="input input-large" maxlength="100"
+                        <div class="input-group">
+                            <input type="text" name="keyword" class="form-control" maxlength="100"
                                    style="height:24px">
-                            <button type="submit" name="button" class="btn add-on" style="height:24px"><i
+                            <button type="submit" name="button" class="btn btn-secondary" style="height:24px"><i
                                     class="fa-solid fa-magnifying-glass" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.btnSubmit"/>"></i>
                             </button>
                         </div>
@@ -179,7 +179,7 @@
         </tr>
     </table>
 
-    <table id="tblResults" style="width:100%" class="table table-hover table-striped table-condensed">
+    <table id="tblResults" style="width:100%" class="table table-hover table-striped table-sm">
         <thead>
         <tr>
             <th style="text-align:center; width:10%">

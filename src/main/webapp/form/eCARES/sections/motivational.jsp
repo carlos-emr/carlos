@@ -55,7 +55,7 @@
     </label>
 
 
-    <span class="tt mandatory font-bold ml-4 highlight" data-toggle="tooltip"
+    <span class="tt mandatory font-bold ml-4 highlight" data-bs-toggle="tooltip"
           data-field-name="health_attitude"
           title="Engaged attitude and desire to participate in efforts to enhance their health" rel="health_attitude"
           data-names="excellent,good,fair,poor,couldnt_say">

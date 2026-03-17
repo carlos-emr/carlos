@@ -893,7 +893,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sucks1m"
                                     <%= props.getProperty("p1_sucks1m", "") %>></td>
-                            <td>Sucks well on nipple</td>
+                            <td>Sucks card card-body bg-body-tertiary on nipple</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"

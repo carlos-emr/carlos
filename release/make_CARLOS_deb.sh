@@ -127,6 +127,22 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/DEBIAN/"
 # so use ${RELEASE_DIR}/xxx for release/ files and ./xxx for repo-root files.
 cd "${REPO_ROOT}" || { echo "ERROR: Failed to cd to ${REPO_ROOT}" >&2; exit 1; }
 mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
+MVN_EXIT=$?
+
+# Note: bash runs commands sequentially — mvn above is fully finished before this check runs.
+# There is no race condition; we explicitly capture the exit code for a clear failure message.
+if [ "$MVN_EXIT" -ne 0 ]; then
+    echo "ERROR: Maven build failed (exit code $MVN_EXIT), aborting deb creation." >&2
+    exit $MVN_EXIT
+fi
+
+# Sanity check: WAR should always exist after a successful Maven build.
+# If it is somehow missing despite exit 0, catch it here before wasting time on the rest of packaging.
+if [ -z "${TARGET}" ] || [ ! -f "${REPO_ROOT}/target/${TARGET}" ]; then
+    echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — Maven reported success but WAR not found." >&2
+    exit 1
+fi
+
 mkdir -p "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/"
 # WAR is copied generically below (after drugref download) using ${TARGET} and ${PROGRAM} variables.
 
@@ -409,12 +425,21 @@ cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/
 cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
 chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
 
-# Bundle incremental update scripts (update-2026-*.sql) for CARLOS revision upgrades.
+# Bundle incremental update scripts for CARLOS revision upgrades.
+# update-2026-02-14-facility-integrator-removal.sql is intentionally excluded because it
+# drops facility columns that are incompatible with OSCAR 19 installations and cannot be
+# safely applied during a package upgrade.  All other update scripts are included.
 # The postinst script applies these after the WAR is deployed to bring the schema current.
 echo "bundling incremental database update scripts from database/mysql/updates/"
 _update_sql_count=0
+mkdir -p "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
+# Loop through the SQL files in the specified directory
 for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
     if [ -f "${_upd_sql}" ]; then
+        # Skip the specific destructive SQL file for compatibility reasons.
+        if [[ "${_upd_sql}" == "./database/mysql/updates/update-2026-02-14-facility-integrator-removal.sql" ]]; then
+            continue
+        fi
         cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
         _update_sql_count=$((_update_sql_count + 1))
     fi

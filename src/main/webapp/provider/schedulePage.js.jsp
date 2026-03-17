@@ -52,7 +52,18 @@
 %>
 function storeApptNo(apptNo) {
 var url = "storeApptInSession.jsp";
-new Ajax.Request(url, {method:'post', parameters: {appointment_no: apptNo}});
+var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+var csrfToken = csrfEl ? csrfEl.value : '';
+fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'CSRF-TOKEN': csrfToken
+    },
+    body: 'appointment_no=' + encodeURIComponent(apptNo)
+});
 }
 
 function getElementsByClass(searchClass,node,tag) {

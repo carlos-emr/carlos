@@ -56,7 +56,7 @@
                 if (control) {
                     control.disabled = true;
                 }
-                var form = $("form");
+                var form = document.getElementById("form");
                 form.submit();
                 return true;
             }
@@ -70,7 +70,7 @@
 
     <body>
     <div class="container-fluid">
-        <div class="row-fluid">
+        <div class="row">
             <h2>Update Upload</h2>
 
             <form action="${pageContext.request.contextPath}/mcedt/update.do" method="post" id="form"
@@ -81,20 +81,20 @@
             <input id="method" name="method" type="hidden"
                    value="addUpdateRequest"/>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label>Upload ID</label>
                 <input type="text" name="resourceId" readonly="true"/>
             </div>
 
-            <div class="form-group">
+            <div class="mb-3">
                 <label>File Upload</label>
                 <input type="file" name="content" id="content"/>
             </div>
 
-            <div class="control-group" style="margin-top: 1em;">
-                <div class="controls">
+            <div class="mb-3" style="margin-top: 1em;">
+                <div>
                     <button class="btn btn-primary" onclick="return update(this);">Update</button>
-                    <button class="btn" onclick="return cancel(this);">Cancel</button>
+                    <button class="btn btn-secondary" onclick="return cancel(this);">Cancel</button>
                 </div>
             </div>
             </form>

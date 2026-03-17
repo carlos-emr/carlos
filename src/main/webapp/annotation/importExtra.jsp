@@ -111,7 +111,7 @@
 
     <body bgcolor="#EEEEFF" onload="document.forms[0].note.focus();">
     <div class="header"></div>
-    <div class="panel">
+    <div class="card">
         Extra data from Import:<br>
         <textarea rows="10" name="dump" readonly="readonly"><%=dump%></textarea>
         <input type="button" value="Close" onclick="window.close();"/>
