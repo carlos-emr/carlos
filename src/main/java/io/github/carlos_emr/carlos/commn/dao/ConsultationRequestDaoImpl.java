@@ -84,7 +84,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 					"LEFT JOIN Provider p on d.ProviderNo = p.ProviderNo WHERE 1=1 ");
 
         if (!showCompleted) {
-            sql.append("and cr.status != 4 ");
+            sql.append("and cr.status != '4' ");
         }
 
         if (!team.isEmpty()) {
