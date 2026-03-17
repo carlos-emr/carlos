@@ -26,7 +26,6 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.to;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.github.carlos_emr.OscarProperties;
 
 import java.io.Serializable;
@@ -40,7 +39,6 @@ import java.io.Serializable;
  *
  * @since 2018-01-01
  */
-@Schema(description = "Generic response header object")
 public class RestResponseHeaders implements Serializable
 {
 	private final String buildDate;

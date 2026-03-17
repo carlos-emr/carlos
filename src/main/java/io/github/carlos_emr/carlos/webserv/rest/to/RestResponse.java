@@ -27,8 +27,6 @@
 
 package io.github.carlos_emr.carlos.webserv.rest.to;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.io.Serializable;
 
 /**
@@ -45,7 +43,6 @@ import java.io.Serializable;
  *
  * @since 2018-01-01
  */
-@Schema(description = "Response wrapper object for single results")
 public class RestResponse<T> extends GenericRestResponse<RestResponseHeaders, T, RestResponseError>
 {
 	/**
