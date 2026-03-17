@@ -109,14 +109,9 @@ public class RestResponseError implements Serializable
 	}
 
 	/**
-	 * Returns a concise, non-sensitive summary for logging purposes.
-	 *
-	 * <p>Deliberately excludes the message and data content to prevent PHI leakage
-	 * in application logs, consistent with {@link GenericRestResponse#toString()}.</p>
-	 *
-	 * @return String a summary string indicating an error exists, without content
+	/**
+	 * Returns a summary indicating the presence of a message and data.
 	 */
-	@Override
 	public String toString()
 	{
 		return "RestResponseError{hasMessage=" + (message != null) + ", hasData=" + (data != null) + "}";
