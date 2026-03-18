@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
-import javax.servlet.jsp.PageContext;
+import jakarta.servlet.jsp.PageContext;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;

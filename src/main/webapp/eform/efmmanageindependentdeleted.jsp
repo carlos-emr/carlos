@@ -46,7 +46,7 @@
     if (orderByRequest == null) orderBy = EFormUtil.DATE;
     else orderBy = orderByRequest;
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 

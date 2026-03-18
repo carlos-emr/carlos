@@ -58,9 +58,9 @@
     String historyet = request.getParameter("historyet") == null ? "" : ("&historyet=" + request.getParameter("historyet"));
 
     if (true) {
-        out.clear();
+        out.clearBuffer();
         if (formId == 0) {
-            pageContext.forward("formonarenhancedpg1.jsp?demographic_no=" + demoNo + "&formId=" + formId);
+            request.getRequestDispatcher("formonarenhancedpg1.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         } else {
             FrmRecord rec = (new FrmRecordFactory()).factory("ONAREnhanced");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
@@ -69,8 +69,8 @@
             if (pg != null && pg.length() > 0) {
                 suffix = "pg" + pg;
             }
-            pageContext.forward("formonarenhanced" + suffix
-                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet);
+            request.getRequestDispatcher("formonarenhanced" + suffix
+                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet).include(request, response);
         }
         return;
     }

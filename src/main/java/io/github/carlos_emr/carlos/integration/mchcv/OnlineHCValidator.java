@@ -41,8 +41,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import javax.xml.soap.SOAPFault;
-import javax.xml.ws.soap.SOAPFaultException;
+import jakarta.xml.soap.SOAPFault;
+import jakarta.xml.ws.soap.SOAPFaultException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;

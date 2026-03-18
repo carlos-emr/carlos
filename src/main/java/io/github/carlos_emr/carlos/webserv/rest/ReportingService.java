@@ -32,13 +32,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -266,7 +266,7 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/preventionReport/runReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
+    public jakarta.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
         GenericRESTResponse response = new GenericRESTResponse();
         Report report = null;
         //Next thing to do is to save the JSON object to the database
@@ -293,16 +293,16 @@ public class ReportingService extends AbstractServiceImpl {
 
         logger.info("providers was " + providerNo);
         if (report == null) {
-            javax.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error building report\"}");
+            jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error building report\"}");
         }
-        return javax.ws.rs.core.Response.ok(report).build();
+        return jakarta.ws.rs.core.Response.ok(report).build();
     }
 
     @POST
     @Path("/preventionReport/getReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
+    public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
         GenericRESTResponse response = new GenericRESTResponse();
         Report report = null;
         //Next thing to do is to save the JSON object to the database
@@ -314,26 +314,26 @@ public class ReportingService extends AbstractServiceImpl {
         try {
             logger.info("pr: " + pr.getJson());
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
-            return javax.ws.rs.core.Response.ok(preventionSearchTo1).build();
+            return jakarta.ws.rs.core.Response.ok(preventionSearchTo1).build();
         } catch (Exception e) {
             logger.error("Error parsing ", e);
         }
 
-        return javax.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error get Search Config\"}").build();
+        return jakarta.ws.rs.core.Response.status(268).entity("{\"Error\":\"Error get Search Config\"}").build();
     }
 
     @POST
     @Path("/preventionReport/dectivateReport/{id}")
     @Produces("application/json")
     @Consumes("application/json")
-    public javax.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id) { // will need to change providers to an ojbect
+    public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id) { // will need to change providers to an ojbect
         GenericRESTResponse response = new GenericRESTResponse();
 
         PreventionReport pr = preventionReportDao.find(id);
         pr.setActive(false);
         preventionReportDao.merge(pr);
 
-        return javax.ws.rs.core.Response.ok("{\"Message\":\"report deactivated\"}").build();
+        return jakarta.ws.rs.core.Response.ok("{\"Message\":\"report deactivated\"}").build();
     }
 
 

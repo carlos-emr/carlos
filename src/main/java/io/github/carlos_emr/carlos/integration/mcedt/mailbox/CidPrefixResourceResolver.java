@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
 import org.apache.xml.security.signature.XMLSignatureInput;
+import org.apache.xml.security.signature.XMLSignatureStreamInput;
 import org.apache.xml.security.utils.resolver.ResourceResolverContext;
 import org.apache.xml.security.utils.resolver.ResourceResolverException;
 import org.apache.xml.security.utils.resolver.ResourceResolverSpi;
@@ -55,7 +56,7 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
 
         XMLSignatureInput result;
         try {
-            result = new XMLSignatureInput(attachment.getDataHandler().getInputStream());
+            result = new XMLSignatureStreamInput(attachment.getDataHandler().getInputStream());
         } catch (IOException e) {
             logger.error("Unable to create xml signature input", e);
 

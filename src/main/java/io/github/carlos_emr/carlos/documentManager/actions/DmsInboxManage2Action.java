@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.daos.security.SecObjectNameDao;
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.http.impl.cookie.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
@@ -57,14 +56,14 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.mds.data.CategoryData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DmsInboxManage2Action extends ActionSupport {
@@ -602,7 +601,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         request.setAttribute("abnormals", abnormals);
         request.setAttribute("totalNumDocs", totalNumDocs);
         request.setAttribute("patientIdNamesStr", patientIdNamesStr);
-        request.setAttribute("oldestLab", oldestLab != null ? DateUtils.formatDate(oldestLab, "yyyy-MM-dd HH:mm:ss") : null);
+        request.setAttribute("oldestLab", oldestLab != null ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(oldestLab) : null);
 
         return "dms_page";
     }

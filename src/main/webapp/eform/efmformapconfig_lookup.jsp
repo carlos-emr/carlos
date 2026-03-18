@@ -25,7 +25,7 @@
     }
     EFormLoader loader = EFormLoader.getInstance();
     DatabaseAP ap;
-    String provider_no = (String) session.getValue("user");
+    String provider_no = (String) session.getAttribute("user");
     String demographic_no = request.getParameter("demographic_no");
     String fid = request.getParameter("fid");
     EForm form = null;

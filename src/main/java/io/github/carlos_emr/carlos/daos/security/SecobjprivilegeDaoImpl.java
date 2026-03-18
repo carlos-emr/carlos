@@ -61,7 +61,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
             throw new IllegalArgumentException();
         }
 
-        currentSession().saveOrUpdate(secobjprivilege);
+        currentSession().merge(secobjprivilege);
 
         if (logger.isDebugEnabled()) {
             logger.debug("SecobjprivilegeDao : save: " + secobjprivilege.getRoleusergroup() + ":"
@@ -131,7 +131,7 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
     public void delete(Secobjprivilege persistentInstance) {
         logger.debug("deleting Secobjprivilege instance");
         try {
-            currentSession().delete(persistentInstance);
+            currentSession().remove(persistentInstance);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);

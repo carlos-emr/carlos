@@ -299,7 +299,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
 
         if (issues.length > 1) {
             List<Long> issueIdList = parseIssueIds(issues);
-            String hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo and cmn.archived = 0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) ORDER BY cmn.position, cmn.observation_date desc";
+            String hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id in (:issueIds) and cmn.demographic_no = :demoNo and cmn.archived = false and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn.uuid = cmn2.uuid) ORDER BY cmn.position, cmn.observation_date desc";
             Map<String, Object> params = new HashMap<>();
             params.put("issueIds", issueIdList);
             params.put("demoNo", demographic_no);
@@ -308,7 +308,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         } else {
             long id = Long.parseLong(issues[0]);
 
-            String hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = :issueId and cmn.demographic_no = :demoNo and cmn.archived=0 order by cmn.position, cmn.observation_date desc";
+            String hql = "select cmn from CaseManagementNote cmn join cmn.issues i where i.issue_id = :issueId and cmn.demographic_no = :demoNo and cmn.archived=false order by cmn.position, cmn.observation_date desc";
             Map<String, Object> params = new HashMap<>();
             params.put("issueId", id);
             params.put("demoNo", demographic_no);
@@ -434,7 +434,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @Transactional(readOnly = false)
     public void updateNote(CaseManagementNote note) {
         note.setUpdate_date(new Date());
-        currentSession().update(note);
+        currentSession().merge(note);
         currentSession().flush();
     }
 
@@ -448,7 +448,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        currentSession().save(note);
+        currentSession().persist(note);
         currentSession().flush();
     }
 
@@ -462,7 +462,8 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        return currentSession().save(note);
+        currentSession().persist(note);
+        return note;
     }
 
     @Override
@@ -608,7 +609,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     // used by decision support to search through the notes for a string
     @Override
     public List<CaseManagementNote> searchDemographicNotes(String demographic_no, String searchString) {
-        String hql = "select distinct cmn from CaseManagementNote cmn where cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?1 GROUP BY cmn2.uuid) and cmn.demographic_no = ?2 and cmn.note like ?3 and cmn.archived = 0";
+        String hql = "select distinct cmn from CaseManagementNote cmn where cmn.id in (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.demographic_no = ?1 GROUP BY cmn2.uuid) and cmn.demographic_no = ?2 and cmn.note like ?3 and cmn.archived = false";
 
         @SuppressWarnings("unchecked")
         List<CaseManagementNote> result = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql,

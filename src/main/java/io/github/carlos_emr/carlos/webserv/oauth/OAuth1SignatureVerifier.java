@@ -27,7 +27,7 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 
 public interface OAuth1SignatureVerifier {

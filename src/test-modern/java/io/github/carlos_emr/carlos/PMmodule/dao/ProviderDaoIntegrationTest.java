@@ -35,11 +35,11 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.orm.hibernate5.HibernateTemplate;
+import io.github.carlos_emr.carlos.test.base.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
@@ -1815,10 +1815,10 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             // Given - create SecUserRole entries linking providers to roles
             // SecUserRole is mapped via Secuserrole.hbm.xml with auto-increment id
             org.hibernate.Session session = hibernateTemplate.getSessionFactory().getCurrentSession();
-            session.createSQLQuery(
+            session.createNativeQuery(
                 "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T001', 'doctor', 'D')")
                 .executeUpdate();
-            session.createSQLQuery(
+            session.createNativeQuery(
                 "INSERT INTO secUserRole (provider_no, role_name, orgcd) VALUES ('T002', 'admin', 'A')")
                 .executeUpdate();
             session.flush();

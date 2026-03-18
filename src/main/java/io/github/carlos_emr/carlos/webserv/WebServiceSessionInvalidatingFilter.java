@@ -31,20 +31,20 @@ package io.github.carlos_emr.carlos.webserv;
 
 import java.io.IOException;
 
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 /**
  * Our www services are inherently stateless so we want to prevent excessive session object build up. This is caused because
  * the oscar permissions system sets credentials into the session space upon authentication.
  */
 // @WebFilter(urlPatterns={"/ws/*"})
-public class WebServiceSessionInvalidatingFilter implements javax.servlet.Filter {
+public class WebServiceSessionInvalidatingFilter implements jakarta.servlet.Filter {
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         // nothing

@@ -45,15 +45,15 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <!-- end -->
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 
 
 <%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
@@ -1572,13 +1572,13 @@
         let addr, ph, fx;
 
         <% if (consultUtil.letterheadAddress != null) { %>
-        addr = '<%= Encode.forJavaScript(consultUtil.letterheadAddress.replace('\n', ' ')) %>';
+        addr = '<%= Encode.forJavaScript(consultUtil.letterheadAddress.replaceAll("\\n", " ")) %>';
         <%} else {%>
         addr = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
         <%}%>
 
         <% if(consultUtil.letterheadPhone != null) { %>
-        ph = '<%=Encode.forJavaScript(consultUtil.letterheadPhone.replace('\n', ' '))%>';
+        ph = '<%=Encode.forJavaScript(consultUtil.letterheadPhone.replaceAll("\\n", " "))%>';
         <%} else { %>
         ph = '<%=Encode.forJavaScript(clinic.getClinicPhone())%>';
         <% }%>

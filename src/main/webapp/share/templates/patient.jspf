@@ -35,7 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicCustDao"%>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <style>
 .print{display:none;}

@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
 import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.ArrayList;
 import java.util.List;
 

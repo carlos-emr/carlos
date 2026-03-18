@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import org.springframework.stereotype.Repository;
@@ -49,10 +49,7 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
 
     @Override
     public List<Object[]> findRoutings(Integer demographicNo, String labType) {
-        String sql = "FROM LabPatientPhysicianInfo lpp, PatientLabRouting r "
-                + "WHERE r.labType = :labType " +
-                "AND lpp.id = r.labNo " +
-                "AND r.demographicNo = :demoNo";
+        String sql = "SELECT lpp, r FROM LabPatientPhysicianInfo lpp, PatientLabRouting r WHERE r.labType = :labType AND lpp.id = r.labNo AND r.demographicNo = :demoNo";
         Query query = entityManager.createQuery(sql);
         query.setParameter("labType", labType);
         query.setParameter("demoNo", demographicNo);
@@ -61,14 +58,7 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
 
     @Override
     public List<Object[]> findByPatientName(String status, String labType, String providerNo, String patientLastName, String patientFirstName, String patientHealthNumber) {
-        String sql = "FROM LabPatientPhysicianInfo lpp, ProviderLabRoutingModel plr " +
-                "WHERE plr.status like :status " +
-                "AND plr.providerNo like :providerNo " +
-                "AND plr.labType = :labType " +
-                "AND lpp.patientLastName LIKE :lastName " +
-                "AND lpp.patientFirstName LIKE :firstName " +
-                "AND lpp.patientHin LIKE :hin " +
-                "AND plr.labNo = lpp.id";
+        String sql = "SELECT lpp, plr FROM LabPatientPhysicianInfo lpp, ProviderLabRoutingModel plr WHERE plr.status like :status AND plr.providerNo like :providerNo AND plr.labType = :labType AND lpp.patientLastName LIKE :lastName AND lpp.patientFirstName LIKE :firstName AND lpp.patientHin LIKE :hin AND plr.labNo = lpp.id";
         Query q = entityManager.createQuery(sql);
         q.setParameter("status", "%" + status + "%");
         q.setParameter("providerNo", "".equals(providerNo) ? "%" : providerNo);
@@ -81,10 +71,7 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
 
     @Override
     public List<Object[]> findByDemographic(Integer demographicNo, String labType) {
-        String sql = "FROM LabPatientPhysicianInfo lpp, PatientLabRouting plr " +
-                "WHERE plr.labType = :labType " +
-                "AND lpp.id = plr.labNo " +
-                "AND plr.demographicNo = :demoNo";
+        String sql = "SELECT lpp, plr FROM LabPatientPhysicianInfo lpp, PatientLabRouting plr WHERE plr.labType = :labType AND lpp.id = plr.labNo AND plr.demographicNo = :demoNo";
         Query q = entityManager.createQuery(sql);
         q.setParameter("labType", labType);
         q.setParameter("demoNo", demographicNo);

@@ -186,7 +186,8 @@
     String pg = apptMainBean.whereTo();
     MiscUtils.getLogger().debug("forward to page : " + pg);
     if (pg != null) {
-        pageContext.forward(pg); //forward request&response to the target page
+        out.clearBuffer();
+        request.getRequestDispatcher(pg).include(request, response);
         return;
     }
 %>

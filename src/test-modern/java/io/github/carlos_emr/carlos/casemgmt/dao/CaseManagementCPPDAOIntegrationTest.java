@@ -29,8 +29,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.*;
@@ -129,7 +129,7 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
      *       in-memory reference.</li>
      * </ul>
      *
-     * @see javax.persistence.EntityManager
+     * @see jakarta.persistence.EntityManager
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -270,7 +270,7 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
      *
      * <p><b>DAO behavior tested:</b> When the HQL query returns an empty list (no
      * matching rows for the demographic number), {@code getCPP} returns {@code null}
-     * rather than throwing a {@link javax.persistence.NoResultException} or returning
+     * rather than throwing a {@link jakarta.persistence.NoResultException} or returning
      * an empty entity.</p>
      *
      * @see CaseManagementCPPDAO#getCPP(String)

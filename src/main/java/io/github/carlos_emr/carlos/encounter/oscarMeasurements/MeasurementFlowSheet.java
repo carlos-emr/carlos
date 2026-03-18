@@ -41,8 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.commons.collections.OrderedMapIterator;
-import org.apache.commons.collections.map.ListOrderedMap;
+import org.apache.commons.collections4.OrderedMapIterator;
+import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
@@ -710,7 +710,7 @@ public class MeasurementFlowSheet {
 
         // Iterate all items and collect DRL rule strings from their Recommendation objects
         if (itemList != null) {
-            OrderedMapIterator iter = itemList.orderedMapIterator();
+            OrderedMapIterator iter = itemList.mapIterator();
             while (iter.hasNext()) {
                 // iter.next() returns the key and advances the iterator
                 String key = (String) iter.next();

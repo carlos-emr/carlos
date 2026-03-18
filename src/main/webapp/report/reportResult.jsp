@@ -16,8 +16,8 @@
 <%
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Report in CSV")) {
         if (true) {
-            out.clear();
-            pageContext.forward("reportDownload"); //forward request&response to the target page
+            out.clearBuffer();
+            request.getRequestDispatcher("reportDownload").include(request, response); //forward request&response to the target page
             return;
         }
     }
@@ -48,7 +48,7 @@
     Vector vecFieldValue = (new RptReportCreator()).query(reportSql, vecFieldCaption);
 
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>

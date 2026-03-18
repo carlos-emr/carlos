@@ -27,7 +27,7 @@
 
 package io.github.carlos_emr.carlos.casemgmt.common;
 
-import javax.servlet.jsp.tagext.TagSupport;
+import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import org.springframework.context.ApplicationContext;

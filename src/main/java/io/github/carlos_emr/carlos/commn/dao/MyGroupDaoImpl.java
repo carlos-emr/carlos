@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.List;
 
 @Repository

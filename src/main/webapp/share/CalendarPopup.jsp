@@ -36,7 +36,7 @@
 	output: opener.param.substring("&formdatebox=".length()) = year1 + "-" + month1 + "-" + day1
   */
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page

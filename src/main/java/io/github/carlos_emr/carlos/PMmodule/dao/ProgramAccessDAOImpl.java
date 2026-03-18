@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import java.util.List;
 
-import javax.persistence.TypedQuery;
+import jakarta.persistence.TypedQuery;
 
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;

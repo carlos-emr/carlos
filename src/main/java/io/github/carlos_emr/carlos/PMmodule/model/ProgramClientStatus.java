@@ -27,9 +27,12 @@
 
 package io.github.carlos_emr.carlos.PMmodule.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 
-
+@Entity
+@Table(name = "program_clientstatus")
 public class ProgramClientStatus implements Serializable {
     public static String REF = "ProgramClientStatus";
 

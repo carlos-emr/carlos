@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
@@ -38,7 +38,7 @@
 <%@page import="io.github.carlos_emr.carlos.waitinglist.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
     <head>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>

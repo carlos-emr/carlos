@@ -65,11 +65,11 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <!-- Struts for i18n -->
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
@@ -888,7 +888,7 @@
 
             <td id="firstMenu">
                 <div class="icon-container">
-                    <img alt="OSCAR EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
+                    <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
                 </div>
                 <ul id="navlist">
                     <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -1646,11 +1646,11 @@
 
                                 ScheduleDate sd = scheduleDateDao.findByProviderNoAndDate(curProvider_no[nProvider], ConversionUtils.fromDateString(strDate));
 
-                                //viewall function
+                                //viewall function - when viewall=0, hide other providers without a schedule
+                                //but always show the logged-in provider's own schedule (not grayed out)
                                 if (request.getParameter("viewall") == null || request.getParameter("viewall").equals("0")) {
                                     if (sd == null || "0".equals(String.valueOf(sd.getAvailable()))) {
                                         if (nProvider != me) continue;
-                                        else userAvail = false;
                                     }
                                 }
                                 bColor = bColor ? false : true;
@@ -1822,14 +1822,14 @@
                                                 <tr>
                                                     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
                                                         <a href="javascript:void(0)"
-                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment.jsp?provider_no=<%=curProvider_no[nProvider]%>&bFirstDisp=<%=true%>&year=<%=strYear%>&month=<%=strMonth%>&day=<%=strDay%>&start_time=<%=(hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+ (minuteCursor<10?"0":"") +minuteCursor%>&end_time=<%=(hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+(minuteCursor+depth-1)%>&duration=<%=dateTimeCodeBean.get("duration"+hourmin.toString())%>','<%=dateTimeCodeBean.get("confirm"+hourmin.toString())%>','<%=allowDay%>','<%=allowWeek%>');return false;"
+                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment.jsp?provider_no=<%=curProvider_no[nProvider]%>&bFirstDisp=<%=true%>&year=<%=strYear%>&month=<%=strMonth%>&day=<%=strDay%>&start_time=<%=(hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+ (minuteCursor<10?"0":"") +minuteCursor%>&end_time=<%=(hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+(minuteCursor+depth-1)%>&duration=<%=dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? dateTimeCodeBean.get("duration"+hourmin.toString()) : ""%>','<%=dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? dateTimeCodeBean.get("confirm"+hourmin.toString()) : ""%>','<%=allowDay%>','<%=allowWeek%>');return false;"
                                                            title='<%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+ (minuteCursor<10?"0":"")+minuteCursor)%> - <%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+((minuteCursor+depth-1)<10?"0":"")+(minuteCursor+depth-1))%>'
                                                            class="adhour">
                                                             <%=(hourCursor < 10 ? "0" : "") + hourCursor + ":"%><%=(minuteCursor < 10 ? "0" : "") + minuteCursor%>&nbsp;</a>
                                                     </td>
                                                     <td class="hourmin"
                                                         width='1%' <%=dateTimeCodeBean.get("color" + hourmin.toString()) != null ? ("bgcolor=" + dateTimeCodeBean.get("color" + hourmin.toString())) : ""%>
-                                                        title='<%=dateTimeCodeBean.get("description"+hourmin.toString())%>'>
+                                                        title='<%=dateTimeCodeBean.get("description"+hourmin.toString()) != null ? dateTimeCodeBean.get("description"+hourmin.toString()) : ""%>'>
                                                                         <span color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white"%>'><%=hourmin.toString()%>
                                                                         </span>
                                                     </td>
@@ -1925,7 +1925,7 @@
                                                                       String notes = String.valueOf(appointment.getNotes()).trim();
                                                                       String status = String.valueOf(appointment.getStatus()).trim();
                                                                       String sitename = String.valueOf(appointment.getLocation()).trim();
-                                                                      String type = appointment.getType();
+                                                                      String type = appointment.getType() != null ? appointment.getType() : "";
                                                                       String urgency = appointment.getUrgency();
                                                                       String reasonCodeName = "";
                                                                       if(appointment.getReasonCode() != null)    {

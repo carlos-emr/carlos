@@ -38,11 +38,11 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Properties;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.OscarProperties;
 import org.apache.logging.log4j.Logger;
@@ -117,7 +117,7 @@ public class FrmPDFServlet extends HttpServlet {
     }
 
     /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
-    public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
@@ -129,10 +129,10 @@ public class FrmPDFServlet extends HttpServlet {
      *
      * @param req HttpServletRequest containing form field values and configuration parameters
      * @param res HttpServletResponse to write the generated PDF bytes to
-     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
-    public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
+    public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
             java.io.IOException {
 
         ByteArrayOutputStream baosPDF = null;

@@ -54,10 +54,10 @@
     String premiumFlag = "";
     String service_form = "";
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page errorPage="/errorpage.jsp" %>
 <%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>

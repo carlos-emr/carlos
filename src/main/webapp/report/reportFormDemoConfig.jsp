@@ -74,7 +74,7 @@
     vecConfigField = confObj.getConfigNameList(SAVE_AS, reportId);
     vecTableField = tableObj.getTableNameCaption(tableName);
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <html>
     <head>

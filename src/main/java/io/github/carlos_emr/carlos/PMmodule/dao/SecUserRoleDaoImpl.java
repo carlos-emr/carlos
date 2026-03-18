@@ -110,7 +110,7 @@ public class SecUserRoleDaoImpl extends AbstractHibernateDao implements SecUserR
     @Override
     public void save(SecUserRole sur) {
         sur.setLastUpdateDate(new Date());
-        currentSession().save(sur);
+        currentSession().persist(sur);
     }
 
     @Override

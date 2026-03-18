@@ -39,7 +39,7 @@ import java.util.Date;
 import java.util.List;
 import java.text.SimpleDateFormat;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -216,11 +216,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findByLabIdViaMagic(Integer labNo) {
-        String sql = "FROM Hl7TextInfo a, Hl7TextInfo b " +
-                "WHERE a.accessionNumber <> '' " +
-                "AND a.accessionNumber = b.accessionNumber " +
-                "AND b.labNumber = ?1 " +
-                "ORDER BY a.finalResultCount, a.obrDate, a.labNumber";
+        String sql = "SELECT a, b FROM Hl7TextInfo a, Hl7TextInfo b WHERE a.accessionNumber <> '' AND a.accessionNumber = b.accessionNumber AND b.labNumber = ?1 ORDER BY a.finalResultCount, a.obrDate, a.labNumber";
         Query q = entityManager.createQuery(sql);
         q.setParameter(1, labNo);
         return q.getResultList();
@@ -230,7 +226,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     @Override
     public List<Object[]> findByDemographicId(Integer demographicNo) {
         String sql =
-                "FROM Hl7TextInfo hl7, PatientLabRouting p " +
+                "SELECT hl7, p FROM Hl7TextInfo hl7, PatientLabRouting p " +
                         "WHERE p.labNo = hl7.labNumber " +
                         "AND p.labType = 'HL7' " +
                         "AND p.demographicNo = ?1 " +
@@ -265,13 +261,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
     @Override
     public List<Object[]> findLabsViaMagic(String status, String providerNo, String patientFirstName, String patientLastName, String patientHealthNumber) {
-        String sql = "FROM Hl7TextInfo info, ProviderLabRoutingModel p " +
-                "WHERE info.labNumber = p.labNo " +
-                "AND p.status like ?1 " +
-                "AND p.providerNo like ?2 " +
-                "AND p.labType = 'HL7' " +
-                "AND info.firstName like ?3 " +
-                "AND info.lastName like ?4";
+        String sql = "SELECT info, p FROM Hl7TextInfo info, ProviderLabRoutingModel p WHERE info.labNumber = p.labNo AND p.status like ?1 AND p.providerNo like ?2 AND p.labType = 'HL7' AND info.firstName like ?3 AND info.lastName like ?4";
         if (patientHealthNumber != null) {
             sql = sql + " AND info.healthNumber like ?5 ";
         }

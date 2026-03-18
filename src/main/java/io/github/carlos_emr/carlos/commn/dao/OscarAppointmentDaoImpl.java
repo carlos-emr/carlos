@@ -42,7 +42,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.*;
 
 @Repository
@@ -437,16 +437,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> findAppointments(Date sDate, Date eDate) {
-        String sql = "FROM Appointment a, Demographic d " +
-                "WHERE a.demographicNo = d.DemographicNo " +
-                "AND d.Hin <> '' " +
-                "AND a.appointmentDate >= ?1 " +
-                "AND a.appointmentDate <= ?2 " +
-                "AND (" +
-                "	UPPER(d.HcType) = 'ONTARIO' " +
-                "	OR d.HcType='ON' " +
-                ") GROUP BY d.DemographicNo " +
-                "ORDER BY d.LastName";
+        String sql = "SELECT a, d FROM Appointment a, Demographic d WHERE a.demographicNo = d.DemographicNo AND d.Hin <> '' AND a.appointmentDate >= ?1 AND a.appointmentDate <= ?2 AND (UPPER(d.HcType) = 'ONTARIO' OR d.HcType='ON') GROUP BY d.DemographicNo ORDER BY d.LastName";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, sDate == null ? new Date(Long.MIN_VALUE) : sDate);
         query.setParameter(2, eDate == null ? new Date(Long.MAX_VALUE) : eDate);
@@ -455,9 +446,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> findPatientAppointments(String providerNo, Date from, Date to) {
-        StringBuilder sql = new StringBuilder("FROM Demographic d, Appointment a, Provider p " +
-                "WHERE a.demographicNo = d.DemographicNo " +
-                "AND a.providerNo = p.ProviderNo ");
+        String baseHql = "SELECT d, a, p FROM Demographic d, Appointment a, Provider p WHERE a.demographicNo = d.DemographicNo AND a.providerNo = p.ProviderNo ";
+        StringBuilder sql = new StringBuilder(baseHql);
 
         List<Object> params = new ArrayList<>();
         int paramIndex = 1;
@@ -547,12 +537,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> search_appt_future(Integer demographicNo, Date from, Date to) {
-        StringBuilder sql = new StringBuilder("FROM Appointment a, Provider p " +
-                "WHERE a.providerNo = p.ProviderNo and " +
-                "a.demographicNo = ?1 and " +
-                "a.appointmentDate >= ?2 and " +
-                "a.appointmentDate < ?3  " +
-                "order by a.appointmentDate desc, a.startTime desc");
+        String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo and a.demographicNo = ?1 and a.appointmentDate >= ?2 and a.appointmentDate < ?3 order by a.appointmentDate desc, a.startTime desc";
+        StringBuilder sql = new StringBuilder(baseHql);
 
         Query query = entityManager.createQuery(sql.toString());
         query.setParameter(1, demographicNo);
@@ -564,12 +550,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> search_appt_past(Integer demographicNo, Date from, Date to) {
-        StringBuilder sql = new StringBuilder("FROM Appointment a, Provider p " +
-                "WHERE a.providerNo = p.ProviderNo and " +
-                "a.demographicNo = ?1 and " +
-                "a.appointmentDate < ?2 and " +
-                "a.appointmentDate > ?3  " +
-                "order by a.appointmentDate desc, a.startTime desc");
+        String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo and a.demographicNo = ?1 and a.appointmentDate < ?2 and a.appointmentDate > ?3 order by a.appointmentDate desc, a.startTime desc";
+        StringBuilder sql = new StringBuilder(baseHql);
 
         Query query = entityManager.createQuery(sql.toString());
         query.setParameter(1, demographicNo);
@@ -625,7 +607,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> export_appt(Integer demographicNo) {
-        String sql = "from Appointment app, Provider prov where app.providerNo = prov.id and app.demographicNo = ?1";
+        String sql = "select app, prov from Appointment app, Provider prov where app.providerNo = prov.id and app.demographicNo = ?1";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
 
@@ -675,7 +657,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
-        String sql = "FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
+        String sql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, apptNo);
         return query.getResultList();

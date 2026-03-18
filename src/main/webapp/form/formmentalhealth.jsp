@@ -63,15 +63,15 @@
         //int provNo = Integer.parseInt(request.getParameter("provNo"));
 
         if (true) {
-            out.clear();
+            out.clearBuffer();
             if (formId == 0) {
-                pageContext.forward("formmhreferral.jsp?demographic_no=" + demoNo + "&formId=" + formId);
+                request.getRequestDispatcher("formmhreferral.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
             } else {
                 FrmRecord rec = (new FrmRecordFactory()).factory("MentalHealth");
                 java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-                pageContext.forward("formmh" + props.getProperty("c_lastVisited", "referral")
-                        + ".jsp?demographic_no=" + demoNo + "&formId=" + formId);
+                request.getRequestDispatcher("formmh" + props.getProperty("c_lastVisited", "referral")
+                        + ".jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
             }
 
             return;

@@ -30,15 +30,25 @@
 
 package io.github.carlos_emr.carlos.eform.data;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
 import java.util.ArrayList;
 
+@XmlAccessorType(XmlAccessType.NONE)
 public class DatabaseAP {
+    @XmlElement(name = "ap-name")
     private String apName;
+    @XmlElement(name = "ap-sql")
     private String apSQL;
+    @XmlElement(name = "ap-output")
     private String apOutput;
+    @XmlElement(name = "ap-insql")
     private String apInSQL;
+    @XmlElement(name = "ap-json-output")
     private boolean apJsonOutput = false;
     private boolean isInputField = false;
+    @XmlElement(name = "archive")
     private String archive;
 
 

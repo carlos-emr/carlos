@@ -42,7 +42,7 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.text.DateFormat;
 import java.text.ParseException;

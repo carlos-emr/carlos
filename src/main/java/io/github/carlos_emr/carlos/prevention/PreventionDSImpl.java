@@ -33,7 +33,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.net.URL;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
@@ -90,7 +90,7 @@ import io.github.carlos_emr.OscarProperties;
  *
  * <h3>Migration Note</h3>
  * <p>This class was migrated from the legacy Drools 2.0 API ({@code RuleBase},
- * {@code WorkingMemory}) to the modern KIE API (Drools 7.74.1) as part of the
+ * {@code WorkingMemory}) to the modern KIE API (Drools 10.0.0) as part of the
  * CARLOS EMR Drools migration. The three-tier loading strategy and rule evaluation
  * semantics are preserved from the original implementation.</p>
  *

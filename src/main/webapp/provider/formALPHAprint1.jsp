@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String user_no = (String) session.getAttribute("user");
 
     //if bNewForm is false (0), then it should be able to display xml data.

@@ -37,11 +37,11 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.List;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
@@ -105,11 +105,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *
      * @param req HttpServletRequest containing prescription form parameters and fax details
      * @param res HttpServletResponse to write the PDF or fax status HTML to
-     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
     @Override
-    public void service(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException, java.io.IOException {
+    public void service(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException, java.io.IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));

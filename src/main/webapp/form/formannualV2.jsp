@@ -54,11 +54,11 @@
     String s = p.getSex();
 
     if (true) {
-        out.clear();
+        out.clearBuffer();
         if (s.equals("F"))
-            pageContext.forward("formannualfemaleV2.jsp?demographic_no=" + demoNo + "&formId=" + formId); // request.getParameter("form_link") + "?demographic_no=" + request.getParameter("demographic_no") ); //+ "&study_no=" + request.getParameter("study_no") ); //forward request&response to the target page "&formId=" + request.getParameter("formId") +
+            request.getRequestDispatcher("formannualfemaleV2.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response); // request.getParameter("form_link") + "?demographic_no=" + request.getParameter("demographic_no") ); //+ "&study_no=" + request.getParameter("study_no") ); //forward request&response to the target page "&formId=" + request.getParameter("formId") +
         else
-            pageContext.forward("formannualmaleV2.jsp?demographic_no=" + demoNo + "&formId=" + formId);
+            request.getRequestDispatcher("formannualmaleV2.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
 
         return;
     }

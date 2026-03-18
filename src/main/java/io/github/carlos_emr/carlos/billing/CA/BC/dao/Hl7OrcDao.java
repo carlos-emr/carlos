@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Orc;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
@@ -57,7 +57,7 @@ public class Hl7OrcDao extends AbstractDaoImpl<Hl7Orc> {
     }
 
     public List<Object[]> findOrcAndPidByMessageId(Integer messageId) {
-        String sql = "FROM Hl7Orc orc, Hl7Pid pid WHERE orc.pidId = pid.id AND pid.messageId = ?1";
+        String sql = "SELECT orc, pid FROM Hl7Orc orc, Hl7Pid pid WHERE orc.pidId = pid.id AND pid.messageId = ?1";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, messageId);
         return query.getResultList();

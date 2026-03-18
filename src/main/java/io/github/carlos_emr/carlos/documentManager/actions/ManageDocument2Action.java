@@ -37,10 +37,8 @@ import org.openpdf.text.pdf.PdfReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
-import org.apache.pdfbox.io.MemoryUsageSetting;
-import org.apache.pdfbox.io.RandomAccessFile;
-import org.apache.pdfbox.io.ScratchFile;
-import org.apache.pdfbox.pdfparser.PDFParser;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
@@ -68,10 +66,10 @@ import org.apache.commons.io.FilenameUtils;
 import org.owasp.encoder.Encode;
 
 import javax.imageio.ImageIO;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
@@ -82,7 +80,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
@@ -671,10 +669,7 @@ public class ManageDocument2Action extends ActionSupport {
         Path pngFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            PDFParser parser = new PDFParser(new RandomAccessFile(pdfPath.toFile(), "rw"), new ScratchFile(MemoryUsageSetting.setupTempFileOnly()));
-            parser.parse();
-
-            try (PDDocument pdf = parser.getPDDocument()) {
+            try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
                     log.error("Page number is null for document " + d.getDocfilename());
@@ -1264,7 +1259,7 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
 
-        try (PDDocument reader = PDDocument.load(file)) {
+        try (PDDocument reader = Loader.loadPDF(file)) {
             // Validate page number is within bounds
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
@@ -1308,7 +1303,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         String filePath = docdownload + fileName;
 
-        try (PDDocument reader = PDDocument.load(new File(filePath))) {
+        try (PDDocument reader = Loader.loadPDF(new File(filePath))) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);
@@ -1516,7 +1511,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Re-validate file path at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
 
-        try (PDDocument document = PDDocument.load(validatedFile)) {
+        try (PDDocument document = Loader.loadPDF(validatedFile)) {
             PDFRenderer renderer = new PDFRenderer(document);
 
             // Validate page number is within bounds

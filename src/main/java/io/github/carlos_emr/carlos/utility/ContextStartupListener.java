@@ -49,12 +49,12 @@ import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceRe
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.OscarProperties;
 
-public class ContextStartupListener implements javax.servlet.ServletContextListener {
+public class ContextStartupListener implements jakarta.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
     private static final OscarProperties oscarProperties = OscarProperties.getInstance();
 
     @Override
-    public void contextInitialized(javax.servlet.ServletContextEvent sce) {
+    public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
 
         // ensure cxf uses log4j2
         System.setProperty("org.apache.cxf.Logger", "org.apache.cxf.commons.logging.Log4j2Logger");
@@ -64,9 +64,6 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
          */
         System.setProperty("log4j1.compatibility", "true");
 
-        // Disable unsafe serialization in commons-collections to prevent CVE-2015-7501
-        System.setProperty("org.apache.commons.collections.enableUnsafeSerialization", "false");
-        logger.info("Commons-collections unsafe serialization disabled for CVE-2015-7501 protection");
 
         try {
             String contextPath = sce.getServletContext().getContextPath();
@@ -199,7 +196,7 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
     }
 
     @Override
-    public void contextDestroyed(javax.servlet.ServletContextEvent sce) {
+    public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
 
         try {

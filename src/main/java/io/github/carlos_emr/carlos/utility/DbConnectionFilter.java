@@ -31,18 +31,18 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import javax.sql.DataSource;
 
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
-public class DbConnectionFilter implements javax.servlet.Filter {
+public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 
     private static ThreadLocal<Connection> dbConnection = new ThreadLocal<Connection>();

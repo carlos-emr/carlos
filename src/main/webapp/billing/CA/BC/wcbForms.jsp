@@ -51,8 +51,8 @@
 <%@page import="java.text.*, java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@ page import="io.github.carlos_emr.carlos.entities.WCB" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
-<%@taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@taglib uri="jakarta.tags.core" prefix="c" %>
+<%@taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String demographicNo = request.getParameter("demographicNo");
     String wcbid = request.getParameter("wcbid");

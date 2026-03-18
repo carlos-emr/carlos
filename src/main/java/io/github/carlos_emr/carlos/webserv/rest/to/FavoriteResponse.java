@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to;
 
 import io.github.carlos_emr.carlos.webserv.rest.to.model.FavoriteTo1;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.List;
 

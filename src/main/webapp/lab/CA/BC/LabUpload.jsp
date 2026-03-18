@@ -49,7 +49,7 @@
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
     String demographic_no = request.getParameter("demographic_no");
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <html>
 
     <head>

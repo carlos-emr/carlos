@@ -31,8 +31,8 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib prefix="s" uri="/struts-tags" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
@@ -395,9 +395,16 @@ function ts_makeSortable(table) {
     for (var i=0;i<firstRow.cells.length;i++) {
         var cell = firstRow.cells[i];
         var txt = ts_getInnerText(cell);
-        cell.innerHTML = '<a href="#"  class="sortheader" '+
-        'onclick="ts_resortTable(this, '+i+');return false;">' +
-        txt+'<span class="sortarrow"></span></a>';
+        var link = document.createElement('a');
+        link.href = '#';
+        link.className = 'sortheader';
+        link.setAttribute('onclick', 'ts_resortTable(this, '+i+');return false;');
+        link.textContent = txt;
+        var span = document.createElement('span');
+        span.className = 'sortarrow';
+        link.appendChild(span);
+        cell.textContent = '';
+        cell.appendChild(link);
     }
 }
 

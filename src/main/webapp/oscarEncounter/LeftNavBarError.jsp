@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.LeftNavBar.ErrorH3"/></h3>
 

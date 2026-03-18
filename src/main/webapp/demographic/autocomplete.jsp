@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <ul>
     <c:forEach var="l" items="${list}">
         <li id="<c:out value="${l.demographicNo}"/>"><c:out value="${l.formattedName}"/> (<c:out

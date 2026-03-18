@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import org.springframework.stereotype.Repository;
@@ -94,14 +94,7 @@ public class ValidationsDaoImpl extends AbstractDaoImpl<Validations> implements 
 
     @SuppressWarnings("unchecked")
     public List<Object[]> findValidationsBy(Integer demo, String type, Integer validationId) {
-        String sql = "FROM Validations v, Measurement m " +
-                "WHERE " +
-                "m.demographicId = ?1 " +
-                "AND m.type = ?2 " +
-                "AND v.id = ?3 " +
-                "GROUP BY m.id " +
-                "ORDER BY m.dateObserved DESC, m.createDate DESC";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT v, m FROM Validations v, Measurement m WHERE m.demographicId = ?1 AND m.type = ?2 AND v.id = ?3 GROUP BY m.id ORDER BY m.dateObserved DESC, m.createDate DESC");
         query.setParameter(1, demo);
         query.setParameter(2, type);
         query.setParameter(3, validationId);

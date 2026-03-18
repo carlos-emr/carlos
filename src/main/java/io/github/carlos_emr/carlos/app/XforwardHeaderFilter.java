@@ -28,9 +28,9 @@
  */
 package io.github.carlos_emr.carlos.app;
 
-import javax.servlet.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
+import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.io.IOException;
 
 public class XforwardHeaderFilter implements Filter {

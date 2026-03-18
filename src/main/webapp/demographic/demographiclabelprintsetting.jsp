@@ -59,11 +59,11 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%
-    if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String curProvider_no = (String) session.getAttribute("user");
 
     java.util.Properties oscarVariables = OscarProperties.getInstance();

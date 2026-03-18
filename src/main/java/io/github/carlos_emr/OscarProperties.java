@@ -378,30 +378,6 @@ public class OscarProperties extends Properties {
         return isPropertyActive("consultation_signature_enabled");
     }
 
-    public boolean isSpireClientEnabled() {
-        return isPropertyActive("SPIRE_CLIENT_ENABLED");
-    }
-
-    public int getSpireClientRunFrequency() {
-        String prop = getProperty("spire_client_run_frequency");
-        return Integer.parseInt(prop);
-    }
-
-    public String getSpireServerUser() {
-        return getProperty("spire_server_user");
-    }
-
-    public String getSpireServerPassword() {
-        return getProperty("spire_server_password");
-    }
-
-    public String getSpireServerHostname() {
-        return getProperty("spire_server_hostname");
-    }
-
-    public String getSpireDownloadDir() {
-        return getProperty("spire_download_dir");
-    }
 
     public String getHL7A04BuildDirectory() {
         return getProperty("hl7_a04_build_dir");

@@ -35,8 +35,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -427,7 +427,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
                                  Boolean patientCompliance, String specialInstruction, String comment, boolean startDateUnknown) {
 
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName()
-                + " d WHERE (d.archived = 0 OR d.archived IS NULL) AND "
+                + " d WHERE (d.archived = false OR d.archived IS NULL) AND "
                 + "d.providerNo = :providerNo AND d.demographicId = :demographicNo AND d.rxDate = :rxDate AND d.endDate = :endDate AND d.writtenDate = :writtenDate AND d.brandName = :brandName AND "
                 + "d.gcnSeqNo = :gcnSeqNo AND d.customName = :customName AND d.takeMin = :takemin AND d.takeMax = :takemax AND d.freqCode = :freqCode AND d.duration = :duration AND d.durUnit = :durunit AND d.quantity = :quantity AND d.unitName = :unitName AND d.repeat = :repeat AND "
                 + "d.lastRefillDate = :lastRefillDate AND d.noSubs = :nosubs AND d.prn = :prn AND d.special = :special AND d.outsideProviderName = :outsideProviderName AND d.outsideProviderOhip = :outsideProviderOhip AND d.customInstructions = :customInstructions AND d.longTerm = :longTerm AND "
@@ -560,7 +560,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     public Drug findByDemographicIdRegionalIdentifierAndAtcCode(String atcCode, String regionalIdentifier,
                                                                 int demographicNo) {
         Query query = createQuery("d",
-                "d.archived = 1 AND d.archivedReason != '' AND d.regionalIdentifier = :rid AND d.demographicId = :dn AND d.atc = :atc ORDER BY d.id DESC");
+                "d.archived = true AND d.archivedReason != '' AND d.regionalIdentifier = :rid AND d.demographicId = :dn AND d.atc = :atc ORDER BY d.id DESC");
         query.setParameter("dn", demographicNo);
         query.setParameter("atc", atcCode);
         query.setParameter("rid", regionalIdentifier);
@@ -601,7 +601,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
     @Override
     public List<Drug> findLongTermDrugsByDemographic(Integer demographicId) {
-        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = 1";
+        String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.archived = false and x.longTerm = true";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);

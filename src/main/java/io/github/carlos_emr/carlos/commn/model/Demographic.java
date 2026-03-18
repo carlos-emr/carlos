@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.owasp.encoder.Encode;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -46,6 +48,8 @@ import java.util.regex.Pattern;
 /**
  * This is the object class that relates to the demographic table. Any customizations belong here.
  */
+@Entity
+@Table(name = "demographic")
 public class Demographic extends AbstractModel<Integer> implements Serializable {
 
     private static final String DEFAULT_MONTH = "01";

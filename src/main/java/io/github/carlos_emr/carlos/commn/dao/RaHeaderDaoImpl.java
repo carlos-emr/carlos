@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import org.springframework.stereotype.Repository;
@@ -114,10 +114,7 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
 
     @Override
     public List<Object[]> findHeadersAndProvidersById(Integer id) {
-        String sql = "FROM RaDetail r, Provider p " +
-                "WHERE p.OhipNo = r.providerOhipNo " +
-                "AND r.raHeaderNo = ?1 " +
-                "GROUP BY r.providerOhipNo";
+        String sql = "SELECT r, p FROM RaDetail r, Provider p WHERE p.OhipNo = r.providerOhipNo AND r.raHeaderNo = ?1 GROUP BY r.providerOhipNo";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         return query.getResultList();

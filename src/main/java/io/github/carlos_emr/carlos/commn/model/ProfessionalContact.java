@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
-import javax.persistence.Entity;
+import jakarta.persistence.Entity;
 
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactType;
 

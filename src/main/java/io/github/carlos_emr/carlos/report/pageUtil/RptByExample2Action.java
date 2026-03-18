@@ -36,9 +36,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
@@ -54,7 +54,7 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 

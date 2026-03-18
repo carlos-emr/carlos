@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -28,21 +28,25 @@
  */
 package io.github.carlos_emr.carlos.util.persistence;
 
-import java.sql.Types;
-
-// TODO H6-MIGRATE: Replace MySQL5Dialect with MySQLDialect (H6 generic replacement), update StandardBasicTypes/registerHibernateType API to SqlTypes
-import org.hibernate.dialect.MySQL5Dialect;
-import org.hibernate.type.StandardBasicTypes;
+import org.hibernate.dialect.MySQLDialect;
 
 /**
- * Customized dialect that adds a mapping for {@link Types#LONGVARBINARY} in order to prevent {@link org.hibernate.MappingException}.
+ * Custom MySQL dialect for CARLOS EMR.
+ *
+ * <p>In Hibernate 5.x, this class extended {@code MySQL5Dialect} and registered custom type
+ * mappings for {@code LONGVARBINARY} and {@code LONGVARCHAR} to prevent
+ * {@link org.hibernate.MappingException}. In Hibernate 6.x, {@code MySQLDialect} handles
+ * these types natively, so the custom type registrations are no longer needed.</p>
+ *
+ * <p>This class is retained to avoid changing the {@code hibernate.dialect} property in
+ * configuration files ({@code carlos.properties}) that reference it by fully-qualified name.</p>
+ *
+ * @since 2006-01-01
  */
-public class OscarMySQL5Dialect extends MySQL5Dialect {
+public class OscarMySQL5Dialect extends MySQLDialect {
 
     public OscarMySQL5Dialect() {
         super();
-        registerHibernateType(Types.LONGVARBINARY, StandardBasicTypes.BINARY.getName());
-        registerHibernateType(Types.LONGVARCHAR, StandardBasicTypes.TEXT.getName());
     }
 
 }

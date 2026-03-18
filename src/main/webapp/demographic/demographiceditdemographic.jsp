@@ -56,7 +56,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@page import="java.util.HashSet" %>
 <%@page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <%
     String demographic$ = request.getParameter("demographic_no");
@@ -131,7 +131,7 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 

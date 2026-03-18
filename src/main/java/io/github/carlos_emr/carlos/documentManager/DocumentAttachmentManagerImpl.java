@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.managers.*;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
@@ -25,8 +26,8 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -654,7 +655,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs while loading, processing, or saving the PDF file
      */
     public void flattenPDFFormFields(Path pdfPath) throws PDFGenerationException {
-        try (PDDocument document = PDDocument.load(pdfPath.toFile())) {
+        try (PDDocument document = Loader.loadPDF(pdfPath.toFile())) {
             PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
             if (acroForm != null) {
                 acroForm.flatten();

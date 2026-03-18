@@ -39,10 +39,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javassist.Modifier;
 
-import javax.persistence.Column;
-import javax.persistence.EmbeddedId;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.Provider;

@@ -33,15 +33,15 @@ import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import dev.samstevens.totp.code.DefaultCodeGenerator;
-import dev.samstevens.totp.code.DefaultCodeVerifier;
-import dev.samstevens.totp.time.SystemTimeProvider;
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
+import org.apache.commons.codec.binary.Base32;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
@@ -59,10 +59,10 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.AlertTimer;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -308,13 +308,24 @@ public final class Login2Action extends ActionSupport {
                 }
             }
             
-            // Explicitly configure TOTP verifier parameters to match RFC 6238 standard defaults
-            // (30-second time step, ±1 period allowed discrepancy for clock skew tolerance)
-            DefaultCodeVerifier codeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
-            codeVerifier.setTimePeriod(30);
-            codeVerifier.setAllowedTimePeriodDiscrepancy(1);
+            // Verify TOTP code with ±1 time step tolerance for clock skew (RFC 6238)
+            boolean validCode;
+            try {
+                TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+                byte[] decodedKey = new Base32().decode(mfaSecret);
+                SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+                java.time.Instant now = java.time.Instant.now();
+                java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-            if (codeVerifier.isValidCode(mfaSecret, this.code)) {
+                validCode = totpGenerator.generateOneTimePasswordString(key, now).equals(this.code)
+                        || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(this.code)
+                        || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(this.code);
+            } catch (java.security.InvalidKeyException e) {
+                request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
+                throw new RuntimeException(e);
+            }
+
+            if (validCode) {
                 LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);
                 if (this.mfaRegistrationFlow) {
                     Security security = cl.getSecurity();

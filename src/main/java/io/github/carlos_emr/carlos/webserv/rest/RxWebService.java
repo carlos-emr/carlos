@@ -38,6 +38,7 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionJavaScript;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -69,14 +70,14 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import javax.imageio.ImageIO;
 import javax.naming.OperationNotSupportedException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.StreamingOutput;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.StreamingOutput;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -723,7 +724,7 @@ public class RxWebService extends AbstractServiceImpl {
                     document.addPage(page);
 
                     // Create a new font object selecting one of the PDF base fonts
-                    PDFont font = PDType1Font.HELVETICA_BOLD;
+                    PDFont font = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
 
                     // Start a new content stream which will "hold" the to be created content
                     PDPageContentStream contentStream = new PDPageContentStream(document, page);
@@ -731,8 +732,8 @@ public class RxWebService extends AbstractServiceImpl {
                     for (PrintPointTo1 point : rxToPrint.getPrintPoints()) {
                         contentStream.beginText();
                         contentStream.setFont(font, point.getFontSize());
-                        contentStream.moveTextPositionByAmount(point.getX(), point.getY());
-                        contentStream.drawString(point.getText());
+                        contentStream.newLineAtOffset(point.getX(), point.getY());
+                        contentStream.showText(point.getText());
                         contentStream.endText();
 
                     }
@@ -740,7 +741,12 @@ public class RxWebService extends AbstractServiceImpl {
                     float[] x = rxToPrint.getxPolygonCoords();
                     float[] y = rxToPrint.getyPolygonCoords();
                     if (x != null && y != null && x.length > 1 && y.length > 1) {
-                        contentStream.drawPolygon(x, y);
+                        contentStream.moveTo(x[0], y[0]);
+                        for (int i = 1; i < x.length; i++) {
+                            contentStream.lineTo(x[i], y[i]);
+                        }
+                        contentStream.closePath();
+                        contentStream.stroke();
                     }
 
                     contentStream.close();

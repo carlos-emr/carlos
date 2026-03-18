@@ -28,14 +28,19 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
+import org.kie.api.KieServices;
+import org.kie.api.builder.KieBuilder;
+import org.kie.api.builder.KieFileSystem;
 import org.kie.api.builder.Message;
+import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.Results;
-import org.kie.api.io.ResourceType;
-import org.kie.internal.utils.KieHelper;
+import org.kie.api.runtime.KieContainer;
+import org.drools.model.codegen.ExecutableModelProject;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -45,23 +50,23 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * Bridge utility for loading Drools rules and creating KieBase instances.
  *
  * <p>This class replaces the legacy {@code org.drools.io.RuleBaseLoader} from Drools 2.0
- * with equivalent functionality using the modern KIE API (Drools 7.74.1). It provides
+ * with equivalent functionality using the standard KIE API (Drools 10.0.0). It provides
  * static methods to load DRL (Drools Rule Language) rules from various sources and
  * compile them into executable {@link KieBase} instances.</p>
  *
  * <h3>Architecture Overview</h3>
- * <p>The KIE compilation pipeline uses {@link KieHelper} as follows:</p>
+ * <p>The KIE compilation pipeline uses the standard {@link KieServices} API:</p>
  * <ol>
- *   <li>A new {@link KieHelper} instance is created (lightweight, no global state)</li>
- *   <li>DRL content is added as a {@link ResourceType#DRL} resource</li>
+ *   <li>DRL content is written to a virtual {@link KieFileSystem}</li>
+ *   <li>{@link KieBuilder} compiles the DRL using the executable model</li>
  *   <li>Compilation results are verified for errors</li>
- *   <li>The {@link KieBase} is built from the helper for rule execution</li>
+ *   <li>A {@link KieContainer} is created to obtain the {@link KieBase}</li>
  * </ol>
  *
  * <h3>Thread Safety</h3>
- * <p>Uses {@link KieHelper} which creates self-contained rule compilations without
- * installing modules into the global KIE repository. This avoids unbounded metadata
- * growth and thread-safety issues with the shared {@code KieRepository}.</p>
+ * <p>Each compilation uses a unique {@link ReleaseId} (UUID-based) to isolate
+ * concurrent compilations in the global KIE repository, preventing collisions
+ * when multiple threads compile DRL simultaneously.</p>
  *
  * <h3>Usage in CARLOS EMR</h3>
  * <p>This helper is used by:</p>
@@ -134,17 +139,21 @@ public final class DroolsHelper {
     /**
      * Creates a KieBase from a single DRL string.
      *
-     * <p>This is the core compilation method. It uses {@link KieHelper} which compiles
-     * DRL rules without installing modules into the global KIE repository, avoiding
-     * unbounded metadata growth in long-running server processes.</p>
+     * <p>This is the core compilation method. It uses the standard KIE API pipeline
+     * ({@link KieServices} / {@link KieFileSystem} / {@link KieBuilder}) to compile DRL
+     * rules into an executable {@link KieBase}.</p>
      *
      * <p>Compilation steps:</p>
      * <ol>
-     *   <li>Creates a new {@link KieHelper} instance (lightweight, no global state)</li>
-     *   <li>Adds the DRL content as a {@link ResourceType#DRL} resource</li>
+     *   <li>Obtains the singleton {@link KieServices} instance</li>
+     *   <li>Creates a {@link KieFileSystem} and writes the DRL content to a virtual path</li>
+     *   <li>Builds via {@link KieBuilder} using the executable model</li>
      *   <li>Verifies compilation results for errors</li>
-     *   <li>Builds and returns the {@link KieBase}</li>
+     *   <li>Returns the {@link KieBase} from a new {@link KieContainer}</li>
      * </ol>
+     *
+     * <p>Each invocation uses a unique {@link ReleaseId} to prevent collisions in the
+     * global KIE repository when multiple threads compile DRL concurrently.</p>
      *
      * @param drl String containing complete DRL rules (typically includes package declaration,
      *            imports, and rule definitions; DRL without a package declaration defaults
@@ -158,22 +167,55 @@ public final class DroolsHelper {
             throw new DroolsCompilationException("DRL content must not be null or empty");
         }
 
-        // KieHelper creates a self-contained compilation context that does not
-        // register modules in the global KIE repository, preventing unbounded
-        // metadata growth over time.
-        KieHelper kieHelper = new KieHelper();
-        kieHelper.addContent(drl, ResourceType.DRL);
+        KieServices ks = KieServices.Factory.get();
 
-        // Check for compilation errors (warnings are acceptable)
-        Results results = kieHelper.verify();
-        if (results.hasMessages(Message.Level.ERROR)) {
-            List<Message> errorMessages = results.getMessages(Message.Level.ERROR);
-            log.error("DRL compilation errors: {}", errorMessages);
-            throw new DroolsCompilationException("DRL compilation failed with "
-                    + errorMessages.size() + " error(s): " + errorMessages);
+        // Use a unique ReleaseId per compilation to avoid collisions in the global
+        // KIE repository when multiple threads compile DRL concurrently.
+        ReleaseId releaseId = ks.newReleaseId("io.github.carlos_emr",
+                "drl-" + UUID.randomUUID(), "1.0.0");
+
+        KieContainer kContainer = null;
+        try {
+            KieFileSystem kfs = ks.newKieFileSystem();
+            kfs.generateAndWritePomXML(releaseId);
+            kfs.write("src/main/resources/rules/generated.drl", drl);
+
+            KieBuilder kb = ks.newKieBuilder(kfs);
+            kb.buildAll(ExecutableModelProject.class);
+
+            // Check for compilation errors (warnings are acceptable)
+            Results results = kb.getResults();
+            if (results.hasMessages(Message.Level.ERROR)) {
+                List<Message> errorMessages = results.getMessages(Message.Level.ERROR);
+                log.error("DRL compilation errors: {}", errorMessages);
+                throw new DroolsCompilationException("DRL compilation failed with "
+                        + errorMessages.size() + " error(s): " + errorMessages);
+            }
+
+            kContainer = ks.newKieContainer(releaseId);
+            return kContainer.getKieBase();
+        } catch (DroolsCompilationException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new DroolsCompilationException("DRL compilation failed unexpectedly", e);
+        } finally {
+            // Always clean up the KieModule from the global repository to prevent
+            // unbounded metadata growth in long-running server processes.
+            // The KieBase remains usable after disposal as it is a self-contained
+            // compiled representation independent of the container.
+            if (kContainer != null) {
+                try {
+                    kContainer.dispose();
+                } catch (RuntimeException e) {
+                    log.warn("Failed to dispose KieContainer for releaseId {}", releaseId, e);
+                }
+            }
+            try {
+                ks.getRepository().removeKieModule(releaseId);
+            } catch (RuntimeException e) {
+                log.warn("Failed to remove KieModule for releaseId {}", releaseId, e);
+            }
         }
-
-        return kieHelper.build();
     }
 
     /**

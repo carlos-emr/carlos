@@ -53,7 +53,7 @@
     </bean>
 
     <!-- Hibernate SessionFactory -->
-    <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+    <bean id="sessionFactory" class="org.springframework.orm.jpa.hibernate.LocalSessionFactoryBean">
         <property name="dataSource" ref="dataSource" />
         <property name="mappingDirectoryLocations">
             <!-- Load Hibernate mapping files like production -->

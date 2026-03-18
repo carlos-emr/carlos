@@ -9,7 +9,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.ws.soap.SOAPFaultException;
+import jakarta.xml.ws.soap.SOAPFaultException;
 
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import org.junit.Test;

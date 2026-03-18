@@ -48,6 +48,7 @@ import org.openpdf.text.DocumentException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -188,7 +189,7 @@ public class DocumentManagerImpl implements DocumentManager {
         // Gets the number of pages for the document
         int numberOfPages = 1;
         if (fileName.toLowerCase().endsWith("pdf")) {
-			try (PDDocument pdDocument = PDDocument.load(file)) {
+			try (PDDocument pdDocument = Loader.loadPDF(file)) {
             numberOfPages = pdDocument.getNumberOfPages();
 			} catch (IOException e) {
 				numberOfPages = 0;

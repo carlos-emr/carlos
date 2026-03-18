@@ -30,7 +30,7 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
@@ -41,9 +41,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
@@ -113,10 +113,6 @@ public class EctDisplayAction extends ActionSupport {
 
         request.setAttribute("navbarName", navName);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", bean.demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
-
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
         request.setAttribute("isJsonRequest", isJsonRequest);
 
@@ -155,6 +151,10 @@ public class EctDisplayAction extends ActionSupport {
             }
 
             request.setAttribute("EctSessionBean", bean);
+        }
+
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", bean.demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         //Can we handle request?

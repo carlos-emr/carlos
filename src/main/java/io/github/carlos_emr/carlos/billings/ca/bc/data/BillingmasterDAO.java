@@ -33,9 +33,9 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -198,7 +198,7 @@ public class BillingmasterDAO {
 
 
     public List<Object[]> findByStatus(String status) {
-        Query query = entityManager.createQuery("FROM Billing b, Billingmaster bm " +
+        Query query = entityManager.createQuery("SELECT b, bm FROM Billing b, Billingmaster bm " +
                 "WHERE b.id = bm.billingNo " +
                 "AND bm.billingstatus = :st");
         query.setParameter("st", status);

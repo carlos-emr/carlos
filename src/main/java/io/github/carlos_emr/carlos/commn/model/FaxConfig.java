@@ -29,7 +29,7 @@ import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 
 /**
  * JPA entity representing fax gateway account configuration.

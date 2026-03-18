@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.math.BigDecimal;
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import org.springframework.stereotype.Repository;

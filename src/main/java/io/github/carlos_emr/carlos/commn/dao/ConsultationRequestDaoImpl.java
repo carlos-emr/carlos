@@ -35,7 +35,7 @@ import java.math.BigInteger;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -84,7 +84,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 					"LEFT JOIN Provider p on d.ProviderNo = p.ProviderNo WHERE 1=1 ");
 
         if (!showCompleted) {
-            sql.append("and cr.status != 4 ");
+            sql.append("and cr.status != '4' ");
         }
 
         if (!team.isEmpty()) {

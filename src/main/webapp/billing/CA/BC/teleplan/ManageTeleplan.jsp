@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.Teleplan.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanSequenceDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanUserPassDAO" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>

@@ -38,8 +38,8 @@
 <%@page import="io.github.carlos_emr.carlos.renal.ReportDataContainer" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ORNPreImplementationReportLog" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ORNPreImplementationReportLogDao" %>
-<%@page import="javax.xml.bind.JAXBContext" %>
-<%@page import="javax.xml.bind.Unmarshaller" %>
+<%@page import="jakarta.xml.bind.JAXBContext" %>
+<%@page import="jakarta.xml.bind.Unmarshaller" %>
 <%@ include file="/taglibs.jsp" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

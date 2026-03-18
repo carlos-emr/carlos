@@ -29,7 +29,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String curUser_no = (String) session.getAttribute("user");
     String tab = request.getParameter("id");

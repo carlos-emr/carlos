@@ -35,7 +35,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -105,7 +105,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         if (filter.getStatus() != null) {
             sql.append("and cr.status = :status ");
         } else {
-            sql.append("and cr.status!=4 and cr.status!=5 ");
+            sql.append("and cr.status!='4' and cr.status!='5' ");
         }
         if (StringUtils.isNotBlank(filter.getTeam())) {
             sql.append("and cr.sendTo = :team ");

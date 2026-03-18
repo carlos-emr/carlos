@@ -81,7 +81,6 @@ verifyDaoSpringUtilsIntegration(TicklerDao.class);
 - **H2 In-Memory**: Fast unit tests
 - **Testcontainers**: Real MariaDB for integration tests
 - **@Transactional/@Rollback**: Automatic cleanup
-- **DBUnit**: Test data management
 
 ## Test Organization
 

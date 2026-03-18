@@ -40,7 +40,7 @@
         errormsg = request.getParameter("errormsg");
     }
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="org.springframework.web.util.JavaScriptUtils" %>
 <%@ page
         import="java.lang.*,io.github.carlos_emr.*"

@@ -27,10 +27,19 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.reports.custom;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlElementWrapper;
+import jakarta.xml.bind.annotation.XmlRootElement;
 import java.util.ArrayList;
 import java.util.List;
 
+@XmlRootElement(name = "report-config")
+@XmlAccessorType(XmlAccessType.NONE)
 public class UCRConfiguration {
+    @XmlElementWrapper(name = "data-sources")
+    @XmlElement(name = "data-source")
     private List<DataSource> dataSources = new ArrayList<DataSource>();
 
     public List<DataSource> getDataSources() {

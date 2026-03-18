@@ -103,7 +103,7 @@ Calendar.setup = function (params) {
         }
     }
     if (!(params.flat || params.multiple || params.inputField || params.displayArea || params.button)) {
-        alert("Calendar.setup:\n  Nothing to setup (no fields found).  Please check your code");
+        if (typeof console !== "undefined") { console.warn("Calendar.setup: Nothing to setup (no fields found)."); }
         return false;
     }
 

@@ -99,7 +99,7 @@ public class ProgramQueueDaoImpl extends AbstractHibernateDao implements Program
             return;
         }
 
-        currentSession().saveOrUpdate(programQueue);
+        currentSession().merge(programQueue);
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramQueue: id=" + programQueue.getId());

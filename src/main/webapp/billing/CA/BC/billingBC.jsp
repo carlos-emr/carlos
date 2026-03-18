@@ -49,8 +49,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@page import="java.util.*, io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.entities.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -1269,7 +1269,7 @@
 <body style="background-color:#FFFFFF;" onLoad="CheckType();correspondenceNote();">
 <div id="page-header">
     <div class="icon-container">
-        <img alt="OSCAR EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
+        <img alt="CARLOS EMR" src="${pageContext.servletContext.contextPath}/images/oscar_logo_small.png" width="19px">
     </div>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.bc.title"/></h3>
     <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.patient"/></span>

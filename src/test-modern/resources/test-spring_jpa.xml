@@ -48,9 +48,6 @@
         </property>
     </bean>
 
-    <!-- JPA annotations bean post processor -->
-    <bean class="org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor" />
-
     <!-- TransactionManager -->
     <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager" autowire="byName">
         <property name="entityManagerFactory" ref="entityManagerFactory" />

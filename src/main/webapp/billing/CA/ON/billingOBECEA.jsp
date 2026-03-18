@@ -22,12 +22,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String user_no;

@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE jasperReport PUBLIC "-//JasperReports//DTD Report Design//EN" "http://jasperreports.sourceforge.net/dtds/jasperreport.dtd">
-
-<jasperReport name="label" pageWidth="300" pageHeight="74"
-	columnWidth="270" leftMargin="15" rightMargin="0" topMargin="0"
-	bottomMargin="4">
-	<reportFont name="sansserif" isDefault="false" fontName="sansserif"
-		size="10" isBold="false" isItalic="false" isUnderline="false"
-		isStrikeThrough="false" pdfFontName="Helvetica" pdfEncoding="Cp1252"
-		isPdfEmbedded="false" />
+<jasperReport name="label" pageWidth="300" pageHeight="74" columnWidth="270" leftMargin="15" rightMargin="0" topMargin="0" bottomMargin="4">
+	<reportFont name="sansserif" isDefault="false" fontName="sansserif" size="10" isBold="false" isItalic="false" isUnderline="false" isStrikeThrough="false" pdfFontName="Helvetica" pdfEncoding="Cp1252" isPdfEmbedded="false" />
 	<parameter name="demo" class="java.lang.String">
 	</parameter>
 	<queryString>
@@ -19,42 +12,24 @@
 			FROM demographic d, program_provider pp, program p
 			where d.provider_no = pp.provider_no and pp.program_id = p.id and d.demographic_no = $P{demo}]]>
 	</queryString>
-	<field name="demographic_no" class="java.lang.String"/>
-	<field name="first_name" class="java.lang.String"/>
-	<field name="last_name" class="java.lang.String"/>
-	<field name="hin" class="java.lang.String"/>
-	<field name="birthday" class="java.lang.String"/>
-	<field name="sex" class="java.lang.String"/>
-	<field name="age" class="java.lang.String"/>
-	<field name="curr_date" class="java.lang.String"/>
-	<field name="program_name" class="java.lang.String"/>
-	<title>
-		<band height="60">
-			<textField>
-				<reportElement positionType="Float" mode="Opaque" x="0"
-					y="10" width="330" height="14" />
-				<textElement>
-					<font size="10" isBold="true" />
-				</textElement>
-				<textFieldExpression class="java.lang.String"><![CDATA[$F{first_name} + " " + $F{last_name} + " (Client Record# " + $F{demographic_no} + ")"]]></textFieldExpression>
-			</textField>
-			<textField>
-				<reportElement positionType="Float" mode="Opaque" x="0"
-					y="25" width="330" height="14" />
-				<textElement>
-					<font size="10" />
-				</textElement>
-				<textFieldExpression class="java.lang.String"><![CDATA["HIN: " +$F{hin} + ", Birthday: " + $F{birthday} + ", Gender: " + $F{sex} + ", Age: " + $F{age}]]></textFieldExpression>
-			</textField>
-			<textField>
-				<reportElement positionType="Float" mode="Opaque" x="0"
-					y="38" width="330" height="14" />
-				<textElement>
-					<font size="10" />
-				</textElement>
-				<textFieldExpression class="java.lang.String"><![CDATA["Date of Collection: " + $F{curr_date} + ", Clinic Location: " + $F{program_name} ]]></textFieldExpression>
-			</textField>
-
-		</band>
+	<field name="demographic_no" class="java.lang.String" />
+	<field name="first_name" class="java.lang.String" />
+	<field name="last_name" class="java.lang.String" />
+	<field name="hin" class="java.lang.String" />
+	<field name="birthday" class="java.lang.String" />
+	<field name="sex" class="java.lang.String" />
+	<field name="age" class="java.lang.String" />
+	<field name="curr_date" class="java.lang.String" />
+	<field name="program_name" class="java.lang.String" />
+	<title height="60">
+		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="10" width="330" height="14" fontSize="10.0" bold="true">
+			<expression><![CDATA[$F{first_name} + " " + $F{last_name} + " (Client Record# " + $F{demographic_no} + ")"]]></expression>
+		</element>
+		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="25" width="330" height="14" fontSize="10.0">
+			<expression><![CDATA["HIN: " +$F{hin} + ", Birthday: " + $F{birthday} + ", Gender: " + $F{sex} + ", Age: " + $F{age}]]></expression>
+		</element>
+		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="38" width="330" height="14" fontSize="10.0">
+			<expression><![CDATA["Date of Collection: " + $F{curr_date} + ", Clinic Location: " + $F{program_name} ]]></expression>
+		</element>
 	</title>
 </jasperReport>

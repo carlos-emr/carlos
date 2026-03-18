@@ -32,15 +32,15 @@ package io.github.carlos_emr.carlos.sec;
 import java.io.IOException;
 import java.util.Date;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -378,6 +378,10 @@ public class LoginFilter implements Filter {
      * @return boolean true if request URI starts with any exempt URL, false otherwise
      */
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+        // Treat context root (e.g. /carlos/) as equivalent to /index.jsp (welcome file)
+        if (requestURI.equals(contextPath) || requestURI.equals(contextPath + "/")) {
+            requestURI = contextPath + "/index.jsp";
+        }
         for (String exemptUrl : EXEMPT_URLS) {
             if (requestURI.startsWith(contextPath + exemptUrl)) {
                 return true;

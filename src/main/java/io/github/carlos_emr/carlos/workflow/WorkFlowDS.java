@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * <h3>Migration Note</h3>
  * <p>Migrated from legacy Drools 2.0 API ({@code WorkingMemory}, {@code RuleBase})
- * to the modern KIE API (Drools 7.74.1) using {@link KieBase} and {@link KieSession}.
+ * to the modern KIE API (Drools 10.0.0) using {@link KieBase} and {@link KieSession}.
  * The rule execution semantics remain unchanged.</p>
  *
  * @since 2006-03-21

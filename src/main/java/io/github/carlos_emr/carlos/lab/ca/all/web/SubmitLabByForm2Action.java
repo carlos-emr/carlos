@@ -35,8 +35,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Lab;
@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.GDMLLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.MDSLabHL7Generator;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class SubmitLabByForm2Action extends ActionSupport {

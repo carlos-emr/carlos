@@ -22,16 +22,15 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.OscarProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.pdfbox.io.RandomAccessFile;
-import org.apache.pdfbox.pdfparser.PDFParser;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageTree;
@@ -58,7 +57,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class SplitDocument2Action extends ActionSupport {
@@ -113,9 +112,7 @@ public class SplitDocument2Action extends ActionSupport {
 
         try {
             File input = new File(docdownload + doc.getDocfilename());
-            PDFParser parser = new PDFParser(new RandomAccessFile(input, "rw"));
-            parser.parse();
-            pdf = parser.getPDDocument();
+            pdf = Loader.loadPDF(input);
 
             newPdf = new PDDocument();
 
@@ -233,9 +230,7 @@ public class SplitDocument2Action extends ActionSupport {
         String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
         Path filePath = Paths.get(docdownload, doc.getDocfilename());
         File input = filePath.toFile();
-        PDFParser parser = new PDFParser(new RandomAccessFile(input, "rw"));
-        parser.parse();
-        PDDocument pdf = parser.getPDDocument();
+        PDDocument pdf = Loader.loadPDF(input);
         setFilePermissions(input);
         int x = 1;
         for (Object p : pdf.getDocumentCatalog().getPages()) {
@@ -259,9 +254,7 @@ public class SplitDocument2Action extends ActionSupport {
         Path filePath = Paths.get(docdownload, doc.getDocfilename());
         File file = filePath.toFile();
 
-        PDFParser parser = new PDFParser(new RandomAccessFile(file, "rw"));
-        parser.parse();
-        PDDocument pdf = parser.getPDDocument();
+        PDDocument pdf = Loader.loadPDF(file);
         int x = 1;
         for (Object p : pdf.getDocumentCatalog().getPages()) {
             PDPage pg = (PDPage) p;
@@ -284,9 +277,7 @@ public class SplitDocument2Action extends ActionSupport {
         Path filePath = Paths.get(docdownload, doc.getDocfilename());
         File file = filePath.toFile();
 
-        PDFParser parser = new PDFParser(new RandomAccessFile(file, "rw"));
-        parser.parse();
-        PDDocument pdf = parser.getPDDocument();
+        PDDocument pdf = Loader.loadPDF(file);
 
         // Documents must have at least 2 pages, for the first page to be removed.
         if (pdf.getNumberOfPages() <= 1) {
