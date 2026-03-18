@@ -86,9 +86,6 @@ public class OntarioMD {
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-        } finally {
-            // Release current connection to the connection pool
-            post.releaseConnection();
         }
         return h;
     }

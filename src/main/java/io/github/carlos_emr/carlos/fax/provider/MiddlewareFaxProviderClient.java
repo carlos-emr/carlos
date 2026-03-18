@@ -40,9 +40,7 @@ import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.Credentials;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
-import org.apache.hc.client5.http.auth.CredentialsProvider;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -51,6 +49,7 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
@@ -201,7 +200,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             }
 
             return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -244,7 +243,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
             }
             return downloaded;
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e,
                     FaxProviderException.isTransientNetworkCause(e));
         }
@@ -307,7 +306,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
             String content = EntityUtils.toString(httpEntity);
             return mapper.readValue(content, FaxJob.class);
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             throw new FaxProviderException("Middleware status check communication failure", e,
                     FaxProviderException.isTransientNetworkCause(e));
         }

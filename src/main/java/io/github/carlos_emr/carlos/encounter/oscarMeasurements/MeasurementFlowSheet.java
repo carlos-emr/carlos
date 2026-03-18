@@ -710,7 +710,7 @@ public class MeasurementFlowSheet {
 
         // Iterate all items and collect DRL rule strings from their Recommendation objects
         if (itemList != null) {
-            OrderedMapIterator iter = itemList.orderedMapIterator();
+            OrderedMapIterator iter = itemList.mapIterator();
             while (iter.hasNext()) {
                 // iter.next() returns the key and advances the iterator
                 String key = (String) iter.next();

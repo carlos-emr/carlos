@@ -309,15 +309,21 @@ public final class Login2Action extends ActionSupport {
             }
             
             // Verify TOTP code with ±1 time step tolerance for clock skew (RFC 6238)
-            TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
-            byte[] decodedKey = new Base32().decode(mfaSecret);
-            SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
-            java.time.Instant now = java.time.Instant.now();
-            java.time.Duration timeStep = totpGenerator.getTimeStep();
+            boolean validCode;
+            try {
+                TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+                byte[] decodedKey = new Base32().decode(mfaSecret);
+                SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+                java.time.Instant now = java.time.Instant.now();
+                java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-            boolean validCode = totpGenerator.generateOneTimePasswordString(key, now).equals(this.code)
-                    || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(this.code)
-                    || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(this.code);
+                validCode = totpGenerator.generateOneTimePasswordString(key, now).equals(this.code)
+                        || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(this.code)
+                        || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(this.code);
+            } catch (java.security.InvalidKeyException e) {
+                request.setAttribute("errMsg", "Something went wrong while processing, please try again or contact support.");
+                throw new RuntimeException(e);
+            }
 
             if (validCode) {
                 LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);

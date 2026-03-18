@@ -476,7 +476,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 String payload = EntityUtils.toString(entity);
                 return objectMapper.readTree(payload);
             }
-        } catch (IOException e) {
+        } catch (IOException | org.apache.hc.core5.http.ParseException e) {
             throw new FaxProviderException("SRFax API communication failure", e, FaxProviderException.isTransientNetworkCause(e));
         }
     }

@@ -160,7 +160,7 @@ public class ManageFaxes2Action extends Fax2Action {
                             faxJobDao.merge(faxJob);
                         }
 
-                    } catch (IOException e) {
+                    } catch (IOException | org.apache.hc.core5.http.ParseException e) {
                         log.error("PROBLEM COMM WITH WEB SERVICE");
                     }
                 }
