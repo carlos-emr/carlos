@@ -66,7 +66,8 @@ import java.util.ResourceBundle;
  * and prescription history.
  *
  * <p>Uses OpenPDF (forked from iText) for document composition. The engine maintains
- * shared state (document, fonts, formatters) that pluggable {@link ExtPrint} extensions
+ * shared state (document, fonts, formatters) that pluggable
+ * {@link io.github.carlos_emr.carlos.casemgmt.util.ExtPrint} extensions
  * can use to append additional content sections.
  *
  * <p>Typical usage:
@@ -77,8 +78,8 @@ import java.util.ResourceBundle;
  *   engine.finish();
  * </pre>
  *
- * @see ExtPrint
- * @see OscarChartPrinter
+ * @see io.github.carlos_emr.carlos.casemgmt.util.ExtPrint
+ * @see io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter
  * @since 2008-01-22
  */
 public class CaseManagementPrintPdf {

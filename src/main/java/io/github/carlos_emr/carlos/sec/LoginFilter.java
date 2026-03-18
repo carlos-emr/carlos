@@ -108,8 +108,8 @@ import io.github.carlos_emr.OscarProperties;
  * </ul>
  *
  * @see SecurityTokenManager for token-based authentication
- * @see Login2Action for standard login authentication
- * @see Logout2Action for logout and session cleanup
+ * @see io.github.carlos_emr.carlos.login.Login2Action for standard login authentication
+ * @see io.github.carlos_emr.carlos.login.Logout2Action for logout and session cleanup
  * @since 2026-02-10
  */
 public class LoginFilter implements Filter {

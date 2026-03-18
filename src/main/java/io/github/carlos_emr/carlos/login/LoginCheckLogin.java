@@ -76,7 +76,7 @@ import io.github.carlos_emr.OscarProperties;
  *     // Account is locked due to failed attempts
  * } else {
  *     String[] result = cl.auth(userName, password, pin, ip);
- *     if (result != null && result.length > 1) {
+ *     if (result != null &amp;&amp; result.length > 1) {
  *         // Authentication successful
  *         Security security = cl.getSecurity();
  *     } else {
