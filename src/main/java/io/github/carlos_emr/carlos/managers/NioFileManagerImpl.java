@@ -46,6 +46,7 @@ import jakarta.servlet.ServletContext;
 import io.github.carlos_emr.OscarProperties;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.rendering.ImageType;
@@ -235,7 +236,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 return null;
             }
 
-            try (PDDocument document = PDDocument.load(sourceFile.toFile())) {
+            try (PDDocument document = Loader.loadPDF(sourceFile.toFile())) {
                 int pageIndex = pageNum - 1;
                 int pageCount = document.getNumberOfPages();
 

@@ -64,9 +64,6 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
          */
         System.setProperty("log4j1.compatibility", "true");
 
-        // Disable unsafe serialization in commons-collections to prevent CVE-2015-7501
-        System.setProperty("org.apache.commons.collections.enableUnsafeSerialization", "false");
-        logger.info("Commons-collections unsafe serialization disabled for CVE-2015-7501 protection");
 
         try {
             String contextPath = sce.getServletContext().getContextPath();

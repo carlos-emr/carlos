@@ -35,7 +35,6 @@ import io.github.carlos_emr.carlos.daos.security.SecObjectNameDao;
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.http.impl.cookie.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
@@ -602,7 +601,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         request.setAttribute("abnormals", abnormals);
         request.setAttribute("totalNumDocs", totalNumDocs);
         request.setAttribute("patientIdNamesStr", patientIdNamesStr);
-        request.setAttribute("oldestLab", oldestLab != null ? DateUtils.formatDate(oldestLab, "yyyy-MM-dd HH:mm:ss") : null);
+        request.setAttribute("oldestLab", oldestLab != null ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(oldestLab) : null);
 
         return "dms_page";
     }

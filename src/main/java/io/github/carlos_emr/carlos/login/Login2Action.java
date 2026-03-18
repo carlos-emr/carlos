@@ -39,9 +39,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import dev.samstevens.totp.code.DefaultCodeGenerator;
-import dev.samstevens.totp.code.DefaultCodeVerifier;
-import dev.samstevens.totp.time.SystemTimeProvider;
+import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
+import org.apache.commons.codec.binary.Base32;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
@@ -308,13 +308,18 @@ public final class Login2Action extends ActionSupport {
                 }
             }
             
-            // Explicitly configure TOTP verifier parameters to match RFC 6238 standard defaults
-            // (30-second time step, ±1 period allowed discrepancy for clock skew tolerance)
-            DefaultCodeVerifier codeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
-            codeVerifier.setTimePeriod(30);
-            codeVerifier.setAllowedTimePeriodDiscrepancy(1);
+            // Verify TOTP code with ±1 time step tolerance for clock skew (RFC 6238)
+            TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+            byte[] decodedKey = new Base32().decode(mfaSecret);
+            SecretKeySpec key = new SecretKeySpec(decodedKey, totpGenerator.getAlgorithm());
+            java.time.Instant now = java.time.Instant.now();
+            java.time.Duration timeStep = totpGenerator.getTimeStep();
 
-            if (codeVerifier.isValidCode(mfaSecret, this.code)) {
+            boolean validCode = totpGenerator.generateOneTimePasswordString(key, now).equals(this.code)
+                    || totpGenerator.generateOneTimePasswordString(key, now.minus(timeStep)).equals(this.code)
+                    || totpGenerator.generateOneTimePasswordString(key, now.plus(timeStep)).equals(this.code);
+
+            if (validCode) {
                 LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);
                 if (this.mfaRegistrationFlow) {
                     Security security = cl.getSecurity();

@@ -77,9 +77,10 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
-import org.codehaus.jettison.json.JSONException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.owasp.encoder.Encode;
-import org.codehaus.jettison.json.JSONObject;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -348,14 +349,16 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return SUCCESS;
     }
 
+    private static final ObjectMapper jsonMapper = new ObjectMapper();
+
     private void generateResponse(HttpServletResponse response, ArrayList<String> warnings, String importLog) {
-        JSONObject json = new JSONObject();
+        ObjectNode json = jsonMapper.createObjectNode();
         response.setContentType("text/javascript");
         try {
-            json.put("warnings", warnings);
+            json.set("warnings", jsonMapper.valueToTree(warnings));
             json.put("importLog", importLog);
             response.getWriter().write(json.toString());
-        } catch (IOException | JSONException e) {
+        } catch (IOException e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);
         }
     }
@@ -3574,36 +3577,34 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
-    Map<String, List<JSONObject>> map = null;
+    Map<String, List<ObjectNode>> map = null;
 
     boolean verifyISO3661(String value) {
         if (map == null) {
-            JSONObject obj = null;
+            JsonNode obj = null;
             try {
                 InputStream in = getClass().getClassLoader()
                         .getResourceAsStream("iso-3166-2.json");
                 String theString = IOUtils.toString(in, "UTF-8");
-                obj = new org.codehaus.jettison.json.JSONObject(theString);
+                obj = jsonMapper.readTree(theString);
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
                 return false;
             }
 
-            map = new HashMap<String, List<JSONObject>>();
+            map = new HashMap<String, List<ObjectNode>>();
             try {
                 if (obj != null) {
-                    Iterator iter = obj.keys();
+                    Iterator<String> iter = obj.fieldNames();
                     while (iter.hasNext()) {
-                        String countryCode = (String) iter.next();
-                        //String countryName = ((org.codehaus.jettison.json.JSONObject)obj.get(countryCode)).getString("name");
-                        //org.codehaus.jettison.json.JSONObject divisions = ((org.codehaus.jettison.json.JSONObject)obj.get(countryCode)).get("divisions");
-                        JSONObject divisions = obj.getJSONObject(countryCode).getJSONObject("divisions");
-                        Iterator iter2 = divisions.keys();
-                        List<JSONObject> rList = new ArrayList<JSONObject>();
+                        String countryCode = iter.next();
+                        JsonNode divisions = obj.get(countryCode).get("divisions");
+                        Iterator<String> iter2 = divisions.fieldNames();
+                        List<ObjectNode> rList = new ArrayList<ObjectNode>();
                         while (iter2.hasNext()) {
-                            String divisionCode = (String) iter2.next();
-                            String divisionName = divisions.getString(divisionCode);
-                            org.codehaus.jettison.json.JSONObject r = new org.codehaus.jettison.json.JSONObject();
+                            String divisionCode = iter2.next();
+                            String divisionName = divisions.get(divisionCode).asText();
+                            ObjectNode r = jsonMapper.createObjectNode();
                             r.put("value", divisionCode);
                             r.put("label", divisionName);
                             rList.add(r);
@@ -3625,18 +3626,17 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         if (csdc.length == 2) {
             String country = csdc[0];
-            //	String province = csdc[1];
 
-            List<JSONObject> divisions =
+            List<ObjectNode> divisions =
                     map.get(country);
 
             if (divisions == null) {
                 return false;
             }
 
-            for (JSONObject rI : divisions) {
+            for (ObjectNode rI : divisions) {
                 try {
-                    if (rI.has("value") && value.equals(rI.getString("value"))) {
+                    if (rI.has("value") && value.equals(rI.get("value").asText())) {
                         return true;
                     }
                 } catch (Exception e) {

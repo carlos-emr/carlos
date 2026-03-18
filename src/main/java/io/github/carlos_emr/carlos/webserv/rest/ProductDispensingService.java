@@ -40,7 +40,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MultivaluedMap;
 
-import org.apache.http.impl.cookie.DateUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import io.github.carlos_emr.carlos.commn.model.DrugProduct;
 import io.github.carlos_emr.carlos.commn.model.DrugProductTemplate;
 import io.github.carlos_emr.carlos.commn.model.ProductLocation;

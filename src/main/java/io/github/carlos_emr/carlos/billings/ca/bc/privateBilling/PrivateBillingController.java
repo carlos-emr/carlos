@@ -12,9 +12,8 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -154,12 +153,12 @@ public class PrivateBillingController extends HttpServlet {
 
             String[] paramValues = request.getParameterValues("billIds");
             if (paramValues.length == 1) {
-                JsonArray jsonArr = new JsonParser().parse(paramValues[0]).getAsJsonArray();
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode jsonArr = mapper.readTree(paramValues[0]);
                 for (int i = 0; i < jsonArr.size(); i++) {
                     HashMap<String, Object> map = new HashMap<String, Object>();
-                    JsonElement jsonElem = jsonArr.get(i);
-                    JsonElement demographicNumber = jsonElem.getAsJsonObject().get("demographicNumber");
-                    String strDemographicNumber = demographicNumber.getAsString();
+                    JsonNode jsonElem = jsonArr.get(i);
+                    String strDemographicNumber = jsonElem.get("demographicNumber").asText();
                     Demographic patient = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), strDemographicNumber);
                     map.put("patientFirstName", patient.getFirstName());
                     map.put("patientLastName", patient.getLastName());
@@ -172,8 +171,7 @@ public class PrivateBillingController extends HttpServlet {
                     map.put("patientYearOfBirth", patient.getYearOfBirth());
 
                     // get recipient info (note: a null attribute means the recipient is the patient)
-                    JsonElement recipientId = jsonElem.getAsJsonObject().get("recipientId");
-                    String strRecipientId = recipientId.getAsString();
+                    String strRecipientId = jsonElem.get("recipientId").asText();
                     if (strRecipientId.isEmpty() || strRecipientId == "") {
                         map.put("recipientName", patient.getFirstName() + " " + patient.getLastName());
                         map.put("recipientAddress", patient.getAddress());

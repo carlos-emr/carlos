@@ -20,47 +20,40 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+package io.github.carlos_emr.carlos.eform.data;
 
-package io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import java.util.ArrayList;
+import java.util.List;
 
-import java.io.IOException;
-import java.io.OutputStream;
+/**
+ * JAXB root element for eForm database access point configuration XML.
+ * Replaces Apache Commons Digester3 parsing of apconfig.xml.
+ *
+ * @since 2006-05-25
+ */
+@XmlRootElement(name = "eformap-config")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class EFormApConfig {
 
-import org.apache.hc.client5.http.entity.mime.AbstractContentBody;
-import org.apache.hc.core5.http.ContentType;
+    @XmlElement(name = "databaseap")
+    private List<DatabaseAP> databaseAPs = new ArrayList<>();
 
-public class ByteArrayBody extends AbstractContentBody {
-
-    private byte[] byteArray;
-    private String fileName;
-
-    public ByteArrayBody(byte[] byteArray, String fileName) {
-        super(ContentType.APPLICATION_OCTET_STREAM);
-        this.byteArray = byteArray;
-        this.fileName = fileName;
+    public List<DatabaseAP> getDatabaseAPs() {
+        return databaseAPs;
     }
 
-    @Override
-    public void writeTo(OutputStream outputStream) throws IOException {
-        outputStream.write(byteArray);
-        outputStream.flush();
+    public void setDatabaseAPs(List<DatabaseAP> databaseAPs) {
+        this.databaseAPs = databaseAPs;
     }
-
-    @Override
-    public String getFilename() {
-        return (fileName);
-    }
-
-    @Override
-    public long getContentLength() {
-        return (byteArray.length);
-    }
-
 }

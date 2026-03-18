@@ -38,9 +38,10 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
-import org.codehaus.jettison.json.JSONArray;
-import org.codehaus.jettison.json.JSONObject;
 
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
@@ -91,6 +92,7 @@ public class HRM2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     Logger logger = MiscUtils.getLogger();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
     private HRMCategoryDao hrmCategoryDao = SpringUtils.getBean(HRMCategoryDao.class);
@@ -109,11 +111,11 @@ public class HRM2Action extends ActionSupport {
         HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 
         String data = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
-        JSONObject res = new JSONObject();
+        ObjectNode res = objectMapper.createObjectNode();
         res.put("value", data != null ? data : "");
 
         response.setContentType("application/json");
-        res.write(response.getWriter());
+        response.getWriter().write(res.toString());
 
         return null;
     }
@@ -156,19 +158,19 @@ public class HRM2Action extends ActionSupport {
         String query = request.getParameter("query");
 
         List<HRMCategory> categoryList = hrmCategoryDao.search(query);
-        JSONArray data = new JSONArray();
+        ArrayNode data = objectMapper.createArrayNode();
         for (HRMCategory category : categoryList) {
-            JSONObject obj = new JSONObject();
+            ObjectNode obj = objectMapper.createObjectNode();
             obj.put("id", category.getId());
             obj.put("mnemonic", category.getSubClassNameMnemonic());
             obj.put("name", category.getCategoryName());
-            data.put(obj);
+            data.add(obj);
         }
-        JSONObject d = new JSONObject();
-        d.put("results", data);
+        ObjectNode d = objectMapper.createObjectNode();
+        d.set("results", data);
 
         response.setContentType("application/json");
-        d.write(response.getWriter());
+        response.getWriter().write(d.toString());
 
         return null;
     }
@@ -206,7 +208,7 @@ public class HRM2Action extends ActionSupport {
         }
 
 
-        JSONObject d = new JSONObject();
+        ObjectNode d = objectMapper.createObjectNode();
 
         if (doc != null && doc.getHrmCategoryId() != null) {
             HRMCategory setCat = hrmCategoryDao.find(doc.getHrmCategoryId());
@@ -216,7 +218,7 @@ public class HRM2Action extends ActionSupport {
         }
 
         response.setContentType("application/json");
-        d.write(response.getWriter());
+        response.getWriter().write(d.toString());
 
         return null;
     }
@@ -302,7 +304,7 @@ public class HRM2Action extends ActionSupport {
             }
         }
 
-        JSONArray data = new JSONArray();
+        ArrayNode data = objectMapper.createArrayNode();
 
         long total = 0L;
 
@@ -327,7 +329,7 @@ public class HRM2Action extends ActionSupport {
 
                 List<HRMDocumentToDemographic> ptList = hrmDocumentToDemographicDao.findByHrmDocumentId(d.getId().toString());
                 Integer demographicNo = (ptList != null && !ptList.isEmpty()) ? ptList.get(0).getDemographicNo() : null;
-                JSONObject data1 = new JSONObject();
+                ObjectNode data1 = objectMapper.createObjectNode();
                 data1.put("id", d.getId() + "");
                 data1.put("provider_no", d.getRecipientProviderNo() != null ? d.getRecipientProviderNo() : "");
                 data1.put("demographic_no", demographicNo != null ? demographicNo.toString() : "");
@@ -377,19 +379,19 @@ public class HRM2Action extends ActionSupport {
                 data1.put("category", category != null ? category.getCategoryName() : "");
                 data1.put("description", d.getDescription());
 
-                data.put(data1);
+                data.add(data1);
             }
         }
 
-        JSONObject obj = new JSONObject();
+        ObjectNode obj = objectMapper.createObjectNode();
         String drawParam = request.getParameter("draw");
         obj.put("draw", drawParam != null ? Integer.parseInt(drawParam) : 1);
         obj.put("recordsTotal", total);
         obj.put("recordsFiltered", total);
-        obj.put("data", data);
+        obj.set("data", data);
 
         response.setContentType("application/json");
-        obj.write(response.getWriter());
+        response.getWriter().write(obj.toString());
 
         return null;
     }

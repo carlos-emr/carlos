@@ -9,14 +9,15 @@ import java.util.List;
 import javax.net.ssl.SSLContext;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.ssl.SSLContexts;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.ssl.SSLContexts;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -163,19 +164,30 @@ public class APISendGridEmailSender {
             SSLContext sslContext = SSLContexts.custom().build();
             sslContext.getDefaultSSLParameters().setNeedClientAuth(true);
             sslContext.getDefaultSSLParameters().setWantClientAuth(true);
-            SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext);
-            HttpClient httpClient = HttpClients.custom().setSSLSocketFactory(socketFactory).build();
 
-            HttpPost httpPost = new HttpPost(getEndPoint());
-            httpPost.setHeader("Content-Type", "application/json");
-            httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
+            HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                    .setSSLSocketFactory(SSLConnectionSocketFactoryBuilder.create()
+                            .setSslContext(sslContext)
+                            .build())
+                    .build();
 
-            StringEntity entity = new StringEntity(createEmailJSON());
-            httpPost.setEntity(entity);
-            HttpResponse response = httpClient.execute(httpPost);
-            if (response.getStatusLine().getStatusCode() >= 400) {
-                throw new EmailSendingException(response.getStatusLine() + "\n" + EntityUtils.toString(response.getEntity()));
+            try (CloseableHttpClient httpClient = HttpClients.custom()
+                    .setConnectionManager(connectionManager).build()) {
+
+                HttpPost httpPost = new HttpPost(getEndPoint());
+                httpPost.setHeader("Content-Type", "application/json");
+                httpPost.setHeader("Authorization", "Bearer " + getAPIKey());
+
+                StringEntity entity = new StringEntity(createEmailJSON());
+                httpPost.setEntity(entity);
+                var response = httpClient.execute(httpPost);
+                if (response.getCode() >= 400) {
+                    throw new EmailSendingException(response.getCode() + " " + response.getReasonPhrase()
+                            + "\n" + EntityUtils.toString(response.getEntity()));
+                }
             }
+        } catch (EmailSendingException e) {
+            throw e;
         } catch (Exception e) {
             throw new EmailSendingException(e.getMessage(), e);
         }
