@@ -41,7 +41,7 @@ import java.io.Serializable;
  *
  * @param <T> the type of the domain object carried in the response body
  *
- * @since 2018-01-01
+ * @since 2026-03-13
  */
 public class RestResponse<T> extends GenericRestResponse<RestResponseHeaders, T, RestResponseError>
 {

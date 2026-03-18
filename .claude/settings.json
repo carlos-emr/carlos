@@ -151,7 +151,10 @@
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git push origin *)",
-      "Bash(git push -u origin *)"
+      "Bash(git push -u origin *)",
+      "Bash(git rebase --continue)",
+      "Bash(git rebase --skip)",
+      "Bash(git rebase --abort)"
     ],
     "deny": [
       "Write(path:.git/**)",
@@ -207,7 +210,12 @@
       "Bash(git push * --no-verify *)",
       "Bash(git commit --no-verify *)",
       "Bash(git commit * --no-verify *)",
-      "Bash(git rebase *)",
+      "Bash(git rebase -i *)",
+      "Bash(git rebase --interactive *)",
+      "Bash(git rebase --onto *)",
+      "Bash(git rebase origin/*)",
+      "Bash(git rebase main *)",
+      "Bash(git rebase develop *)",
       "Bash(git reset --hard *)",
       "Bash(git reset * --hard *)",
       "Bash(git cherry-pick --abort *)",

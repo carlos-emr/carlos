@@ -45,7 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RestResponseErrorUnitTest {
 
     @Nested
-    @DisplayName("No-arg Constructor")
+    @DisplayName("No-arg Constructor (deprecated)")
+    @SuppressWarnings("deprecation")
     class NoArgConstructor {
 
         @Test
@@ -110,6 +111,35 @@ class RestResponseErrorUnitTest {
         void shouldReturnNullData_whenDataArgIsNull() {
             RestResponseError error = new RestResponseError("error", null);
             assertThat(error.getData()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("toString")
+    class ToStringTests {
+
+        @Test
+        @DisplayName("should not include message content in toString to prevent PHI leakage")
+        void shouldNotIncludeMessageContent_inToString() {
+            RestResponseError error = new RestResponseError("sensitive-error-detail");
+            assertThat(error.toString()).doesNotContain("sensitive-error-detail");
+        }
+
+        @Test
+        @DisplayName("should indicate presence of message and data in toString")
+        void shouldIndicatePresenceOfMessageAndData_inToString() {
+            RestResponseError error = new RestResponseError("msg", "data");
+            assertThat(error.toString()).contains("hasMessage=true");
+            assertThat(error.toString()).contains("hasData=true");
+        }
+
+        @Test
+        @DisplayName("should indicate absence of message and data in toString")
+        @SuppressWarnings("deprecation")
+        void shouldIndicateAbsenceOfMessageAndData_inToString() {
+            RestResponseError error = new RestResponseError();
+            assertThat(error.toString()).contains("hasMessage=false");
+            assertThat(error.toString()).contains("hasData=false");
         }
     }
 

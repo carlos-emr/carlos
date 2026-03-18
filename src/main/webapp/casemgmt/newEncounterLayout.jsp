@@ -86,8 +86,6 @@
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
               title="win2k-cold-1">
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/js/messenger/messenger.css"/>
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/js/messenger/messenger-theme-future.css"/>
         <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/css/print.css" media="print">
 
@@ -99,8 +97,6 @@
         <script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 
-        <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger.js"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}"/>/js/messenger/messenger-theme-future.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/newEncounterLayout.js.jsp"></script>
 
             <%-- for popup menu of forms --%>

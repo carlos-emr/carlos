@@ -276,7 +276,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
-        <script type="text/javascript" src="<%=request.getContextPath() %>/js/nhpup_1.1.js"></script>
+        <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
 
         <% if (isMobileOptimized) { %>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/mobile/editdemographicstyle.css">

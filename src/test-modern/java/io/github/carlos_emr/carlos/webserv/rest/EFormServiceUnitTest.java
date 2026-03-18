@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -74,6 +75,9 @@ class EFormServiceUnitTest extends CarlosUnitTestBase {
     @Mock
     private EFormDao mockEFormDao;
 
+    @Mock
+    private SecurityInfoManager mockSecurityInfoManager;
+
     private LoggedInInfo loggedInInfo;
     private MockedStatic<OscarProperties> oscarPropertiesMock;
 
@@ -109,10 +113,17 @@ class EFormServiceUnitTest extends CarlosUnitTestBase {
             }
         };
 
-        // Inject the mocked DAO
+        // Inject the mocked DAO and SecurityInfoManager
         Field eFormDaoField = EFormService.class.getDeclaredField("eFormDao");
         eFormDaoField.setAccessible(true);
         eFormDaoField.set(service, mockEFormDao);
+
+        Field secField = EFormService.class.getDeclaredField("securityInfoManager");
+        secField.setAccessible(true);
+        secField.set(service, mockSecurityInfoManager);
+
+        // Default: grant all privileges
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
     }
 
     @AfterEach
@@ -188,7 +199,7 @@ class EFormServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should return error when form HTML is blank")
         void shouldReturnError_whenFormHtmlIsBlank() {
             EFormTo1 to = buildValidEFormTo1("My Form", "   ");
-            when(mockEFormDao.findByName(anyString())).thenReturn(null);
+            when(mockEFormDao.findByName("My Form")).thenReturn(null);
 
             RestResponse<EFormTo1> response = service.saveEForm(to);
 
@@ -375,6 +386,21 @@ class EFormServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(ResponseStatus.SUCCESS);
             verify(mockEFormDao).merge(any(EForm.class));
+        }
+
+        @Test
+        @DisplayName("should ignore JSON body id and use path dataId for update")
+        void shouldIgnoreJsonBodyId_whenUpdatingEForm() {
+            EForm existing = buildValidEForm(10, "Original", "<html>original</html>");
+            when(mockEFormDao.findById(10)).thenReturn(existing);
+            // JSON body contains id=999 which should be ignored; path dataId=10 is authoritative
+            String json = "{\"id\":999,\"formName\":\"Updated\",\"formHtml\":\"<html>new</html>\"}";
+
+            RestResponse<EFormTo1> response = service.updateEFormJson(10, json);
+
+            assertThat(response.getStatus()).isEqualTo(ResponseStatus.SUCCESS);
+            verify(mockEFormDao).merge(existing);
+            assertThat(existing.getFormName()).isEqualTo("Updated");
         }
 
         @Test

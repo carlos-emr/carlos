@@ -231,6 +231,7 @@
     </reporting>
 
     <dependencies>
+
         <!-- https://mvnrepository.com/artifact/net.bull.javamelody/javamelody-core -->
         <!-- Updated to latest javax.servlet compatible version -->
         <dependency>

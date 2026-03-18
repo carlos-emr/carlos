@@ -25,7 +25,6 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
@@ -34,6 +33,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -45,18 +45,20 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import javax.persistence.PersistenceException;
 import java.io.IOException;
 
 /**
  * REST service for managing individual eForms in CARLOS EMR.
  *
  * <p>Provides endpoints to load, create, and update eForm templates.
- * All endpoints require valid OAuth authentication via the session or request context.
- * eForm HTML content may be large; callers should handle responses accordingly.</p>
+ * All endpoints require valid OAuth authentication and {@code _eform} privilege
+ * via {@link SecurityInfoManager}. eForm HTML content may be large; callers
+ * should handle responses accordingly.</p>
  *
  * <p>Base path: {@code /eform}</p>
  *
- * @since 2026-01-01
+ * @since 2026-03-13
  */
 @Path("/eform")
 @Component("EFormService")
@@ -67,6 +69,9 @@ public class EFormService extends AbstractServiceImpl {
 
 	@Autowired
 	private EFormDao eFormDao;
+
+	@Autowired
+	private SecurityInfoManager securityInfoManager;
 
 	/**
 	 * Retrieves an eForm with the given id, including full HTML content.
@@ -82,10 +87,14 @@ public class EFormService extends AbstractServiceImpl {
 	@Path("/{dataId}")
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> loadEForm(@PathParam("dataId") Integer id) {
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "r", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 
 		EForm eform = eFormDao.findById(id);
 
 		if (eform == null) {
+			logger.warn("EForm not found for id: {}", id);
 			return RestResponse.errorResponse("Failed to find EForm");
 		}
 		EFormTo1 transferObj = new EFormConverter(false).getAsTransferObject(getLoggedInInfo(), eform);
@@ -111,6 +120,9 @@ public class EFormService extends AbstractServiceImpl {
 	@Consumes("application/json")
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> saveEForm(EFormTo1 eformTo1) {
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "w", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 
 		EForm eForm = new EFormConverter(false).getAsDomainObject(getLoggedInInfo(), eformTo1);
 
@@ -121,10 +133,14 @@ public class EFormService extends AbstractServiceImpl {
 		}
 
 		if (isValidEformData(eForm)) {
-			eFormDao.persist(eForm);
-			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+			try {
+				eFormDao.persist(eForm);
+			} catch (PersistenceException e) {
+				logger.error("Failed to persist eForm", e);
+				return RestResponse.errorResponse("Failed to save EForm");
+			}
+			LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(), LogConst.ADD,
+					LogConst.CON_FORM, String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
@@ -156,6 +172,9 @@ public class EFormService extends AbstractServiceImpl {
 	@Consumes("application/json")
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> saveEForm(String jsonString) {
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "w", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 
 		if (jsonString == null || jsonString.trim().isEmpty()) {
 			return RestResponse.errorResponse("Invalid JSON");
@@ -199,10 +218,14 @@ public class EFormService extends AbstractServiceImpl {
 		eForm.setRoleType(roleType);
 
 		if (isValidEformData(eForm)) {
-			eFormDao.persist(eForm);
-			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+			try {
+				eFormDao.persist(eForm);
+			} catch (PersistenceException e) {
+				logger.error("Failed to persist eForm from JSON", e);
+				return RestResponse.errorResponse("Failed to save EForm");
+			}
+			LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(), LogConst.ADD,
+					LogConst.CON_FORM, String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
@@ -230,6 +253,9 @@ public class EFormService extends AbstractServiceImpl {
 	@Consumes("application/json")
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> updateEForm(@PathParam("dataId") Integer dataId, EFormTo1 eformTo1) {
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "w", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 
 		if (eformTo1 == null || eformTo1.getId() == null || !dataId.equals(eformTo1.getId())) {
 			return RestResponse.errorResponse("Path id does not match payload id");
@@ -238,10 +264,14 @@ public class EFormService extends AbstractServiceImpl {
 		EForm eForm = new EFormConverter(false).getAsDomainObject(getLoggedInInfo(), eformTo1);
 
 		if (isValidEformData(eForm)) {
-			eFormDao.merge(eForm);
-			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-					LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-					String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+			try {
+				eFormDao.merge(eForm);
+			} catch (PersistenceException e) {
+				logger.error("Failed to merge eForm id={}", dataId, e);
+				return RestResponse.errorResponse("Failed to update EForm");
+			}
+			LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(), LogConst.UPDATE,
+					LogConst.CON_FORM, String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 			EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 			return RestResponse.successResponse(transferObj);
 		}
@@ -275,8 +305,9 @@ public class EFormService extends AbstractServiceImpl {
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<EFormTo1> updateEFormJson(@PathParam("dataId") Integer dataId, String jsonString) {
 
-		// Enforce authentication before any parsing or DB operations
-		getLoggedInInfo();
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "w", null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
 
 		if (jsonString == null || jsonString.trim().isEmpty()) {
 			return RestResponse.errorResponse("Invalid JSON");
@@ -297,13 +328,13 @@ public class EFormService extends AbstractServiceImpl {
 
 		if (eForm != null && eForm.getId() > 0) {
 
-			// only update optional parameters if they are given
-			String formSubject = jsonObject.has("formSubject") ? jsonObject.get("formSubject").asText() : eForm.getSubject();
-			boolean current = jsonObject.has("current") ? jsonObject.get("current").asBoolean() : eForm.isCurrent();
+			// only update optional parameters if they are given and non-null
+			String formSubject = jsonObject.hasNonNull("formSubject") ? jsonObject.get("formSubject").asText() : eForm.getSubject();
+			boolean current = jsonObject.hasNonNull("current") ? jsonObject.get("current").asBoolean() : eForm.isCurrent();
 			JsonNode roleTypeNode = jsonObject.path("roleType");
 			String roleType = (!roleTypeNode.isMissingNode() && !roleTypeNode.isNull()) ? roleTypeNode.asText() : eForm.getRoleType();
-			boolean showLatestFormOnly = jsonObject.has("showLatestFormOnly") ? jsonObject.get("showLatestFormOnly").asBoolean() : eForm.isShowLatestFormOnly();
-			boolean patientIndependent = jsonObject.has("patientIndependent") ? jsonObject.get("patientIndependent").asBoolean() : eForm.isPatientIndependent();
+			boolean showLatestFormOnly = jsonObject.hasNonNull("showLatestFormOnly") ? jsonObject.get("showLatestFormOnly").asBoolean() : eForm.isShowLatestFormOnly();
+			boolean patientIndependent = jsonObject.hasNonNull("patientIndependent") ? jsonObject.get("patientIndependent").asBoolean() : eForm.isPatientIndependent();
 
 
 			eForm.setFormName(formName);
@@ -316,10 +347,14 @@ public class EFormService extends AbstractServiceImpl {
 			eForm.setRoleType(roleType);
 
 			if (isValidEformData(eForm)) {
-				eFormDao.merge(eForm);
-				LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
-						LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
-						String.valueOf(eForm.getId()), getLoggedInInfo().getIp(), Encode.forJava(eForm.getFormName()));
+				try {
+					eFormDao.merge(eForm);
+				} catch (PersistenceException e) {
+					logger.error("Failed to merge eForm id={}", dataId, e);
+					return RestResponse.errorResponse("Failed to update EForm");
+				}
+				LogAction.addLog(getLoggedInInfo().getLoggedInProviderNo(), LogConst.UPDATE,
+						LogConst.CON_FORM, String.valueOf(eForm.getId()), getLoggedInInfo().getIp());
 				EFormTo1 transferObj = new EFormConverter(true).getAsTransferObject(getLoggedInInfo(), eForm);
 				return RestResponse.successResponse(transferObj);
 			}

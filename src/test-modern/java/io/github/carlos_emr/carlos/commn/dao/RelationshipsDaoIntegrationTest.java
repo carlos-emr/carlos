@@ -82,7 +82,7 @@ public class RelationshipsDaoIntegrationTest extends CarlosTestBase {
             dao.persist(relationships3);
 
             List<Relationships> expectedResult = Arrays.asList(relationships2, relationships3, relationships1);
-            List<Relationships> result = dao.findAll();
+            List<Relationships> result = dao.findAll(null, null);
 
             assertThat(result).hasSize(expectedResult.size());
             for (int i = 0; i < expectedResult.size(); i++) {

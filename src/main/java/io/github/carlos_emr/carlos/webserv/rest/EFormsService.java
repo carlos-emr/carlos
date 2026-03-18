@@ -54,7 +54,7 @@ import java.util.List;
  *
  * <p>Base path: {@code /eforms}</p>
  *
- * @since 2026-01-01
+ * @since 2026-03-13
  */
 @Path("/eforms")
 @Component("EFormsService")
@@ -114,7 +114,15 @@ public class EFormsService extends AbstractServiceImpl
 			return RestResponse.errorResponse("Access Denied");
 		}
 		String imageHomeDir = OscarProperties.getInstance().getEformImageDirectory();
+		if (imageHomeDir == null || imageHomeDir.trim().isEmpty()) {
+			logger.error("eForm image directory is not configured");
+			return RestResponse.errorResponse("Image directory not configured");
+		}
 		File directory = new File(imageHomeDir);
+		if (!directory.isDirectory()) {
+			logger.error("eForm image directory does not exist: {}", imageHomeDir);
+			return RestResponse.errorResponse("Image directory not available");
+		}
 
 		ArrayList<String> imagesNames = DisplayImage2Action.getFiles(directory, ".*\\.(jpg|jpeg|png|gif)$", null);
 		Collections.sort(imagesNames);
@@ -133,7 +141,6 @@ public class EFormsService extends AbstractServiceImpl
 	 *         on success, or an error response if authorization fails or the tag list cannot
 	 *         be loaded
 	 * @throws IllegalStateException if the caller is not authenticated
-	 * @throws RuntimeException if {@link EFormLoader} fails to initialize or retrieve tag names
 	 */
 	@GET
 	@Path("/databaseTags")

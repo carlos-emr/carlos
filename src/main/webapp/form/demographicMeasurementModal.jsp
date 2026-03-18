@@ -30,9 +30,6 @@
 --%>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/moment.js"></script>
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/alertify.core.css"/>
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/alertify.default.css"/>
-<script type="text/javascript" src="${pageContext.request.contextPath}/js/alertify.js"></script>
 
 <style type="text/css">
     .view-height-75-scroll {
@@ -44,6 +41,63 @@
         text-align: center;
         margin: 0;
     }
+
+    .meas-dialog-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .meas-dialog {
+        background: #fff;
+        border-radius: 6px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .meas-dialog-body {
+        padding: 20px;
+        overflow-y: auto;
+    }
+    .meas-dialog-footer {
+        padding: 10px 20px;
+        text-align: right;
+        border-top: 1px solid #ddd;
+    }
+    .meas-dialog-footer button {
+        margin-left: 8px;
+        padding: 6px 18px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .meas-dialog-footer .meas-btn-save {
+        background: #337ab7;
+        color: #fff;
+        border-color: #337ab7;
+    }
+    .meas-toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 4px;
+        color: #fff;
+        font-size: 14px;
+        z-index: 10001;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .meas-toast-success { background: #5cb85c; }
+    .meas-toast-error { background: #d9534f; }
+    .meas-toast-visible { opacity: 1; }
 </style>
 <script>
     // Local jQuery reference for ajax calls in this modal
@@ -127,8 +181,7 @@
 
                 body += "</div>";
 
-                alertify.set({labels: {ok: 'Save', cancel: 'Okay'}});
-                alertify.confirm(body, function (save) {
+                showMeasurementDialog(body, function (save) {
                     if (save && !existingMeasurementUsed) {
                         // If the user clicks save, complete an ajax call that will save a new measurement record to the database
                         local_jQuery.ajax({
@@ -140,16 +193,16 @@
                             success: function (data) {
                                 // If the JSON data returned states success = true, display success message, else display failed
                                 if (data && data.success) {
-                                    alertify.success("Successfully saved measurement!");
+                                    showMeasurementToast("Successfully saved measurement!", "success");
                                 } else {
-                                    alertify.error("Failed to save measurement");
+                                    showMeasurementToast("Failed to save measurement", "error");
                                 }
                             }
                         });
                     }
                     // After the desired measurement is selected and inserted into the input at the top, clicking OK or Save will close the modal and insert the value into the form field
                     document.getElementById(elementId).value = document.getElementById("currentMeasurementValue").value;
-                }).set('modal', false);
+                });
             }
         });
     }
@@ -168,5 +221,89 @@
         let measurementInstructionElement = document.getElementById('measurementInstruction');
         measurementInstructionElement.innerHTML = measurementTypeMap[measurementType].instructions;
         existingMeasurementUsed = false;
+    }
+
+    /**
+     * Shows a confirm-style dialog with Save and Okay buttons.
+     * Calls callback(true) on Save, callback(false) on Okay.
+     * Supports keyboard dismissal (ESC cancels) and overlay-click to cancel.
+     * Note: bodyHtml is constructed from server measurement data within displayDemographicMeasurements(),
+     * not from user input, so innerHTML assignment is safe here (same pattern as the former alertify.confirm).
+     */
+    function showMeasurementDialog(bodyHtml, callback) {
+        var overlay = document.createElement('div');
+        overlay.className = 'meas-dialog-overlay';
+
+        var dialog = document.createElement('div');
+        dialog.className = 'meas-dialog';
+
+        var bodyDiv = document.createElement('div');
+        bodyDiv.className = 'meas-dialog-body';
+        bodyDiv.innerHTML = bodyHtml; // NOSONAR: content built from server data, not user input
+
+        var footer = document.createElement('div');
+        footer.className = 'meas-dialog-footer';
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'meas-btn-cancel';
+        cancelBtn.textContent = 'Okay';
+
+        var saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'meas-btn-save';
+        saveBtn.textContent = 'Save';
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+        dialog.appendChild(bodyDiv);
+        dialog.appendChild(footer);
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // Move focus into the dialog so keyboard events are scoped correctly
+        dialog.setAttribute('tabindex', '-1');
+        dialog.focus();
+
+        function close(result) {
+            document.removeEventListener('keydown', keyHandler);
+            document.body.removeChild(overlay);
+            if (callback) callback(result);
+        }
+
+        // ESC key cancels the dialog
+        function keyHandler(e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                close(false);
+            }
+        }
+        document.addEventListener('keydown', keyHandler);
+
+        // Click on the overlay background (outside the dialog) cancels
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) {
+                close(false);
+            }
+        });
+
+        saveBtn.addEventListener('click', function () { close(true); });
+        cancelBtn.addEventListener('click', function () { close(false); });
+    }
+
+    /**
+     * Shows a brief toast notification (auto-dismisses after 3 seconds).
+     * @param message text to display
+     * @param type "success" or "error"
+     */
+    function showMeasurementToast(message, type) {
+        var toast = document.createElement('div');
+        toast.className = 'meas-toast meas-toast-' + type;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        requestAnimationFrame(function () { toast.classList.add('meas-toast-visible'); });
+        setTimeout(function () {
+            toast.classList.remove('meas-toast-visible');
+            setTimeout(function () { document.body.removeChild(toast); }, 300);
+        }, 3000);
     }
 </script>
