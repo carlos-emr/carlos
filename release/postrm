@@ -178,6 +178,17 @@ case "$1" in
         rm -f /etc/systemd/system/${TOMCAT}.service.d/override.conf 2>>$LOG_FILE
         systemctl daemon-reload
     fi
+    # Remove ReadWritePaths entries added by the config script to fallback service files
+    # (only applies when /etc/systemd/system/tomcat9.service.d/ did not exist at install time)
+    if [ -f /lib/systemd/system/tomcat9.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
+    fi
+    if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
+        sed -i '/ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
+        sed -i '/ReadWritePaths=\/tmp\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
+    fi
+    systemctl daemon-reload 2>>$LOG_FILE || true
 
     # remove property files and the oscar schema
     echo "Dropping ${db_name}"

@@ -275,7 +275,7 @@ else
                                                 # Remove stale legacy path if present (old installs used /var/lib/OscarDocument/ which no longer exists)
                                                 sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/tomcat9.service.d/override.conf 2>>$LOG_FILE || true
                                                 echo "ReadWritePaths=${BASE_DOCUMENT_DIR}/" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                                echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/tomcat9.service.d/override.conf || echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
                                                 echo "Edited override to allow Tomcat read write on ${BASE_DOCUMENT_DIR} and /tmp"
                                                 echo "Added Tomcat read and write on ${BASE_DOCUMENT_DIR}/ and /tmp/ to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
                                                 systemctl daemon-reload
@@ -291,7 +291,7 @@ else
                                                 # Remove stale legacy path if present
                                                 sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
                                                 sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/tomcat9.service
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /lib/systemd/system/tomcat9.service
+                                                grep -qF "ReadWritePaths=/tmp/" /lib/systemd/system/tomcat9.service || sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /lib/systemd/system/tomcat9.service
                                                 echo "Edited tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
                                                 echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/" >>$LOG_FILE
                                                 systemctl daemon-reload
@@ -307,7 +307,7 @@ else
                                                 # Remove stale legacy path if present
                                                 sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
                                                 sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/tomcat9.service
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /etc/systemd/system/multi-user.target.wants/tomcat9.service
+                                                grep -qF "ReadWritePaths=/tmp/" /etc/systemd/system/multi-user.target.wants/tomcat9.service || sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /etc/systemd/system/multi-user.target.wants/tomcat9.service
                                                 echo "Edited tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp"
                                                 echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
                                                 systemctl daemon-reload
