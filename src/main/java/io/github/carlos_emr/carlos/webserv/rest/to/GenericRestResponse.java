@@ -27,8 +27,6 @@
 
 package io.github.carlos_emr.carlos.webserv.rest.to;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.io.Serializable;
 
 /**
@@ -55,7 +53,6 @@ import java.io.Serializable;
  *
  * @since 2026-03-13
  */
-@Schema(description = "Generic response wrapper object")
 public class GenericRestResponse<H, B, E> implements Serializable
 {
 	/**

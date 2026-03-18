@@ -26,8 +26,6 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.to;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.io.Serializable;
 
 /**
@@ -41,7 +39,6 @@ import java.io.Serializable;
  *
  * @since 2026-03-13
  */
-@Schema(description = "Response wrapper object for error information")
 public class RestResponseError implements Serializable
 {
 	private final String message;
