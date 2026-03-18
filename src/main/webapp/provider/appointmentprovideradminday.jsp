@@ -65,11 +65,11 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <!-- Struts for i18n -->
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
@@ -888,7 +888,7 @@
 
             <td id="firstMenu">
                 <div class="icon-container">
-                    <img alt="OSCAR EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
+                    <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
                 </div>
                 <ul id="navlist">
                     <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -1925,7 +1925,7 @@
                                                                       String notes = String.valueOf(appointment.getNotes()).trim();
                                                                       String status = String.valueOf(appointment.getStatus()).trim();
                                                                       String sitename = String.valueOf(appointment.getLocation()).trim();
-                                                                      String type = appointment.getType();
+                                                                      String type = appointment.getType() != null ? appointment.getType() : "";
                                                                       String urgency = appointment.getUrgency();
                                                                       String reasonCodeName = "";
                                                                       if(appointment.getReasonCode() != null)    {

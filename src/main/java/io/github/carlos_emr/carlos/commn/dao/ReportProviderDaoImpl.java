@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ReportProvider;
 import org.springframework.stereotype.Repository;
@@ -74,7 +74,7 @@ public class ReportProviderDaoImpl extends AbstractDaoImpl<ReportProvider> imple
 
     @Override
     public List<Object[]> search_reportprovider(String action) {
-        String sql = "from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 order by r.team";
+        String sql = "select r, p from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 order by r.team";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, action);
 
@@ -84,7 +84,7 @@ public class ReportProviderDaoImpl extends AbstractDaoImpl<ReportProvider> imple
 
     @Override
     public List<Object[]> search_reportprovider(String action, String providerNo) {
-        String sql = "from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 and p.ProviderNo like ?2 order by r.team";
+        String sql = "select r, p from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 and p.ProviderNo like ?2 order by r.team";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, action);
         query.setParameter(2, providerNo);

@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 
 @Service
 public class SecurityInfoManagerImpl implements SecurityInfoManager {

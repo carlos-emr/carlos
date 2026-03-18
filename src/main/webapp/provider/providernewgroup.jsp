@@ -31,7 +31,7 @@
 
 <%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

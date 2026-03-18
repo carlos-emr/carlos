@@ -265,7 +265,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
             throw new IllegalArgumentException();
         }
 
-        currentSession().saveOrUpdate(referral);
+        currentSession().merge(referral);
 
         if (log.isDebugEnabled()) {
             log.debug("saveClientReferral: id=" + referral.getId());

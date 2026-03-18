@@ -36,7 +36,7 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.form.model.FormBooleanValue;
 import io.github.carlos_emr.carlos.form.model.FormRourke2020;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

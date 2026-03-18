@@ -35,10 +35,10 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
-import javax.servlet.jsp.JspException;
-import javax.servlet.jsp.JspWriter;
-import javax.servlet.jsp.PageContext;
-import javax.servlet.jsp.tagext.Tag;
+import jakarta.servlet.jsp.JspException;
+import jakarta.servlet.jsp.JspWriter;
+import jakarta.servlet.jsp.PageContext;
+import jakarta.servlet.jsp.tagext.Tag;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;

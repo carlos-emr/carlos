@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 
 @Entity

@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockOptions;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.StaffForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -75,7 +75,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
                 int rowcount = update(obj);
 
                 if (rowcount <= 0) {
-                    session.save(obj);
+                    session.persist(obj);
                 }
 
             }
@@ -92,7 +92,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         Session session = currentSession();
         try {
             transientInstance.setLastUpdateDate(new Date());
-            session.saveOrUpdate(transientInstance);
+            session.merge(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -106,7 +106,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         if (sur != null) {
             sur.setRoleName(roleName);
             sur.setLastUpdateDate(new Date());
-            currentSession().update(sur);
+            currentSession().merge(sur);
         }
     }
 
@@ -115,7 +115,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("deleting Secuserrole instance");
         Session session = currentSession();
         try {
-            session.delete(persistentInstance);
+            session.remove(persistentInstance);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -166,7 +166,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public int update(Secuserrole instance) {
         logger.debug("Update Secuserrole instance");
-        // activeyn is nullable; a null value means this is a new record — fall through to session.save()
+        // activeyn is nullable; a null value means this is a new record — fall through to session.persist()
         if (instance.getActiveyn() == null) {
             return 0;
         }
@@ -346,7 +346,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         Session session = currentSession();
         try {
             instance.setLastUpdateDate(new Date());
-            session.saveOrUpdate(instance);
+            session.merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);
@@ -359,7 +359,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("attaching clean Secuserrole instance");
         Session session = currentSession();
         try {
-            session.buildLockRequest(LockOptions.NONE).lock(instance);
+            session.lock(instance, LockMode.NONE);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

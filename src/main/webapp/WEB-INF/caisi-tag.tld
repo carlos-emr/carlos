@@ -24,12 +24,6 @@
     </attribute>
 </tag>
 <tag>
-    <name>RateTag</name>
-    <tagclass>org.oscarehr.PMmodule.common.RateTag</tagclass>
-    <bodycontent>empty</bodycontent>
-    <info>Page Rate Tag</info>
-</tag>
-<tag>
     <name>OscarTag</name>
     <tagclass>io.github.carlos_emr.carlos.PMmodule.common.OscarTag</tagclass>
     <bodycontent>empty</bodycontent>
@@ -64,22 +58,6 @@
     <attribute>
 	<name>providerName</name>
 	<required>no</required>
-	<rtexprvalue>yes</rtexprvalue>
-    </attribute>
-</tag>
-<tag>
-    <name>intake</name>
-    <tagclass>org.oscarehr.PMmodule.common.IntakeTag</tagclass>
-    <bodycontent>empty</bodycontent>
-    <info>Intake Tag</info>
-    <attribute>
-	<name>base</name>
-	<required>yes</required>
-	<rtexprvalue>yes</rtexprvalue>
-    </attribute>
-    <attribute>
-	<name>intake</name>
-	<required>yes</required>
 	<rtexprvalue>yes</rtexprvalue>
     </attribute>
 </tag>

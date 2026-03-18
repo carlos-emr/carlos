@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.openpdf.text.pdf.PdfReader;
 
 import io.github.carlos_emr.OscarProperties;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

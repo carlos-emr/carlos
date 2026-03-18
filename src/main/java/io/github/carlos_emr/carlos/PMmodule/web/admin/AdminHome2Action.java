@@ -27,8 +27,8 @@
 
 package io.github.carlos_emr.carlos.PMmodule.web.admin;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.OscarProperties;
@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.commons.KeyConstants;
 import io.github.carlos_emr.carlos.model.security.NoAccessException;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class AdminHome2Action extends ActionSupport {

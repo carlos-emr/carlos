@@ -32,7 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
     String errormsg = "";
@@ -50,7 +50,7 @@
     Integer BRemotelockset = s.getBRemotelockset();
 %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page
         import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"

@@ -29,5 +29,6 @@
 
 --%>
 <%
-    pageContext.forward("CA/ON/billingCalendarPopup.jsp");
+    out.clearBuffer();
+    request.getRequestDispatcher("CA/ON/billingCalendarPopup.jsp").include(request, response);
 %>

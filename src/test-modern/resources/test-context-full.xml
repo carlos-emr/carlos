@@ -181,10 +181,10 @@
                 <!-- Schema creation managed by EntityManagerFactory -->
                 <prop key="hibernate.hbm2ddl.auto">create</prop>
                 <!-- Use SpringSessionContext so HibernateDaoSupport DAOs share the same session -->
-                <prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate5.SpringSessionContext</prop>
+                <prop key="hibernate.current_session_context_class">org.springframework.orm.jpa.hibernate.SpringSessionContext</prop>
                 <prop key="hibernate.flushMode">AUTO</prop>
                 <prop key="org.hibernate.flushMode">AUTO</prop>
-                <prop key="javax.persistence.flush-mode">AUTO</prop>
+                <prop key="jakarta.persistence.flush-mode">AUTO</prop>
                 <prop key="hibernate.transaction.flush_before_completion">true</prop>
                 <prop key="hibernate.transaction.auto_close_session">false</prop>
                 <prop key="hibernate.cache.use_second_level_cache">false</prop>
@@ -198,7 +198,7 @@
     <!-- Standalone Hibernate SessionFactory for HibernateDaoSupport DAOs - uses schema from EntityManagerFactory.
          Uses transactionAwareDataSource so Sessions share the same JDBC Connection as
          the JPA EntityManager, enabling both to participate in a single Spring transaction. -->
-    <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean" depends-on="entityManagerFactory">
+    <bean id="sessionFactory" class="org.springframework.orm.jpa.hibernate.LocalSessionFactoryBean" depends-on="entityManagerFactory">
         <property name="dataSource" ref="transactionAwareDataSource" />
         <!-- Explicitly list @Entity annotated classes needed for tests -->
         <property name="annotatedClasses">
@@ -546,7 +546,7 @@
                 <prop key="hibernate.format_sql">true</prop>
                 <!-- Schema already created by EntityManagerFactory - use validate to avoid conflicts -->
                 <prop key="hibernate.hbm2ddl.auto">none</prop>
-                <prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate5.SpringSessionContext</prop>
+                <prop key="hibernate.current_session_context_class">org.springframework.orm.jpa.hibernate.SpringSessionContext</prop>
                 <prop key="hibernate.cache.use_second_level_cache">false</prop>
                 <!-- Allow HibernateDaoSupport DAOs to write within JPA-managed transactions.
                      The JDBC Connection IS transactional (managed by JpaTransactionManager via
@@ -558,8 +558,8 @@
         </property>
     </bean>
 
-    <!-- Configure HibernateTemplate -->
-    <bean id="hibernateTemplate" class="org.springframework.orm.hibernate5.HibernateTemplate">
+    <!-- HibernateTemplate replacement (Spring 7 removed org.springframework.orm.hibernate5.HibernateTemplate) -->
+    <bean id="hibernateTemplate" class="io.github.carlos_emr.carlos.test.base.HibernateTemplate">
         <property name="sessionFactory" ref="sessionFactory" />
         <property name="checkWriteOperations" value="false" />
     </bean>

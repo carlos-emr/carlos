@@ -1,48 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="end_year_statement_report" pageWidth="837" pageHeight="1100" columnWidth="837" leftMargin="0" rightMargin="0" topMargin="20" bottomMargin="20">
-        <property name="ireport.zoom" value="1.0"/>
-        <property name="ireport.x" value="0"/>
-        <property name="ireport.y" value="0"/>
-        <property name="ireport.scriptlethandling" value="0"/>
-        <property name="ireport.encoding" value="UTF-8"/>
-        <import value="net.sf.jasperreports.engine.*"/>
-        <import value="java.util.*"/>
-        <import value="net.sf.jasperreports.engine.images.*"/>
-        <import value="net.sf.jasperreports.engine.data.*"/>
-
+<jasperReport name="end_year_statement_report" pageWidth="837" pageHeight="1100" columnWidth="837" leftMargin="0" rightMargin="0" topMargin="20" bottomMargin="20">
+	<property name="ireport.zoom" value="1.0" />
+	<property name="ireport.x" value="0" />
+	<property name="ireport.y" value="0" />
+	<property name="ireport.scriptlethandling" value="0" />
+	<property name="ireport.encoding" value="UTF-8" />
+	<import value="net.sf.jasperreports.engine.*" />
+	<import value="java.util.*" />
+	<import value="net.sf.jasperreports.engine.images.*" />
+	<import value="net.sf.jasperreports.engine.data.*" />
 	<parameter name="fromDate" isForPrompting="true" class="java.lang.String">
-		<defaultValueExpression ><![CDATA["1900-01-01"]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA["1900-01-01"]]></defaultValueExpression>
 	</parameter>
 	<parameter name="toDate" isForPrompting="true" class="java.lang.String">
-		<defaultValueExpression ><![CDATA["2050-01-01"]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA["2050-01-01"]]></defaultValueExpression>
 	</parameter>
 	<parameter name="patientId" isForPrompting="true" class="java.lang.String">
-		<defaultValueExpression ><![CDATA["0"]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="SUBREPORT_DIR" isForPrompting="true" class="java.lang.String"/>
+	<parameter name="SUBREPORT_DIR" isForPrompting="true" class="java.lang.String" />
 	<parameter name="invoiceId" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA["0"]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
 	<parameter name="invoiceCount" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA["0"]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
 	<parameter name="totalInvoiced" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA["0.00"]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA["0.00"]]></defaultValueExpression>
 	</parameter>
 	<parameter name="totalPaid" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA["0.00"]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA["0.00"]]></defaultValueExpression>
 	</parameter>
 	<parameter name="patientName" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA[""]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<parameter name="hin" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA[""]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<parameter name="address" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA[""]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<parameter name="phone" isForPrompting="false" class="java.lang.String">
-		<defaultValueExpression ><![CDATA[""]]></defaultValueExpression>
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<queryString><![CDATA[SELECT bch.id,bch.billing_date,bch.total,bch.paid,bch.demographic_name,
 d.address,d.hin,d.phone,d.phone2 
@@ -52,462 +51,195 @@ WHERE bch.demographic_no=$P{patientId}
 AND bch.pay_program='PAT' 
 AND bch.billing_date >= $P{fromDate} 
 AND bch.billing_date <= $P{toDate} ORDER BY bch.id]]></queryString>
-
-	<field name="id" class="java.lang.Integer"/>
-	<field name="billing_date" class="java.sql.Date"/>
-	<field name="total" class="java.lang.String"/>
-	<field name="paid" class="java.lang.String"/>
-	<field name="demographic_name" class="java.lang.String"/>
-	<field name="address" class="java.lang.String"/>
-	<field name="hin" class="java.lang.String"/>
-	<field name="phone" class="java.lang.String"/>
-	<field name="phone2" class="java.lang.String"/>
-
-		<background>
-			<band height="0"  isSplitAllowed="true" >
-			</band>
-		</background>
-		<title>
-			<band height="111"  isSplitAllowed="true" >
-				<staticText>
-					<reportElement
-						x="56"
-						y="6"
-						width="616"
-						height="40"
-						key="staticText"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement textAlignment="Center">
-						<font pdfFontName="Helvetica-Bold" size="24" isBold="true"/>
-					</textElement>
-				<text><![CDATA[End Year Statement]]></text>
-				</staticText>
-				<line direction="TopDown">
-					<reportElement
-						x="56"
-						y="40"
-						width="616"
-						height="0"
-						forecolor="#000000"
-						backcolor="#FFFFFF"
-						key="line"/>
-					<graphicElement stretchType="NoStretch"/>
-				</line>
-				<line direction="TopDown">
-					<reportElement
-						x="56"
-						y="6"
-						width="616"
-						height="0"
-						forecolor="#000000"
-						backcolor="#FFFFFF"
-						key="line"/>
-					<graphicElement stretchType="NoStretch"/>
-				</line>
-				<staticText>
-					<reportElement
-						x="86"
-						y="43"
-						width="586"
-						height="17"
-						key="staticText-5"/>
-					<box></box>
-					<textElement>
-						<font pdfFontName="Helvetica-Bold" size="12" isBold="true"/>
-					</textElement>
-				<text><![CDATA[Patient Information:]]></text>
-				</staticText>
-				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="159"
-						y="60"
-						width="513"
-						height="16"
-						key="textField-4"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$P{patientName}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="86"
-						y="60"
-						width="70"
-						height="16"
-						key="textField-5"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$P{hin}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="86"
-						y="76"
-						width="586"
-						height="16"
-						key="textField-6"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$P{address}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="86"
-						y="92"
-						width="586"
-						height="16"
-						key="textField-7"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$P{phone}]]></textFieldExpression>
-				</textField>
-			</band>
-		</title>
-		<pageHeader>
-			<band height="10"  isSplitAllowed="true" >
-				<line direction="BottomUp">
-					<reportElement
-						x="56"
-						y="2"
-						width="616"
-						height="0"
-						forecolor="#000000"
-						backcolor="#FFFFFF"
-						key="line"/>
-					<graphicElement stretchType="NoStretch"/>
-				</line>
-			</band>
-		</pageHeader>
-		<columnHeader>
-			<band height="23"  isSplitAllowed="true" >
-				<rectangle>
-					<reportElement
-						mode="Opaque"
-						x="56"
-						y="-3"
-						width="616"
-						height="17"
-						forecolor="#000000"
-						backcolor="#808080"
-						key="rectangle"/>
-					<graphicElement stretchType="NoStretch">
-					<pen lineWidth="0.0" lineStyle="Solid"/>
-</graphicElement>
-				</rectangle>
-				<line direction="BottomUp">
-					<reportElement
-						x="56"
-						y="14"
-						width="616"
-						height="2"
-						forecolor="#000000"
-						backcolor="#FFFFFF"
-						key="line"/>
-					<graphicElement stretchType="NoStretch"/>
-				</line>
-				<staticText>
-					<reportElement
-						x="68"
-						y="-3"
-						width="74"
-						height="17"
-						forecolor="#FFFFFF"
-						key="staticText"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Invoice No]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="142"
-						y="-3"
-						width="86"
-						height="17"
-						forecolor="#FFFFFF"
-						key="staticText"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Billing Date]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="464"
-						y="-3"
-						width="105"
-						height="17"
-						forecolor="#FFFFFF"
-						key="staticText"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Invoiced]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="569"
-						y="-3"
-						width="104"
-						height="17"
-						forecolor="#FFFFFF"
-						key="staticText"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Paid]]></text>
-				</staticText>
-				<staticText>
-					<reportElement
-						x="228"
-						y="-3"
-						width="236"
-						height="17"
-						forecolor="#FFFFFF"
-						key="staticText-6"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Service Code]]></text>
-				</staticText>
-			</band>
-		</columnHeader>
-		<detail>
-			<band height="39"  isSplitAllowed="true" >
-				<line direction="TopDown">
-					<reportElement
-						x="56"
-						y="14"
-						width="616"
-						height="0"
-						forecolor="#808080"
-						backcolor="#FFFFFF"
-						key="line"/>
-					<graphicElement stretchType="NoStretch"/>
-				</line>
-				<textField isStretchWithOverflow="false" pattern="" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="68"
-						y="-3"
-						width="74"
-						height="17"
-						forecolor="#000000"
-						key="textField"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12" isBold="false" isItalic="false" isUnderline="false" isPdfEmbedded ="false" isStrikeThrough="false" />
-					</textElement>
-				<textFieldExpression   class="java.lang.Integer"><![CDATA[$F{id}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="false" pattern="" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="142"
-						y="-3"
-						width="86"
-						height="17"
-						forecolor="#000000"
-						key="textField"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12" isBold="false" isItalic="false" isUnderline="false" isPdfEmbedded ="false" isStrikeThrough="false" />
-					</textElement>
-				<textFieldExpression   class="java.util.Date"><![CDATA[$F{billing_date}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="false" pattern="" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="464"
-						y="-3"
-						width="105"
-						height="17"
-						forecolor="#000000"
-						key="textField"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12" isBold="false" isItalic="false" isUnderline="false" isPdfEmbedded ="false" isStrikeThrough="false" />
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{total}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="false" pattern="" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="569"
-						y="-3"
-						width="104"
-						height="17"
-						forecolor="#000000"
-						key="textField"/>
-					<box>					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-					<bottomPen lineWidth="0.0" lineColor="#000000"/>
-					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
-</box>
-					<textElement>
-						<font size="12" isBold="false" isItalic="false" isUnderline="false" isPdfEmbedded ="false" isStrikeThrough="false" />
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$F{paid}]]></textFieldExpression>
-				</textField>
-				<subreport  isUsingCache="true">
-					<reportElement
-						x="228"
-						y="16"
-						width="341"
-						height="18"
-						key="subreport-1"/>
-					<subreportParameter  name="invoiceId">
-						<subreportParameterExpression><![CDATA[$F{id}]]></subreportParameterExpression>
-					</subreportParameter>
-					<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
-					<subreportExpression  class="java.lang.String"><![CDATA[$P{SUBREPORT_DIR} + "end_year_statement_subreport.jasper"]]></subreportExpression>
-				</subreport>
-			</band>
-		</detail>
-		<columnFooter>
-			<band height="0"  isSplitAllowed="true" >
-			</band>
-		</columnFooter>
-		<pageFooter>
-			<band height="2"  isSplitAllowed="true" >
-			</band>
-		</pageFooter>
-		<summary>
-			<band height="48"  isSplitAllowed="true" >
-				<line direction="TopDown">
-					<reportElement
-						x="56"
-						y="2"
-						width="616"
-						height="0"
-						forecolor="#000000"
-						backcolor="#FFFFFF"
-						key="line"/>
-					<graphicElement stretchType="NoStretch"/>
-				</line>
-				<staticText>
-					<reportElement
-						x="68"
-						y="7"
-						width="49"
-						height="16"
-						key="staticText-2"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Count:]]></text>
-				</staticText>
-				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="119"
-						y="7"
-						width="45"
-						height="16"
-						key="textField-1"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$P{invoiceCount}]]></textFieldExpression>
-				</textField>
-				<staticText>
-					<reportElement
-						x="415"
-						y="7"
-						width="94"
-						height="16"
-						key="staticText-3"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Total   Invoiced:]]></text>
-				</staticText>
-				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="509"
-						y="7"
-						width="54"
-						height="16"
-						key="textField-2"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$P{totalInvoiced}]]></textFieldExpression>
-				</textField>
-				<textField isStretchWithOverflow="false" isBlankWhenNull="false" evaluationTime="Now" hyperlinkType="None"  hyperlinkTarget="Self" >
-					<reportElement
-						x="604"
-						y="7"
-						width="62"
-						height="16"
-						key="textField-3"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<textFieldExpression   class="java.lang.String"><![CDATA[$P{totalInvoiced}]]></textFieldExpression>
-				</textField>
-				<staticText>
-					<reportElement
-						x="563"
-						y="7"
-						width="41"
-						height="16"
-						key="staticText-4"/>
-					<box></box>
-					<textElement>
-						<font size="12"/>
-					</textElement>
-				<text><![CDATA[Paid:]]></text>
-				</staticText>
-			</band>
-		</summary>
+	<field name="id" class="java.lang.Integer" />
+	<field name="billing_date" class="java.sql.Date" />
+	<field name="total" class="java.lang.String" />
+	<field name="paid" class="java.lang.String" />
+	<field name="demographic_name" class="java.lang.String" />
+	<field name="address" class="java.lang.String" />
+	<field name="hin" class="java.lang.String" />
+	<field name="phone" class="java.lang.String" />
+	<field name="phone2" class="java.lang.String" />
+	<background height="0">
+			</background>
+	<title height="111">
+		<element kind="staticText" x="56" y="6" width="616" height="40" key="staticText" hTextAlign="Center" fontSize="24.0" bold="true" pdfFontName="Helvetica-Bold">
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+			</box>
+			<text><![CDATA[End Year Statement]]></text>
+		</element>
+		<element kind="line" x="56" y="40" width="616" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="TopDown">
+			<graphicElement stretchType="NoStretch" />
+		</element>
+		<element kind="line" x="56" y="6" width="616" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="TopDown">
+			<graphicElement stretchType="NoStretch" />
+		</element>
+		<element kind="staticText" x="86" y="43" width="586" height="17" key="staticText-5" fontSize="12.0" bold="true" pdfFontName="Helvetica-Bold">
+			<box />
+			<text><![CDATA[Patient Information:]]></text>
+		</element>
+		<element kind="textField" x="159" y="60" width="513" height="16" key="textField-4" fontSize="12.0" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+			<box />
+			<expression><![CDATA[$P{patientName}]]></expression>
+		</element>
+		<element kind="textField" x="86" y="60" width="70" height="16" key="textField-5" fontSize="12.0" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+			<box />
+			<expression><![CDATA[$P{hin}]]></expression>
+		</element>
+		<element kind="textField" x="86" y="76" width="586" height="16" key="textField-6" fontSize="12.0" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+			<box />
+			<expression><![CDATA[$P{address}]]></expression>
+		</element>
+		<element kind="textField" x="86" y="92" width="586" height="16" key="textField-7" fontSize="12.0" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+			<box />
+			<expression><![CDATA[$P{phone}]]></expression>
+		</element>
+	</title>
+	<pageHeader height="10">
+		<element kind="line" x="56" y="2" width="616" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="BottomUp">
+			<graphicElement stretchType="NoStretch" />
+		</element>
+	</pageHeader>
+	<columnHeader height="23">
+		<element kind="rectangle" mode="Opaque" x="56" y="-3" width="616" height="17" forecolor="#000000" backcolor="#808080" key="rectangle">
+			<graphicElement stretchType="NoStretch">
+				<pen lineWidth="0.0" lineStyle="Solid" />
+			</graphicElement>
+		</element>
+		<element kind="line" x="56" y="14" width="616" height="2" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="BottomUp">
+			<graphicElement stretchType="NoStretch" />
+		</element>
+		<element kind="staticText" x="68" y="-3" width="74" height="17" forecolor="#FFFFFF" key="staticText" fontSize="12.0">
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+			</box>
+			<text><![CDATA[Invoice No]]></text>
+		</element>
+		<element kind="staticText" x="142" y="-3" width="86" height="17" forecolor="#FFFFFF" key="staticText" fontSize="12.0">
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+			</box>
+			<text><![CDATA[Billing Date]]></text>
+		</element>
+		<element kind="staticText" x="464" y="-3" width="105" height="17" forecolor="#FFFFFF" key="staticText" fontSize="12.0">
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+			</box>
+			<text><![CDATA[Invoiced]]></text>
+		</element>
+		<element kind="staticText" x="569" y="-3" width="104" height="17" forecolor="#FFFFFF" key="staticText" fontSize="12.0">
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+			</box>
+			<text><![CDATA[Paid]]></text>
+		</element>
+		<element kind="staticText" x="228" y="-3" width="236" height="17" forecolor="#FFFFFF" key="staticText-6" fontSize="12.0">
+			<box>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				<bottomPen lineWidth="0.0" lineColor="#000000" />
+				<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+			</box>
+			<text><![CDATA[Service Code]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="39">
+			<element kind="line" x="56" y="14" width="616" height="0" forecolor="#808080" backcolor="#FFFFFF" key="line" direction="TopDown">
+				<graphicElement stretchType="NoStretch" />
+			</element>
+			<element kind="textField" x="68" y="-3" width="74" height="17" forecolor="#000000" key="textField" fontSize="12.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfEmbedded="false" blankWhenNull="false" pattern="" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				</box>
+				<expression><![CDATA[$F{id}]]></expression>
+			</element>
+			<element kind="textField" x="142" y="-3" width="86" height="17" forecolor="#000000" key="textField" fontSize="12.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfEmbedded="false" blankWhenNull="false" pattern="" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				</box>
+				<expression><![CDATA[$F{billing_date}]]></expression>
+			</element>
+			<element kind="textField" x="464" y="-3" width="105" height="17" forecolor="#000000" key="textField" fontSize="12.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfEmbedded="false" blankWhenNull="false" pattern="" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				</box>
+				<expression><![CDATA[$F{total}]]></expression>
+			</element>
+			<element kind="textField" x="569" y="-3" width="104" height="17" forecolor="#000000" key="textField" fontSize="12.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfEmbedded="false" blankWhenNull="false" pattern="" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+				<box>
+					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+					<bottomPen lineWidth="0.0" lineColor="#000000" />
+					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
+				</box>
+				<expression><![CDATA[$F{paid}]]></expression>
+			</element>
+			<element kind="subreport" x="228" y="16" width="341" height="18" key="subreport-1" usingCache="true">
+				<parameter name="invoiceId">
+					<expression><![CDATA[$F{id}]]></expression>
+				</parameter>
+				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<expression><![CDATA[$P{SUBREPORT_DIR} + "end_year_statement_subreport.jrxml"]]></expression>
+			</element>
+		</band>
+	</detail>
+	<columnFooter height="0">
+			</columnFooter>
+	<pageFooter height="2">
+			</pageFooter>
+	<summary height="48">
+		<element kind="line" x="56" y="2" width="616" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="TopDown">
+			<graphicElement stretchType="NoStretch" />
+		</element>
+		<element kind="staticText" x="68" y="7" width="49" height="16" key="staticText-2" fontSize="12.0">
+			<box />
+			<text><![CDATA[Count:]]></text>
+		</element>
+		<element kind="textField" x="119" y="7" width="45" height="16" key="textField-1" fontSize="12.0" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+			<box />
+			<expression><![CDATA[$P{invoiceCount}]]></expression>
+		</element>
+		<element kind="staticText" x="415" y="7" width="94" height="16" key="staticText-3" fontSize="12.0">
+			<box />
+			<text><![CDATA[Total   Invoiced:]]></text>
+		</element>
+		<element kind="textField" x="509" y="7" width="54" height="16" key="textField-2" fontSize="12.0" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+			<box />
+			<expression><![CDATA[$P{totalInvoiced}]]></expression>
+		</element>
+		<element kind="textField" x="604" y="7" width="62" height="16" key="textField-3" fontSize="12.0" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
+			<box />
+			<expression><![CDATA[$P{totalInvoiced}]]></expression>
+		</element>
+		<element kind="staticText" x="563" y="7" width="41" height="16" key="staticText-4" fontSize="12.0">
+			<box />
+			<text><![CDATA[Paid:]]></text>
+		</element>
+	</summary>
 </jasperReport>

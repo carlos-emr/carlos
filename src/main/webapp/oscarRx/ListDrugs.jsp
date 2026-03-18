@@ -31,10 +31,10 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.OscarProperties,io.github.carlos_emr.carlos.log.*" %>

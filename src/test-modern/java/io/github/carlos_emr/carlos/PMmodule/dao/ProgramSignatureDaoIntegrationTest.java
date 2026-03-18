@@ -29,8 +29,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 import java.util.List;
 
@@ -116,7 +116,7 @@ public class ProgramSignatureDaoIntegrationTest extends CarlosTestBase {
      * <p>Using a separate EntityManager for verification ensures that assertions
      * test actual database state rather than cached in-memory objects.</p>
      *
-     * @see javax.persistence.PersistenceContext
+     * @see jakarta.persistence.PersistenceContext
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;

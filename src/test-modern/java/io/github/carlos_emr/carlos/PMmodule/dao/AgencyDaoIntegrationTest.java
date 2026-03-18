@@ -29,8 +29,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -106,7 +106,7 @@ public class AgencyDaoIntegrationTest extends CarlosTestBase {
      * unit configured in the test Spring context, which connects to the H2 in-memory
      * database.</p>
      *
-     * @see javax.persistence.EntityManager
+     * @see jakarta.persistence.EntityManager
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;

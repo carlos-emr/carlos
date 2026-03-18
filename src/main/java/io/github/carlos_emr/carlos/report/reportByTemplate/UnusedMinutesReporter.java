@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao;

@@ -28,8 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.*;
@@ -103,7 +103,7 @@ public class ClientImageDAOIntegrationTest extends CarlosTestBase {
      * <p>The unit name {@code "entityManagerFactory"} corresponds to the test
      * persistence unit defined in the modern test context configuration.</p>
      *
-     * @see javax.persistence.PersistenceContext
+     * @see jakarta.persistence.PersistenceContext
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;

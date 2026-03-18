@@ -49,7 +49,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.openpdf.text.*;
 import org.openpdf.text.Font;

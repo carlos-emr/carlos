@@ -31,7 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import org.springframework.stereotype.Repository;
@@ -53,7 +53,7 @@ public class FaxConfigDaoImpl extends AbstractDaoImpl<FaxConfig> implements FaxC
     }
 
     public FaxConfig getActiveConfigByNumber(String number) {
-        Query query = entityManager.createQuery("select config from FaxConfig config where config.faxNumber = :number and config.active = 1");
+        Query query = entityManager.createQuery("select config from FaxConfig config where config.faxNumber = :number and config.active = true");
 
         query.setParameter("number", number);
 

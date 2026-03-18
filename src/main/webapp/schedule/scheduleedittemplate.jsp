@@ -38,7 +38,7 @@
         errorPage="/errorpage.jsp" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <jsp:useBean id="myTempBean" class="io.github.carlos_emr.ScheduleTemplateBean" scope="page"/>

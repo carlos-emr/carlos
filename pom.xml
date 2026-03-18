@@ -36,17 +36,13 @@
         <!-- Hapi Fhir Version -->
         <hapifhir.version>6.10.5</hapifhir.version>
         <!-- Apache CXF Version -->
-        <cxf.version>3.6.9</cxf.version>
+        <cxf.version>4.1.5</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
         <netty.version>4.1.129.Final</netty.version>
-        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0) -->
-        <drools.version>7.74.1.Final</drools.version>
-        <!-- Override mvel2 transitive dependency: 2.4.x references java.lang.Compiler (removed in JDK 16) -->
-        <mvel2.version>2.5.2.Final</mvel2.version>
+        <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
+        <drools.version>10.0.0</drools.version>
         <struts.devMode>false</struts.devMode>
-        <!-- Suppress Struts 6.x com.opensymphony.xwork2.* deprecation warnings by default.
-             These are expected and harmless (WW-5494); packages remain functional until Struts 7.x.
-             CI can restore visibility with: mvn ... -Dmaven.compiler.showDeprecation=true -->
+        <!-- Struts 7.x has migrated com.opensymphony.xwork2.* to org.apache.struts2.* -->
         <maven.compiler.showDeprecation>false</maven.compiler.showDeprecation>
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
@@ -87,21 +83,21 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- JAXB dependencies for Java 21 compatibility -->
+            <!-- JAXB dependencies for Jakarta EE (jakarta.xml.bind namespace) -->
             <dependency>
-                <groupId>javax.xml.bind</groupId>
-                <artifactId>jaxb-api</artifactId>
-                <version>2.3.1</version>
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
+                <version>4.0.2</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-runtime</artifactId>
-                <version>2.3.9</version>
+                <version>4.0.5</version>
             </dependency>
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-core</artifactId>
-                <version>2.3.0.1</version>
+                <version>4.0.5</version>
             </dependency>
             <!-- Override transitive xercesImpl to fix CVE-2022-23437 and CVE-2020-14338 -->
             <dependency>
@@ -113,7 +109,7 @@
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-framework-bom</artifactId>
-                <version>5.3.39</version>
+                <version>7.0.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -153,38 +149,32 @@
                <artifactId>byte-buddy-agent</artifactId>
                <version>1.17.7</version>
             </dependency>
-            <!-- Hibernate core -->
+            <!-- Hibernate 7 core (Jakarta EE 11 - JPA 3.2, jakarta.persistence namespace) -->
             <dependency>
-                <groupId>org.hibernate</groupId>
+                <groupId>org.hibernate.orm</groupId>
                 <artifactId>hibernate-core</artifactId>
-                <version>5.6.15.Final</version>
+                <version>7.2.6.Final</version>
             </dependency>
-            <!-- Hibernate commons annotations - transitive from hibernate-core -->
-            <dependency>
-                <groupId>org.hibernate.common</groupId>
-                <artifactId>hibernate-commons-annotations</artifactId>
-                <version>5.1.2.Final</version>
-            </dependency>
-            <!-- JPA API (javax namespace) - transitive from Hibernate 5.x -->
-            <dependency>
-                <groupId>javax.persistence</groupId>
-                <artifactId>javax.persistence-api</artifactId>
-                <version>2.2</version>
-            </dependency>
-            <!-- JPA API (jakarta namespace) - transitive from jaxws-ri -->
+            <!-- JPA API (jakarta namespace) - provided by Hibernate 7 (JPA 3.2) -->
             <dependency>
                 <groupId>jakarta.persistence</groupId>
                 <artifactId>jakarta.persistence-api</artifactId>
-                <version>2.2.3</version>
+                <version>3.2.0</version>
             </dependency>
-            <!-- Override transitive XStream from drools-compiler to fix CVE-2024-47072
+            <!-- JTA API (jakarta namespace) - required by Hibernate 7 at runtime -->
+            <dependency>
+                <groupId>jakarta.transaction</groupId>
+                <artifactId>jakarta.transaction-api</artifactId>
+                <version>2.0.1</version>
+            </dependency>
+            <!-- Override transitive XStream from drools-engine to fix CVE-2024-47072
                  (stack overflow DoS when BinaryStreamDriver is configured) -->
             <dependency>
                 <groupId>com.thoughtworks.xstream</groupId>
                 <artifactId>xstream</artifactId>
                 <version>1.4.21</version>
             </dependency>
-            <!-- Override transitive Xalan from javax.servlet.jsp.jstl to fix CVE-2022-34169
+            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
                  (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
             <dependency>
                 <groupId>xalan</groupId>
@@ -233,11 +223,11 @@
     <dependencies>
 
         <!-- https://mvnrepository.com/artifact/net.bull.javamelody/javamelody-core -->
-        <!-- Updated to latest javax.servlet compatible version -->
+        <!-- Updated to Jakarta EE compatible version (2.x = Jakarta, 1.x = javax) -->
         <dependency>
             <groupId>net.bull.javamelody</groupId>
             <artifactId>javamelody-core</artifactId>
-            <version>1.99.4</version>
+            <version>2.6.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -258,7 +248,7 @@
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
-            <version>1.2</version>
+            <version>1.3.5</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -317,12 +307,7 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.18.0</version>
-        </dependency>
-        <dependency>
-            <groupId>commons-fileupload</groupId>
-            <artifactId>commons-fileupload</artifactId>
-            <version>1.6.0</version>
+            <version>2.21.0</version>
         </dependency>
         <dependency>
             <groupId>commons-collections</groupId>
@@ -379,17 +364,12 @@
             <version>2.10.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
-            <scope>test</scope>
-        </dependency>
+        <!-- JUnit 4 removed — all tests migrated to JUnit 5/6 (PR #591) -->
 
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>4.0.1</version>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.1.0</version>
             <scope>provided</scope>
         </dependency>
 
@@ -454,21 +434,21 @@
             <version>2.0.6.1</version>
         </dependency>
 
-        <!-- spring -->
+        <!-- spring (Jakarta EE 11 — version aligned with spring-framework-bom in dependencyManagement) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-orm</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
         </dependency>
         <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
              Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
@@ -476,29 +456,29 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
         </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aspects</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aop</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
             <exclusions>
                 <exclusion>
                     <groupId>cglib</groupId>
@@ -510,14 +490,14 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>6.3.9</version>
+            <version>7.0.3</version>
         </dependency>
 
         <!-- Spring Context Support (provides JavaMailSenderImpl for email) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context-support</artifactId>
-            <version>5.3.39</version>
+            <version>7.0.6</version>
         </dependency>
 
         <!-- hibernate / sql -->
@@ -533,11 +513,15 @@
             <artifactId>mysql-connector-j</artifactId>
             <version>9.3.0</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.hibernate/hibernate-core -->
+        <!-- https://mvnrepository.com/artifact/org.hibernate.orm/hibernate-core -->
         <dependency>
-            <groupId>org.hibernate</groupId>
+            <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-core</artifactId>
-            <version>5.6.15.Final</version>
+        </dependency>
+        <!-- JTA API - required by Hibernate 7 at runtime for transaction management -->
+        <dependency>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
         </dependency>
 
         <!--  pdfbox -->
@@ -559,14 +543,14 @@
             <version>3.13.0</version>
         </dependency>
 
-        <!-- Glassfish JSTL 1.2.5 implementation (javax namespace for Servlet 4.0 compatibility) -->
+        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
         <dependency>
             <groupId>org.glassfish.web</groupId>
-            <artifactId>javax.servlet.jsp.jstl</artifactId>
-            <version>1.2.5</version>
+            <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+            <version>3.0.1</version>
         </dependency>
         <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
-             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x. -->
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
@@ -628,39 +612,19 @@
         </dependency>
 
 
-        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0 in 2026) -->
-        <dependency>
-            <groupId>org.kie</groupId>
-            <artifactId>kie-api</artifactId>
-            <version>${drools.version}</version>
-        </dependency>
+        <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE)
+             Includes: kie-api, drools-core, drools-compiler, drools-model-compiler (executable model) -->
         <dependency>
             <groupId>org.drools</groupId>
-            <artifactId>drools-core</artifactId>
+            <artifactId>drools-engine</artifactId>
             <version>${drools.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.drools</groupId>
-            <artifactId>drools-compiler</artifactId>
-            <version>${drools.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.drools</groupId>
-            <artifactId>drools-mvel</artifactId>
-            <version>${drools.version}</version>
-        </dependency>
-        <!-- Override mvel2 transitive version: 2.4.x references java.lang.Compiler (removed in JDK 16/JEP 410) -->
-        <dependency>
-            <groupId>org.mvel</groupId>
-            <artifactId>mvel2</artifactId>
-            <version>${mvel2.version}</version>
         </dependency>
 
-        <!-- jasper reports -->
+        <!-- jasper reports (7.x required for Jakarta EE 10 compatibility) -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports</artifactId>
-            <version>6.21.5</version>
+            <version>7.0.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>bouncycastle</groupId>
@@ -698,6 +662,27 @@
             </exclusions>
         </dependency>
 
+        <!-- JasperReports PDF exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf</artifactId>
+            <version>7.0.3</version>
+        </dependency>
+
+        <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-jdt</artifactId>
+            <version>7.0.3</version>
+        </dependency>
+
+        <!-- JasperReports Excel/POI exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-excel-poi</artifactId>
+            <version>7.0.3</version>
+        </dependency>
+
         <!-- Jackson dependencies for JSON processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -706,10 +691,10 @@
         </dependency>
 
 
-        <!-- Jackson JAXB annotations support - provides JaxbAnnotationIntrospector used in Spring configs -->
+        <!-- Jackson Jakarta XML Bind annotations support - provides JakartaXmlBindAnnotationIntrospector used in Spring configs -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
-            <artifactId>jackson-module-jaxb-annotations</artifactId>
+            <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
             <version>2.19.2</version>
         </dependency>
 
@@ -775,11 +760,11 @@
             <version>3.1.0</version>
         </dependency>
 
-        <!-- email -->
+        <!-- email (Jakarta Mail 2.1 via Eclipse Angus) -->
         <dependency>
-            <groupId>com.sun.mail</groupId>
-            <artifactId>jakarta.mail</artifactId>
-            <version>1.6.8</version>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+            <version>2.0.3</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.jfree/jfreechart -->
@@ -811,13 +796,13 @@
             </exclusions>
         </dependency>
 
-        <!-- UPGRADED displaytag to actively maintained hazendaz fork -->
+        <!-- UPGRADED displaytag to Jakarta EE compatible hazendaz fork -->
         <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
         <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
         <dependency>
             <groupId>com.github.hazendaz</groupId>
             <artifactId>displaytag</artifactId>
-            <version>2.9.0</version>
+            <version>3.7.0</version>
             <exclusions>
                 <!-- Exclude SLF4J to use OpenO's managed version -->
                 <exclusion>
@@ -851,7 +836,7 @@
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.17.2</version>
+            <version>1.22.1</version>
         </dependency>
 
 
@@ -866,7 +851,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.79</version>
+            <version>1.83</version>
         </dependency>
 
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
@@ -918,7 +903,7 @@
         <dependency>
             <groupId>com.sun.xml.messaging.saaj</groupId>
             <artifactId>saaj-impl</artifactId>
-            <version>1.5.3</version>
+            <version>3.0.4</version>
         </dependency>
 
         <!-- CXF -->
@@ -1037,7 +1022,7 @@
                     <groupId>org.apache.cxf</groupId>
                     <artifactId>cxf-rt-frontend-js</artifactId>
                 </exclusion>
-                <!-- Not used, excluded because Jetty 10 requires jakarta.servlet.* but app uses javax.servlet.* -->
+                <!-- Not used, excluded to avoid pulling in embedded Jetty server -->
                 <exclusion>
                     <groupId>org.apache.cxf</groupId>
                     <artifactId>cxf-rt-transports-http-jetty</artifactId>
@@ -1114,8 +1099,8 @@
 
         <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
         <dependency>
-            <groupId>com.fasterxml.jackson.jaxrs</groupId>
-            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+            <artifactId>jackson-jakarta-rs-json-provider</artifactId>
             <version>2.19.2</version>
         </dependency>
 
@@ -1123,7 +1108,7 @@
         <!-- Detected as "Unused dependency" but don't remove it, it's using in jsp -->
         <dependency>
             <groupId>org.owasp.encoder</groupId>
-            <artifactId>encoder-jsp</artifactId>
+            <artifactId>encoder-jakarta-jsp</artifactId>
             <version>1.4.0</version>
         </dependency>
         <dependency>
@@ -1135,17 +1120,17 @@
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard</artifactId>
-            <version>4.5.0</version>
+            <version>4.5.0-jakarta</version>
         </dependency>
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard-extension-session</artifactId>
-            <version>4.5.0</version>
+            <version>4.5.0-jakarta</version>
         </dependency>
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard-jsp-tags</artifactId>
-            <version>4.5.0</version>
+            <version>4.5.0-jakarta</version>
         </dependency>
         
         <!-- ESAPI removed: ClickjackFilter replaced by security headers in ResponseDefaultsFilter -->
@@ -1296,7 +1281,7 @@
         <dependency>
            <groupId>com.sun.xml.ws</groupId>
            <artifactId>jaxws-ri</artifactId>
-           <version>2.3.7</version>
+           <version>4.0.3</version>
            <type>pom</type>
            <exclusions>
                 <!-- Not being used, excluded to avoid triggering security issue -->
@@ -1307,46 +1292,49 @@
            </exclusions>
         </dependency>
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
-            <version>1.3.2</version>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>3.0.0</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/javax.inject/javax.inject -->
-        <!-- Required for @Inject annotation in OAuth resources (was transitive from jersey-client) -->
+        <!-- https://mvnrepository.com/artifact/jakarta.inject/jakarta.inject-api -->
+        <!-- Required for @Inject annotation in OAuth resources -->
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-            <version>1</version>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
+            <version>2.0.1</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/javax.servlet.jsp/javax.servlet.jsp-api -->
+        <!-- https://mvnrepository.com/artifact/jakarta.servlet.jsp/jakarta.servlet.jsp-api -->
         <dependency>
-            <groupId>javax.servlet.jsp</groupId>
-            <artifactId>javax.servlet.jsp-api</artifactId>
-            <version>2.3.3</version>
+            <groupId>jakarta.servlet.jsp</groupId>
+            <artifactId>jakarta.servlet.jsp-api</artifactId>
+            <version>4.0.0</version>
             <scope>provided</scope>
         </dependency>
 
-        <!-- Removed jaxb-impl duplicate - using org.glassfish.jaxb:jaxb-runtime instead -->
-        <!-- Added for Tomcat 9.0.97 - JAXB runtime implementation (version managed by dependencyManagement) -->
+        <!-- JAXB runtime implementation (Jakarta EE - version managed by dependencyManagement) -->
         <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
         </dependency>
+        <!-- JAXB API (Jakarta EE) -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
 
-        <!-- JSTL API is included as transitive dependency of javax.servlet.jsp.jstl -->
-        <!-- Removed standalone javax.servlet:jstl:1.2 to avoid conflicts -->
+        <!-- JSTL API is included as transitive dependency of jakarta.servlet.jsp.jstl -->
 
         <dependency>
             <groupId>org.apache.struts</groupId>
             <artifactId>struts2-core</artifactId>
-            <version>6.8.0</version>
+            <version>7.1.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.struts</groupId>
             <artifactId>struts2-spring-plugin</artifactId>
-            <version>6.8.0</version>
+            <version>7.1.1</version>
         </dependency>
-        <!-- Caffeine Cache - Required by Struts 6.x for internal caching -->
+        <!-- Caffeine Cache - Required by Struts for internal caching -->
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
@@ -1824,14 +1812,14 @@
                 <dependency>
                     <groupId>org.junit.jupiter</groupId>
                     <artifactId>junit-jupiter</artifactId>
-                    <version>5.10.1</version>
+                    <version>6.0.3</version>
                     <scope>test</scope>
                 </dependency>
                 <!-- JUnit 5 Params for parameterized tests -->
                 <dependency>
                     <groupId>org.junit.jupiter</groupId>
                     <artifactId>junit-jupiter-params</artifactId>
-                    <version>5.10.1</version>
+                    <version>6.0.3</version>
                     <scope>test</scope>
                 </dependency>
                 <!-- Mockito JUnit Jupiter integration -->

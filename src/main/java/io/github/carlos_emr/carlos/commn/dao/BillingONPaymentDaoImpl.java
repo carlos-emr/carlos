@@ -38,8 +38,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.text.NumberFormat;
-import javax.persistence.NoResultException;
-import javax.persistence.Query;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;

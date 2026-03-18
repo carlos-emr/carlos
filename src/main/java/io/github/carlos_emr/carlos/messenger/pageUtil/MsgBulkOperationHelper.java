@@ -25,7 +25,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import java.util.List;
 import java.util.function.Consumer;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
 import org.springframework.dao.DataAccessException;

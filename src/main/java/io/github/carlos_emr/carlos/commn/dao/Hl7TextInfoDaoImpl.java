@@ -39,7 +39,7 @@ import java.util.Date;
 import java.util.List;
 import java.text.SimpleDateFormat;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -230,7 +230,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     @Override
     public List<Object[]> findByDemographicId(Integer demographicNo) {
         String sql =
-                "FROM Hl7TextInfo hl7, PatientLabRouting p " +
+                "SELECT hl7, p FROM Hl7TextInfo hl7, PatientLabRouting p " +
                         "WHERE p.labNo = hl7.labNumber " +
                         "AND p.labType = 'HL7' " +
                         "AND p.demographicNo = ?1 " +

@@ -91,7 +91,7 @@
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 <%

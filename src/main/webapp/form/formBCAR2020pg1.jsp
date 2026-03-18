@@ -53,7 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 
@@ -178,7 +178,7 @@
     <body bgproperties="fixed">
     <div id="maincontent" class="flex-container">
 
-        <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+        <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
         <c:if test="${param.warning eq 'history'}">
             <script type="text/javascript">

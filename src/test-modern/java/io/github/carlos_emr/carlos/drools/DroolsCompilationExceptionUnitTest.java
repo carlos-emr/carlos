@@ -31,8 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Unit tests for {@link DroolsCompilationException}.
  *
  * <p>Validates the two-constructor contract of this checked exception that is
- * thrown whenever a DRL rule file fails to compile through the Drools 7.x KIE API.
- * The class was introduced during the Drools 2.0 &rarr; 7.74.1 migration to provide
+ * thrown whenever a DRL rule file fails to compile through the Drools KIE API.
+ * The class was introduced during the Drools 2.0 &rarr; 7.74.1 &rarr; 10.0.0 migration to provide
  * a consistent, typed exception for all DRL compilation failures across the subsystems
  * (flowsheets, decision support, prevention, workflow, clinical reports).</p>
  *

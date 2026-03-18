@@ -36,8 +36,8 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 
-import javax.persistence.NoResultException;
-import javax.persistence.Query;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;

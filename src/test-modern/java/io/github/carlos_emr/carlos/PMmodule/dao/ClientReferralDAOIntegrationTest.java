@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.orm.hibernate5.HibernateTemplate;
+import io.github.carlos_emr.carlos.test.base.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;

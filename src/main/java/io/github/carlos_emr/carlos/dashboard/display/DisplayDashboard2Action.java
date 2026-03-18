@@ -28,8 +28,8 @@
  */
 package io.github.carlos_emr.carlos.dashboard.display;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.dashboard.display.beans.DashboardBean;
@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DisplayDashboard2Action extends ActionSupport {

@@ -36,7 +36,7 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 import java.util.Enumeration;
 import java.util.Vector;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 

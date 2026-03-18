@@ -31,7 +31,7 @@
 
 <%@ page isErrorPage="true" %>
 <!-- only true can access exception object -->
-<%@ taglib uri='http://java.sun.com/jsp/jstl/core' prefix="c" %>
+<%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
 <!DOCTYPE html>
 <html>

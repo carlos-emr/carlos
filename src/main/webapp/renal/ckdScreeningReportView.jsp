@@ -55,8 +55,8 @@
 <%@page import="io.github.carlos_emr.carlos.renal.CkdScreenerReportHandler" %>
 <%@page import="io.github.carlos_emr.carlos.renal.CKDReportContainer" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="javax.xml.bind.JAXBContext" %>
-<%@page import="javax.xml.bind.Unmarshaller" %>
+<%@page import="jakarta.xml.bind.JAXBContext" %>
+<%@page import="jakarta.xml.bind.Unmarshaller" %>
 <%@page import="io.github.carlos_emr.carlos.renal.CkdScreeningReportContainer" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ORNCkdScreeningReportLogDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ORNCkdScreeningReportLog" %>

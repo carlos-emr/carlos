@@ -32,8 +32,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import com.opensymphony.xwork2.ActionContext;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.HttpParameters;
 import org.apache.struts2.dispatcher.Parameter;
@@ -47,8 +47,8 @@ import org.mockito.Mockito;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -104,14 +104,14 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
      * Set up Struts2 ActionContext with mock servlet objects.
      * This is critical for testing 2Actions that use ServletActionContext.
      *
-     * <p>Updated for Struts 6.x API which uses fluent builder pattern:
+     * <p>Updated for Struts 7.x API which uses fluent builder pattern:
      * - ActionContext.of() instead of new ActionContext(Map)
      * - bind() instead of setContext()
      * - withServletRequest/Response() instead of contextMap.put()
      * - withParameters() instead of setParameters()
      */
     protected void setUpActionContext() {
-        // Create ActionContext using Struts 6.x API
+        // Create ActionContext using Struts 7.x API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
 
         // Also set in session map for compatibility
@@ -182,7 +182,7 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
         requestParameters.put(name, new String[]{value});
         mockRequest.setParameter(name, value);
 
-        // Update ActionContext parameters using Struts 6.x fluent API
+        // Update ActionContext parameters using Struts 7.x fluent API
         HttpParameters httpParameters = HttpParameters.create(requestParameters).build();
         ActionContext.getContext().withParameters(httpParameters).bind();
     }

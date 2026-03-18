@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>The DroolsNumerator family (1-5) all follow the same Drools session lifecycle:
  * compile a KieBase, create a KieSession, insert a {@link MeasurementDSHelper} fact,
  * fire all rules, dispose the session, and check {@code dshelper.isInRange()}. These
- * tests verify that lifecycle works correctly with the Drools 7.74.1 KIE API without
+ * tests verify that lifecycle works correctly with the Drools 10.x KIE API without
  * requiring database access or {@code LoggedInInfo}.</p>
  *
  * <p>The tests use {@link MeasurementDSHelper}'s no-arg constructor (which avoids

@@ -615,7 +615,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
                     "FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
             for (LstOrgcd l : o) {
                 l.setActiveyn(0);
-                currentSession().update(l);
+                currentSession().merge(l);
             }
         }
     }

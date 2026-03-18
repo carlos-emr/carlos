@@ -80,7 +80,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
 
@@ -264,7 +264,7 @@
             }
 
             //DemographicExt
-            String proNo = (String) session.getValue("user");
+            String proNo = (String) session.getAttribute("user");
             String demoNo = request.getParameter("demographic_no");
             int demographicNo = Integer.parseInt(demoNo);
             List<DemographicExt> extensions = new ArrayList<DemographicExt>();

@@ -36,29 +36,29 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Properties;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billing.CA.dao.GstControlDao;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.opensymphony.xwork2.ActionSupport;
-import org.apache.struts2.interceptor.ServletRequestAware;
-import org.apache.struts2.interceptor.ServletResponseAware;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.action.ServletRequestAware;
+import org.apache.struts2.action.ServletResponseAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class GstControl2Action extends ActionSupport implements ServletRequestAware, ServletResponseAware  {
     private HttpServletRequest request;
     private HttpServletResponse response;
     @Override
-    public void setServletRequest(HttpServletRequest request) {
+    public void withServletRequest(HttpServletRequest request) {
         this.request = request;
     }
 
     @Override
-    public void setServletResponse(HttpServletResponse response) {
+    public void withServletResponse(HttpServletResponse response) {
         this.response = response;
     }
 

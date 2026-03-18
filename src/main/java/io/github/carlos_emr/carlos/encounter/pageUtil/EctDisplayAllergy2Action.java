@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 import java.util.Date;
 import java.util.Locale;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;

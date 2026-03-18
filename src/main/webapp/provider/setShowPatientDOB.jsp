@@ -33,7 +33,7 @@
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
-    if (session.getValue("user") == null)
+    if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");

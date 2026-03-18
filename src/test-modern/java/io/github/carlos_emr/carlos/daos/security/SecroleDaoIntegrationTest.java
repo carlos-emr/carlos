@@ -30,8 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -94,7 +94,7 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
      * {@code "entityManagerFactory"} matches the persistence unit configured in
      * the test Spring context ({@code test-context-full.xml}).</p>
      *
-     * @see javax.persistence.PersistenceContext
+     * @see jakarta.persistence.PersistenceContext
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;

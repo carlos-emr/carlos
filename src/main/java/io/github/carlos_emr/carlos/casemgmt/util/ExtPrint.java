@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.casemgmt.util;
 
 import java.io.IOException;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintPdf;
 

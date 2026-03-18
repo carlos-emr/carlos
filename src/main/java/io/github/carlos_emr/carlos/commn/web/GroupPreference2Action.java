@@ -31,8 +31,8 @@ package io.github.carlos_emr.carlos.commn.web;
 
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * @author mweston4
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GroupPreference2Action extends ActionSupport {

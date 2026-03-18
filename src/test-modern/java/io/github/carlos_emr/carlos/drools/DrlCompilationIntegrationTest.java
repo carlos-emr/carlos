@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests that verify every production DRL file modified during the
- * Drools 2.0 &rarr; 7.74.1 KIE API migration compiles successfully.
+ * Drools 2.0 &rarr; 10.0.0 KIE API migration compiles successfully.
  *
  * <p><strong>This is the single most critical test class for the migration.</strong>
  * DRL files underwent significant syntax changes (e.g., removing deprecated Drools 2.0
@@ -58,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <h3>Test approach</h3>
  * <p>Each test loads a DRL file from the classpath via {@link DroolsHelper#loadFromUrl(URL)},
- * which internally compiles the DRL into a {@link KieBase} using the Drools 7.x KIE API.
+ * which internally compiles the DRL into a {@link KieBase} using the Drools 10.x KIE API.
  * A non-null {@code KieBase} confirms that the DRL syntax is valid for this Drools version.
  * Compilation failures throw {@link DroolsCompilationException} with the specific error
  * messages from the KIE compiler.</p>
@@ -240,7 +240,7 @@ class DrlCompilationIntegrationTest {
     // Other DRLs
     //
     // Production DRL files outside the flowsheet/decision-support directories
-    // that were also migrated to Drools 7.x syntax.
+    // that were also migrated to Drools 7.x syntax (compatible with Drools 10.x).
     // -------------------------------------------------------------------------
 
     /** Prevention rules: immunization scheduling and overdue detection. */

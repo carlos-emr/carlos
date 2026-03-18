@@ -31,8 +31,8 @@ import org.junit.jupiter.api.Tag;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
-import javax.persistence.EntityManager;
-import javax.persistence.Query;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import java.util.Date;
 
 /**

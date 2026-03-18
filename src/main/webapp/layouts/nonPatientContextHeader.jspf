@@ -38,8 +38,8 @@
 <%@ page import="java.util.*" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
@@ -201,7 +201,7 @@ label.error {
 <div class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid">
 
-          <a href="http://oscarmcmaster.org/" target="_blank" title="OSCAR EMR"><img src="<%=request.getContextPath()%>/images/oscar_logo_small.png" border="0" style="float:left"></a>
+          <a href="https://github.com/carlos-emr/carlos" target="_blank" title="CARLOS EMR"><img src="<%=request.getContextPath()%>/images/oscar_logo_small.png" border="0" style="float:left"></a>
           
 			<div class="dropdown navbar-text float-end" style="display:inline">
 					<fmt:setBundle basename="oscarResources"/><fmt:message key="global.loggedIn"/>  <a class="dropdown-toggle" data-bs-toggle="dropdown" id="dLabel" role="button" href="#username" style="color:#000;"><%=userfirstname%> <%=userlastname%></a>

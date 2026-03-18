@@ -73,13 +73,13 @@
 <%@page import="java.security.KeyManagementException" %>
 <%@page import="java.security.NoSuchAlgorithmException" %>
 <%@page import="org.apache.http.client.methods.HttpGet" %>
-<%@page import="javax.servlet.http.Cookie" %>
+<%@page import="jakarta.servlet.http.Cookie" %>
 <%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="org.apache.http.client.HttpClient" %>
 <%@page import="org.apache.http.HttpResponse" %>
 <%@page import="org.codehaus.jettison.json.*" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%
     DHIRSubmissionManager submissionManager = SpringUtils.getBean(DHIRSubmissionManager.class);

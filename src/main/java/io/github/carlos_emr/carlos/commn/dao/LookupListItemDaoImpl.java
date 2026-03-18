@@ -36,7 +36,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import org.springframework.stereotype.Repository;
 
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 @Repository
 public class LookupListItemDaoImpl extends AbstractDaoImpl<LookupListItem> implements LookupListItemDao {

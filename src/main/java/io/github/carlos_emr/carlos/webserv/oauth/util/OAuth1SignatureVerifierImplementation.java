@@ -35,7 +35,7 @@
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 import org.springframework.beans.factory.annotation.Autowired;

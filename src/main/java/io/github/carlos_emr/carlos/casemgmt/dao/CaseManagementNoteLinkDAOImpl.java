@@ -105,11 +105,11 @@ public class CaseManagementNoteLinkDAOImpl extends AbstractHibernateDao implemen
 
     @Override
     public void save(CaseManagementNoteLink cLink) {
-        currentSession().save(cLink);
+        currentSession().persist(cLink);
     }
 
     @Override
     public void update(CaseManagementNoteLink cLink) {
-        currentSession().update(cLink);
+        currentSession().merge(cLink);
     }
 }

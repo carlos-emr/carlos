@@ -49,8 +49,8 @@ import io.github.carlos_emr.carlos.renal.ORNPreImplementationReportThread;
 import io.github.carlos_emr.carlos.form.FrmLabReq07Record;
 import io.github.carlos_emr.carlos.form.FrmLabReq10Record;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -59,7 +59,7 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class Renal2Action extends ActionSupport {

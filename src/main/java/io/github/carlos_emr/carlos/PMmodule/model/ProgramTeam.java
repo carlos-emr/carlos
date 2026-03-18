@@ -27,12 +27,16 @@
 
 package io.github.carlos_emr.carlos.PMmodule.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.List;
 
 /**
  * This is the object class that relates to the program_team table. Any customizations belong here.
  */
+@Entity
+@Table(name = "program_team")
 public class ProgramTeam implements Serializable {
 
     public static String REF = "ProgramTeam";

@@ -27,30 +27,23 @@
 
 package io.github.carlos_emr.carlos.utility;
 
-import java.sql.Connection;
 import java.util.*;
-
-import javax.naming.NamingException;
-import javax.naming.Reference;
-import javax.persistence.EntityGraph;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceUnitUtil;
-import javax.persistence.SynchronizationType;
-import javax.persistence.criteria.CriteriaBuilder;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.*;
-import org.hibernate.boot.spi.SessionFactoryOptions;
-import org.hibernate.engine.spi.FilterDefinition;
-import org.hibernate.metadata.ClassMetadata;
-import org.hibernate.metadata.CollectionMetadata;
-import org.hibernate.stat.Statistics;
-import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
-import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
-import org.hibernate.service.ServiceRegistry;
+import org.springframework.orm.jpa.hibernate.LocalSessionFactoryBean;
 
-import org.springframework.orm.hibernate5.LocalSessionFactoryBuilder;
-
+/**
+ * Session-tracking SessionFactory wrapper for Hibernate session leak detection.
+ *
+ * <p>Wraps a real SessionFactory to track opened sessions. Delegates all
+ * operations to the wrapped factory.</p>
+ *
+ * <p>Note: This class extends Spring's LocalSessionFactoryBean from the
+ * {@code org.springframework.orm.jpa.hibernate} package (Spring 7.0+).
+ * Previously in the {@code hibernate5} package, it was relocated as part
+ * of Spring Framework 7.0's Hibernate ORM 7.x alignment.</p>
+ */
 public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryBean {
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -95,210 +88,6 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
         } catch (Exception e) {
             logger.error("Error closing hibernate sessions. (outter loop)", e);
         }
-    }
-
-    /**
-     * Session-tracking decorator for SessionFactory.
-     *
-     * <p>Wraps a real SessionFactory to track opened sessions for leak detection.
-     * Delegates all operations to the wrapped factory. Metadata pass-through methods
-     * (getAllClassMetadata, getClassMetadata, getCollectionMetadata, getTypeHelper)
-     * are deprecated in H5 and retained with deprecation suppression until the
-     * Hibernate 6 migration.</p>
-     *
-     * <p>H6-MIGRATE: When migrating to Spring 6 + Hibernate 6, the base class
-     * ({@code LocalSessionFactoryBean}) will move to a different package. The
-     * TrackingSessionFactory itself only uses Hibernate's SessionFactory interface
-     * and should need minimal changes.</p>
-     */
-    public static class TrackingSessionFactory implements SessionFactory {
-        private final SessionFactory sessionFactory;
-
-        public TrackingSessionFactory(SessionFactory sessionFactory) {
-            logger.info("TrackingSessionFactory wrapping: {}", sessionFactory.getClass().getName());
-            this.sessionFactory = sessionFactory;
-        }
-
-        @Override
-        public void close() throws HibernateException {
-            sessionFactory.close();
-        }
-
-        @Override
-        public Map<String, Object> getProperties() {
-            return sessionFactory.getProperties();
-        }
-
-        // H6-MIGRATE: These metadata methods are removed in Hibernate 6.
-        // They are deprecated in H5 but still required by the SessionFactory interface.
-        @SuppressWarnings("deprecation")
-        public Map getAllClassMetadata() throws HibernateException {
-            return sessionFactory.getAllClassMetadata();
-        }
-
-        @SuppressWarnings("deprecation")
-        public Map getAllCollectionMetadata() throws HibernateException {
-            return sessionFactory.getAllCollectionMetadata();
-        }
-
-        @SuppressWarnings("deprecation")
-        public ClassMetadata getClassMetadata(Class arg0) throws HibernateException {
-            return sessionFactory.getClassMetadata(arg0);
-        }
-
-        @SuppressWarnings("deprecation")
-        public ClassMetadata getClassMetadata(String arg0) throws HibernateException {
-            return sessionFactory.getClassMetadata(arg0);
-        }
-
-        @SuppressWarnings("deprecation")
-        public CollectionMetadata getCollectionMetadata(String arg0) throws HibernateException {
-            return sessionFactory.getCollectionMetadata(arg0);
-        }
-
-        public Set getDefinedFilterNames() {
-            return sessionFactory.getDefinedFilterNames();
-        }
-
-        public FilterDefinition getFilterDefinition(String arg0) throws HibernateException {
-            return sessionFactory.getFilterDefinition(arg0);
-        }
-
-        public Reference getReference() throws NamingException {
-            return sessionFactory.getReference();
-        }
-
-        @Override
-        public Statistics getStatistics() {
-            return sessionFactory.getStatistics();
-        }
-
-        @Override
-        public boolean isClosed() {
-            return sessionFactory.isClosed();
-        }
-
-        @Override
-        public Session openSession() throws HibernateException {
-            return (trackSession(sessionFactory.openSession()));
-        }
-
-        @Override
-        public StatelessSession openStatelessSession() {
-            return sessionFactory.openStatelessSession();
-        }
-
-        @Override
-        public Session getCurrentSession() {
-            return sessionFactory.getCurrentSession();
-        }
-
-        @Override
-        public StatelessSession openStatelessSession(Connection arg0) {
-            return sessionFactory.openStatelessSession(arg0);
-        }
-
-        // H6-MIGRATE: getTypeHelper() is removed in Hibernate 6.
-        // Delegate to wrapped factory instead of self-cast (which caused StackOverflowError).
-        @Override
-        public TypeHelper getTypeHelper() {
-            return sessionFactory.getTypeHelper();
-        }
-
-        @Override
-        public boolean containsFetchProfileDefinition(String s) {
-            return sessionFactory.containsFetchProfileDefinition(s);
-        }
-
-        @Override
-        public Cache getCache() {
-            return sessionFactory.getCache();
-        }
-
-        @Override
-        public PersistenceUnitUtil getPersistenceUnitUtil() {
-            return sessionFactory.getPersistenceUnitUtil();
-        }
-
-        @Override
-        public void addNamedQuery(String name, javax.persistence.Query query) {
-            sessionFactory.addNamedQuery(name, query);
-        }
-
-        @Override
-        public <T> T unwrap(Class<T> cls) {
-            return sessionFactory.unwrap(cls);
-        }
-
-        @Override
-        public <T> void addNamedEntityGraph(String graphName, EntityGraph<T> entityGraph) {
-            sessionFactory.addNamedEntityGraph(graphName, entityGraph);
-        }
-
-        @Override
-        public SessionFactoryOptions getSessionFactoryOptions() {
-            return sessionFactory.getSessionFactoryOptions();
-        }
-
-        @Override
-        public SessionBuilder withOptions() {
-            return sessionFactory.withOptions();
-        }
-
-        @Override
-        public StatelessSessionBuilder withStatelessOptions() {
-            return sessionFactory.withStatelessOptions();
-        }
-
-        @Override
-        public <T> List<EntityGraph<? super T>> findEntityGraphsByType(Class<T> aClass) {
-            return sessionFactory.findEntityGraphsByType(aClass);
-        }
-
-        @Override
-        public EntityManager createEntityManager() {
-            return sessionFactory.createEntityManager();
-        }
-
-        @Override
-        public EntityManager createEntityManager(Map map) {
-            return sessionFactory.createEntityManager(map);
-        }
-
-        @Override
-        public EntityManager createEntityManager(SynchronizationType synchronizationType) {
-            return sessionFactory.createEntityManager(synchronizationType);
-        }
-
-        @Override
-        public EntityManager createEntityManager(SynchronizationType synchronizationType, Map map) {
-            return sessionFactory.createEntityManager(synchronizationType, map);
-        }
-
-        @Override
-        public CriteriaBuilder getCriteriaBuilder() {
-            return sessionFactory.getCriteriaBuilder();
-        }
-
-        @Override
-        public Metamodel getMetamodel() {
-            return sessionFactory.getMetamodel();
-        }
-
-        @Override
-        public boolean isOpen() {
-            return sessionFactory.isOpen();
-        }
-    }
-
-    @Override
-    protected SessionFactory buildSessionFactory(LocalSessionFactoryBuilder sfb) {
-        StandardServiceRegistryBuilder serviceRegistryBuilder = new StandardServiceRegistryBuilder()
-                .applySettings(sfb.getProperties());
-        ServiceRegistry serviceRegistry = serviceRegistryBuilder.build();
-        SessionFactory sessionFactory = sfb.buildSessionFactory(serviceRegistry);
-        logger.info("Built SessionFactory: {}", sessionFactory);
-        return new TrackingSessionFactory(sessionFactory);
     }
 
 }

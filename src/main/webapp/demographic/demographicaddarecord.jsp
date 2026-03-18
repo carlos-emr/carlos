@@ -59,7 +59,7 @@
 <%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -307,7 +307,7 @@
                     }
                 }
 
-                String proNo = (String) session.getValue("user");
+                String proNo = (String) session.getAttribute("user");
                 demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "hPhoneExt", request.getParameter("hPhoneExt"), "");
                 demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "wPhoneExt", request.getParameter("wPhoneExt"), "");
                 demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "demo_cell", request.getParameter("demo_cell"), "");

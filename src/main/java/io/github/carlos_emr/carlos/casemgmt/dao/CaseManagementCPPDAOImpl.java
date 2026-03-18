@@ -83,7 +83,7 @@ public class CaseManagementCPPDAOImpl extends AbstractHibernateDao implements Ca
             log.debug("Saving or updating a CPP: " + cpp);
         }
 
-        currentSession().saveOrUpdate(cpp);
+        currentSession().merge(cpp);
 
     }
 }

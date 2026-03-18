@@ -32,7 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
-import javax.persistence.Query;
+import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ResidentOscarMsg;
 import org.springframework.stereotype.Repository;
@@ -46,7 +46,7 @@ public class ResidentOscarMsgDaoImpl extends AbstractDaoImpl<ResidentOscarMsg> i
 
     @Override
     public List<ResidentOscarMsg> findBySupervisor(String supervisor) {
-        Query query = entityManager.createQuery("select p from ResidentOscarMsg p where p.supervisor_no = ?1 and p.complete = 0");
+        Query query = entityManager.createQuery("select p from ResidentOscarMsg p where p.supervisor_no = ?1 and p.complete = false");
         query.setParameter(1, supervisor);
 
         return query.getResultList();

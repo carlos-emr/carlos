@@ -32,8 +32,8 @@ package io.github.carlos_emr.carlos.admin.traceability;
 import java.io.InputStream;
 import java.util.concurrent.Callable;
 
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Read compressed data from input stream,

@@ -55,16 +55,16 @@
     //int provNo = Integer.parseInt(request.getParameter("provNo"));
 
     if (true) {
-        out.clear();
+        out.clearBuffer();
         if (formId == 0) {
-            pageContext.forward("formrourkep1.jsp?demographic_no=" + demoNo + "&formId=" + formId);
+            request.getRequestDispatcher("formrourkep1.jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         } else {
             FrmRecord rec = (new FrmRecordFactory()).factory("Rourke");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
             String pageNum = props.getProperty("c_lastVisited", "p1"); //'p1'
-            pageContext.forward("formrourke" + pageNum
-                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId);
+            request.getRequestDispatcher("formrourke" + pageNum
+                    + ".jsp?demographic_no=" + demoNo + "&formId=" + formId).include(request, response);
         }
 
         return;

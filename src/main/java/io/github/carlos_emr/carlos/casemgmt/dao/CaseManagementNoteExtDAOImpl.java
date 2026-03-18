@@ -86,11 +86,11 @@ public class CaseManagementNoteExtDAOImpl extends AbstractHibernateDao implement
 
     @Override
     public void save(CaseManagementNoteExt cExt) {
-        currentSession().save(cExt);
+        currentSession().persist(cExt);
     }
 
     @Override
     public void update(CaseManagementNoteExt cExt) {
-        currentSession().update(cExt);
+        currentSession().merge(cExt);
     }
 }

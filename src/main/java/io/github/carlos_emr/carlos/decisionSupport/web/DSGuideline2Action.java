@@ -38,8 +38,8 @@ package io.github.carlos_emr.carlos.decisionSupport.web;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSCondition;
@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 /**
  * @author apavel
  */
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class DSGuideline2Action extends ActionSupport {

@@ -31,7 +31,7 @@
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -47,9 +47,9 @@ import io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
 

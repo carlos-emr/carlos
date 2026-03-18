@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.integration.fhir.interfaces.ContactInterface;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactRelationship;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactType;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
 
