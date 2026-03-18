@@ -348,7 +348,7 @@
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>">
 
-                <INPUT TYPE="button" class="btn btn-secondary"
+                <INPUT TYPE="button" class="btn btn-secondary search-back-btn"
                        onclick="try{if(window.opener && !window.opener.closed){window.opener.location.reload();window.close();}else{window.history.back();}}catch(e){window.history.back();}"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>">

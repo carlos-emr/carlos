@@ -221,6 +221,7 @@
     </reporting>
 
     <dependencies>
+
         <!-- https://mvnrepository.com/artifact/net.bull.javamelody/javamelody-core -->
         <!-- Updated to Jakarta EE compatible version (2.x = Jakarta, 1.x = javax) -->
         <dependency>

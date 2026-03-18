@@ -44,13 +44,15 @@ function init(pageNo) {
     if (page === 1) {
         // Load multi-select checkbox dropdowns
         var ethnicity = $("textarea[name='t_ethnicity']").val();
-        $('#ethnicitySelectPicker').selectpicker('val', ethnicity.split(','));
-        $('#ethnicitySelectPicker').on('changed.bs.select',
-            function (e, clickedIndex, newValue, oldValue) {
-                var pickerValue = $('#ethnicitySelectPicker').selectpicker('val')
-                $("textarea[name='t_ethnicity']").val(pickerValue);
-                $("textarea[name='t_ethnicity']").prop('title', pickerValue);
+        var picker = document.getElementById('ethnicitySelectPicker');
+        if (picker && picker.multiselectDropdown) {
+            picker.multiselectDropdown.setValues(ethnicity ? ethnicity.split(',').map(function (v) { return v.trim(); }).filter(Boolean) : []);
+            picker.addEventListener('change', function () {
+                var pickerValue = picker.multiselectDropdown.getValues();
+                $("textarea[name='t_ethnicity']").val(pickerValue.join(','));
+                $("textarea[name='t_ethnicity']").prop('title', pickerValue.join(','));
             });
+        }
 
         //Enable All No Links
         $('#presentPregnancyNo').click(function () {
@@ -1174,7 +1176,7 @@ function dialogs(page) {
 
                 if ($("#printPg1").val() === "true" || $("#printPg2").val() === "true" || $("#printPg3").val() === "true" || $("#printPg4").val() === "true" || $("#printPg5").val() === "true" || $("#printPg6").val() === "true") {
                     document.forms[0].action = "../form/BCAR2020.do?method=print";
-                    $("#printBtn").click();
+                    $("#printBtn").trigger('click');
                 }
 
             },

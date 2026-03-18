@@ -107,53 +107,9 @@
      <!-- Bootstrap -->
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
-    <!-- styles to alter add files button and adjust progress bar -->
-	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/documentUploader/style.css">
-
-    <!-- tested with jQuery 1.12.3 and jQuery 3.7.1 -->
+    <!-- jQuery for preference AJAX calls (CSRFGuard auto-patches jQuery XHR) -->
     <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-compat.js"></script>
-
-    <!-- jQuery ui OR just the jQuery ui widget factory to match the jQuery above -->
-    <script src="${pageContext.request.contextPath}/js/jquery.ui.widget.js"></script> <!-- 1.12.1 -->
-
-    <!-- The Templates plugin is included to render the upload/download listings -->
-    <script src="${pageContext.request.contextPath}/share/documentUploader/jquery.tmpl.min.js"></script>
-
-    <!-- The basic File Upload plugin -->
-    <script src="${pageContext.request.contextPath}/share/documentUploader/jquery.fileupload.js"></script>
-
-    <!-- The File Upload processing plugin -->
-    <script src="${pageContext.request.contextPath}/share/documentUploader/jquery.fileupload-process.js"></script>
-
-    <!-- The File Upload validation plugin -->
-    <script src="${pageContext.request.contextPath}/share/documentUploader/jquery.fileupload-validate.js"></script>
-
-    <!-- Compatibility shim: define $.support.transition for jQuery 3.x (removed from core).
-         jquery.fileupload-ui.js uses $.support.transition for CSS fade animations. -->
-    <script>
-    (function ($) {
-        if (!$.support) $.support = {};
-        if (!$.support.transition) {
-            var style = document.createElement('span').style;
-            var transitions = {
-                'transition': 'transitionend',
-                'WebkitTransition': 'webkitTransitionEnd',
-                'MozTransition': 'transitionend',
-                'OTransition': 'oTransitionEnd'
-            };
-            for (var t in transitions) {
-                if (t in style) {
-                    $.support.transition = { end: transitions[t] };
-                    break;
-                }
-            }
-        }
-    }(jQuery));
-    </script>
-
-    <!-- The File Upload user interface plugin modified from stock for OSCAR 19 -->
-    <script src="${pageContext.request.contextPath}/share/documentUploader/jquery.fileupload-ui.js"></script>
 
 	<script>
 	function setProvider(select){
@@ -188,54 +144,42 @@
      }
 	</script>
 
-
-    <!-- Generic page styles -->
     <style>
-      #navigation {
-        margin: 10px 0;
-      }
+      #navigation { margin: 10px 0; }
       @media (max-width: 767px) {
-        #title,
-        #description {
-          display: none;
-        }
+        #title, #description { display: none; }
       }
+      .fileinput-button {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+      }
+      .fileinput-button input {
+        position: absolute;
+        top: 0;
+        right: 0;
+        margin: 0;
+        height: 100%;
+        opacity: 0;
+        font-size: 200px !important;
+        direction: ltr;
+        cursor: pointer;
+      }
+      #drop-area {
+        border: 2px dashed #ccc;
+        border-radius: 20px;
+        width: 100%;
+        font-family: sans-serif;
+        margin: 20px auto;
+        padding: 10px;
+        transition: border-color 0.2s, background-color 0.2s;
+      }
+      #drop-area.drag-over {
+        border-color: #0d6efd;
+        background-color: #f0f7ff;
+      }
+      .progress { margin-bottom: 10px; }
     </style>
-
-    <!-- CSS to style the file input field as button -->
-    <style>
-    .fileinput-button {
-      position: relative;
-      overflow: hidden;
-      display: inline-block;
-    }
-    .fileinput-button input {
-      position: absolute;
-      top: 0;
-      right: 0;
-      margin: 0;
-      height: 100%;
-      opacity: 0;
-      filter: alpha(opacity=0);
-      font-size: 200px !important;
-      direction: ltr;
-      cursor: pointer;
-    }
-
-    #drop-area {
-      border: 2px dashed #ccc;
-      border-radius: 20px;
-      width: 100%;
-      font-family: sans-serif;
-      margin: 20px auto;
-      padding: 10px;
-    }
-
-    .progress {
-        margin-bottom:10px;
-    }
-    </style>
-
 
 </head>
 <body onload="setDropList();">
@@ -251,7 +195,6 @@
             </ul>
         </div>
        </div>
-      <!-- The file upload form used as target for the file upload widget.  Enabled drag and drop anywhere here -->
       <form
         id="fileupload"
         action="<%= Encode.forHtmlAttribute(context) %>/documentManager/documentUpload.do?method=executeUpload"
@@ -309,207 +252,304 @@
                     </select>
               </div>
 
-        <!-- The fileupload-buttonbar contains buttons to add/delete files and start/cancel the upload -->
         <div class="row fileupload-buttonbar">
           <div class="col-lg-7">
-            <!-- The fileinput-button span is used to style the file input field as button -->
             <span class="btn fileinput-button btn-secondary">
               <i class="fa-solid fa-plus"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnAdd" />...</span>
-              <input type="file" name="filedata" multiple />
+              <input type="file" id="fileInput" name="filedata" multiple accept=".pdf,application/pdf" />
             </span>
-            <button type="submit" class="btn btn-primary start">
+            <button type="button" class="btn btn-primary" id="btnUpload">
               <i class="fa-solid fa-upload"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
             </button>
-            <button type="reset" class="btn cancel">
+            <button type="button" class="btn btn-secondary" id="btnReset">
               <i class="fa-solid fa-ban"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.reset" /></span>
             </button>
-            <!-- The global file processing state -->
-            <span class="fileupload-process"></span>
           </div>
-          <!-- The global progress state -->
-          <div class="col-lg-5 fileupload-progress fade">
-            <!-- The global progress bar -->
-            <div
-              class="progress"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow="0"
-            >
-              <div
-                class="progress-bar bg-success"
-                style="width: 0%;"
-              ></div>
+          <div class="col-lg-5">
+            <div class="progress" id="globalProgress" style="display:none"
+                 role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div class="progress-bar bg-success" style="width:0%"></div>
             </div>
-            <!-- The extended global progress state -->
-            <div class="progress-extended">&nbsp;</div>
           </div>
         </div>
-        <div id="drop-area" > <span style="font-size:40px; color:lightblue;"><i class="fa-solid fa-cloud-arrow-up"></i></span>
-        <!-- The table listing the files available for upload/download -->
+        <div id="drop-area">
+            <span style="font-size:40px; color:lightblue;"><i class="fa-solid fa-cloud-arrow-up"></i></span>
             <table role="presentation" class="table table-striped table-sm">
-              <tbody id="tbodyid" class="files"></tbody>
+              <tbody id="fileList"></tbody>
             </table>
         </div>
-            <ul id="msg" class="alert alert-danger" style="display:none;"></ul>
-            <ul id="msgU" class="alert alert-success" style="display:none;"></ul>
+        <ul id="msg" class="alert alert-danger" style="display:none;"></ul>
+        <ul id="msgU" class="alert alert-success" style="display:none;"></ul>
       </form>
-</div> <!-- end container-->
+</div>
 
-    <!-- The template to display files available for upload -->
-    <script id="template-upload" type="text/x-tmpl">
-      {% for (var i=0, file; file=o.files[i]; i++) { %}
-          <tr class="template-upload fade">
-              <td>
-                  <span class="preview"></span>
-              </td>
-              <td>
-                  <p class="name">{%=file.name%}</p>
-                  <strong class="error text-danger"></strong>
-              </td>
-              <td>
-                  <p class="size"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.processing" />...</p>
-                  <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-bar bg-success" style="width:0%;"></div></div>
-              </td>
-              <td>
-                  {% if (!o.options.autoUpload && o.options.edit ) { %}
-                    <button class="btn btn-success edit btn-sm" data-index="{%=i%}" disabled>
-                        <i class="fa-solid fa-pen-to-square"></i>
-                        <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.update" /></span>
-                    </button>
-                  {% } %}
-                  {% if (!i && !o.options.autoUpload) { %}
-                      <button class="btn btn-primary start btn-sm" disabled>
-                          <i class="fa-solid fa-upload"></i>
-                          <span><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.zadddocument.btnUpload" /></span>
-                      </button>
-                  {% } %}
-                  {% if (!i) { %}
-                      <button class="btn cancel btn-sm">
-                          <i class="fa-solid fa-ban"></i>
-                          <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel" /></span>
-                      </button>
-                  {% } %}
-              </td>
-          </tr>
-      {% } %}
-    </script>
-    <!-- The template to display files available for download.  !IMPORTANT the template needs to exist even if we are not using it -->
-    <script id="template-download" type="text/x-tmpl">
-      {% for (var i=0, file; file=o.files[i]; i++) { %}
-          <tr class="template-download fade{%=file.thumbnailUrl?' image':''%}">
-              <td>
-                  <span class="preview">
-                      {% if (file.thumbnailUrl) { %}
-                          <a href="{%=file.url%}" title="{%=file.name%}" download="{%=file.name%}" data-gallery><img src="{%=file.thumbnailUrl%}"></a>
-                      {% } %}
-                  </span>
-              </td>
-              <td>
-                  <p class="name">
-                      {% if (file.url) { %}
-                          <a href="{%=file.url%}" title="{%=file.name%}" download="{%=file.name%}" {%=file.thumbnailUrl?'data-gallery':''%}>{%=file.name%}</a>
-                      {% } else { %}
-                          <span>{%=file.name%}</span>
-                      {% } %}
-                  </p>
-                  {% if (file.error) { %}
-                      <div><span class="badge bg-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.fileError" /></span> {%=file.error%}</div>
-                  {% } %}
-              </td>
-              <td>
-                  <span class="size">{%=o.formatFileSize(file.size)%}</span>
-              </td>
-              <td>
-                  {% if (file.deleteUrl) { %}
-                      <button class="btn btn-danger delete" data-type="{%=file.deleteType%}" data-url="{%=file.deleteUrl%}"{% if (file.deleteWithCredentials) { %} data-xhr-fields='{"withCredentials":true}'{% } %}>
-                          <i class="fa-solid fa-trash"></i>
-                          <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete" /></span>
-                      </button>
-                      <input type="checkbox" name="delete" value="1" class="toggle">
-                  {% } %}
-              </td>
-          </tr>
-      {% } %}
-    </script>
-   <script>
-    // Initialize the plugin
-    jQuery(function () {
-        'use strict';
-        jQuery('#fileupload').fileupload({
-            sequentialUploads: true,
-            // The server returns a flat JSON array [{name, size, error}].
-            // Override getFilesFromResponse (which defaults to expecting {files:[...]})
-            // so the download template is populated correctly after upload.
-            getFilesFromResponse: function (data) {
-                if (Array.isArray(data.result)) {
-                    return data.result;
-                }
-                if (data.result && Array.isArray(data.result.files)) {
-                    return data.result.files;
-                }
-                return [];
+<script>
+(function () {
+    'use strict';
+
+    var uploadUrl = '<%= Encode.forJavaScript(context) %>/documentManager/documentUpload.do?method=executeUpload';
+    var pendingFiles = [];
+    var uploading = false;
+
+    var fileInput = document.getElementById('fileInput');
+    var fileList = document.getElementById('fileList');
+    var btnUpload = document.getElementById('btnUpload');
+    var btnReset = document.getElementById('btnReset');
+    var dropArea = document.getElementById('drop-area');
+    var msgError = document.getElementById('msg');
+    var msgSuccess = document.getElementById('msgU');
+    var globalProgress = document.getElementById('globalProgress');
+
+    function formatSize(bytes) {
+        if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+        if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return bytes + ' bytes';
+    }
+
+    function clearMessages() {
+        msgError.style.display = 'none';
+        while (msgError.firstChild) msgError.removeChild(msgError.firstChild);
+        msgSuccess.style.display = 'none';
+        while (msgSuccess.firstChild) msgSuccess.removeChild(msgSuccess.firstChild);
+    }
+
+    function showError(text) {
+        var li = document.createElement('li');
+        li.textContent = text;
+        msgError.appendChild(li);
+        msgError.style.display = 'block';
+    }
+
+    function showSuccess(text) {
+        var li = document.createElement('li');
+        li.textContent = text;
+        msgSuccess.appendChild(li);
+        msgSuccess.style.display = 'block';
+    }
+
+    function addFiles(files) {
+        clearMessages();
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            if (!/\.pdf$/i.test(file.name)) {
+                showError(file.name + ' \u2014 <fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUpload.onlyPdf" />');
+                continue;
+            }
+            var entry = { file: file, row: null };
+            pendingFiles.push(entry);
+            entry.row = createFileRow(entry);
+            fileList.appendChild(entry.row);
+        }
+    }
+
+    // Build a file row using safe DOM methods (no innerHTML)
+    function createFileRow(entry) {
+        var tr = document.createElement('tr');
+
+        var tdName = document.createElement('td');
+        tdName.className = 'name';
+        tdName.textContent = entry.file.name;
+
+        var tdSize = document.createElement('td');
+        tdSize.className = 'size';
+        tdSize.textContent = formatSize(entry.file.size);
+
+        var tdProgress = document.createElement('td');
+        tdProgress.className = 'file-progress';
+        tdProgress.style.minWidth = '150px';
+        var progressDiv = document.createElement('div');
+        progressDiv.className = 'progress';
+        progressDiv.setAttribute('role', 'progressbar');
+        progressDiv.setAttribute('aria-valuemin', '0');
+        progressDiv.setAttribute('aria-valuemax', '100');
+        progressDiv.setAttribute('aria-valuenow', '0');
+        var progressBar = document.createElement('div');
+        progressBar.className = 'progress-bar bg-success';
+        progressBar.style.width = '0%';
+        progressDiv.appendChild(progressBar);
+        tdProgress.appendChild(progressDiv);
+
+        var tdAction = document.createElement('td');
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-sm btn-outline-danger btn-remove';
+        var removeIcon = document.createElement('i');
+        removeIcon.className = 'fa-solid fa-xmark';
+        removeBtn.appendChild(removeIcon);
+        removeBtn.addEventListener('click', function () {
+            var idx = pendingFiles.indexOf(entry);
+            if (idx !== -1) pendingFiles.splice(idx, 1);
+            tr.remove();
+        });
+        tdAction.appendChild(removeBtn);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdSize);
+        tr.appendChild(tdProgress);
+        tr.appendChild(tdAction);
+        return tr;
+    }
+
+    function updateRowProgress(row, pct) {
+        var bar = row.querySelector('.progress-bar');
+        bar.style.width = pct + '%';
+        row.querySelector('.progress').setAttribute('aria-valuenow', pct);
+    }
+
+    // Upload files sequentially (matching original blueimp sequentialUploads:true)
+    function startUpload() {
+        if (uploading || pendingFiles.length === 0) return;
+        uploading = true;
+        clearMessages();
+        btnUpload.disabled = true;
+        globalProgress.style.display = 'block';
+
+        var totalFiles = pendingFiles.length;
+        var completedFiles = 0;
+
+        function uploadNext() {
+            if (pendingFiles.length === 0) {
+                uploading = false;
+                btnUpload.disabled = false;
+                updateGlobalProgress(100);
+                return;
+            }
+            var entry = pendingFiles.shift();
+            uploadSingleFile(entry, function () {
+                completedFiles++;
+                updateGlobalProgress(Math.round((completedFiles / totalFiles) * 100));
+                uploadNext();
+            });
+        }
+
+        uploadNext();
+    }
+
+    function updateGlobalProgress(pct) {
+        var bar = globalProgress.querySelector('.progress-bar');
+        bar.style.width = pct + '%';
+        globalProgress.setAttribute('aria-valuenow', pct);
+    }
+
+    // Uses XMLHttpRequest so CSRFGuard auto-injects CSRF token headers
+    function uploadSingleFile(entry, onComplete) {
+        var formData = new FormData();
+        formData.append('filedata', entry.file);
+        formData.append('destination', document.getElementById('destination').value);
+        formData.append('destFolder', document.getElementById('destFolder').value);
+        formData.append('provider', document.getElementById('provider').value);
+        formData.append('queue', document.getElementById('queue').value);
+
+        var xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', function (e) {
+            if (e.lengthComputable && entry.row) {
+                updateRowProgress(entry.row, Math.round((e.loaded / e.total) * 100));
             }
         });
-        $('#fileupload').fileupload('option', {
-          acceptFileTypes: /(\.|\/)(pdf)$/i
+
+        xhr.addEventListener('load', function () {
+            if (entry.row) updateRowProgress(entry.row, 100);
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    var result = JSON.parse(xhr.responseText);
+                    // Server returns JSON array: [{name, size, error}]
+                    var item = Array.isArray(result) ? result[0] : result;
+                    if (item && item.error) {
+                        showError(entry.file.name + ': ' + item.error);
+                        markRowError(entry.row);
+                    } else if (item && item.name) {
+                        showSuccess(item.name);
+                        markRowDone(entry.row);
+                    }
+                } catch (e) {
+                    showError(entry.file.name + ': <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" />');
+                    markRowError(entry.row);
+                }
+            } else {
+                showError(entry.file.name + ': <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" /> (HTTP ' + xhr.status + ')');
+                markRowError(entry.row);
+            }
+            onComplete();
         });
-    // Load existing files:
-        $('#fileupload').addClass('fileupload-processing');
-        $.ajax({
-          url: $('#fileupload').fileupload('option', 'url'),
-          dataType: 'json',
-          context: $('#fileupload')[0]
-        })
-          .always(function () {
-            $(this).removeClass('fileupload-processing');
-          })
-          .done(function (result) {
-            $(this)
-              .fileupload('option', 'done')
-              // eslint-disable-next-line new-cap
-              .call(this, $.Event('done'), { result: result });
-          });
+
+        xhr.addEventListener('error', function () {
+            showError(entry.file.name + ': <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" />');
+            if (entry.row) markRowError(entry.row);
+            onComplete();
+        });
+
+        xhr.open('POST', uploadUrl, true);
+        xhr.send(formData);
+    }
+
+    function markRowDone(row) {
+        if (!row) return;
+        var btn = row.querySelector('.btn-remove');
+        if (btn) btn.remove();
+        var bar = row.querySelector('.progress-bar');
+        if (bar) bar.textContent = '\u2713';
+    }
+
+    function markRowError(row) {
+        if (!row) return;
+        var bar = row.querySelector('.progress-bar');
+        if (bar) {
+            bar.classList.remove('bg-success');
+            bar.classList.add('bg-danger');
+            bar.style.width = '100%';
+            bar.textContent = '\u2717';
+        }
+    }
+
+    // File input change handler
+    fileInput.addEventListener('change', function () {
+        addFiles(this.files);
+        this.value = '';
     });
 
-    // display errors and clear used tr
-    jQuery('#fileupload')
-        .on('fileuploadalways', function (e, data) {
-           if(data.result && data.result.length > 0){
-                if(data.result[0].error){
-                    data.files.error = true;
-                    $('#msg').show();
-                    let li = document.createElement('li');
-                    li.textContent = data.result[0].error;
-                    $('#msg').append(li);
-                } else {
-                    if (data.textStatus === 'error') {
-                        let error = '<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" />';
-                        let li = document.createElement('li');
-                        li.textContent = error;
-                        $('#msg').append(li);
-                        $('#msg').show();
-                    } else {
-                        let li = document.createElement('li');
-                        li.textContent = data.result[0].name;
-                        $('#msgU').append(li);
-                        $('#msgU').show();
-                    }
-                }
-            }
-            $("#tbodyid tr.template-upload:first-child").remove();
-            })
-        .on('fileuploadadd', function (e, data) {
-            $('#msg').hide();
-            $('#msgU').hide();
-            });
+    // Upload button
+    btnUpload.addEventListener('click', startUpload);
 
-        jQuery('#msg, #msgU').on('click', function () {
-            $(this).hide();
+    // Reset button
+    btnReset.addEventListener('click', function () {
+        pendingFiles = [];
+        while (fileList.firstChild) fileList.removeChild(fileList.firstChild);
+        clearMessages();
+        globalProgress.style.display = 'none';
+        updateGlobalProgress(0);
+        fileInput.value = '';
+    });
+
+    // Drag and drop
+    ['dragenter', 'dragover'].forEach(function (evt) {
+        dropArea.addEventListener(evt, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.add('drag-over');
         });
-    </script>
+    });
+    ['dragleave', 'drop'].forEach(function (evt) {
+        dropArea.addEventListener(evt, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove('drag-over');
+        });
+    });
+    dropArea.addEventListener('drop', function (e) {
+        if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+            addFiles(e.dataTransfer.files);
+        }
+    });
+
+    // Click error/success messages to dismiss
+    msgError.addEventListener('click', function () { this.style.display = 'none'; });
+    msgSuccess.addEventListener('click', function () { this.style.display = 'none'; });
+})();
+</script>
 </body>
 </html>

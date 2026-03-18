@@ -159,7 +159,8 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
+
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
@@ -206,20 +207,15 @@
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
                 alert(params);
-                new Ajax.Updater('dd', url, {
-                    method: 'get',
-                    parameters: params,
-                    asynchronous: true,
-                    onComplete: addLabToList,
-                    evalScripts: true
+                CarlosAjax.updater('dd', url + '?' + params, {
+                    method: 'GET',
+                    evalScripts: true,
+                    onComplete: addLabToList
                 });
-                //alert(origRequest.responseText);
             }
 
 
             function addLabToProfile2(labType, testName) {
-
-                ///alert("calling addLabToProfile2");
 
                 var newNode = document.createElement('div');
                 var img = document.createElement('img');
@@ -228,24 +224,15 @@
                 newNode.appendChild(img)
                 var ran_number = Math.round(Math.random() * 1000000);
                 newNode.setAttribute('id', 'd' + ran_number);
-                //var
-                //$('cumulativeLab').appendChild(req.responseText);
-                $('cumulativeLab').appendChild(newNode);
-                //alert(req.responseText);
+                document.getElementById('cumulativeLab').appendChild(newNode);
 
                 var url = "<%= request.getContextPath() %>/lab/DisplayLabValue.jsp";
                 var ran_number = Math.round(Math.random() * 1000000);
                 var params = "demographicNo=<%=demographic_no%>&rand=" + ran_number + "&labType=" + labType + "&testName=" + testName;  //hack to get around ie caching the page
-                ///alert(params);  //'d'+ran_number
-                new Ajax.Updater(newNode, url, {
-                    method: 'get',
-                    parameters: params,
-                    asynchronous: true,
-                    //onComplete: reRound
+                CarlosAjax.updater(newNode, url + '?' + params, {
+                    method: 'GET',
                     evalScripts: true
                 });
-                ///alert("sdf"+$('d'+ran_number));
-                //alert(origRequest.responseText);
             }
 
             function reRound() {
@@ -259,8 +246,7 @@
                 var newNode = document.createElement("div");
                 var ran_number = Math.round(Math.random() * 1000000);
                 newNode.setAttribute("id", "d" + ran_number);
-                //$('cumulativeLab').appendChild(req.responseText);
-                $('cumulativeLab').appendChild(newText);
+                document.getElementById('cumulativeLab').appendChild(newText);
                 alert(req.responseText);
             }
 

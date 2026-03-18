@@ -189,45 +189,32 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 <script src="${ ctx }/library/jquery/jquery-compat.js"></script>
 <script type="text/javascript" src="${ ctx }/library/jquery/jquery-ui-1.14.2.min.js" ></script>
 
-		<script type="text/javascript">
-          jQuery.noConflict();
-        </script>
-
 		<link href="${ ctx }/css/searchDrug3.css" rel="stylesheet" type="text/css"/>
 
-        <link rel="stylesheet" href="<c:out value="${ctx}/share/lightwindow/css/lightwindow.css"/>" type="text/css" media="screen" />
+        <link rel="stylesheet" href="${ctx}/share/css/transitions.css" type="text/css" />
         <script type="text/javascript" src="${ctx}/js/global.js"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/screen.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/rx.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/scriptaculous.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/effects.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/controls.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/dragiframe.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/lightwindow/javascript/lightwindow.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/js/checkDate.js"/>"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/carlos-ajax.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
+        <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
 
 
-        <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}/share/yui/css/autocomplete.css"/>">
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/yahoo-dom-event.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/connection-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/animation-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/datasource-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/yui/js/autocomplete-min.js"/>"></script>
-        <script type="text/javascript" src="<c:out value="${ctx}/js/checkDate.js"/>"></script>
+        <%-- YUI autocomplete library removed — replaced by jQuery UI autocomplete --%>
+		<link rel="stylesheet" type="text/css" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+		<script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 		<link rel="stylesheet" type="text/css" href="${ctx}/library/jquery/jquery-ui-1.14.2.min.css"/>
 
         <script type="text/javascript">
             let selectedReRxIDs = [];
 	        function saveLinks(randNumber) {
-	            $('method_'+randNumber).onblur();
-	            $('route_'+randNumber).onblur();
-	            $('frequency_'+randNumber).onblur();
-	            $('minimum_'+randNumber).onblur();
-	            $('maximum_'+randNumber).onblur();
-	            $('duration_'+randNumber).onblur();
-	            $('durationUnit_'+randNumber).onblur();
+	            document.getElementById('method_'+randNumber).onblur();
+	            document.getElementById('route_'+randNumber).onblur();
+	            document.getElementById('frequency_'+randNumber).onblur();
+	            document.getElementById('minimum_'+randNumber).onblur();
+	            document.getElementById('maximum_'+randNumber).onblur();
+	            document.getElementById('duration_'+randNumber).onblur();
+	            document.getElementById('durationUnit_'+randNumber).onblur();
 	        }
 
 
@@ -247,10 +234,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
         //has to be in here, not prescribe.jsp for it to work in IE 6/7 and probably 8.
         function showHideSpecInst(elementId){
-            if($(elementId).getStyle('display')=='none'){
-                Effect.BlindDown(elementId);
+            var el = document.getElementById(elementId);
+            if(el.style.display === 'none' || getComputedStyle(el).display === 'none'){
+                el.style.display = '';
+                el.classList.remove('carlos-collapsed');
             }else{
-                Effect.BlindUp(elementId);
+                el.classList.add('carlos-collapsed');
+                el.style.display = 'none';
             }
           }
 
@@ -258,7 +248,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 				var rand = Math.floor(Math.random() * 10001);
 				var url = ctx + "/oscarRx/deleteRx.do?parameterValue=clearReRxDrugList";
 				var data = "rand=" + rand;
-				new Ajax.Request(url, {
+				CarlosAjax.request(url, {
 					method: 'post', parameters: data, onSuccess: function (transport) {
 						// updateCurrentInteractions();
 					}
@@ -266,7 +256,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 			}
 
 			function onPrint(cfgPage) {
-				var docF = $('printFormDD');
+				var docF = document.getElementById('printFormDD');
 
                 docF.action = "<%= request.getContextPath() %>/form/createpdf?__title=Rx&__cfgfile=" + cfgPage + "&__template=a6blank";
                 docF.target="_blank";
@@ -287,7 +277,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
                var top = winY+70;
                var left = winX+110;
-                var url = ctx + "/oscarRx/searchDrug.do?rx2=true&searchString=" + encodeURIComponent($('searchString').value);
+                var url = ctx + "/oscarRx/searchDrug.do?rx2=true&searchString=" + encodeURIComponent(document.getElementById('searchString').value);
                popup2(600, 800, top, left, url, 'windowNameRxSearch<%=demoNo%>');
 
            }
@@ -576,17 +566,17 @@ function checkFav(){
 }
 
 function renderRxStage() {
-	$('rxText').show();
-	$('prescriptionStageSet').show();
+	document.getElementById('rxText').style.display = '';
+	document.getElementById('prescriptionStageSet').style.display = '';
 }
 
      //not used , represcribe a drug
     function represcribeOnLoad(drugId){
         var data="method=saveReRxDrugIdToStash&drugId="+encodeURIComponent(drugId) + "&rand=" + Math.floor(Math.random()*10001);
         var url= ctx + "/oscarRx/rePrescribe2.do";
-        new Ajax.Updater('rxText',url, {method:'POST',parameters:data,
+        CarlosAjax.updater('rxText',url, {method:'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
-          evalScripts:true,insertion: Insertion.Bottom,
+          evalScripts:true,insertion: 'bottom',
             onSuccess:function(transport){
 	            renderRxStage();
 					}
@@ -596,7 +586,7 @@ function renderRxStage() {
 
 
     function moveDrugDown(drugId,swapDrugId,demographicNo) {
-    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+    	CarlosAjax.request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
   		  method: 'post',
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
@@ -608,7 +598,7 @@ function renderRxStage() {
     }
 
     function moveDrugUp(drugId,swapDrugId,demographicNo) {
-    	new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
+    	CarlosAjax.request('<c:out value="${ctx}"/>/oscarRx/reorderDrug.do', {
     		  method: 'post',
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
@@ -654,7 +644,7 @@ function renderRxStage() {
    	 if(ok) {
 					var url = ctx + "/oscarRx/completeMedRec.jsp";
    		 var data="demographicNo=<%=rxSessionBean.getDemographicNo()%>";
-   		 new Ajax.Request(url,{method: 'post',parameters:data,onSuccess:function(transport){
+   		 CarlosAjax.request(url,{method: 'post',parameters:data,onSuccess:function(transport){
                 alert('Completed.')
             }});
    	 }
@@ -880,7 +870,7 @@ function renderRxStage() {
                                                     <a href="javascript:void(0)" onClick="printDrugProfile();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Print"/></a>
                                                     &nbsp;
 													<%if(securityManager.hasWriteAccess("_rx",roleName2$,true)) {%>
-                                                    <a href="#" onclick="$('reprint').toggle();return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>
+                                                    <a href="#" onclick="var rp=document.getElementById('reprint');rp.style.display=(rp.style.display==='none')?'':'none';return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.Reprint"/></a>
                                                     &nbsp;
                                                     <a href="javascript:void(0);" id="cmdRePrescribe" onclick="RePrescribeLongTerm();" style="width: 200px" ><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribeLongTermMed"/></a>
                                                     &nbsp;
@@ -1123,8 +1113,8 @@ function renderRxStage() {
         <br/>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.discontinuedReason.msgComment"/><br/>
         <textarea id="disComment" rows="3" cols="45"></textarea><br/>
-        <input type="button" onclick="$('discontinueUI').hide();" value="Cancel"/>
-        <input type="button" onclick="Discontinue2($('disDrugId').value,$('disReason').value,$('disComment').value,$('disDrug').innerHTML);" value="Discontinue"/>
+        <input type="button" onclick="document.getElementById('discontinueUI').style.display='none';" value="Cancel"/>
+        <input type="button" onclick="Discontinue2(document.getElementById('disDrugId').value,document.getElementById('disReason').value,document.getElementById('disComment').value,document.getElementById('disDrug').innerHTML);" value="Discontinue"/>
 
     </div>
 
@@ -1189,16 +1179,33 @@ function renderRxStage() {
 <%
                         }
 %>
+
+<%-- Bootstrap 5 Modal (replaces LightWindow) --%>
+<div class="modal fade" id="carlosModal" tabindex="-1" aria-labelledby="carlosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="carlosModalLabel">Prescription</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="carlosModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" id="carlosModalCloseBtn" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="text/javascript">
         function changeLt(element, drugId) {
             if (confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') === true) {
             const data = "ltDrugId=" + encodeURIComponent(drugId) + "&isLongTerm=" + element.checked + "&rand=" + Math.floor(Math.random() * 10001);
             const url = ctx + "/oscarRx/WriteScript.do?parameterValue=updateLongTermStatus";
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post',
                 parameters: data,
                 onSuccess: function (transport) {
-                    const json = transport.responseText.evalJSON();
+                    var json = JSON.parse(transport.responseText);
                     if (json != null && (json.success === 'true' || json.success === true)) {
                         callReplacementWebService('ListDrugs.jsp','drugProfile');
                     } else {
@@ -1228,23 +1235,25 @@ function renderRxStage() {
         }
     }
     function changeContainerHeight(ele){
-        var ss=$('searchString').value;
-        ss=trim(ss);
+        var ss=document.getElementById('searchString').value;
+        ss=ss.trim();
         if(ss.length==0)
-            $('autocomplete_choices').setStyle({height:'0%'});
+            document.getElementById('autocomplete_choices').style.height='0%';
         else
-            $('autocomplete_choices').setStyle({height:'100%'});
+            document.getElementById('autocomplete_choices').style.height='100%';
     }
     function addInstruction(content,randomId){
-        $('instructions_'+randomId).value=content;
-        parseIntr($('instructions_'+randomId));
+        document.getElementById('instructions_'+randomId).value=content;
+        parseIntr(document.getElementById('instructions_'+randomId));
     }
     function addSpecialInstruction(content,randomId){
-                if($('siAutoComplete_'+randomId).getStyle('display')=='none'){
-                  Effect.BlindDown('siAutoComplete_'+randomId);
-                }else{}
-                $('siInput_'+randomId).value=content;
-                $('siInput_'+randomId).setStyle({color:'black'});
+                var siEl = document.getElementById('siAutoComplete_'+randomId);
+                if(siEl.style.display === 'none' || getComputedStyle(siEl).display === 'none'){
+                  siEl.style.display = '';
+                  siEl.classList.remove('carlos-collapsed');
+                }
+                document.getElementById('siInput_'+randomId).value=content;
+                document.getElementById('siInput_'+randomId).style.color='black';
    }
    function hideMedHistory(){
        mb.hide();
@@ -1274,20 +1283,22 @@ function renderRxStage() {
            this.waitifrm.style.display="block";
            this.waitifrm.style.height=H;
 
-           $("dragifm").appendChild(this.waitifrm);
-           Effect.Appear('xmaskframe');
+           document.getElementById("dragifm").appendChild(this.waitifrm);
+           document.getElementById('xmaskframe').style.display = '';
+           document.getElementById('xmaskframe').classList.remove('carlos-fade-out');
        };
         this.hide=function()
             {
-                Effect.Fade('xmaskframe');
+                var frame = document.getElementById('xmaskframe');
+                if (frame) { frame.classList.add('carlos-fade-out'); setTimeout(function(){ frame.style.display = 'none'; }, 300); }
 
             };
     }
     var mb=new modalBox();
     function displayMedHistory(randomId){
            var data="randomId="+randomId;
-           new Ajax.Request(ctx + "/oscarRx/WriteScript.do?parameterValue=listPreviousInstructions",
-           {method: 'post',parameters:data,asynchronous:false,onSuccess:function(transport){
+           CarlosAjax.request(ctx + "/oscarRx/WriteScript.do?parameterValue=listPreviousInstructions",
+           {method: 'post',parameters:data,synchronous:true,onSuccess:function(transport){
                  mb.show(randomId, ctx + '/oscarRx/displayMedHistory', '200px');
                 }});
     }
@@ -1302,68 +1313,71 @@ function renderRxStage() {
          var randomId=elementId.split("_")[1];
          if(randomId!=null){
              var url=ctx + "/oscarRx/WriteScript.do?parameterValue=updateProperty";
+             var el=document.getElementById(elementId);
              var data="";
              if(elementId.match("prnVal_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent($(elementId).value);
+                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
              else if(elementId.match("repeats_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent($(elementId).value);
+                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
              else
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent($(elementId).innerHTML);
+                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.innerHTML);
              data = data + "&rand="+Math.floor(Math.random()*10001);
-             new Ajax.Request(url, {method: 'post',parameters:data});
+             CarlosAjax.request(url, {method: 'post',parameters:data});
          }
     }
     function lookNonEdittable(elementId){
-        $(elementId).className='';
+        document.getElementById(elementId).className='';
     }
     function lookEdittable(elementId){
-        $(elementId).className='highlight';
+        document.getElementById(elementId).className='highlight';
     }
     function setPrn(randomId){
-        var prnStr=$('prn_'+randomId).innerHTML;
-        prnStr=prnStr.strip();
-        var prnStyle=$('prn_'+randomId).getStyle('textDecoration');
+        var prnEl=document.getElementById('prn_'+randomId);
+        var prnStr=prnEl.innerHTML.trim();
+        var prnStyle=prnEl.style.textDecoration || getComputedStyle(prnEl).textDecoration;
         if(prnStr=='prn' || prnStr=='PRN'|| prnStr=='Prn'){
             if(prnStyle.match("line-through")!=null){
-                $('prn_'+randomId).setStyle({textDecoration:'none'});
-                $('prnVal_'+randomId).value=true;
+                prnEl.style.textDecoration='none';
+                document.getElementById('prnVal_'+randomId).value=true;
             }else{
-                $('prn_'+randomId).setStyle({textDecoration:'line-through'});
-                $('prnVal_'+randomId).value=false;
+                prnEl.style.textDecoration='line-through';
+                document.getElementById('prnVal_'+randomId).value=false;
             }
         }
     }
      function focusTo(elementId){
-         $(elementId).contentEditable='true';
-         $(elementId).focus();
-         //IE 6/7 bug..will this call onfocus twice?? may need to do browser check.
-		 document.getElementById(elementId).onfocus();
+         var el = document.getElementById(elementId);
+         el.contentEditable='true';
+         el.focus();
+         if (el.onfocus) el.onfocus();
 
      }
 
      function updateSpecialInstruction(elementId){
          var randomId=elementId.split("_")[1];
          var url=ctx+ "/oscarRx/WriteScript.do?parameterValue=updateSpecialInstruction";
-         var data="randomId="+randomId+"&specialInstruction="+encodeURIComponent($(elementId).value);
+         var data="randomId="+randomId+"&specialInstruction="+encodeURIComponent(document.getElementById(elementId).value);
          data = data + "&rand="+Math.floor(Math.random()*10001);
-         new Ajax.Request(url, {method: 'post',parameters:data});
+         CarlosAjax.request(url, {method: 'post',parameters:data});
      }
 
     function changeText(elementId){
-        if($(elementId).value=='Enter Special Instruction'){
-            $(elementId).value="";
-            $(elementId).setStyle({color:'black'});
-        }else if ($(elementId).value==''){
-            $(elementId).value='Enter Special Instruction';
-            $(elementId).setStyle({color:'gray'});
+        var el=document.getElementById(elementId);
+        if(el.value=='Enter Special Instruction'){
+            el.value="";
+            el.style.color='black';
+        }else if (el.value==''){
+            el.value='Enter Special Instruction';
+            el.style.color='gray';
         }
 
     }
     function updateMoreLess(elementId){
-        if($(elementId).innerHTML=='more')
-            $(elementId).innerHTML='less';
+        var el=document.getElementById(elementId);
+        if(el.textContent==='more')
+            el.textContent='less';
         else
-            $(elementId).innerHTML='more';
+            el.textContent='more';
     }
 
     function changeDrugName(randomId,origDrugName){
@@ -1376,26 +1390,27 @@ function renderRxStage() {
 
             //call another function to bring up prescribe.jsp
             var url=ctx+ "/oscarRx/WriteScript.do";
-            var customDrugName=$("drugName_"+randomId).getValue();
+            var customDrugName=document.getElementById("drugName_"+randomId).value;
             var data="parameterValue=normalDrugSetCustom&randomId="+randomId+"&customDrugName="+encodeURIComponent(customDrugName);
-            new Ajax.Updater('rxText',url,{method:'post',parameters:data,asynchronous:true,insertion: Insertion.Bottom,onSuccess:function(transport){
-                    $('set_'+randomId).remove();
+            CarlosAjax.updater('rxText',url,{method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
+                    var setEl=document.getElementById('set_'+randomId);
+                    if(setEl) setEl.remove();
 		            renderRxStage();
 						}
 					});
         }else{
-            $("drugName_"+randomId).value=origDrugName;
+            document.getElementById("drugName_"+randomId).value=origDrugName;
         }
     }
     function resetStash(){
                var url=ctx + "/oscarRx/deleteRx.do?parameterValue=clearStash";
                var data = "rand=" + Math.floor(Math.random()*10001);
-               new Ajax.Request(url, {method: 'post',parameters:data,onSuccess:function(transport){
+               CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
                             // updateCurrentInteractions();
             }});
-               $('rxText').innerHTML="";//make pending prescriptions disappear.
+               document.getElementById('rxText').innerHTML="";//make pending prescriptions disappear.
 	            renderRxStage();
-               $("searchString").focus();
+               document.getElementById("searchString").focus();
     }
 
 			/*
@@ -1405,12 +1420,10 @@ function renderRxStage() {
     function iterateStash(){
         var url=ctx + "/oscarRx/WriteScript.do";
         var data="parameterValue=iterateStash&rand="+ Math.floor(Math.random()*10001);
-        var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-        if (csrfEl) { data += "&CSRF-TOKEN=" + encodeURIComponent(csrfEl.value); }
-        new Ajax.Updater('rxText',url, {method:'POST',parameters:data,asynchronous:true,
+        CarlosAjax.updater('rxText',url, {method:'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,
-					insertion: Insertion.Bottom, onSuccess: function (data) {
+					insertion: 'bottom', onSuccess: function (data) {
                 // updateCurrentInteractions();
 
 						// detect postback or page load.
@@ -1427,13 +1440,13 @@ function renderRxStage() {
                var ran_number=Math.round(Math.random()*1000000);
                var url=ctx + "/oscarRx/GetRxPageSizeInfo.do?method=view";
                var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
-               new Ajax.Request(url, {method: 'post',parameters:params});
+               CarlosAjax.request(url, {method: 'post',parameters:params});
     }
 
     function reprint2(scriptNo){
         var data="scriptNo="+scriptNo + "&rand=" + Math.floor(Math.random()*10001);
         var url= ctx + "/oscarRx/rePrescribe2.do?method=reprint2";
-       new Ajax.Request(url,
+       CarlosAjax.request(url,
         {method: 'post',postBody:data,
             onSuccess:function(transport){
                 popForm2(scriptNo);
@@ -1447,9 +1460,9 @@ function renderRxStage() {
         var data="randomId="+randomId;
         var url=ctx + "/oscarRx/rxStashDelete.do";
         data += "&parameterValue=deletePrescribe";
-        new Ajax.Request(url, {method: 'post',parameters:data,onSuccess:function(transport){
+        CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
                 // updateCurrentInteractions();
-                if($('deleteOnCloseRxBox').value=='true'){
+                if(document.getElementById('deleteOnCloseRxBox').value=='true'){
                     deleteRxOnCloseRxBox(randomId);
                 }
 
@@ -1465,8 +1478,8 @@ function renderRxStage() {
             var data="randomId="+randomId;
             var url=ctx + "/oscarRx/deleteRx.do";
             data += "&parameterValue=DeleteRxOnCloseRxBox";
-            new Ajax.Request(url, {method: 'post',parameters:data,onSuccess:function(transport){
-                     var json=transport.responseText.evalJSON();
+            CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
+                     var json=JSON.parse(transport.responseText);
                      if(json!=null){
                              var id=json.drugId;
                              var rxDate="rxDate_"+ id;
@@ -1474,11 +1487,11 @@ function renderRxStage() {
                              var del="del_"+ id;
                              var discont="discont_"+ id;
                              var prescrip="prescrip_"+id;
-                             $(rxDate).style.textDecoration='line-through';
-                             $(reRx).style.textDecoration='line-through';
-                             $(del).style.textDecoration='line-through';
-                             $(discont).style.textDecoration='line-through';
-                             $(prescrip).style.textDecoration='line-through';
+                             document.getElementById(rxDate).style.textDecoration='line-through';
+                             document.getElementById(reRx).style.textDecoration='line-through';
+                             document.getElementById(del).style.textDecoration='line-through';
+                             document.getElementById(discont).style.textDecoration='line-through';
+                             document.getElementById(prescrip).style.textDecoration='line-through';
 			     // updateCurrentInteractions();
                     }
                 }});
@@ -1491,7 +1504,7 @@ function renderRxStage() {
         var data="favoriteId="+favoriteId+"&randomId="+randomId;
         var url= ctx + "/oscarRx/useFavorite.do";
         data += "&parameterValue=useFav2";
-        new Ajax.Updater('rxText',url, {method:'post',parameters:data,asynchronous:true,evalScripts:true,insertion: Insertion.Bottom,
+        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
             onSuccess: function(transport) {
                 skipParseInstr = true;
                 renderRxStage();
@@ -1503,9 +1516,9 @@ function renderRxStage() {
 	    if(skipParseInstr){
 		    return false;
 	    }
-        var dummie=parseIntr($('instructions_'+randomId));
+        var dummie=parseIntr(document.getElementById('instructions_'+randomId));
         if(dummie)
-            updateQty($('quantity_'+randomId));
+            updateQty(document.getElementById('quantity_'+randomId));
     }
    function Delete2(element){
 
@@ -1521,12 +1534,12 @@ function renderRxStage() {
 
              var url=ctx + "/oscarRx/deleteRx.do?parameterValue=Delete2"  ;
              var data="deleteRxId="+element.id + "&rand=" +  Math.floor(Math.random()*10001);
-            new Ajax.Request(url,{method: 'post',postBody:data,onSuccess:function(transport){
-                  $(rxDate).style.textDecoration='line-through';
-                  $(reRx).style.textDecoration='line-through';
-                  $(del).style.textDecoration='line-through';
-                  $(discont).style.textDecoration='line-through';
-                  $(prescrip).style.textDecoration='line-through';
+            CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
+                  document.getElementById(rxDate).style.textDecoration='line-through';
+                  document.getElementById(reRx).style.textDecoration='line-through';
+                  document.getElementById(del).style.textDecoration='line-through';
+                  document.getElementById(discont).style.textDecoration='line-through';
+                  document.getElementById(prescrip).style.textDecoration='line-through';
 		  // updateCurrentInteractions();
 							location.reload();
 
@@ -1539,17 +1552,15 @@ function renderRxStage() {
    function checkAllergy(id,atcCode){
         const url = ctx + "/oscarRx/showAllergy.do"
         const data="method=allergyData&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
-     console.log(url + data);
-     new Ajax.Request(url,{method: 'post',postBody:data,
+     CarlosAjax.request(url,{method: 'post',postBody:data,
        requestHeaders: { 'Accept': 'application/json' },
        onSuccess:function(transport){
-         console.log(transport.responseText);
-         var json = transport.responseText.evalJSON();
+         var json = JSON.parse(transport.responseText);
          if (json != null && json.results && json.results.length > 0) {
            // Pick the first allergy warning found
            var allergy = json.results[0];
            var str = "<label style=\"color:red;\"> Allergy:</label> " + allergy.DESCRIPTION + " <label style=\"color:red;\">Reaction:</label> " + allergy.reaction;
-           $('alleg_' + json.id).innerHTML = str;
+           document.getElementById('alleg_' + json.id).innerHTML = str;
            document.getElementById('alleg_tbl_' + json.id).style.display = 'block';
          }
        }
@@ -1558,13 +1569,13 @@ function renderRxStage() {
    function checkIfInactive(id,dinNumber){
         var url=ctx + "/oscarRx/searchDrug.do";
          var data="method=inactiveDate&din="+dinNumber+"&id="+id +"&rand=" +  Math.floor(Math.random()*10001);
-         new Ajax.Request(url,{method: 'post',postBody:data,
+         CarlosAjax.request(url,{method: 'post',postBody:data,
            onSuccess:function(transport){
-                 var json=transport.responseText.evalJSON();
+                 var json=JSON.parse(transport.responseText);
 
                 if(json!=null){
                     var str = "Inactive Drug Since: "+new Date(json.vec[0].time).toDateString();
-                    $('inactive_'+json.id).innerHTML = str;
+                    document.getElementById('inactive_'+json.id).innerHTML = str;
                 }
             }});
    }
@@ -1573,9 +1584,9 @@ function renderRxStage() {
     function Discontinue(event,element){
        var id_str=(element.id).split("_");
        var id=id_str[1];
-				var widVal = ($('drugProfile').getWidth() - 400);
+				var widVal = (document.getElementById('drugProfile').offsetWidth - 400);
        var widStr=widVal+'px';
-       var heightDrugProfile=$('discontinueUI').getHeight();
+       var heightDrugProfile=document.getElementById('discontinueUI').offsetHeight;
        var posx=0,posy=0;
        if(event.pageX||event.pageY){
            posx=event.pageX;
@@ -1592,7 +1603,7 @@ function renderRxStage() {
            posx = posx+'px';
            posy = posy+'px';
        }else{
-           var xy = Position.page($('drugProfile'));
+           var rect = document.getElementById('drugProfile').getBoundingClientRect(); var xy = [rect.left + window.scrollX, rect.top + window.scrollY];
            posx = (xy[0]+200)+'px';
            if(xy[1]>=0)
                posy = xy[1]+'px';
@@ -1601,11 +1612,11 @@ function renderRxStage() {
        }
        var styleStr= {left: posx, top: posy,width: widStr};
 
-        var drugName = $('prescrip_'+id).innerHTML;
-       $('discontinueUI').setStyle(styleStr);
-       $('disDrug').innerHTML = drugName;
-       $('discontinueUI').show();
-       $('disDrugId').value=id;
+        var drugName = document.getElementById('prescrip_'+id).innerHTML;
+       var disUI=document.getElementById('discontinueUI'); disUI.style.left=styleStr.left; disUI.style.top=styleStr.top; disUI.style.width=styleStr.width;
+       document.getElementById('disDrug').innerHTML = drugName;
+       document.getElementById('discontinueUI').style.display="";
+       document.getElementById('disDrugId').value=id;
 
 
     }
@@ -1614,14 +1625,14 @@ function renderRxStage() {
         var url=ctx + "/oscarRx/deleteRx.do?parameterValue=Discontinue"  ;
         var demoNo='<%=patient.getDemographicNo()%>';
         var data="drugId="+encodeURIComponent(id)+"&reason="+encodeURIComponent(reason)+"&comment="+encodeURIComponent(comment)+"&demoNo="+demoNo+"&drugSpecial="+encodeURIComponent(drugSpecial)+"&rand="+ Math.floor(Math.random()*10001);
-            new Ajax.Request(url,{method: 'post',postBody:data,onSuccess:function(transport){
-                  var json=transport.responseText.evalJSON();
-                  $('discontinueUI').hide();
-                  $('rxDate_'+json.id).style.textDecoration='line-through';
-                  $('reRx_'+json.id).style.textDecoration='line-through';
-                  $('del_'+json.id).style.textDecoration='line-through';
-                  $('discont_'+json.id).innerHTML = json.reason;
-                  $('prescrip_'+json.id).style.textDecoration='line-through';
+            CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
+                  var json=JSON.parse(transport.responseText);
+                  document.getElementById('discontinueUI').style.display="none";
+                  document.getElementById('rxDate_'+json.id).style.textDecoration='line-through';
+                  document.getElementById('reRx_'+json.id).style.textDecoration='line-through';
+                  document.getElementById('del_'+json.id).style.textDecoration='line-through';
+                  document.getElementById('discont_'+json.id).textContent = json.reason;
+                  document.getElementById('prescrip_'+json.id).style.textDecoration='line-through';
 					}
 				});
 
@@ -1631,8 +1642,8 @@ function renderRxStage() {
 			 * @Deprecated avoid future use of prototype.
 	 */
     function updateCurrentInteractions(){
-        new Ajax.Request(ctx + "/oscarRx/GetmyDrugrefInfo.do", {method:'post',parameters:"method=findInteractingDrugList&rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
-                            new Ajax.Request(ctx + "/oscarRx/UpdateInteractingDrugs.jsp", {method:'post',parameters:"rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
+        CarlosAjax.request(ctx + "/oscarRx/GetmyDrugrefInfo.do", {method:'post',parameters:"method=findInteractingDrugList&rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
+                            CarlosAjax.request(ctx + "/oscarRx/UpdateInteractingDrugs.jsp", {method:'post',parameters:"rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
                                             var str=transport.responseText;
                                             str=str.replace('<script type="text/javascript">','');
                                             str=str.replace(/<\/script>/,'');
@@ -1652,7 +1663,7 @@ function renderRxStage() {
         var data="demoNo="+demoNo+"&showall=<%=showall%>&rand=" +  Math.floor(Math.random()*10001);
         var url= ctx + "/oscarRx/rePrescribe2.do";
         data += "&method=repcbAllLongTerm";
-        new Ajax.Updater('rxText',url, {method:'post',parameters:data,asynchronous:true,insertion: Insertion.Bottom,onSuccess:function(transport){
+        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
 		        renderRxStage();
 					}
 				});
@@ -1671,14 +1682,15 @@ function customNoteWarning(){
         var randomId=Math.round(Math.random()*1000000);
         var url=ctx+ "/oscarRx/WriteScript.do";
         var data="parameterValue=newCustomNote&randomId="+randomId;
-					new Ajax.Updater('rxText', url, {
+					CarlosAjax.updater('rxText', url, {
 						method: 'post',
 						parameters: data,
-						asynchronous: true,
 						evalScripts: true,
-						insertion: Insertion.Bottom
+						insertion: 'bottom',
+						onSuccess: function() {
+							renderRxStage();
+						}
 					});
-	                renderRxStage();
     }
 }
 
@@ -1692,12 +1704,12 @@ function customWarning2(){
 	+ '\n\nAre you sure you wish to use this feature?')) {
 	//call another function to bring up prescribe.jsp
         var randomId=Math.round(Math.random()*1000000);
-		var searchString = $("searchString").value;
+		var searchString = document.getElementById("searchString").value;
         var url=ctx+ "/oscarRx/WriteScript.do";
         var data="parameterValue=newCustomDrug&name=" + encodeURIComponent(searchString) + "&randomId="+randomId;
-        new Ajax.Updater('rxText',url,{method:'post',parameters:data,asynchronous:true,evalScripts:true,
-            insertion: Insertion.Bottom, onComplete:function(transport){
-                updateQty($('quantity_'+randomId));
+        CarlosAjax.updater('rxText',url,{method:'post',parameters:data,evalScripts:true,
+            insertion: 'bottom', onComplete:function(transport){
+                updateQty(document.getElementById('quantity_'+randomId));
 		            renderRxStage();
 						}
 					});
@@ -1714,12 +1726,12 @@ function saveCustomName(element){
     var instruction="instructions_"+rand;
     var quantity="quantity_"+rand;
     var repeat="repeats_"+rand;
-    new Ajax.Request(url, {method: 'post',parameters:data, onSuccess:function(transport){
+    CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
 
             }});
 }
 function updateDeleteOnCloseRxBox(){
-    $('deleteOnCloseRxBox').value='true';
+    document.getElementById('deleteOnCloseRxBox').value='true';
 }
 function popForm2(scriptId){
         try{
@@ -1727,10 +1739,9 @@ function popForm2(scriptId){
             var url1=ctx+"/oscarRx/WriteScript.do";
             var data="parameterValue=checkNoStashItem&rand="+ Math.floor(Math.random()*10001);
             var h=900;
-					console.log(url1);
-            new Ajax.Request(url1, {method: 'post',parameters:data, onSuccess:function(transport){
+            CarlosAjax.request(url1, {method: 'post',parameters:data, onSuccess:function(transport){
                 //output default instructions
-                var json=transport.responseText.evalJSON();
+                var json=JSON.parse(transport.responseText);
                 var n=json.NoStashItem;
                 if(n>4){
                     h=h+(n-4)*100;
@@ -1755,14 +1766,22 @@ function popForm2(scriptId){
                 }
                 
                 //oscarLog( "preview2 done");
-                myLightWindow.activateWindow({
-                    href: url,
-                    width: 980,
-                    height: h
-                });
-                var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
-                $('lightwindow_title_bar_close_link').update(editRxMsg);
-                $('lightwindow_title_bar_close_link').onclick=updateDeleteOnCloseRxBox;
+                fetch(url, {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                    .then(function(r) { return r.text(); })
+                    .then(function(html) {
+                        var modalBody = document.getElementById('carlosModalBody');
+                        modalBody.innerHTML = html;
+                        var modalDialog = document.querySelector('#carlosModal .modal-dialog');
+                        modalDialog.style.maxWidth = '980px';
+                        var editRxMsg = '<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarRx.Preview.EditRx"/>';
+                        var closeBtn = document.getElementById('carlosModalCloseBtn');
+                        closeBtn.textContent = editRxMsg;
+                        closeBtn.onclick = updateDeleteOnCloseRxBox;
+                        var modalEl = document.getElementById('carlosModal');
+                        var existingModal = bootstrap.Modal.getInstance(modalEl);
+                        if (existingModal) existingModal.dispose();
+                        new bootstrap.Modal(modalEl).show();
+                    });
             }});
 
         }
@@ -1773,12 +1792,12 @@ function popForm2(scriptId){
     }
 
      function callTreatments(textId,id){
-         var ele = $(textId);
+         var ele = document.getElementById(textId);
          var url = ctx + "/oscarRx/TreatmentMyD.jsp"
          var ran_number=Math.round(Math.random()*1000000);
          var params = "demographicNo=<%=demoNo%>&cond="+encodeURIComponent(ele.value)+"&rand="+ran_number;  //hack to get around ie caching the page
-         new Ajax.Updater(id,url, {method:'get',parameters:params,asynchronous:true});
-         $('treatmentsMyD').toggle();
+         CarlosAjax.updater(id,url, {method:'get',parameters:params});
+         var tmEl=document.getElementById('treatmentsMyD'); tmEl.style.display=(tmEl.style.display==='none')?'':'none';
      }
 
      function callAdditionWebService(url,id){
@@ -1788,7 +1807,7 @@ function popForm2(scriptId){
          }
          var ran_number=Math.round(Math.random()*1000000);
          var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
-         var updater=new Ajax.Updater(id,url, {method:'get',parameters:params,insertion: Insertion.Bottom,evalScripts:true});
+         var updater=CarlosAjax.updater(id,url, {method:'get',parameters:params,insertion: 'bottom',evalScripts:true});
      }
 
 			function callReplacementWebService(url, id) {
@@ -1799,7 +1818,7 @@ function popForm2(scriptId){
 				var ran_number = Math.round(Math.random() * 1000000);
 				// alert(url + "  " + id + "  " + ran_number);
 				var params = "demographicNo=<%=demoNo%>&rand=" + ran_number;  //hack to get around ie caching the page
-            var updater = new Ajax.Updater(id, url, {method: 'get', parameters: params, evalScripts: true});
+            var updater = CarlosAjax.updater(id, url, {method: 'get', parameters: params, evalScripts: true});
 			}
 
 			//callReplacementWebService("InteractionDisplay.jsp",'interactionsRx');
@@ -1842,10 +1861,10 @@ function popForm2(scriptId){
 					+ "&randomId="
 					+ ran_number;
 
-				new Ajax.Updater('rxText', url, {
+				CarlosAjax.updater('rxText', url, {
 					method: 'POST', parameters: params, evalScripts: true,
           requestHeaders: { 'Accept': 'application/json' },
-					insertion: Insertion.Top, onSuccess: function (transport) {
+					insertion: 'top', onSuccess: function (transport) {
 						renderRxStage();
 					}
 				});
@@ -1878,14 +1897,11 @@ function popForm2(scriptId){
 
 						var term = request.term.toUpperCase(),
 							element = this.element,
-							cache = this.element.data(document.body, 'autocompleteCache') || {},
+							cache = this.element.data('autocompleteCache') || {},
 							foundInCache = false;
 
 						jQuery.each(cache, function (key, data) {
 							if (term.indexOf(key) === 0 && data.length > 0) {
-
-								alert(term.indexOf(key));
-
 								response(jQuery.map(cache.results, function (item) {
 									return {
 										label: item.name,
@@ -1909,7 +1925,6 @@ function popForm2(scriptId){
 							+ jQuery('#searchParamSet').serialize()
 							+ "&query="
 							+ request.term.toUpperCase();
-console.log(param);
 						jQuery.ajax({
 							url: "${ctx}/oscarRx/searchDrug.do",
 							type: 'POST',
@@ -1917,7 +1932,7 @@ console.log(param);
 							dataType: "json",
 							success: function (data) {
 								cache[term] = data;
-								element.data(document.body, 'autocompleteCache', cache);
+								element.data('autocompleteCache', cache);
 
 								response(jQuery.map(data.results, function (item) {
 									return {
@@ -1940,7 +1955,6 @@ console.log(param);
 						event.preventDefault();
 					},
 					select: function (event, ui) {
-            console.log(ui.item);
 						event.preventDefault();
 						searchResultsHandler(null, ui.item);
 						jQuery('#searchString').val("");
@@ -1978,7 +1992,7 @@ function addFav(randomId,brandName){
    if (favoriteName.length > 0){
         var url= ctx + "/oscarRx/addFavorite2.do";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
-        new Ajax.Request(url, {method: 'post',parameters:data, onSuccess:function(transport){
+        CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
               window.location.href = ctx + "/oscarRx/SearchDrug3.jsp";
    }
 					})
@@ -1987,17 +2001,17 @@ function addFav(randomId,brandName){
 
     var resHidden2 = 0;
     function showHiddenRes(){
-        var list = $$('div.hiddenResource');
+        var list = document.querySelectorAll('div.hiddenResource');
         if(resHidden2 == 0){
-          list.invoke('show');
+          list.forEach(function(el) { el.style.display = ''; });
           resHidden2 = 1;
-          $('showHiddenResWord').update('hide');
+          document.getElementById('showHiddenResWord').textContent='hide';
           var url = ctx + "/oscarRx/updateHiddenResources.jsp";
           var params="hiddenResources=&rand="+ Math.floor(Math.random()*10001);
-          new Ajax.Request(url, {method: 'post',parameters:params});
+          CarlosAjax.request(url, {method: 'post',parameters:params});
         }else{
-            $('showHiddenResWord').update('show');
-            list.invoke('hide');
+            document.getElementById('showHiddenResWord').textContent='show';
+            list.forEach(function(el) { el.style.display = 'none'; });
             resHidden2 = 0;
         }
     }
@@ -2017,9 +2031,9 @@ function addFav(randomId,brandName){
                 var resId=elementArr[0];
                 var resUpdated=elementArr[1];
                 var id=resId+"."+resUpdated;
-                $(id).show();
-                $('show_'+id).hide();
-                $('showHideWord').update('hide');
+                document.getElementById(id).style.display="";
+                document.getElementById('show_'+id).style.display="none";
+                document.getElementById('showHideWord').textContent='hide';
 
                 showOrHide=1;
                 numberOfHiddenResources++;
@@ -2034,14 +2048,14 @@ function addFav(randomId,brandName){
                 var resUpdated=elementArr[1];
                 var id=resId+"."+resUpdated;
                 oscarLog("id="+id);
-                $(id).hide();
-                $('show_'+id).show();
-                $('showHideWord').update('show');
+                document.getElementById(id).style.display="none";
+                document.getElementById('show_'+id).style.display="";
+                document.getElementById('showHideWord').textContent='show';
                 showOrHide=0;
                 numberOfHiddenResources++;
             }
         }
-        $('showHideNumber').update(numberOfHiddenResources);
+        document.getElementById('showHideNumber').textContent=numberOfHiddenResources;
 
     }
    // var totalHiddenResources=0;
@@ -2052,14 +2066,14 @@ function addFav(randomId,brandName){
         var addTextId="addText_"+randId;
         var addTextWordId="addTextWord_"+randId;
         if(addTextView==0){
-            $(addTextId).show();
+            document.getElementById(addTextId).style.display="";
             addTextView=1;
-            $(addTextWordId).update("less")
+            document.getElementById(addTextWordId).textContent="less"
         }
         else{
-            $(addTextId).hide();
+            document.getElementById(addTextId).style.display="none";
             addTextView=0;
-            $(addTextWordId).update("more")
+            document.getElementById(addTextWordId).textContent="more"
         }
     }
 
@@ -2067,15 +2081,14 @@ function addFav(randomId,brandName){
 
 				var params = "method=setWarningToShow&resId=" + resourceId + "&updatedat=" + updated;
 				var url = ctx + '/oscarRx/GetmyDrugrefInfo.do';
-				new Ajax.Updater('showHideTotal', url, {
+				CarlosAjax.updater('showHideTotal', url, {
 					method: 'post',
 					parameters: params,
-					asynchronous: true,
 					evalScripts: true,
 					onSuccess: function (transport) {
 
-                $(id).show();
-                $('show_'+id).hide();
+                document.getElementById(id).style.display="";
+                document.getElementById('show_'+id).style.display="none";
 
 					}
 				});
@@ -2086,15 +2099,14 @@ function addFav(randomId,brandName){
 				var ran_number = Math.round(Math.random() * 1000000);
 				var params = "method=setWarningToHide&resId=" + resourceId + "&updatedat=" + updated;
 				//totalHiddenResources++;
-				new Ajax.Updater('showHideTotal', url, {
+				CarlosAjax.updater('showHideTotal', url, {
 					method: 'post',
 					parameters: params,
-					asynchronous: true,
 					evalScripts: true,
 					onSuccess: function (transport) {
 
-                $(id).hide();
-                $("show_"+id).show();
+                document.getElementById(id).style.display="none";
+                document.getElementById("show_"+id).style.display="";
 
 					}
 				});
@@ -2111,19 +2123,18 @@ function addFav(randomId,brandName){
           + "&text=" + encodeURIComponent(name)
           + "&randomId="
           + ran_number;
-				new Ajax.Updater('rxText', url, {
+				CarlosAjax.updater('rxText', url, {
 					method: 'POST',
 					parameters: params,
-					asynchronous: true,
 					evalScripts: true,
           requestHeaders: { 'Accept': 'application/json' },
-					insertion: Insertion.Bottom,
+					insertion: 'bottom',
 					onSuccess: function (transport) {
 						renderRxStage();
 					}
 				});
 
-				$('searchString').value = "";
+				document.getElementById('searchString').value = "";
 			}
 
 			var counterRx = 0;
@@ -2131,14 +2142,14 @@ function addFav(randomId,brandName){
 			function updateReRxDrugId(elementId) {
 				var ar = elementId.split("_");
 				var drugId = ar[1];
-				if (drugId != null && $(elementId).checked == true) {
+				if (drugId != null && document.getElementById(elementId).checked == true) {
 					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
 					var url = ctx + "/oscarRx/WriteScript.do";
-					new Ajax.Request(url, {method: 'post', parameters: data});
+					CarlosAjax.request(url, {method: 'post', parameters: data});
 				} else if (drugId != null) {
 					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
 					var url = ctx + "/oscarRx/WriteScript.do";
-					new Ajax.Request(url, {method: 'post', parameters: data});
+					CarlosAjax.request(url, {method: 'post', parameters: data});
 				}
 			}
 
@@ -2147,7 +2158,7 @@ function removeReRxDrugId(drugId) {
     if (drugId != null) {
         const data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
         const url = ctx + "/oscarRx/WriteScript.do";
-        new Ajax.Request(url, {method: 'post', parameters: data});
+        CarlosAjax.request(url, {method: 'post', parameters: data});
     }
 }
 
@@ -2158,25 +2169,25 @@ function represcribe(element, toArchive){
     var elemId=element.id;
     var ar=elemId.split("_");
     var drugId=ar[1];
-    if(drugId!=null && $("reRxCheckBox_"+drugId).checked === true){
-    	        	
+    if(drugId!=null && document.getElementById("reRxCheckBox_"+drugId).checked === true){
+
         var url= ctx + "/oscarRx/rePrescribe2.do";
-        data += "&method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
-        new Ajax.Updater('rxText',url, {method:'post',parameters:data,asynchronous:false,evalScripts:true,
-            insertion: Insertion.Bottom,onSuccess:function(transport){
+        var data = "method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
+        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,synchronous:true,evalScripts:true,
+            insertion: 'bottom',onSuccess:function(transport){
 		        renderRxStage();
             }
         });
     } else if(drugId!=null) {
         var dataUpdateId="reRxDrugId="+encodeURIComponent(toArchive)+"&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand="+Math.floor(Math.random()*10001);
         var urlUpdateId= ctx + "/oscarRx/WriteScript.do";
-        new Ajax.Request(urlUpdateId, {method: 'post',parameters:dataUpdateId});
+        CarlosAjax.request(urlUpdateId, {method: 'post',parameters:dataUpdateId});
 
         var data="drugId="+encodeURIComponent(drugId);
         var url= ctx + "/oscarRx/rePrescribe2.do";
         data += "&method=represcribe2&rand="+Math.floor(Math.random()*10001);
-        new Ajax.Updater('rxText',url, {method:'post',parameters:data,evalScripts:true,
-            insertion: Insertion.Bottom,onSuccess:function(transport){
+        CarlosAjax.updater('rxText',url, {method:'post',parameters:data,evalScripts:true,
+            insertion: 'bottom',onSuccess:function(transport){
                 // updateCurrentInteractions();
             }});
 
@@ -2196,13 +2207,13 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
     }
 
     if (element.checked === true) {
-        this.addDrugToReRxList(uiRefId, drugId);
+        addDrugToReRxList(uiRefId, drugId);
         selectedReRxIDs.push(drugId);
     } else {
-        this.removeDrugFromReRxList(uiRefId, drugId);
+        removeDrugFromReRxList(uiRefId, drugId);
         selectedReRxIDs = selectedReRxIDs.filter(id => id !== drugId);
     }
-    this.updateReRxStageConfirmBoxVisibility();
+    updateReRxStageConfirmBoxVisibility();
 }
 
     function updateReRxStageConfirmBoxVisibility() {
@@ -2220,13 +2231,13 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
     function cancelAndClearSelection() {
         selectedReRxIDs.forEach(drugId => uncheckReRxForExistingPrescribedDrug(drugId));
         selectedReRxIDs = [];
-        this.updateReRxStageConfirmBoxVisibility();
+        updateReRxStageConfirmBoxVisibility();
     }
 
     function stageSelectedReRxMedications() {
-        this.rePrescribeMulti();
+        rePrescribeMulti();
         selectedReRxIDs = [];
-        this.updateReRxStageConfirmBoxVisibility();
+        updateReRxStageConfirmBoxVisibility();
 }
 
 /**
@@ -2238,7 +2249,7 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
 function addDrugToReRxList(uiRefId, drugId) {
     skipParseInstr = true;
 
-    this.addDrugToReRxListInSession(uiRefId, drugId);
+    addDrugToReRxListInSession(uiRefId, drugId);
 }
 
 /**
@@ -2250,9 +2261,9 @@ function addDrugToReRxList(uiRefId, drugId) {
 function rePrescribe2(uiRefId, drugId) {
     const data = "drugId=" + encodeURIComponent(drugId) + "&method=represcribe2&rand=" + uiRefId;
     const url = ctx + "/oscarRx/rePrescribe2.do";
-        new Ajax.Updater('rxText', url, {
+        CarlosAjax.updater('rxText', url, {
             method: 'post', parameters: data, evalScripts: true,
-            insertion: Insertion.Bottom, onSuccess: function (transport) {
+            insertion: 'bottom', onSuccess: function (transport) {
 		        renderRxStage();
             }
         });
@@ -2261,9 +2272,9 @@ function rePrescribe2(uiRefId, drugId) {
     function rePrescribeMulti() {
         const url = ctx + "/oscarRx/rePrescribe2.do";
         const rePrescribeMultiData = "method=represcribeMultiple&rand=" + Math.floor(Math.random() * 10001);
-        new Ajax.Updater('rxText', url, {
-            method: 'post', parameters: rePrescribeMultiData, asynchronous: false, evalScripts: true,
-            insertion: Insertion.Bottom, onSuccess: function (transport) {
+        CarlosAjax.updater('rxText', url, {
+            method: 'post', parameters: rePrescribeMultiData, synchronous: true, evalScripts: true,
+            insertion: 'bottom', onSuccess: function (transport) {
 		        renderRxStage();
             }
         });
@@ -2278,7 +2289,7 @@ function rePrescribe2(uiRefId, drugId) {
 function addDrugToReRxListInSession(uiRefId, drugId) {
     const dataUpdateId = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + uiRefId;
     const urlUpdateId = ctx + "/oscarRx/WriteScript.do";
-    new Ajax.Request(urlUpdateId, {method: 'post', parameters: dataUpdateId});
+    CarlosAjax.request(urlUpdateId, {method: 'post', parameters: dataUpdateId});
 }
 
 /**
@@ -2288,8 +2299,8 @@ function addDrugToReRxListInSession(uiRefId, drugId) {
  * @param drugId The ID of the drug to remove.
  */
 function removeDrugFromReRxList(uiRefId, drugId) {
-    this.removeElementFromUI(this.getPrescribingDrugCardByUiRefId(uiRefId));
-    this.removeReRxDrugId(drugId);
+    removeElementFromUI(getPrescribingDrugCardByUiRefId(uiRefId));
+    removeReRxDrugId(drugId);
 }
 
 /**
@@ -2299,8 +2310,8 @@ function removeDrugFromReRxList(uiRefId, drugId) {
  */
 function removePrescribingDrug(cardId, drugId) {
     const uiRefId = cardId.id.split('_')[1];
-    this.deletePrescribingDrugFromUI(uiRefId, drugId);
-    this.uncheckReRxForExistingPrescribedDrug(drugId)
+    deletePrescribingDrugFromUI(uiRefId, drugId);
+    uncheckReRxForExistingPrescribedDrug(drugId)
 }
 
 /**
@@ -2309,8 +2320,8 @@ function removePrescribingDrug(cardId, drugId) {
  * @param drugId The id of the drug to delete.
  */
 function deletePrescribingDrugFromUI(uiRefId, drugId) {
-    this.removeElementFromUI(this.getPrescribingDrugCardByUiRefId(uiRefId));
-    this.deletePrescribe(drugId);
+    removeElementFromUI(getPrescribingDrugCardByUiRefId(uiRefId));
+    deletePrescribe(drugId);
 }
 
 /**
@@ -2328,10 +2339,10 @@ function removeElementFromUI(element) {
  * @param drugId The ID of the drug.
  */
 function uncheckReRxForExistingPrescribedDrug(drugId) {
-    const checkbox = this.getReRxCheckboxByUiRefId(drugId);
+    const checkbox = getReRxCheckboxByUiRefId(drugId);
     if (checkbox)
         checkbox.checked = false;
-    this.removeReRxDrugId(drugId);
+    removeReRxDrugId(drugId);
 }
 
 /**
@@ -2340,7 +2351,7 @@ function uncheckReRxForExistingPrescribedDrug(drugId) {
  * @returns {HTMLElement|null} The drug container element, or null if not found.
  */
 function getPrescribingDrugCardByUiRefId(uiRefId) {
-    return $('set_' + uiRefId);
+    return document.getElementById('set_' + uiRefId);
 }
 
 /**
@@ -2349,7 +2360,7 @@ function getPrescribingDrugCardByUiRefId(uiRefId) {
  * @returns {HTMLElement|null} The checkbox element, or null if not found.
  */
 function getReRxCheckboxByUiRefId(uiRefId) {
-    return $('reRxCheckBox_' + uiRefId);
+    return document.getElementById('reRxCheckBox_' + uiRefId);
 }
 
 function updateQty(element){
@@ -2379,32 +2390,32 @@ function updateQty(element){
        var unitNameStr="unitName_"+rand;
        var prnStr="prn_"+rand;
        var prnVal="prnVal_"+rand;
-        new Ajax.Request(url, {method: 'POST',parameters:data,
+        CarlosAjax.request(url, {method: 'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                var json=transport.responseText.evalJSON();
-                $(methodStr).innerHTML=json.method;
-                $(routeStr).innerHTML=json.route;
-                $(frequencyStr).innerHTML=json.frequency;
-                $(minimumStr).innerHTML=json.takeMin;
-                $(maximumStr).innerHTML=json.takeMax;
+                var json=JSON.parse(transport.responseText);
+                document.getElementById(methodStr).textContent=json.method;
+                document.getElementById(routeStr).textContent=json.route;
+                document.getElementById(frequencyStr).textContent=json.frequency;
+                document.getElementById(minimumStr).textContent=json.takeMin;
+                document.getElementById(maximumStr).textContent=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
-                    $(durationStr).innerHTML='';
+                    document.getElementById(durationStr).innerHTML='';
                 }else{
-                    $(durationStr).innerHTML=json.duration;
+                    document.getElementById(durationStr).textContent=json.duration;
                 }
-                $(durationUnitStr).innerHTML=json.durationUnit;
-                $(quantityStr).innerHTML=json.calQuantity;
+                document.getElementById(durationUnitStr).textContent=json.durationUnit;
+                document.getElementById(quantityStr).textContent=json.calQuantity;
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    $(unitNameStr).innerHTML=json.unitName;
+                    document.getElementById(unitNameStr).textContent=json.unitName;
                 }else{
-                    $(unitNameStr).innerHTML='';
+                    document.getElementById(unitNameStr).innerHTML='';
                 }
                 if(json.prn){
-                    $(prnStr).innerHTML="prn";
-                    $(prnVal).value=true;
+                    document.getElementById(prnStr).innerHTML="prn";
+                    document.getElementById(prnVal).value=true;
                 } else{
-                    $(prnStr).innerHTML="";$(prnVal).value=false;
+                    document.getElementById(prnStr).innerHTML="";document.getElementById(prnVal).value=false;
                 }
 
             }});
@@ -2429,72 +2440,72 @@ function updateQty(element){
        var unitNameStr="unitName_"+rand;
        var prnStr="prn_"+rand;
        var prnVal="prnVal_"+rand;
-        new Ajax.Request(url, {method: 'POST',parameters:instruction,asynchronous:false,
+        CarlosAjax.request(url, {method: 'POST',parameters:instruction,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
           onSuccess:function(transport){
-                var json=transport.responseText.evalJSON();
+                var json=JSON.parse(transport.responseText);
                 if(json.policyViolations != null && json.policyViolations.length>0) {
                        for(var x=0;x<json.policyViolations.length;x++) {
                                alert(json.policyViolations[x]);
                        }
-                       $("saveButton").disabled=true;
-                       $("saveOnlyButton").disabled=true;
+                       document.getElementById("saveButton").disabled=true;
+                       document.getElementById("saveOnlyButton").disabled=true;
                 } else {
-                       $("saveButton").disabled=false;
-                       $("saveOnlyButton").disabled=false;
+                       document.getElementById("saveButton").disabled=false;
+                       document.getElementById("saveOnlyButton").disabled=false;
                 }
 
-                $(methodStr).innerHTML=json.method;
-                $(routeStr).innerHTML=json.route;
-                $(frequencyStr).innerHTML=json.frequency;
-                $(minimumStr).innerHTML=json.takeMin;
-                $(maximumStr).innerHTML=json.takeMax;
+                document.getElementById(methodStr).textContent=json.method;
+                document.getElementById(routeStr).textContent=json.route;
+                document.getElementById(frequencyStr).textContent=json.frequency;
+                document.getElementById(minimumStr).textContent=json.takeMin;
+                document.getElementById(maximumStr).textContent=json.takeMax;
                 if(json.duration==null || json.duration=="null"){
-                    $(durationStr).innerHTML='';
+                    document.getElementById(durationStr).innerHTML='';
                 }else{
-                    $(durationStr).innerHTML=json.duration;
+                    document.getElementById(durationStr).textContent=json.duration;
                 }
-                $(durationUnitStr).innerHTML=json.durationUnit;
+                document.getElementById(durationUnitStr).textContent=json.durationUnit;
                 if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    $(unitNameStr).innerHTML=json.unitName;
+                    document.getElementById(unitNameStr).textContent=json.unitName;
                 }else{
-                    $(unitNameStr).innerHTML='';
+                    document.getElementById(unitNameStr).innerHTML='';
                 }
                 if (json.calQuantity != 0) {
                     //this is oftentimes zero when re-prescribing a drug where the unitName != null.  
                     //Until a more reliable calculated quantity is being returned, don't update if the calculated quantity is 0
                     //silently changing to 0 can be problematic in situations where the quantity has already been set
                     //to an appropriate value.                 
-                    $(quantityStr).innerHTML=json.calQuantity; 
-                    if($(unitNameStr).innerHTML!='')
-                        $(quantity).value=$(quantityStr).innerHTML+" "+$(unitNameStr).innerHTML;
+                    document.getElementById(quantityStr).textContent=json.calQuantity; 
+                    if(document.getElementById(unitNameStr).textContent!='')
+                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent+" "+document.getElementById(unitNameStr).textContent;
                     else
-                        $(quantity).value=$(quantityStr).innerHTML;
+                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent;
                     
                 }                
                 if(json.prn){
-                    $(prnStr).innerHTML="prn";$(prnVal).value=true;
+                    document.getElementById(prnStr).innerHTML="prn";document.getElementById(prnVal).value=true;
                 } else{
-                    $(prnStr).innerHTML="";$(prnVal).value=false;
+                    document.getElementById(prnStr).innerHTML="";document.getElementById(prnVal).value=false;
                 }
             }});
         return true;
     }
 
     function addLuCode(eleId,luCode){
-        $(eleId).value = $(eleId).value +" LU Code: "+luCode;
+        document.getElementById(eleId).value = document.getElementById(eleId).value +" LU Code: "+luCode;
     }
 
          function getRenalDosingInformation(divId,atcCode){
                var url = "<%= request.getContextPath() %>/oscarRx/RenalDosing.jsp";
                var ran_number=Math.round(Math.random()*1000000);
                var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+divId+"&rand="+ran_number;
-               new Ajax.Updater(divId,url, {method:'get',parameters:params,insertion: Insertion.Bottom,asynchronous:true});
+               CarlosAjax.updater(divId,url, {method:'get',parameters:params,insertion: 'bottom'});
          }
          function getLUC(divId,randomId,din){
              var url = ctx + "/oscarRx/LimitedUseCode.jsp";
              var params="randomId="+randomId+"&din="+encodeURIComponent(din);
-             new Ajax.Updater(divId,url,{method:'get',parameters:params,insertion:Insertion.Bottom,asynchronous:true});
+             CarlosAjax.updater(divId,url,{method:'get',parameters:params,insertion: 'bottom'});
          }
          
          function validateRxDate() {
@@ -2663,13 +2674,13 @@ function updateQty(element){
 		}
 		<%}%>
 		setPharmacyId();
-        var data=Form.serialize($('drugForm'));
+        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
         var url= ctx + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
-        new Ajax.Request(url,
-        {method: 'post',postBody:data,asynchronous:false,
+        CarlosAjax.request(url,
+        {method: 'post',postBody:data,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
-            	
+
                 callReplacementWebService("ListDrugs.jsp",'drugProfile');
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
@@ -2696,10 +2707,10 @@ function updateQty(element){
 		}
 		<%}%>		
 		setPharmacyId();
-        var data=Form.serialize($('drugForm'));
+        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
         var url= ctx + "/oscarRx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
-        new Ajax.Request(url,
-        {method: 'post',postBody:data,asynchronous:false,
+        CarlosAjax.request(url,
+        {method: 'post',postBody:data,synchronous:true,
             onSuccess:function(transport){
                 callReplacementWebService("ListDrugs.jsp",'drugProfile');
                 resetReRxDrugList();

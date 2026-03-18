@@ -28,7 +28,6 @@
         <meta charset="utf-8">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css">
-        <link rel="stylesheet" type="text/css" href="${ctx}/css/bootstrap-select.min.css">
         <style>
             .table > tbody > tr.highlight_pink {
                 background-color: pink;
@@ -57,7 +56,7 @@
 
         <div class="btn-toolbar" role="toolbar" aria-label="Toolbar">
             <div class="btn-group me-2" role="group">Filter By:
-                <select name="providerList" id="providerList" class="selectpicker" style="height:38px;margin-top:-1px;"
+                <select name="providerList" id="providerList" class="form-select form-select-sm" style="width:auto;height:38px;margin-top:-1px;"
                         onchange="handleFilterByProvider()">
                     <option value="%">All Providers</option>
                     <c:forEach var="provider" items="${providers}">
@@ -194,7 +193,6 @@
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${ctx}/library/jquery/jquery-compat.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="${ctx}/js/bootstrap-select.min.js"></script>
     <script type="text/javascript" src="${ctx}/js/global.js"></script>
     <script type="text/javascript">
         function printItem(itemValue) {

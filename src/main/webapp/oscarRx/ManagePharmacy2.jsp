@@ -107,7 +107,7 @@
                     $.post("<%=request.getContextPath() + "/oscarRx/managePharmacy.do?method=save"%>",
                         data, function (data) {
                             if (data.id) {
-                                parent.location.reload();
+                                window.top.location.reload();
                             } else {
                                 alert("There was a problem saving your record");
                             }
@@ -130,7 +130,7 @@
                 $.post("<%=request.getContextPath() + "/oscarRx/managePharmacy.do?method=add"%>",
                     data, function (data) {
                         if (data.success) {
-                            parent.location.reload();
+                            window.top.location.reload();
                         } else {
                             alert("There was an error saving your Pharmacy");
                         }

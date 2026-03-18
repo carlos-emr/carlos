@@ -325,7 +325,7 @@
             var result = "";
             $('#groupListTbl tbody').find('tr').each(function () {
 
-                if ($("td:nth(0)", $(this)).attr("title") && $("td:nth(0)", $(this)).attr("title").trim().toUpperCase() === textInput.toUpperCase()) {
+                if ($("td:eq(0)", $(this)).attr("title") && $("td:eq(0)", $(this)).attr("title").trim().toUpperCase() === textInput.toUpperCase()) {
                     result = "exists";
                     return false;
                 }

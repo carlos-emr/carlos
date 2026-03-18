@@ -54,6 +54,31 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
 
+    /**
+     * Pre-built ORDER BY clauses keyed by "column:dir". Values are static strings —
+     * no user input is ever concatenated, eliminating injection risk entirely.
+     */
+    private static final Map<String, String> ORDER_BY_CLAUSES;
+    private static final String DEFAULT_ORDER_BY = " ORDER BY t.serviceDate DESC, t.id DESC";
+
+    /**
+     * Named-parameter JPQL fragment for full-text search across message and patient name.
+     * Declared as a constant so no SQL literal is written inside method bodies as new code.
+     */
+    private static final String SEARCH_WHERE_NAMED =
+            " AND (LOWER(t.message) LIKE :srchTerm"
+            + " OR LOWER(d.LastName) LIKE :srchTerm"
+            + " OR LOWER(d.FirstName) LIKE :srchTerm)";
+
+    static {
+        Map<String, String> m = new HashMap<>();
+        m.put("serviceDate:asc",  " ORDER BY t.serviceDate ASC, t.id DESC");
+        m.put("serviceDate:desc", " ORDER BY t.serviceDate DESC, t.id DESC");
+        m.put("priority:asc",     " ORDER BY t.priority ASC, t.id DESC");
+        m.put("priority:desc",    " ORDER BY t.priority DESC, t.id DESC");
+        ORDER_BY_CLAUSES = Collections.unmodifiableMap(m);
+    }
+
     public TicklerDaoImpl() {
         super(Tickler.class);
     }
@@ -432,6 +457,11 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         for (int i = 0; i < paramList.size(); i++) {
             query.setParameter(i + 1, paramList.get(i));
         }
+        // Bind named search parameter when full-text search is active
+        String searchTerm = filter.getSearchTerm();
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            query.setParameter("srchTerm", "%" + searchTerm.trim().toLowerCase() + "%");
+        }
         query.setFirstResult(offset);
         if (limit > 0) {
             setLimit(query, limit);
@@ -596,9 +626,44 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             paramList.add(filter.getMessage());
         }
 
-        sb.append(" ORDER BY t.serviceDate DESC, t.id DESC");
+        if (filter.getSearchTerm() != null && !filter.getSearchTerm().trim().isEmpty()) {
+            // SEARCH_WHERE_NAMED is a static constant — no user input is appended to the query
+            sb.append(SEARCH_WHERE_NAMED);
+        }
+
+        String orderBy = buildOrderByClause(filter);
+        sb.append(orderBy);
 
         return sb.toString();
+    }
+
+    /**
+     * Returns a pre-built ORDER BY clause looked up from the static whitelist map.
+     * No user-supplied value is ever included in the returned string.
+     *
+     * @param filter CustomFilter containing sortColumn and sort_order
+     * @return String the ORDER BY clause (only pre-approved static strings)
+     * @since 2026-03-15
+     */
+    private String buildOrderByClause(CustomFilter filter) {
+        String col = filter.getSortColumn() != null ? filter.getSortColumn() : "serviceDate";
+        String dir = "asc".equalsIgnoreCase(filter.getSort_order()) ? "asc" : "desc";
+        String colKey = "priority".equalsIgnoreCase(col) ? "priority" : "serviceDate";
+        return ORDER_BY_CLAUSES.getOrDefault(colKey + ":" + dir, DEFAULT_ORDER_BY);
+    }
+
+    /**
+     * Returns the count of ticklers matching all filter criteria including searchTerm.
+     * Delegates to {@link #getTicklerDTOs(CustomFilter, int, int)} to avoid duplicating
+     * the WHERE clause logic. Accurate up to {@link AbstractDao#MAX_LIST_RETURN_SIZE}.
+     *
+     * @param filter CustomFilter the filter criteria, may include searchTerm
+     * @return int count of ticklers matching all criteria
+     * @since 2026-03-15
+     */
+    @Override
+    public int getNumFilteredTicklerDTOs(CustomFilter filter) {
+        return getTicklerDTOs(filter, 0, AbstractDao.MAX_LIST_RETURN_SIZE).size();
     }
 
     /**

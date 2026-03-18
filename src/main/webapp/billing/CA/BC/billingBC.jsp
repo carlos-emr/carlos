@@ -358,7 +358,7 @@
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"/>
+          href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/flatpickr/flatpickr.min.js"></script>
     <script type="text/javascript"
@@ -368,14 +368,15 @@
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript"
+            src="${pageContext.servletContext.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/share/calendar/calendar-setup.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/prototype.js"></script>
+    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/carlos-ajax.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/boxover.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/dxJSONCodeSearch.js"></script>
@@ -584,8 +585,6 @@
     </style>
     <script type="text/javascript">
 
-        jQuery.noConflict();
-
         // set the context path for javascript functions
         var ctx = '${pageContext.servletContext.contextPath}';
 
@@ -694,7 +693,7 @@
         function callReplacementWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
             var params = "demographicNo=<%=bean.getPatientNo()%>&wcb=&rand=" + ran_number;  //hack to get around ie caching the page
-            new Ajax.Updater(id, url, {method: 'get', parameters: params, asynchronous: true});
+            CarlosAjax.updater(id, url, {method: 'get', parameters: params});
         }
 
         <%
@@ -799,7 +798,7 @@
             window.document.serviceform.elements["File0Data"].value = File0;
             window.document.serviceform.elements["File1Data"].value = File1;
             window.document.serviceform.elements["File2Data"].value = File2;
-            window.document.all.Atts.innerText = Files;
+            document.getElementById('Atts').textContent = Files;
         }
 
         var remote = null;
@@ -1958,8 +1957,10 @@
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other1_unit" size="6"
                                                        maxlength="6" id="xml_other1_unit"/>
-                                            <button type="button" class="btn btn-primary" value=".5"
-                                                    onClick="$('xml_other1_unit').value = '0.5'">.5</button>
+                                            <span class="input-group-btn">
+                            	<button type="button" class="btn btn-primary" value=".5"
+                                        onClick="document.getElementById('xml_other1_unit').value = '0.5'">.5</button>
+                            </span>
                                         </div>
                                     </td>
                                 </tr>
@@ -1982,8 +1983,10 @@
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other2_unit" size="6"
                                                        maxlength="6" id="xml_other2_unit"/>
-                                            <button type="button" class="btn btn-primary" value=".5"
-                                                    onClick="$('xml_other2_unit').value = '0.5'">.5</button>
+                                            <span class="input-group-btn">
+                             	<button type="button" class="btn btn-primary" value=".5"
+                                        onClick="document.getElementById('xml_other2_unit').value = '0.5'">.5</button>
+                             </span>
                                         </div>
                                     </td>
                                 </tr>
@@ -2006,8 +2009,10 @@
                                         <div class="input-group">
                                             <input type="text" class="form-control" name="xml_other3_unit"
                                                        id="xml_other3_unit"/>
-                                            <button type="button" class="btn btn-primary" value=".5"
-                                                    onClick="$('xml_other3_unit').value = '0.5'">.5</button>
+                                            <span class="input-group-btn">
+                            	<button type="button" class="btn btn-primary" value=".5"
+                                        onClick="document.getElementById('xml_other3_unit').value = '0.5'">.5</button>
+                            </span>
                                         </div>
                                     </td>
                                 </tr>
@@ -2340,7 +2345,7 @@
             let url = "DxReference.jsp";
             let ran_number = Math.round(Math.random() * 1000000);
             let params = "demographicNo=<%=bean.getPatientNo()%>&rand=" + ran_number;  //hack to get around ie caching the page
-            new Ajax.Updater('DX_REFERENCE', url, {method: 'get', parameters: params, asynchronous: true});
+            CarlosAjax.updater('DX_REFERENCE', url, {method: 'get', parameters: params});
         }
 
         getDxInformation();

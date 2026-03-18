@@ -68,7 +68,6 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/checkPassword.js.jsp"></script>
-        <script src="<%=request.getContextPath()%>/share/javascript/prototype.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdatesecurity.title"/></title>
         <link rel="stylesheet" type="text/css" href="bcArStyle.css">
         <!-- calendar stylesheet -->
@@ -190,20 +189,27 @@
 	 */
 	function handleResetMfa(securityId) {
 		if (confirm("<fmt:message key="admin.securityAddRecord.mfa.reset.confirm"/>")) {
-			let url = "${pageContext.request.contextPath}/securityRecord/mfa.do";
-			let data = {
-				method: '<%= MfaActions2Action.METHOD_RESET_MFA %>',
-				securityId: securityId
-			};
-			new Ajax.Request(url, {
-				method: 'post',
-				parameters: data,
-				onSuccess: function (transport) {
-					updateMfaElementsVisibility(true, false);
+			var url = "${pageContext.request.contextPath}/securityRecord/mfa.do";
+			var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+			var csrfToken = csrfEl ? csrfEl.value : '';
+			var params = 'method=<%= MfaActions2Action.METHOD_RESET_MFA %>&securityId=' + encodeURIComponent(securityId);
+			fetch(url, {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'X-Requested-With': 'XMLHttpRequest',
+					'CSRF-TOKEN': csrfToken
 				},
-				onFailure: function () {
+				body: params
+			}).then(function(response) {
+				if (response.ok) {
+					updateMfaElementsVisibility(true, false);
+				} else {
 					console.log("error resetting MFA");
 				}
+			}).catch(function() {
+				console.log("error resetting MFA");
 			});
 		}
 	}

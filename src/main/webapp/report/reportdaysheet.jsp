@@ -111,17 +111,14 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.title"/></title>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
+        <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
 
         <script language="JavaScript">
             function hideOnSource() {
                 var selfBooked = document.getElementById('onlySelfBooked');
-                var list = $$('tr.oscar');
-                if (selfBooked.checked) {
-                    list.invoke('hide');
-                } else {
-                    list.invoke('show');
-                }
+                document.querySelectorAll('tr.oscar').forEach(function(el) {
+                    el.style.display = selfBooked.checked ? 'none' : '';
+                });
             }
         </script>
 

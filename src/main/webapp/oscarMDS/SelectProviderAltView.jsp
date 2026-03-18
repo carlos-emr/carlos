@@ -40,12 +40,9 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
     <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/screen.js"/>"></script>
     <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/rx.js"/>"></script>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/scriptaculous.js"/>"></script>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/effects.js"/>"></script>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/controls.js"/>"></script>
     <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.selectProvider.title"/></title>
 </head>
@@ -79,10 +76,11 @@
     function forwardDocLab(doclabid) {
 
         if (doclabid) {
-            var data = Form.serialize(self.opener.document.forms['reassignForm_' + doclabid]);
+            var form = self.opener.document.forms['reassignForm_' + doclabid];
+            var data = new URLSearchParams(new FormData(form)).toString();
 
             var url = '<%=request.getContextPath()%>' + "/oscarMDS/Forward.do";
-            new Ajax.Request(url, {
+            CarlosAjax.request(url, {
                 method: 'post', postBody: data, onSuccess: function (transport) {
 
 

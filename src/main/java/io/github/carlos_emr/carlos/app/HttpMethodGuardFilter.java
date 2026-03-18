@@ -114,35 +114,41 @@ public class HttpMethodGuardFilter implements Filter {
      * Values of the {@code method} request parameter that indicate mutator operations.
      * This catches mixed-method actions (e.g., SystemMessage2Action) where
      * {@code ?method=save} routes to a save method within a read/write action.
+     *
+     * <p>Note: "add" is intentionally excluded. Many actions use {@code method=add} to
+     * load an "add new" form (e.g., FacilityManager.do?method=add), not to perform a
+     * mutation. The actual save goes through a separate POST. Actions named "Add*"
+     * are still caught by {@link #MUTATOR_ACTION_PREFIXES}.</p>
      */
     private static final Set<String> MUTATOR_METHOD_PARAMS = Set.of(
-            "save", "delete", "update", "add", "create", "remove",
+            "save", "delete", "update", "create", "remove",
             "submit", "merge", "archive", "assign", "transfer",
             "approve", "reject", "toggle", "complete", "process",
             "cancel", "close"
     );
 
     /**
-     * Specific JSP filenames (without path, lowercased) known to be mutators.
-     * These are confirmed POST-only form targets identified by auditing all
-     * {@code <form method="post" action="*.jsp">} patterns in the codebase.
-     *
-     * <p>Keyword-based detection (e.g., "contains 'save'") was intentionally avoided
-     * because past-tense confirmation pages like {@code batchsaved.jsp},
-     * {@code billingcreated.jsp}, and {@code efmformmanagerdeleted.jsp} are read-only
-     * pages that would be falsely blocked.</p>
+     * Action names (lowercased) that match mutator prefixes but are actually read-only
+     * operations that legitimately use GET. For example, {@code createBillingReportAction}
+     * generates PDF/CSV file downloads (read-only) despite starting with "create".
      */
-    private static final Set<String> MUTATOR_JSP_NAMES = Set.of(
-            // Admin mutators
+    private static final Set<String> READ_ONLY_ACTION_NAMES = Set.of(
+            "createbillingreportaction"   // PDF/CSV download — GET is correct for file downloads
+    );
+
+    /**
+     * JSP filenames (without path, lowercased) that are POST-only mutator targets.
+     * GET requests to these JSPs are always blocked — they have no form display
+     * function and should never be accessed directly via GET.
+     */
+    private static final Set<String> PURE_MUTATOR_JSP_NAMES = Set.of(
+            // Admin mutators (POST-only handlers)
             "securityaddsecurity.jsp",
             "securitydelete.jsp",
             "securityupdate.jsp",
             "provideraddarecord.jsp",
             "providerupdate.jsp",
             "providerupdatepreference.jsp",
-            "provideraddrole.jsp",
-            "resourcebaseurl.jsp",
-            "unlock.jsp",
             "fixrolesonnotes.jsp",
             "lotnraddrecord.jsp",
             "lotnrdeleterecord.jsp",
@@ -153,83 +159,108 @@ public class HttpMethodGuardFilter implements Filter {
             "appointmentdeletearecord.jsp",
             // Demographic mutators
             "demographicaddarecord.jsp",
-            // Billing mutators
+            // Billing mutators (POST-only)
             "billingonsave.jsp",
-            "billingcorrection.jsp",
-            "billingcorrectionsubmit.jsp",
             "billingshortcutpg2.jsp",
             "billingreportcontrol.jsp",
+            "gensimulation.jsp",
+            "deleteprivatecode.jsp",
+            "deleteservices.jsp",
+            "ongenreport.jsp",
+            // Schedule mutators (POST-only)
+            "scheduledatesave.jsp",
+            "scheduledatefinal.jsp",
+            // Messenger mutators
+            "postitems.jsp",
+            "adjustattachments.jsp",
+            // Encounter mutators
+            "measurementgroupdscomplete.jsp",
+            // Tickler mutators (POST-only)
+            "dbticklerdemomain.jsp",
+            "dbticklermain.jsp",
+            "dbtickleradd.jsp",
+            // Lab mutators (POST-only)
+            "createlabtest.jsp",
+            // Other POST-only mutators
+            "groupnoteselectaction.jsp",
+            "preference_action.jsp",
+            "providersavedemographicaccessory.jsp",
+            "formsaveandexit.jsp",
+            "add2waitinglist.jsp",
+            "removefromwaitinglist.jsp",
+            "adddemotopatientset.jsp",
+            "providerpreferencequicklinksaction.jsp",
+            "dbmanagebillingform_add.jsp"
+    );
+
+    /**
+     * JSP filenames (without path, lowercased) that are dual-purpose: they display a form
+     * on GET and process mutations on POST. GET is only blocked when a mutator parameter
+     * (dboperation, submit, submitFrm, formAction) is present — which indicates an attempt
+     * to trigger a mutation via GET instead of POST.
+     *
+     * <p>Common mutator parameter patterns in these JSPs:</p>
+     * <ul>
+     *   <li>{@code dboperation=Save|Delete} — schedule, admin template, billing settings</li>
+     *   <li>{@code submit=Add|Delete|Save} — provider privilege/role, billing, antenatal</li>
+     *   <li>{@code submitFrm=Save|Add Service Code} — billing service codes</li>
+     *   <li>{@code formAction=update|custom} — prevention manager</li>
+     * </ul>
+     */
+    private static final Set<String> DUAL_PURPOSE_JSP_NAMES = Set.of(
+            // Admin forms (GET loads form, POST saves)
+            "provideraddrole.jsp",
+            "resourcebaseurl.jsp",
+            "unlock.jsp",
+            "providerprivilege.jsp",
+            "providerrole.jsp",
+            "providertemplate.jsp",
+            "billingsettings.jsp",
+            // Billing forms
+            "billingcorrection.jsp",
+            "billingcorrectionsubmit.jsp",
             "billingonfavourite.jsp",
             "addeditservicecode.jsp",
             "onaddedit3rdaddr.jsp",
             "settlebg.jsp",
-            "gensimulation.jsp",
             "billingdeletenoappt.jsp",
             "billingdeletewithbillno.jsp",
             "billingdeletewithoutno.jsp",
-            "deleteprivatecode.jsp",
-            "deleteservices.jsp",
-            "ongenreport.jsp",
             "billingondisplay.jsp",
             "billingoneditprivatecode.jsp",
-            // Schedule mutators
-            "scheduledatesave.jsp",
-            "scheduledatefinal.jsp",
+            // Schedule forms
             "scheduleholidaysetting.jsp",
             "scheduletemplatecodesetting.jsp",
             "schedulecreatedate.jsp",
-            // Prevention mutators
+            // Prevention forms
             "preventionmanager.jsp",
             "preventionlistmanager.jsp",
-            // Messenger mutators
-            "postitems.jsp",
-            "adjustattachments.jsp",
-            "createmessage.jsp",
-            // Encounter mutators
-            "measurementgroupdscomplete.jsp",
-            // Tickler mutators
-            "dbticklerdemomain.jsp",
-            "dbticklermain.jsp",
-            // Lab mutators
+            // Lab forms
             "createlab.jsp",
-            "createlabtest.jsp",
-            // Decision support mutators
+            // Decision support forms
             "checklistedit.jsp",
             "riskedit.jsp",
-            // Report mutators
+            // Report forms
             "reportformconfig.jsp",
             "reportformdemoconfig.jsp",
             "reportformorder.jsp",
             "reportformrecord.jsp",
-            // Other mutators
-            "groupnoteselectaction.jsp",
-            "preference_action.jsp",
+            // Other dual-purpose forms
             "patientlettermanager.jsp",
-            "providerprivilege.jsp",
-            "providerrole.jsp",
-            "providertemplate.jsp",
-            "providersavedemographicaccessory.jsp",
-            "formsaveandexit.jsp",
-            // Waiting list mutators
-            "add2waitinglist.jsp",
-            "removefromwaitinglist.jsp",
-            // Pharmacy mutators
             "managepharmacy.jsp",
-            // Tickler mutators (JSP-based)
-            "dbtickleradd.jsp",
-            // Demographic set mutators
-            "adddemotopatientset.jsp",
-            // Provider preference mutators
-            "providerpreferencequicklinksaction.jsp",
-            // Billing form management mutators
-            "dbmanagebillingform_add.jsp",
-            "billingsettings.jsp",
-            // Document mutators
             "uploadmultidocument.jsp",
-            // Antenatal mutators
             "antenatalplanner.jsp",
-            // Provider availability (mutator when method=save)
             "setprovideravailability.jsp"
+    );
+
+    /**
+     * Request parameter names that indicate a mutation action in dual-purpose JSPs.
+     * If any of these parameters are present on a GET request to a dual-purpose JSP,
+     * the request is blocked. These parameters are only sent by form POST submissions,
+     * so their presence on GET indicates a CSRF or manipulation attempt.
+     */
+    private static final Set<String> JSP_MUTATOR_PARAMS = Set.of(
+            "dboperation", "submit", "submitFrm", "formAction"
     );
 
     private Set<String> allowList = Collections.emptySet();
@@ -278,10 +309,23 @@ public class HttpMethodGuardFilter implements Filter {
             return;
         }
 
+        // Use getRequestURI() which is already URL-decoded by the container.
+        // Normalize the path to prevent encoding bypasses:
+        // - Reject null bytes (path traversal attack vector)
+        // - Normalize path separators and resolve /../ sequences
         String uri = httpRequest.getRequestURI();
+        if (uri.indexOf('\0') >= 0) {
+            LOGGER.warn("Blocked request with null byte in URI: {} (remote: {})",
+                    uri.replace('\0', '?'), httpRequest.getRemoteAddr());
+            ((HttpServletResponse) response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid request URI");
+            return;
+        }
         String contextPath = httpRequest.getContextPath();
         // Strip context path for pattern matching
         String path = uri.startsWith(contextPath) ? uri.substring(contextPath.length()) : uri;
+        // Normalize ../ sequences to prevent path traversal bypasses
+        // (e.g., /safe/../admin/mutator.jsp resolving to /admin/mutator.jsp)
+        path = normalizePath(path);
 
         if (path.endsWith(".do")) {
             if (isMutatorAction(path, httpRequest)) {
@@ -321,6 +365,11 @@ public class HttpMethodGuardFilter implements Filter {
             return false;
         }
 
+        // Check read-only actions that match mutator prefixes but are safe for GET
+        if (READ_ONLY_ACTION_NAMES.contains(actionNameLower)) {
+            return false;
+        }
+
         // Check action name against explicit mutator action names
         if (MUTATOR_ACTION_NAMES.contains(actionNameLower)) {
             return true;
@@ -345,7 +394,15 @@ public class HttpMethodGuardFilter implements Filter {
     /**
      * Determines if a {@code .jsp} URL targets a mutator JSP.
      *
-     * <p>Checks the JSP filename against an explicit set of known mutator JSP names.</p>
+     * <p>Uses a two-tier approach:</p>
+     * <ul>
+     *   <li><strong>Pure mutators</strong>: Always blocked on GET — these JSPs are POST-only
+     *       handlers with no form display function.</li>
+     *   <li><strong>Dual-purpose JSPs</strong>: Only blocked on GET when a mutator parameter
+     *       ({@code dboperation}, {@code submit}, {@code submitFrm}, {@code formAction}) is
+     *       present. This allows the form to load via GET while blocking GET-based mutation
+     *       attempts (CSRF attacks).</li>
+     * </ul>
      *
      * @param path    the request path (without context path)
      * @param request the HTTP request (for parameter access)
@@ -364,22 +421,37 @@ public class HttpMethodGuardFilter implements Filter {
             return false;
         }
 
-        // Check against known mutator JSP names (explicit set only — no keyword matching
-        // to avoid false positives on confirmation pages like batchsaved.jsp, billingcreated.jsp)
-        if (MUTATOR_JSP_NAMES.contains(jspNameLower)) {
-            // Special case: PreventionManager.jsp is only a mutator when formAction=update|custom
-            if ("preventionmanager.jsp".equals(jspNameLower) || "preventionlistmanager.jsp".equals(jspNameLower)) {
-                String formAction = request.getParameter("formAction");
-                return formAction != null && ("update".equalsIgnoreCase(formAction) || "custom".equalsIgnoreCase(formAction));
-            }
-            // Special case: setProviderAvailability.jsp is only a mutator when method=save
-            if ("setprovideravailability.jsp".equals(jspNameLower)) {
-                String methodParam = request.getParameter("method");
-                return "save".equalsIgnoreCase(methodParam);
-            }
+        // Pure mutators: always block GET
+        if (PURE_MUTATOR_JSP_NAMES.contains(jspNameLower)) {
             return true;
         }
 
+        // Dual-purpose JSPs: only block GET when a mutator parameter is present.
+        // These pages load forms via GET and process mutations via POST.
+        // A mutator parameter on GET indicates a CSRF or manipulation attempt.
+        if (DUAL_PURPOSE_JSP_NAMES.contains(jspNameLower)) {
+            return hasMutatorParam(request);
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks whether the request contains any mutator parameter that indicates
+     * a state-changing operation. Performs case-insensitive matching on both
+     * parameter names and values to prevent encoding-based bypasses.
+     *
+     * @param request the HTTP request
+     * @return {@code true} if a mutator parameter is present
+     */
+    private boolean hasMutatorParam(HttpServletRequest request) {
+        java.util.Enumeration<String> paramNames = request.getParameterNames();
+        while (paramNames.hasMoreElements()) {
+            String paramName = paramNames.nextElement().toLowerCase(Locale.ROOT).trim();
+            if (JSP_MUTATOR_PARAMS.contains(paramName)) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -434,6 +506,56 @@ public class HttpMethodGuardFilter implements Filter {
         response.setHeader("Allow", "POST");
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
                 "GET requests are not allowed on this endpoint. Use POST.");
+    }
+
+    /**
+     * Normalizes a URL path by resolving {@code ..} and {@code .} segments,
+     * collapsing consecutive slashes, and stripping trailing path parameters.
+     * This prevents bypass attempts such as {@code /safe/../admin/mutator.jsp}
+     * or {@code /admin/mutator.jsp;jsessionid=...}.
+     *
+     * @param path the raw request path
+     * @return the normalized path
+     */
+    static String normalizePath(String path) {
+        if (path == null || path.isEmpty()) {
+            return path;
+        }
+
+        // Strip path parameters (;jsessionid=...) which could be used to
+        // obscure the real path from pattern matching
+        int semiIdx = path.indexOf(';');
+        if (semiIdx >= 0) {
+            path = path.substring(0, semiIdx);
+        }
+
+        // Collapse consecutive slashes (e.g., //admin///mutator.jsp)
+        path = path.replaceAll("/+", "/");
+
+        // Resolve . and .. segments
+        String[] segments = path.split("/");
+        java.util.Deque<String> stack = new java.util.ArrayDeque<>();
+        for (String seg : segments) {
+            if (seg.isEmpty() || ".".equals(seg)) {
+                continue;
+            } else if ("..".equals(seg)) {
+                if (!stack.isEmpty()) {
+                    stack.removeLast();
+                }
+            } else {
+                stack.addLast(seg);
+            }
+        }
+
+        StringBuilder normalized = new StringBuilder("/");
+        java.util.Iterator<String> it = stack.iterator();
+        while (it.hasNext()) {
+            normalized.append(it.next());
+            if (it.hasNext()) {
+                normalized.append('/');
+            }
+        }
+        return normalized.toString();
     }
 
     @Override

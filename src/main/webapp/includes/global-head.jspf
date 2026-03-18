@@ -29,4 +29,6 @@
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/searchBox.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css">
+<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/transitions.css">
 <script src="${pageContext.request.contextPath}/csrfguard"></script>
+<script type="text/javascript" src="${pageContext.request.contextPath}/share/javascript/carlos-ajax.js"></script>

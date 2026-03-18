@@ -137,7 +137,7 @@
                     $(".DivContentSectionHead a img").unbind("click");
 
                     //--> action for selecting from search results.
-                    $("#searchResultsContainer div[id $= '_content'] a").bind("click", function (event) {
+                    $("#searchResultsContainer div[id $= '_content'] a").on("click", function (event) {
                         event.preventDefault();
                         // override the old addReaction.do with the new addReaction2.do
                         var path = "${ pageContext.servletContext.contextPath }/oscarRx/addReaction2.do"
@@ -148,7 +148,7 @@
                     });
 
                     //--> delete allergy.
-                    $(".deleteAllergyLink").bind("click", function (event) {
+                    $(".deleteAllergyLink").on("click", function (event) {
                         var ids = this.id.split("_");
                         var action = ids[0].split(":")[1];
                         var param = ids[1].trim();
@@ -164,7 +164,7 @@
                     });
 
                     //--> modify allergy.
-                    $(".modifyAllergyLink").bind("click", function (event) {
+                    $(".modifyAllergyLink").on("click", function (event) {
                         var ids = this.id.split("_");
                         var param = ids[1].trim();
                         sendSearchRequest("${ pageContext.servletContext.contextPath }/oscarRx/addReaction2.do",
@@ -175,12 +175,15 @@
                     //--> Toggle search results listing.
                     $.fn.toggleSection = function (typecode) {
                         var imgsrc = document.getElementById(typecode + "_img").src;
+                        var content = document.getElementById(typecode + "_content");
                         if (imgsrc.indexOf('expander') != -1) {
                             document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/collapser.png';
-                            Effect.BlindDown(document.getElementById(typecode + "_content"), {duration: 0.1});
+                            content.classList.remove('carlos-collapsed');
+                            content.style.display = 'block';
                         } else {
                             document.getElementById(typecode + "_img").src = '<%= request.getContextPath() %>/images/expander.png';
-                            Effect.BlindUp(document.getElementById(typecode + "_content"), {duration: 0.1});
+                            content.classList.add('carlos-collapsed');
+                            content.style.display = 'none';
                         }
                     }
 

@@ -344,8 +344,6 @@
             }
 
 
-            jQuery.noConflict();
-
             function toggleView() {
                 showHideItem('editAppointment');
                 showHideItem('viewAppointment');

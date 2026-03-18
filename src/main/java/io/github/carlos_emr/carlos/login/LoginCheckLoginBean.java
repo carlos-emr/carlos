@@ -78,8 +78,8 @@ import io.github.carlos_emr.carlos.log.LogConst;
  *
  * <p>Password hash migration:
  * <ul>
- *   <li>Legacy passwords (< 20 chars) use plain-text comparison</li>
- *   <li>Modern passwords (>= 20 chars) use BCrypt validation</li>
+ *   <li>Legacy passwords (&lt; 20 chars) use plain-text comparison</li>
+ *   <li>Modern passwords (&gt;= 20 chars) use BCrypt validation</li>
  *   <li>Successful legacy password login triggers automatic BCrypt migration</li>
  *   <li>Failed migration is logged but does not prevent login</li>
  * </ul>
@@ -96,10 +96,10 @@ import io.github.carlos_emr.carlos.log.LogConst;
  * LoginCheckLoginBean bean = new LoginCheckLoginBean();
  * bean.ini(username, password, pin, ipAddress);
  * String[] result = bean.authenticate();
- * if (result != null && result.length > 1) {
+ * if (result != null &amp;&amp; result.length > 1) {
  *     // Success - result contains provider info
  *     Security security = bean.getSecurity();
- * } else if (result != null && result[0].equals("expired")) {
+ * } else if (result != null &amp;&amp; result[0].equals("expired")) {
  *     // Password expired
  * } else {
  *     // Authentication failed
@@ -203,7 +203,7 @@ public final class LoginCheckLoginBean {
      *
      * <p>Password validation:
      * <ul>
-     *   <li>Legacy passwords (< 20 chars): plain-text comparison</li>
+     *   <li>Legacy passwords (&lt; 20 chars): plain-text comparison</li>
      *   <li>Modern passwords (>= 20 chars): BCrypt validation via {@link SecurityManager}</li>
      *   <li>Successful legacy password login triggers automatic BCrypt migration</li>
      * </ul>

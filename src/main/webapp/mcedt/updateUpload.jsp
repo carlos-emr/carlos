@@ -56,7 +56,7 @@
                 if (control) {
                     control.disabled = true;
                 }
-                var form = $("form");
+                var form = document.getElementById("form");
                 form.submit();
                 return true;
             }

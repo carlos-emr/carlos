@@ -108,7 +108,7 @@
             window.document.serviceform.elements["File0Data"].value = File0;
             window.document.serviceform.elements["File1Data"].value = File1;
             window.document.serviceform.elements["File2Data"].value = File2;
-            window.document.all.Atts.innerText = Files;
+            document.getElementById('Atts').textContent = Files;
         }
 
         var remote = null;

@@ -7,7 +7,7 @@ function addComment(reportId) {
         data: data,
         success: function (data) {
             if (data != null)
-                $("commentstatus" + reportId).innerHTML = data;
+                document.getElementById("commentstatus" + reportId).textContent = data;
         }
     });
 }
@@ -19,7 +19,7 @@ function deleteComment(commentId, reportId) {
         data: "method=deleteComment&commentId=" + commentId,
         success: function (data) {
             if (data != null)
-                $("commentstatus" + reportId).innerHTML = data;
+                document.getElementById("commentstatus" + reportId).textContent = data;
         }
     });
 }
@@ -65,24 +65,24 @@ function makeIndependent(reportId) {
         data: "method=makeIndependent&reportId=" + reportId,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
-                $("similarNotice").innerHTML = "";
+                document.getElementById("similarNotice").innerHTML = "";
             }
         }
     });
 }
 
 function addDemoToHrm(reportId) {
-    var demographicNo = $("demofind" + reportId + "hrm").value;
+    var demographicNo = document.getElementById("demofind" + reportId + "hrm").value;
     jQuery.ajax({
         type: "POST",
         url: contextpath + "/hospitalReportManager/Modify.do",
         data: "method=assignDemographic&reportId=" + reportId + "&demographicNo=" + demographicNo,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
-                $("demostatus" + reportId).innerHTML = data + "<br/>" +
-                    $('autocompletedemo' + reportId + 'hrm').value.split('(')[0] +
+                document.getElementById("demostatus" + reportId).innerHTML = data + "<br/>" +
+                    document.getElementById('autocompletedemo' + reportId + 'hrm').value.split('(')[0] +
                     "<a href=\"#\" onclick=\"removeDemoFromHrm('" + reportId + "')\">(remove)</a>";
-                $('autocompletedemo' + reportId + 'hrm').hide();
+                document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = 'none';
                 toggleButtonBar(true, reportId);
             }
         }
@@ -105,11 +105,11 @@ function removeDemoFromHrm(reportId) {
         data: "method=removeDemographic&reportId=" + reportId,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
-                $("demostatus" + reportId).innerHTML = data + "<br/>" +
+                document.getElementById("demostatus" + reportId).innerHTML = data + "<br/>" +
                     "<i>Not currently linked</i>";
-                $('autocompletedemo' + reportId + 'hrm').value = "";
-                $('autocompletedemo' + reportId + 'hrm').show();
-                $('demofind' + reportId + 'hrm').value = null;
+                document.getElementById('autocompletedemo' + reportId + 'hrm').value = "";
+                document.getElementById('autocompletedemo' + reportId + 'hrm').style.display = '';
+                document.getElementById('demofind' + reportId + 'hrm').value = null;
                 toggleButtonBar(false, reportId);
             }
         }
@@ -123,7 +123,7 @@ function addProvToHrm(reportId, providerNo) {
         data: "method=assignProvider&reportId=" + reportId + "&providerNo=" + providerNo,
         success: function (data) {
             if (data != null)
-                $("provstatus" + reportId).innerHTML = data;
+                document.getElementById("provstatus" + reportId).textContent = data;
         }
     });
 }
@@ -135,7 +135,7 @@ function removeProvFromHrm(mappingId, reportId) {
         data: "method=removeProvider&providerMappingId=" + mappingId,
         success: function (data) {
             if (data != null)
-                $("provstatus" + reportId).innerHTML = data;
+                document.getElementById("provstatus" + reportId).textContent = data;
         }
     });
 }
@@ -147,7 +147,7 @@ function makeActiveSubClass(reportId, subClassId) {
         data: "method=makeActiveSubClass&reportId=" + reportId + "&subClassId=" + subClassId,
         success: function (data) {
             if (data != null)
-                $("subclassstatus" + reportId).innerHTML = data;
+                document.getElementById("subclassstatus" + reportId).textContent = data;
         }
     });
 
@@ -168,7 +168,7 @@ function setDescription(reportId) {
         data: data,
         success: function (data) {
             if (data != null)
-                $("descriptionstatus" + reportId).innerHTML = data;
+                document.getElementById("descriptionstatus" + reportId).textContent = data;
         }
     });
 }
@@ -183,13 +183,13 @@ function revokeSignOffHrm(reportId) {
 }
 
 function editCategory(reportId) {
-    $('chooseCategory_' + reportId).show();
-    $('showCategory_' + reportId).hide();
+    document.getElementById('chooseCategory_' + reportId).style.display = '';
+    document.getElementById('showCategory_' + reportId).style.display = 'none';
 }
 
 function updateCategory(reportId) {
-    var categoryId = $('selectedCategory_' + reportId).value;
-    var categoryName = $('selectedCategory_' + reportId).options[$('selectedCategory_' + reportId).selectedIndex].text;
+    var categoryId = document.getElementById('selectedCategory_' + reportId).value;
+    var categoryName = document.getElementById('selectedCategory_' + reportId).options[document.getElementById('selectedCategory_' + reportId).selectedIndex].text;
     if (categoryId) {
         jQuery.ajax({
             type: "POST",
@@ -198,9 +198,9 @@ function updateCategory(reportId) {
             success: function (data) {
                 if (data != null) {
                     if (data.indexOf('Success') !== -1) {
-                        $('hrmCategory_' + reportId).innerHTML = $('selectedCategory_' + reportId).innerHTML = categoryName;
-                        $('chooseCategory_' + reportId).hide();
-                        $('showCategory_' + reportId).show();
+                        document.getElementById('hrmCategory_' + reportId).textContent = document.getElementById('selectedCategory_' + reportId).textContent = categoryName;
+                        document.getElementById('chooseCategory_' + reportId).style.display = 'none';
+                        document.getElementById('showCategory_' + reportId).style.display = '';
                         toggleButtonBar(false, reportId);
                     }
                 }

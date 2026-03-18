@@ -96,7 +96,7 @@
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <!-- Prototype.js removed (Phase 4d migration) -->
 
         <style type="text/css">
             div.ImmSet {
@@ -326,7 +326,7 @@
         </script>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onload="Field.focus('inputValue-0');">
+    <body class="BodyStyle" vlink="#0000FF" onload="var el=document.getElementById('inputValue-0');if(el)el.focus();">
 
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
@@ -551,7 +551,7 @@
     </table>
     <script type="text/javascript">
         <% if ( id != null ) { %>
-        Form.disable('measurementForm');
+        (function() { var f = document.getElementById('measurementForm'); if(f) { Array.from(f.elements).forEach(function(el) { el.disabled = true; }); } })();
         document.getElementById('deleteButton').disabled = false;
         document.getElementById('deleteCheck').disabled = false;
 
@@ -619,11 +619,11 @@
 
                 jQuery(custom_html).insertBefore(jQuery('#measurementForm'));
 
-                jQuery(wt_input).bind('keyup change', function () {
+                jQuery(wt_input).on('keyup change', function () {
                     calcBMI();
                 });
 
-                jQuery(ht_input).bind('keyup change', function () {
+                jQuery(ht_input).on('keyup change', function () {
                     calcBMI();
                 });
 

@@ -391,6 +391,12 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    public int getNumTicklersFiltered(LoggedInInfo loggedInInfo, CustomFilter filter) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        return ticklerDao.getNumFilteredTicklerDTOs(filter);
+    }
+
+    @Override
     public Tickler getTickler(LoggedInInfo loggedInInfo, String tickler_no) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 

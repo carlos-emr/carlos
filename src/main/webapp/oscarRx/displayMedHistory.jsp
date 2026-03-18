@@ -58,10 +58,9 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <html>
 <head>
-    <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/dragiframe.js"/>"></script>
     <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
-<body onload="addHandle(document.getElementsByTagName('body').item(0), window);">
+<body>
 <%
     try {
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");

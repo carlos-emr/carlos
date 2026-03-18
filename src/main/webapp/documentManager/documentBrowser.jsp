@@ -314,14 +314,14 @@ Remote documents not supported
 
             if (selected.length == 0) {
 
-                var div_ref = document.all("docbuttons");
+                var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "hidden";
                 docid = "0";
                 showPageImg(docid);
 
             }
             if (selected.length >= 2) {
-                var div_ref = document.all("docbuttons");
+                var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "hidden";
 
                 var docList = '';
@@ -348,13 +348,13 @@ Remote documents not supported
                 docid = selected[0].value.substring(0, docidindexend);
 
                 showPageImg(docid);
-                var div_ref = document.all("docbuttons");
+                var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "visible";
                 if (doctype == "text/html") {
-                    var div_ref = document.all("refilebutton");
+                    var div_ref = document.getElementById("refilebutton");
                     div_ref.style.visibility = "hidden";
                 } else {
-                    var div_ref = document.all("refilebutton");
+                    var div_ref = document.getElementById("refilebutton");
                     div_ref.style.visibility = "visible";
                 }
 
@@ -372,7 +372,7 @@ Remote documents not supported
                 getDoc();
                 doclistObj.focus();
             } else if (doclistObj.length == 0) {
-                div_ref = document.all("docbuttons");
+                div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "hidden";
 
             }

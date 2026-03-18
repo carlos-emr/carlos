@@ -278,7 +278,7 @@
 
             if (selected.length == 0) {
 
-                var div_ref = document.all("docbuttons");
+                var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "hidden";
                 docid = "0";
                 showPageImg(docid, "");
@@ -288,7 +288,7 @@
                 th1.selectedIndex = -1;
             }
             if (selected.length >= 2) {
-                var div_ref = document.all("docbuttons");
+                var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "hidden";
 
                 var docList = '';
@@ -316,13 +316,13 @@
                 doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
                 showPageImg(docid, doctype);
-                var div_ref = document.all("docbuttons");
+                var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "visible";
                 if (doctype == "text/html") {
-                    var div_ref = document.all("refilebutton");
+                    var div_ref = document.getElementById("refilebutton");
                     div_ref.style.visibility = "hidden";
                 } else {
-                    var div_ref = document.all("refilebutton");
+                    var div_ref = document.getElementById("refilebutton");
                     div_ref.style.visibility = "visible";
                 }
             }
@@ -349,7 +349,7 @@
                 getDoc();
                 doclistObj.focus();
             } else if (doclistObj.length == 0) {
-                div_ref = document.all("docbuttons");
+                div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "hidden";
 
             }

@@ -84,7 +84,7 @@
         <script type="text/javascript"
                 src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
+        <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
@@ -136,30 +136,37 @@
                 if (comment != null) {
                     var params = "id=" + idval + "&followupType=" + followUpType + "&followupValue=" + procedure + "&demos=" + demographic + "&message=" + comment;
                     var url = "<%=request.getContextPath()%>/oscarMeasurement/AddShortMeasurement.do";
+                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                    var csrfToken = csrfEl ? csrfEl.value : '';
 
-                    new Ajax.Request(url, {
-                        method: 'post',
-                        parameters: params,
-                        asynchronous: true,
-                        onComplete: followUp
-                    });
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'CSRF-TOKEN': csrfToken
+                        },
+                        credentials: 'same-origin',
+                        body: params
+                    })
+                    .then(function(response) { return response.text(); })
+                    .then(function(responseText) { followUp(responseText); });
                 }
                 return false;
             }
 
-            function followUp(origRequest) {
-                //alert(origRequest.responseText);
-                var hash = origRequest.responseText.parseQuery();
-                //alert( hash['id'] + " " + hash['followupValue']+" "+hash['Date'] );
-                //("id="+id+"&followupValue="+followUpValue+"&Date=
-                var lastFollowupTD = $(hash['id'] + 'lastFollowup');
-                var nextProcedureTD = $(hash['id'] + 'nextSuggestedProcedure');
-                //alert(nextProcedureTD);
-                nextProcedureTD.innerHTML = "----";
-                lastFollowupTD.innerHTML = hash['followupValue'] + " " + hash['Date'];
-
-                //alert(nextProcedureTD.innerText);
-
+            function followUp(responseText) {
+                var hash = {};
+                responseText.split('&').forEach(function(pair) {
+                    var parts = pair.split('=');
+                    if (parts.length === 2) {
+                        hash[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+                    }
+                });
+                var lastFollowupTD = document.getElementById(hash['id'] + 'lastFollowup');
+                var nextProcedureTD = document.getElementById(hash['id'] + 'nextSuggestedProcedure');
+                if (nextProcedureTD) nextProcedureTD.textContent = "----";
+                if (lastFollowupTD) lastFollowupTD.textContent = hash['followupValue'] + " " + hash['Date'];
             }
         </script>
 
@@ -288,7 +295,8 @@
     <script type="text/javascript">
         // Calendar.setup( { inputField : "asofDate", ifFormat : "%Y-%m-%d", showsTime :false, button : "date", singleClick : true, step : 1 } );
         function genEnvelopes(form) {
-            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes.do?" + Form.serialize('listDemographic');
+            var formEl = document.getElementById('listDemographic');
+            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes.do?" + new URLSearchParams(new FormData(formEl)).toString();
         }
 
     </script>

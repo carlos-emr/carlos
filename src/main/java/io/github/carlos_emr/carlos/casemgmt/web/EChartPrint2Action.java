@@ -70,8 +70,8 @@ import org.apache.struts2.ServletActionContext;
  * {@link SecurityInfoManager#hasPrivilege}. Throws {@link SecurityException} if the
  * logged-in provider lacks access to the requested patient record.
  *
- * @see OscarChartPrinter
- * @see CaseManagementPrintPdf
+ * @see io.github.carlos_emr.carlos.casemgmt.print.OscarChartPrinter
+ * @see io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintPdf
  * @since 2011-08-16
  */
 public class EChartPrint2Action extends ActionSupport {

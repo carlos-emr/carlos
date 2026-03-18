@@ -137,9 +137,7 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/effects.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/controls.js"></script>
+        <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
 
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/niftyCorners.css"/>
@@ -335,7 +333,7 @@
                 //console.log("saveDemoId "+li.id+" "+text.id);
                 var str = text.id.replace("autocompletedemo", "demofind");
                 //console.log("str "+str);
-                $(str).value = li.id;
+                document.getElementById(str).value = li.id;
             }
 
             function saveProvId(text, li) {
@@ -343,7 +341,7 @@
                 var provName = text.value;
                 var str = text.id.replace("autocompletedemo", "demofind");
                 // console.log("str "+str);
-                $(str).value = li.id;
+                document.getElementById(str).value = li.id;
 
                 var bdoc = document.createElement('a');
                 bdoc.setAttribute("onclick", "removeProv(this);");
@@ -365,26 +363,42 @@
             }
 
             function removeProv(th) {
-                var ele = th.up();
-                ele.remove();
-
+                var ele = th.parentNode;
+                ele.parentNode.removeChild(ele);
             }
 
             function sendToServer(formId) {
-                var toSend = $(formId).serialize(true);
-                var url = "ManageDocument.do";//"send.jsp";
-                Effect.SlideUp('document' + toSend.documentId);
-                new Ajax.Request(url, {method: 'post', parameters: toSend, onSuccess: successAdjusting});
+                var formEl = document.getElementById(formId);
+                var formData = new URLSearchParams(new FormData(formEl));
+                var docIdField = formEl.querySelector('[name="documentId"]');
+                var docId = docIdField ? docIdField.value : '';
+                var url = "ManageDocument.do";
 
-                //Effect.SlideUp('document'+toSend.documentId);
+                // Slide up using CSS transition
+                var docEl = document.getElementById('document' + docId);
+                if (docEl) {
+                    docEl.classList.add('carlos-collapsed');
+                }
+
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': csrfToken
+                    },
+                    credentials: 'same-origin',
+                    body: formData.toString()
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(jason) {
+                    //console.log("successlog"+jason.success+"   "+jason.docId);
+                });
+
                 return false;
-            }
-
-            function successAdjusting(transport) {
-                var jason = transport.responseText.evalJSON(true);
-                //console.log("successlog"+jason.success+"   "+jason.docId);
-
-
             }
 
             /*

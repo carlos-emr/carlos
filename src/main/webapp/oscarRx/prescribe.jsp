@@ -247,7 +247,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='<c:out value="${ctx}/images/close.png"/>' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="Add to Favorites" onclick="addFav('<%=rand%>','<%=drugName%>')">F</a>
-    <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="$('rx_more_<%=rand%>').toggle();">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >more</span> </a>
+    <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >more</span> </a>
 
     <%-- Modern flexbox layout for drug name field - replaces float-based layout for better alignment and responsiveness --%>
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
@@ -392,7 +392,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 		<div>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
             <input type="checkbox" id="ocheck_<%=rand%>" name="ocheck_<%=rand%>"
-                   onclick="$('otext_<%=rand%>').toggle();" <%if (isOutsideProvider) {%> checked="checked" <%
+                   onclick="var el=document.getElementById('otext_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';" <%if (isOutsideProvider) {%> checked="checked" <%
                 } else {
                 }
             %>/>
@@ -693,7 +693,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 
         <script type="text/javascript">
-            $('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<%=drugName%>'));
+            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<%=drugName%>'));
             calculateRxData('<%=rand%>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
@@ -708,10 +708,13 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                     showHideSpecInst('siAutoComplete_'+id);
             }
             showHideSpecInst=function showHideSpecInst(elementId){
-              if($(elementId).getStyle('display')=='none'){
-                  Effect.BlindDown(elementId);
+              var el = document.getElementById(elementId);
+              if(el.style.display==='none'){
+                  el.classList.remove('carlos-collapsed');
+                  el.style.display='';
               }else{
-                  Effect.BlindUp(elementId);
+                  el.classList.add('carlos-collapsed');
+                  el.style.display='none';
               }
             }
 
@@ -748,10 +751,12 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                 }
 
                 oAC.containerCollapseEvent.subscribe(function () {
-                    $('autocomplete_choices').hide();
+                    var el = document.getElementById('autocomplete_choices');
+                    if (el) el.style.display = 'none';
                 });
                 oAC.dataRequestEvent.subscribe(function () {
-                    $('autocomplete_choices').show();
+                    var el = document.getElementById('autocomplete_choices');
+                    if (el) el.style.display = '';
                 });
                 return {
                     oDS: oDS,
@@ -774,7 +779,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                         //do nothing
                     }
                     else{
-                        $('<%=fieldSetId%>').remove();
+                        document.getElementById('<%=fieldSetId%>').remove();
                         //call java class to delete it from stash pool.
                         var randId='<%=rand%>';
                         deletePrescribe(randId);
@@ -786,10 +791,10 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             //oscarLog("counterRx="+counterRx);
            var gcn_val="<%=gcnCode%>";
            if(gcn_val === "0"){
-               $('drugName_<%=rand%>').focus();
+               document.getElementById('drugName_<%=rand%>').focus();
            } else if(counterRx==listRxDrugSize){
                //oscarLog("counterRx="+counterRx+"--listRxDrugSize="+listRxDrugSize);
-               $('instructions_<%=rand%>').focus();
+               document.getElementById('instructions_<%=rand%>').focus();
            }
         </script>
                 <%}%>

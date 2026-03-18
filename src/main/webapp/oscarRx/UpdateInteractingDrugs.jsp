@@ -117,7 +117,7 @@
                 id = id.replace(/\s/g, "");
                 if (document.getElementById(id) != null) {
                     document.getElementById(id).style.display = "inline";
-                    document.getElementById(id).update(htmlStr);
+                    document.getElementById(id).innerHTML = htmlStr;
                 }
             }
         }
@@ -173,25 +173,25 @@
         for (var h = 0; h < randomIdArr.length; h++) {
             var randId = randomIdArr[h];
             randId = randId.replace(/\s/g, "");//trim
-            $('major_' + randId).hide();
-            $('major_' + randId).update("");
-            $('moderate_' + randId).hide();
-            $('moderate_' + randId).update("");
-            $('minor_' + randId).hide();
-            $('minor_' + randId).update("");
-            $('unknown_' + randId).hide();
-            $('unknown_' + randId).update("");
+            document.getElementById('major_' + randId).style.display = 'none';
+            document.getElementById('major_' + randId).innerHTML = '';
+            document.getElementById('moderate_' + randId).style.display = 'none';
+            document.getElementById('moderate_' + randId).innerHTML = '';
+            document.getElementById('minor_' + randId).style.display = 'none';
+            document.getElementById('minor_' + randId).innerHTML = '';
+            document.getElementById('unknown_' + randId).style.display = 'none';
+            document.getElementById('unknown_' + randId).innerHTML = '';
         }
     }
 
 
     if (interactStr.length > 0) {
         if (interactStr == errorMsg) {
-            $("interactingDrugErrorMsg").show();
-            $("interactingDrugErrorMsg").update("<span style='color:red'>" + errorMsg + "</span>");
+            document.getElementById("interactingDrugErrorMsg").style.display = 'inline';
+            document.getElementById("interactingDrugErrorMsg").innerHTML = "<span style='color:red'>" + errorMsg + "</span>";
         } else {
-            $("interactingDrugErrorMsg").hide();
-            $("interactingDrugErrorMsg").update("");
+            document.getElementById("interactingDrugErrorMsg").style.display = 'none';
+            document.getElementById("interactingDrugErrorMsg").innerHTML = '';
             var arr1 = interactStr.split(",");
             for (var i = 0; i < arr1.length; i++) {
                 var str = arr1[i];
@@ -200,13 +200,13 @@
                 var title = arr2[1];
                 var htmlStr = "<a title='" + (title ? title.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "") + "'>&nbsp;&nbsp;</a>";
                 id = id.replace(/\s/g, "");
-                $(id).show();
-                $(id).update(htmlStr);
+                document.getElementById(id).style.display = 'inline';
+                document.getElementById(id).innerHTML = htmlStr;
             }
         }
     } else {
-        $("interactingDrugErrorMsg").hide();
-        $("interactingDrugErrorMsg").update("");
+        document.getElementById("interactingDrugErrorMsg").style.display = 'none';
+        document.getElementById("interactingDrugErrorMsg").innerHTML = '';
     }
 
 </script>
