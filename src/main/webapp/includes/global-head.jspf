@@ -12,8 +12,7 @@
     - global.js (legacy focus/refresh helpers)
     - jQuery 3.7.1
     - Bootstrap 5.3.3 (JS bundle + CSS)
-    - jQuery UI 1.14.2 (CSS + JS)
-    - DataTables 1.13.4 (core JS + Bootstrap 5 CSS; pages needing Bootstrap 5 table integration must also include dataTables.bootstrap5.min.js separately)
+    - jQuery UI 1.14.2 CSS (JS must be included page-specifically where dialogs/widgets are needed)
     - Font Awesome 6.7.2 (icon library)
     - searchBox.css (shared search/form styles)
     - global.css (CARLOS design tokens and common classes)
@@ -27,9 +26,6 @@
 <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.css">
-<script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
-<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
-<script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/searchBox.css">
 <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css">

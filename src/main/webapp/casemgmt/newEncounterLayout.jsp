@@ -321,16 +321,29 @@
                 popColumn(url, name, name, null, null);
             }
 
-            // Listen for tickler refresh broadcasts from popup windows
+            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
+            var ticklerChannel = null;
             try {
-                var ticklerChannel = new BroadcastChannel('carlos_tickler_refresh');
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<%=Encode.forJavaScript(request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0")%>');
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
                     if (data === 'refresh' || (data && data.action === 'refresh')) {
-                        reloadNav('tickler');
+                        try {
+                            reloadNav('tickler');
+                        } catch (reloadErr) {
+                            console.error('[newEncounterLayout] reloadNav failed:', reloadErr);
+                        }
                     }
                 };
-            } catch (e) {}
+                ticklerChannel.onmessageerror = function(event) {
+                    console.error('[newEncounterLayout] BroadcastChannel message deserialization error:', event);
+                };
+            } catch (e) {
+                console.warn('[newEncounterLayout] BroadcastChannel not available:', e);
+            }
+            window.addEventListener('unload', function() {
+                if (ticklerChannel) { ticklerChannel.close(); }
+            });
 
             function addPrintOption(name, bean) {
                 var test1Str = "<img style=\"cursor: pointer;\" title=\"Print " + name + "\" id=\"img" + name + "\" alt=\"Print " + name + "\" onclick=\"return printInfo(this, 'extPrint" + name + "');\" src=\"" + ctx + "/oscarEncounter/graphics/printer.png\">&nbsp;" + name;
@@ -347,11 +360,14 @@
             }
 
 
-            <%if(request.getParameter("appointmentNo") != null && request.getParameter("appointmentNo").length()>0) { %>
-            var appointmentNo = <%=request.getParameter("appointmentNo")%>;
-            <% } else { %>
-            var appointmentNo = 0;
-            <%}%>
+            <%
+                int appointmentNoVal = 0;
+                String appointmentNoParam = request.getParameter("appointmentNo");
+                if (appointmentNoParam != null && !appointmentNoParam.isEmpty()) {
+                    try { appointmentNoVal = Integer.parseInt(appointmentNoParam); } catch (NumberFormatException ignored) {}
+                }
+            %>
+            var appointmentNo = <%=appointmentNoVal%>;
 
             var savedNoteId = 0;
         </script>

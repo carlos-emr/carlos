@@ -41,6 +41,11 @@
     - Write-to-encounter option for chart documentation
     - Multisite and CAISI program provider assignment support
     - Patient demographic search and selection
+    - Form submission via hidden iframe ('ticklerSubmitFrame') to allow post-submit
+      window manipulation. The iframe.onload callback reads a server-side success
+      marker, then drives the opener refresh and window close. On success, broadcasts
+      to BroadcastChannel('carlos_tickler_refresh_' + demographicNo) so ticklerMain.jsp and
+      newEncounterLayout.jsp for the same patient can reload without a full page refresh.
 
     Parameters:
     - demographic_no:       Patient demographic number
@@ -49,7 +54,9 @@
     - priority:             Tickler priority (High/Normal/Low)
     - parentAjaxId:         Encounter navbar element ID for update notification
     - updateParent:         Whether to update the parent encounter window (true/false)
-    - recall:               If present, marks this as a recall tickler
+    - recall:               If present, intended to mark this as a recall tickler.
+                            NOTE: This parameter is currently read but not yet
+                            propagated to the tickler model. See dbTicklerAdd.jsp.
     - docType:              Optional document type for linking
     - docId:                Optional document ID for linking
 
@@ -420,10 +427,20 @@
             if (newHeight > 50) messageBox.style.height = newHeight + "px";
         }
 
+        function enableSubmitButtons() {
+            var btns = document.querySelectorAll('.action-bar-bottom .btn-primary, .action-bar-bottom .btn-secondary');
+            btns.forEach(function(b) { b.disabled = false; });
+        }
+
         function validate(form, writeToEncounter) {
             writeToEncounter = writeToEncounter || false;
             if (validateDemoNo()<%= caisiEnabled ? " && validateSelectedProgram()" : "" %>) {
-                // Reuse existing iframe to prevent duplicate creation on re-submit
+                // Disable submit buttons to prevent double-submit
+                var btns = document.querySelectorAll('.action-bar-bottom .btn-primary, .action-bar-bottom .btn-secondary');
+                btns.forEach(function(b) { b.disabled = true; });
+
+                // Create iframe once; reassign onload every call to capture current writeToEncounter
+                var submitTimeout;
                 var iframe = document.getElementById('ticklerSubmitFrame');
                 if (!iframe) {
                     iframe = document.createElement('iframe');
@@ -431,40 +448,90 @@
                     iframe.name = 'ticklerSubmitFrame';
                     iframe.style.display = 'none';
                     document.body.appendChild(iframe);
-                    iframe.onload = function() {
-                        // Skip the initial about:blank load
-                        try {
-                            if (iframe.contentWindow.location.href === 'about:blank') return;
-                        } catch (e) {}
-                        if (writeToEncounter) {
-                            // Write to encounter: navigate the opener window with updateParent flag
-                            try {
-                                if (window.opener && !window.opener.closed) {
-                                    var ref = window.opener.location.href;
-                                    if (ref.indexOf("updateParent") === -1) {
-                                        ref = ref + (ref.indexOf("?") > -1 ? "&" : "?") + "updateParent=true";
-                                    }
-                                    window.opener.location = ref;
-                                }
-                            } catch (e) {}
-                        } else {
-                            // Regular save: partial reload via reloadNav
-                            try {
-                                if (window.opener && !window.opener.closed &&
-                                    typeof window.opener.reloadNav === 'function') {
-                                    window.opener.reloadNav('tickler');
-                                }
-                            } catch (e) {}
-                        }
-                        // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
-                        try {
-                            var bc = new BroadcastChannel('carlos_tickler_refresh');
-                            bc.postMessage({ action: 'refresh' });
-                            bc.close();
-                        } catch (e) {}
-                        setTimeout(function() { window.close(); }, 500);
+                    // NOTE: onerror fires only for network-level failures (DNS, connection refused).
+                    // HTTP 4xx/5xx responses trigger onload instead — error detection is handled there.
+                    iframe.onerror = function() {
+                        console.error('[ticklerAdd] iframe network error during form submission');
+                        alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorNetworkFailed")) %>');
+                        enableSubmitButtons();
                     };
                 }
+
+                // Reassign onload on every call so writeToEncounter is always current
+                iframe.onload = function() {
+                    clearTimeout(submitTimeout);
+                    // Skip the initial about:blank load before the form posts
+                    try {
+                        if (iframe.contentWindow.location.href === 'about:blank') return;
+                    } catch (e) {
+                        // SecurityError: cross-origin redirect — almost certainly a session timeout
+                        console.error('[ticklerAdd] iframe cross-origin access blocked — possible session expiry:', e);
+                        alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired")) %>');
+                        enableSubmitButtons();
+                        return;
+                    }
+                    // Verify server confirmed save before proceeding
+                    try {
+                        var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-save-ok');
+                        if (!saveOk) {
+                            console.error('[ticklerAdd] Server did not confirm tickler save — possible server-side error');
+                            alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed")) %>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        if (iframe.contentDocument.getElementById('tickler-save-ok-link-failed')) {
+                            alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.warnLinkFailed")) %>');
+                        }
+                    } catch (e) {
+                        console.error('[ticklerAdd] Cannot read iframe response body — possible session expiry:', e);
+                        alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired")) %>');
+                        enableSubmitButtons();
+                        return;
+                    }
+                    if (writeToEncounter) {
+                        // Write to encounter: navigate the opener window with updateParent flag
+                        try {
+                            if (window.opener && !window.opener.closed) {
+                                var ref = window.opener.location.href;
+                                if (ref.indexOf("updateParent") === -1) {
+                                    ref = ref + (ref.indexOf("?") > -1 ? "&" : "?") + "updateParent=true";
+                                }
+                                window.opener.location = ref;
+                            }
+                        } catch (e) {
+                            console.error('[ticklerAdd] Failed to reload opener for write-to-encounter:', e);
+                        }
+                    } else {
+                        // Regular save: partial reload via reloadNav
+                        try {
+                            if (window.opener && !window.opener.closed &&
+                                typeof window.opener.reloadNav === 'function') {
+                                window.opener.reloadNav('tickler');
+                            }
+                        } catch (e) {
+                            console.error('[ticklerAdd] Failed to call opener.reloadNav:', e);
+                        }
+                    }
+                    // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
+                    try {
+                        var demoNo = '<%=org.owasp.encoder.Encode.forJavaScript(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0")%>';
+                        var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
+                        bc.postMessage({ action: 'refresh' });
+                        bc.close();
+                    } catch (e) {
+                        console.error('[ticklerAdd] BroadcastChannel broadcast failed:', e);
+                        // Fallback: reload the opener directly so the tickler list stays current
+                        try {
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.location.reload();
+                            }
+                        } catch (fallbackErr) {
+                            console.warn('[ticklerAdd] Could not reload opener — user may need to refresh manually:', fallbackErr);
+                        }
+                    }
+                    setTimeout(function() { window.close(); }, 500);
+                };
+
                 // Set form action based on mode
                 if (writeToEncounter) {
                     form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
@@ -473,6 +540,11 @@
                 }
                 form.target = 'ticklerSubmitFrame';
                 form.submit();
+                submitTimeout = setTimeout(function() {
+                    console.error('[ticklerAdd] Form submission timed out after 30s');
+                    alert('<%= org.owasp.encoder.Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed")) %>');
+                    enableSubmitButtons();
+                }, 30000);
             }
         }
 

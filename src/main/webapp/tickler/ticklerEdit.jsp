@@ -28,6 +28,33 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ticklerEdit.jsp - Edit an existing tickler reminder
+
+    Purpose:
+    Provides a form for editing an existing tickler reminder, including updating
+    the message, status, priority, assigned provider, and service date, with a
+    full comment history display.
+
+    Features:
+    - Compact demographic card with patient contact details
+    - Full tickler comment history display
+    - Suggested text templates for common tickler messages
+    - Quick-pick date selector (years, months, weeks, days offset)
+    - Form submission via hidden iframe ('ticklerEditFrame') to allow post-submit
+      window manipulation. The iframe.onload callback drives the opener refresh
+      and window close. On success, broadcasts to BroadcastChannel(
+      'carlos_tickler_refresh_<demographicNo>') so ticklerMain.jsp and
+      newEncounterLayout.jsp for the same patient can reload without a full
+      page refresh. The channel name is scoped per patient to prevent
+      cross-patient refresh triggers.
+
+    Parameters:
+    - tickler_no:           ID of the tickler to edit (required)
+    - parentAjaxId:         Encounter navbar element ID for reload notification
+
+    @since CARLOS EMR 2026
+--%>
 <%@page import="java.util.Set" %>
 <%@page import="java.util.List" %>
 <%@page import="java.util.GregorianCalendar" %>
@@ -38,7 +65,6 @@
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
@@ -89,9 +115,14 @@
     Demographic d = null;
     if (ticklerNo != null) {
         t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
+        if (t == null) {
+            response.sendRedirect(request.getContextPath() + "/errorpage.jsp");
+            return;
+        }
         d = demographicManager.getDemographicWithExt(loggedInInfo, t.getDemographicNo());
     } else {
         response.sendRedirect(request.getContextPath() + "/errorpage.jsp");
+        return;
     }
 
     java.util.Locale vLocale = request.getLocale();
@@ -213,6 +244,9 @@
                 border-radius: 0 0 4px 4px;
             }
         </style>
+        <%
+            java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+        %>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -308,9 +342,28 @@
                 return dat;
             }
 
+            function enableSubmitButtons() {
+                var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
+                if (btn) { btn.disabled = false; }
+            }
+
+            function validateSelectedProgram() {
+                if (document.serviceform.program_assigned_to && document.serviceform.program_assigned_to.value === "none") {
+                    document.getElementById("error").insertAdjacentText("beforeend", '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected"))%>');
+                    document.getElementById("error").style.display = 'block';
+                    return false;
+                }
+                return true;
+            }
+
             function validate(form) {
                 if (validateDate(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
-                    // Reuse existing iframe to prevent duplicate creation on re-submit
+                    // Disable update button to prevent double-submit
+                    var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
+                    if (btn) { btn.disabled = true; }
+
+                    // Create iframe once; reassign onload every call
+                    var submitTimeout;
                     var iframe = document.getElementById('ticklerEditFrame');
                     if (!iframe) {
                         iframe = document.createElement('iframe');
@@ -318,26 +371,70 @@
                         iframe.name = 'ticklerEditFrame';
                         iframe.style.display = 'none';
                         document.body.appendChild(iframe);
-                        iframe.onload = function() {
-                            try {
-                                if (iframe.contentWindow.location.href === 'about:blank') return;
-                            } catch (e) {}
-                            try {
-                                if (window.opener && !window.opener.closed &&
-                                    typeof window.opener.reloadNav === 'function') {
-                                    window.opener.reloadNav('tickler');
-                                }
-                            } catch (e) {}
-                            try {
-                                var bc = new BroadcastChannel('carlos_tickler_refresh');
-                                bc.postMessage({ action: 'refresh' });
-                                bc.close();
-                            } catch (e) {}
-                            setTimeout(function() { window.close(); }, 500);
+                        // NOTE: onerror fires only for network-level failures (DNS, connection refused).
+                        // HTTP 4xx/5xx responses trigger onload instead — error detection is handled there.
+                        iframe.onerror = function() {
+                            console.error('[ticklerEdit] iframe network error during form submission');
+                            alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorNetworkFailed"))%>');
+                            enableSubmitButtons();
                         };
                     }
+
+                    // Reassign onload on every call
+                    iframe.onload = function() {
+                        clearTimeout(submitTimeout);
+                        // Skip the initial about:blank load before the form posts
+                        try {
+                            if (iframe.contentWindow.location.href === 'about:blank') return;
+                        } catch (e) {
+                            // SecurityError: cross-origin redirect — almost certainly a session timeout
+                            console.error('[ticklerEdit] iframe cross-origin access blocked — possible session expiry:', e);
+                            alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired"))%>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        // Verify success by checking for sentinel element in the response
+                        var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-ok');
+                        if (!saveOk) {
+                            console.error('[ticklerEdit] Server did not return expected success response (missing #tickler-edit-ok)');
+                            alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed"))%>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        try {
+                            if (window.opener && !window.opener.closed &&
+                                typeof window.opener.reloadNav === 'function') {
+                                window.opener.reloadNav('tickler');
+                            }
+                        } catch (e) {
+                            console.error('[ticklerEdit] Failed to call opener.reloadNav:', e);
+                        }
+                        try {
+                            var demoNo = '<%=Encode.forJavaScript(String.valueOf(t.getDemographicNo()))%>';
+                            var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
+                            bc.postMessage({ action: 'refresh' });
+                            bc.close();
+                        } catch (e) {
+                            console.error('[ticklerEdit] BroadcastChannel broadcast failed:', e);
+                            // Fallback: reload the opener directly so the tickler list stays current
+                            try {
+                                if (window.opener && !window.opener.closed) {
+                                    window.opener.location.reload();
+                                }
+                            } catch (fallbackErr) {
+                                console.warn('[ticklerEdit] Could not reload opener — user may need to refresh manually:', fallbackErr);
+                            }
+                        }
+                        setTimeout(function() { window.close(); }, 500);
+                    };
+
                     form.target = 'ticklerEditFrame';
                     form.submit();
+                    submitTimeout = setTimeout(function() {
+                        console.error('[ticklerEdit] Form submission timed out after 30s');
+                        alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed"))%>');
+                        enableSubmitButtons();
+                    }, 30000);
                     return true;
                 }
                 return false;
@@ -350,7 +447,7 @@
 
             function validateDate(form) {
                 if (form.xml_appointment_date.value === "" || !IsDate(form.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", "<fmt:message key="tickler.ticklerAdd.msgMissingDate"/>");
+                    document.getElementById("error").insertAdjacentText("beforeend", '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.msgMissingDate"))%>');
                     document.getElementById("error").style.display = 'block';
                     return false;
                 } else {
@@ -379,7 +476,7 @@
                         <div class="demo-label"><fmt:message key="tickler.ticklerEdit.demographicName"/></div>
                         <div class="demo-name"><a href="javascript:void(0)"
                             onClick="popupPage(600,800,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=d.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtmlContent(d.getLastName())%>, <%=Encode.forHtmlContent(d.getFirstName())%></a></div>
-                        <div class="demo-value"><%=d.getAge()%> (<%=d.getFormattedDob()%>)</div>
+                        <div class="demo-value"><%=Encode.forHtmlContent(d.getAge())%> (<%=Encode.forHtmlContent(d.getFormattedDob())%>)</div>
                     </div>
                     <div class="col-sm-4">
                         <div class="demo-label"><fmt:message key="tickler.ticklerEdit.phoneNumbers"/></div>
@@ -513,7 +610,7 @@
                 <input type="button" class="btn btn-primary" name="updateTickler"
                        value="<fmt:message key="tickler.ticklerEdit.update"/>" onClick="validate(this.form)"/>
                 <input type="button" class="btn btn-secondary" name="cancelChangeTickler"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()"/>
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onClick="window.close()"/>
             </div>
         </form>
     </div>

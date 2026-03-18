@@ -111,9 +111,18 @@
     tickler.setServiceDate(serviceDate);
     tickler.setCreateDate(new Date());
 
-    ticklerManager.addTickler(loggedInInfo, tickler);
+    boolean rowsAffected = false;
+    try {
+        ticklerManager.addTickler(loggedInInfo, tickler);
+        rowsAffected = true;
+    } catch (Exception e) {
+        MiscUtils.getLogger().error("Failed to add tickler for demographicNo=" + module_id, e);
+        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to save tickler");
+        return;
+    }
 
     int ticklerNo = tickler.getId();
+    boolean ticklerLinkFailed = false;
     if (docType != null && docId != null && !docType.trim().equals("") && !docId.trim().equals("") && !docId.equalsIgnoreCase("null")) {
         if (ticklerNo > 0) {
             try {
@@ -123,23 +132,38 @@
                 tLink.setTicklerNo(new Long(ticklerNo).intValue());
                 TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
                 ticklerLinkDao.save(tLink);
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().error("Invalid docId format for TicklerLink: ticklerNo=" + ticklerNo + ", docId=" + docId, e);
+                ticklerLinkFailed = true;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("No link with this tickler", e);
+                MiscUtils.getLogger().error("Failed to save TicklerLink for ticklerNo=" + ticklerNo + ", docType=" + docType + ", docId=" + docId, e);
+                ticklerLinkFailed = true;
             }
         }
     }
 
-    boolean rowsAffected = true;
-
     String parentAjaxId = request.getParameter("parentAjaxId");
     String updateParent = request.getParameter("updateParent");
-    String updateTicklerNav = request.getParameter("updateTicklerNav");
+    // updateTicklerNav and updateParent are no longer used server-side; refresh is handled
+    // client-side in ticklerAdd.jsp via the iframe.onload callback.
 
-    if (rowsAffected) {
+    if (rowsAffected && !ticklerLinkFailed) {
 %>
+<%-- ticklerAdd.jsp reads this element to confirm the save succeeded before closing --%>
+<span id="tickler-save-ok" style="display:none;"></span>
 <script type="text/javascript">
     // Tickler saved successfully.
-    // Refresh is handled by the iframe.onload callback in ticklerAdd.jsp or ticklerEdit.jsp
-    // via BroadcastChannel('carlos_tickler_refresh') and window.opener.reloadNav().
+    // Refresh flow for regular save: iframe.onload in ticklerAdd.jsp calls
+    //   window.opener.reloadNav('tickler') and broadcasts via
+    //   BroadcastChannel('carlos_tickler_refresh_' + demographicNo), then closes the popup.
+    // Refresh flow for write-to-encounter: iframe.onload navigates
+    //   window.opener.location with updateParent=true, then closes the popup.
+    // Either way, the popup closes itself after 500 ms.
 </script>
+<%} else if (ticklerLinkFailed) {
+    // Tickler was saved but the document link failed. Emit both sentinels so the
+    // iframe.onload in ticklerAdd.jsp proceeds with close/refresh while showing a warning.
+%>
+<span id="tickler-save-ok" style="display:none;"></span>
+<span id="tickler-save-ok-link-failed" style="display:none;"></span>
 <%}%>
