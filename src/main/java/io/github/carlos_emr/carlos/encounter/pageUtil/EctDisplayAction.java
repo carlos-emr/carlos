@@ -113,10 +113,6 @@ public class EctDisplayAction extends ActionSupport {
 
         request.setAttribute("navbarName", navName);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", bean.demographicNo)) {
-            throw new SecurityException("missing required sec object (_demographic)");
-        }
-
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
         request.setAttribute("isJsonRequest", isJsonRequest);
 
@@ -155,6 +151,10 @@ public class EctDisplayAction extends ActionSupport {
             }
 
             request.setAttribute("EctSessionBean", bean);
+        }
+
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", bean.demographicNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         //Can we handle request?

@@ -61,12 +61,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> getCtlDocsAndDocsByDemoId(Integer demoId, Module moduleName, DocumentType docType) {
-        String sql = "FROM CtlDocument c, Document d " +
-                "WHERE c.id.module = ?1 " +
-                "AND c.id.documentNo = d.documentNo " +
-                "AND d.doctype = ?2 " +
-                "AND c.id.moduleId = ?3";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT c, d FROM CtlDocument c, Document d WHERE c.id.module = ?1 AND c.id.documentNo = d.documentNo AND d.doctype = ?2 AND c.id.moduleId = ?3");
         query.setParameter(1, moduleName.name().toLowerCase());
         query.setParameter(2, docType.name().toLowerCase());
         query.setParameter(3, demoId);
@@ -85,12 +80,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     @Override
     public List<Object[]> findCtlDocsAndDocsByModuleDocTypeAndModuleId(Module module, DocumentType docType,
                                                                        Integer moduleId) {
-        String sql = "FROM CtlDocument c, Document d " +
-                "WHERE c.id.module = ?1 " +
-                "AND c.id.documentNo = d.documentNo " +
-                "AND d.doctype = ?2 " +
-                "AND c.id.moduleId = ?3";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT c, d FROM CtlDocument c, Document d WHERE c.id.module = ?1 AND c.id.documentNo = d.documentNo AND d.doctype = ?2 AND c.id.moduleId = ?3");
         query.setParameter(1, module.getName());
         query.setParameter(2, docType.getName());
         query.setParameter(3, moduleId);
@@ -99,14 +89,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findCtlDocsAndDocsByModuleAndModuleId(Module module, Integer moduleId) {
-        String sql = "FROM CtlDocument c, Document d " +
-                "WHERE d.status = c.status " +
-                "AND d.status != 'D' " +
-                "AND c.id.documentNo = d.documentNo " +
-                "AND c.id.module = ?1 " +
-                "AND c.id.moduleId = ?2";
-
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT c, d FROM CtlDocument c, Document d WHERE d.status = c.status AND d.status != 'D' AND c.id.documentNo = d.documentNo AND c.id.module = ?1 AND c.id.moduleId = ?2");
         query.setParameter(1, module.getName());
         query.setParameter(2, moduleId);
         return query.getResultList();
@@ -114,12 +97,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findDocsAndConsultDocsByConsultId(Integer consultationId) {
-        String sql = "FROM Document d, ConsultDocs cd " +
-                "WHERE d.documentNo = cd.documentNo " +
-                "AND cd.requestId = ?1 " +
-                "AND cd.docType = ?2 " +
-                "AND cd.deleted IS NULL";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT d, cd FROM Document d, ConsultDocs cd WHERE d.documentNo = cd.documentNo AND cd.requestId = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL");
         query.setParameter(1, consultationId);
         query.setParameter(2, ConsultDocs.DOCTYPE_DOC);
         return query.getResultList();
@@ -127,12 +105,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findDocsAndEFormDocsByFdid(Integer fdid) {
-        String sql = "FROM Document d, EFormDocs cd " +
-                "WHERE d.documentNo = cd.documentNo " +
-                "AND cd.fdid = ?1 " +
-                "AND cd.docType = ?2 " +
-                "AND cd.deleted IS NULL";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT d, cd FROM Document d, EFormDocs cd WHERE d.documentNo = cd.documentNo AND cd.fdid = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL");
         query.setParameter(1, fdid);
         query.setParameter(2, EFormDocs.DOCTYPE_DOC);
         return query.getResultList();
@@ -140,23 +113,14 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findDocsAndConsultResponseDocsByConsultId(Integer consultationId) {
-        String sql = "FROM Document d, ConsultResponseDoc crd " +
-                "WHERE d.documentNo = crd.documentNo " +
-                "AND crd.responseId = ?1 " +
-                "AND crd.docType = 'D' " +
-                "AND crd.deleted IS NULL";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT d, crd FROM Document d, ConsultResponseDoc crd WHERE d.documentNo = crd.documentNo AND crd.responseId = ?1 AND crd.docType = 'D' AND crd.deleted IS NULL");
         query.setParameter(1, consultationId);
         return query.getResultList();
     }
 
     @Override
     public List<Object[]> findCtlDocsAndDocsByDocNo(Integer documentNo) {
-        String sql = "FROM Document d, CtlDocument c " +
-                "WHERE c.id.documentNo = d.documentNo " +
-                "AND c.id.documentNo = ?1 " +
-                "ORDER BY d.observationdate DESC, d.updatedatetime DESC";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT d, c FROM Document d, CtlDocument c WHERE c.id.documentNo = d.documentNo AND c.id.documentNo = ?1 ORDER BY d.observationdate DESC, d.updatedatetime DESC");
         query.setParameter(1, documentNo);
         return query.getResultList();
     }
@@ -164,13 +128,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     @Override
     public List<Object[]> findCtlDocsAndDocsByModuleCreatorResponsibleAndDates(Module module, String providerNo,
                                                                                String responsible, Date from, Date to, boolean unmatchedDemographics) {
-        String sql = "FROM Document d, CtlDocument c " +
-                "WHERE c.documentNo = d.documentNo " +
-                "AND c.module= ?1 " +
-                "AND d.doccreator = ?2 " +
-                "AND d.responsible = ?3" +
-                "AND d.updatedatetime >= ?4 " +
-                "AND d.updatedatetime <= ?5";
+        String sql = "SELECT d, c FROM Document d, CtlDocument c WHERE c.documentNo = d.documentNo AND c.module= ?1 AND d.doccreator = ?2 AND d.responsible = ?3 AND d.updatedatetime >= ?4 AND d.updatedatetime <= ?5";
         if (unmatchedDemographics) {
             sql += " AND c.id.moduleId = -1 ";
         }
@@ -185,12 +143,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findConstultDocsDocsAndProvidersByModule(Module module, Integer moduleId) {
-        String sql = "FROM Document d, Provider p, CtlDocument c " +
-                "WHERE d.doccreator = p.ProviderNo " +
-                "AND d.id = c.id.documentNo " +
-                "AND c.id.module = ?1 " +
-                "AND c.id.moduleId = ?2";
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery("SELECT d, p, c FROM Document d, Provider p, CtlDocument c WHERE d.doccreator = p.ProviderNo AND d.id = c.id.documentNo AND c.id.module = ?1 AND c.id.moduleId = ?2");
         query.setParameter(1, module.getName());
         query.setParameter(2, moduleId);
         return query.getResultList();

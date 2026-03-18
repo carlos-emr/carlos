@@ -70,10 +70,7 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> getMessagesAndDemographicsByMessageId(Integer messageId) {
-        String sql = "FROM MsgDemoMap m, Demographic d " +
-                "WHERE m.messageID = :msgId " +
-                "AND d.DemographicNo = m.demographic_no " +
-                "ORDER BY d.LastName, d.FirstName";
+        String sql = "SELECT m, d FROM MsgDemoMap m, Demographic d WHERE m.messageID = :msgId AND d.DemographicNo = m.demographic_no ORDER BY d.LastName, d.FirstName";
         Query query = entityManager.createQuery(sql);
         query.setParameter("msgId", messageId);
         return query.getResultList();
@@ -82,10 +79,7 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
     @Override
     public List<Object[]> getMapAndMessagesByDemographicNo(Integer demoNo) {
         // TODO Auto-generated method stub
-        String sql = "FROM MsgDemoMap map, MessageTbl m " +
-                "WHERE m.id = map.messageID " +
-                "AND map.demographic_no = :demoNo " +
-                "ORDER BY m.date DESC, m.id DESC";
+        String sql = "SELECT map, m FROM MsgDemoMap map, MessageTbl m WHERE m.id = map.messageID AND map.demographic_no = :demoNo ORDER BY m.date DESC, m.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter("demoNo", demoNo);
         return query.getResultList();
@@ -93,10 +87,7 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
 
     @Override
     public List<Object[]> getMapAndMessagesByDemographicNoAndType(Integer demoNo, Integer type) {
-        String sql = "FROM MsgDemoMap map, MessageTbl m " +
-                "WHERE m.id = map.messageID " +
-                "AND map.demographic_no = :demoNo " +
-                "AND m.type = :type ORDER BY m.date DESC, m.id DESC";
+        String sql = "SELECT map, m FROM MsgDemoMap map, MessageTbl m WHERE m.id = map.messageID AND map.demographic_no = :demoNo AND m.type = :type ORDER BY m.date DESC, m.id DESC";
         Query query = entityManager.createQuery(sql);
         query.setParameter("demoNo", demoNo);
         query.setParameter("type", type);

@@ -59,9 +59,7 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
         // billingMasterNo;
 
         // attempt to rewrite a left join with a cross product...
-        Query query = entityManager.createQuery("FROM BillingHistory bh, "
-                + BillingPaymentType.class.getSimpleName()
-                + " bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL) AND bh.billingMasterNo = :bmn");
+        Query query = entityManager.createQuery("SELECT bh, bpt FROM BillingHistory bh, BillingPaymentType bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL) AND bh.billingMasterNo = :bmn");
         query.setParameter("bmn", billingMasterNo);
         return query.getResultList();
     }
@@ -76,12 +74,7 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     public List<Object[]> findBillingHistoryByBillingMasterNo(Integer billingMasterNo) {
         // "from billingmaster bm, billing_history bh left join billing_payment_type bt on bh.payment_type_id = bt.id
         //     where bh.billingmaster_no = bm.billingmaster_no and bm.billing_no = " + billingNo;
-        Query query = entityManager.createQuery("FROM "
-                + Billingmaster.class.getSimpleName() + " bm, "
-                + "BillingHistory bh, "
-                + BillingPaymentType.class.getSimpleName()
-                + " bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL ) " +
-                "AND bm.billingmasterNo = bh.billingMasterNo AND bm.billingmasterNo = :bmn");
+        Query query = entityManager.createQuery("SELECT bm, bh, bpt FROM Billingmaster bm, BillingHistory bh, BillingPaymentType bpt WHERE (bh.paymentTypeId = bpt.id OR bpt.id IS NULL ) AND bm.billingmasterNo = bh.billingMasterNo AND bm.billingmasterNo = :bmn");
         query.setParameter("bmn", billingMasterNo);
         return query.getResultList();
     }

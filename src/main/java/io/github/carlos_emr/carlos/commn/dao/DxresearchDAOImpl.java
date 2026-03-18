@@ -351,19 +351,7 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
     }
 
     public List<Object[]> getDataForInrReport(Date fromDate, Date toDate) {
-        String sql = "FROM Demographic d, Measurement m, Dxresearch dx " +
-                "wHERE m.demographicId = dx.demographicNo " +
-                "AND dx.status != 'D' " +
-                "AND dx.codingSystem = 'icd9' " +
-                "AND (" +
-                "	dx.dxresearchCode = '42731' " +
-                "	OR dx.dxresearchCode = 'V5861' " +
-                "	OR dx.dxresearchCode = 'V1251'" +
-                ") AND m.demographicId = d.DemographicNo " +
-                "AND m.type = 'INR' " +
-                "AND m.dateObserved >= ?1" +
-                "AND m.dateObserved <= ?2" +
-                "ORDER BY d.LastName, d.FirstName, m.dateObserved";
+        String sql = "SELECT d, m, dx FROM Demographic d, Measurement m, Dxresearch dx WHERE m.demographicId = dx.demographicNo AND dx.status != 'D' AND dx.codingSystem = 'icd9' AND (dx.dxresearchCode = '42731' OR dx.dxresearchCode = 'V5861' OR dx.dxresearchCode = 'V1251') AND m.demographicId = d.DemographicNo AND m.type = 'INR' AND m.dateObserved >= ?1 AND m.dateObserved <= ?2 ORDER BY d.LastName, d.FirstName, m.dateObserved";
         Query q = entityManager.createQuery(sql);
         q.setParameter(1, fromDate);
         q.setParameter(2, toDate);

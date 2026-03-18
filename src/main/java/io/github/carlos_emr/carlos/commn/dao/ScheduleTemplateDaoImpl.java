@@ -58,16 +58,7 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
 
     @Override
     public List<Object[]> findSchedules(Date date_from, Date date_to, String provider_no) {
-        String sql = "FROM ScheduleTemplate st, ScheduleDate sd " +
-                "WHERE st.id.name = sd.hour " +
-                "AND sd.date >= ?1 " +
-                "AND sd.date <= ?2 " +
-                "AND sd.providerNo = ?3 " +
-                "AND sd.status = 'A' " +
-                "AND (" +
-                "	st.id.providerNo = sd.providerNo " +
-                "	OR st.id.providerNo = 'Public' " +
-                ") ORDER BY sd.date";
+        String sql = "SELECT st, sd FROM ScheduleTemplate st, ScheduleDate sd WHERE st.id.name = sd.hour AND sd.date >= ?1 AND sd.date <= ?2 AND sd.providerNo = ?3 AND sd.status = 'A' AND (st.id.providerNo = sd.providerNo OR st.id.providerNo = 'Public') ORDER BY sd.date";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, date_from);
         query.setParameter(2, date_to);
@@ -77,15 +68,7 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
 
     @Override
     public List<Object[]> findSchedules(Date dateFrom, List<String> providerIds) {
-        String sql = "FROM ScheduleTemplate st, ScheduleDate sd " +
-                "WHERE st.id.name = sd.hour " +
-                "AND sd.date >= ?1 " +
-                "AND sd.providerNo in ( ?2 ) " +
-                "AND sd.status = 'A' " +
-                "AND (" +
-                "	st.providerNo = sd.providerNo " +
-                "	OR st.providerNo = 'Public' " +
-                ") ORDER BY sd.date";
+        String sql = "SELECT st, sd FROM ScheduleTemplate st, ScheduleDate sd WHERE st.id.name = sd.hour AND sd.date >= ?1 AND sd.providerNo in ( ?2 ) AND sd.status = 'A' AND (st.providerNo = sd.providerNo OR st.providerNo = 'Public') ORDER BY sd.date";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, dateFrom);
         query.setParameter(2, providerIds);

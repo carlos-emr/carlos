@@ -96,10 +96,7 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findMembersByGroupId(int groupId) {
-        String sql = "FROM GroupMembers g, Provider p "
-                + "WHERE g.providerNo = p.ProviderNo "
-                + "AND g.groupId = ?1"
-                + "ORDER BY p.LastName, p.FirstName";
+        String sql = "SELECT g, p FROM GroupMembers g, Provider p WHERE g.providerNo = p.ProviderNo AND g.groupId = ?1 ORDER BY p.LastName, p.FirstName";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, groupId);
         return query.getResultList();

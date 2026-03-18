@@ -59,9 +59,7 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findSpecialists(Integer servId) {
-        String sql = "FROM ServiceSpecialists ser, " + ProfessionalSpecialist.class.getSimpleName() + " pro " +
-                "WHERE pro.id = ser.id.specId and ser.id.serviceId = ?1 " +
-                "ORDER BY pro.lastName";
+        String sql = "SELECT ser, pro FROM ServiceSpecialists ser, " + ProfessionalSpecialist.class.getSimpleName() + " pro WHERE pro.id = ser.id.specId and ser.id.serviceId = ?1 ORDER BY pro.lastName";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, servId);
         return query.getResultList();

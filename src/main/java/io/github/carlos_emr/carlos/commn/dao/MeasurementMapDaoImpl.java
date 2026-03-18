@@ -167,12 +167,7 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findMeasurements(String labType, String idCode, String name) {
-        String sql = "FROM MeasurementMap a, MeasurementMap b, " + MeasurementType.class.getSimpleName() + " type " +
-                "WHERE b.labType = ?1" +
-                "AND a.identCode = ?2" +
-                "AND a.name LIKE ?3" +
-                "AND a.loincCode = b.loincCode " +
-                "AND type.type = b.identCode";
+        String sql = "SELECT a, b, type FROM MeasurementMap a, MeasurementMap b, " + MeasurementType.class.getSimpleName() + " type WHERE b.labType = ?1 AND a.identCode = ?2 AND a.name LIKE ?3 AND a.loincCode = b.loincCode AND type.type = b.identCode";
         Query q = entityManager.createQuery(sql);
         q.setParameter(1, labType);
         q.setParameter(2, idCode);
