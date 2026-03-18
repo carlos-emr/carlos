@@ -290,7 +290,7 @@ else
                                         else
                                                 # Remove stale legacy path if present
                                                 sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /lib/systemd/system/tomcat9.service 2>>$LOG_FILE || true
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\/' /lib/systemd/system/tomcat9.service
+                                                sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /lib/systemd/system/tomcat9.service
                                                 sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /lib/systemd/system/tomcat9.service
                                                 echo "Edited tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/"
                                                 echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp/" >>$LOG_FILE
@@ -306,7 +306,7 @@ else
                                         else
                                                 # Remove stale legacy path if present
                                                 sed -i '/ReadWritePaths=\/var\/lib\/OscarDocument\//d' /etc/systemd/system/multi-user.target.wants/tomcat9.service 2>>$LOG_FILE || true
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/var\/lib\/carlos-emr\/OscarDocument\//' /etc/systemd/system/multi-user.target.wants/tomcat9.service
+                                                sed -i "/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=${BASE_DOCUMENT_DIR}/" /etc/systemd/system/multi-user.target.wants/tomcat9.service
                                                 sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=\/tmp\//' /etc/systemd/system/multi-user.target.wants/tomcat9.service
                                                 echo "Edited tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp"
                                                 echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on ${BASE_DOCUMENT_DIR}/ and /tmp" >>$LOG_FILE
@@ -548,6 +548,7 @@ if [ "${UPGRADE}" = "true" ] ; then
   	db_set carlos-emr/phoneprefix ${phoneprefix}
   	echo "priorschema=${db_name}" >> $LOG_FILE
   	db_set carlos-emr/priorschema $db_name
+  	db_fset carlos-emr/priorschema seen true
     # Initialize ${PROGRAM}.tmp from the bundled source carlos.properties so that the
     # subsequent property-append block (below) has a valid base file to work from.
     # The Tomcat path and commented-out properties are adjusted the same way as a new install.
