@@ -192,6 +192,7 @@ Ontario, Canada
 <html>
     <head>
         <%@ include file="/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.title"/></title>

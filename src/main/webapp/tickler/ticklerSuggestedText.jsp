@@ -57,7 +57,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.title"/></title>
+    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/> - <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <script type="application/javascript">
