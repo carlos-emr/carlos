@@ -257,7 +257,7 @@ else
                         # BASE_DOCUMENT_DIR is /var/lib/carlos-emr/OscarDocument — ensure it exists
                         # before adding it to the service file or systemd will refuse to start Tomcat.
                         mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
-                        chown -R ${TOMCAT_USER}:${TOMCAT_USER} "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE || true
+                        chown -R "${TOMCAT_USER}:${TOMCAT_USER}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE || true
                         if [ -d "/etc/systemd/system/tomcat9.service.d" ] ; then
                                 if [ ! -f /etc/systemd/system/tomcat9.service.d/override.conf ] ; then
                                         touch /etc/systemd/system/tomcat9.service.d/override.conf
@@ -548,6 +548,7 @@ if [ "${UPGRADE}" = "true" ] ; then
   	db_set carlos-emr/phoneprefix ${phoneprefix}
   	echo "priorschema=${db_name}" >> $LOG_FILE
   	db_set carlos-emr/priorschema $db_name
+  	priorschema=$db_name
   	db_fset carlos-emr/priorschema seen true
     # Initialize ${PROGRAM}.tmp from the bundled source carlos.properties so that the
     # subsequent property-append block (below) has a valid base file to work from.
