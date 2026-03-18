@@ -47,7 +47,7 @@ String curProvider_no = (String)session.getAttribute("user");
     <!--Sidebar content--> 
 		<div class="accordion" id="adminNav">
 		
-			<div class="accordion-group nav nav-tabs">
+			<div class="accordion-group">
 			
 			<div class="accordion-heading p-2" style="margin-bottom:0px;color:#000">
 			<a href="${ctx}/administration/"><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></a>
