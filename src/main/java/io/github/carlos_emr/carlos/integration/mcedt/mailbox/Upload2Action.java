@@ -37,6 +37,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.OscarProperties;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -317,8 +318,9 @@ public class Upload2Action extends ActionSupport {
         try {
             List<String> fileNames = Arrays.asList(this.getFileName().trim().split(","));
             OscarProperties props = OscarProperties.getInstance();
+            File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
             for (String fileName : fileNames) {
-                File file = new File(props.getProperty("ONEDT_OUTBOX", "") + fileName);
+                File file = PathValidationUtils.validatePath(fileName.trim(), outboxDir);
                 file.delete();
             }
 
@@ -337,7 +339,8 @@ public class Upload2Action extends ActionSupport {
             return "failure";
         } else {
             OscarProperties props = OscarProperties.getInstance();
-            File myFile = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
+            File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+            File myFile = PathValidationUtils.validatePath(this.getFileName().trim(), outboxDir);
             try (FileOutputStream outputStream = new FileOutputStream(myFile)) {
                 outputStream.write(Files.readAllBytes(this.getAddUploadFile().toPath()));
                 outputStream.close();
@@ -366,7 +369,8 @@ public class Upload2Action extends ActionSupport {
         result.setDescription(this.getDescription());
         result.setResourceType(this.getResourceType());
         OscarProperties props = OscarProperties.getInstance();
-        File file = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
+        File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
+        File file = PathValidationUtils.validatePath(this.getFileName().trim(), outboxDir);
         try (FileInputStream fis = new FileInputStream(file)) {
             byte[] data = new byte[fis.available()];
             fis.read(data);
@@ -385,12 +389,13 @@ public class Upload2Action extends ActionSupport {
         List<String> fileNames = Arrays.asList(this.getFileName().trim().split(","));
         List<String> resourceTypes = Arrays.asList(this.getResourceType().trim().split(","));
         if (fileNames.size() == resourceTypes.size()) {
+            OscarProperties props = OscarProperties.getInstance();
+            File outboxDir = new File(props.getProperty("ONEDT_OUTBOX", ""));
             for (int i = 0; i < fileNames.size(); i++) {
                 UploadData result = new UploadData();
                 result.setDescription(fileNames.get(i));
                 result.setResourceType(resourceTypes.get(i));
-                OscarProperties props = OscarProperties.getInstance();
-                File file = new File(props.getProperty("ONEDT_OUTBOX", "") + fileNames.get(i));
+                File file = PathValidationUtils.validatePath(fileNames.get(i).trim(), outboxDir);
                 try (FileInputStream fis = new FileInputStream(file);) {
                     byte[] data = new byte[fis.available()];
                     fis.read(data);

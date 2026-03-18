@@ -205,6 +205,12 @@ public class LabUpload2Action extends ActionSupport {
             PrivateKey key = getServerPrivate();
 
             // Decrypt the secret key using the servers private key
+            // NOTE: PKCS1Padding (PKCS#1 v1.5) is theoretically vulnerable to Bleichenbacher
+            // padding oracle attacks. OAEP padding (RSA/ECB/OAEPWithSHA-256AndMGF1Padding)
+            // would be more secure, but this protocol is dictated by the external lab system
+            // sender which encrypts with PKCS#1 v1.5. Changing the padding here would break
+            // decryption of incoming lab uploads. This is decrypt-only (not encrypt), which
+            // limits the attack surface. If the external protocol is ever updated, migrate to OAEP.
             Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
             cipher.init(Cipher.DECRYPT_MODE, key);
             byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));

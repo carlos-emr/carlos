@@ -171,8 +171,8 @@ public class PrivateBillingController extends HttpServlet {
                     map.put("patientYearOfBirth", patient.getYearOfBirth());
 
                     // get recipient info (note: a null attribute means the recipient is the patient)
-                    String strRecipientId = jsonElem.get("recipientId").asText();
-                    if (strRecipientId.isEmpty() || strRecipientId == "") {
+                    String strRecipientId = jsonElem.path("recipientId").asText("");
+                    if (strRecipientId.isEmpty()) {
                         map.put("recipientName", patient.getFirstName() + " " + patient.getLastName());
                         map.put("recipientAddress", patient.getAddress());
                         map.put("recipientCity", patient.getCity());

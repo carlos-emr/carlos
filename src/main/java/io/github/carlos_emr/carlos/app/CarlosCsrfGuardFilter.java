@@ -37,6 +37,7 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Locale;
 
 /**
  * CARLOS CSRF Guard filter for CSRFGuard 4.5.
@@ -182,7 +183,7 @@ public class CarlosCsrfGuardFilter implements Filter {
      */
     private static boolean isMultipartContent(HttpServletRequest request) {
         String contentType = request.getContentType();
-        return contentType != null && contentType.toLowerCase().startsWith("multipart/");
+        return contentType != null && contentType.toLowerCase(Locale.ROOT).startsWith("multipart/");
     }
 
     @Override

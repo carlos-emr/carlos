@@ -38,6 +38,7 @@ import java.nio.file.Files;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.OscarProperties;
 
+@MultipartConfig(maxFileSize = 52428800, maxRequestSize = 52428800, fileSizeThreshold = 1048576)
 public class UploadImage extends HttpServlet {
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {

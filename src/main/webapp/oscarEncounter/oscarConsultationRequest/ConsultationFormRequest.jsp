@@ -1572,13 +1572,13 @@
         let addr, ph, fx;
 
         <% if (consultUtil.letterheadAddress != null) { %>
-        addr = '<%= Encode.forJavaScript(consultUtil.letterheadAddress.replace('\n', ' ')) %>';
+        addr = '<%= Encode.forJavaScript(consultUtil.letterheadAddress.replaceAll("\\n", " ")) %>';
         <%} else {%>
         addr = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
         <%}%>
 
         <% if(consultUtil.letterheadPhone != null) { %>
-        ph = '<%=Encode.forJavaScript(consultUtil.letterheadPhone.replace('\n', ' '))%>';
+        ph = '<%=Encode.forJavaScript(consultUtil.letterheadPhone.replaceAll("\\n", " "))%>';
         <%} else { %>
         ph = '<%=Encode.forJavaScript(clinic.getClinicPhone())%>';
         <% }%>

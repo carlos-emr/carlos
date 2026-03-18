@@ -49,7 +49,9 @@ import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.http.NameValuePair;
 import org.apache.hc.client5.http.impl.cookie.BasicClientCookie;
 import org.apache.hc.client5.http.protocol.HttpClientContext;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.util.Timeout;
 
@@ -112,7 +114,15 @@ public class TeleplanAPI {
                 .setResponseTimeout(Timeout.ofSeconds(30))
                 .build();
 
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(30))
+                .build();
+
+        PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
+        connManager.setDefaultConnectionConfig(connectionConfig);
+
         httpclient = HttpClients.custom()
+                .setConnectionManager(connManager)
                 .setDefaultCookieStore(cookieStore)
                 .setDefaultRequestConfig(requestConfig)
                 .setUserAgent("TeleplanPerl 1.0")

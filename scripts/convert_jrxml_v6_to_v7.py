@@ -30,9 +30,7 @@ References:
 import sys
 import os
 import re
-import glob
 import argparse
-import copy
 from xml.etree import ElementTree as ET
 
 # JR6 namespace
