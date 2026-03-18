@@ -34,14 +34,16 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.tools.ant.util.DateUtils;
-import org.hibernate.transform.ResultTransformer;
+import org.hibernate.query.ResultListTransformer;
+import org.hibernate.query.TupleTransformer;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 
-public class DemographicSearchResultTransformer implements ResultTransformer {
+public class DemographicSearchResultTransformer
+        implements TupleTransformer<DemographicSearchResult>, ResultListTransformer<DemographicSearchResult> {
 
     private DemographicDao demographicDao;
     private SimpleDateFormat sdf = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN);
@@ -52,7 +54,7 @@ public class DemographicSearchResultTransformer implements ResultTransformer {
 
 
     @Override
-    public Object transformTuple(Object[] tuple, String[] aliases) {
+    public DemographicSearchResult transformTuple(Object[] tuple, String[] aliases) {
         Integer demographicNo = (Integer) tuple[0];
         String lastName = (String) tuple[1];
         String firstName = (String) tuple[2];
@@ -111,8 +113,7 @@ public class DemographicSearchResultTransformer implements ResultTransformer {
     }
 
     @Override
-    public List transformList(List collection) {
-
+    public List<DemographicSearchResult> transformList(List<DemographicSearchResult> collection) {
         return collection;
     }
 

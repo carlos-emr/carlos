@@ -2677,21 +2677,20 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         Session session = currentSession();
-            NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
+            NativeQuery<DemographicSearchResult> sqlQuery = session.createNativeQuery(demographicQuery);
 
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
             }
 
             sqlQuery.setFirstResult(startIndex);
-            // TODO H6-MIGRATE: setResultTransformer() is removed in Hibernate 6.
-            // Replace with setTupleTransformer() using DemographicSearchResultTransformer.transformTuple() (H6-only API).
             DemographicSearchResultTransformer transformer = new DemographicSearchResultTransformer();
             transformer.setDemographicDao(this);
-            sqlQuery.setResultTransformer(transformer);
+            sqlQuery.setTupleTransformer(transformer);
+            sqlQuery.setResultListTransformer(transformer);
             setLimit(sqlQuery, itemsToReturn);
 
-            return sqlQuery.list();
+            return sqlQuery.getResultList();
     }
 
     private String generateDemographicSearchQuery(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest,

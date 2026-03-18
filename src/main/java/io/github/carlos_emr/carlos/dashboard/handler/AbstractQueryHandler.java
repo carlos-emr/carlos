@@ -28,7 +28,9 @@
  */
 package io.github.carlos_emr.carlos.dashboard.handler;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
@@ -80,10 +82,15 @@ public abstract class AbstractQueryHandler extends AbstractHibernateDao {
         Transaction tx = null;
         try (Session session = getSessionFactory().openSession()) {
             tx = session.beginTransaction();
-            NativeQuery<?> sqlQuery = session.createNativeQuery(query);
-            // TODO H6-MIGRATE: setResultTransformer() is removed from Query in H6.
-            // Replace with setTupleTransformer() using a lambda-based tuple transformer (H6-only API).
-            sqlQuery.setResultTransformer(org.hibernate.transform.AliasToEntityMapResultTransformer.INSTANCE);
+            NativeQuery<Map<String, Object>> sqlQuery = session.createNativeQuery(query);
+            sqlQuery.setTupleTransformer((tuple, aliases) -> {
+                Map<String, Object> row = new LinkedHashMap<>();
+                for (int i = 0; i < tuple.length; i++) {
+                    String alias = aliases[i];
+                    row.put(alias != null ? alias : Integer.toString(i), tuple[i]);
+                }
+                return row;
+            });
             List<?> results = sqlQuery.getResultList();
 
             //TODO work on method to detect and exclude demographic files that are

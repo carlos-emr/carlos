@@ -135,7 +135,7 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
          *
          * <p>The underlying method opens its own Hibernate {@code Session} and
          * {@code Transaction}, executes the given native SQL, applies the
-         * {@code ALIAS_TO_ENTITY_MAP} result transformer, and returns the results
+         * tuple transformer, and returns the results
          * as a list of {@code Map<String, Object>} entries.</p>
          *
          * @param query String the native SQL query to execute
@@ -645,7 +645,7 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
      *       inserted via the EntityManager is NOT visible to executed queries.</li>
      *   <li>Tests therefore use self-contained queries (e.g., {@code SELECT 1})
      *       that do not depend on pre-existing database rows.</li>
-     *   <li>The result transformer {@code ALIAS_TO_ENTITY_MAP} converts each
+     *   <li>The Hibernate tuple transformer converts each
      *       result row into a {@code Map<String, Object>} keyed by column alias.</li>
      *   <li>Invalid SQL should trigger a {@code RuntimeException} wrapping the
      *       underlying Hibernate/database exception.</li>
@@ -663,7 +663,7 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
          * and requires no pre-existing data. The test validates that:</p>
          * <ol>
          *   <li>The result list is non-null and contains exactly one row</li>
-         *   <li>Each row is a {@code Map} (from the ALIAS_TO_ENTITY_MAP transformer)</li>
+         *   <li>Each row is a {@code Map} (from the Hibernate tuple transformer)</li>
          *   <li>The map contains the expected {@code "result"} key matching the column alias</li>
          * </ol>
          */
@@ -683,7 +683,7 @@ public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
             assertThat(results).isNotNull();
             assertThat(results).hasSize(1);
 
-            // The result transformer ALIAS_TO_ENTITY_MAP returns Map objects
+            // The tuple transformer returns Map objects keyed by column alias
             Object row = results.get(0);
             assertThat(row).isInstanceOf(Map.class);
 
