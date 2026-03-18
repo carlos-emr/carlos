@@ -355,8 +355,12 @@ echo "Chosen region =${STATE}" 1>> $LOG_FILE
 ### If NOT found: UPGRADE=false, new install path proceeds below.
 ### ============================================================
 echo "Checking for OSCAR to CARLOS Upgrade possibility" >>$LOG_FILE
-if [ -f "/usr/share/${TOMCAT}/oscar.properties" ] ; then
-	echo "Previous OSCAR Installation Detected" >> $LOG_FILE
+# Detect any prior installation: either an OSCAR 19 install (oscar.properties) or an
+# existing CARLOS install (carlos.properties).  Both trigger the UPGRADE=true path;
+# the sub-cases within that block then distinguish OSCAR migration vs CARLOS revision update.
+if [ -f "/usr/share/${TOMCAT}/oscar.properties" ] || \
+   [ -f "/usr/share/${TOMCAT}/${PROGRAM}.properties" ] ; then
+	echo "Previous Installation Detected (oscar.properties or carlos.properties found)" >> $LOG_FILE
 	UPGRADE=true
 	echo "UPGRADE=${UPGRADE}" 1>> $LOG_FILE
 fi
@@ -535,7 +539,9 @@ if [ "${UPGRADE}" = "true" ] ; then
   	echo "grep the phone prefix from the properties file" >> $LOG_FILE
   	phoneprefix=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'phoneprefix'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
   	echo "phoneprefix=${phoneprefix}" >> $LOG_FILE
-  	db_set carlos-emr/phoneprefix ${phoneprefix}
+  	# Quote phoneprefix so debconf receives an explicit empty string when the property
+  	# is absent from oscar.properties, rather than a missing argument which causes db_set to fail.
+  	db_set carlos-emr/phoneprefix "${phoneprefix}"
   	echo "priorschema=${db_name}" >> $LOG_FILE
   	db_set carlos-emr/priorschema $db_name
     # Initialize ${PROGRAM}.tmp from the bundled source carlos.properties so that the
