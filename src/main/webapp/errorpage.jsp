@@ -46,7 +46,7 @@
 <!-- only true can access exception object -->
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.config.MessengerAdmin.goBack" var="btnBackTitle"/>
 <fmt:message key="provider.appointmentProviderAdminDay.schedView" var="btnExitTitle"/>

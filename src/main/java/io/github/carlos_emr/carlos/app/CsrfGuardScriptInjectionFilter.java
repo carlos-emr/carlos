@@ -122,11 +122,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() unwraps
-        // HttpServletResponseWrappers during the initial REQUEST dispatch. However, the
-        // filter-mapping includes FORWARD dispatcher, so this filter also runs when Struts
-        // forwards to the JSP. The forward request has a .jsp servletPath, so the wrapper
-        // is applied there — preventing the default 8KB response buffer from truncating
-        // the forwarded JSP output.
+        // HttpServletResponseWrappers, so our CaptureResponseWrapper cannot intercept
+        // the JSP output during forward. Struts-rendered JSPs that exceed the default
+        // 8KB response buffer use <%@ page buffer="none" %> to disable JSP-level
+        // buffering, allowing content to stream directly without truncation.
         String servletPath = httpRequest.getServletPath();
         if (servletPath != null && servletPath.endsWith(".do")) {
             chain.doFilter(request, response);
@@ -248,6 +247,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
     /**
      * Writes the final content to the real response, updating Content-Length.
+     *
+     * <p>Uses {@code getWriter()} for text content because Tomcat 11's
+     * {@code RequestDispatcher.forward()} may have already opened the writer
+     * on the underlying response. Calling {@code getOutputStream()} after
+     * {@code getWriter()} throws {@code IllegalStateException}.</p>
      */
     private void writeToResponse(HttpServletResponse response, String content) throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
@@ -264,8 +268,14 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
         byte[] bytes = content.getBytes(encoding);
         response.setContentLength(bytes.length);
-        response.getOutputStream().write(bytes);
-        response.getOutputStream().flush();
+        try {
+            response.getWriter().write(content);
+            response.getWriter().flush();
+        } catch (IllegalStateException e) {
+            // getWriter() failed because getOutputStream() was already called — use stream instead
+            response.getOutputStream().write(bytes);
+            response.getOutputStream().flush();
+        }
     }
 
     @Override
