@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.commn.model;
 
+import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocumentTypeConverter;
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
@@ -16,7 +17,7 @@ public class EmailAttachment extends AbstractModel<Integer> {
 
     private String filePath;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = EmailAttachmentDocumentTypeConverter.class)
     private DocumentType documentType;
 
     private int documentId;
