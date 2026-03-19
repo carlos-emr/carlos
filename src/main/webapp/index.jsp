@@ -57,7 +57,7 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.title"/>
         </title>
 
-        <link rel="icon" href="${pageContext.request.contextPath}/images/Oscar.ico"/>
+        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link href="${pageContext.request.contextPath}/css/Roboto.css" rel='stylesheet' type='text/css'/>
         <script type="text/javascript">
 
