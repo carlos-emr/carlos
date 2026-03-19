@@ -84,12 +84,15 @@ var CarlosAjax = (function () {
             }
         }
 
-        // Security headers applied AFTER caller headers — cannot be overridden
-        headers['X-Requested-With'] = 'XMLHttpRequest';
-
-        if (MUTATING_METHODS.indexOf(method.toUpperCase()) !== -1) {
-            headers['CSRF-TOKEN'] = getCsrfToken();
-        }
+        // Do NOT set X-Requested-With or CSRF-TOKEN headers here.
+        // CSRFGuard 4.5's XHR onsend interceptor automatically injects both
+        // headers into every XMLHttpRequest.send() call. Setting them here
+        // causes duplicate setRequestHeader() calls, which per the XHR spec
+        // APPENDS values with a comma (e.g. "token, token") instead of
+        // replacing — CSRFGuard then rejects the request because the combined
+        // header value doesn't match the master token.
+        //
+        // CSRF tokens for the POST body are still injected in request() below.
 
         return headers;
     }
@@ -183,13 +186,26 @@ var CarlosAjax = (function () {
         var isSynchronous = options.synchronous === true ||
                             options.asynchronous === false;
 
-        // Build body
+        // Build body — inject CSRF token as a form parameter for POST requests.
+        // CSRFGuard 4.5 validates tokens from both request parameters and headers.
+        // The header is injected automatically by CSRFGuard's XHR onsend interceptor.
+        // The body parameter provides a second source for token validation.
         var body = null;
         if (method !== 'GET' && method !== 'HEAD') {
             if (options.postBody != null) {
                 body = options.postBody;
             } else if (options.parameters != null) {
                 body = encodeParams(options.parameters);
+            }
+            // Append CSRF token to body for form-encoded requests only.
+            // Non-form bodies (e.g. JSON) receive the token via the CSRF-TOKEN header in buildHeaders().
+            var csrfToken = getCsrfToken();
+            if (csrfToken && contentType.indexOf('application/x-www-form-urlencoded') !== -1) {
+                if (body != null && typeof body === 'string' && !/(^|[&])CSRF-TOKEN=/.test(body)) {
+                    body += (body ? '&' : '') + 'CSRF-TOKEN=' + encodeURIComponent(csrfToken);
+                } else if (body == null) {
+                    body = 'CSRF-TOKEN=' + encodeURIComponent(csrfToken);
+                }
             }
         } else if (options.parameters) {
             // Append parameters to URL for GET requests
@@ -261,63 +277,85 @@ var CarlosAjax = (function () {
     }
 
     /**
-     * Asynchronous request using fetch().
+     * Asynchronous request using XMLHttpRequest.
+     *
+     * <p>Uses XHR instead of fetch() so that CSRFGuard 4.5's JavaScript interceptor
+     * can automatically inject CSRF tokens into outgoing requests. CSRFGuard patches
+     * XMLHttpRequest.prototype.send() but cannot intercept the fetch() API.</p>
      */
     function requestAsync(url, method, headers, body, options) {
-        var fetchOptions = {
-            method: method,
-            headers: headers,
-            credentials: 'same-origin'
-        };
-        if (body != null) {
-            fetchOptions.body = body;
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+
+        // Set caller-provided headers (Content-Type, etc.)
+        // CSRFGuard's onsend interceptor adds X-Requested-With and CSRF-TOKEN
+        // automatically — do NOT set those here or they will be duplicated.
+        for (var key in headers) {
+            if (headers.hasOwnProperty(key)) {
+                xhr.setRequestHeader(key, headers[key]);
+            }
         }
 
-        return fetch(url, fetchOptions)
-            .then(function (response) {
-                return response.text().then(function (text) {
-                    var transport = makeTransport(response.status, text, response.url, response.statusText);
+        xhr.onload = function () {
+            var transport = makeTransport(xhr.status, xhr.responseText, xhr.responseURL, xhr.statusText);
 
-                    // Detect CSRF rejection (redirect to error page)
-                    if (isCsrfRedirect(response)) {
-                        transport.status = 403;
-                        transport.responseText = 'CSRF validation failed — request was rejected by the server.';
-                        if (options.onFailure) options.onFailure(transport);
-                        if (options.onComplete) options.onComplete(transport);
-                        return;
+            // Detect CSRF rejection (redirect to error page)
+            if (isCsrfRedirect(transport)) {
+                transport.status = 403;
+                transport.responseText = 'CSRF validation failed — request was rejected by the server.';
+                if (options.onFailure) {
+                    try { options.onFailure(transport); } catch (e) {
+                        console.error('CarlosAjax onFailure error:', e);
                     }
+                }
+                if (options.onComplete) {
+                    try { options.onComplete(transport); } catch (e) {
+                        console.error('CarlosAjax onComplete error:', e);
+                    }
+                }
+                return;
+            }
 
-                    // Wrap callbacks in try-catch so that exceptions thrown inside
-                    // onSuccess do NOT propagate to the .catch() and trigger
-                    // onFailure. Prototype's Ajax.Request isolated callback errors
-                    // the same way — an error in onSuccess never fired onFailure.
-                    if (isSuccess(response.status)) {
-                        if (options.onSuccess) {
-                            try { options.onSuccess(transport); } catch (e) {
-                                console.error('CarlosAjax onSuccess error:', e);
-                            }
-                        }
-                    } else {
-                        if (options.onFailure) {
-                            try { options.onFailure(transport); } catch (e) {
-                                console.error('CarlosAjax onFailure error:', e);
-                            }
-                        }
+            // Wrap callbacks in try-catch so that exceptions thrown inside
+            // onSuccess do NOT propagate to onerror and trigger onFailure.
+            // Prototype's Ajax.Request isolated callback errors the same way.
+            if (isSuccess(xhr.status)) {
+                if (options.onSuccess) {
+                    try { options.onSuccess(transport); } catch (e) {
+                        console.error('CarlosAjax onSuccess error:', e);
                     }
+                }
+            } else {
+                if (options.onFailure) {
+                    try { options.onFailure(transport); } catch (e) {
+                        console.error('CarlosAjax onFailure error:', e);
+                    }
+                }
+            }
 
-                    if (options.onComplete) {
-                        try { options.onComplete(transport); } catch (e) {
-                            console.error('CarlosAjax onComplete error:', e);
-                        }
-                    }
-                });
-            })
-            .catch(function (err) {
-                // Network errors (DNS, connection refused, etc.)
-                var transport = makeTransport(0, 'Network error: ' + err.message);
-                if (options.onFailure) options.onFailure(transport);
-                if (options.onComplete) options.onComplete(transport);
-            });
+            if (options.onComplete) {
+                try { options.onComplete(transport); } catch (e) {
+                    console.error('CarlosAjax onComplete error:', e);
+                }
+            }
+        };
+
+        xhr.onerror = function () {
+            // Network errors (DNS, connection refused, etc.)
+            var transport = makeTransport(0, 'Network error');
+            if (options.onFailure) {
+                try { options.onFailure(transport); } catch (e) {
+                    console.error('CarlosAjax onFailure error:', e);
+                }
+            }
+            if (options.onComplete) {
+                try { options.onComplete(transport); } catch (e) {
+                    console.error('CarlosAjax onComplete error:', e);
+                }
+            }
+        };
+
+        xhr.send(body);
     }
 
     /**
