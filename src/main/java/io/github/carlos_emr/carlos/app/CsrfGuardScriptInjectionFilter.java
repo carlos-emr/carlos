@@ -266,13 +266,18 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         if (encoding == null || encoding.isEmpty()) {
             encoding = "UTF-8";
         }
-        byte[] bytes = content.getBytes(encoding);
-        response.setContentLength(bytes.length);
         try {
+            // Use getWriter() for text responses. Content-Length is not set here — the byte
+            // count from content.getBytes(encoding) may differ from what the writer sends if
+            // the response encoding changes, causing client-side truncation from a mismatched
+            // header. The container computes the correct length via chunked transfer encoding.
             response.getWriter().write(content);
             response.getWriter().flush();
         } catch (IllegalStateException e) {
-            // getWriter() failed because getOutputStream() was already called — use stream instead
+            // getWriter() failed because getOutputStream() was already called — use byte stream.
+            // Content-Length is safe here since we write the exact same bytes array.
+            byte[] bytes = content.getBytes(encoding);
+            response.setContentLength(bytes.length);
             response.getOutputStream().write(bytes);
             response.getOutputStream().flush();
         }

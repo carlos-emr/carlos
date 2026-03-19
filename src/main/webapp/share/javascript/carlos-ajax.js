@@ -194,12 +194,15 @@ var CarlosAjax = (function () {
             } else if (options.parameters != null) {
                 body = encodeParams(options.parameters);
             }
-            // Append CSRF token to body if not already present
+            // Append CSRF token to body for form-encoded requests only.
+            // Non-form bodies (e.g. JSON) receive the token via the CSRF-TOKEN header in buildHeaders().
             var csrfToken = getCsrfToken();
-            if (csrfToken && body != null && typeof body === 'string' && body.indexOf('CSRF-TOKEN=') === -1) {
-                body += (body ? '&' : '') + 'CSRF-TOKEN=' + encodeURIComponent(csrfToken);
-            } else if (csrfToken && body == null) {
-                body = 'CSRF-TOKEN=' + encodeURIComponent(csrfToken);
+            if (csrfToken && contentType.indexOf('application/x-www-form-urlencoded') !== -1) {
+                if (body != null && typeof body === 'string' && !/(^|[&])CSRF-TOKEN=/.test(body)) {
+                    body += (body ? '&' : '') + 'CSRF-TOKEN=' + encodeURIComponent(csrfToken);
+                } else if (body == null) {
+                    body = 'CSRF-TOKEN=' + encodeURIComponent(csrfToken);
+                }
             }
         } else if (options.parameters) {
             // Append parameters to URL for GET requests
@@ -297,8 +300,16 @@ var CarlosAjax = (function () {
             if (isCsrfRedirect(transport)) {
                 transport.status = 403;
                 transport.responseText = 'CSRF validation failed — request was rejected by the server.';
-                if (options.onFailure) options.onFailure(transport);
-                if (options.onComplete) options.onComplete(transport);
+                if (options.onFailure) {
+                    try { options.onFailure(transport); } catch (e) {
+                        console.error('CarlosAjax onFailure error:', e);
+                    }
+                }
+                if (options.onComplete) {
+                    try { options.onComplete(transport); } catch (e) {
+                        console.error('CarlosAjax onComplete error:', e);
+                    }
+                }
                 return;
             }
 
@@ -329,8 +340,16 @@ var CarlosAjax = (function () {
         xhr.onerror = function () {
             // Network errors (DNS, connection refused, etc.)
             var transport = makeTransport(0, 'Network error');
-            if (options.onFailure) options.onFailure(transport);
-            if (options.onComplete) options.onComplete(transport);
+            if (options.onFailure) {
+                try { options.onFailure(transport); } catch (e) {
+                    console.error('CarlosAjax onFailure error:', e);
+                }
+            }
+            if (options.onComplete) {
+                try { options.onComplete(transport); } catch (e) {
+                    console.error('CarlosAjax onComplete error:', e);
+                }
+            }
         };
 
         xhr.send(body);
