@@ -32,15 +32,17 @@
 <%@ page isErrorPage="true" %>
 <!-- only true can access exception object -->
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
 <!DOCTYPE html>
 <html>
 
 <head>
     <title>
-        <c:out value="OSCAR Error: ${pageContext.errorData.statusCode}"/>
+        <fmt:message key="error.description"/>
     </title>
-    <link rel="shortcut icon" href="${pageContext.request.contextPath}/images/Oscar.ico"/>
+    <link rel="shortcut icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 
     <style media="all">
@@ -126,21 +128,21 @@
 
 <body>
 <div id="heading">
-    <span>Looks like something went wrong...</span>
+    <span>!@#$%^&...</span>
 </div>
 
 <div id="container">
     <div id="error-code">
-        <h2>Error Code:</h2>
+        <h2><fmt:message key="error.msgException"/>:</h2>
         <p>
             <c:out value="${pageContext.errorData.statusCode}"/>
         </p>
 
         <div id="navigation">
             <a class="btn btn-secondary float-start" title="Go back"
-               href="#" onclick="window.history.back();" role="button">Back</a>
+               href="#" onclick="window.history.back();" role="button"><fmt:message key="global.btnBack"/></a>
             <a class="btn btn-secondary float-end" title="Go back to main schedule"
-               href="${ pageContext.request.contextPath }/provider/providercontrol.jsp" role="button">Exit</a>
+               href="${ pageContext.request.contextPath }/provider/providercontrol.jsp" role="button"><fmt:message key="global.btnExit"/></a>
         </div>
     </div>
 
