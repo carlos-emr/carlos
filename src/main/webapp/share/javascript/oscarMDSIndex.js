@@ -1336,43 +1336,49 @@ function ForwardSelectedRows(files, searchProviderNo, status) {
     if (!dialogContainer.length) {
         dialogContainer = drawDialogContainer();
     }
-    const dialog = dialogContainer.load(url, data).dialog({
-        modal: true,
-        width: 685,
-        height: 355,
-        draggable: false,
-        title: "Forward Documents",
-        buttons: {
-            "Forward": function () {
-                // workaround for JQuery bug with multiselect items that are not "selected"
-                const fwdProviders = jQuery(this).find("select[multiple]#fwdProviders option").map(function (i, e) {
-                    return jQuery(e).val();
-                }).toArray();
+    jQuery.ajax({
+        url: url,
+        method: "POST",
+        data: data
+    }).done(function (html) {
+        dialogContainer.html(html).dialog({
+            modal: true,
+            width: 685,
+            height: 355,
+            draggable: false,
+            title: "Forward Documents",
+            buttons: {
+                "Forward": function () {
+                    // workaround for JQuery bug with multiselect items that are not "selected"
+                    const fwdProviders = jQuery(this).find("select[multiple]#fwdProviders option").map(function (i, e) {
+                        return jQuery(e).val();
+                    }).toArray();
 
-                const fwdFavorites = jQuery(this).find("select[multiple]#favorites option").map(function (i, e) {
-                    return jQuery(e).val();
-                }).toArray();
+                    const fwdFavorites = jQuery(this).find("select[multiple]#favorites option").map(function (i, e) {
+                        return jQuery(e).val();
+                    }).toArray();
 
-                if (fwdProviders.length === 0) {
-                    jQuery(this).find("select[multiple]#fwdProviders").addClass("input-error");
-                    return;
+                    if (fwdProviders.length === 0) {
+                        jQuery(this).find("select[multiple]#fwdProviders").addClass("input-error");
+                        return;
+                    }
+
+                    forwardLabs(files, fwdProviders, fwdFavorites);
+                },
+                Cancel: function () {
+                    jQuery(this).dialog("close");
                 }
-
-                forwardLabs(files, fwdProviders, fwdFavorites);
             },
-            Cancel: function () {
-                jQuery(this).dialog("close");
+            open: function () {
+                // Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
+                styleDialogAsCard();
+            },
+            close: function () {
+                jQuery(this).find("select[multiple]#fwdProviders").val('');
+                jQuery(this).find("select[multiple]#fwdFavorites").val('');
             }
-        },
-		open: function() {
-			// Applies Bootstrap 5 card styles if Bootstrap is included; otherwise, it will render as a normal jQuery dialog box.
-			styleDialogAsCard();
-		},
-        close: function () {
-            jQuery(this).find("select[multiple]#fwdProviders").val('');
-            jQuery(this).find("select[multiple]#fwdFavorites").val('');
-        }
-    }).dialog("open");
+        }).dialog("open");
+    });
 }
 
 function drawDialogContainer() {
