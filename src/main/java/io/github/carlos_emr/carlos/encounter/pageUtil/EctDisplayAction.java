@@ -214,6 +214,16 @@ public class EctDisplayAction extends ActionSupport {
         if (forward != null && !forward.equals("success")) {
             MiscUtils.getLogger().error("Forward :" + forward + " navName :" + navName + " cmd " + cmd + " params " + params);
         }
+
+        // Use include() instead of returning "success" which triggers Struts' forward().
+        // RequestDispatcher.forward() closes the output stream in Tomcat 11, truncating
+        // responses at the 8KB buffer boundary. include() leaves the stream open.
+        if ("success".equals(forward)) {
+            String jspPath = Actions.get("success");
+            request.getRequestDispatcher(jspPath).include(request, response);
+            return NONE;
+        }
+
         return forward;
     }
 

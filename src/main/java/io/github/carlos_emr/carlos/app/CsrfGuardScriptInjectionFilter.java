@@ -121,11 +121,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() unwraps
-        // HttpServletResponseWrappers, so our CaptureResponseWrapper cannot intercept
-        // the JSP output during forward. Struts-rendered JSPs that exceed the default
-        // 8KB response buffer use <%@ page buffer="none" %> to disable JSP-level
-        // buffering, allowing content to stream directly without truncation.
+        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() closes
+        // the output stream after the first buffer flush, truncating responses > 8KB.
+        // The filter-mapping includes FORWARD dispatcher so this filter also runs when
+        // Struts forwards to the JSP, wrapping it to prevent truncation. AJAX sidebar
+        // calls use EctDisplayAction.include() which bypasses Struts results entirely.
         String servletPath = httpRequest.getServletPath();
         if (servletPath != null && servletPath.endsWith(".do")) {
             chain.doFilter(request, response);
