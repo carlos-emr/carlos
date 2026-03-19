@@ -84,12 +84,15 @@ var CarlosAjax = (function () {
             }
         }
 
-        // Security headers applied AFTER caller headers — cannot be overridden
-        headers['X-Requested-With'] = 'XMLHttpRequest';
-
-        if (MUTATING_METHODS.indexOf(method.toUpperCase()) !== -1) {
-            headers['CSRF-TOKEN'] = getCsrfToken();
-        }
+        // Do NOT set X-Requested-With or CSRF-TOKEN headers here.
+        // CSRFGuard 4.5's XHR onsend interceptor automatically injects both
+        // headers into every XMLHttpRequest.send() call. Setting them here
+        // causes duplicate setRequestHeader() calls, which per the XHR spec
+        // APPENDS values with a comma (e.g. "token, token") instead of
+        // replacing — CSRFGuard then rejects the request because the combined
+        // header value doesn't match the master token.
+        //
+        // CSRF tokens for the POST body are still injected in request() below.
 
         return headers;
     }
@@ -184,9 +187,9 @@ var CarlosAjax = (function () {
                             options.asynchronous === false;
 
         // Build body — inject CSRF token as a form parameter for POST requests.
-        // CSRFGuard 4.5 validates tokens from form parameters. We cannot rely on
-        // CSRFGuard's XHR.send() interception because prototype-compat.js overwrites
-        // the XHR prototype chain, bypassing CSRFGuard's token injection.
+        // CSRFGuard 4.5 validates tokens from both request parameters and headers.
+        // The header is injected automatically by CSRFGuard's XHR onsend interceptor.
+        // The body parameter provides a second source for token validation.
         var body = null;
         if (method !== 'GET' && method !== 'HEAD') {
             if (options.postBody != null) {
@@ -284,9 +287,9 @@ var CarlosAjax = (function () {
         var xhr = new XMLHttpRequest();
         xhr.open(method, url, true);
 
-        // Set request headers (X-Requested-With, Content-Type, etc.)
-        // Note: CSRF-TOKEN header is set here as a fallback, but CSRFGuard's
-        // XHR interceptor will also inject it automatically via send() patching.
+        // Set caller-provided headers (Content-Type, etc.)
+        // CSRFGuard's onsend interceptor adds X-Requested-With and CSRF-TOKEN
+        // automatically — do NOT set those here or they will be duplicated.
         for (var key in headers) {
             if (headers.hasOwnProperty(key)) {
                 xhr.setRequestHeader(key, headers[key]);
