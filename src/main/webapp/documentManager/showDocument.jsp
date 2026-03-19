@@ -723,7 +723,7 @@
                                            value="true"><fmt:message key="showDocument.lblActiveOnly"/><br>
                                     <input type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=Encode.forJavaScript(docId)%>');" name="demographicKeyword"
-                                           placeholder="Search Demographic">
+                                           placeholder="<fmt:message key='showDocument.placeholderSearchDemographic'/>">
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
                                     <%}%>
@@ -743,7 +743,7 @@
                                 <td>
                                     <input type="hidden" name="provi" id="provfind<%=docId%>">
                                     <input type="text" id="autocompleteprov<%=docId%>" name="demographicKeyword"
-                                           placeholder="Search Provider">
+                                           placeholder="<fmt:message key='showDocument.placeholderSearchProvider'/>">
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
 
