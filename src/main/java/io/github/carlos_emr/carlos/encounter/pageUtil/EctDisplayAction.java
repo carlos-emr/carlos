@@ -215,10 +215,11 @@ public class EctDisplayAction extends ActionSupport {
             MiscUtils.getLogger().error("Forward :" + forward + " navName :" + navName + " cmd " + cmd + " params " + params);
         }
 
-        // Use include() instead of returning "success" which triggers Struts' forward().
-        // RequestDispatcher.forward() closes the output stream in Tomcat 11, truncating
-        // responses at the 8KB buffer boundary. include() leaves the stream open.
-        if ("success".equals(forward)) {
+        // Use include() for XHR requests only. Struts' forward() closes the output stream
+        // in Tomcat 11, truncating AJAX responses at the 8KB buffer boundary — include()
+        // leaves the stream open. For non-XHR requests, return "success" so Struts performs
+        // a FORWARD dispatch, allowing CsrfGuardScriptInjectionFilter to run on the FORWARD.
+        if ("success".equals(forward) && "XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
             String jspPath = Actions.get("success");
             request.getRequestDispatcher(jspPath).include(request, response);
             return NONE;
