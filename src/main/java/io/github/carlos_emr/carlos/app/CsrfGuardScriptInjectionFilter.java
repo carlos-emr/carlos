@@ -121,9 +121,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() commits
-        // the underlying response during the forward, making post-chain capture impossible.
-        // JSPs rendered by Struts already include <script src="csrfguard"> via their templates.
+        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() unwraps
+        // HttpServletResponseWrappers during the initial REQUEST dispatch. However, the
+        // filter-mapping includes FORWARD dispatcher, so this filter also runs when Struts
+        // forwards to the JSP. The forward request has a .jsp servletPath, so the wrapper
+        // is applied there — preventing the default 8KB response buffer from truncating
+        // the forwarded JSP output.
         String servletPath = httpRequest.getServletPath();
         if (servletPath != null && servletPath.endsWith(".do")) {
             chain.doFilter(request, response);
