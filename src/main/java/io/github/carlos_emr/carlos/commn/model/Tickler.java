@@ -36,6 +36,8 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
+import io.github.carlos_emr.carlos.commn.model.converter.TicklerPriorityConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.TicklerStatusConverter;
 import jakarta.persistence.*;
 
 import org.hibernate.annotations.BatchSize;
@@ -86,7 +88,7 @@ public class Tickler extends AbstractModel<Integer> {
     private String message;
 
     @Column(length = 1)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TicklerStatusConverter.class)
     private STATUS status = STATUS.A;
 
     @Column(name = "creation_date")
@@ -105,7 +107,7 @@ public class Tickler extends AbstractModel<Integer> {
     private String creator;
 
     @Column(length = 6)
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = TicklerPriorityConverter.class)
     private PRIORITY priority = PRIORITY.Normal;
 
     @Column(name = "task_assigned_to")

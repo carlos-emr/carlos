@@ -32,10 +32,10 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Date;
 
+import io.github.carlos_emr.carlos.commn.model.converter.AppointmentBookingSourceConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -109,7 +109,7 @@ public class AppointmentArchive extends AbstractModel<Integer> {
     private String urgency;
     private Integer creatorSecurityId;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = AppointmentBookingSourceConverter.class)
     private BookingSource bookingSource;
 
     public String getProviderNo() {

@@ -33,10 +33,10 @@ import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 
 import java.util.Date;
 
+import io.github.carlos_emr.carlos.commn.model.converter.FaxJobStatusConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -98,7 +98,7 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
 
     private String recipient;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = FaxJobStatusConverter.class)
     private STATUS status;
 
     private Integer numPages;

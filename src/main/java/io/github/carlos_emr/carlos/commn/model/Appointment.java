@@ -27,6 +27,7 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import io.github.carlos_emr.carlos.commn.model.converter.AppointmentBookingSourceConverter;
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Calendar;
@@ -98,7 +99,7 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     private String urgency;
     private Integer creatorSecurityId;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = AppointmentBookingSourceConverter.class)
     private BookingSource bookingSource;
 
     private Integer reasonCode;

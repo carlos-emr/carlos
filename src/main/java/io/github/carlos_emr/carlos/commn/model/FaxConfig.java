@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
+import io.github.carlos_emr.carlos.commn.model.converter.FaxConfigProviderTypeConverter;
 import jakarta.persistence.*;
 
 /**
@@ -101,7 +102,7 @@ public class FaxConfig extends AbstractModel<Integer> {
      * Provider type used to route fax transport operations.
      * Defaults to middleware to preserve backward compatibility for existing rows.
      */
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = FaxConfigProviderTypeConverter.class)
     @Column(name = "providerType")
     private ProviderType providerType = ProviderType.MIDDLEWARE;
 

@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
+import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
 
@@ -23,10 +25,10 @@ public class EmailConfig extends AbstractModel<Integer> {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = EmailConfigTypeConverter.class)
     private EmailType emailType;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = EmailConfigProviderConverter.class)
     private EmailProvider emailProvider;
 
     private boolean active;

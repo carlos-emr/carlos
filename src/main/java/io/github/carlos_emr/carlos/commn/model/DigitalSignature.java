@@ -26,6 +26,7 @@
  */
 package io.github.carlos_emr.carlos.commn.model;
 
+import io.github.carlos_emr.carlos.commn.model.converter.DigitalSignatureModuleTypeConverter;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 
 import java.util.Date;
@@ -65,7 +66,7 @@ public class DigitalSignature extends AbstractModel<Integer> {
     private byte[] signatureImage = null;
 
 	/** The module type of the signature */
-	@Enumerated(EnumType.STRING)
+	@Convert(converter = DigitalSignatureModuleTypeConverter.class)
 	private ModuleType moduleType = null;
 
     @Override
