@@ -43,848 +43,861 @@ String curProvider_no = (String)session.getAttribute("user");
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request" />
 
 <div class="col-3 d-print-none" id="side">
-   
-    <!--Sidebar content--> 
-		<div class="accordion" id="adminNav">
-		
-			<div class="accordion-group nav nav-tabs">
-			
-			<div class="accordion-heading p-2" style="margin-bottom:0px;color:#000">
-			<a href="${ctx}/administration/"><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></a>
-			</div>
+
+    <!--Sidebar content-->
+	<div class="accordion" id="adminNav">
+
+		<div class="p-2" style="margin-bottom:0px;color:#000">
+		<a href="${ctx}/administration/"><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></a>
+		</div>
 
 <!-- #USER MANAGEMENT -->
 <security:oscarSec roleName="<%=roleName$%>"
 	objectName="_admin,_admin.userAdmin,_admin.provider"
-	rights="r" reverse="<%=false%>">			
-				<div class="accordion-header">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UserManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseOne" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>					
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddProvider"/></a></li>
-					
-					
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providersearchrecordshtm.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchProvider"/>
-					</a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddLogin"/>
-					</a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securitysearchrecordshtm.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchLogin"/>
-					</a></li>
-			
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerRole.jsp">
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRole"/></a></li>
-						
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin,_admin.unlockAccount" rights="r">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></a></li>
-					</security:oscarSec>
-				</ul>
-				</div>
-				</div>
+	rights="r" reverse="<%=false%>">
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UserManagement"/>
+			</button>
+			</h2>
+			<div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddProvider"/></a></li>
+
+
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providersearchrecordshtm.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchProvider"/>
+				</a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddLogin"/>
+				</a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securitysearchrecordshtm.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchLogin"/>
+				</a></li>
+
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerRole.jsp">
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRole"/></a></li>
+
+				<security:oscarSec roleName="<%=roleName$%>"
+					objectName="_admin,_admin.unlockAccount" rights="r">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></a></li>
+				</security:oscarSec>
+			</ul>
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
 <!-- #USER MANAGEMENT END -->
 
 <!-- #BILLING -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.invoices,_admin,_admin.billing" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.billing"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseTwo" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-		            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.billing" rights="r" reverse="<%=false%>">
-		            
-		            <oscar:oscarPropertiesCheck property="billregion" value="BC">
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.billing"/>
+			</button>
+			</h2>
+			<div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+	            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.billing" rights="r" reverse="<%=false%>">
 
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/manageBillingform.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billingPrivateCodeAdjust.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
-					<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
-						value="yes">
-						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingCodeAdjust.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
-					</oscar:oscarPropertiesCheck>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/showServiceCodeAssocs.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/supServiceCodeAssocAction.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
+	            <oscar:oscarPropertiesCheck property="billregion" value="BC">
 
-					<li><a href="${ctx}/billing/CA/BC/billingManageReferralDoc.jsp" class="contentLink defaultManageReferralDoc"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/manageBillingform.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/BC/billingPrivateCodeAdjust.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+				<oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
+					value="yes">
+					<li><a href='javascript:void(0);'
+						class="xlink" rel="${ctx}/billing/CA/BC/billingCodeAdjust.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+				</oscar:oscarPropertiesCheck>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/BC/showServiceCodeAssocs.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/BC/supServiceCodeAssocAction.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
 
+				<li><a href="${ctx}/billing/CA/BC/billingManageReferralDoc.jsp" class="contentLink defaultManageReferralDoc"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ ctx }/quickBillingBC.do" >
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.bcQuickBilling"/>
+					</a>
+				</li>
+
+				<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no" defaultVal="true">
+					<li><a href='javascript:void(0);'
+						class="xlink" rel="${ctx}/billing/CA/BC/billingSim.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
+					<li><a href='javascript:void(0);'
+						class="xlink" rel="${ctx}/billing/CA/BC/billingTeleplanGroupReport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
+				</oscar:oscarPropertiesCheck>
+				<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
+					<li><a href='javascript:void(0);'
+						class="xlink" rel="${ctx}/billing/CA/BC/TeleplanSimulation.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+					<li><a href='javascript:void(0);'
+						class="xlink" rel="${ctx}/billing/CA/BC/TeleplanSubmission.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+					<li><a href='javascript:void(0);'
+						class="xlink" rel="${ctx}/billing/CA/BC/teleplan/ManageTeleplan.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageTeleplan"/></a></li>
+				</oscar:oscarPropertiesCheck>
+				<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
+					defaultVal="true">
+					<li><a href='javascript:void(0);'
+						class="xlink" rel="${ctx}/billing/CA/BC/billingTA.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadRemittance"/></a></li>
+				</oscar:oscarPropertiesCheck>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/BC/viewReconcileReports.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/BC/billingAccountReports.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.AccountingRpts"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/BC/billStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/BC/settleBG.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
+				</oscar:oscarPropertiesCheck>
+
+				<oscar:oscarPropertiesCheck property="billregion" value="ON">
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/ScheduleOfBenefitsUpload.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/addEditServiceCode.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/billingONEditPrivateCode.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/manageCSSStyles.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
+				<li><a href='#'
+					class="xlink" rel="${ctx}/admin/gstControl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/gstreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
+				<li><a href='#'
+					class="xlink" rel="${ctx}/billing/CA/ON/manageBillingLocation.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/manageBillingform.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+
+				<li><a href="${ctx}/billing/CA/ON/billingOHIPsimulation.jsp?html=" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
+
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/billingOHIPreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/billingCorrection.jsp?admin&billing_no="><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/batchBilling.jsp?service_code=all"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/inr/reportINR.jsp?provider_no=all"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/billingONUpload.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
+
+
+				<oscar:oscarPropertiesCheck property="moh_file_management_enabled" value="true" defaultVal="false">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/billing/CA/ON/viewMOHFiles.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
+				</oscar:oscarPropertiesCheck>
+
+				<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="false" defaultVal="false">
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/mcedt.do">
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mcedt"/>
+					</a>
+				</li>
+				</oscar:oscarPropertiesCheck>
+
+				<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="true" defaultVal="false">
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/kaimcedt.do">
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mcedt.mailbox"/>
+					</a>
+				</li>
+				</oscar:oscarPropertiesCheck>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
+				<!--  li><a href='javascript:void(0);' onclick ='popupPage(600,1000,"${ctx}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/billing/CA/ON/billStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/></a></li>
+                        <li><a href='javascript:void(0);'
+                                class="xlink" rel="${ctx}/billing/CA/ON/endYearStatement.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></a></li>
+
+				<oscar:oscarPropertiesCheck property="rma_enabled" value="true" defaultVal="false">
 					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ ctx }/quickBillingBC.do" >
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.bcQuickBilling"/>
-						</a>
+						<a href='#'	class="xlink" rel="${ctx}/admin/clinicNbrManage.jsp">Manage Clinic NBR Codes</a>
 					</li>
+				</oscar:oscarPropertiesCheck>
 
-					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no" defaultVal="true">
-						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingSim.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
-						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingTeleplanGroupReport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
-					</oscar:oscarPropertiesCheck>
-					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
-						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/TeleplanSimulation.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
-						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/TeleplanSubmission.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
-						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/teleplan/ManageTeleplan.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageTeleplan"/></a></li>
-					</oscar:oscarPropertiesCheck>
-					<oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
-						defaultVal="true">
-						<li><a href='javascript:void(0);'
-							class="xlink" rel="${ctx}/billing/CA/BC/billingTA.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadRemittance"/></a></li>
-					</oscar:oscarPropertiesCheck>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/viewReconcileReports.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.reconciliationReports"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billingAccountReports.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.AccountingRpts"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/billStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/BC/settleBG.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
-					</oscar:oscarPropertiesCheck>
-			
-					<oscar:oscarPropertiesCheck property="billregion" value="ON">
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/ScheduleOfBenefitsUpload.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/addEditServiceCode.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingONEditPrivateCode.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/manageCSSStyles.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
-					<li><a href='#'
-						class="xlink" rel="${ctx}/admin/gstControl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/gstreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></a></li>
-					<li><a href='#'
-						class="xlink" rel="${ctx}/billing/CA/ON/manageBillingLocation.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/manageBillingform.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+				</oscar:oscarPropertiesCheck>
+	            </security:oscarSec>
 
-					<li><a href="${ctx}/billing/CA/ON/billingOHIPsimulation.jsp?html=" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
 
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingOHIPreport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingCorrection.jsp?admin&billing_no="><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/batchBilling.jsp?service_code=all"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/inr/reportINR.jsp?provider_no=all"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billingONUpload.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
-					
-						
-					<oscar:oscarPropertiesCheck property="moh_file_management_enabled" value="true" defaultVal="false">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/billing/CA/ON/viewMOHFiles.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
-					</oscar:oscarPropertiesCheck>
-					
-					<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="false" defaultVal="false">
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/mcedt.do">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mcedt"/>
-						</a>
-					</li>
-					</oscar:oscarPropertiesCheck>
-					
-					<oscar:oscarPropertiesCheck property="mcedt.mailbox.enabled" value="true" defaultVal="false">
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/mcedt/kaimcedt.do">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mcedt.mailbox"/>
-						</a>
-					</li>
-					</oscar:oscarPropertiesCheck>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
-					<!--  li><a href='javascript:void(0);' onclick ='popupPage(600,1000,"${ctx}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/billing/CA/ON/billStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/></a></li>
-		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/billing/CA/ON/endYearStatement.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></a></li>
-					
-					<oscar:oscarPropertiesCheck property="rma_enabled" value="true" defaultVal="false">
-						<li>
-							<a href='#'	class="xlink" rel="${ctx}/admin/clinicNbrManage.jsp">Manage Clinic NBR Codes</a>
-						</li>
-					</oscar:oscarPropertiesCheck>
-					
-					</oscar:oscarPropertiesCheck>
-		            </security:oscarSec>
-		                        
-		               
-		                <oscar:oscarPropertiesCheck property="billregion" value="ON">             	
-		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/billingONPayment.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.paymentReceived"/></a></li>
-		                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/managePaymentType.do'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePaymentType"/></a></li>
-		                </oscar:oscarPropertiesCheck>
+	                <oscar:oscarPropertiesCheck property="billregion" value="ON">
+	                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/billingONPayment.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.paymentReceived"/></a></li>
+	                        <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/billing/CA/ON/managePaymentType.do'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.managePaymentType"/></a></li>
+	                </oscar:oscarPropertiesCheck>
 
                     <li><a href='javascript:void(0);' class="xlink" rel='${ctx}/admin/billingSettings.jsp'>Settings</a></li>
-				</ul>
-				</div>
-				</div>
+			</ul>
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
 <!-- #BILLING END-->
 
 <!-- #LABS/INBOX -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin," rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LabsInbox"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseThree" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/testUploader.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
-					<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
-						<li><a href="${ctx}/lab/CA/BC/LabUpload.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oldLabUpload"/></a></li>
-					</oscar:oscarPropertiesCheck>
-					<li><a href="${ctx}/admin/labforwardingrules.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></a></li>
-					
-					<li><a href="${ctx}/admin/addQueue.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.AddNewQueue"/></a></li>
-				</ul>
-				</div>
-				</div>
-</security:oscarSec>
-<!-- #LABS/INBOX END -->	
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LabsInbox"/>
+			</button>
+			</h2>
 
-<!--  #FORMS/EFORMS -->	
+			<div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/lab/CA/ALL/testUploader.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+				<oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes" defaultVal="false">
+					<li><a href="${ctx}/lab/CA/BC/LabUpload.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+				</oscar:oscarPropertiesCheck>
+				<li><a href="${ctx}/admin/labforwardingrules.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></a></li>
+
+				<li><a href="${ctx}/admin/addQueue.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.AddNewQueue"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
+</security:oscarSec>
+<!-- #LABS/INBOX END -->
+
+<!--  #FORMS/EFORMS -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseForms" aria-expanded="false" aria-controls="collapseForms">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FormsEforms"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseForms" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href="${ctx}/form/setupSelect.do" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSelectForm"/></a></li>
-					
-					<li><a href="${ctx}/form/formXmlUpload.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnImportFormData"/></a></li>
-					
-					<li><a href="${ctx}/eform/efmformmanager.jsp" class="contentLink defaultForms">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/>
-					</a></li>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseForms" aria-expanded="false" aria-controls="collapseForms">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FormsEforms"/>
+			</button>
+			</h2>
+			<div id="collapseForms" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href="${ctx}/form/setupSelect.do" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSelectForm"/></a></li>
 
-					<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUploadImage"/>
-					</a></li>
-					<li><a href="${ctx}/eform/efmmanageformgroups.jsp" class="contentLink defaultFormsGroups">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/>
-					</a></li>
-		
-					<li><a href="${ctx}/eform/efmmanageindependent.jsp" class="contentLink">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s
-					</a></li>
-					
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction.do?method=manageSingle&listName=consultApptInst" >
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarEncounter.consult.appointmentIntructions"/>
-						</a>
-					</li>
-					
-				</ul>
-				</div>
-				</div>
+				<li><a href="${ctx}/form/formXmlUpload.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+
+				<li><a href="${ctx}/eform/efmformmanager.jsp" class="contentLink defaultForms">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/>
+				</a></li>
+
+				<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUploadImage"/>
+				</a></li>
+				<li><a href="${ctx}/eform/efmmanageformgroups.jsp" class="contentLink defaultFormsGroups">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/>
+				</a></li>
+
+				<li><a href="${ctx}/eform/efmmanageindependent.jsp" class="contentLink">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s
+				</a></li>
+
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction.do?method=manageSingle&listName=consultApptInst" >
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarEncounter.consult.appointmentIntructions"/>
+					</a>
+				</li>
+
+			</ul>
+			</div>
+			</div>
+			</div>
 </security:oscarSec>
-<!--  #FORMS/EFORMS END-->	
+<!--  #FORMS/EFORMS END-->
 
 <!-- #REPORTS-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarReport"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseFive" class="accordion-body collapse">
-				<div class="accordion-inner">
-			
-				<ul>
-				
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardManager" rights="w" reverse="<%=false%>" >
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/web/dashboard/admin/DashboardManager.do" >
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="dashboard.dashboardmanager.title"/>
-						</a>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarReport"/>
+			</button>
+			</h2>
+
+			<div id="collapseFive" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+
+			<ul>
+
+			<security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardManager" rights="w" reverse="<%=false%>" >
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/web/dashboard/admin/DashboardManager.do" >
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="dashboard.dashboardmanager.title"/>
+					</a>
+				</li>
+			</security:oscarSec>
+
+				<li>
+				<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/RptByExample.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnQueryByExample"/></a>
+				</li>
+
+				<li>
+				<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/reportByTemplate/homePage.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.rptbyTemplate"/></a>
+				</li>
+
+				<li>
+				<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/dbReportAgeSex.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a>
+				</li>
+
+				<li><a href="${ctx}/oscarReport/oscarReportVisitControl.jsp" class="contentLink defaultvisitreport">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnVisitReport"/>
+					</a>
+				</li>
+				<li><a href="${ctx}/oscarReport/oscarReportCatchment.jsp"
+					class="contentLink">PCN</a></li>
+				<oscar:oscarPropertiesCheck property="OnCallClinic" value="yes">
+				<li><a href="${ctx}/oscarReport/oscarOnCallClinic.jsp"
+					class="contentLink">OSCAR On Call Clinic</a></li>
+				</oscar:oscarPropertiesCheck>
+				<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
+					class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
+				<li><a href="${ctx}/oscarReport/obec.jsp" class="contentLink">Overnight
+						Batch</a></li>
+
+				<caisi:isModuleLoad moduleName="caisi">
+					<li><a href="javascript:void(0);"
+					class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.activityRpt"/></a></li>
+				</caisi:isModuleLoad>
+
+				<li><a href="${ctx}/oscarReport/patientlist.jsp"
+					class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
+				<li><a
+					href="${ctx}/oscarReport/provider_service_report_form.jsp"
+					class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
+
+				<caisi:isModuleLoad moduleName="caisi">
+					<li><a page="${pageContext.request.contextPath}/PopulationReport.do" class="contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/></a></li>
+					<li><a href="${ctx}/oscarReport/cds_4_report_form.jsp"	class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cdsRpt"/></a></li>
+					<li><a href="${ctx}/oscarReport/mis_report_form.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></a></li>
+					<li><a href="${ctx}/oscarReport/ocan_report_form.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ocanRpt"/></a></li>
+					<li><a href="${ctx}/oscarReport/ocan_iar.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ocanIarRpt"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/ocan_reporting.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ocanReporting"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/cbi_submit_form.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cbiSubmit"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/cbiAdmin.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/cbi_report_form.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cbiRpt"/></a></li>
+				</caisi:isModuleLoad>
+
+				<li><a href="${ctx}/admin/UsageReport.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.usageRpt"/></a></li>
+				<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/DxresearchReport.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DiseaseRegistry"/></a></li>
+
+		<%
+			if (oscarVariables.getProperty("billregion", "").equals("ON"))
+							{
+		%>
+		<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/reportonbilledphcp.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PHCP"/></a>
+		<span style="font-size: x-small;"> (Setting: <a href="javascript:void(0);" class="xlink" rel="${ctx}/report/reportonbilledvisitprovider.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/></a>,
+		) </span></li>
+		<%}%>
+
+
+
+			<!-- <li>
+				<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckd_screening_report.jsp">CKD Screening Report</a>
+				</li>
+-->
+				<li>
+				<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckdScreeningReportSubmit.jsp">CKD Screening Report (async)</a>
+				</li>
+
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/preImplementationSubmit.jsp">
+						Pre-Implementation Report
+					</a>
+				</li>
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/patientLetterManager.jsp">
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.renal.managePatientLetter"/>
+					</a>
+				</li>
+
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fieldnote" rights="r" reverse="<%=false%>">
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/eform/fieldNoteReport/fieldnotereport.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.fieldNoteReport"/></a>
+				</li>
+				</security:oscarSec>
+
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eformreporttool" rights="r" reverse="<%=false%>">
+ 					<li>
+ 						<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/eformReportTool/eformReportTool.jsp">
+ 						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eformReportTool"/></a>
 					</li>
 				</security:oscarSec>
-				 
-					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/RptByExample.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnQueryByExample"/></a>
-					</li>
+			</ul>
 
-					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/reportByTemplate/homePage.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.rptbyTemplate"/></a>
-					</li>
-
-					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/dbReportAgeSex.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAgeSexReport"/></a>
-					</li>
-					
-					<li><a href="${ctx}/oscarReport/oscarReportVisitControl.jsp" class="contentLink defaultvisitreport">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnVisitReport"/>
-						</a>
-					</li>
-					<li><a href="${ctx}/oscarReport/oscarReportCatchment.jsp"
-						class="contentLink">PCN</a></li>
-					<oscar:oscarPropertiesCheck property="OnCallClinic" value="yes">
-					<li><a href="${ctx}/oscarReport/oscarOnCallClinic.jsp"
-						class="contentLink">OSCAR On Call Clinic</a></li>
-					</oscar:oscarPropertiesCheck>
-					<li><a href="${ctx}/oscarReport/FluBilling.do?orderby="
-						class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
-					<li><a href="${ctx}/oscarReport/obec.jsp" class="contentLink">Overnight
-							Batch</a></li>
-								
-					<caisi:isModuleLoad moduleName="caisi">		
-						<li><a href="javascript:void(0);"
-						class="xlink contentLink" rel="${ctx}/PMmodule/Reports/ProgramActivityReport"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.activityRpt"/></a></li>
-					</caisi:isModuleLoad>			
-								
-					<li><a href="${ctx}/oscarReport/patientlist.jsp"
-						class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
-					<li><a
-						href="${ctx}/oscarReport/provider_service_report_form.jsp"
-						class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
-								
-					<caisi:isModuleLoad moduleName="caisi">
-						<li><a page="${pageContext.request.contextPath}/PopulationReport.do" class="contentLink"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/cds_4_report_form.jsp"	class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cdsRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/mis_report_form.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.misRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ocan_report_form.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ocanRpt"/></a></li>
-						<li><a href="${ctx}/oscarReport/ocan_iar.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ocanIarRpt"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/ocan_reporting.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ocanReporting"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/cbi_submit_form.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cbiSubmit"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/cbiAdmin.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/cbi_report_form.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.cbiRpt"/></a></li>
-					</caisi:isModuleLoad>
-					
-					<li><a href="${ctx}/admin/UsageReport.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.usageRpt"/></a></li>
-					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/DxresearchReport.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DiseaseRegistry"/></a></li>
-
-			<%
-				if (oscarVariables.getProperty("billregion", "").equals("ON"))
-								{
-			%>
-			<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/report/reportonbilledphcp.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PHCP"/></a>
-			<span style="font-size: x-small;"> (Setting: <a href="javascript:void(0);" class="xlink" rel="${ctx}/report/reportonbilledvisitprovider.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.provider"/></a>,
-			) </span></li>
-			<%}%>
-
-
-
-				<!-- <li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckd_screening_report.jsp">CKD Screening Report</a>
-					</li>	
--->
-					<li>
-					<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/ckdScreeningReportSubmit.jsp">CKD Screening Report (async)</a>
-					</li>	
-					
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/preImplementationSubmit.jsp">
-							Pre-Implementation Report
-						</a>
-					</li>
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/renal/patientLetterManager.jsp">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.renal.managePatientLetter"/>
-						</a>
-					</li>
-					
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fieldnote" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' 
-						class="xlink" rel="${ctx}/eform/fieldNoteReport/fieldnotereport.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.fieldNoteReport"/></a>
-					</li>
-					</security:oscarSec>
-
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eformreporttool" rights="r" reverse="<%=false%>">
- 						<li>
- 							<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/eformReportTool/eformReportTool.jsp">
- 							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eformReportTool"/></a>
-						</li>
-					</security:oscarSec>
-				</ul>
-
-				</div>
-				</div>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
-<!-- #REPORTS END -->	
+<!-- #REPORTS END -->
 
 <!-- #ECHART -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.encounter" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eChart"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseSix" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/providertemplate.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
-				</ul>
-				</div>
-				</div>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eChart"/>
+			</button>
+			</h2>
+			<div id="collapseSix" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/providertemplate.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
-<!-- #ECHART END-->	
+<!-- #ECHART END-->
 
 <!-- #Schedule Management -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.schedule,_admin.schedule.curprovider_only" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ScheduleManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseSeven" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ScheduleManagement"/>
+			</button>
+			</h2>
+
+			<div id="collapseSeven" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
+					title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSetting"/></a></li>
+			<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only" rights="r" reverse="<%=true%>">
+				<oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
+					value="yes">
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
-						title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSetting"/></a></li>
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only" rights="r" reverse="<%=true%>">
-					<oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
-						value="yes">
-						<li><a href="javascript:void(0);"
-							class="xlink" rel='${ctx}/appointment/appointmentstatuscontrol.jsp'
-							title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
-					</oscar:oscarPropertiesCheck>
-		
-					<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction.do'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
-								
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/adminnewgroup.jsp?submit=blank"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/admin/groupnoacl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
-		            <oscar:oscarPropertiesCheck property="billregion" value="ON">
-		           
-		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/groupPreferences.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
-						
-					</oscar:oscarPropertiesCheck>
-					
-					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarPrevention/PreventionManager.jsp" title="Customize prevention notifications."><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
-				</security:oscarSec>
-				</ul>
-				</div>
-				</div>
+						class="xlink" rel='${ctx}/appointment/appointmentstatuscontrol.jsp'
+						title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
+				</oscar:oscarPropertiesCheck>
+
+				<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction.do'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
+
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/admin/adminnewgroup.jsp?submit=blank"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/admin/groupnoacl.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
+	            <oscar:oscarPropertiesCheck property="billregion" value="ON">
+
+	            <li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/groupPreferences.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
+
+				</oscar:oscarPropertiesCheck>
+
+				<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarPrevention/PreventionManager.jsp" title="Customize prevention notifications."><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
+			</security:oscarSec>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 <!-- #Schedule Management END-->
 
 <!-- #CAISI - TODO: Should this move under system management?-->
 <caisi:isModuleLoad moduleName="caisi">
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" 	rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI" aria-expanded="false" aria-controls="collapseCAISI">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseCAISI" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SystemMessage.do">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.systemMessage"/>
-					</a></li>
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/FacilityMessage.do?"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/issueAdmin.do?method=list">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.issueEditor"/>
-					</a></li>
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager.do">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.surveyManager"/>
-					</a></li>
-					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/DefaultEncounterIssue.do">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.defaultEncounterIssue"/>
-					</a></li>
-				</ul>
-				</div>
-				</div>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCAISI" aria-expanded="false" aria-controls="collapseCAISI">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
+			</button>
+			</h2>
+			<div id="collapseCAISI" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/SystemMessage.do">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.systemMessage"/>
+				</a></li>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/FacilityMessage.do?"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/issueAdmin.do?method=list">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.issueEditor"/>
+				</a></li>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/SurveyManager.do">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.surveyManager"/>
+				</a></li>
+				<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/DefaultEncounterIssue.do">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.defaultEncounterIssue"/>
+				</a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" rights="r" reverse="<%=true%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseCAISI2" aria-expanded="false" aria-controls="collapseCAISI2">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseCAISI2" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.systemMessage" rights="r" reverse="<%=false%>">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SystemMessage.do">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.systemMessage"/>
-						</a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.facilityMessage" rights="r" reverse="<%=false%>">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/FacilityMessage.do?"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.lookupFieldEditor" rights="r">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/Lookup/LookupTableList.do"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.issueEditor" rights="r">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/issueAdmin.do?method=list">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.issueEditor"/>
-						</a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.userCreatedForms" rights="r">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager.do">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.surveyManager"/>
-						</a></li>
-					</security:oscarSec>
-				</ul>
-				</div>
-				</div>	
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCAISI2" aria-expanded="false" aria-controls="collapseCAISI2">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
+			</button>
+			</h2>
+			<div id="collapseCAISI2" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<security:oscarSec roleName="<%=roleName$%>"
+					objectName="_admin.systemMessage" rights="r" reverse="<%=false%>">
+					<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/SystemMessage.do">
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.systemMessage"/>
+					</a></li>
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>"
+					objectName="_admin.facilityMessage" rights="r" reverse="<%=false%>">
+					<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/FacilityMessage.do?"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>"
+					objectName="_admin.lookupFieldEditor" rights="r">
+					<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/Lookup/LookupTableList.do"> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LookupFieldEditor"/></a></li>
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>"
+					objectName="_admin.issueEditor" rights="r">
+					<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/issueAdmin.do?method=list">
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.issueEditor"/>
+					</a></li>
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>"
+					objectName="_admin.userCreatedForms" rights="r">
+					<li><a href="javascript:void(0);"
+					class="xlink" rel="${ctx}/SurveyManager.do">
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.surveyManager"/>
+					</a></li>
+				</security:oscarSec>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 </caisi:isModuleLoad>
 <!-- #CAISI END-->
 
 <!-- #SYSTEM Management-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseEight" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/providerAddRole.jsp">
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.addRole"/></a></li>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemManagement"/>
+			</button>
+			</h2>
+			<div id="collapseEight" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+			<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=false%>">
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/providerAddRole.jsp">
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.addRole"/></a></li>
+			</security:oscarSec>
+
+			<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r" reverse="<%=false%>">
+
+			<li><a href='javascript:void(0);'
+				class="xlink" rel="${ctx}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+			</security:oscarSec>
+
+
+			<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+			<li><a href='javascript:void(0);'
+				class="xlink" rel="${ctx}/admin/providerPrivilege.jsp">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRightsObject"/></a></li>
+
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/ManageClinic.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clinicAdmin"/></a></li>
+				<%
+					if (IsPropertiesOn.isMultisitesEnable())
+								{
+				%>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/ManageSites.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sitesAdmin"/></a></li>
+				<%
+					}
+				%>
+	            <li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.consultationSettings"/></a></li>
+<!--
+	            <li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
+ -->
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
 				</security:oscarSec>
 
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r" reverse="<%=false%>">			
-								
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements" rights="r" reverse="<%=false%>">
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
-				</security:oscarSec>		
-						
-						
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">			
+					class="xlink" rel="${ctx}/oscarEncounter/oscarMeasurements/Customization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarMeasurements"/></a></li>
+				</security:oscarSec>
+
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarPrevention/PreventionListManager.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></a></li>
+				</security:oscarSec>
+
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 				<li><a href='javascript:void(0);'
-					class="xlink" rel="${ctx}/admin/providerPrivilege.jsp">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRightsObject"/></a></li>
-				
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/ManageClinic.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clinicAdmin"/></a></li>
-					<%
-						if (IsPropertiesOn.isMultisitesEnable())
-									{
-					%>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/ManageSites.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sitesAdmin"/></a></li>
-					<%
-						}
-					%>
-		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.consultationSettings"/></a></li>
-<!--
-		            <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarEncounter/oscarConsultationRequest/config/EditSpecialists.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
- -->
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
-					</security:oscarSec>
-					
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements" rights="r" reverse="<%=false%>">	
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/oscarEncounter/oscarMeasurements/Customization.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCustomize"/> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarMeasurements"/></a></li>
-					</security:oscarSec>
+					class="xlink" rel="${ctx}/admin/resourcebaseurl.jsp"
+					title='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
+				</security:oscarSec>
 
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarPrevention/PreventionListManager.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.preventionlistmanager.title"/></a></li>
-					</security:oscarSec>
-										
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">	
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/resourcebaseurl.jsp"
-						title='<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
-					</security:oscarSec>	
-				
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
-							<li><a href='javascript:void(0);'
-								class="xlink" rel="${ctx}/messenger/DisplayMessages.do?providerNo=<%=curProvider_no%>&amp;userName=<%=userfirstname%>%20<%=userlastname%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.messages"/></a></li>
-								
-							<li>
-								<a href="${ctx}/messenger.do?method=fetch" class="contentLink">
-									<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnMessengerAdmin"/>
-								</a>
-							</li>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
+						<li><a href='javascript:void(0);'
+							class="xlink" rel="${ctx}/messenger/DisplayMessages.do?providerNo=<%=curProvider_no%>&amp;userName=<%=userfirstname%>%20<%=userlastname%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.messages"/></a></li>
 
-					</security:oscarSec>
-					
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/keygen/keyManager.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.keyPairGen"/></a></li>
-<%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarEncounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp">Create New Flowsheet</a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFlowsheets.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-			      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/lotnraddrecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/lotnrsearchrecordshtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
-			
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/jobs.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.jobs.title"/></a></li>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/jobTypes.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.jobtypes.title"/></a></li>
-					
-					<li>
-						<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction.do?method=manage" >
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.lookUpLists"/>
-						</a>
-					</li>
-			
-			      	<oscar:oscarPropertiesCheck property="LOGINTEST" value="yes">
-			            <li><a href='javascript:void(0);'
-			            class="xlink" rel="${ctx}/admin/uploadEntryText.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></a>
-			            </li>
-		            </oscar:oscarPropertiesCheck>	
-		            </security:oscarSec>
-		            
+						<li>
+							<a href="${ctx}/messenger.do?method=fetch" class="contentLink">
+								<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnMessengerAdmin"/>
+							</a>
+						</li>
+
+				</security:oscarSec>
+
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/keygen/keyManager.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.keyPairGen"/></a></li>
+<%--				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/oscarEncounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp">Create New Flowsheet</a></li>
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r" reverse="<%=false%>">
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFlowsheets.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+		      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/lotnraddrecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/lotnrsearchrecordshtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
+
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/jobs.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.jobs.title"/></a></li>
+				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/jobTypes.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.jobtypes.title"/></a></li>
+
+				<li>
+					<a href="javascript:void(0);" class="xlink" rel="${ctx}/lookupListManagerAction.do?method=manage" >
+						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.lookUpLists"/>
+					</a>
+				</li>
+
+		      	<oscar:oscarPropertiesCheck property="LOGINTEST" value="yes">
+		            <li><a href='javascript:void(0);'
+		            class="xlink" rel="${ctx}/admin/uploadEntryText.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></a>
+		            </li>
+	            </oscar:oscarPropertiesCheck>
+	            </security:oscarSec>
+
 <%--				 	<%--%>
-<%--						if (oscar.oscarSecurity.CRHelper.isCRFrameworkEnabled())--%>
-<%--								{--%>
-<%--					%>--%>
-<%--					<sec:oscarSec roleName="<%=roleName$%>" objectName="_admin.cookieRevolver" rights="r">--%>
-<%--						<li>&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.titleFactorAuth"/>--%>
-<%--						<ul>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/ip/show'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ipFilter"/></a></li>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/cert/?act=super'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setCert"/></a></li>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/supercert'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genCert"/></a></li>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/clear'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clearCookie"/></a></li>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/quest/adminQuestions'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecQuestions"/></a></li>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/policyadmin/select'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecPolicies"/></a></li>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/banremover/show'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.removeBans"/></a></li>--%>
-<%--							<li><a href='javascript:void(0);'--%>
-<%--								class="xlink" rel='${ctx}/gatekeeper/matrixadmin/show'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genMatrixCards"/></a></li>--%>
-<%--						</ul>--%>
-<%--						</li>--%>
-<%--					</sec:oscarSec>--%>
-<%--					<%--%>
-<%--						}--%>
-<%--					%>           	--%>
-								
-				</ul>
-				</div>
-				</div>
+<%--					if (oscar.oscarSecurity.CRHelper.isCRFrameworkEnabled())--%>
+<%--							{--%>
+<%--				%>--%>
+<%--				<sec:oscarSec roleName="<%=roleName$%>" objectName="_admin.cookieRevolver" rights="r">--%>
+<%--					<li>&nbsp; <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.titleFactorAuth"/>--%>
+<%--					<ul>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/ip/show'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ipFilter"/></a></li>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/cert/?act=super'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setCert"/></a></li>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/supercert'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genCert"/></a></li>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/clear'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clearCookie"/></a></li>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/quest/adminQuestions'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecQuestions"/></a></li>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/policyadmin/select'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.adminSecPolicies"/></a></li>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/banremover/show'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.removeBans"/></a></li>--%>
+<%--						<li><a href='javascript:void(0);'--%>
+<%--							class="xlink" rel='${ctx}/gatekeeper/matrixadmin/show'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genMatrixCards"/></a></li>--%>
+<%--					</ul>--%>
+<%--					</li>--%>
+<%--				</sec:oscarSec>--%>
+<%--				<%--%>
+<%--					}--%>
+<%--				%>           	--%>
+
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 <!-- #SYSTEM Management END-->
 
 <!-- #Fax Management -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r" reverse="<%=false%>">
-	<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseFifteen" aria-expanded="false" aria-controls="collapseFifteen">
-				Faxes
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseFifteen" class="accordion-body collapse">
-					<div class="accordion-inner">
-						<ul>
-							<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=false%>">
-								<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureFax.jsp">Configure Fax</a></li>
-							</security:oscarSec>
-							<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFaxes.jsp">Manage Faxes</a></li>
-						</ul>
-					</div>
-				</div>		
+	<div class="accordion-item">
+		<h2 class="accordion-header">
+		<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFifteen" aria-expanded="false" aria-controls="collapseFifteen">
+		Faxes
+		</button>
+		</h2>
+
+		<div id="collapseFifteen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+				<ul>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=false%>">
+						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureFax.jsp">Configure Fax</a></li>
+					</security:oscarSec>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFaxes.jsp">Manage Faxes</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
 </security:oscarSec>
 
 <!-- #Email Management -->
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.email" rights="r" reverse="<%=false%>">
-	<div class="accordion-heading">
-		<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseSeventeen" aria-expanded="false" aria-controls="collapseSeventeen">
-			Emails
-			<i class="fa-solid fa-chevron-right"></i>
-		</a>
-	</div>
-				
-	<div id="collapseSeventeen" class="accordion-body collapse">
-		<div class="accordion-inner">
-			<ul>
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureEmail.jsp">Configure Email</a></li>
-				</security:oscarSec>
-				<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageEmails.do?method=showEmailManager">Manage Emails</a></li>
-			</ul>
+	<div class="accordion-item">
+		<h2 class="accordion-header">
+		<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSeventeen" aria-expanded="false" aria-controls="collapseSeventeen">
+		Emails
+		</button>
+		</h2>
+
+		<div id="collapseSeventeen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+				<ul>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureEmail.jsp">Configure Email</a></li>
+					</security:oscarSec>
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageEmails.do?method=showEmailManager">Manage Emails</a></li>
+				</ul>
+			</div>
 		</div>
-	</div>		
+	</div>
 </security:oscarSec>
 
 <!-- #SYSTEM REPORTS-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemReports"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				
-				<div id="collapseNine" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-				
-				<security:oscarSec roleName="<%=roleName$%>"
-					objectName="_admin,_admin.securityLogReport" rights="r">
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/logReport.jsp?keyword=admin">
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.securityLogReport"/></a></li>
-				</security:oscarSec>
-				
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin, _admin.traceability" rights="r">
-					<li><a href="javascript:void(0);" class="xlink"
-						rel="${ctx}/admin/traceReport.jsp?keyword=admin">
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></a></li>
-				</security:oscarSec>				
-				
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemReports"/>
+			</button>
+			</h2>
 
-							
-				</ul>	
-				</div>
-				</div>
+			<div id="collapseNine" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+
+			<security:oscarSec roleName="<%=roleName$%>"
+				objectName="_admin,_admin.securityLogReport" rights="r">
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/logReport.jsp?keyword=admin">
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.securityLogReport"/></a></li>
+			</security:oscarSec>
+
+			<security:oscarSec roleName="<%=roleName$%>" objectName="_admin, _admin.traceability" rights="r">
+				<li><a href="javascript:void(0);" class="xlink"
+					rel="${ctx}/admin/traceReport.jsp?keyword=admin">
+				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></a></li>
+			</security:oscarSec>
+
+
+
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 <!-- #SYSTEM REPORTS END-->
 
 <!-- #INTEGRATION-->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTen" aria-expanded="false" aria-controls="collapseTen">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Integration"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseTen" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li>API/Connections
-						<ul>
-						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp">REST Clients</a></li>
-						</ul>
-					</li>
-<%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
-					
-					<caisi:isModuleLoad moduleName="HRM">
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp">Hospital Report Manager (HRM) Status</a></li>
-					</caisi:isModuleLoad>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTen" aria-expanded="false" aria-controls="collapseTen">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Integration"/>
+			</button>
+			</h2>
+			<div id="collapseTen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li>API/Connections
+					<ul>
+					<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp">REST Clients</a></li>
+					</ul>
+				</li>
+<%--				<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 
-					<%
-						if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))
-									{
-					%>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/RecommitHSFO.do?method=showSchedule"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hsfoSubmit"/></a></li>
-					<%
-						}
-					%>
-		
-					  <%
-		                                if (oscarVariables.getProperty("hsfo2.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo2.loginSiteCode", "")))
-		                                {
-		                        %>
-		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2.do?method=showSchedule">schedule HSFO2 XML resubmit</a></li>
-		                        <%
-		                                }
-		                        %>		
-			
-					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/updateDrugref.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>	
+				<caisi:isModuleLoad moduleName="HRM">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp">Hospital Report Manager (HRM) Status</a></li>
+				</caisi:isModuleLoad>
+
+				<%
+					if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))
+								{
+				%>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/RecommitHSFO.do?method=showSchedule"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.hsfoSubmit"/></a></li>
+				<%
+					}
+				%>
+
+				  <%
+	                                if (oscarVariables.getProperty("hsfo2.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo2.loginSiteCode", "")))
+	                                {
+	                        %>
+	                        <li><a href='javascript:void(0);'
+	                                class="xlink" rel="${ctx}/admin/RecommitHSFO2.do?method=showSchedule">schedule HSFO2 XML resubmit</a></li>
+	                        <%
+	                                }
+	                        %>
+
+				<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/updateDrugref.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
 <%-- K2A config link removed --%>
 
-					<caisi:isModuleLoad moduleName="BORN">
-						<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/born.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.born"/></a></li>
-					</caisi:isModuleLoad>
-				</ul>
-				</div>
-				</div>
+				<caisi:isModuleLoad moduleName="BORN">
+					<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/born.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.born"/></a></li>
+				</caisi:isModuleLoad>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 <!-- #INTEGRATION END -->
-	
+
 <!-- #Data Management -->
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.backup" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseTwelve" aria-expanded="false" aria-controls="collapseTwelve">
-				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DataManagement"/>
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseTwelve" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-<%--					<li><a href='javascript:void(0);'--%>
-<%--						class="xlink" rel="${ctx}/admin/adminbackupdownload.jsp"><fmt:message--%>
-<%--						key="admin.admin.btnAdminBackupDownload" /></a></li>--%>
-						
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwelve" aria-expanded="false" aria-controls="collapseTwelve">
+			<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DataManagement"/>
+			</button>
+			</h2>
+			<div id="collapseTwelve" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+<%--				<li><a href='javascript:void(0);'--%>
+<%--					class="xlink" rel="${ctx}/admin/adminbackupdownload.jsp"><fmt:message--%>
+<%--					key="admin.admin.btnAdminBackupDownload" /></a></li>--%>
+
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/demographic/demographicExport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoExport"/></a></li>
+                        <li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/demographic/demographicImport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/demographicmergerecord.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></a></li>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/updatedemographicprovider.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
+			   <li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/productDispensing/products.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInventory"/></a></li>
 					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/demographic/demographicExport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoExport"/></a></li>
-		                        <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/demographic/demographicImport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/demographicmergerecord.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mergeRec"/></a></li>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/updatedemographicprovider.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
-				   <li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/productDispensing/products.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInventory"/></a></li>
-						<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/fixRolesOnNotes.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFixNotes"/></a></li>
-						
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/auditLogPurge.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAuditLogPurge"/></a></li>
-				</ul>
-				</div>
-				</div>
+					class="xlink" rel="${ctx}/admin/fixRolesOnNotes.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnFixNotes"/></a></li>
+
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/auditLogPurge.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAuditLogPurge"/></a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 <!-- #Data Management END-->
 
@@ -893,29 +906,29 @@ String curProvider_no = (String)session.getAttribute("user");
 <!-- #Hamilton Public Health -->
 <oscar:oscarPropertiesCheck property="admin.hph" value="true">
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
-				<div class="accordion-heading">
-				<a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#adminNav" href="#collapseThirteen" aria-expanded="false" aria-controls="collapseThirteen">
-				Hamilton Public Health
-				<i class="fa-solid fa-chevron-right"></i>
-				</a>
-				</div>
-				<div id="collapseThirteen" class="accordion-body collapse">
-				<div class="accordion-inner">
-				<ul>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/hamiltonPublicHealth/setProviderAvailability.jsp">
-						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setProviderAvailabilities"/>
-					</a></li>
-				</ul>
-				</div>
-				</div>
+			<div class="accordion-item">
+			<h2 class="accordion-header">
+			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThirteen" aria-expanded="false" aria-controls="collapseThirteen">
+			Hamilton Public Health
+			</button>
+			</h2>
+			<div id="collapseThirteen" class="accordion-collapse collapse" data-bs-parent="#adminNav">
+			<div class="accordion-body">
+			<ul>
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/hamiltonPublicHealth/setProviderAvailability.jsp">
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.setProviderAvailabilities"/>
+				</a></li>
+			</ul>
+			</div>
+			</div>
+			</div>
 	</security:oscarSec>
 </oscar:oscarPropertiesCheck>
 <!-- #Hamilton Public Health END-->
 
-		</div> <!-- ACCORDION GROUP END -->	
-		</div> <!-- ACCORDION END -->
-	
+	</div> <!-- ACCORDION END -->
+
 </div><!-- SIDE END -->
 
 <script>
@@ -932,14 +945,6 @@ function popupPage(vheight,vwidth,varpage) { //open a new popup window
 }
 
 $(document).ready(function(){
-	$(".accordion-heading").click(function(e) {
-		if($(this).hasClass('selected-heading')) {
-			$('.accordion-heading ').removeClass('selected-heading');
-		}else{
-        	$('.accordion-heading').not(this).removeClass('selected-heading');
-        	$(this).addClass('selected-heading');
-		}
-	});
 
 	$(".xlink").click(function(e) {
 		var source = $(this).attr('rel');
@@ -957,31 +962,31 @@ $(document).ready(function(){
 		if(show!=null){
 			var load = getUrlVars()["load"];
 			var pageToLoad="";
-			
+
 			if(show!=null & load!=null){
 				pageToLoad=$('.default'+show+load).attr('href');
 			}else{
-				pageToLoad=$('.default'+show).attr('href');		
+				pageToLoad=$('.default'+show).attr('href');
 			}
 
 		//expand request menu item
 		bootstrap.Collapse.getOrCreateInstance(document.getElementById('collapse'+show)).show();
 
 		//load request page or load default
-		$("#dynamic-content").load(pageToLoad, 
+		$("#dynamic-content").load(pageToLoad,
 				function(response, status, xhr) {
 			  		if (status == "error") {
 				    	var msg = "Sorry but there was an error: ";
 				    	$("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
 					}
-		});	
-		
+		});
+
 		}
 	  }
 	catch(err)
 	  {
 	  //do nothing
-	  }	
+	  }
 
 });
 
