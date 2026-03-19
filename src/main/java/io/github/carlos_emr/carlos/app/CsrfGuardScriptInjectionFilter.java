@@ -121,12 +121,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return;
         }
 
-        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() unwraps
-        // HttpServletResponseWrappers during the initial REQUEST dispatch. However, the
-        // filter-mapping includes FORWARD dispatcher, so this filter also runs when Struts
-        // forwards to the JSP. The forward request has a .jsp servletPath, so the wrapper
-        // is applied there — preventing the default 8KB response buffer from truncating
-        // the forwarded JSP output.
+        // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() closes
+        // the output stream after the first buffer flush, truncating responses > 8KB.
+        // The filter-mapping includes FORWARD dispatcher so this filter also runs when
+        // Struts forwards to the JSP, wrapping it to prevent truncation. AJAX sidebar
+        // calls use EctDisplayAction.include() which bypasses Struts results entirely.
         String servletPath = httpRequest.getServletPath();
         if (servletPath != null && servletPath.endsWith(".do")) {
             chain.doFilter(request, response);
@@ -248,6 +247,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
     /**
      * Writes the final content to the real response, updating Content-Length.
+     *
+     * <p>Uses {@code getWriter()} for text content because Tomcat 11's
+     * {@code RequestDispatcher.forward()} may have already opened the writer
+     * on the underlying response. Calling {@code getOutputStream()} after
+     * {@code getWriter()} throws {@code IllegalStateException}.</p>
      */
     private void writeToResponse(HttpServletResponse response, String content) throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
@@ -262,10 +266,21 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         if (encoding == null || encoding.isEmpty()) {
             encoding = "UTF-8";
         }
-        byte[] bytes = content.getBytes(encoding);
-        response.setContentLength(bytes.length);
-        response.getOutputStream().write(bytes);
-        response.getOutputStream().flush();
+        try {
+            // Use getWriter() for text responses. Content-Length is not set here — the byte
+            // count from content.getBytes(encoding) may differ from what the writer sends if
+            // the response encoding changes, causing client-side truncation from a mismatched
+            // header. The container computes the correct length via chunked transfer encoding.
+            response.getWriter().write(content);
+            response.getWriter().flush();
+        } catch (IllegalStateException e) {
+            // getWriter() failed because getOutputStream() was already called — use byte stream.
+            // Content-Length is safe here since we write the exact same bytes array.
+            byte[] bytes = content.getBytes(encoding);
+            response.setContentLength(bytes.length);
+            response.getOutputStream().write(bytes);
+            response.getOutputStream().flush();
+        }
     }
 
     @Override

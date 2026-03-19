@@ -31,12 +31,6 @@
     <%@ taglib uri="jakarta.tags.core" prefix="c"%>
     <c:set var="ctx" value="${pageContext.request.contextPath}"	scope="request" />
 
-    Messenger.options = {
-        delay: 10,
-        extraClasses: 'messenger-fixed messenger-on-top messenger-on-left',
-        theme: 'future'
-    };
-
 // global message
     var msg;
 
