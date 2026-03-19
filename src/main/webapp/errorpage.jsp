@@ -28,12 +28,28 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
+<%--
+  Purpose: Displays a CARLOS-branded error page for unhandled HTTP and server errors.
+  Features:
+    - Internationalized messages via oscarResources bundle
+    - Displays HTTP error status code with CARLOS branding
+    - Navigation actions: Back (browser history) and Exit (main schedule)
+    - Optional support contact information from LoginResourceBean
+  Parameters:
+    - pageContext.errorData.statusCode: HTTP error status code forwarded by the container
+    - LoginResourceBean.supportLink: URL for support contact link (optional)
+    - LoginResourceBean.supportName: Support contact display name (optional)
+    - LoginResourceBean.supportText: Support contact descriptive text or HTML (optional)
+  @since 2026-03
+--%>
 <%@ page isErrorPage="true" %>
 <!-- only true can access exception object -->
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="messenger.config.MessengerAdmin.goBack" var="btnBackTitle"/>
+<fmt:message key="provider.appointmentProviderAdminDay.schedView" var="btnExitTitle"/>
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
 <!DOCTYPE html>
 <html>
@@ -42,8 +58,8 @@
     <title>
         <fmt:message key="error.description"/>
     </title>
-    <link rel="shortcut icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
+    <link rel="shortcut icon" href="${e:forUri(pageContext.request.contextPath)}/images/favicon.ico"/>
+    <link rel="stylesheet" href="${e:forUri(pageContext.request.contextPath)}/library/bootstrap/5.3.3/css/bootstrap.min.css"/>
 
     <style media="all">
 
@@ -128,38 +144,36 @@
 
 <body>
 <div id="heading">
-    <span>!@#$%^&...</span>
+    <span><fmt:message key="global.msgSomethingWrong"/></span>
 </div>
 
 <div id="container">
     <div id="error-code">
         <h2><fmt:message key="error.msgException"/>:</h2>
-        <p>
-            <c:out value="${pageContext.errorData.statusCode}"/>
-        </p>
+        <p>CARLOS Error: ${e:forHtml(pageContext.errorData.statusCode)}</p>
 
         <div id="navigation">
-            <a class="btn btn-secondary float-start" title="Go back"
+            <a class="btn btn-secondary float-start" title="${e:forHtmlAttribute(btnBackTitle)}"
                href="#" onclick="window.history.back();" role="button"><fmt:message key="global.btnBack"/></a>
-            <a class="btn btn-secondary float-end" title="Go back to main schedule"
-               href="${ pageContext.request.contextPath }/provider/providercontrol.jsp" role="button"><fmt:message key="global.btnExit"/></a>
+            <a class="btn btn-secondary float-end" title="${e:forHtmlAttribute(btnExitTitle)}"
+               href="${e:forUri(pageContext.request.contextPath)}/provider/providercontrol.jsp" role="button"><fmt:message key="global.btnExit"/></a>
         </div>
     </div>
 
     <c:if test="${ not empty LoginResourceBean.supportLink
-								or not empty LoginResourceBean.supportName
-								or not empty LoginResourceBean.supportText }">
+							or not empty LoginResourceBean.supportName
+							or not empty LoginResourceBean.supportText }">
         <div id="support">
             <div class="support_details">
-                <a target="_blank" href="${ LoginResourceBean.supportLink }" id="supportImageLink">
-                    <img width="150px" src="${ pageContext.request.contextPath }/loginResource/supportLogo.png"
-                         alt="<c:out value="${ LoginResourceBean.supportName }" />"
+                <a target="_blank" href="${e:forHtmlAttribute(LoginResourceBean.supportLink)}" id="supportImageLink">
+                    <img width="150px" src="${e:forUri(pageContext.request.contextPath)}/loginResource/supportLogo.png"
+                         alt="${e:forHtmlAttribute(LoginResourceBean.supportName)}"
                          onerror="this.style.display='none'; document.getElementById('supportImageLink').style.display='none';">
                 </a>
                 <c:if test="${ not empty LoginResourceBean.supportName }">
                     <div id="support_name">
-                        <a target="_blank" href="${ LoginResourceBean.supportLink }">
-                            <c:out value="${ LoginResourceBean.supportName }"/>
+                        <a target="_blank" href="${e:forHtmlAttribute(LoginResourceBean.supportLink)}">
+                            ${e:forHtml(LoginResourceBean.supportName)}
                         </a>
                     </div>
                 </c:if>
