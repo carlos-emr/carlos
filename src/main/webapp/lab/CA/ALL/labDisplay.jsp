@@ -1213,21 +1213,23 @@ input[id^='acklabel_']{
                                                                 </td>
                                                                 <td colspan="2"></td>
                                                             </tr>
+                                                            <% if (isLinkedToDemographic && demoI > 0) { %>
                                                             <tr>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong>
-                                                                            Next Appointment:
+                                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNextAppointment"/>
                                                                         </strong>
                                                                     </div>
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <oscar:nextAppt demographicNo="<%=demographicID%>"/>
+                                                                        <oscar:nextAppt demographicNo="<%=String.valueOf(demoI)%>"/>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
                                                             </tr>
+                                                            <% } %>
                                                         </table>
                                                     </td>
                                                     <td style="width:33%;vertical-align:top; ">
