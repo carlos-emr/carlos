@@ -57,6 +57,13 @@ Default: false
 Description: Do you want to use the new contacts interface?
   The new contacts interface allows for an expanded number of relations and other contacts related to the patient.
 
+Template: carlos-emr/priorschema
+Type: string
+Default: none
+Description: Prior database schema name (internal)
+ Used internally to track which schema was in place before upgrade.
+ This is set automatically during OSCAR 19 to CARLOS migration.
+
 Template: carlos-emr/readme
 Type: boolean
 Default: true
