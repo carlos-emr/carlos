@@ -89,7 +89,6 @@
         <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css" type="text/css">
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/css/print.css" media="print">
 
-        <script src="<c:out value="${ctx}/csrfguard"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.14.2.min.js" />"></script>
         <script type="text/javascript">jQuery.noConflict();</script>
@@ -97,6 +96,9 @@
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
         <script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+        <!-- CSRFGuard must load AFTER prototype-compat.js so its XHR.send() interception
+             takes final precedence for automatic CSRF token injection -->
+        <script src="<c:out value="${ctx}/csrfguard"/>"></script>
 
         <script type="text/javascript" src="<c:out value="${ctx}"/>/casemgmt/newEncounterLayout.js.jsp"></script>
 
