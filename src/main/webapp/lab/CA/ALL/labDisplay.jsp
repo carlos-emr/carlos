@@ -372,9 +372,8 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     <title><%=Encode.forHtml(handler.getPatientName()) + " Lab Results"%>
     </title>
 
-    <script type="text/javascript"
-            src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
+     <!-- include jQuery Bootstrap jQueryUI fontawesome standard scripts and styles -->
+     <%@ include file="/includes/global-head.jspf" %>
 
     <script>
         var contextpath = "${pageContext.servletContext.contextPath}";
@@ -390,10 +389,6 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
             }
         }
     </script>
-    <!--<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css">-->
-<!-- Bootstrap -->
-<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
-<script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
      <style type="text/css">
 body { line-height: 12px; font-size: 12px; }
@@ -1058,9 +1053,6 @@ input[id^='acklabel_']{
                                     if (remoteLabKey == null || remoteLabKey.isEmpty()) {
                                 %>
 
-
-                                <span style="font-size:10px; font-style:italic;">Next Appointment: <oscar:nextAppt
-                                        demographicNo="<%=demographicID%>"/></span>
                                 <% if (!label.equals(null) && !label.equals("")) { %>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
                                         value="Label"
@@ -1217,6 +1209,21 @@ input[id^='acklabel_']{
                                                                 <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <%=Encode.forHtml(handler.getHealthNum())%>
+                                                                    </div>
+                                                                </td>
+                                                                <td colspan="2"></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <strong>
+                                                                            Next Appointment:
+                                                                        </strong>
+                                                                    </div>
+                                                                </td>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <oscar:nextAppt demographicNo="<%=demographicID%>"/>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
