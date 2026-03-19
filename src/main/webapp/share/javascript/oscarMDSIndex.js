@@ -1890,7 +1890,7 @@ function updateStatus(formid) {//acknowledge
             console.log("Updating status. URL: " + url);
             console.log(data);
 
-            jQuery.post(url, data).success(function () {
+            jQuery.post(url, data).done(function () {
                 updateDocStatusInQueue(doclabid);
 				if (window.frameElement) {
 					// Hide the parent <div> of the iframe only for new inbox previews loaded in an iframe
