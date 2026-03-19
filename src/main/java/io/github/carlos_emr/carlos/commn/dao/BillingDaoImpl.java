@@ -174,7 +174,7 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
     @Override
     public List<Object[]> findBillings(Integer billing_no) {
-        Query query = entityManager.createQuery("FROM " + Billingmaster.class.getSimpleName() + " b, Billing bi where bi.id = b.billingNo and b.billingNo = ?1");
+        Query query = entityManager.createQuery("SELECT b, bi FROM " + Billingmaster.class.getSimpleName() + " b, Billing bi where bi.id = b.billingNo and b.billingNo = ?1");
         query.setParameter(1, billing_no);
         return query.getResultList();
     }

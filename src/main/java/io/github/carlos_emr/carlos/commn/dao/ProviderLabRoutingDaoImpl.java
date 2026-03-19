@@ -138,7 +138,7 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
      */
     @Override
     public List<Object[]> getProviderLabRoutings(Integer labNo, String labType) {
-        Query query = entityManager.createQuery("FROM " + Provider.class.getSimpleName() + " p, " + modelClass.getName() 
+        Query query = entityManager.createQuery("SELECT p, r FROM " + Provider.class.getSimpleName() + " p, " + modelClass.getName()
                     + " r WHERE p.id = r.providerNo AND r.labNo = ?1 AND r.labType = ?2");
         query.setParameter(1, labNo);
         query.setParameter(2, labType);
