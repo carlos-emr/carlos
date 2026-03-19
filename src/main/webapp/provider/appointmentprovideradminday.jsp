@@ -453,9 +453,12 @@
     <head>
         <title><%=WordUtils.capitalize(userlastname + ", " + org.apache.commons.lang3.StringUtils.substring(userfirstname, 0, 1)) + "-"%><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.title"/></title>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
-
+        <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet"
               href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css"
+              type="text/css">
+        <link rel="stylesheet"
+              href="${pageContext.servletContext.contextPath}/css/fontawesome-all.min.css"
               type="text/css">
 
         <!-- Determine which stylesheet to use: mobile-optimized or regular -->
