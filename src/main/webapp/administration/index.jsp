@@ -28,6 +28,38 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+/**
+ * CARLOS EMR Administration Dashboard
+ *
+ * <p><strong>Purpose:</strong> Main administration interface providing a dashboard with
+ * quick-access cards for common administrative tasks and a collapsible Bootstrap 5.3
+ * accordion left navigation covering all administrative modules.</p>
+ *
+ * <p><strong>Features:</strong></p>
+ * <ul>
+ *   <li>Quick-access cards for frequently used admin functions (unlock accounts,
+ *       add provider, manage eforms, schedule settings, assign rights)</li>
+ *   <li>Bootstrap 5.3 accordion left navigation with 16 grouped sections</li>
+ *   <li>Dynamic content pane that loads sub-pages without a full page reload</li>
+ *   <li>Role-based security filtering via the oscarSec tag on each card and nav item</li>
+ *   <li>Configurable help panel and about dialog links</li>
+ *   <li>Province-specific billing module visibility based on {@code billregion} property</li>
+ * </ul>
+ *
+ * <p><strong>Security:</strong> Requires an authenticated session; redirects to logout if
+ * {@code userrole} is absent. Individual cards and nav items are gated by
+ * {@code _admin.*} security objects via the oscarSec tag.</p>
+ *
+ * <p><strong>Parameters:</strong></p>
+ * <ul>
+ *   <li>{@code show} - optional: left nav section to expand on load</li>
+ *   <li>{@code load} - optional: URL to load into the dynamic content pane on page load</li>
+ * </ul>
+ *
+ * @since 2001-01-01 (original McMaster), 2026-03-19 (Bootstrap 5.3 modernization)
+ */
+--%>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
