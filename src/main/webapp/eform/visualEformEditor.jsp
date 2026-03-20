@@ -90,16 +90,22 @@ FOR STAND ALONE USE
 -->
 <head>
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
-    <title>Visual E-form Editor</title>
+    <fmt:setBundle basename="oscarResources"/>
+    <title><fmt:message key="eform.visual.editor.title"/></title>
 
     <!-- jQuery and UI -->
-	<script src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-	<script src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet" type="text/css">
-    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet" type="text/css">
+	<script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+	<script>
+        $.uiBackCompat = true;
+    </script>
+	<script src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
+    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
 
-    <!-- javascript file for the signature pads * optional * -->
-    <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script>
+    <!-- signature_pad.min.js (Szymon Nowak) was removed from the project.
+         Without it, wet-signature canvas widgets are unavailable in the editor
+         but existing eforms remain functional. Restore the file to re-enable. -->
+    <%-- <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script> --%>
 
     <!-- main calendar program -->
     <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -1597,6 +1603,16 @@ var EFORM_I18N = {
             return string.replace(/[^a-z0-9\s]/gi, '');
         }
 
+        /** HTML-encodes a string for safe insertion into HTML content (e.g. title tags) */
+        function escapeHtmlText(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function destroy_gen_widgets($elementSelector) {
             $elementSelector.find(".gen-resizable").resizable("destroy").removeClass("gen-resizable").addClass("gen-resize-destroyed");
             $elementSelector.find(".gen-draggable").draggable("destroy").removeClass("gen-draggable").addClass("gen-draggable-destroyed");
@@ -1864,9 +1880,10 @@ var EFORM_I18N = {
 
             var source = "<!DOCTYPE html><html><head>";
             source += "\<META http-equiv='Content-Type' content='text/html; charset=UTF-8'\>";
-            source += "<title>" + eformName + "</title>";
+            source += "<title>" + escapeHtmlText(eformName) + "</title>";
 
             // ------- the eforms generated are currently dependent on jQuery ------
+            source += "\<script src='../library/jquery/jquery-3.7.1.min.js'\>\<\/script\>"; // present in CARLOS
             source += "\<script src='../library/jquery/jquery-3.6.4.min.js'\>\<\/script\>"; // present in OSCAR 19 and OPEN OSP
             source += "\<script src='$\{oscar_javascript_path\}jquery/jquery-2.2.4.min.js'\>\<\/script\>"; // only present in JUNO
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../js/jquery-1.12.3.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // present in WELL and others as
@@ -1977,9 +1994,9 @@ var EFORM_I18N = {
                 source += stamp_script.innerHTML;
                 loadFunctions += " signForm()";
             }
-            source += findSelectedFunctions(htmlElements.innerHTML) + "\<\/script></head><body onload='focusAll();" + loadFunctions + "'>";
+            source += findSelectedFunctions(htmlElements.innerHTML) + "\<\/script></"+"head><body onload='focusAll();" + loadFunctions + "'>";
             if (setSideBar == "on") {
-                source += "<iframe src='${oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px height 600px'></iframe>";
+                source += "<iframe src='${oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px;height:600px'></iframe>";
             }
 
             source += "<div id='eform_container' " + "style='max-width: " + eFormPageWidth + "px'>";
@@ -4556,8 +4573,8 @@ var EFORM_I18N = {
                 var style3 = document.getElementById('eform_style_signature').innerHTML;
                 var newWin = window.open('', 'Print-Window');
                 newWin.document.open();
-                var htmlPrint = '<html><head><title>' + eformName + '</title><style>' + style1 + style2 + style3 +
-                    '</style></head><body onload="window.print()">' + divToPrint.innerHTML + '</body></html>';
+                var htmlPrint = '<html><head><title>' + escapeHtmlText(eformName) + '</title><style>' + style1 + style2 + style3 +
+                    '</style></'+'head><body onload="window.print()">' + divToPrint.innerHTML + '</body></html>';
                 newWin.document.write(htmlPrint);
                 newWin.document.close();
                 var timeout = 1;
@@ -5271,6 +5288,32 @@ var EFORM_I18N = {
     </fieldset>
   </form>
 </div>
+<script>
+/* Suppress the leave-page confirmation dialog when a logout broadcast signal is received.
+ * logout.jsp broadcasts 'logout' on the 'carlos_logout' BroadcastChannel and sets
+ * the 'carlos_logout_signal' localStorage key. Either signal releases the dirty flag
+ * so the beforeunload handler does not prompt the user, then closes this popup window. */
+(function() {
+    var logoutChannel = null;
+    function handleLogoutSignal() {
+        releaseDirtyFlag();
+        if (logoutChannel) { try { logoutChannel.close(); } catch(e) {} logoutChannel = null; }
+        try { window.close(); } catch(e) {}
+    }
+    try {
+        logoutChannel = new BroadcastChannel('carlos_logout');
+        logoutChannel.onmessage = function(e) {
+            if (e.data === 'logout') { handleLogoutSignal(); }
+        };
+    } catch(e) {}
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'carlos_logout_signal' && e.newValue !== null) { handleLogoutSignal(); }
+    });
+    window.addEventListener('beforeunload', function() {
+        if (logoutChannel) { try { logoutChannel.close(); } catch(e) {} logoutChannel = null; }
+    });
+}());
+</script>
 </body>
 
 </html>

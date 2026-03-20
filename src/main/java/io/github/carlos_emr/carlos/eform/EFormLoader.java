@@ -177,7 +177,7 @@ public class EFormLoader {
             if (configpath == null) {
                 EFormLoader eLoader = new EFormLoader();
                 ClassLoader loader = eLoader.getClass().getClassLoader();
-                fs = loader.getResourceAsStream("/oscar/eform/apconfig.xml");
+                fs = loader.getResourceAsStream("oscar/eform/apconfig.xml");
             } else {
                 fs = new FileInputStream(configpath);
             }
