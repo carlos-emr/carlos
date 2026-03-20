@@ -317,21 +317,21 @@
             <i class="fa-solid fa-circle-question"></i>
             <%if (resourcehelpHtml == "") { %>
             <a href="#" ONCLICK="popupPage(600,750,'<%=resourcebaseurl%>');return false;" title=""
-               onmouseover="window.status='';return true">Help</a>
+               onmouseover="window.status='';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
             <%} else {%>
             <span id="help-link">
                 <a href="javascript:void(0)"
                    onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
 
                 <div id="helpHtml">
-                    <div class="help-title">Help</div>
+                    <div class="help-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></div>
 
                     <div class="help-body">
 
                         <%=resourcehelpHtml%>
                     </div>
                     <a href="javascript:void(0)" class="help-close"
-                       onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'">(X)</a>
+                       onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.close"/></a>
                 </div>
 
             </span>
