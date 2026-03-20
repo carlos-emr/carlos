@@ -579,25 +579,25 @@
                 }
             }
         </script>
-    </head>
+     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onload="disableifchecked(document.getElementById('neverWarn'),'nextDate');">
-    <!--  -->
+    <body onload="disableifchecked(document.getElementById('neverWarn'),'nextDate');">
+
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="100">
-                <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
+            <td class="MainTableTopRowLeftColumn" style="background-color:silver;">
+                <h2><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></h2>
             </td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
+            <td class="MainTableTopRowRightColumn" style="width: 100%; background-color:silver;">
+                <table class="TopStatusBar" style="width: 100%">
                     <tr>
-                        <td>
+                        <td style="background-color:silver;">
                             <%=StringEscapeUtils.escapeHtml4(nameage)%>
                         </td>
-                        <td>&nbsp;
+                        <td style="background-color:silver;">&nbsp;
 
                         </td>
-                        <td style="text-align:right">
+                        <td style="text-align:right; background-color:silver;">
                             <a
                                 href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
                             | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
@@ -1455,6 +1455,27 @@
                 </form>
                 <% } %>
     </div>
+<script>
+/* Suppress the leave-page confirmation dialog when a logout broadcast signal is received.
+ * logout.jsp broadcasts 'logout' on the 'carlos_logout' BroadcastChannel and sets
+ * the 'carlos_logout_signal' localStorage key. Either signal releases the dirty flag
+ * so the beforeunload handler does not prompt the user, then closes this popup window. */
+(function() {
+    function handleLogoutSignal() {
+        cancelCloseWarning();
+        try { window.close(); } catch(e) {}
+    }
+    try {
+        var logoutChannel = new BroadcastChannel('carlos_logout');
+        logoutChannel.onmessage = function(e) {
+            if (e.data === 'logout') { handleLogoutSignal(); }
+        };
+    } catch(e) {}
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'carlos_logout_signal') { handleLogoutSignal(); }
+    });
+}());
+</script>
     </body>
 </html>
 <%!
