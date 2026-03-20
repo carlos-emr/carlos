@@ -312,32 +312,37 @@
 
 <body>
 <div class="container-fluid">
-    <div class="row d-print-none" style="text-align:right">
-        <i class=" fa-solid fa-circle-question"></i>
-        <%if (resourcehelpHtml == "") { %>
-        <a href="#" ONCLICK="popupPage(600,750,'<%=resourcebaseurl%>');return false;" title=""
-           onmouseover="window.status='';return true">Help</a>
-        <%} else {%>
-        <div id="help-link">
-            <a href="javascript:void(0)"
-               onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
+    <div class="d-print-none d-flex justify-content-end align-items-center gap-3">
+        <span class="d-flex align-items-center gap-1">
+            <i class="fa-solid fa-circle-question"></i>
+            <%if (resourcehelpHtml == "") { %>
+            <a href="#" ONCLICK="popupPage(600,750,'<%=resourcebaseurl%>');return false;" title=""
+               onmouseover="window.status='';return true">Help</a>
+            <%} else {%>
+            <span id="help-link">
+                <a href="javascript:void(0)"
+                   onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
 
-            <div id="helpHtml">
-                <div class="help-title">Help</div>
+                <div id="helpHtml">
+                    <div class="help-title">Help</div>
 
-                <div class="help-body">
+                    <div class="help-body">
 
-                    <%=resourcehelpHtml%>
+                        <%=resourcehelpHtml%>
+                    </div>
+                    <a href="javascript:void(0)" class="help-close"
+                       onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'">(X)</a>
                 </div>
-                <a href="javascript:void(0)" class="help-close"
-                   onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'">(X)</a>
-            </div>
 
-        </div>
-        <%}%>
-
-        <i class=" fa-solid fa-circle-info" style="margin-left:10px;"></i> <a href="javascript:void(0)"
-                                                                     onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></div>
+            </span>
+            <%}%>
+        </span>
+        <span class="d-flex align-items-center gap-1">
+            <i class="fa-solid fa-circle-info"></i>
+            <a href="javascript:void(0)"
+               onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+        </span>
+    </div>
 
     <div class="row">
 
