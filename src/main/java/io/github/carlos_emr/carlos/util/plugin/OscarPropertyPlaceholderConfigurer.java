@@ -25,7 +25,7 @@ package io.github.carlos_emr.carlos.util.plugin;
 
 import java.util.Properties;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
 
@@ -37,7 +37,7 @@ public class OscarPropertyPlaceholderConfigurer extends PropertyPlaceholderConfi
      */
     protected String resolvePlaceholder(String placeholder, Properties properties, int systemPropertiesMode) {
 
-        Properties p2 = OscarProperties.getInstance();
+        Properties p2 = CarlosProperties.getInstance();
         MiscUtils.getLogger().debug("oscarproperties=" + p2.toString());
         if (p2 != null && placeholder.startsWith("oscar.")) {
             String value = p2.getProperty(placeholder.substring(6));
@@ -55,7 +55,7 @@ public class OscarPropertyPlaceholderConfigurer extends PropertyPlaceholderConfi
      */
     protected String resolvePlaceholder(String placeholder, Properties properties) {
 
-        Properties p2 = OscarProperties.getInstance();
+        Properties p2 = CarlosProperties.getInstance();
         MiscUtils.getLogger().debug("oscarproperties=" + p2.toString());
         if (p2 != null && placeholder.startsWith("oscar.")) {
             String value = p2.getProperty(placeholder.substring(6));

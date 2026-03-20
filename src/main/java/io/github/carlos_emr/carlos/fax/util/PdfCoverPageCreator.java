@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
 import static io.github.carlos_emr.carlos.utility.ClinicLogoUtility.createLogoHeader;
@@ -144,7 +144,7 @@ public class PdfCoverPageCreator {
         PdfPTable border1;
 
         PdfPCell cell;
-        OscarProperties oscarProperties = OscarProperties.getInstance();
+        CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             Document document = new Document();
@@ -199,7 +199,7 @@ public class PdfCoverPageCreator {
 
             // footer
             PdfPTable footerTable = new PdfPTable(1);
-            cell = new PdfPCell(new Phrase(OscarProperties.getConfidentialityStatement(), footer));
+            cell = new PdfPCell(new Phrase(CarlosProperties.getConfidentialityStatement(), footer));
             cell.setPaddingTop(0);
             cell.setBorder(0);
             cell.setColspan(1);

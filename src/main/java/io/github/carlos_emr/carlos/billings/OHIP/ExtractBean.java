@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -558,7 +558,7 @@ public class ExtractBean extends Object implements Serializable {
     public void writeFile(String value1) {
         try {
             String home_dir;
-            home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
+            home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
             FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
             PrintStream p = new PrintStream(out);
             p.println(value1);
@@ -584,7 +584,7 @@ public class ExtractBean extends Object implements Serializable {
 			ap1.load(pStream1);
 			pStream1.close();
 			*/
-            home_dir1 = OscarProperties.getInstance().getProperty("HOME_DIR");
+            home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
 
             FileOutputStream out1 = new FileOutputStream(home_dir1
                     + htmlFilename);

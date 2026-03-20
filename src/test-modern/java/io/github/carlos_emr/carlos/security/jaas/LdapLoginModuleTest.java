@@ -37,7 +37,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.jaas.LdapLoginModule;
 import io.github.carlos_emr.carlos.login.jaas.LoginModuleFactory;
 import io.github.carlos_emr.carlos.login.jaas.OscarCallbackHandler;
@@ -69,15 +69,15 @@ class LdapLoginModuleTest extends CarlosTestBase {
     @Test
     @DisplayName("should authenticate successfully with valid LDAP credentials")
     void shouldAuthenticateSuccessfully_withValidLdapCredentials() throws Exception {
-        assumeThat(OscarProperties.isLdapAuthenticationEnabled())
+        assumeThat(CarlosProperties.isLdapAuthenticationEnabled())
             .as("LDAP authentication must be enabled")
             .isTrue();
 
         // test direct auth
         LdapLoginModule lm = new LdapLoginModule();
         Map<String, Object> config = new HashMap<String, Object>();
-        config.put(LdapLoginModule.OPTION_BASE_DN, OscarProperties.getInstance().getProperty("ldap.baseDn"));
-        config.put(LdapLoginModule.OPTION_LDAP_URL, OscarProperties.getInstance().getProperty("ldap.url"));
+        config.put(LdapLoginModule.OPTION_BASE_DN, CarlosProperties.getInstance().getProperty("ldap.baseDn"));
+        config.put(LdapLoginModule.OPTION_LDAP_URL, CarlosProperties.getInstance().getProperty("ldap.url"));
 
         lm.initialize(new Subject(), new OscarCallbackHandler("oscardoc", "mac2002"),
             new HashMap<String, Object>(), config);
@@ -88,7 +88,7 @@ class LdapLoginModuleTest extends CarlosTestBase {
     @Test
     @DisplayName("should complete end-to-end login and logout cycle with principal validation")
     void shouldCompleteLoginLogoutCycle_withPrincipalValidation() throws Exception {
-        assumeThat(OscarProperties.isLdapAuthenticationEnabled())
+        assumeThat(CarlosProperties.isLdapAuthenticationEnabled())
             .as("LDAP authentication must be enabled")
             .isTrue();
 
@@ -121,7 +121,7 @@ class LdapLoginModuleTest extends CarlosTestBase {
     @Test
     @DisplayName("should authenticate with various auth methods including null, simple, and DIGEST-MD5")
     void shouldAuthenticate_withVariousAuthMethods() throws Exception {
-        assumeThat(OscarProperties.isLdapAuthenticationEnabled())
+        assumeThat(CarlosProperties.isLdapAuthenticationEnabled())
             .as("LDAP authentication must be enabled")
             .isTrue();
 

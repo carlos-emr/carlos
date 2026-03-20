@@ -70,7 +70,7 @@
 
 <tag>
    <name>oscarPropertiesCheck</name>
-   <tagclass>io.github.carlos_emr.carlos.util.OscarPropertiesCheck</tagclass>
+   <tagclass>io.github.carlos_emr.carlos.util.CarlosPropertiesCheck</tagclass>
    <bodycontent>JSP</bodycontent>       
    <attribute>
      <name>property</name>

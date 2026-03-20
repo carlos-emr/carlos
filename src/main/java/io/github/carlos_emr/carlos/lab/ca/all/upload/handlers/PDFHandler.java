@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -101,7 +101,7 @@ public class PDFHandler implements MessageHandler {
         // Validate and canonicalize the file path to prevent path traversal attacks
         try {
             // Get the base document directory from configuration
-            String baseDocDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String baseDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (baseDocDir == null || baseDocDir.isEmpty()) {
                 logger.error("DOCUMENT_DIR not configured");
                 return null;
@@ -155,7 +155,7 @@ public class PDFHandler implements MessageHandler {
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload");
 
             //Get providers to route document to
-            String batchPDFProviderNo = OscarProperties.getInstance().getProperty("batch_pdf_provider_no");
+            String batchPDFProviderNo = CarlosProperties.getInstance().getProperty("batch_pdf_provider_no");
             if ((batchPDFProviderNo != null) && !batchPDFProviderNo.isEmpty()) {
 
                 ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);

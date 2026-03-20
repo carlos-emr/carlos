@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao.EFormSortOrder;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -84,18 +84,18 @@ class EFormsServiceUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager mockSecurityInfoManager;
 
     private LoggedInInfo loggedInInfo;
-    private MockedStatic<OscarProperties> oscarPropertiesMock;
+    private MockedStatic<CarlosProperties> oscarPropertiesMock;
 
     private EFormsService service;
 
     @BeforeEach
     void setUp() throws Exception {
-        // Stub OscarProperties static calls
-        oscarPropertiesMock = mockStatic(OscarProperties.class);
-        oscarPropertiesMock.when(OscarProperties::getBuildDate).thenReturn("2026-01-01");
-        oscarPropertiesMock.when(OscarProperties::getBuildTag).thenReturn("test");
+        // Stub CarlosProperties static calls
+        oscarPropertiesMock = mockStatic(CarlosProperties.class);
+        oscarPropertiesMock.when(CarlosProperties::getBuildDate).thenReturn("2026-01-01");
+        oscarPropertiesMock.when(CarlosProperties::getBuildTag).thenReturn("test");
         // Stub getEformImageDirectory to avoid NPE in getEFormImageList when authorised
-        oscarPropertiesMock.when(OscarProperties::getInstance).thenReturn(mock(OscarProperties.class));
+        oscarPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mock(CarlosProperties.class));
 
         // Build a minimal LoggedInInfo
         Provider provider = mock(Provider.class);

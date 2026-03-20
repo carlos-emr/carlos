@@ -61,7 +61,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Department" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
@@ -72,19 +72,19 @@
     List<EForm> eforms = eformDao.findAll(true);
     pageContext.setAttribute("eforms", eforms);
 
-    String referralNoMsg = OscarProperties.getInstance().getProperty("referral_no.msg", "Must be an integer");
+    String referralNoMsg = CarlosProperties.getInstance().getProperty("referral_no.msg", "Must be an integer");
     pageContext.setAttribute("referralNoMsg", referralNoMsg);
 
     ConsultationServiceDao specialtyDao = SpringUtils.getBean(ConsultationServiceDao.class);
     List<ConsultationServices> specialties = specialtyDao.findActive();
     pageContext.setAttribute("specialties", specialties);
 
-    java.util.Properties oscarVariables = OscarProperties.getInstance();
+    java.util.Properties oscarVariables = CarlosProperties.getInstance();
 
     // CPSO_SEARCH feature flag — defaults to true when absent so Ontario deployments
     // work out of the box.  Set to false/no/off in carlos.properties for non-Ontario
     // installations (e.g. BC, international) to hide the widget and suppress API calls.
-    String cpsoSearchRaw = OscarProperties.getInstance().getProperty("CPSO_SEARCH", "true").trim();
+    String cpsoSearchRaw = CarlosProperties.getInstance().getProperty("CPSO_SEARCH", "true").trim();
     boolean cpsoSearchEnabled = !"false".equalsIgnoreCase(cpsoSearchRaw)
             && !"no".equalsIgnoreCase(cpsoSearchRaw)
             && !"off".equalsIgnoreCase(cpsoSearchRaw)

@@ -22,7 +22,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.jupiter.api.AfterEach;
@@ -81,16 +81,16 @@ class ImagePDFCreatorUnitTest {
 
     @BeforeEach
     void setUp() {
-        previousDocumentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        OscarProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toAbsolutePath().toString());
+        previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", tempDir.toAbsolutePath().toString());
     }
 
     @AfterEach
     void tearDown() {
         if (previousDocumentDir != null) {
-            OscarProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", previousDocumentDir);
         } else {
-            OscarProperties.getInstance().remove("DOCUMENT_DIR");
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
         }
     }
 
@@ -316,7 +316,7 @@ class ImagePDFCreatorUnitTest {
         @Test
         @DisplayName("should throw DocumentException when DOCUMENT_DIR is not configured")
         void shouldThrowDocumentException_whenDocumentDirNotConfigured() {
-            OscarProperties.getInstance().remove("DOCUMENT_DIR");
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             ImagePDFCreator creator = new ImagePDFCreator("/some/path/image.jpg", "Title", out);

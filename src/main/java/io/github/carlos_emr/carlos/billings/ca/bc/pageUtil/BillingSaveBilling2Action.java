@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPBillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -87,7 +87,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         Date curDate = new Date();
         String billingid = "";
         ArrayList<String> billingIds = new ArrayList<String>();
-        String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         String billingMasterId = "";
 
         if (bean.getApptNo() == null || bean.getApptNo().equalsIgnoreCase("null")) {

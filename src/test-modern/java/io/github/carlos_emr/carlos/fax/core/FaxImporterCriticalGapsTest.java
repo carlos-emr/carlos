@@ -612,8 +612,8 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
      *       (addDocumentSQL). It CAN be mocked with {@code Mockito.mockStatic(EDocUtil.class)},
      *       but requires careful lifecycle management in {@code @BeforeEach/@AfterEach}.</li>
      *   <li><strong>DOCUMENT_DIR static final field:</strong> FaxImporter.DOCUMENT_DIR is initialized
-     *       at class load time via {@code OscarProperties.getInstance().getDocumentDirectory()}.
-     *       The OscarProperties mock must be active BEFORE FaxImporter is first loaded by the JVM,
+     *       at class load time via {@code CarlosProperties.getInstance().getDocumentDirectory()}.
+     *       The CarlosProperties mock must be active BEFORE FaxImporter is first loaded by the JVM,
      *       which is not feasible in a unit test since FaxImporter is already loaded by setUp().
      *       Options: (a) refactor DOCUMENT_DIR to be an instance field set via @PostConstruct,
      *       (b) use a real temp directory as DOCUMENT_DIR in an integration test context.</li>
@@ -628,7 +628,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     @Tag("atomicity")
     @Disabled("Requires EDocUtil static mock (Mockito mockStatic) and DOCUMENT_DIR setup. " +
               "DOCUMENT_DIR is a static final field initialized at class load time from " +
-              "OscarProperties — cannot be overridden in unit tests. Convert to integration " +
+              "CarlosProperties — cannot be overridden in unit tests. Convert to integration " +
               "test or refactor FaxImporter.DOCUMENT_DIR to an instance field to enable.")
     class AtomicMoveFailureTests {
 
@@ -771,7 +771,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     /**
      * Initializes the {@code faxIncomingDir} field on the {@link FaxImporter} via reflection.
      * Uses a temporary directory to avoid requiring real application configuration
-     * (OscarProperties).
+     * (CarlosProperties).
      *
      * @return the temporary incoming directory path created for this test
      * @throws Exception if reflection fails or temp directory cannot be created

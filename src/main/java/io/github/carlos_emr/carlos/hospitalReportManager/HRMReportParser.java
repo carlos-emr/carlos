@@ -67,7 +67,7 @@ import org.xml.sax.SAXException;
 
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 public class HRMReportParser {
@@ -107,7 +107,7 @@ public class HRMReportParser {
 
                 // check DOCUMENT_DIR if not found
                 if (!tmpXMLholder.exists()) {
-                    String place = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+                    String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                     tmpXMLholder = new File(place + File.separator + hrmReportFileLocation);
                 }
 
@@ -181,7 +181,7 @@ public class HRMReportParser {
         List<Demographic> matchingDemographicListByHin = demographicDao.searchDemographicByHIN(report.getHCN());
 
         if (matchingDemographicListByHin.size() > 0) {
-            if (OscarProperties.getInstance().isPropertyActive("omd_hrm_demo_matching_criteria")) {
+            if (CarlosProperties.getInstance().isPropertyActive("omd_hrm_demo_matching_criteria")) {
                 for (Demographic d : matchingDemographicListByHin) {
                     if (report.getGender().equalsIgnoreCase(d.getSex())
                             && report.getDateOfBirthAsString().equalsIgnoreCase(d.getBirthDayAsString())
@@ -395,7 +395,7 @@ public class HRMReportParser {
             sendToProviderList.add(sendToProvider);
         }
 
-        if (OscarProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
+        if (CarlosProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
             DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
             List<Demographic> matchingDemographicListByHin = demographicDao.searchDemographicByHIN(report.getHCN());
             if (!matchingDemographicListByHin.isEmpty()) {

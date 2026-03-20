@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.util;
 import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 /**
@@ -42,7 +42,7 @@ import io.github.carlos_emr.OscarProperties;
  * <p>
  * If the value is equal, the jsp code will be included in the page.
  */
-public class OscarPropertiesCheck extends TagSupport {
+public class CarlosPropertiesCheck extends TagSupport {
 
     protected String value = null;
     protected String property = null;
@@ -87,7 +87,7 @@ public class OscarPropertiesCheck extends TagSupport {
         }
 
         try {
-            String oscarVal = OscarProperties.getInstance().getProperty(prop);
+            String oscarVal = CarlosProperties.getInstance().getProperty(prop);
             if (oscarVal.equals(val)) {
                 conditionMet = true;
             }

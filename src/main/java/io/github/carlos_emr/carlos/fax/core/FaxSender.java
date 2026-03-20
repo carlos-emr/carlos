@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -130,7 +130,7 @@ public class FaxSender {
     public void send() {
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
-        String documentDir = OscarProperties.getInstance().getDocumentDirectory();
+        String documentDir = CarlosProperties.getInstance().getDocumentDirectory();
         if (documentDir == null || documentDir.trim().isEmpty()) {
             throw new IllegalStateException(
                     "DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "

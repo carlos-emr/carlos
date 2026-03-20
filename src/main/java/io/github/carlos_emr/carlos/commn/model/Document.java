@@ -61,7 +61,7 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.io.FileUtils;
 
 /**
@@ -427,7 +427,7 @@ public class Document extends AbstractModel<Integer> implements Serializable {
      * @returns a string representing the path of the file on disk, i.e. document_dir+'/'+filename
      */
     public String getDocumentFileFullPath() {
-        String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         return (docDir + '/' + docfilename);
     }
 

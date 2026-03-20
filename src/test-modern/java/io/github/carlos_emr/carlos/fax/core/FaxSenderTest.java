@@ -40,7 +40,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
@@ -91,8 +91,8 @@ class FaxSenderTest extends CarlosUnitTestBase {
     @Mock
     private FaxProviderClient faxProviderClient;
 
-    private MockedStatic<OscarProperties> oscarPropertiesMock;
-    private OscarProperties mockOscarProperties;
+    private MockedStatic<CarlosProperties> oscarPropertiesMock;
+    private CarlosProperties mockCarlosProperties;
 
     private FaxSender faxSender;
     private AutoCloseable mockitoCloseable;
@@ -102,11 +102,11 @@ class FaxSenderTest extends CarlosUnitTestBase {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         faxSender = new FaxSender(faxConfigDao, faxJobDao, faxClientLogDao, faxProviderClientFactory);
 
-        // Mock OscarProperties.getInstance() static call
-        mockOscarProperties = mock(OscarProperties.class);
-        oscarPropertiesMock = mockStatic(OscarProperties.class);
-        oscarPropertiesMock.when(OscarProperties::getInstance).thenReturn(mockOscarProperties);
-        when(mockOscarProperties.getDocumentDirectory()).thenReturn("/test/documents");
+        // Mock CarlosProperties.getInstance() static call
+        mockCarlosProperties = mock(CarlosProperties.class);
+        oscarPropertiesMock = mockStatic(CarlosProperties.class);
+        oscarPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockCarlosProperties);
+        when(mockCarlosProperties.getDocumentDirectory()).thenReturn("/test/documents");
     }
 
     @AfterEach
@@ -164,7 +164,7 @@ class FaxSenderTest extends CarlosUnitTestBase {
         @DisplayName("should throw IllegalStateException when DOCUMENT_DIR is null")
         void shouldThrowIllegalStateException_whenDocumentDirIsNull() {
             // Given
-            when(mockOscarProperties.getDocumentDirectory()).thenReturn(null);
+            when(mockCarlosProperties.getDocumentDirectory()).thenReturn(null);
 
             // When / Then
             assertThatThrownBy(() -> faxSender.send())
@@ -177,7 +177,7 @@ class FaxSenderTest extends CarlosUnitTestBase {
         @DisplayName("should throw IllegalStateException when DOCUMENT_DIR is empty")
         void shouldThrowIllegalStateException_whenDocumentDirIsEmpty() {
             // Given
-            when(mockOscarProperties.getDocumentDirectory()).thenReturn("   ");
+            when(mockCarlosProperties.getDocumentDirectory()).thenReturn("   ");
 
             // When / Then
             assertThatThrownBy(() -> faxSender.send())

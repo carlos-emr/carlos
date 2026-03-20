@@ -63,7 +63,7 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicCust" %>
@@ -174,15 +174,15 @@ Ontario, Canada
 
     ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
 
-    OscarProperties pros = OscarProperties.getInstance();
+    CarlosProperties pros = CarlosProperties.getInstance();
     String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
 
     AppointmentStatusMgr apptStatusMgr = new AppointmentStatusMgrImpl();
     List<AppointmentStatus> allStatus = apptStatusMgr.getAllActiveStatus();
 
-    String useProgramLocation = OscarProperties.getInstance().getProperty("useProgramLocation");
-    String moduleNames = OscarProperties.getInstance().getProperty("ModuleNames");
+    String useProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+    String moduleNames = CarlosProperties.getInstance().getProperty("ModuleNames");
     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
@@ -708,7 +708,7 @@ Ontario, Canada
 
             long apptnum = appts.size() > 0 ? new Long(appts.size()) : 0;
 
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
 
             String timeoutSeconds = props.getProperty("appointment_locking_timeout", "0");
             int timeoutSecs = 0;
@@ -1387,7 +1387,7 @@ Ontario, Canada
                 <%
                     String searchMode = request.getParameter("search_mode");
                     if (searchMode == null || searchMode.isEmpty()) {
-                        searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                        searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                     }
                 %>
                 <input type="hidden" name="search_mode" id="search_mode" value="<%=searchMode%>">
@@ -1397,7 +1397,7 @@ Ontario, Canada
                 <input type="hidden" name="limit2" value="5">
                 <input type="hidden" name="ptstatus" value="active">
                 <input type="hidden" name="outofdomain"
-                       value="<%=OscarProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled","true")%>">
+                       value="<%=CarlosProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled","true")%>">
                 <!--input type="hidden" name="displaymode" value="Search " -->
 
 

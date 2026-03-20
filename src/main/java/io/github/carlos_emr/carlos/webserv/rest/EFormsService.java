@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -113,7 +113,7 @@ public class EFormsService extends AbstractServiceImpl
 		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", "r", null)) {
 			return RestResponse.errorResponse("Access Denied");
 		}
-		String imageHomeDir = OscarProperties.getInstance().getEformImageDirectory();
+		String imageHomeDir = CarlosProperties.getInstance().getEformImageDirectory();
 		if (imageHomeDir == null || imageHomeDir.trim().isEmpty()) {
 			logger.error("eForm image directory is not configured");
 			return RestResponse.errorResponse("Image directory not configured");

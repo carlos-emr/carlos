@@ -43,7 +43,7 @@
 %>
 
 <%@ include file="/common/messages.jsp" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>

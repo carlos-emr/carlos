@@ -44,7 +44,7 @@
     @since 2026-02-24
 --%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -202,7 +202,7 @@ if ( !checkName() ) return false;
 if ( !checkDob() ) return false;
 if ( !checkHin() ) return false;
 if ( !checkSex() ) return false;
-<% if ("false".equals(OscarProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
+<% if ("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
 if ( !isPostalCode() ) return false;
 <% } %>
 if ( !checkRosterStatus() ) return false;

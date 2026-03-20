@@ -36,7 +36,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -56,7 +56,7 @@ public class User2Action extends ActionSupport {
         if ("cancel".equals(request.getParameter("method"))) {
             return cancel();
         }
-        request.getSession().setAttribute("mcedtUsername", OscarProperties.getInstance().getProperty("mcedt.service.user"));
+        request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user"));
 
         if (request.getSession().getAttribute("isPassChange") != null) {
             request.getSession().removeAttribute("isPassChange");

@@ -38,7 +38,7 @@ import java.util.Locale;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Date and time utility class providing formatting, parsing, and calculation functions.
@@ -52,7 +52,7 @@ import io.github.carlos_emr.OscarProperties;
  *   <li>Validating date ranges and checking for date ordering</li>
  * </ul>
  * 
- * <p>Date and time formats are configured via OscarProperties:</p>
+ * <p>Date and time formats are configured via CarlosProperties:</p>
  * <ul>
  *   <li><code>DATE_FORMAT</code> - System-wide date format (e.g., "yyyy-MM-dd")</li>
  *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
@@ -75,10 +75,10 @@ public final class DateUtils {
     }
 
     /** System-configured date format from properties */
-    private static String dateFormatString = OscarProperties.getInstance().getProperty("DATE_FORMAT");
+    private static String dateFormatString = CarlosProperties.getInstance().getProperty("DATE_FORMAT");
     
     /** System-configured time format from properties */
-    private static String timeFormatString = OscarProperties.getInstance().getProperty("TIME_FORMAT");
+    private static String timeFormatString = CarlosProperties.getInstance().getProperty("TIME_FORMAT");
 
     /**
      * Formats a date using the system date format.

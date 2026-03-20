@@ -55,7 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -64,7 +64,7 @@
 
 <%
 
-    OscarProperties op = OscarProperties.getInstance();
+    CarlosProperties op = CarlosProperties.getInstance();
     String tmp_dir = op.getProperty("TMP_DIR");
     boolean tmp_dir_ready = Util.checkDir(tmp_dir);
 

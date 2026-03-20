@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarConsultation.data.EctConProviderData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -189,7 +189,7 @@ public class EctSessionBean implements java.io.Serializable {
             measurementGroupNames.add(mgs.getGroupName());
         }
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             List<EChart> ecs = ecDao.getChartsForDemographic(ConversionUtils.fromIntString(demographicNo));
@@ -278,7 +278,7 @@ public class EctSessionBean implements java.io.Serializable {
             templateNames.add(ect.getEncounterTemplateName());
         }
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             List<EChart> ecs = ecDao.getChartsForDemographic(ConversionUtils.fromIntString(demographicNo));
@@ -348,7 +348,7 @@ public class EctSessionBean implements java.io.Serializable {
     public void setUpEncounterPage(LoggedInInfo loggedInInfo, String echartid, String demographicNo) {
         resetAll();
 
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             EChart ec = ecDao.find(ConversionUtils.fromIntString(echartid));

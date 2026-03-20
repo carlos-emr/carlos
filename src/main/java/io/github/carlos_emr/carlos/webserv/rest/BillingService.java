@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ServiceTypeTo;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Path("/billing")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -51,7 +51,7 @@ public class BillingService extends AbstractServiceImpl {
     @Autowired
     BillingManager billingManager;
 
-    private OscarProperties oscarProperties = OscarProperties.getInstance();
+    private CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     @GET
     @Path("/uniqueServiceTypes")

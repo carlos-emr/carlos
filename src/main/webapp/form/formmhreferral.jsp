@@ -54,8 +54,8 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmMentalHealthRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
     <head>

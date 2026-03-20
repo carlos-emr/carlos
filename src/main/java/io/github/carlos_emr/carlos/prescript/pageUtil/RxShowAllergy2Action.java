@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -155,7 +155,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
 
         boolean useRx3 = false;
-        String rx3 = OscarProperties.getInstance().getProperty("RX3");
+        String rx3 = CarlosProperties.getInstance().getProperty("RX3");
         if (rx3 != null && rx3.equalsIgnoreCase("yes")) {
             useRx3 = true;
         }
@@ -229,7 +229,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         String atcCode = request.getParameter("atcCode");
         String id = request.getParameter("id");
-        String disabled = io.github.carlos_emr.OscarProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
+        String disabled = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("rx3.disable_allergy_warnings", "false");
         if (disabled.equals("false")) {
 
             ObjectMapper objectMapper = new ObjectMapper();

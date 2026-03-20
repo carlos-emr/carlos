@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.ckd.CKDConfig;
 import io.github.carlos_emr.carlos.ckd.CkdConfigDocument;
 import io.github.carlos_emr.carlos.ckd.DxCodes.Code;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import java.util.*;
 
@@ -282,7 +282,7 @@ public class CkdScreener {
     }
 
     private boolean hasBilledDxCode(Integer demographicNo, String codingSystem, String code) {
-        if ("ON".equals(OscarProperties.getInstance().getProperty("bill_region"))) {
+        if ("ON".equals(CarlosProperties.getInstance().getProperty("bill_region"))) {
             return billingDao.getBillingItemByDxCode(demographicNo, code).size() > 0;
         }
         //BC not implemented - this done to avoid exception

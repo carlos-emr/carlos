@@ -28,7 +28,7 @@ import java.util.ResourceBundle;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -226,7 +226,7 @@ public class DocumentUpload2Action extends ActionSupport {
         FileOutputStream fos = null;
         try {
             fis = Files.newInputStream(docFile.toPath());
-            String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (!documentDir.endsWith(File.separator)) {
                 documentDir += File.separator;
             }
@@ -271,7 +271,7 @@ public class DocumentUpload2Action extends ActionSupport {
         String savePath = IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, PdfDir, fileName);
 
         // Validate the destination path using PathValidationUtils
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir == null || incomingDocDir.isEmpty()) {
             logger.error("INCOMINGDOCUMENT_DIR not configured");
             return false;

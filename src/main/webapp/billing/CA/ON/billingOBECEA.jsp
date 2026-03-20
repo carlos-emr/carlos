@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.OscarProperties" %><%--
+<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
 
     Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -25,7 +25,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");

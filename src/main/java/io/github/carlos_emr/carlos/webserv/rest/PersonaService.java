@@ -43,7 +43,7 @@ import jakarta.ws.rs.QueryParam;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -240,7 +240,7 @@ public class PersonaService extends AbstractServiceImpl {
             consultMenu.setDropdownItems(consultMenuList.getItems());
             menu.getItems().add(consultMenu);
         }
-        String billingRegion = OscarProperties.getInstance().getProperty("billregion", "");
+        String billingRegion = CarlosProperties.getInstance().getProperty("billregion", "");
         menu.add(idCounter++, bundle.getString("navbar.menu.billing"), null, "../billing/CA/" + billingRegion + "/billingReportCenter.jsp?displaymode=billreport", "billing")
                 .addWithState(idCounter++, bundle.getString("navbar.menu.tickler"), null, "ticklers")
 
@@ -310,7 +310,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         response.getPatientListTabItems().add(new PatientList(0, bundle.getString("patientList.tab.appts"), "../ws/rs/schedule/day/today", "patientlist/patientList1.jsp", "GET"));
 
-        if (!OscarProperties.getInstance().getBooleanProperty("disable.patientList.tab.recent", "true")) {
+        if (!CarlosProperties.getInstance().getBooleanProperty("disable.patientList.tab.recent", "true")) {
             response.getPatientListTabItems().add(new PatientList(1, bundle.getString("patientList.tab.recent"), "../ws/rs/providerService/getRecentDemographicsViewed?startIndex=0&itemsToReturn=" + itemsToReturn, "patientlist/recent.jsp", "GET"));
         }
         response.getPatientListMoreTabItems().add(new PatientList(0, bundle.getString("patientList.tab.patientSets"), "../ws/rs/reporting/demographicSets/patientList", "patientlist/demographicSets.jsp", "POST"));

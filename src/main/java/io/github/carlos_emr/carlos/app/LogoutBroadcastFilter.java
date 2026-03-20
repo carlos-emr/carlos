@@ -47,7 +47,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -125,13 +125,13 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Returns the current inactivity limit in minutes, reading from OscarProperties
+     * Returns the current inactivity limit in minutes, reading from CarlosProperties
      * on each call to stay consistent with LoginFilter's per-request reading.
      *
      * @return int the inactivity limit in minutes
      */
     private int getInactivityLimitMins() {
-        String limitProp = OscarProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
+        String limitProp = CarlosProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
         if (limitProp != null && !limitProp.trim().isEmpty()) {
             try {
                 return Integer.parseInt(limitProp.trim());

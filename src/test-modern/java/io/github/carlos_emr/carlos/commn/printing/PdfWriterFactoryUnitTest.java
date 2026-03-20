@@ -44,11 +44,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * in CARLOS EMR.
  *
  * <p>Extends {@link CarlosUnitTestBase} because {@code PdfWriterFactory} has static
- * fields initialized from {@code OscarProperties} at class load time, which calls
+ * fields initialized from {@code CarlosProperties} at class load time, which calls
  * {@code SpringUtils.getBean()}. The mocked SpringUtils ensures class loading succeeds
  * in the test environment.</p>
  *
- * <p>When OscarProperties is not configured (test env), the static fields
+ * <p>When CarlosProperties is not configured (test env), the static fields
  * {@code confidentialityStatement} and {@code promoText} will be null, exercising
  * the null-check branches in {@link PdfWriterFactory#newInstance}.</p>
  *

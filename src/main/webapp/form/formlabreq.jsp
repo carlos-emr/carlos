@@ -44,7 +44,7 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FrmLabReqPreSetDao, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -74,7 +74,7 @@
         java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
         props = ((FrmLabReqRecord) rec).getFormCustRecord(props, provNo);
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         if (request.getParameter("labType") != null) {
             if (formId == 0) {

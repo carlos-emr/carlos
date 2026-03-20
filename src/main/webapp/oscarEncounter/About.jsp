@@ -29,7 +29,7 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 
 
 <html>
@@ -89,8 +89,8 @@
                 <td>
                     <h1>About OpenO</h1>
 
-                    <p class="build_info">build date: <%= OscarProperties.getBuildDate() %><br/>
-                        build tag: <%=OscarProperties.getBuildTag()%>
+                    <p class="build_info">build date: <%= CarlosProperties.getBuildDate() %><br/>
+                        build tag: <%=CarlosProperties.getBuildTag()%>
                     </p>
 
                     <table width="85%" align="center">

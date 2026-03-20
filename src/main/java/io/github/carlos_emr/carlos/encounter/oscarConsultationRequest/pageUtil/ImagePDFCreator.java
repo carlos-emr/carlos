@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Iterator;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -114,7 +114,7 @@ public class ImagePDFCreator extends PdfPageEventHelper {
         if (imagePath == null || imagePath.isEmpty()) {
             throw new DocumentException("Image path is null or empty");
         }
-        String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (documentDir == null || documentDir.isEmpty()) {
             logger.error("DOCUMENT_DIR property is not configured");
             throw new DocumentException("Document directory is not configured");

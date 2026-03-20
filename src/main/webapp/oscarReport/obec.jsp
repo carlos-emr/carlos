@@ -75,7 +75,7 @@
     DateUtils dateUtils = new DateUtils();
     String tomorrowDate = dateUtils.NextDay(curDay, curMonth, curYear);
     String clinic = "";
-    Properties proppies = io.github.carlos_emr.OscarProperties.getInstance();
+    Properties proppies = io.github.carlos_emr.CarlosProperties.getInstance();
     String homepath = proppies.getProperty("DOCUMENT_DIR");
     session.setAttribute("obecdownload", homepath);
 %>

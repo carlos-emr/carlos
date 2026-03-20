@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
 import io.github.carlos_emr.carlos.report.data.ObecData;
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -65,7 +65,7 @@ public class Obec2Action extends ActionSupport {
 	  		  throw new SecurityException("missing required sec object (_report)");
 	  	  	}
 	   
-      Properties proppies = OscarProperties.getInstance();
+      Properties proppies = CarlosProperties.getInstance();
       
       ObecData obecData1 = new ObecData();
       DateUtils dateUtils = new DateUtils();

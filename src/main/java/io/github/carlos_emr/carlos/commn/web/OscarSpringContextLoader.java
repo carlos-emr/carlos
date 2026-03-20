@@ -42,7 +42,7 @@ import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.XmlWebApplicationContext;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public final class OscarSpringContextLoader extends ContextLoaderListener {
 
@@ -74,7 +74,7 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
         wac.setServletContext(servletContext);
 
         // to load various contexts, we need to get Modules property
-        String modules = (String) OscarProperties.getInstance().get(PROPERTYNAME);
+        String modules = (String) CarlosProperties.getInstance().get(PROPERTYNAME);
         String[] moduleList = new String[0];
 
         if (modules != null) {

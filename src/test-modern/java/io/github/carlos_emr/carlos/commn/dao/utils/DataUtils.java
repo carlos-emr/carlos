@@ -166,7 +166,7 @@ public class DataUtils {
 	private static String getCanonicalPath(String fileName) {
 		String docDir = System.getProperty("DOCUMENT_DIR"); 
 		if (docDir == null || docDir.trim().equals("")) {
-			docDir = io.github.carlos_emr.OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+			docDir = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 			docDir = "/var/lib/OscarDocument";
 		}
 		

@@ -31,7 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.util.*" %>
@@ -47,7 +47,7 @@
 
     UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
-    Properties oscarVariables = OscarProperties.getInstance();
+    Properties oscarVariables = CarlosProperties.getInstance();
 
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String curUser_no = (String) session.getAttribute("user");

@@ -37,7 +37,7 @@ import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.DSCondition;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCreator;
 
@@ -201,7 +201,7 @@ public class DSPreventionDrools {
                 List<DSCondition> dsConditions = getConditions(recommendationElement, safePreventionType);
                 // Build the DRL "then" block: log + warning + reminder method calls on Prevention object
                 StringBuilder consequence = new StringBuilder();
-                if (OscarProperties.getInstance().getBooleanProperty("DEBUG.PREVENTION", "yes")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("DEBUG.PREVENTION", "yes")) {
                     consequence.append("m.log(\"" + ruleNumber + "\"); ");
                 }
                 if (message != null) {

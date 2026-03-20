@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.commn;
 
 import java.util.Properties;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
@@ -42,7 +42,7 @@ public class OscarPropertyPlaceholderConfigurer extends PropertyPlaceholderConfi
      */
     protected String resolvePlaceholder(String placeholder, Properties properties, int systemPropertiesMode) {
         log.debug("resolvePlaceholder Start " + placeholder);
-        Properties props = OscarProperties.getInstance();
+        Properties props = CarlosProperties.getInstance();
         if (props.containsKey(placeholder)) {
             log.debug("setting property " + placeholder + " with " + props.getProperty(placeholder));
             properties.setProperty(placeholder, props.getProperty(placeholder));

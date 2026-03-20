@@ -45,7 +45,7 @@
     
     <tag>
         <name>oscarPropertiesCheck</name>
-        <tag-class>io.github.carlos_emr.carlos.util.OscarPropertiesCheck</tag-class>
+        <tag-class>io.github.carlos_emr.carlos.util.CarlosPropertiesCheck</tag-class>
         <body-content>JSP</body-content>
         
         <attribute>

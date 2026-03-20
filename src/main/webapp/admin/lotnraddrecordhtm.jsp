@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
 <%

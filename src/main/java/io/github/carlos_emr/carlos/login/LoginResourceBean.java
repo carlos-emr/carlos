@@ -35,7 +35,7 @@ import java.util.Properties;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Bean that provides customizable login page resources and branding configuration for CARLOS EMR.
@@ -55,7 +55,7 @@ import io.github.carlos_emr.OscarProperties;
  *   <li>tabName - Browser tab title for login page</li>
  * </ul>
  *
- * <p>System-provided properties (from OscarProperties):
+ * <p>System-provided properties (from CarlosProperties):
  * <ul>
  *   <li>buildTag - Software build version and date</li>
  *   <li>econsultURL - Ontario eConsult integration URL (if configured)</li>
@@ -113,10 +113,10 @@ public class LoginResourceBean {
     /** Browser tab title for login page (loaded from .env file) */
     private String tabName;
 
-    /** Software build version and date (from OscarProperties) */
+    /** Software build version and date (from CarlosProperties) */
     private String buildTag;
 
-    /** Ontario eConsult integration URL (from OscarProperties, legacy feature) */
+    /** Ontario eConsult integration URL (from CarlosProperties, legacy feature) */
     private String econsultURL;
 
     /** Manager for acceptable use agreement enforcement */
@@ -129,7 +129,7 @@ public class LoginResourceBean {
      * <ol>
      *   <li>Loads custom properties from {BASE_DOCUMENT_DIR}/login/.env</li>
      *   <li>Populates clinic and support fields from .env properties</li>
-     *   <li>Sets buildTag from OscarProperties build date and tag</li>
+     *   <li>Sets buildTag from CarlosProperties build date and tag</li>
      *   <li>Loads eConsult URL from backendEconsultUrl property</li>
      *   <li>Initializes AcceptableUseAgreementManager</li>
      * </ol>
@@ -142,7 +142,7 @@ public class LoginResourceBean {
      * require verification before use.
      */
     public LoginResourceBean() {
-        OscarProperties oscarProperties = OscarProperties.getInstance();
+        CarlosProperties oscarProperties = CarlosProperties.getInstance();
         // Construct path to login customization file
         String oscarDocuments = oscarProperties.getProperty("BASE_DOCUMENT_DIR") + File.separator + "login";
         Properties loginProperties = new Properties();
@@ -187,7 +187,7 @@ public class LoginResourceBean {
         }
 
         // Set build version information from system properties
-        this.buildTag = OscarProperties.getBuildDate() + " " + OscarProperties.getBuildTag();
+        this.buildTag = CarlosProperties.getBuildDate() + " " + CarlosProperties.getBuildTag();
 
         // Load eConsult URL (legacy Ontario eConsult integration)
         // NOTE: Ontario eConsult service status is uncertain, verify before use

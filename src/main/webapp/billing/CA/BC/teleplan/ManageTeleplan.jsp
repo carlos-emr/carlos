@@ -65,7 +65,7 @@
             Teleplan
             <%
                 TeleplanSequenceDAO seq = new TeleplanSequenceDAO();
-                io.github.carlos_emr.OscarProperties op = io.github.carlos_emr.OscarProperties.getInstance();
+                io.github.carlos_emr.CarlosProperties op = io.github.carlos_emr.CarlosProperties.getInstance();
             %>
             Last Sequence # = <%=seq.getLastSequenceNumber()%>   Current Datacenter #
             = <%=op.getProperty("dataCenterId", "Not Set")%>

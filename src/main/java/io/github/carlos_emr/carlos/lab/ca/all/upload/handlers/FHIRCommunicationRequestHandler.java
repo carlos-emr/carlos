@@ -51,7 +51,7 @@ import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -114,7 +114,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
         try {
             // Validate and canonicalize the file path to prevent path traversal attacks
             // Get the base document directory from configuration
-            String baseDocDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String baseDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (baseDocDir == null || baseDocDir.isEmpty()) {
                 logger.error("DOCUMENT_DIR not configured");
                 return null;

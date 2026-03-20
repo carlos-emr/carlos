@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.to;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.mockStatic;
  * Unit tests for {@link RestResponse}, {@link GenericRestResponse}, and {@link RestResponseHeaders}.
  *
  * <p>Covers all static factory methods on RestResponse, the status/body/error semantics from
- * GenericRestResponse, and the OscarProperties-backed build metadata in RestResponseHeaders.</p>
+ * GenericRestResponse, and the CarlosProperties-backed build metadata in RestResponseHeaders.</p>
  *
  * @since 2026-03-14
  * @see RestResponse
@@ -53,17 +53,17 @@ import static org.mockito.Mockito.mockStatic;
 @Tag("read")
 class RestResponseUnitTest {
 
-    private MockedStatic<OscarProperties> oscarPropertiesMock;
+    private MockedStatic<CarlosProperties> oscarPropertiesMock;
 
     @BeforeEach
-    void setUpOscarPropertiesMock() {
-        oscarPropertiesMock = mockStatic(OscarProperties.class);
-        oscarPropertiesMock.when(OscarProperties::getBuildDate).thenReturn("2026-01-01");
-        oscarPropertiesMock.when(OscarProperties::getBuildTag).thenReturn("v1.0");
+    void setUpCarlosPropertiesMock() {
+        oscarPropertiesMock = mockStatic(CarlosProperties.class);
+        oscarPropertiesMock.when(CarlosProperties::getBuildDate).thenReturn("2026-01-01");
+        oscarPropertiesMock.when(CarlosProperties::getBuildTag).thenReturn("v1.0");
     }
 
     @AfterEach
-    void tearDownOscarPropertiesMock() {
+    void tearDownCarlosPropertiesMock() {
         if (oscarPropertiesMock != null) {
             oscarPropertiesMock.close();
         }
@@ -232,23 +232,23 @@ class RestResponseUnitTest {
     class RestResponseHeadersTests {
 
         @Test
-        @DisplayName("should read build date from OscarProperties")
-        void shouldReadBuildDate_fromOscarProperties() {
+        @DisplayName("should read build date from CarlosProperties")
+        void shouldReadBuildDate_fromCarlosProperties() {
             RestResponseHeaders headers = new RestResponseHeaders();
             assertThat(headers.getBuildDate()).isEqualTo("2026-01-01");
         }
 
         @Test
-        @DisplayName("should read build tag from OscarProperties")
-        void shouldReadBuildTag_fromOscarProperties() {
+        @DisplayName("should read build tag from CarlosProperties")
+        void shouldReadBuildTag_fromCarlosProperties() {
             RestResponseHeaders headers = new RestResponseHeaders();
             assertThat(headers.getBuildTag()).isEqualTo("v1.0");
         }
 
         @Test
-        @DisplayName("should return null build date when OscarProperties returns null")
-        void shouldReturnNullBuildDate_whenOscarPropertiesReturnsNull() {
-            oscarPropertiesMock.when(OscarProperties::getBuildDate).thenReturn(null);
+        @DisplayName("should return null build date when CarlosProperties returns null")
+        void shouldReturnNullBuildDate_whenCarlosPropertiesReturnsNull() {
+            oscarPropertiesMock.when(CarlosProperties::getBuildDate).thenReturn(null);
             RestResponseHeaders headers = new RestResponseHeaders();
             assertThat(headers.getBuildDate()).isNull();
         }

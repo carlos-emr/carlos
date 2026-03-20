@@ -50,7 +50,7 @@ import org.apache.struts2.ServletActionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -364,7 +364,7 @@ public class TicklerList2Action extends ActionSupport {
      */
     private int getTicklerWarnDays() {
         try {
-            String val = OscarProperties.getInstance().getProperty("tickler_warn_period", "0");
+            String val = CarlosProperties.getInstance().getProperty("tickler_warn_period", "0");
             return Integer.parseInt(val);
         } catch (Exception e) {
             return 0;

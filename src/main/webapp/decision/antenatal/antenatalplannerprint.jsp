@@ -109,9 +109,9 @@
 
         String riskFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerrisks_99_12.xml");
 
-        File file = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
+        File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml");
         if (file.isFile() || file.canRead()) {
-            riskFilePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml";
+            riskFilePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerrisks_99_12.xml";
         }
 
 
@@ -183,9 +183,9 @@
 
         String checkListFilePath = application.getRealPath("/decision/antenatal/desantenatalplannerchecklist_99_12.xml");
 
-        File file = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml");
+        File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml");
         if (file.isFile() || file.canRead()) {
-            checkListFilePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml";
+            checkListFilePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "desantenatalplannerchecklist_99_12.xml";
         }
 
         out.println(checklist.doStuff(new String(checkListFilePath), riskDataBean));

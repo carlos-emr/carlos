@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.OscarDocumentCreator;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -69,7 +69,7 @@ import org.apache.struts2.ServletActionContext;
  * All patient data access is logged through the LoggedInInfo framework for
  * HIPAA/PIPEDA compliance.</p>
  *
- * <p>Label templates are configurable via OscarProperties:</p>
+ * <p>Label templates are configurable via CarlosProperties:</p>
  * <ul>
  *   <li><code>pdfLabelMRP</code> - Path to the MRP (Most Responsible Provider) label template</li>
  *   <li><code>pdfLabelApptProvider</code> - Path to the appointment provider label template</li>
@@ -192,8 +192,8 @@ public class PrintDemoLabel2Action extends ActionSupport {
         }
 
         String defaultLabelPath = System.getProperty("user.home") + "/label.xml";
-        String labelPath = OscarProperties.getInstance().getProperty("pdfLabelMRP", defaultLabelPath);
-        String apptProviderLabelPath = OscarProperties.getInstance().getProperty("pdfLabelApptProvider", "");
+        String labelPath = CarlosProperties.getInstance().getProperty("pdfLabelMRP", defaultLabelPath);
+        String apptProviderLabelPath = CarlosProperties.getInstance().getProperty("pdfLabelApptProvider", "");
 
         if (apptNo != null && !apptProviderLabelPath.isEmpty()) {
             parameters.put("appt", String.valueOf(apptNo));

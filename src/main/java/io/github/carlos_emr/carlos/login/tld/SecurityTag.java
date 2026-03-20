@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.login.tld;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
 import jakarta.servlet.jsp.JspException;
@@ -74,7 +74,7 @@ public class SecurityTag implements Tag {
         }
         else
         {
-            if (OscarProperties.getInstance().isPropertyActive("ENABLE_SECURITY_OBJECT_DEBUG")) {
+            if (CarlosProperties.getInstance().isPropertyActive("ENABLE_SECURITY_OBJECT_DEBUG")) {
                 try {
                     JspWriter out = pageContext.getOut();
                     out.println(

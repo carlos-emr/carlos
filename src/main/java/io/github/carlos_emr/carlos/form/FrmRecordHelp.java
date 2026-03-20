@@ -46,7 +46,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.w3c.dom.Document;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -118,7 +118,7 @@ public class FrmRecordHelp {
         rs.moveToInsertRow();
         rs = updateResultSet(props, rs, true);
         rs.insertRow();
-        String saveAsXml = OscarProperties.getInstance().getProperty("save_as_xml", "false");
+        String saveAsXml = CarlosProperties.getInstance().getProperty("save_as_xml", "false");
 
         if (saveAsXml.equalsIgnoreCase("true")) {
 
@@ -128,7 +128,7 @@ public class FrmRecordHelp {
             String formClass = sql.substring(index, spaceIndex);
             Date d = new Date();
             String now = UtilDateUtilities.DateToString(d, "yyyyMMddHHmmss");
-            String place = OscarProperties.getInstance().getProperty("form_record_path", "/root");
+            String place = CarlosProperties.getInstance().getProperty("form_record_path", "/root");
 
             if (!place.endsWith(System.getProperty("file.separator")))
                 place = place + System.getProperty("file.separator");
@@ -149,7 +149,7 @@ public class FrmRecordHelp {
          * if db_type = mysql return LAST_INSERT_ID() but if db_type = postgresql, return a prepared
          * statement, since here we dont know which sequence will be used
          */
-        String db_type = OscarProperties.getInstance() != null ? OscarProperties.getInstance().getProperty("db_type",
+        String db_type = CarlosProperties.getInstance() != null ? CarlosProperties.getInstance().getProperty("db_type",
                 "") : "";
         if (db_type.equals("") || db_type.equalsIgnoreCase("mysql")) {
             sql = "SELECT LAST_INSERT_ID()";

@@ -47,7 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Filter class for handling confidentiality note printing. This class works by appending a confidentiality note
@@ -81,7 +81,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
     private String getPrivacyStatement() {
-        if (OscarProperties.getConfidentialityStatement() == null || OscarProperties.getConfidentialityStatement().trim().isEmpty()) {
+        if (CarlosProperties.getConfidentialityStatement() == null || CarlosProperties.getConfidentialityStatement().trim().isEmpty()) {
             return "";
         }
         return "<style type=\"text/css\"><!--\n" +
@@ -95,7 +95,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 "}\n" +
                 "--></style>" +
                 "<p class=\"yesprint\"><b>\n" +
-                OscarProperties.getConfidentialityStatement() +
+                CarlosProperties.getConfidentialityStatement() +
                 "</b><br/>" +
                 "<b>END OF PRINTED DOCUMENT</b>" +
                 "</p>";

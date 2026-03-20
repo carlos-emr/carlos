@@ -13,10 +13,10 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-    <%@ page import="io.github.carlos_emr.OscarProperties" contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
+    <%@ page import="io.github.carlos_emr.CarlosProperties" contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
 
     <%
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     if (props.isEFormSignatureEnabled()) {
     %>
 

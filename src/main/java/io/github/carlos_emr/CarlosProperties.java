@@ -65,14 +65,14 @@ import java.util.*;
  * 
  * <p>Example usage:</p>
  * <pre>
- * OscarProperties props = OscarProperties.getInstance();
+ * CarlosProperties props = CarlosProperties.getInstance();
  * String docDir = props.getProperty("DOCUMENT_DIR");
  * boolean isCaisiEnabled = props.isPropertyActive("caisi_enabled");
  * </pre>
  */
-public class OscarProperties extends Properties {
+public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
-    private static OscarProperties oscarProperties = new OscarProperties();
+    private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
 
     /**
@@ -95,12 +95,12 @@ public class OscarProperties extends Properties {
     );
 
     /**
-     * Gets the singleton instance of OscarProperties.
+     * Gets the singleton instance of CarlosProperties.
      * 
-     * @return the OscarProperties instance
+     * @return the CarlosProperties instance
      */
-    public static OscarProperties getInstance() {
-        return oscarProperties;
+    public static CarlosProperties getInstance() {
+        return carlosProperties;
     }
 
     /**
@@ -181,7 +181,7 @@ public class OscarProperties extends Properties {
     }
 
     /* Do not use this constructor. Use getInstance instead */
-    private OscarProperties() {
+    private CarlosProperties() {
         MiscUtils.getLogger().debug("CARLOS PROPS CONSTRUCTOR");
 
         try {
@@ -339,11 +339,11 @@ public class OscarProperties extends Properties {
     }
 
     public static String getBuildDate() {
-        return oscarProperties.getProperty("buildDate");
+        return carlosProperties.getProperty("buildDate");
     }
 
     public static String getBuildTag() {
-        return oscarProperties.getProperty("buildVersion");
+        return carlosProperties.getProperty("buildVersion");
     }
 
     public boolean faxEnabled() {
@@ -425,22 +425,22 @@ public class OscarProperties extends Properties {
     }
 
     public static String getIntakeProgramAccessServiceId() {
-        return oscarProperties.getProperty("form_intake_program_access_service_id");
+        return carlosProperties.getProperty("form_intake_program_access_service_id");
     }
 
     public static String getIntakeProgramCashServiceId() {
-        return oscarProperties.getProperty("form_intake_program_cash_service_id");
+        return carlosProperties.getProperty("form_intake_program_cash_service_id");
     }
 
     public static String getIntakeProgramAccessFId() {
-        return oscarProperties.getProperty("form_intake_program_access_fid");
+        return carlosProperties.getProperty("form_intake_program_access_fid");
     }
 
     public static String getConfidentialityStatement() {
         String result = null;
         int count = 1;
         String statement = null;
-        while ((statement = oscarProperties.getProperty("confidentiality_statement.v" + count)) != null) {
+        while ((statement = carlosProperties.getProperty("confidentiality_statement.v" + count)) != null) {
             count++;
             result = statement;
         }
@@ -448,35 +448,35 @@ public class OscarProperties extends Properties {
     }
 
     public static String getIntakeProgramCashFId() {
-        return oscarProperties.getProperty("form_intake_program_cash_fid");
+        return carlosProperties.getProperty("form_intake_program_cash_fid");
     }
 
     public static boolean isLdapAuthenticationEnabled() {
-        return Boolean.parseBoolean(oscarProperties.getProperty("ldap.enabled"));
+        return Boolean.parseBoolean(carlosProperties.getProperty("ldap.enabled"));
     }
 
     public String getDocumentDirectory() {
-       String documents = oscarProperties.getProperty("DOCUMENT_DIR");
+       String documents = carlosProperties.getProperty("DOCUMENT_DIR");
 
         // String value will equal null if property is not found
         if (documents == null) {
             // Setting derived path for documents incase starting path is not found
-            documents = Paths.get(oscarProperties.getProperty("BASE_DOCUMENT_DIR"), "document").toString();
+            documents = Paths.get(carlosProperties.getProperty("BASE_DOCUMENT_DIR"), "document").toString();
         }
        return documents;
     }
 
     public String getDocumentCacheDirectory() {
-        return oscarProperties.getProperty("DOCUMENT_CACHE_DIR");
+        return carlosProperties.getProperty("DOCUMENT_CACHE_DIR");
     }
 
     public String getEformImageDirectory() {
-        String eform_images = oscarProperties.getProperty("EFORM_IMAGES_DIR");
+        String eform_images = carlosProperties.getProperty("EFORM_IMAGES_DIR");
 
         // String value will equal null if property is not found
         if (eform_images == null) {
             // Setting derived path for eform images incase starting path is not found
-            eform_images = Paths.get(oscarProperties.getProperty("BASE_DOCUMENT_DIR"), "eform", "images").toString();
+            eform_images = Paths.get(carlosProperties.getProperty("BASE_DOCUMENT_DIR"), "eform", "images").toString();
         }
         return eform_images;
     }
@@ -496,12 +496,12 @@ public class OscarProperties extends Properties {
      * @return String path to the fax incoming directory, never null
      */
     public String getFaxIncomingDirectory() {
-        String faxIncoming = oscarProperties.getProperty("FAX_INCOMING_DIR");
+        String faxIncoming = carlosProperties.getProperty("FAX_INCOMING_DIR");
 
         if (faxIncoming == null || faxIncoming.trim().isEmpty()) {
             // Prefer BASE_DOCUMENT_DIR — same pattern as DOCUMENT_DIR and EFORM_IMAGES_DIR.
             // This directory is already configured, writable by the app server, and outside the webroot.
-            String baseDocDir = oscarProperties.getProperty("BASE_DOCUMENT_DIR");
+            String baseDocDir = carlosProperties.getProperty("BASE_DOCUMENT_DIR");
             if (baseDocDir != null && !baseDocDir.trim().isEmpty()) {
                 faxIncoming = Paths.get(baseDocDir.trim(), "fax-incoming").toString();
             } else {
@@ -535,7 +535,7 @@ public class OscarProperties extends Properties {
 		try (FileWriter writer = new FileWriter(propFilePath, true)) {
 			// Write the new key-value pair
 			writer.write("\n" + key + "=" + value + "\n");
-			oscarProperties.setProperty(key, value);
+			carlosProperties.setProperty(key, value);
 		}
 	}
 

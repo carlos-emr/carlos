@@ -43,7 +43,7 @@ import java.nio.file.StandardCopyOption;
 
 import jakarta.servlet.ServletContext;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -61,7 +61,7 @@ import org.springframework.stereotype.Service;
  * the NioFileManager handles all file input and output of all OscarDocument files
  * by providing several convenience utilities.
  * <p>
- * One goal is to eliminate the use of "OscarProperties.getInstance().getProperty("DOCUMENT_DIR")"
+ * One goal is to eliminate the use of "CarlosProperties.getInstance().getProperty("DOCUMENT_DIR")"
  * in every single page of OSCAR code.
  */
 @Service
@@ -78,7 +78,7 @@ public class NioFileManagerImpl implements NioFileManager {
     private static final String TEMP_PDF_DIRECTORY = "tempPDF";
     private static final String DEFAULT_FILE_SUFFIX = "pdf";
     private static final String DEFAULT_GENERIC_TEMP = "tempDirectory";
-    private static final String BASE_DOCUMENT_DIR = OscarProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+    private static final String BASE_DOCUMENT_DIR = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
 
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum) {
 

@@ -38,7 +38,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ViewDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.View" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
@@ -67,7 +67,7 @@
 %>
 
 <%
-    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.isEmpty()) {
         labReqVer = "07";
     }
@@ -844,7 +844,7 @@
                         <select id="assignedTo" class="form-select" name="assignedTo">
                             <%
                                 // Check for property to default assigned providers and if present - default to user logged in
-                                boolean ticklerDefaultAssignedProvier = OscarProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
+                                boolean ticklerDefaultAssignedProvier = CarlosProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
                                 if (ticklerDefaultAssignedProvier) {
                                     if ("all".equals(assignedTo)) {
                                         assignedTo = user_no;
@@ -986,7 +986,7 @@
         </form>
 
         <p class="yesprint">
-            <%=OscarProperties.getConfidentialityStatement()%>
+            <%=CarlosProperties.getConfidentialityStatement()%>
         </p>
 
         <div id="note-form" title="<fmt:message key='tickler.ticklerMain.noteDialogTitle'/>" style="display:none;">

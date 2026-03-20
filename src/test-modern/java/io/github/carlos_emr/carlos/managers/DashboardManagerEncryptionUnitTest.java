@@ -26,7 +26,7 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DashboardDao;
 import io.github.carlos_emr.carlos.commn.dao.IndicatorTemplateDao;
@@ -92,7 +92,7 @@ class DashboardManagerEncryptionUnitTest {
     private LoggedInInfo loggedInInfo;
     private Provider testProvider;
     private Clinic testClinic;
-    private MockedStatic<OscarProperties> mockedProperties;
+    private MockedStatic<CarlosProperties> mockedProperties;
 
     @BeforeEach
     void setUp() {
@@ -126,9 +126,9 @@ class DashboardManagerEncryptionUnitTest {
     @Test
     @DisplayName("Generate encrypted URL when valid configuration is provided")
     void shouldGenerateEncryptedURL_whenValidConfiguration() {
-        mockedProperties = mockStatic(OscarProperties.class);
-        OscarProperties properties = mock(OscarProperties.class);
-        mockedProperties.when(OscarProperties::getInstance).thenReturn(properties);
+        mockedProperties = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        mockedProperties.when(CarlosProperties::getInstance).thenReturn(properties);
 
         when(properties.getProperty("shared_outcomes_dashboard_url"))
                 .thenReturn("https://test.dashboard.example.com");
@@ -152,9 +152,9 @@ class DashboardManagerEncryptionUnitTest {
     @Test
     @DisplayName("Produce valid Base64 output when encrypting parameters")
     void shouldProduceValidBase64Output_whenEncrypting() {
-        mockedProperties = mockStatic(OscarProperties.class);
-        OscarProperties properties = mock(OscarProperties.class);
-        mockedProperties.when(OscarProperties::getInstance).thenReturn(properties);
+        mockedProperties = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        mockedProperties.when(CarlosProperties::getInstance).thenReturn(properties);
 
         when(properties.getProperty("shared_outcomes_dashboard_url"))
                 .thenReturn("https://test.dashboard.example.com");
@@ -186,9 +186,9 @@ class DashboardManagerEncryptionUnitTest {
     @Test
     @DisplayName("Produce different output when called multiple times (random IV)")
     void shouldProduceDifferentOutput_whenCalledMultipleTimes() {
-        mockedProperties = mockStatic(OscarProperties.class);
-        OscarProperties properties = mock(OscarProperties.class);
-        mockedProperties.when(OscarProperties::getInstance).thenReturn(properties);
+        mockedProperties = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        mockedProperties.when(CarlosProperties::getInstance).thenReturn(properties);
 
         when(properties.getProperty("shared_outcomes_dashboard_url"))
                 .thenReturn("https://test.dashboard.example.com");
@@ -214,9 +214,9 @@ class DashboardManagerEncryptionUnitTest {
     @Test
     @DisplayName("Return null when password configuration is missing")
     void shouldReturnNull_whenMissingPassword() {
-        mockedProperties = mockStatic(OscarProperties.class);
-        OscarProperties properties = mock(OscarProperties.class);
-        mockedProperties.when(OscarProperties::getInstance).thenReturn(properties);
+        mockedProperties = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        mockedProperties.when(CarlosProperties::getInstance).thenReturn(properties);
 
         when(properties.getProperty("shared_outcomes_dashboard_url"))
                 .thenReturn("https://test.dashboard.example.com");
@@ -238,9 +238,9 @@ class DashboardManagerEncryptionUnitTest {
     @Test
     @DisplayName("Return null when salt configuration is missing")
     void shouldReturnNull_whenMissingSalt() {
-        mockedProperties = mockStatic(OscarProperties.class);
-        OscarProperties properties = mock(OscarProperties.class);
-        mockedProperties.when(OscarProperties::getInstance).thenReturn(properties);
+        mockedProperties = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        mockedProperties.when(CarlosProperties::getInstance).thenReturn(properties);
 
         when(properties.getProperty("shared_outcomes_dashboard_url"))
                 .thenReturn("https://test.dashboard.example.com");
@@ -283,9 +283,9 @@ class DashboardManagerEncryptionUnitTest {
     @Test
     @DisplayName("Return null when dashboard URL configuration is missing")
     void shouldReturnNull_whenMissingDashboardURL() {
-        mockedProperties = mockStatic(OscarProperties.class);
-        OscarProperties properties = mock(OscarProperties.class);
-        mockedProperties.when(OscarProperties::getInstance).thenReturn(properties);
+        mockedProperties = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        mockedProperties.when(CarlosProperties::getInstance).thenReturn(properties);
 
         when(properties.getProperty("shared_outcomes_dashboard_url"))
                 .thenReturn(null);  // Missing URL

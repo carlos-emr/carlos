@@ -107,12 +107,12 @@ public class BillingONManager {
 
         //         //Get Due Date of Invoice
         //         String dueDateStr="";
-        //         if (OscarProperties.getInstance().hasProperty("invoice_due_date")) {
+        //         if (CarlosProperties.getInstance().hasProperty("invoice_due_date")) {
         //             BillingONExt dueDateExt = billingONExtDao.getDueDate(billingONCHeader1);
         //             if (dueDateExt != null) {
         //                 dueDateStr = dueDateExt.getValue();
         //             } else {
-        //                 Integer numDaysTilDue = Integer.parseInt(OscarProperties.getInstance().getProperty("invoice_due_date", "0")); 
+        //                 Integer numDaysTilDue = Integer.parseInt(CarlosProperties.getInstance().getProperty("invoice_due_date", "0")); 
         //                 Date serviceDate = billingONCHeader1.getBillingDate();
         //                 dueDateStr = DateUtils.sumDate(serviceDate, numDaysTilDue, locale);
         //             }  

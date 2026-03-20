@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.EForm;
@@ -79,7 +79,7 @@ class EFormServiceUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager mockSecurityInfoManager;
 
     private LoggedInInfo loggedInInfo;
-    private MockedStatic<OscarProperties> oscarPropertiesMock;
+    private MockedStatic<CarlosProperties> oscarPropertiesMock;
 
     /**
      * Testable subclass that overrides getLoggedInInfo() to bypass CXF context.
@@ -88,10 +88,10 @@ class EFormServiceUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
-        // Stub OscarProperties static calls (used in RestResponseHeaders constructor)
-        oscarPropertiesMock = mockStatic(OscarProperties.class);
-        oscarPropertiesMock.when(OscarProperties::getBuildDate).thenReturn("2026-01-01");
-        oscarPropertiesMock.when(OscarProperties::getBuildTag).thenReturn("test");
+        // Stub CarlosProperties static calls (used in RestResponseHeaders constructor)
+        oscarPropertiesMock = mockStatic(CarlosProperties.class);
+        oscarPropertiesMock.when(CarlosProperties::getBuildDate).thenReturn("2026-01-01");
+        oscarPropertiesMock.when(CarlosProperties::getBuildTag).thenReturn("test");
 
         // LogAction is already silenced by CarlosUnitTestBase.setUpSpringUtilsMocking()
 
