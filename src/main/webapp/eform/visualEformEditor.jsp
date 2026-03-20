@@ -1977,7 +1977,7 @@ var EFORM_I18N = {
                 source += stamp_script.innerHTML;
                 loadFunctions += " signForm()";
             }
-            source += findSelectedFunctions(htmlElements.innerHTML) + "\<\/script></head><body onload='focusAll();" + loadFunctions + "'>";
+            source += findSelectedFunctions(htmlElements.innerHTML) + "\<\/script></"+"head><body onload='focusAll();" + loadFunctions + "'>";
             if (setSideBar == "on") {
                 source += "<iframe src='${oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px height 600px'></iframe>";
             }
@@ -4557,7 +4557,7 @@ var EFORM_I18N = {
                 var newWin = window.open('', 'Print-Window');
                 newWin.document.open();
                 var htmlPrint = '<html><head><title>' + eformName + '</title><style>' + style1 + style2 + style3 +
-                    '</style></head><body onload="window.print()">' + divToPrint.innerHTML + '</body></html>';
+                    '</style></'+'head><body onload="window.print()">' + divToPrint.innerHTML + '</body></html>';
                 newWin.document.write(htmlPrint);
                 newWin.document.close();
                 var timeout = 1;
