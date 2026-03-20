@@ -284,7 +284,7 @@ String curProvider_no = (String)session.getAttribute("user");
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/>
 					</a></li>
 
-					<li><a href="javascript:void(0);" onclick="window.open('${ctx}/eform/visualEformEditor.jsp', '_blank'); return false;">Visual eForm Editor</a></li>
+					<li><a href="javascript:void(0);" onclick="window.open('${ctx}/eform/visualEformEditor.jsp', '_blank'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.visual.editor.title"/></a></li>
 
 				<li><a href="${ctx}/eform/efmimagemanager.jsp"  class="contentLink defaultImageUpload">
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUploadImage"/>

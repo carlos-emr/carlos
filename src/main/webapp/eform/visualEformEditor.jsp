@@ -90,7 +90,8 @@ FOR STAND ALONE USE
 -->
 <head>
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
-    <title>Visual E-form Editor</title>
+    <fmt:setBundle basename="oscarResources"/>
+    <title><fmt:message key="eform.visual.editor.title"/></title>
 
     <!-- jQuery and UI -->
 	<script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -5276,6 +5277,27 @@ var EFORM_I18N = {
     </fieldset>
   </form>
 </div>
+<script>
+/* Suppress the leave-page confirmation dialog when a logout broadcast signal is received.
+ * logout.jsp broadcasts 'logout' on the 'carlos_logout' BroadcastChannel and sets
+ * the 'carlos_logout_signal' localStorage key. Either signal releases the dirty flag
+ * so the beforeunload handler does not prompt the user, then closes this popup window. */
+(function() {
+    function handleLogoutSignal() {
+        releaseDirtyFlag();
+        try { window.close(); } catch(e) {}
+    }
+    try {
+        var logoutChannel = new BroadcastChannel('carlos_logout');
+        logoutChannel.onmessage = function(e) {
+            if (e.data === 'logout') { handleLogoutSignal(); }
+        };
+    } catch(e) {}
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'carlos_logout_signal') { handleLogoutSignal(); }
+    });
+}());
+</script>
 </body>
 
 </html>
