@@ -78,7 +78,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>OSCAR Patient Search</title>
+    <title>CARLOS Patient Search</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     <script language="JavaScript">
         function PopupReturn(index) {

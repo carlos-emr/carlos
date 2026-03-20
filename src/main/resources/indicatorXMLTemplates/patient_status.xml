@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <indicatorTemplateXML>
-	<author>OSCAR EMR</author>
+	<author></author>
 	<uid></uid>
 	<heading>
 		<category>HomePage</category>
 		<subCategory>Patient Population</subCategory>
 		<name>Patient Status</name>
 		<definition>% of patients (Rostered and non-Rostered) in the practice based on their status, including last visit.</definition>
-		<framework>OSCAR EMR</framework>
+		<framework>CARLOS EMR</framework>
 		<frameworkVersion>01-01-2017</frameworkVersion>
 		<notes></notes>
 	</heading>

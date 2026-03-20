@@ -124,11 +124,11 @@
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn">Oscar Messenger</td>
+        <td class="MainTableTopRowLeftColumn">CARLOS Messenger</td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>
-                    <td>OSCAR Messenger Attachment</td>
+                    <td>CARLOS Messenger Attachment</td>
                     <td></td>
                     <td style="text-align: right"><a
                             href="javascript:popupStart(300,400,'About.jsp')">About</a> | <a

@@ -449,13 +449,13 @@
 
             <div id="hrmNotice">
                 This report was received from the Hospital Report Manager (HRM) at <%=(String) hrmReportTime %>.
-                <% if (hrmDuplicateNum != null && (hrmDuplicateNum > 0)) { %><br/><i>OSCAR has
+                <% if (hrmDuplicateNum != null && (hrmDuplicateNum > 0)) { %><br/><i>CARLOS has
                 received <%=String.valueOf(hrmDuplicateNum) %> duplicates of this report.</i><% } %>
                 <%
                     allDocumentsWithRelationship = (List<HRMDocument>) request.getAttribute("allDocumentsWithRelationship");
                     if (allDocumentsWithRelationship != null && allDocumentsWithRelationship.size() > 1) {
                 %>
-                <span id="similarNotice">OSCAR has also detected that the following reports are similar:
+                <span id="similarNotice">CARLOS has also detected that the following reports are similar:
 		<%
             List<Integer> seenBefore = new LinkedList<Integer>();
             for (HRMDocument relationshipDocument : allDocumentsWithRelationship) {

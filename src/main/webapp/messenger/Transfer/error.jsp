@@ -68,7 +68,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Oscar Prescription Module - Error</title>
+    <title>CARLOS Prescription Module - Error</title>
 </head>
 <body style="width: 600px">
 <h1>Session Expired</h1>
