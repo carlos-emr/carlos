@@ -44,7 +44,7 @@
 		</a>
 		<ul class="dropdown-menu">
 
-		<li><a href='<%= request.getContextPath() %>/eform/visualEformEditor.jsp' target="_blank" rel="noreferrer noopener" class="dropdown-item contentLink">Visual eForm Editor</a></li>
+		<li><a href='<%= request.getContextPath() %>/eform/visualEformEditor.jsp' onclick="window.open(this.href, '_blank'); return false;" class="dropdown-item">Visual eForm Editor</a></li>
 		<li><a href="#" onclick="newWindow('<%= request.getContextPath() %>/eform/eformGenerator.jsp', 'createGenerator'); return false;" class="dropdown-item contentLink">eForm Generator</a></li>
 		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit.jsp' class="dropdown-item contentLink">Create In Editor</a></li>
 
