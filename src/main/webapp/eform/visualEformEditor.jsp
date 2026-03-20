@@ -93,13 +93,15 @@ FOR STAND ALONE USE
     <title>Visual E-form Editor</title>
 
     <!-- jQuery and UI -->
-	<script src="<%= request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-	<script src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css" rel="stylesheet" type="text/css">
-    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css" rel="stylesheet" type="text/css">
+	<script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+	<script src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
+    <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
 
-    <!-- javascript file for the signature pads * optional * -->
-    <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script>
+    <!-- signature_pad.min.js (Szymon Nowak) was removed from the project.
+         Without it, wet-signature canvas widgets are unavailable in the editor
+         but existing eforms remain functional. Restore the file to re-enable. -->
+    <%-- <script src="<%= request.getContextPath() %>/share/javascript/signature_pad.min.js"></script> --%>
 
     <!-- main calendar program -->
     <script src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
