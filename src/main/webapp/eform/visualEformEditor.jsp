@@ -94,6 +94,9 @@ FOR STAND ALONE USE
 
     <!-- jQuery and UI -->
 	<script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+	<script>
+        $.uiBackCompat = true;
+    </script>
 	<script src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet" type="text/css">
     <link href="<%= request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet" type="text/css">
