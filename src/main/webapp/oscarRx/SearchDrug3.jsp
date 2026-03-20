@@ -726,7 +726,7 @@ function renderRxStage() {
                        float:left;
                    }
         </style>
-      <title>Medications</title>
+      <title>Rx-<%= Encode.forHtmlContent(patient.getSurname()) %></title>
     </head>
 
     <%
