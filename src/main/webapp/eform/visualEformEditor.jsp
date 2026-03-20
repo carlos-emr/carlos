@@ -1883,6 +1883,7 @@ var EFORM_I18N = {
             source += "<title>" + escapeHtmlText(eformName) + "</title>";
 
             // ------- the eforms generated are currently dependent on jQuery ------
+            source += "\<script src='../library/jquery/jquery-3.7.1.min.js'\>\<\/script\>"; // present in CARLOS
             source += "\<script src='../library/jquery/jquery-3.6.4.min.js'\>\<\/script\>"; // present in OSCAR 19 and OPEN OSP
             source += "\<script src='$\{oscar_javascript_path\}jquery/jquery-2.2.4.min.js'\>\<\/script\>"; // only present in JUNO
             source += "\<script\>window.jQuery || document.write(\"\\x3cscript src='../js/jquery-1.12.3.js'\\x3e\\x3c\\/script\\x3e\");\<\/script\>"; // present in WELL and others as
