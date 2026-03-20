@@ -2242,7 +2242,7 @@ function updateReRxStatusForPrescribedDrug(element, drugId) {
     }
 
     function stageSelectedReRxMedications() {
-        rePrescribeMulti();
+        rePrescribeMulti(selectedReRxIDs.slice());
         selectedReRxIDs = [];
         updateReRxStageConfirmBoxVisibility();
 }
@@ -2276,9 +2276,13 @@ function rePrescribe2(uiRefId, drugId) {
         });
     }
 
-    function rePrescribeMulti() {
+    function rePrescribeMulti(drugIds) {
         const url = ctx + "/oscarRx/rePrescribe2.do";
-        const rePrescribeMultiData = "method=represcribeMultiple&rand=" + Math.floor(Math.random() * 10001);
+        let rePrescribeMultiData = "method=represcribeMultiple&rand=" + Math.floor(Math.random() * 10001);
+        // Pass drug IDs directly to avoid race condition with async session update
+        if (drugIds && drugIds.length > 0) {
+            rePrescribeMultiData += "&drugIds=" + encodeURIComponent(drugIds.join(','));
+        }
         CarlosAjax.updater('rxText', url, {
             method: 'post', parameters: rePrescribeMultiData, synchronous: true, evalScripts: true,
             insertion: 'bottom', onSuccess: function (transport) {

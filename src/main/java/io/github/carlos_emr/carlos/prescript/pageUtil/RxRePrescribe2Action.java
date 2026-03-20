@@ -509,6 +509,17 @@ public String saveDigitalSignature() throws IOException {
             return null;
         }
         CopyOnWriteArrayList<String> reRxDrugList = bean.getReRxDrugIdList();
+        // Also accept drug IDs passed directly in request to avoid race condition
+        // with the async session-update call from the checkbox handler
+        String drugIdsParam = request.getParameter("drugIds");
+        if (drugIdsParam != null && !drugIdsParam.isEmpty()) {
+            for (String id : drugIdsParam.split(",")) {
+                String trimmed = id.trim();
+                if (!trimmed.isEmpty() && !reRxDrugList.contains(trimmed)) {
+                    reRxDrugList.add(trimmed);
+                }
+            }
+        }
         MiscUtils.getLogger().debug(reRxDrugList);
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
         for (String drugId : reRxDrugList) {
@@ -534,6 +545,8 @@ public String saveDigitalSignature() throws IOException {
             bean.setStashIndex(rxStashIndex);
             bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
         }
+        // Clear the session list after staging so the same drugs can be re-staged later
+        bean.clearReRxDrugIdList();
         MiscUtils.getLogger().debug(listReRxDrug);
         request.setAttribute("listRxDrugs", listReRxDrug);
         MiscUtils.getLogger().debug("================END represcribeMultiple of RxRePrescribe2Action.java=================");
