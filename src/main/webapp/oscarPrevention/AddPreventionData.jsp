@@ -28,6 +28,39 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AddPreventionData.jsp - Prevention / Immunization Data Entry Popup
+
+    Popup form for adding or editing a patient's prevention or immunization record.
+    Supports both creating a new prevention entry and editing an existing one (when
+    an 'id' parameter is supplied). Also supports pre-population via lot number lookup
+    through the Canadian Vaccine Catalogue (CVC).
+
+    Features:
+      - Add or edit immunization/prevention records linked to a patient demographic
+      - Lot-number lookup via CVC to auto-populate vaccine brand, generic type, and SNOMED ID
+      - Partial-date support for prevention dates (year or month/year precision)
+      - DHIR (Digital Health Immunization Repository) integration for Ontario SSO sessions
+      - Consent checking (ISPA and non-ISPA) before allowing DHIR submission
+      - Case-management note linking via CaseManagementNoteLink
+      - Unsaved-changes guard via beforeunload (cancelCloseWarning / setCloseWarning)
+      - Logout signal handling: listens on BroadcastChannel 'carlos_logout' and the
+        'carlos_logout_signal' localStorage key so the popup closes cleanly on logout
+        without prompting the user about unsaved changes
+
+    Request Parameters:
+      - demographic_no  (String) patient demographic identifier
+      - prevention      (String) prevention type name (e.g. "COVID19", "Influenza")
+      - id              (String, optional) existing prevention record ID; triggers edit mode
+      - snomedId        (String, optional) SNOMED concept ID for the vaccine
+      - lotNumber       (String, optional) CVC lot number for auto-population
+      - prevResultDesc  (String, optional) result description to pre-fill
+
+    Security:
+      - Requires '_prevention' read privilege; redirects to securityError.jsp if absent
+
+    @since 2001 (OSCAR McMaster original), enhanced 2026-03-20 with logout signal handling
+--%>
 
 <%@ page import="java.text.ParseException" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
@@ -579,25 +612,25 @@
                 }
             }
         </script>
-    </head>
+     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onload="disableifchecked(document.getElementById('neverWarn'),'nextDate');">
-    <!--  -->
+    <body onload="disableifchecked(document.getElementById('neverWarn'),'nextDate');">
+
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="100">
-                <fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
+            <td class="MainTableTopRowLeftColumn" style="background-color:silver;">
+                <h2><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></h2>
             </td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
+            <td class="MainTableTopRowRightColumn" style="width: 100%; background-color:silver;">
+                <table class="TopStatusBar" style="width: 100%">
                     <tr>
-                        <td>
+                        <td style="background-color:silver;">
                             <%=StringEscapeUtils.escapeHtml4(nameage)%>
                         </td>
-                        <td>&nbsp;
+                        <td style="background-color:silver;">&nbsp;
 
                         </td>
-                        <td style="text-align:right">
+                        <td style="text-align:right; background-color:silver;">
                             <a
                                 href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
                             | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
@@ -1455,6 +1488,27 @@
                 </form>
                 <% } %>
     </div>
+<script>
+/* Suppress the leave-page confirmation dialog when a logout broadcast signal is received.
+ * logout.jsp broadcasts 'logout' on the 'carlos_logout' BroadcastChannel and sets
+ * the 'carlos_logout_signal' localStorage key. Either signal releases the dirty flag
+ * so the beforeunload handler does not prompt the user, then closes this popup window. */
+(function() {
+    function handleLogoutSignal() {
+        cancelCloseWarning();
+        try { window.close(); } catch(e) {}
+    }
+    try {
+        var logoutChannel = new BroadcastChannel('carlos_logout');
+        logoutChannel.onmessage = function(e) {
+            if (e.data === 'logout') { handleLogoutSignal(); }
+        };
+    } catch(e) {}
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'carlos_logout_signal' && e.newValue !== null) { handleLogoutSignal(); }
+    });
+}());
+</script>
     </body>
 </html>
 <%!

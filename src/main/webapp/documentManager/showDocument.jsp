@@ -153,6 +153,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
@@ -297,11 +298,10 @@
     <script type="text/javascript">
         const ctx = "${pageContext.servletContext.contextPath}";
         </script>
-
+        <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
+        <%@ include file="/includes/global-head.jspf" %>
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
-        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css">
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
@@ -722,9 +722,10 @@
 
                                     <input type="checkbox" id="activeOnly<%=docId%>" name="activeOnly" checked="checked"
                                            value="true"><fmt:message key="showDocument.lblActiveOnly"/><br>
+                                    <fmt:message key="showDocument.placeholderSearchDemographic" var="placeholderSearchDemographic"/>
                                     <input type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=Encode.forJavaScript(docId)%>');" name="demographicKeyword"
-                                           placeholder="Search Demographic">
+                                           placeholder="${fn:escapeXml(placeholderSearchDemographic)}">
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
                                     <%}%>
@@ -743,8 +744,9 @@
                                 <td style="vertical-align: top;"><fmt:message key="inboxmanager.document.FlagProviderMsg"/></td>
                                 <td>
                                     <input type="hidden" name="provi" id="provfind<%=docId%>">
+                                    <fmt:message key="showDocument.placeholderSearchProvider" var="placeholderSearchProvider"/>
                                     <input type="text" id="autocompleteprov<%=docId%>" name="demographicKeyword"
-                                           placeholder="Search Provider">
+                                           placeholder="${fn:escapeXml(placeholderSearchProvider)}">
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
 
