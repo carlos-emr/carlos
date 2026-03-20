@@ -1505,7 +1505,7 @@
         };
     } catch(e) {}
     window.addEventListener('storage', function(e) {
-        if (e.key === 'carlos_logout_signal') { handleLogoutSignal(); }
+        if (e.key === 'carlos_logout_signal' && e.newValue !== null) { handleLogoutSignal(); }
     });
 }());
 </script>
