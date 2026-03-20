@@ -1979,7 +1979,7 @@ var EFORM_I18N = {
             }
             source += findSelectedFunctions(htmlElements.innerHTML) + "\<\/script></"+"head><body onload='focusAll();" + loadFunctions + "'>";
             if (setSideBar == "on") {
-                source += "<iframe src='${oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px height 600px'></iframe>";
+                source += "<iframe src='${oscar_image_path}SideBarTemplate.html' id='mySidenavGen2' class='sidenav DoNotPrint' style='margin-top:-60px;margin-left:-100px;height:600px'></iframe>";
             }
 
             source += "<div id='eform_container' " + "style='max-width: " + eFormPageWidth + "px'>";
