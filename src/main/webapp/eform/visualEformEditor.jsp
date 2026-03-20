@@ -1603,6 +1603,16 @@ var EFORM_I18N = {
             return string.replace(/[^a-z0-9\s]/gi, '');
         }
 
+        /** HTML-encodes a string for safe insertion into HTML content (e.g. title tags) */
+        function escapeHtmlText(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function destroy_gen_widgets($elementSelector) {
             $elementSelector.find(".gen-resizable").resizable("destroy").removeClass("gen-resizable").addClass("gen-resize-destroyed");
             $elementSelector.find(".gen-draggable").draggable("destroy").removeClass("gen-draggable").addClass("gen-draggable-destroyed");
@@ -1870,7 +1880,7 @@ var EFORM_I18N = {
 
             var source = "<!DOCTYPE html><html><head>";
             source += "\<META http-equiv='Content-Type' content='text/html; charset=UTF-8'\>";
-            source += "<title>" + eformName + "</title>";
+            source += "<title>" + escapeHtmlText(eformName) + "</title>";
 
             // ------- the eforms generated are currently dependent on jQuery ------
             source += "\<script src='../library/jquery/jquery-3.6.4.min.js'\>\<\/script\>"; // present in OSCAR 19 and OPEN OSP
@@ -4562,7 +4572,7 @@ var EFORM_I18N = {
                 var style3 = document.getElementById('eform_style_signature').innerHTML;
                 var newWin = window.open('', 'Print-Window');
                 newWin.document.open();
-                var htmlPrint = '<html><head><title>' + eformName + '</title><style>' + style1 + style2 + style3 +
+                var htmlPrint = '<html><head><title>' + escapeHtmlText(eformName) + '</title><style>' + style1 + style2 + style3 +
                     '</style></'+'head><body onload="window.print()">' + divToPrint.innerHTML + '</body></html>';
                 newWin.document.write(htmlPrint);
                 newWin.document.close();
@@ -5283,18 +5293,23 @@ var EFORM_I18N = {
  * the 'carlos_logout_signal' localStorage key. Either signal releases the dirty flag
  * so the beforeunload handler does not prompt the user, then closes this popup window. */
 (function() {
+    var logoutChannel = null;
     function handleLogoutSignal() {
         releaseDirtyFlag();
+        if (logoutChannel) { try { logoutChannel.close(); } catch(e) {} logoutChannel = null; }
         try { window.close(); } catch(e) {}
     }
     try {
-        var logoutChannel = new BroadcastChannel('carlos_logout');
+        logoutChannel = new BroadcastChannel('carlos_logout');
         logoutChannel.onmessage = function(e) {
             if (e.data === 'logout') { handleLogoutSignal(); }
         };
     } catch(e) {}
     window.addEventListener('storage', function(e) {
-        if (e.key === 'carlos_logout_signal') { handleLogoutSignal(); }
+        if (e.key === 'carlos_logout_signal' && e.newValue !== null) { handleLogoutSignal(); }
+    });
+    window.addEventListener('beforeunload', function() {
+        if (logoutChannel) { try { logoutChannel.close(); } catch(e) {} logoutChannel = null; }
     });
 }());
 </script>
