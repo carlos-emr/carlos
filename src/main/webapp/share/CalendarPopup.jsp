@@ -81,6 +81,9 @@
             height: 25px;
             border-radius: 50%;
             display: inline-block;
+            line-height: 25px;
+            text-align: center;
+            text-decoration: none;
         }
 
     </style>
@@ -181,7 +184,7 @@
         <th width="14%">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgFri"/>
             </td>
-        <th width="14%"><span style="color:green"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSat"/></font>
+        <th width="14%"><span style="color:green"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSat"/></span>
             </td>
     </tr>
 
@@ -211,7 +214,7 @@
 
 </table>
 
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
+<table style="width:100%; border-collapse: collapse; padding: 0;">
     <tr>
         <td align="right"><input type="button" class="btn btn-link"
                                  name="Cancel" value="Cancel" onClick="window.close()"></td>
