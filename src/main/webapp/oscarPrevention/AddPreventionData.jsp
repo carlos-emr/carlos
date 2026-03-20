@@ -28,6 +28,39 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AddPreventionData.jsp - Prevention / Immunization Data Entry Popup
+
+    Popup form for adding or editing a patient's prevention or immunization record.
+    Supports both creating a new prevention entry and editing an existing one (when
+    an 'id' parameter is supplied). Also supports pre-population via lot number lookup
+    through the Canadian Vaccine Catalogue (CVC).
+
+    Features:
+      - Add or edit immunization/prevention records linked to a patient demographic
+      - Lot-number lookup via CVC to auto-populate vaccine brand, generic type, and SNOMED ID
+      - Partial-date support for prevention dates (year or month/year precision)
+      - DHIR (Digital Health Immunization Repository) integration for Ontario SSO sessions
+      - Consent checking (ISPA and non-ISPA) before allowing DHIR submission
+      - Case-management note linking via CaseManagementNoteLink
+      - Unsaved-changes guard via beforeunload (cancelCloseWarning / setCloseWarning)
+      - Logout signal handling: listens on BroadcastChannel 'carlos_logout' and the
+        'carlos_logout_signal' localStorage key so the popup closes cleanly on logout
+        without prompting the user about unsaved changes
+
+    Request Parameters:
+      - demographic_no  (String) patient demographic identifier
+      - prevention      (String) prevention type name (e.g. "COVID19", "Influenza")
+      - id              (String, optional) existing prevention record ID; triggers edit mode
+      - snomedId        (String, optional) SNOMED concept ID for the vaccine
+      - lotNumber       (String, optional) CVC lot number for auto-population
+      - prevResultDesc  (String, optional) result description to pre-fill
+
+    Security:
+      - Requires '_prevention' read privilege; redirects to securityError.jsp if absent
+
+    @since 2001 (OSCAR McMaster original), enhanced 2026-03-20 with logout signal handling
+--%>
 
 <%@ page import="java.text.ParseException" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
