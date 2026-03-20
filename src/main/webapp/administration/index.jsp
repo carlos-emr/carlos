@@ -221,17 +221,26 @@
         }
 
         .quick-links {
-            display: inline-block;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             width: 160px;
-            height: 100px;
+            min-height: 100px;
             margin: 10px;
             text-align: center;
             vertical-align: top;
+            overflow: visible;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .quick-links a {
             text-decoration: none;
             color: #333;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            width: 100%;
         }
 
         .quick-links a:hover {
