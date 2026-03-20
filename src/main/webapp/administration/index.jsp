@@ -150,58 +150,8 @@
             margin-top: 18px;
         }
 
-        .accordion-heading {
-            background-color: #fff;
-            border-top: 1px solid #e5e5e5;
-        }
-
-        .accordion-heading:first-of-type {
-            border: none;
-        }
-
-        .accordion-heading:hover {
-            background-color: #e6e6e6;
-        }
-
-        .accordion-heading a:hover {
-            text-decoration: none;
-        }
-
-        .fa-solid.fa-chevron-right {
-            opacity: 0.3;
-        }
-
-        .accordion-heading a:hover > .fa-solid.fa-chevron-right {
-            opacity: 1;
-        }
-
         .selected-heading {
             background-color: #e6e6e6;
-        }
-
-        .accordion-inner ul li a {
-            color: #424242;
-            padding: 2px 0px;
-            margin: auto 5px;
-            display: block;
-            width: 100%;
-        }
-
-        .accordion-inner a:hover {
-            text-decoration: none;
-            color: #000;
-            cursor: pointer;
-            cursor: hand;
-        }
-
-        .accordion-inner ul li:nth-child(even) {
-            background-color: white;
-        }
-
-        .accordion-inner ul li:nth-child(odd) {
-            background-color: whitesmoke;
-            border-top: 1px solid #dddddd;
-            border-bottom: 1px solid #dddddd;
         }
 
         #side a {
@@ -212,10 +162,6 @@
 
         #side a:hover {
             color: #0088cc;
-        }
-
-        .fa-solid.fa-chevron-right {
-            float: right;
         }
 
         #adminNav {
