@@ -385,7 +385,7 @@ ALTER TABLE `hl7TextInfo`
 -- Data that is too large for the column width is truncated
 
 ALTER TABLE `demographic`
-    DROP INDEX `myOscarUserName`;
+    DROP INDEX IF EXISTS `myOscarUserName`;
 ALTER TABLE `demographic`
     MODIFY COLUMN `provider_no` varchar(11) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL DEFAULT NULL AFTER `spoken_lang`,
     MODIFY COLUMN `previousAddress` varchar(60) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL DEFAULT NULL AFTER `alias`,
@@ -1146,7 +1146,7 @@ CALL add_column('fax_config', 'faxReply', 'VARCHAR(10)');
 -- This is safe to run multiple times
 UPDATE `fax_config`
 SET `providerType` = 'MIDDLEWARE'
-WHERE `providerType` IS NULL OR `providerType` = ''
+WHERE `providerType` IS NULL OR `providerType` = '';
 
 -- PHC additional missed changes
 -- -----------------------------------------
