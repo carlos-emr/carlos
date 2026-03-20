@@ -70,11 +70,19 @@
     <meta name="viewport"
           content="initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, width=device-width"/>
     <% } %>
-    <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css" TYPE="text/css">
     <style type="text/css">
         td, th {
             font-size: 14px;
         }
+        .circle {
+            background: lightblue;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
     </style>
     <script language="JavaScript">
         <!--
@@ -96,7 +104,7 @@
         //-->
     </script>
 </head>
-<body bgcolor="ivory" onLoad="setfocus()" leftmargin="0" rightmargin="0">
+<body onLoad="setfocus()">
 <%
     ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources");
     String jan = oscarRec.getString("share.CalendarPopUp.msgJan");
@@ -121,7 +129,7 @@
     int[][] dateGrid = aDate.getMonthDateGrid();
 %>
 
-<table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
+<table style="width:100%">
     <tr>
         <td align="left">
             <h2>&nbsp;<%=arrayMonth[month-1]%>&nbsp;<%=year%>&nbsp;</h2>
@@ -143,8 +151,8 @@
     </tr>
 </table>
 
-<table width="100%" border="0" cellspacing="0" cellpadding="2">
-    <tr align="center" bgcolor="#FFFFFF">
+<table style="width:100%">
+    <tr align="center" >
         <th>
             <%
                 for (int i = 0; i < 12; i++) {
@@ -157,7 +165,7 @@
     </tr>
 </table>
 
-<table width="100%" border="0" cellspacing="1" cellpadding="2"
+<table style="width:100%"
        class="table">
     <tr align="center">
         <th width="14%"><font color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSun"/></font>
@@ -173,7 +181,7 @@
         <th width="14%">
             <fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgFri"/>
             </td>
-        <th width="14%"><font color="green"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSat"/></font>
+        <th width="14%"><span style="color:green"><fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgSat"/></font>
             </td>
     </tr>
 
@@ -189,7 +197,7 @@
                         bTodayDate = true;
                     }
     %>
-    <td align="center" bgcolor='<%=bTodayDate?"gold":"white"%>'><a
+    <td align="center"><a class='<%=bTodayDate?"circle":""%>'
             href="#"
             onClick="typeInDate(<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
         <%= dateGrid[i][j] %>
