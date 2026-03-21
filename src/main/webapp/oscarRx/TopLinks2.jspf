@@ -24,7 +24,9 @@
 <%@ page import="java.io.StringWriter" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.data.*,io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -32,6 +34,9 @@
 <jsp:include page="/images/spinner.jsp" flush="true"/>
 <fmt:setBundle basename="oscarResources"/>
 <script type="text/javascript">
+const msgDrugrefUnavailable = '<fmt:message key="oscarRx.drugrefUnavailable"/>';
+const msgDrugrefUnavailableContact = '<fmt:message key="oscarRx.drugrefUnavailableContact"/>';
+
 function newWindow(url) {
     var newwin = window.open(url, 'name', 'height=700,width=1000');
     if (window.focus) { newwin.focus(); }
@@ -58,46 +63,51 @@ function getDrugRefStatus() {
 		.then(json => {
 			if (!json || json.lastUpdate === 'updating' ) {
 				let statusDisplay = document.getElementById('statusDisplay');
-				statusDisplay.innerHTML = 'Drugref database is unavailable.';
-				statusDisplay.style.fontColor = 'red';
+				statusDisplay.innerHTML = msgDrugrefUnavailable;
+				statusDisplay.style.color = 'red';
 				statusDisplay.style.fontWeight = 'bold';
 			} else {
-				document.getElementById('dbDateTime').textContent = json.lastUpdate;
+				try {
+					const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+					const trimmedDate = new Intl.DateTimeFormat(undefined, options).format(new Date(json.lastUpdate));
+					document.getElementById('dbDateTime').textContent = trimmedDate;
+				} catch (e) {
+					document.getElementById('dbDateTime').textContent = json.lastUpdate || '';
+				}
 				document.getElementById('drugDatabaseVersion').textContent = json.version;
 				document.getElementById('drugDatabase').textContent = json.drugDatabase;
 			}
 		})
 		.catch(error => {
 			let statusDisplay = document.getElementById('statusDisplay');
-			statusDisplay.innerHTML = 'Drugref database is unavailable. Contact support.';
+			statusDisplay.innerHTML = msgDrugrefUnavailableContact;
 			statusDisplay.style.color = 'red';
 			statusDisplay.style.fontWeight = 'bold';
 		});
     }
 
-document.addEventListener("DOMContentLoaded", getDrugRefStatus);
+document.addEventListener("DOMContentLoaded", () => {
+    getDrugRefStatus();
+    [...document.querySelectorAll('[data-bs-toggle="tooltip"]')].forEach(el => new bootstrap.Tooltip(el));
+});
 </script>
-
-<tr>
-  <td>
-    <h4 class="ScreenTitle">Medications</h4>
-  </td>
-  <td colspan="2">
-    <table>
-      <tr>
-        <td>
+<nav id="header" class="navbar navbar-expand-lg bg-body-tertiary">
+<div class="container-fluid">
+    <span class="navbar-brand"><fmt:message key="oscarRx.header.title"/></span>
           <%
             RxPatientData.Patient patient2 =
               (RxPatientData.Patient) request.getSession().getAttribute("Patient");
           %>
-          <b><fmt:message key="SearchDrug.nameText"/></b>
+          <span class="text-nowrap"><b><fmt:message key="SearchDrug.nameText"/></b>
           <%=Encode.forHtmlContent(patient2.getFirstName()) %> <%= Encode.forHtmlContent(patient2.getSurname()) %>
-          <b><fmt:message key="SearchDrug.ageText"/></b>
-          <%= patient2.getAge() %>
-        </td>
-          <tr>
-        <td>
-          <label for="Calcs">Selected Pharmacy:</label>
+          </span><span class="text-nowrap" title="<%= Encode.forHtmlAttribute(String.valueOf(patient2.getAge())) %>y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
+          <%= Encode.forHtmlContent(RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy")) %></span>
+         <span><label for="Calcs">
+            <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
+               onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="<fmt:message key='SearchDrug.pharmacyClickToEdit'/>">
+              <fmt:message key="SearchDrug.pharmacyLabel"/>
+            </a>
+            </label>
           <select id="Calcs" name="pharmacyId" onchange="populatePharmacy(this.value); showpic('Layer1');">
             <%
               if (pharmacyList != null) {
@@ -107,11 +117,10 @@ document.addEventListener("DOMContentLoaded", getDrugRefStatus);
                   for (PharmacyInfo pi : pharmacyList) {
                       StringWriter sw = new StringWriter();
                       mapper.writeValue(sw, pi);
-                      // escape single-quotes for safe attribute usage
-                      String json = sw.toString().replace("'", "");
+                      String json = sw.toString();
             %>
-              <option value='<%= json %>'>
-                <%= Encode.forHtmlContent(pi.getName()) %> (<%= Encode.forHtmlContent(pi.getAddress()) %>, <%= Encode.forHtmlContent(pi.getCity()) %>, Fax: <%= Encode.forHtmlContent(pi.getFax()) %>)
+              <option value="<%= Encode.forHtmlAttribute(json) %>" title="<%= Encode.forHtmlAttribute(pi.getAddress()) %>, <%= Encode.forHtmlAttribute(pi.getCity()) %>, Fax: <%= Encode.forHtmlAttribute(pi.getFax()) %>">
+                <%= Encode.forHtmlContent(pi.getName()) %>
               </option>
             <%
                   }
@@ -119,15 +128,7 @@ document.addEventListener("DOMContentLoaded", getDrugRefStatus);
             %>
           </select>
 
-            <a style="color: #0000FF; text-decoration: underline;" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
-               onclick="ShowSpin(true); return true;">
-              (Edit List)
-            </a>
-
-        </td>
-        </tr>
-        <tr>
-        <td>
+            </span>
             <div id="statusDisplay">
                 <div>
                     <label for="drugDatabase"><fmt:message key="admin.admin.DrugRef.database"/>&colon; </label>
@@ -139,8 +140,6 @@ document.addEventListener("DOMContentLoaded", getDrugRefStatus);
                     <label for="dbDateTime"><fmt:message key="admin.admin.DrugRef.updateDate"/>&colon; </label>
                     <span id="dbDateTime"></span></div>
             </div>
-        </td>
-        </tr>
-    </table>
-  </td>
-</tr>
+
+</div>
+</nav>
