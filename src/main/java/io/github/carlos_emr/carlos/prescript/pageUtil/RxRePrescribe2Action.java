@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 public final class RxRePrescribe2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -530,7 +531,7 @@ public String saveDigitalSignature() throws IOException {
                         }
                     }
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().warn("Skipping invalid drugId in represcribeMultiple: " + trimmed);
+                    MiscUtils.getLogger().warn("Skipping invalid drugId in represcribeMultiple: " + Encode.forJava(trimmed));
                 }
             }
         } else {

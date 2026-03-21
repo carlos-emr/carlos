@@ -208,6 +208,32 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
         <script type="text/javascript">
             let selectedReRxIDs = [];
+            // i18n message strings for JavaScript alerts and confirm dialogs
+            var jsMsg = {
+                handlerNotRemoved: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.handlerNotRemoved"/>',
+                confirmMedRecComplete: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmMedRecComplete"/>',
+                medRecCompleted: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.medRecCompleted"/>',
+                confirmChangeDrugName: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmChangeDrugName"/>',
+                confirmDeletePrescriptions: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmDeletePrescriptions"/>',
+                confirmCustomNote: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmCustomNote"/>',
+                confirmCustomDrug: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.confirmCustomDrug"/>',
+                startDateWrongFormat: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateWrongFormat"/>',
+                startDateInvalidYear: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidYear"/>',
+                startDateInvalidMonth: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidMonth"/>',
+                startDateInvalidDay: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateInvalidDay"/>',
+                startDateFuture: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.startDateFuture"/>',
+                writtenDateWrongFormat: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateWrongFormat"/>',
+                writtenDateInvalidYear: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateInvalidYear"/>',
+                writtenDateInvalidMonth: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateInvalidMonth"/>',
+                writtenDateInvalidDay: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateInvalidDay"/>',
+                writtenDateFuture: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.writtenDateFuture"/>',
+                pleaseAddDrugFirst: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.pleaseAddDrugFirst"/>',
+                reviewDrugSpecifyTerm: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.reviewDrugSpecifyTerm"/>',
+                unstagedReRxSingle: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.unstagedReRxSingle"/>',
+                unstagedReRxMultiple: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.unstagedReRxMultiple"/>',
+                saveWarning: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.saveWarning"/>',
+                savePrompt: '<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.js.savePrompt"/>'
+            };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
 	            document.getElementById('route_'+randNumber).onblur();
@@ -560,7 +586,7 @@ function addEvent(elm, evType, fn, useCapture)
     var r = elm.attachEvent("on"+evType, fn);
     return r;
   } else {
-    alert("Handler could not be removed");
+    alert(jsMsg.handlerNotRemoved);
   }
 }
 function checkFav(){
@@ -648,12 +674,12 @@ function renderRxStage() {
 
     //this is a SJHH specific feature
     function completeMedRec() {
-   	 var ok = confirm("Are you sure you would like to mark the Med Rec as complete?");
+   	 var ok = confirm(jsMsg.confirmMedRecComplete);
    	 if(ok) {
 					var url = ctx + "/oscarRx/completeMedRec.jsp";
    		 var data="demographicNo=<%=rxSessionBean.getDemographicNo()%>";
    		 CarlosAjax.request(url,{method: 'post',parameters:data,onSuccess:function(transport){
-                alert('Completed.')
+                alert(jsMsg.medRecCompleted)
             }});
    	 }
     }
@@ -1388,12 +1414,7 @@ function renderRxStage() {
     }
 
     function changeDrugName(randomId,origDrugName){
-            if (confirm('If you change the drug name and write your own drug, you will lose the following functionality:'
-            + '\n  *  Known Dosage Forms / Routes'
-            + '\n  *  Drug Allergy Information'
-            + '\n  *  Drug-Drug Interaction Information'
-            + '\n  *  Drug Information'
-            + '\n\nAre you sure you wish to use this feature?')) {
+            if (confirm(jsMsg.confirmChangeDrugName)) {
 
             //call another function to bring up prescribe.jsp
             var url=ctx+ "/oscarRx/WriteScript.do";
@@ -1529,7 +1550,7 @@ function renderRxStage() {
     }
    function Delete2(element){
 
-				if (confirm('Are you sure you wish to delete the selected prescriptions?')) {
+				if (confirm(jsMsg.confirmDeletePrescriptions)) {
              var id_str=(element.id).split("_");
              var id=id_str[1];
              //var id=element.id;
@@ -1678,14 +1699,7 @@ function renderRxStage() {
     }
 
 function customNoteWarning(){
-    if (confirm('This feature will allow you to manually enter a prescription.'
-	+ '\nWarning: you will lose the following functionality:'
-        + '\n  *  Quantity and Repeats'
-	+ '\n  *  Known Dosage Forms / Routes'
-	+ '\n  *  Drug Allergy Information'
-	+ '\n  *  Drug-Drug Interaction Information'
-	+ '\n  *  Drug Information'
-	+ '\n\nAre you sure you wish to use this feature?')) {
+    if (confirm(jsMsg.confirmCustomNote)) {
         var randomId=Math.round(Math.random()*1000000);
         var url=ctx+ "/oscarRx/WriteScript.do";
         var data="parameterValue=newCustomNote&randomId="+randomId;
@@ -1702,13 +1716,7 @@ function customNoteWarning(){
 }
 
 function customWarning2(){
-    if (confirm('This feature will allow you to manually enter a drug.'
-	+ '\nWarning: Only use this feature if absolutely necessary, as you will lose the following functionality:'
-	+ '\n  *  Known Dosage Forms / Routes'
-	+ '\n  *  Drug Allergy Information'
-	+ '\n  *  Drug-Drug Interaction Information'
-	+ '\n  *  Drug Information'
-	+ '\n\nAre you sure you wish to use this feature?')) {
+    if (confirm(jsMsg.confirmCustomDrug)) {
 	//call another function to bring up prescribe.jsp
         var randomId=Math.round(Math.random()*1000000);
 		var searchString = document.getElementById("searchString").value;
@@ -2527,7 +2535,7 @@ function updateQty(element){
                  var dt = str1.split("-");
                  if (dt.length>3) {
                  	jQuery(this).focus();
-                     alert('Start Date wrong format! Must be yyyy or yyyy-mm or yyyy-mm-dd');
+                     alert(jsMsg.startDateWrongFormat);
                      x = false;
                      return;
                  }
@@ -2535,7 +2543,7 @@ function updateQty(element){
                  var dt1=1, mon1=0, yr1=parseInt(dt[0],10);
                  if (isNaN(yr1) || yr1<0 || yr1>9999) {
                  	jQuery(this).focus();
-                     alert('Invalid Start Date! Please check the year');
+                     alert(jsMsg.startDateInvalidYear);
                      x = false;
                      return;
                  }
@@ -2543,7 +2551,7 @@ function updateQty(element){
                  	mon1 = parseInt(dt[1],10)-1;
                  	if (isNaN(mon1) || mon1<0 || mon1>11) {
                  		jQuery(this).focus();
-                 		alert('Invalid Start Date! Please check the month');
+                 		alert(jsMsg.startDateInvalidMonth);
                          x = false;
                          return;
                  	}
@@ -2552,7 +2560,7 @@ function updateQty(element){
                  	dt1 = parseInt(dt[2],10);
                      if (isNaN(dt1) || dt1<1 || dt1>31) {
                      	jQuery(this).focus();
-                         alert('Invalid Start Date! Please check the day');
+                         alert(jsMsg.startDateInvalidDay);
                          x = false;
                          return;
                      }
@@ -2562,7 +2570,7 @@ function updateQty(element){
 
                  if(date1 > now) {
                  	jQuery(this).focus();
-                     alert('Start Date cannot be in the future. (' + str1 +')');
+                     alert(jsMsg.startDateFuture + ' (' + str1 +')');
                      x = false;
                      return;
      	        }
@@ -2581,7 +2589,7 @@ function updateQty(element){
             var dt = str1.split("-");
             if (dt.length>3) {
             	jQuery(this).focus();
-                alert('Written Date wrong format! Must be yyyy or yyyy-mm or yyyy-mm-dd');
+                alert(jsMsg.writtenDateWrongFormat);
                 x = false;
                 return;
             }
@@ -2589,7 +2597,7 @@ function updateQty(element){
             var dt1=1, mon1=0, yr1=parseInt(dt[0],10);
             if (isNaN(yr1) || yr1<0 || yr1>9999) {
             	jQuery(this).focus();
-                alert('Invalid Written Date! Please check the year');
+                alert(jsMsg.writtenDateInvalidYear);
                 x = false;
                 return;
             }
@@ -2597,7 +2605,7 @@ function updateQty(element){
             	mon1 = parseInt(dt[1],10)-1;
             	if (isNaN(mon1) || mon1<0 || mon1>11) {
             		jQuery(this).focus();
-            		alert('Invalid Written Date! Please check the month');
+            		alert(jsMsg.writtenDateInvalidMonth);
                     x = false;
                     return;
             	}
@@ -2606,7 +2614,7 @@ function updateQty(element){
             	dt1 = parseInt(dt[2],10);
                 if (isNaN(dt1) || dt1<1 || dt1>31) {
                 	jQuery(this).focus();
-                    alert('Invalid Written Date! Please check the day');
+                    alert(jsMsg.writtenDateInvalidDay);
                     x = false;
                     return;
                 }
@@ -2616,7 +2624,7 @@ function updateQty(element){
 
             if(date1 > now) {
             	jQuery(this).focus();
-                alert('Written Date cannot be in the future. (' + str1 +')');
+                alert(jsMsg.writtenDateFuture + ' (' + str1 +')');
                 x = false;
                 return;
 	        }
@@ -2634,12 +2642,12 @@ function updateQty(element){
     }
 
     const CONFIRMATION_MESSAGE = {
-        SINGLE: 'is 1 unstaged ReRx drug',
-        MULTIPLE: (count) => "are " + count + " unstaged ReRx drugs"
+        SINGLE: jsMsg.unstagedReRxSingle,
+        MULTIPLE: (count) => jsMsg.unstagedReRxMultiple.replace('{0}', count)
     };
 
-    const SAVE_WARNING = 'If you continue, the unstaged ReRx drug(s) will not be re-prescribed.';
-    const SAVE_PROMPT = 'Are you sure you want to save this prescription?';
+    const SAVE_WARNING = jsMsg.saveWarning;
+    const SAVE_PROMPT = jsMsg.savePrompt;
 
     function showUnstagedReRxConfirmation(onConfirm) {
         if (selectedReRxIDs.length === 0) {
@@ -2697,7 +2705,7 @@ function updateQty(element){
                 if (hasDrugs) {
                     popForm2(null);
                 } else {
-                    alert("Please add at least one drug first");
+                    alert(jsMsg.pleaseAddDrugFirst);
                 }
                 resetReRxDrugList();
             }});
@@ -2761,7 +2769,7 @@ function checkMedTerm(){
 	});
 	
 	if(!isAnyTermChecked){
-		alert("Please review drug(s) and specify medication term!");
+		alert(jsMsg.reviewDrugSpecifyTerm);
 	}else{
 		return true;
 	}
