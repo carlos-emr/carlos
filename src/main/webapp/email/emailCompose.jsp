@@ -9,7 +9,7 @@
 
 <html>
 <head>
-    <title>OSCAR Email</title>
+    <title>CARLOS Email</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
@@ -158,7 +158,7 @@
         <div id="page-header">
             <table id="oscarEmailHeader">
                 <tr>
-                    <td id="oscarEmailHeaderLeftColumn"><h1>OSCAR Email</h1></td>
+                    <td id="oscarEmailHeaderLeftColumn"><h1>CARLOS Email</h1></td>
 
                     <td id="oscarEmailHeaderRightColumn" align=right>
                     </td>

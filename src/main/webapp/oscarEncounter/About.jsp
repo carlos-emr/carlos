@@ -34,7 +34,7 @@
 
 <html>
     <head>
-        <title>About OpenO</title>
+        <title>About CARLOS EMR</title>
 
         <style type="text/css">
             p.build_info {
@@ -84,10 +84,10 @@
         <!--instead of using css for the border I am using an image so the look is seamless between the table and openosp-logo.png image-->
         <td background="<%= request.getContextPath() %>/images/about_layout/table_body_bkg.jpg">
 
-            <!--START about OpenO body table-->
+            <!--START about CARLOS body table-->
             <table width="560" align="center" cellspacing="0" cellpadding="0">
                 <td>
-                    <h1>About OpenO</h1>
+                    <h1>About CARLOS EMR</h1>
 
                     <p class="build_info">build date: <%= CarlosProperties.getBuildDate() %><br/>
                         build tag: <%=CarlosProperties.getBuildTag()%>
@@ -97,14 +97,9 @@
                         <td>
                             <p><u>About Us</u></p>
 
-                            <p>OpenO through its product suite and partnerships offers a unique model for connecting
-                                care and creating community. The OpenO CMS has been collaboratively developed based on
-                                the collective work, ideas and support of numerous health care providers and developers
-                                across the nation. Together these individuals form the OpenO community. 
-                                The enthusiasm of the OpenO Community to improve
-                                patient care has brought together dedicated individuals from across the country who work
-                                towards continuously developing the not only the software tools to enable this, but also
-                                a strong community to support it.</p>
+                            <p>CARLOS EMR is an open-source electronic medical record system for Canadian
+                                healthcare, collaboratively developed by a community of healthcare providers
+                                and developers.</p>
 
                             <br/>
 
@@ -142,7 +137,7 @@
 
                 </td>
             </table>
-            <!--END about OpenO body table-->
+            <!--END about CARLOS body table-->
 
         </td>
         </tr>

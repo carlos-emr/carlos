@@ -61,7 +61,7 @@
 
 <html>
 <head>
-    <title>Oscar Quick Billing</title>
+    <title>CARLOS Quick Billing</title>
 
 
     <link rel="stylesheet" href="<c:out value="${ oscar_context_path }/css/bcbilling.css" />" type="text/css"

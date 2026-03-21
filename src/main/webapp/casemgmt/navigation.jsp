@@ -302,7 +302,7 @@
                     <% if (CarlosProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/oscarEncounter/RemoteAttachments.jsp');return false;">OscarComm</a>
+                               onClick="popupPage('<%=bsurl%>/oscarEncounter/RemoteAttachments.jsp');return false;">CARLOS Messenger</a>
                         </td>
                     </tr>
                     <% } %>

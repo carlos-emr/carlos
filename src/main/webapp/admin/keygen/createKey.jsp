@@ -65,7 +65,7 @@
                 message = "Failed: The oscar key pair has already been created";
                 error = "true";
             } else if (KeyPairGen.createKeys(name, null).equals("success")) {
-                message = "Oscar key pair created successfully";
+                message = "CARLOS key pair created successfully";
             } else {
                 message = "Failed: Could not create the oscar key pair";
                 error = "true";
@@ -125,7 +125,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Oscar - Key Pair Creation</title>
+    <title>CARLOS - Key Pair Creation</title>
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/share/css/OscarStandardLayout.css">
     <script type="text/javascript">
         function selectOther() {
@@ -217,7 +217,7 @@
                             <option value="IHAPOI">IHAPOI</option>
                             <option value="MDS">MDS/Lifelabs</option>
                             <!-- <option value="HL7">HL7</option> -->
-                            <option value="OSCAR_TO_OSCAR_HL7_V2">OSCAR_TO_OSCAR_HL7_V2</option>
+                            <option value="OSCAR_TO_OSCAR_HL7_V2">CARLOS_TO_CARLOS_HL7_V2</option>
                             <option value="SIOUX">SIOUX</option>
                             <option value="Spire">Spire</option>
                             <option value="PDFDOC">PDFDOC</option>

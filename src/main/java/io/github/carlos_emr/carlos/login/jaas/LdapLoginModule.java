@@ -139,10 +139,10 @@ public final class LdapLoginModule extends BaseLoginModule {
         // find unique sec record for the validated login
         List<Security> securities = getSecurityDao().findByUserName(loginName);
         if (securities.size() < 1) {
-            throw new LoginException("OSCAR Security record is not found for " + loginName);
+            throw new LoginException("CARLOS Security record is not found for " + loginName);
         }
         if (securities.size() > 1) {
-            throw new LoginException("Multiple OSCAR Security records found for " + loginName);
+            throw new LoginException("Multiple CARLOS Security records found for " + loginName);
         }
 
         Security security = securities.get(0);

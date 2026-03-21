@@ -135,7 +135,7 @@
     </style>
 </head>
 <body>
-<h5>OSCAR EMR - Keep window open to interact with Common Provider Dashboard window.</h5>
+<h5>CARLOS EMR - Keep window open to interact with Common Provider Dashboard window.</h5>
 <input type="button" value="close" onClick="window.close()"/>
 <iframe id="drillDownFrame" style="width:100%;height:100%"></iframe>
 

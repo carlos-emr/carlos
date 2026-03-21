@@ -216,10 +216,10 @@
         <div class="col-md-5">
             <div style="margin-top:25px;">
                 <img src="${pageContext.request.contextPath}/images/OSCAR-LOGO.gif"
-                     width="450" height="274" alt="OSCAR Logo">
+                     width="450" height="274" alt="CARLOS Logo">
                 <p>
                     <font size="-1" face="Verdana, Arial, Helvetica, sans-serif">
-                        OSCAR McMaster<br>
+                        CARLOS EMR<br>
                         For more info, visit
                         <a href="http://www.oscarcanada.org">www.oscarcanada.org</a><br>
                     </font>

@@ -59,7 +59,7 @@
 <html>
     <head>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>OSCAR Products</title>
+        <title>CARLOS Products</title>
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css">
@@ -523,7 +523,7 @@
 
     </div>
 
-    <div id="new-product" title="OSCAR Drug Product Editor">
+    <div id="new-product" title="CARLOS Drug Product Editor">
         <p class="validateTips"></p>
 
         <form id="productForm">

@@ -38,7 +38,7 @@
 <html>
     <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>OSCAR Diagnostic Codes</title>
+    <title>CARLOS Diagnostic Codes</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     </head>
     <%

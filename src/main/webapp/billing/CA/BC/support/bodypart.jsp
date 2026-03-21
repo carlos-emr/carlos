@@ -40,7 +40,7 @@
 <html>
     <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>OSCAR Body Parts</title>
+    <title>CARLOS Body Parts</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     </head>
     <%
