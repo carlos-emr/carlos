@@ -64,8 +64,8 @@ function getDrugRefStatus() {
 				statusDisplay.style.fontColor = 'red';
 				statusDisplay.style.fontWeight = 'bold';
 			} else {
-                let dateStr = json.lastUpdate;
-                let trimmedDate = dateStr.replace(/:\d{2} [A-Z]{3} \d{4}$/, '');
+                const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+                const trimmedDate = new Intl.DateTimeFormat(undefined, options).format(new Date(json.lastUpdate));
 				document.getElementById('dbDateTime').textContent = trimmedDate;
 				document.getElementById('drugDatabaseVersion').textContent = json.version;
 				document.getElementById('drugDatabase').textContent = json.drugDatabase;
@@ -80,8 +80,8 @@ function getDrugRefStatus() {
     }
 
 document.addEventListener("DOMContentLoaded", getDrugRefStatus);
-var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+const tooltipTriggerList = [...document.querySelectorAll('[data-bs-toggle="tooltip"]')];
+const tooltipList = tooltipTriggerList.map(tooltipTriggerEl => {
   return new bootstrap.Tooltip(tooltipTriggerEl);
 });
 </script>
@@ -92,12 +92,12 @@ var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             RxPatientData.Patient patient2 =
               (RxPatientData.Patient) request.getSession().getAttribute("Patient");
           %>
-          <span style="white-space:nowrap;"><b><fmt:message key="SearchDrug.nameText"/></b>
+          <span class="text-nowrap"><b><fmt:message key="SearchDrug.nameText"/></b>
           <%=Encode.forHtmlContent(patient2.getFirstName()) %> <%= Encode.forHtmlContent(patient2.getSurname()) %>
-          </span><span style="white-space:nowrap;" title="<%=patient2.getAge()%>y"><b>DOB:</b>
+          </span><span class="text-nowrap" title="<%= Encode.forHtmlAttribute(String.valueOf(patient2.getAge())) %>y"><b>DOB:</b>
           <%= RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy") %></span>
          <span><label for="Calcs">
-            <a style="color:black; font-weight:bold; text-decoration:underline;" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
+            <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
                onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="click to edit">
               Pharmacy:
             </a>
@@ -111,10 +111,9 @@ var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                   for (PharmacyInfo pi : pharmacyList) {
                       StringWriter sw = new StringWriter();
                       mapper.writeValue(sw, pi);
-                      // escape single-quotes for safe attribute usage
-                      String json = sw.toString().replace("'", "");
+                      String json = sw.toString();
             %>
-              <option value='<%= json %>' data-bs-toggle="tooltip" title='(<%= Encode.forHtmlContent(pi.getAddress()) %>, <%= Encode.forHtmlContent(pi.getCity()) %>, Fax: <%= Encode.forHtmlContent(pi.getFax()) %>'>
+              <option value="<%= Encode.forHtmlAttribute(json) %>" data-bs-toggle="tooltip" title="<%= Encode.forHtmlAttribute(pi.getAddress()) %>, <%= Encode.forHtmlAttribute(pi.getCity()) %>, Fax: <%= Encode.forHtmlAttribute(pi.getFax()) %>">
                 <%= Encode.forHtmlContent(pi.getName()) %>
               </option>
             <%
@@ -138,30 +137,3 @@ var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
 
 </div>
 </nav>
-<tr>
-  <td>
-
-
-  </td>
-  <td colspan="2">
-    <table>
-      <tr>
-        <td>
-
-        </td>
-          <tr>
-        <td>
-
-
-
-        </td>
-        </tr>
-        <tr>
-        <td>
-
-        </td>
-        </tr>
-    </table>
-  </td>
-</tr>
-
