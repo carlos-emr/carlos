@@ -1839,28 +1839,6 @@ function popForm2(scriptId){
 			//callReplacementWebService("InteractionDisplay.jsp",'interactionsRx');
 			callReplacementWebService("ListDrugs.jsp", 'drugProfile');
 
-<%--YAHOO.example.FnMultipleFields = function(){--%>
-<%--    var url = "<c:out value="${ctx}"/>" + "/oscarRx/searchDrug.do?method=jsonSearch";--%>
-<%--    var oDS = new YAHOO.util.XHRDataSource(url,{connMethodPost:true,connXhrMode:'ingoreStaleResponse'});--%>
-<%--    oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType--%>
-<%--    // Define the schema of the delimited results--%>
-<%--    oDS.responseSchema = {--%>
-<%--        resultsList : "results",--%>
-<%--        fields : ["name", "id","isInactive"]--%>
-<%--    };--%>
-<%--    // Enable caching--%>
-<%--    oDS.maxCacheEntries =0;--%>
-<%--    oDS.connXhrMode ="cancelStaleRequests";--%>
-<%--    // Instantiate AutoComplete--%>
-<%--    var oAC = new YAHOO.widget.AutoComplete("searchString", "autocomplete_choices", oDS);--%>
-<%--    oAC.useShadow = true;--%>
-<%--    oAC.resultTypeList = false;--%>
-<%--    oAC.queryMatchSubset = true;--%>
-<%--    oAC.minQueryLength = 3;--%>
-<%--    oAC.maxResultsDisplayed = 40;--%>
-<%--    oAC.formatResult = resultFormatter2;--%>
-<%--    --%>
-<%--    --%>
 
 			function searchResultsHandler(type, args) {
 
