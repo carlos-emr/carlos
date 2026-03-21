@@ -61,7 +61,7 @@
              class="io.github.carlos_emr.dbBillingData">
     <jsp:setProperty name="dbBillingDataBean" property="*"/>
 </jsp:useBean>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <center>
     <h2>Billing Correction Review (session)</h2>
 </center>

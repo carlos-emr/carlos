@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.EpisodeDao;
 import io.github.carlos_emr.carlos.commn.model.Episode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -92,7 +92,7 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
                 Dao.addPopUpText("Ectopic");
 
                 //check to see if they have an onar2005 form
-                if (OscarProperties.getInstance().getProperty("billregion", "ON").equals("ON")) {
+                if (CarlosProperties.getInstance().getProperty("billregion", "ON").equals("ON")) {
                     EctFormData.PatientForm[] pforms = EctFormData.getPatientForms(bean.demographicNo, "formONAR");
                     EctFormData.PatientForm[] eforms = EctFormData.getPatientForms(bean.demographicNo, "formONAREnhancedRecord");
 

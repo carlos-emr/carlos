@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 
 /**
@@ -155,7 +155,7 @@ public class ABCDParser {
         int count = 0;
         try {
 
-            if (OscarProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
+            if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
                 sql = "select demographic_no from demographic where hin='" + hinMod + "' and " +
                         " year_of_birth like '" + dobYear + "' and " +
                         " month_of_birth like '" + dobMonth + "' and " +

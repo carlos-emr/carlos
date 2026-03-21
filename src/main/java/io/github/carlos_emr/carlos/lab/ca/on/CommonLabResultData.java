@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.labs.LabIdAndType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
@@ -96,7 +96,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -149,7 +149,7 @@ public class CommonLabResultData {
             return labs;
         }
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -189,7 +189,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -239,7 +239,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -333,7 +333,7 @@ public class CommonLabResultData {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         MDSResultsData mDSData = new MDSResultsData();
 
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
 
         String cml = op.getProperty("CML_LABS");
         String mds = op.getProperty("MDS_LABS");
@@ -507,7 +507,7 @@ public class CommonLabResultData {
                 plr.setLabType(labType);
                 patientLabRoutingDao.persist(plr);
 
-                if (OscarProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
+                if (CarlosProperties.getInstance().isPropertyActive("queens_resident_tagging")) {
                     DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
                     List<DemographicCust> demographicCust = demographicCustDao.findAllByDemographicNumber(Integer.parseInt(demographicNo));
                     if (demographicCust.size() > 0) {

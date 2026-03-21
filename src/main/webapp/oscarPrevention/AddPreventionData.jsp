@@ -64,7 +64,7 @@
 
 <%@ page import="java.text.ParseException" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
@@ -143,7 +143,7 @@
 
     boolean dhirEnabled = false;
 
-    if ("true".equals(OscarProperties.getInstance().getProperty("dhir.enabled", "false"))) {
+    if ("true".equals(CarlosProperties.getInstance().getProperty("dhir.enabled", "false"))) {
         dhirEnabled = true;
     }
 

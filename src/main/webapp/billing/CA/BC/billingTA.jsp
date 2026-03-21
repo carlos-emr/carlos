@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.OscarProperties" %><%--
+<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -45,7 +45,7 @@
     }
 %>
 
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.jsp");

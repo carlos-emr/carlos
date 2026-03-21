@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.tags.TagObject;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -220,7 +220,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     public String getFilePath() {
 
         if (this.filePath == null) {
-            this.filePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            this.filePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             this.filePath = String.format("%1$s%2$s%3$s", this.filePath, File.separator, this.getFileName());
         }
         return this.filePath;

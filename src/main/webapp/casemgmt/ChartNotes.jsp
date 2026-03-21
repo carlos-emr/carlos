@@ -58,7 +58,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -93,7 +93,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     String demoNo = request.getParameter("demographicNo");
-    String privateConsentEnabledProperty = OscarProperties.getInstance().getProperty("privateConsentEnabled");
+    String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic demographic = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(demoNo));
@@ -107,7 +107,7 @@
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
     boolean showConsentsThisTime = false;
-    String[] privateConsentPrograms = OscarProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
+    String[] privateConsentPrograms = CarlosProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
     ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
     if (pp != null) {
         for (int x = 0; x < privateConsentPrograms.length; x++) {
@@ -167,7 +167,7 @@
     </caisi:isModuleLoad>
 
     <%
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String requireIssue = props.getProperty("caisi.require_issue","true");
     if(requireIssue != null && requireIssue.equals("false")) {
     //require issue is false%>
@@ -184,7 +184,7 @@
 
     strToday = "<%=strToday%>";
 
-    notesIncrement = parseInt("<%=OscarProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
+    notesIncrement = parseInt("<%=CarlosProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
 
     jQuery(document).ready(function () {
         notesLoader(0, notesIncrement, demographicNo);
@@ -487,7 +487,7 @@
     <input type="hidden" name="appointmentDate" value="<%=apptDate%>"/>
     <input type="hidden" name="start_time" value="<%=startTime%>"/>
     <input type="hidden" name="billRegion"
-                 value="<%=(OscarProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
+                 value="<%=(CarlosProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
     <input type="hidden" name="apptProvider" value="<%=apptProv%>"/>
     <input type="hidden" name="providerview" value="<%=provView%>"/>
     <input type="hidden" name="toBill" id="toBill" value="false">

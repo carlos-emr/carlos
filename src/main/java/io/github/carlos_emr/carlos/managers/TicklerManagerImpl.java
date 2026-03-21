@@ -69,7 +69,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -205,7 +205,7 @@ public class TicklerManagerImpl implements TicklerManager {
 
         List<Tickler> results = ticklerDao.getTicklers(filter);
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             // filter based on facility
             results = ticklerFacilityFiltering(loggedInInfo, results);
 
@@ -505,9 +505,9 @@ public class TicklerManagerImpl implements TicklerManager {
 //        }
 //
 //        boolean ticklerEditEnabled = Boolean
-//                .parseBoolean(OscarProperties.getInstance().getProperty("tickler_edit_enabled"));
+//                .parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"));
 //        boolean ticklerEmailEnabled = Boolean
-//                .parseBoolean(OscarProperties.getInstance().getProperty("tickler_email_enabled"));
+//                .parseBoolean(CarlosProperties.getInstance().getProperty("tickler_email_enabled"));
 //
 //        if (ticklerEditEnabled & ticklerEmailEnabled) {
 //            String emailTo = t.getDemographic().getEmail();
@@ -515,8 +515,8 @@ public class TicklerManagerImpl implements TicklerManager {
 //
 //                InputStream is = TicklerManager.class.getResourceAsStream(TICKLER_EMAIL_TEMPLATE_FILE);
 //                String emailTemplate = IOUtils.toString(is);
-//                String emailSubject = OscarProperties.getInstance().getProperty("tickler_email_subject");
-//                String emailFrom = OscarProperties.getInstance().getProperty("tickler_email_from_address");
+//                String emailSubject = CarlosProperties.getInstance().getProperty("tickler_email_subject");
+//                String emailFrom = CarlosProperties.getInstance().getProperty("tickler_email_from_address");
 //
 //                ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
 //                Clinic c = clinicDao.getClinic();

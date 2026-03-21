@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.v26.datatype.CQ;
 import ca.uhn.hl7v2.model.v26.datatype.CWE;
@@ -73,7 +73,7 @@ public final class OmpO09 {
         OMP_O09 prescriptionMsg = new OMP_O09();
 
         DataTypeUtils.fillMsh(prescriptionMsg.getMSH(), new Date(), clinic.getClinicName(), "OMP", "O09", "OMP_O09", DataTypeUtils.HL7_VERSION_ID);
-        DataTypeUtils.fillSft(prescriptionMsg.getSFT(), OscarProperties.getBuildTag(), OscarProperties.getBuildDate());
+        DataTypeUtils.fillSft(prescriptionMsg.getSFT(), CarlosProperties.getBuildTag(), CarlosProperties.getBuildDate());
 
         OMP_O09_PATIENT patient = prescriptionMsg.getPATIENT();
         DataTypeUtils.fillPid(patient.getPID(), 1, demographic);

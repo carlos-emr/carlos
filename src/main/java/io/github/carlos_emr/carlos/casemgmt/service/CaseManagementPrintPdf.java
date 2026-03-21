@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -177,7 +177,7 @@ public class CaseManagementPrintPdf {
         String phn = propResource.getString("oscarEncounter.pdfPrint.phn") + " " + (String) request.getAttribute("demoPhn") + "\n";
 
         String[] info;
-        if ("true".equals(OscarProperties.getInstance().getProperty("print.includeMRP", "true"))) {
+        if ("true".equals(CarlosProperties.getInstance().getProperty("print.includeMRP", "true"))) {
             info = new String[]{title, gender, dob, age, phn, mrp};
         } else {
             info = new String[]{title, gender, dob, age, phn};
@@ -189,7 +189,7 @@ public class CaseManagementPrintPdf {
                 clinicData.getClinicCity() + ", " + clinicData.getClinicProvince(),
                 clinicData.getClinicPostal(), "Phone: " + clinicData.getClinicPhone(), "Fax: " + clinicData.getClinicFax()};
 
-        if ("true".equals(OscarProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
+        if ("true".equals(CarlosProperties.getInstance().getProperty("print.useCurrentProgramInfoInHeader", "false"))) {
             ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -596,7 +596,7 @@ public class CaseManagementPrintPdf {
 //
 //        public EndPage() {
 //            now = new Date();
-//            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+//            promoTxt = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 //            if( promoTxt == null ) {
 //                promoTxt = "";
 //            }

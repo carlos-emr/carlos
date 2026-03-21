@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.integration.mchcv;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class HCValidationFactory {
 
@@ -47,7 +47,7 @@ public class HCValidationFactory {
     }
 
     private static HCValidator getValidator() {
-        OscarProperties oscarProperties = OscarProperties.getInstance();
+        CarlosProperties oscarProperties = CarlosProperties.getInstance();
         String hcvType = oscarProperties.getProperty("hcv.type");
         if ("online".equalsIgnoreCase(hcvType)) {
             return new OnlineHCValidator();

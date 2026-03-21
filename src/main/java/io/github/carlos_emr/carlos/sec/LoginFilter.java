@@ -45,7 +45,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Servlet filter that enforces authentication and session management for CARLOS EMR.
@@ -237,7 +237,7 @@ public class LoginFilter implements Filter {
      */
     public void init(FilterConfig config) throws ServletException {
         logger.info("Starting Filter : " + getClass().getSimpleName());
-        String limitProp = OscarProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
+        String limitProp = CarlosProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
         if (limitProp == null || limitProp.trim().isEmpty()) {
             logger.warn("INACTIVITY_LIMIT_MINS not configured, using default: 60 minutes");
         } else {
@@ -292,7 +292,7 @@ public class LoginFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String contextPath = httpRequest.getContextPath();
         String requestURI = httpRequest.getRequestURI();
-        String InActivityLimitInMins = OscarProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
+        String InActivityLimitInMins = CarlosProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
         if (InActivityLimitInMins == null || InActivityLimitInMins.trim().isEmpty()) {
             InActivityLimitInMins = "60";
         }

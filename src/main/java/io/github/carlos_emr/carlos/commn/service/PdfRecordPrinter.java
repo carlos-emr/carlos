@@ -39,7 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -331,7 +331,7 @@ public class PdfRecordPrinter {
      * @param locale Locale for date formatting
      */
     public void printBillingInvoice(Integer invoiceNo, Locale locale) {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         InputStream is = null;
         InputStream imageIS = null;
         try {
@@ -841,7 +841,7 @@ public class PdfRecordPrinter {
         for (io.github.carlos_emr.carlos.commn.model.Document doc : photos) {
             Image img = null;
             try {
-                String location = OscarProperties.getInstance().getProperty("DOCUMENT_DIR").trim() + doc.getDocfilename();
+                String location = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR").trim() + doc.getDocfilename();
                 logger.info("adding image " + location);
                 img = Image.getInstance(location);
             } catch (IOException e) {
@@ -889,7 +889,7 @@ public class PdfRecordPrinter {
 
         for (EFormValue value : diagrams) {
             //this is a form from our group, and our appt
-            String imgPath = OscarProperties.getInstance().getEformImageDirectory();
+            String imgPath = CarlosProperties.getInstance().getEformImageDirectory();
             EFormValue imageName = eFormValueDao.findByFormDataIdAndKey(value.getFormDataId(), "image");
             EFormValue drawData = eFormValueDao.findByFormDataIdAndKey(value.getFormDataId(), "DrawData");
             EFormValue subject = eFormValueDao.findByFormDataIdAndKey(value.getFormDataId(), "subject");

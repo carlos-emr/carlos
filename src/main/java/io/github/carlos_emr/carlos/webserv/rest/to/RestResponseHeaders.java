@@ -26,14 +26,14 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.to;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import java.io.Serializable;
 
 /**
  * Serializable DTO representing metadata headers included in every REST API response.
  *
- * <p>Contains build information sourced from {@link OscarProperties} at construction time,
+ * <p>Contains build information sourced from {@link CarlosProperties} at construction time,
  * allowing API consumers to correlate responses with specific CARLOS EMR build versions.
  * Instances are immutable after construction.</p>
  *
@@ -45,23 +45,23 @@ public class RestResponseHeaders implements Serializable
 	private final String buildTag;
 
 	/**
-	 * Constructs response headers populated from {@link OscarProperties}.
+	 * Constructs response headers populated from {@link CarlosProperties}.
 	 *
-	 * <p>Reads {@code buildDate} from {@link OscarProperties#getBuildDate()} and
-	 * {@code buildTag} from {@link OscarProperties#getBuildTag()} at construction time.
+	 * <p>Reads {@code buildDate} from {@link CarlosProperties#getBuildDate()} and
+	 * {@code buildTag} from {@link CarlosProperties#getBuildTag()} at construction time.
 	 * The values reflect the current application build metadata and may be {@code null}
 	 * if the properties are not configured.</p>
 	 */
 	public RestResponseHeaders()
 	{
-		this.buildDate = OscarProperties.getBuildDate();
-		this.buildTag = OscarProperties.getBuildTag();
+		this.buildDate = CarlosProperties.getBuildDate();
+		this.buildTag = CarlosProperties.getBuildTag();
 	}
 
 	/**
 	 * Returns the application build date string.
 	 *
-	 * @return String the build date as provided by {@link OscarProperties#getBuildDate()};
+	 * @return String the build date as provided by {@link CarlosProperties#getBuildDate()};
 	 *         may be {@code null} if the build date property is not set
 	 */
 	public String getBuildDate()
@@ -73,7 +73,7 @@ public class RestResponseHeaders implements Serializable
 	 * Returns the application build tag string.
 	 *
 	 * @return String the build tag (e.g., a version label or git tag) as provided by
-	 *         {@link OscarProperties#getBuildTag()}; may be {@code null} if the property is not set
+	 *         {@link CarlosProperties#getBuildTag()}; may be {@code null} if the property is not set
 	 */
 	public String getBuildTag()
 	{

@@ -49,7 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -76,7 +76,7 @@
     }
 %>
 <%
-    boolean caisiEnabled = OscarProperties.getInstance().isPropertyActive("caisi");
+    boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
     String ticklerNoStr = request.getParameter("tickler_no");
 
     Integer ticklerNo = null;

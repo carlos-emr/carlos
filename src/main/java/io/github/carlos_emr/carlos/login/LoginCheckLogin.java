@@ -39,7 +39,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Coordinates authentication validation and brute force protection for CARLOS EMR login.
@@ -61,7 +61,7 @@ import io.github.carlos_emr.OscarProperties;
  *   <li><b>Configurable Thresholds:</b> Uses login_max_failed_times and login_max_duration properties</li>
  * </ul>
  *
- * <p>Configuration properties (from {@link OscarProperties}):
+ * <p>Configuration properties (from {@link CarlosProperties}):
  * <ul>
  *   <li>login_local_ip - Comma-separated list of local IP prefixes to exempt from blocking</li>
  *   <li>login_lock - "true" to enable username-based locking, otherwise IP-based only</li>
@@ -128,7 +128,7 @@ public final class LoginCheckLogin {
      * @return boolean true if IP starts with any configured local prefix, false otherwise
      */
     static boolean ipFound(String IPToCheck) {
-        String prop = OscarProperties.getInstance().getProperty("login_local_ip");
+        String prop = CarlosProperties.getInstance().getProperty("login_local_ip");
         if (!StringUtils.isEmpty(prop)) {
             String[] props = prop.split(",");
             // Check each configured local IP prefix
@@ -203,7 +203,7 @@ public final class LoginCheckLogin {
      * @see #isBlock(String) for IP-based blocking (fallback mode)
      */
     public boolean isBlock(String ip, String userName) {
-        Properties p = OscarProperties.getInstance();
+        Properties p = CarlosProperties.getInstance();
         // Check configuration to determine if username-based locking is enabled
         if (!p.getProperty("login_lock", "").trim().equals("true")) {
             return isBlock(ip);
@@ -302,7 +302,7 @@ public final class LoginCheckLogin {
      * @see #isBlock(String, String) to check if IP or username is now blocked
      */
     public synchronized void updateLoginList(String ip, String userName) {
-        Properties p = OscarProperties.getInstance();
+        Properties p = CarlosProperties.getInstance();
         // Choose blocking strategy based on configuration
         if (!p.getProperty("login_lock", "").trim().equals("true")) {
             updateLoginList(ip);
@@ -327,7 +327,7 @@ public final class LoginCheckLogin {
      * @see LoginInfoBean#updateLoginInfoBean for attempt tracking logic
      */
     public synchronized void updateLoginList(String ip) {
-        Properties p = OscarProperties.getInstance();
+        Properties p = CarlosProperties.getInstance();
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
             GregorianCalendar now = new GregorianCalendar();
@@ -364,7 +364,7 @@ public final class LoginCheckLogin {
      * @see LoginInfoBean#updateLoginInfoBean for attempt tracking logic
      */
     public synchronized void updateLockList(String userName) {
-        Properties p = OscarProperties.getInstance();
+        Properties p = CarlosProperties.getInstance();
         // Only track WAN clients (LAN clients are exempt from brute force protection)
         if (bWAN) {
             GregorianCalendar now = new GregorianCalendar();

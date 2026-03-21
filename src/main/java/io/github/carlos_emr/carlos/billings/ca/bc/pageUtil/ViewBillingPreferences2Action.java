@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
@@ -131,7 +131,7 @@ public class ViewBillingPreferences2Action
         }
 
         // Prepare a formatted list of service locations
-        String billRegion = OscarProperties.getInstance().getProperty("billregion", "");
+        String billRegion = CarlosProperties.getInstance().getProperty("billregion", "");
         BillingFormData billingFormData = new BillingFormData();
         ArrayList<BillingFormData.BillingVisit> billingVisits = new ArrayList<>();
         billingVisits.add(new BillingFormData.BillingVisit(Property.PROPERTY_VALUE.clinicdefault.name(), "Clinic Default"));

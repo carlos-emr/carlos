@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.eform;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
 import org.apache.commons.lang3.StringUtils;
@@ -171,7 +171,7 @@ public class EFormLoader {
 
     public static void parseXML() {
         try {
-            Properties op = OscarProperties.getInstance();
+            Properties op = CarlosProperties.getInstance();
             String configpath = op.getProperty("eform_databaseap_config");
             InputStream fs;
             if (configpath == null) {

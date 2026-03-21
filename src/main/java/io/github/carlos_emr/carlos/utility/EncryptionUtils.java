@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.password.PasswordHashHelper;
 
@@ -313,12 +313,12 @@ public final class EncryptionUtils {
     /**
      * Prepares the SecretKeySpec object used for encryption and decryption.
      * <p>
-     * This method retrieves the secret key from the OscarProperties, decodes it from Base64,
+     * This method retrieves the secret key from the CarlosProperties, decodes it from Base64,
      * and initializes the SECRET_KEY_SPEC with the decoded key.
      * If the secret key is not found in the properties, an error is logged.
      */
     public static void prepareSecretKeySpec() {
-        String key = OscarProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
+        String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
         if (Objects.isNull(key)) {
             logger.error("Secret key not found in environment variables.");
             return;

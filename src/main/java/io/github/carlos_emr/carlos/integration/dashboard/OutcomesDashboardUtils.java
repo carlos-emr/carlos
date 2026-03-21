@@ -65,7 +65,7 @@ import org.w3c.dom.NodeList;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class OutcomesDashboardUtils {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -114,7 +114,7 @@ public class OutcomesDashboardUtils {
         Clinic clinic = new Clinic();
         clinic.setApplication("oscar");
 
-        String clinicIdentifier = OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_clinic_id");
+        String clinicIdentifier = CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_clinic_id");
 
         if (clinicIdentifier == null || clinicIdentifier.length() == 0 || clinicIdentifier.length() > 42) {
             clinicIdentifier = oClinic.getClinicName();
@@ -172,7 +172,7 @@ public class OutcomesDashboardUtils {
         urlParameters.add(new BasicNameValuePair("data", data.toString()));
 
         //send to shared dashboard
-        HttpPost postMethod = new HttpPost(OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_send_url"));
+        HttpPost postMethod = new HttpPost(CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_send_url"));
         postMethod.setEntity(new UrlEncodedFormEntity(urlParameters));
 
         logger.info(data);

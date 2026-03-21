@@ -23,13 +23,13 @@
 
 package io.github.carlos_emr.carlos.util.plugin;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class IsPropertiesOn {
 
     public static boolean propertiesOn(String proName) {
 
-        OscarProperties proper = OscarProperties.getInstance();
+        CarlosProperties proper = CarlosProperties.getInstance();
 
         if (proper.getProperty(proName, "").equalsIgnoreCase("yes")
                 || proper.getProperty(proName, "").equalsIgnoreCase("true")
@@ -41,7 +41,7 @@ public class IsPropertiesOn {
     }
 
     public static String getProperty(String proName) {
-        OscarProperties proper = OscarProperties.getInstance();
+        CarlosProperties proper = CarlosProperties.getInstance();
         return proper.getProperty(proName, null);
     }
 

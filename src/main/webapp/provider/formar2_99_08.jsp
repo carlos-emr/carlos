@@ -54,7 +54,7 @@
 
 <jsp:useBean id="checklist" class="io.github.carlos_emr.OBChecklist_99_12" scope="page"/>
 <jsp:useBean id="risks" class="io.github.carlos_emr.OBRisks_99_12" scope="page"/>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
 <head>

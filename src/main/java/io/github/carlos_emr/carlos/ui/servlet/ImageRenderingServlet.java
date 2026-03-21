@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAO;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -268,7 +268,7 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         try {
             // Set the filename from properties or use the default logo
-            String filename = OscarProperties.getInstance().getProperty("CLINIC_LOGO_FILE", defaultClinicLogo);
+            String filename = CarlosProperties.getInstance().getProperty("CLINIC_LOGO_FILE", defaultClinicLogo);
             if (filename == null || filename.isEmpty()) {
                 filename = defaultClinicLogo;
             }

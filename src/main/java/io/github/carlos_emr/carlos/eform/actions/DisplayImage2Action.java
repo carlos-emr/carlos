@@ -45,7 +45,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * directly to the HTTP response with the correct MIME content type.
  *
  * <p>Files are resolved relative to the configured eform image directory
- * ({@code OscarProperties.getEformImageDirectory()}). Path traversal attempts are
+ * ({@code CarlosProperties.getEformImageDirectory()}). Path traversal attempts are
  * rejected before any file I/O is performed.</p>
  *
  * <p>Supported file types include common raster image formats (PNG, JPEG, BMP, GIF, TIFF,
@@ -115,7 +115,7 @@ public class DisplayImage2Action extends ActionSupport {
             throw new IllegalArgumentException("imagefile parameter is required");
         }
 
-        String home_dir = OscarProperties.getInstance().getEformImageDirectory();
+        String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
         if (!directory.exists()) {
             throw new Exception("Directory: " + home_dir + " does not exist");
@@ -235,7 +235,7 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     public static File getImageFile(String imageFileName) throws Exception {
-        String home_dir = OscarProperties.getInstance().getEformImageDirectory();
+        String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
         if (!directory.exists()) {
             throw new Exception("Directory: " + home_dir + " does not exist");

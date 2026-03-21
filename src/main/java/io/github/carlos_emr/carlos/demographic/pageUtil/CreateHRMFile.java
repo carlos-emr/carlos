@@ -83,7 +83,7 @@ import cdshrm.PatientRecordDocument.PatientRecord;
 import cdshrm.ReportsReceivedDocument.ReportsReceived;
 import cdshrm.ReportsReceivedDocument.ReportsReceived.ResultStatus;
 import cdshrm.TransactionInformationDocument.TransactionInformation;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author ronnie
@@ -112,7 +112,7 @@ public class CreateHRMFile {
         options.setSaveOuter();
 
         if (!filepath.contains(File.separator)) {
-            filepath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + File.separator + filepath;
+            filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + File.separator + filepath;
         }
         File file = new File(filepath);
         try {

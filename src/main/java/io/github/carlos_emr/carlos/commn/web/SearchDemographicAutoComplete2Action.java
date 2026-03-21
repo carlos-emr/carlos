@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
@@ -110,7 +110,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
             list = demographicDao.searchDemographicByDOB(searchStr.substring(0, 4) + "-" + searchStr.substring(4, 6) + "-" + searchStr.substring(6, 8), 100, 0, providerNo, outOfDomain);
         } else if (activeOnly) {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
             pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
             List<String> stati = Arrays.asList(pstatus.split(","));
@@ -153,7 +153,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
             h.put("alert", alertText);
 
-            if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
+            if (CarlosProperties.getInstance().isPropertyActive("workflow_enhance")) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
 
                 if (demographicCust != null) {

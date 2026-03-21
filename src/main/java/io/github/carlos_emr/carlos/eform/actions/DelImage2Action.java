@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -74,7 +74,7 @@ public class DelImage2Action extends ActionSupport {
         // Use FilenameUtils.getName to extract just the filename, removing any path components
         String sanitizedFilename = FilenameUtils.getName(imgname);
         
-        String imgpath = OscarProperties.getInstance().getEformImageDirectory();
+        String imgpath = CarlosProperties.getInstance().getEformImageDirectory();
         
         // Construct the file using the base directory and sanitized filename only
         File imageDir = new File(imgpath);

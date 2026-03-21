@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OscarToOscarUtils
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.OscarToOscarHl7V2.AdtA09Handler;
@@ -95,7 +95,7 @@ public class OscarToOscarHl7V2Handler implements MessageHandler {
         
         try {
             // Get the base document directory from configuration
-            String baseDocDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String baseDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (baseDocDir == null || baseDocDir.isEmpty()) {
                 logger.error("DOCUMENT_DIR not configured");
                 return null;

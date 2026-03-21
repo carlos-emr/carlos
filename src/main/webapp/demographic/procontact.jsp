@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     String id = request.getParameter("id");
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
@@ -75,7 +75,7 @@
 
     <select name="procontact_<%=id%>.type" id="procontact_<%=id%>.type">
         <option value="<%=DemographicContact.TYPE_PROVIDER%>">Internal</option>
-        <%if (OscarProperties.getInstance().getProperty("NEW_CONTACTS_UI_EXTERNAL_CONTACT", "true").equals("true")) { %>
+        <%if (CarlosProperties.getInstance().getProperty("NEW_CONTACTS_UI_EXTERNAL_CONTACT", "true").equals("true")) { %>
         <option value="<%=DemographicContact.TYPE_CONTACT%>">External</option>
         <% } %>
         <option value="<%=DemographicContact.TYPE_PROFESSIONALSPECIALIST%>"

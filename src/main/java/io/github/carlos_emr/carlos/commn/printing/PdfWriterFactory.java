@@ -35,7 +35,7 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper;
 import io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.openpdf.text.Document;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.PdfWriter;
@@ -70,9 +70,9 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 public final class PdfWriterFactory {
 
     /** Confidentiality statement loaded once from system properties at class init. */
-    private static final String confidentialityStatement = OscarProperties.getConfidentialityStatement();
+    private static final String confidentialityStatement = CarlosProperties.getConfidentialityStatement();
     /** Promotional text (clinic branding) loaded once from system properties at class init. */
-    private static final String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+    private static final String promoText = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
     private PdfWriterFactory() {
         throw new AssertionError("utility class");

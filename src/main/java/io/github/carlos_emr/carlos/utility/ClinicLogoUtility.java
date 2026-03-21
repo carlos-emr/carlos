@@ -40,7 +40,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Site;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil;
 
 import java.io.FileInputStream;
@@ -86,7 +86,7 @@ public final class ClinicLogoUtility {
     public static PdfPTable createLogoHeader() {
 
         PdfPTable infoTable = new PdfPTable(1);
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         String filename = "";
         if (props.getProperty("multisites") != null && "on".equalsIgnoreCase(props.getProperty("multisites")) && ectConsultationFormRequestUtil != null) {

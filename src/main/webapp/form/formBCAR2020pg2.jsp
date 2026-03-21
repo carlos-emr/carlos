@@ -49,7 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -261,7 +261,7 @@
                                     <td style="border-left: 1px solid black;border-right: 1px solid black;">
                                         <input type="text" name="t_plannedBirthReferralHospital" class="text-style"
                                                size="60" maxlength="150"
-                                               value="<%= UtilMisc.htmlEscape(props.getProperty("t_plannedBirthReferralHospital", "")) == null || UtilMisc.htmlEscape(props.getProperty("t_plannedBirthReferralHospital", "")) == "" ? OscarProperties.getInstance().getProperty("BCAR_hospital") : ""  %>"/>
+                                               value="<%= UtilMisc.htmlEscape(props.getProperty("t_plannedBirthReferralHospital", "")) == null || UtilMisc.htmlEscape(props.getProperty("t_plannedBirthReferralHospital", "")) == "" ? CarlosProperties.getInstance().getProperty("BCAR_hospital") : ""  %>"/>
                                     </td>
                                 </tr>
                                 <tr>

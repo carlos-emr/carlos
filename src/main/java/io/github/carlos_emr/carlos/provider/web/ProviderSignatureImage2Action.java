@@ -28,7 +28,7 @@
 package io.github.carlos_emr.carlos.provider.web;
 
 import org.apache.struts2.ActionSupport;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -88,7 +88,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
         String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
 
-        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
+        File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
         if (!imageFolder.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return NONE;

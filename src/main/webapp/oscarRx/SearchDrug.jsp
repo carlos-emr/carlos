@@ -35,7 +35,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page
-        import="io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.demographic.data.DemographicData,io.github.carlos_emr.OscarProperties,io.github.carlos_emr.carlos.log.*" %>
+        import="io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.demographic.data.DemographicData,io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.Enumeration" %>
@@ -81,7 +81,7 @@
         pharmacy = pharmacyList.get(0);
     }
 
-    String drugref_route = OscarProperties.getInstance().getProperty("drugref_route");
+    String drugref_route = CarlosProperties.getInstance().getProperty("drugref_route");
     if (drugref_route == null) drugref_route = "";
     String[] d_route = ("Oral," + drugref_route).split(",");
 
@@ -522,7 +522,7 @@
                                     <td><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.drugSearchTextBox"/><br>
                                         <input type="text" id="searchString" name="searchString" size="16" maxlength="16"/></td>
                                     <td width="100"><a href="javascript:goDOC();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDrugOfChoice"/></a> <%
-                                        if (OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {
+                                        if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {
                                     %> <a href="javascript:goOMD();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a> <%
                                         }
                                     %>

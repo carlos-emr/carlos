@@ -64,7 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionFormWCB" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MspErrorCodes" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -80,7 +80,7 @@
     TeleplanCorrectionFormWCB form = new TeleplanCorrectionFormWCB(results);
     Properties codes = new MspErrorCodes();
     BillingFormData billform = new BillingFormData();
-    String billRegion = OscarProperties.getInstance().getProperty("billRegion", "BC");
+    String billRegion = CarlosProperties.getInstance().getProperty("billRegion", "BC");
     List<BillingFormData.BillingVisit> billvisit = billform.getVisitType(billRegion);
     request.setAttribute("billvisit", billvisit);
 %>

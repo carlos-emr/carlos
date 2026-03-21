@@ -37,7 +37,7 @@ import java.io.InputStreamReader;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
@@ -50,7 +50,7 @@ public class PGPEncrypt {
     String env;
 
     public PGPEncrypt() {
-        OscarProperties op = OscarProperties.getInstance();
+        CarlosProperties op = CarlosProperties.getInstance();
         this.bin = StringUtils.noNull(op.getProperty("PGP_BIN"));
         if (StringUtils.empty(this.bin))
             MiscUtils.getLogger().debug("Warning: PGP binary executable (PGP_BIN) not set!");

@@ -53,7 +53,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
@@ -66,7 +66,7 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String curProvider_no = (String) session.getAttribute("user");
 
-    java.util.Properties oscarVariables = OscarProperties.getInstance();
+    java.util.Properties oscarVariables = CarlosProperties.getInstance();
 
     DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);

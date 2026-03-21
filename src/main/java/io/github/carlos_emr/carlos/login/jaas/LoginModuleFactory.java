@@ -38,7 +38,7 @@ import javax.security.auth.login.LoginException;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Factory for obtaining login modules
@@ -61,10 +61,10 @@ public class LoginModuleFactory {
     private static synchronized void init() {
         if (initialized) return;
 
-        boolean isLdapEnabled = OscarProperties.isLdapAuthenticationEnabled();
+        boolean isLdapEnabled = CarlosProperties.isLdapAuthenticationEnabled();
         if (!isLdapEnabled) throw new IllegalStateException("LDAP is not enabled in carlos.properties");
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String baseDn = props.getProperty(OPTION_BASE_DN);
         if (baseDn == null || baseDn.isEmpty()) {
             baseDn = DEFAULT_BASE_DN;

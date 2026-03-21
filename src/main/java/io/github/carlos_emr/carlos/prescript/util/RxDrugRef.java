@@ -25,7 +25,7 @@
  */
 package io.github.carlos_emr.carlos.prescript.util;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import java.util.HashMap;
@@ -44,7 +44,7 @@ import java.util.Vector;
  * codes as exceptions).</p>
  *
  * <p>The DrugRef server URL is configured via the {@code drugref_url} property in
- * {@link io.github.carlos_emr.OscarProperties}.</p>
+ * {@link io.github.carlos_emr.CarlosProperties}.</p>
  *
  * @since 2003-09-19
  */
@@ -66,12 +66,12 @@ public class RxDrugRef {
 
     /**
      * Creates a new RxDrugRef instance using the DrugRef URL from application properties.
-     * The URL is read from the {@code drugref_url} key in {@link OscarProperties}.
+     * The URL is read from the {@code drugref_url} key in {@link CarlosProperties}.
      *
      * @since 2003-09-19
      */
     public RxDrugRef() {
-        server_url = OscarProperties.getInstance().getProperty("drugref_url");
+        server_url = CarlosProperties.getInstance().getProperty("drugref_url");
     }
 
     /**

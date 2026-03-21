@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
 import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostValueProcessor;
@@ -266,7 +266,7 @@ public class EFormPDFServlet extends HttpServlet {
             addDocumentProps(document, title, props);
 
             // create a reader for a certain document
-            String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + template;
+            String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + template;
 
             try {
                 reader = new PdfReader(propFilename);
@@ -370,7 +370,7 @@ public class EFormPDFServlet extends HttpServlet {
             return ret;
         }
         
-        String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
+        String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
         InputStream is = null;
 
         try {

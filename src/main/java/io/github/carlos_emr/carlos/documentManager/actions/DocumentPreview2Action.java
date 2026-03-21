@@ -7,7 +7,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
@@ -287,9 +287,9 @@ public class DocumentPreview2Action extends ActionSupport {
             
             // Define allowed directories based on OSCAR configuration
             String[] allowedBasePaths = {
-                OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
-                OscarProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
-                OscarProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"),
+                CarlosProperties.getInstance().getProperty("TMP_DIR", "/tmp/"),
+                CarlosProperties.getInstance().getProperty("eform_image", "/var/lib/OscarDocument/eform/images/"),
                 System.getProperty("java.io.tmpdir")
             };
 

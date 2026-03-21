@@ -47,7 +47,7 @@ import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -91,7 +91,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * theft via admin-configured URLs.</p>
      */
     private String getSrfaxApiUrl() {
-        String configured = OscarProperties.getInstance().getProperty("srfax.api.url");
+        String configured = CarlosProperties.getInstance().getProperty("srfax.api.url");
         if (configured != null && !configured.trim().isEmpty()) {
             String trimmed = configured.trim();
             try {

@@ -72,7 +72,7 @@
 <%@page import="java.security.NoSuchAlgorithmException" %>
 <%@page import="org.apache.hc.client5.http.classic.methods.HttpGet" %>
 <%@page import="jakarta.servlet.http.Cookie" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.apache.hc.client5.http.classic.HttpClient" %>
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@page import="com.fasterxml.jackson.databind.JsonNode" %>
@@ -86,7 +86,7 @@
 
     Logger logger = MiscUtils.getLogger();
 
-    OscarProperties oscarProperties = OscarProperties.getInstance();
+    CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     String oneIdEmail = session.getAttribute("oneIdEmail") != null ? session.getAttribute("oneIdEmail").toString() : "";
 
@@ -100,7 +100,7 @@
     }
     //logger.debug("providerEmail is " + providerEmail);
 
-    String backendEconsultUrl = OscarProperties.getInstance().getProperty("backendEconsultUrl");
+    String backendEconsultUrl = CarlosProperties.getInstance().getProperty("backendEconsultUrl");
 
 
     String url = backendEconsultUrl + "/api/test";
@@ -350,7 +350,7 @@
                         httpPost.addHeader("x-access-token", oneIdToken);
 
                         ObjectNode obj = dhirMapper.createObjectNode();
-                        obj.put("url", OscarProperties.getInstance().getProperty("dhir.url"));
+                        obj.put("url", CarlosProperties.getInstance().getProperty("dhir.url"));
                         obj.put("service", "DHIR");
                         obj.set("body", jbundle);
                         obj.put("client-request-id", clientRequestId);
@@ -502,7 +502,7 @@
                 .build();
 
         //setup timeouts
-        int timeout = Integer.parseInt(OscarProperties.getInstance().getProperty("dhir.timeout", "60"));
+        int timeout = Integer.parseInt(CarlosProperties.getInstance().getProperty("dhir.timeout", "60"));
         RequestConfig config = RequestConfig.custom()
                 .setResponseTimeout(Timeout.ofSeconds(timeout))
                 .setConnectionRequestTimeout(Timeout.ofSeconds(timeout))

@@ -35,7 +35,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import jakarta.activation.MimetypesFileTypeMap;
 import jakarta.servlet.http.HttpServletRequest;
@@ -135,7 +135,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
 
     public static String getLogoImgAbsPath() {
         String fileName = "";
-        String logoDocType = OscarProperties.getInstance().getProperty("invoice_head_logo_doctype");
+        String logoDocType = CarlosProperties.getInstance().getProperty("invoice_head_logo_doctype");
         if (logoDocType == null || logoDocType.trim().isEmpty()) {
             logoDocType = "invoice letterhead";
         }
@@ -156,7 +156,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
             fileName = doc.getDocfilename();
         }
 
-        String document_dir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         File file = null;
         try {

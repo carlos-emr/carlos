@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
@@ -123,7 +123,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
         String demoNo = request.getParameter("demographicNo");
         ArrayList<EDoc> docs = EDocUtil.listDocs(loggedInInfo, demoNo, reqId, EDocUtil.ATTACHED);
-        String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!path.endsWith(File.separator)) {
             path = path + File.separator;
         }

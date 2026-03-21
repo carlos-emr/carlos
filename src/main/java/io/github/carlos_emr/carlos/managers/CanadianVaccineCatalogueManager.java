@@ -63,13 +63,13 @@ import org.springframework.stereotype.Service;
 
 import ca.uhn.fhir.context.FhirContext;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 @Service
 public class CanadianVaccineCatalogueManager {
 
-    protected static final String serverBase = OscarProperties.getInstance().getProperty("cvc.url");
+    protected static final String serverBase = CarlosProperties.getInstance().getProperty("cvc.url");
 
     protected static FhirContext ctx = null;
     Logger logger = MiscUtils.getLogger();

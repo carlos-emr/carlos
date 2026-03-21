@@ -250,10 +250,10 @@ public class EctValidation {
             // If using this code, also uncomment the line in oscar.login.Startup.java
             // that checks and sets that property.
             /*
-             * String downloadMethod = OscarProperties.getInstance().getProperty("oscarMeasurement_css_download_method");
+             * String downloadMethod = CarlosProperties.getInstance().getProperty("oscarMeasurement_css_download_method");
              * String place = "";
              * if (downloadMethod == null || !(downloadMethod.equalsIgnoreCase("stream"))) {
-             *    place = OscarProperties.getInstance().getProperty("oscarMeasurement_css");
+             *    place = CarlosProperties.getInstance().getProperty("oscarMeasurement_css");
              *    if(!place.endsWith("/"))
              *       place = new StringBuilder(place).insert(place.length(),"/").toString();
              * } else {
