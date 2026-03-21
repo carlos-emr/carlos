@@ -126,7 +126,7 @@ public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> imple
 
     public List<DiagnosticCode> findByRegionAndType(String billRegion, String serviceType) {
         Query query = entityManager.createQuery("SELECT d, c FROM DiagnosticCode d, CtlDiagCode c " +
-                "WHERE d.id = c.diagnosticCode " +
+                "WHERE d.diagnosticCode = c.diagnosticCode " +
                 "AND d.region = ?1" +
                 "AND c.serviceType = ?2");
         query.setParameter(1, billRegion);

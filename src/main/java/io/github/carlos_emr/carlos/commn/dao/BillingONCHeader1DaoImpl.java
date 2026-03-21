@@ -525,7 +525,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     public List<Object[]> countBillingVisitsByProvider(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, count(b) FROM BillingONCHeader1 b "
                 + "WHERE b.status <> 'D' "
-                + "AND b.appointmentNo <> '0' "
+                + "AND b.appointmentNo <> 0 "
                 + "AND b.apptProviderNo = ?1 "
                 + "AND b.billingDate >= ?2 "
                 + "AND b.billingDate <= ?3 "
@@ -541,7 +541,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     public List<Object[]> countBillingVisitsByCreator(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, count(b) FROM BillingONCHeader1 b "
                 + "WHERE b.status <> 'D' "
-                + "AND b.appointmentNo <> '0' "
+                + "AND b.appointmentNo <> 0 "
                 + "AND b.creator = ?1 "
                 + "AND b.billingDate >= ?2 "
                 + "AND b.billingDate <= ?3 "
