@@ -96,7 +96,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>OSCAR oscarPathNET - Patient Linking</title>
+        <title>CARLOS PathNET - Patient Linking</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
         <script language="JavaScript">
             var demo;

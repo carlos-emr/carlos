@@ -178,7 +178,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>OSCAR Project</title>
+    <title>CARLOS EMR</title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     <script LANGUAGE="JavaScript">
         <!--

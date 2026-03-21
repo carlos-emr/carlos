@@ -94,7 +94,7 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title>OSCAR BC Billing - WCB</title>
+        <title>CARLOS BC Billing - WCB</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/reporting.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/calendar/calendar.css">

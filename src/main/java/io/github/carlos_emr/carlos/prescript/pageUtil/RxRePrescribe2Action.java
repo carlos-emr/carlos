@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 public final class RxRePrescribe2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -508,7 +509,34 @@ public String saveDigitalSignature() throws IOException {
             response.sendRedirect("error.html");
             return null;
         }
-        CopyOnWriteArrayList<String> reRxDrugList = bean.getReRxDrugIdList();
+        // Accept drug IDs passed directly in request to avoid race condition with
+        // the async session-update call from the checkbox handler.
+        // When present, treat them as the source of truth for this request rather
+        // than merging into the session-backed list (which a late async call could repopulate).
+        String drugIdsParam = request.getParameter("drugIds");
+        List<String> reRxDrugList;
+        if (drugIdsParam != null && !drugIdsParam.isBlank()) {
+            reRxDrugList = new ArrayList<>();
+            for (String id : drugIdsParam.split(",")) {
+                String trimmed = id.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                try {
+                    int parsedId = Integer.parseInt(trimmed);
+                    if (parsedId > 0) {
+                        String normalizedId = Integer.toString(parsedId);
+                        if (!reRxDrugList.contains(normalizedId)) {
+                            reRxDrugList.add(normalizedId);
+                        }
+                    }
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Skipping invalid drugId in represcribeMultiple: " + Encode.forJava(trimmed));
+                }
+            }
+        } else {
+            reRxDrugList = new ArrayList<>(bean.getReRxDrugIdList());
+        }
         MiscUtils.getLogger().debug(reRxDrugList);
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
         for (String drugId : reRxDrugList) {
@@ -534,6 +562,8 @@ public String saveDigitalSignature() throws IOException {
             bean.setStashIndex(rxStashIndex);
             bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
         }
+        // Clear the session list after staging so the same drugs can be re-staged later
+        bean.clearReRxDrugIdList();
         MiscUtils.getLogger().debug(listReRxDrug);
         request.setAttribute("listRxDrugs", listReRxDrug);
         MiscUtils.getLogger().debug("================END represcribeMultiple of RxRePrescribe2Action.java=================");

@@ -54,7 +54,7 @@
 
 <html>
 <head>
-    <title>OSCAR Fax</title>
+    <title>CARLOS Fax</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.3/css/bootstrap.min.css" type="text/css"/>
@@ -199,7 +199,7 @@
 
             <table id="oscarFaxHeader">
                 <tr>
-                    <td id="oscarFaxHeaderLeftColumn"><h1>OSCAR Fax</h1></td>
+                    <td id="oscarFaxHeaderLeftColumn"><h1>CARLOS Fax</h1></td>
 
                     <td id="oscarFaxHeaderCenterColumn"><e:forHtml value="${ transactionType }" /></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>

@@ -62,7 +62,7 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title>OSCAR Products</title>
+        <title>CARLOS Products</title>
         <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 

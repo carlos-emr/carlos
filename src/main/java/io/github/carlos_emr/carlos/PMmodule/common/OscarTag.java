@@ -73,7 +73,7 @@ public class OscarTag implements Tag {
                 pc.getOut().print("");
             } else {
                 p = p.substring(0, p.lastIndexOf("/") + 1) + "providercontrol.jsp?" + q;
-                String temps = "<a href='" + p + "'>Oscar Medical</a>";
+                String temps = "<a href='" + p + "'>CARLOS Medical</a>";
                 pc.getOut().print(temps);
             }
 

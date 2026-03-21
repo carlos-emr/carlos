@@ -75,7 +75,7 @@
 <br/>
 <hr/>
 <br/>
-<div class="oscarBlueForeground">Oscar Public Key (Base64 encoded)</div>
+<div class="oscarBlueForeground">CARLOS Public Key (Base64 encoded)</div>
 <div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><%=KeyManagerUIBean.getPublicOscarKeyEscaped()%>
 </div>
 <br/>
