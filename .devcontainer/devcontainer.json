@@ -5,7 +5,7 @@
     "workspaceFolder": "/workspace",
     "shutdownAction": "stopCompose",
     "dockerComposeOptions": ["--project-name", "carlos-emr"],
-    "postCreateCommand": "sh .devcontainer/development/setup/seed_data.sh && cd /workspace && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
+    "postCreateCommand": "cd /workspace && sh .devcontainer/development/setup/seed_data.sh && mvn -B dependency:go-offline dependency:sources dependency:resolve -Dclassifier=javadoc",
 
     "customizations": {
         "vscode": {
