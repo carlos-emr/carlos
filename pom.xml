@@ -83,6 +83,10 @@
         <netty.version>4.1.131.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
+        <!-- Spring Framework Version -->
+        <spring.version>7.0.6</spring.version>
+        <!-- Spring Security Version -->
+        <spring-security.version>7.0.4</spring-security.version>
         <struts.devMode>false</struts.devMode>
         <!-- Struts 7.x has migrated com.opensymphony.xwork2.* to org.apache.struts2.* -->
         <maven.compiler.showDeprecation>false</maven.compiler.showDeprecation>
@@ -145,7 +149,7 @@
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-framework-bom</artifactId>
-                <version>7.0.6</version>
+                <version>${spring.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -436,21 +440,18 @@
             <version>2.0.6.1</version>
         </dependency>
 
-        <!-- spring (Jakarta EE 11 — version aligned with spring-framework-bom in dependencyManagement) -->
+        <!-- spring (Jakarta EE 11 — versions managed by spring-framework-bom via ${spring.version}) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
-            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
-            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-orm</artifactId>
-            <version>7.0.6</version>
         </dependency>
         <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
              Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
@@ -458,29 +459,24 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
-            <version>7.0.6</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>7.0.6</version>
         </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aspects</artifactId>
-            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>7.0.6</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-aop</artifactId>
-            <version>7.0.6</version>
             <exclusions>
                 <exclusion>
                     <groupId>cglib</groupId>
@@ -492,14 +488,13 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>7.0.4</version>
+            <version>${spring-security.version}</version>
         </dependency>
 
         <!-- Spring Context Support (provides JavaMailSenderImpl for email) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context-support</artifactId>
-            <version>7.0.6</version>
         </dependency>
 
         <!-- hibernate / sql -->
