@@ -62,7 +62,7 @@ DrugRef was **never a compiled JAR embedded in the main application**. Since its
 ### Communication Protocol
 
 - **Protocol**: XML-RPC 1.0 over HTTP (no authentication, no TLS)
-- **Client**: `RxDrugRef.java` (813 lines, ~30 public methods) → `SimpleXmlRpcClient.java` (Java 21 `HttpClient`)
+- **Client**: `RxDrugRef.java` (813 lines, 43 public methods) → `SimpleXmlRpcClient.java` (Java 21 `HttpClient`)
 - **Config**: `drugref_url` property in `carlos.properties`
   - Dev: `http://drugref:8080/drugref2/DrugrefService`
   - Production: `http://67.69.12.116:8001`
@@ -89,11 +89,11 @@ Data dump: `database/mysql/development-drugref.sql` (12.8 MB)
 
 ### Integration Surface
 
-**23 files** in CARLOS depend on DrugRef, primarily through `RxDrugRef`:
+**27 files** in CARLOS depend on DrugRef (Java source + JSPs), primarily through `RxDrugRef`:
 
 | Component | File | Role |
 |-----------|------|------|
-| XML-RPC Client | `prescript/util/RxDrugRef.java` | Core DrugRef API client (~30 methods) |
+| XML-RPC Client | `prescript/util/RxDrugRef.java` | Core DrugRef API client (43 public methods) |
 | XML-RPC Transport | `prescript/util/SimpleXmlRpcClient.java` | HTTP + XML serialization |
 | Data Models | `prescript/data/RxDrugData.java` | Parses untyped responses into domain objects |
 | Interaction Cache | `prescript/data/RxInteractionData.java` | Static singleton cache (unbounded) |
@@ -192,7 +192,7 @@ Create a new Spring service within CARLOS that directly accesses the `drugref2` 
 | Properly typed models instead of Hashtable/Vector | |
 | CARLOS already has the database in the same MariaDB instance | |
 
-**Verdict: Recommended.** The drugref2 schema is simple and stable. The integration surface is well-bounded (~30 methods). The database is already co-located. Security, caching, and testing all become simpler.
+**Verdict: Recommended.** The drugref2 schema is simple and stable. The integration surface is well-bounded (43 methods). The database is already co-located. Security, caching, and testing all become simpler.
 
 ### Option D: Modernize as a REST Microservice
 
@@ -247,7 +247,7 @@ New Spring `@Service`: `io.github.carlos_emr.carlos.drugref.DrugRefService`
 **Goal**: Enable incremental migration without breaking existing callers.
 
 - Modify `RxDrugRef` to delegate to `DrugRefService` (local) or old XML-RPC based on feature flag (`drugref.provider=local` vs `drugref.provider=xmlrpc`)
-- All 23 existing callers continue working unchanged during transition
+- All 27 existing callers continue working unchanged during transition
 - Side-by-side testing: run both paths and compare results
 
 ### Phase 4: Caller Migration & Modernization
@@ -274,9 +274,9 @@ New Spring `@Service`: `io.github.carlos_emr.carlos.drugref.DrugRefService`
 | Phase | Effort | Notes |
 |-------|--------|-------|
 | Phase 1: DAOs | ~80-100 hours | 17 tables, straightforward schema |
-| Phase 2: Service | ~100-120 hours | ~30 methods, query translation |
+| Phase 2: Service | ~100-120 hours | 43 methods, query translation |
 | Phase 3: Adapter | ~20-30 hours | Feature flag + delegation |
-| Phase 4: Migration | ~60-80 hours | 23 caller files |
+| Phase 4: Migration | ~60-80 hours | 27 caller files |
 | Phase 5: Cleanup | ~10-20 hours | Container removal, config cleanup |
 | **Total** | **~270-350 hours** | **~2-3 developer-months** |
 
