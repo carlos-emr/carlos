@@ -1772,11 +1772,12 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should throw exception when providersite table does not exist")
-        void shouldThrowException_whenProviderSiteTableDoesNotExist() {
-            // When/Then - providersite table is not in the H2 test schema
-            assertThatThrownBy(() -> providerDao.getActiveTeamsViaSites("T001"))
-                .isInstanceOf(Exception.class);
+        @DisplayName("should return results from providersite table")
+        void shouldReturnResults_fromProvidersiteTable() {
+            // providersite table exists in H2 test schema (created by ProviderSite HBM mapping)
+            List<?> results = providerDao.getActiveTeamsViaSites("T001");
+            // With no matching data, expect an empty list (not an exception)
+            assertThat(results).isEmpty();
         }
     }
 

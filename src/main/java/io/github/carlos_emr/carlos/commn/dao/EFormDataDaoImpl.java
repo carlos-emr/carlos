@@ -378,7 +378,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
             return null;
 
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
-                + " x where x.current=1 and x.formId in (?1) and x.formDate>=?2 and x.formDate<?3");
+                + " x where x.current=true and x.formId in (?1) and x.formDate>=?2 and x.formDate<?3");
         query.setParameter(1, fids);
         query.setParameter(2, dateStart);
         query.setParameter(3, dateEnd);
@@ -527,7 +527,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     @Override
     public Integer getLatestFdid(Integer fid, Integer demographicNo) {
         Query query = entityManager.createQuery("select max(x.id) from " + modelClass.getSimpleName()
-                + " x where x.current=1 and x.formId = ?1 and x.demographicId = ?2");
+                + " x where x.current=true and x.formId = ?1 and x.demographicId = ?2");
         query.setParameter(1, fid);
         query.setParameter(2, demographicNo);
 

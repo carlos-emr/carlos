@@ -63,6 +63,7 @@ public class ProgramTeamDaoIntegrationTest extends CarlosTestBase {
         program.setType("community");
         program.setProgramStatus("active");
         hibernateTemplate.save(program);
+        hibernateTemplate.flush();
         return program;
     }
 
@@ -71,6 +72,7 @@ public class ProgramTeamDaoIntegrationTest extends CarlosTestBase {
         team.setProgramId(programId);
         team.setName(teamName);
         hibernateTemplate.save(team);
+        hibernateTemplate.flush();
         return team;
     }
 

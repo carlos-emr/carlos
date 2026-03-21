@@ -61,12 +61,6 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ConsultResponseDao consultDao;
 
-    @Autowired
-    private ProfessionalSpecialistDao specialistDao;
-
-    @Autowired
-    private DemographicDao demographicDao;
-
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -77,7 +71,8 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistConsultationResponse_whenValidDataProvided() throws Exception {
             ConsultationResponse entity = new ConsultationResponse();
             EntityDataGenerator.generateTestDataForModelClass(entity);
-            consultDao.persist(entity);
+            hibernateTemplate.save(entity);
+            hibernateTemplate.flush();
 
             assertThat(entity.getId()).isNotNull();
         }
@@ -103,19 +98,21 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
             d1 = new Demographic();
             EntityDataGenerator.generateTestDataForModelClass(d1);
             d1.setDemographicNo(null);
-            demographicDao.save(d1);
+            hibernateTemplate.save(d1);
 
             d2 = new Demographic();
             EntityDataGenerator.generateTestDataForModelClass(d2);
             d2.setDemographicNo(null);
-            demographicDao.save(d2);
+            hibernateTemplate.save(d2);
+            hibernateTemplate.flush();
 
             demoNo1 = d1.getDemographicNo();
             demoNo2 = d2.getDemographicNo();
 
             ProfessionalSpecialist sp = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(sp);
-            specialistDao.persist(sp);
+            hibernateTemplate.save(sp);
+            hibernateTemplate.flush();
             referringDocId = sp.getId();
 
             String[] format = new String[]{"yyyy-MM-dd"};
@@ -123,17 +120,18 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
             date2 = DateUtils.parseDate("2015-03-26", format);
 
             // cr1: demo1, appt=date1, ref=date1, resp=date1, status1, team1, urgency1
-            consultDao.persist(createResponse(demoNo1, date1, date1, date1, STATUS_1, TEAM_1, URGENCY_1));
+            hibernateTemplate.save(createResponse(demoNo1, date1, date1, date1, STATUS_1, TEAM_1, URGENCY_1));
             // cr2: demo2, appt=date2, ref=date2, resp=date2, status2, team2, urgency2
-            consultDao.persist(createResponse(demoNo2, date2, date2, date2, STATUS_2, TEAM_2, URGENCY_2));
+            hibernateTemplate.save(createResponse(demoNo2, date2, date2, date2, STATUS_2, TEAM_2, URGENCY_2));
             // cr3: demo1, appt=date2, ref=date1, resp=date1, status1, team1, urgency1
-            consultDao.persist(createResponse(demoNo1, date2, date1, date1, STATUS_1, TEAM_1, URGENCY_1));
+            hibernateTemplate.save(createResponse(demoNo1, date2, date1, date1, STATUS_1, TEAM_1, URGENCY_1));
             // cr4: demo2, appt=date1, ref=date2, resp=date1, status2, team2, urgency2
-            consultDao.persist(createResponse(demoNo2, date1, date2, date1, STATUS_2, TEAM_2, URGENCY_2));
+            hibernateTemplate.save(createResponse(demoNo2, date1, date2, date1, STATUS_2, TEAM_2, URGENCY_2));
             // cr5: demo1, appt=date1, ref=date1, resp=date1, status1, team1, urgency2
-            consultDao.persist(createResponse(demoNo1, date1, date1, date1, STATUS_1, TEAM_1, URGENCY_2));
+            hibernateTemplate.save(createResponse(demoNo1, date1, date1, date1, STATUS_1, TEAM_1, URGENCY_2));
             // cr6: demo2, appt=date2, ref=date1, resp=date1, status1, team2, urgency2
-            consultDao.persist(createResponse(demoNo2, date2, date1, date1, STATUS_1, TEAM_2, URGENCY_2));
+            hibernateTemplate.save(createResponse(demoNo2, date2, date1, date1, STATUS_1, TEAM_2, URGENCY_2));
+            hibernateTemplate.flush();
         }
 
         @Test
@@ -217,21 +215,24 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
             Demographic d1 = new Demographic();
             EntityDataGenerator.generateTestDataForModelClass(d1);
             d1.setDemographicNo(null);
-            demographicDao.save(d1);
+            hibernateTemplate.save(d1);
+            hibernateTemplate.flush();
 
             ProfessionalSpecialist sp = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(sp);
-            specialistDao.persist(sp);
+            hibernateTemplate.save(sp);
+            hibernateTemplate.flush();
 
             String[] format = new String[]{"yyyy-MM-dd"};
             Date date1 = DateUtils.parseDate("2015-03-05", format);
             Date date2 = DateUtils.parseDate("2015-03-26", format);
 
             ConsultationResponse cr1 = createSearchResponse(sp.getId(), d1.getDemographicNo(), date1, date1, date1, "1", "tttt1", "u1");
-            consultDao.persist(cr1);
+            hibernateTemplate.save(cr1);
 
             ConsultationResponse cr2 = createSearchResponse(sp.getId(), d1.getDemographicNo(), date2, date2, date1, "1", "tttt1", "u1");
-            consultDao.persist(cr2);
+            hibernateTemplate.save(cr2);
+            hibernateTemplate.flush();
 
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setNumToReturn(99);
@@ -261,18 +262,21 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
             Demographic d1 = new Demographic();
             EntityDataGenerator.generateTestDataForModelClass(d1);
             d1.setDemographicNo(null);
-            demographicDao.save(d1);
+            hibernateTemplate.save(d1);
+            hibernateTemplate.flush();
 
             ProfessionalSpecialist sp = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(sp);
-            specialistDao.persist(sp);
+            hibernateTemplate.save(sp);
+            hibernateTemplate.flush();
 
             String[] format = new String[]{"yyyy-MM-dd"};
             Date date1 = DateUtils.parseDate("2015-03-05", format);
             Date date2 = DateUtils.parseDate("2015-03-26", format);
 
-            consultDao.persist(createSearchResponse(sp.getId(), d1.getDemographicNo(), date1, date1, date1, "1", "tttt1", "u1"));
-            consultDao.persist(createSearchResponse(sp.getId(), d1.getDemographicNo(), date2, date2, date1, "1", "tttt1", "u1"));
+            hibernateTemplate.save(createSearchResponse(sp.getId(), d1.getDemographicNo(), date1, date1, date1, "1", "tttt1", "u1"));
+            hibernateTemplate.save(createSearchResponse(sp.getId(), d1.getDemographicNo(), date2, date2, date1, "1", "tttt1", "u1"));
+            hibernateTemplate.flush();
 
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setNumToReturn(99);
@@ -291,18 +295,21 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
             Demographic d1 = new Demographic();
             EntityDataGenerator.generateTestDataForModelClass(d1);
             d1.setDemographicNo(null);
-            demographicDao.save(d1);
+            hibernateTemplate.save(d1);
+            hibernateTemplate.flush();
 
             ProfessionalSpecialist sp = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(sp);
-            specialistDao.persist(sp);
+            hibernateTemplate.save(sp);
+            hibernateTemplate.flush();
 
             String[] format = new String[]{"yyyy-MM-dd"};
             Date date1 = DateUtils.parseDate("2015-03-05", format);
             Date date2 = DateUtils.parseDate("2015-03-26", format);
 
-            consultDao.persist(createSearchResponse(sp.getId(), d1.getDemographicNo(), date1, date1, date1, "1", "tttt1", "u1"));
-            consultDao.persist(createSearchResponse(sp.getId(), d1.getDemographicNo(), date2, date2, date1, "1", "tttt1", "u1"));
+            hibernateTemplate.save(createSearchResponse(sp.getId(), d1.getDemographicNo(), date1, date1, date1, "1", "tttt1", "u1"));
+            hibernateTemplate.save(createSearchResponse(sp.getId(), d1.getDemographicNo(), date2, date2, date1, "1", "tttt1", "u1"));
+            hibernateTemplate.flush();
 
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setNumToReturn(99);
@@ -321,18 +328,21 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
             Demographic d1 = new Demographic();
             EntityDataGenerator.generateTestDataForModelClass(d1);
             d1.setDemographicNo(null);
-            demographicDao.save(d1);
+            hibernateTemplate.save(d1);
+            hibernateTemplate.flush();
 
             ProfessionalSpecialist sp = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(sp);
-            specialistDao.persist(sp);
+            hibernateTemplate.save(sp);
+            hibernateTemplate.flush();
 
             String[] format = new String[]{"yyyy-MM-dd"};
             Date date1 = DateUtils.parseDate("2015-03-05", format);
             Date date2 = DateUtils.parseDate("2015-03-26", format);
 
-            consultDao.persist(createSearchResponse(sp.getId(), d1.getDemographicNo(), date1, date1, date1, "1", "tttt1", "u1"));
-            consultDao.persist(createSearchResponse(sp.getId(), d1.getDemographicNo(), date2, date2, date2, "2", "tttt2", "u2"));
+            hibernateTemplate.save(createSearchResponse(sp.getId(), d1.getDemographicNo(), date1, date1, date1, "1", "tttt1", "u1"));
+            hibernateTemplate.save(createSearchResponse(sp.getId(), d1.getDemographicNo(), date2, date2, date2, "2", "tttt2", "u2"));
+            hibernateTemplate.flush();
 
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setNumToReturn(99);

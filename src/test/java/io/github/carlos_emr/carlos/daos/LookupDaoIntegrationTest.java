@@ -1423,7 +1423,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             @SuppressWarnings("unchecked")
             List<io.github.carlos_emr.carlos.model.LstOrgcd> results =
                 (List<io.github.carlos_emr.carlos.model.LstOrgcd>) hibernateTemplate.find(
-                    "FROM LstOrgcd o WHERE o.code = ?0", "R10001");
+                    "FROM LstOrgcd o WHERE o.code = ?1", "R10001");
 
             // Then
             assertThat(results).hasSize(1);
@@ -1447,7 +1447,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             @SuppressWarnings("unchecked")
             List<io.github.carlos_emr.carlos.model.LstOrgcd> results =
                 (List<io.github.carlos_emr.carlos.model.LstOrgcd>) hibernateTemplate.find(
-                    "FROM LstOrgcd o WHERE o.codecsv LIKE ?0", "%R10002,%");
+                    "FROM LstOrgcd o WHERE o.codecsv LIKE ?1", "%R10002,%");
 
             // Then - all three should match since they all contain "R10002," in their codecsv
             assertThat(results).hasSize(3);
@@ -1468,7 +1468,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             @SuppressWarnings("unchecked")
             List<io.github.carlos_emr.carlos.model.LstOrgcd> orgs =
                 (List<io.github.carlos_emr.carlos.model.LstOrgcd>) hibernateTemplate.find(
-                    "FROM LstOrgcd o WHERE o.code = ?0", "U10001");
+                    "FROM LstOrgcd o WHERE o.code = ?1", "U10001");
             assertThat(orgs).hasSize(1);
 
             io.github.carlos_emr.carlos.model.LstOrgcd org = orgs.get(0);
@@ -1480,7 +1480,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             @SuppressWarnings("unchecked")
             List<io.github.carlos_emr.carlos.model.LstOrgcd> updated =
                 (List<io.github.carlos_emr.carlos.model.LstOrgcd>) hibernateTemplate.find(
-                    "FROM LstOrgcd o WHERE o.code = ?0", "U10001");
+                    "FROM LstOrgcd o WHERE o.code = ?1", "U10001");
             assertThat(updated.get(0).getActiveyn()).isEqualTo(0);
         }
 
@@ -1489,7 +1489,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should verify updateOrgStatus HQL pattern is valid")
         void shouldVerifyUpdateOrgStatusHql_isValid() {
             // Given - the HQL pattern used in updateOrgStatus:
-            //   "FROM LstOrgcd o WHERE o.codecsv like ?0"
+            //   "FROM LstOrgcd o WHERE o.codecsv like ?1"
             insertOrgCode("P10003", "Parent", "P10003", "P10003,");
             insertOrgCodeFull("C10003", "Child", 1, 0,
                 "P10003C10003", "P10003C10003", "P10003,C10003,");
@@ -1500,7 +1500,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             @SuppressWarnings("unchecked")
             List<io.github.carlos_emr.carlos.model.LstOrgcd> children =
                 (List<io.github.carlos_emr.carlos.model.LstOrgcd>) hibernateTemplate.find(
-                    "FROM LstOrgcd o WHERE o.codecsv like ?0", oldCsv);
+                    "FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
 
             // Then - only the child matches (the parent's codecsv is "P10003," not "P10003,_*")
             assertThat(children).hasSize(1);

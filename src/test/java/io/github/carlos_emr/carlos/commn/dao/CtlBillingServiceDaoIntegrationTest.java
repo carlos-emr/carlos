@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -53,6 +55,9 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private CtlBillingServiceDao dao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private CtlBillingService createService(String serviceType, String serviceTypeName,
                                              String serviceCode, String serviceGroup,
@@ -96,10 +101,10 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
             Integer id = svc.getId();
 
             dao.remove(id);
-            hibernateTemplate.flush();
-            hibernateTemplate.clear();
+            entityManager.flush();
+            entityManager.clear();
 
-            CtlBillingService found = hibernateTemplate.get(CtlBillingService.class, id);
+            CtlBillingService found = entityManager.find(CtlBillingService.class, id);
             assertThat(found).isNull();
         }
     }

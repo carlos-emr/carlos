@@ -154,6 +154,7 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
         demographic.setRosterStatus("RO");
         demographic.setHcType("ON");
         demographicDao.save(demographic);
+        hibernateTemplate.flush();
         return demographic;
     }
 

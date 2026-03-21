@@ -227,7 +227,7 @@ public class SecurityManager {
 
     public List<Security> findAllOrderByUserName(LoggedInInfo loggedInInfo) {
 
-        List<Security> results = securityDao.findAllOrderBy("user_name");
+        List<Security> results = securityDao.findAllOrderBy("userName");
 
         LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.findAllOrderByUserName", "");
 

@@ -35,8 +35,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -59,14 +57,12 @@ public class ProgramDaoIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
-    private static final AtomicInteger ID_COUNTER = new AtomicInteger(90000);
-
     /**
-     * Creates a Program with a unique ID and required fields populated.
+     * Creates a Program with required fields populated.
+     * ID is assigned by the database via identity generation on persist.
      */
     private Program createProgram(String name, String type, String status) {
         Program p = new Program();
-        p.setId(ID_COUNTER.incrementAndGet());
         p.setName(name);
         p.setType(type);
         p.setProgramStatus(status);

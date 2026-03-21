@@ -35,6 +35,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.*;
@@ -60,6 +62,9 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDao providerDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     @Autowired
     private ProviderSiteDao providerSiteDao;
@@ -128,6 +133,7 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
             p.setSex("M");
             p.setSpecialty("");
             providerDao.saveProvider(p);
+            hibernateTemplate.flush();
 
             // Associate provider with both sites
             ProviderSite ps1 = new ProviderSite();
@@ -142,7 +148,8 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
             ps2.getId().setSiteId(siteId2);
             providerSiteDao.persist(ps2);
 
-            hibernateTemplate.flush();
+            entityManager.flush();
+            entityManager.clear();
 
             Site s = siteDao.find(siteId1);
             assertThat(s.getProviders()).isNotNull();

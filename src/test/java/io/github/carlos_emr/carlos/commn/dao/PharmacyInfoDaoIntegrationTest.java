@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -53,6 +55,9 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private PharmacyInfoDao pharmacyInfoDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private PharmacyInfo createPharmacy(String name, String city, Character status) {
         PharmacyInfo info = new PharmacyInfo();
@@ -111,6 +116,9 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         void shouldSoftDeletePharmacy_whenDeleted() {
             PharmacyInfo saved = createPharmacy("To Delete Pharmacy", "London", '1');
             pharmacyInfoDao.deletePharmacy(saved.getId());
+            // Clear JPA persistence context cache to evict stale entity after bulk UPDATE
+            entityManager.flush();
+            entityManager.clear();
             PharmacyInfo found = pharmacyInfoDao.getPharmacy(saved.getId());
             assertThat(found.getStatus()).isEqualTo('0');
         }

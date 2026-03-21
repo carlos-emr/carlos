@@ -68,7 +68,11 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void saveOrUpdate(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            currentSession().merge(transientInstance);
+            if (transientInstance.getProviderNo() == null) {
+                currentSession().persist(transientInstance);
+            } else {
+                currentSession().merge(transientInstance);
+            }
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);

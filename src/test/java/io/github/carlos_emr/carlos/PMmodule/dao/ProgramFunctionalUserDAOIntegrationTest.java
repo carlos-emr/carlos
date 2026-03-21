@@ -97,7 +97,11 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
     private FunctionalUserType createFunctionalUserType(String name) {
         FunctionalUserType userType = new FunctionalUserType();
         userType.setName(name);
-        hibernateTemplate.save(userType);
+        hibernateTemplate.execute(session -> {
+            session.persist(userType);
+            return null;
+        });
+        hibernateTemplate.flush();
         return userType;
     }
 
@@ -112,7 +116,11 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         ProgramFunctionalUser pfu = new ProgramFunctionalUser();
         pfu.setProgramId(programId);
         pfu.setUserTypeId(userTypeId);
-        hibernateTemplate.save(pfu);
+        hibernateTemplate.execute(session -> {
+            session.persist(pfu);
+            return null;
+        });
+        hibernateTemplate.flush();
         return pfu;
     }
 

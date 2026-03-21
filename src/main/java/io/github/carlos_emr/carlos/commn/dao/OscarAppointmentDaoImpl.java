@@ -203,7 +203,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 sb.append(",");
             sb.append(p.getId());
         }
-        String sql = "select a.demographicNo FROM Appointment a WHERE a.updateDateTime > ?1 and program_id in (?2) ORDER BY a.id";
+        String sql = "select a.demographicNo FROM Appointment a WHERE a.updateDateTime > ?1 and a.programId in (?2) ORDER BY a.id";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, lastUpdateDate);
         query.setParameter(2, sb.toString());
@@ -227,7 +227,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Appointment> findByDateRangeAndProvider(Date startTime, Date endTime, String providerNo) {
-        String sql = "SELECT a FROM Appointment a WHERE a.appointmentDate >=?1 and a.appointmentDate < ?2 and providerNo = ?3";
+        String sql = "SELECT a FROM Appointment a WHERE a.appointmentDate >=?1 and a.appointmentDate < ?2 and a.providerNo = ?3";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, startTime);
@@ -364,9 +364,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public List<Appointment> findNonCancelledFutureAppointments(Integer demographicId) {
         Query query = entityManager.createQuery(
-                "FROM Appointment appt WHERE appt.demographicNo = ?1 AND appt.status NOT LIKE '%C%' AND appt.status NOT LIKE '%D%'"
-                        +
-                        " AND appt.appointmentDate >= CURRENT_DATE ORDER BY appt.appointmentDate");
+                "SELECT appt FROM Appointment appt WHERE appt.demographicNo = ?1 AND appt.status NOT LIKE '%C%' AND appt.status NOT LIKE '%D%' AND appt.appointmentDate >= CURRENT_DATE ORDER BY appt.appointmentDate");
         query.setParameter(1, demographicId);
         return query.getResultList();
     }
@@ -382,8 +380,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public Appointment findNextAppointment(Integer demographicId) {
         Query query = entityManager.createQuery(
-                "FROM Appointment appt WHERE appt.demographicNo = ?1 AND appt.status NOT LIKE '%C%' " +
-                        "	AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) ORDER BY appt.appointmentDate");
+                "SELECT appt FROM Appointment appt WHERE appt.demographicNo = ?1 AND appt.status NOT LIKE '%C%' AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) ORDER BY appt.appointmentDate");
         query.setParameter(1, demographicId);
         query.setMaxResults(1);
         return getSingleResultOrNull(query);
@@ -393,7 +390,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     public Appointment findDemoAppointmentToday(Integer demographicNo) {
         Appointment appointment = null;
 
-        String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate=DATE(NOW())";
+        String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
 
@@ -404,27 +401,6 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         }
 
         return appointment;
-    }
-
-    @Override
-    public List<Appointment> findByEverything(Date appointmentDate, String providerNo, Date startTime, Date endTime,
-                                              String name, String notes, String reason, Date createDateTime, String creator, int demographicNo) {
-        String sql = "SELECT a FROM Appointment a WHERE a.appointmentDate=?1 and a.providerNo=?2 and a.startTime=?3 and a.endTime=?4 and a.name=?5 and a.notes=?6 and a.reason=?7 and a.createDateTime like ?8 and a.creator = ?9 and a.demographicNo=?10";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, appointmentDate);
-        query.setParameter(2, providerNo);
-        query.setParameter(3, startTime);
-        query.setParameter(4, endTime);
-        query.setParameter(5, name);
-        query.setParameter(6, notes);
-        query.setParameter(7, reason);
-        query.setParameter(8, createDateTime);
-        query.setParameter(9, creator);
-        query.setParameter(10, demographicNo);
-
-        List<Appointment> rs = query.getResultList();
-
-        return rs;
     }
 
     @Override
@@ -518,7 +494,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                                          Date endTime2, Date startTime3, Date endTime3, Integer programId) {
         String sql = "select a from Appointment a where a.appointmentDate = ?1 and a.providerNo = ?2 and " +
         "a.status <>'C' and a.status<>'D' and ((a.startTime >= ?3 and a.startTime<= ?4) or " +
-        "(a.endTime>= ?5 and a.endTime<= ?6) or (a.startTime <= ?7 and a.endTime>= ?8) ) and program_id=?9";
+        "(a.endTime>= ?5 and a.endTime<= ?6) or (a.startTime <= ?7 and a.endTime>= ?8) ) and a.programId=?9";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, date);
         query.setParameter(2, providerNo);
@@ -582,16 +558,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public List<Object[]> search_appt_data1(String providerNo, Date appointmentDate, Date startTime, Date endTime,
                                             Date createDateTime, String creator, Integer demographicNo) {
-        String sql = "from Provider prov, Appointment app " +
-                "where app.providerNo = prov.id and " +
-                "app.providerNo=?1 and " +
-                "app.appointmentDate=?2 and " +
-                "app.startTime=?3 and " +
-                "app.endTime=?4 and " +
-                "app.createDateTime=?5 and " +
-                "app.creator=?6 and " +
-                "app.demographicNo=?7 " +
-                "order by app.id desc";
+        String sql = "SELECT app, prov FROM Provider prov, Appointment app where app.providerNo = prov.ProviderNo and app.providerNo=?1 and app.appointmentDate=?2 and app.startTime=?3 and app.endTime=?4 and app.createDateTime=?5 and app.creator=?6 and app.demographicNo=?7 order by app.id desc";
         Query query = entityManager.createQuery(sql);
         query.setMaxResults(1);
         query.setParameter(1, providerNo);
@@ -607,7 +574,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> export_appt(Integer demographicNo) {
-        String sql = "select app, prov from Appointment app, Provider prov where app.providerNo = prov.id and app.demographicNo = ?1";
+        String sql = "select app, prov from Appointment app, Provider prov where app.providerNo = prov.ProviderNo and app.demographicNo = ?1";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
 
@@ -617,8 +584,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public List<Appointment> search_otherappt(Date appointmentDate, Date startTime1, Date endTime1, Date startTime2,
                                               Date startTime3) {
-        String sql = "from Appointment a where a.appointmentDate=?1 and ((a.startTime <= ?2 and a.endTime >= ?3) or" +
-        " (a.startTime > ?4 and a.startTime < ?5) ) order by a.providerNo, a.startTime";
+        String sql = "SELECT a from Appointment a where a.appointmentDate=?1 and ((a.startTime <= ?2 and a.endTime >= ?3) or (a.startTime > ?4 and a.startTime < ?5) ) order by a.providerNo, a.startTime";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, appointmentDate);
@@ -731,13 +697,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
             String providerNo,
             Date startAppointmentDate,
             Date endAppointmentDate) {
-        String queryString = "FROM Appointment WHERE " +
-                "providerNo = ?1 AND " +
-                "appointmentDate >= ?2 AND " +
-                "appointmentDate <= ?3 AND " +
-                "status = 'B' AND " +
-                "demographicNo <> 0 " +
-                "ORDER BY appointmentDate DESC, startTime DESC ";
+        String queryString = "SELECT a FROM Appointment a WHERE a.providerNo = ?1 AND a.appointmentDate >= ?2 AND a.appointmentDate <= ?3 AND a.status = 'B' AND a.demographicNo <> 0 ORDER BY a.appointmentDate DESC, a.startTime DESC ";
 
         Query q = entityManager.createQuery(queryString);
         q.setParameter(1, providerNo);
@@ -760,17 +720,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
             Date startAppointmentDate,
             Date endAppointmentDate) {
 
-        String queryString = "FROM Appointment WHERE " +
-                "providerNo = ?1 AND " +
-                "appointmentDate >= ?2 AND " +
-                "appointmentDate <= ?3 AND " +
-                "status NOT LIKE 'B%' AND " +
-                "status NOT LIKE 'C%' AND " +
-                "status NOT LIKE 'N%' AND " +
-                "status NOT LIKE 'T%' AND " +
-                "status NOT LIKE 't%' AND " +
-                "demographicNo != 0 " +
-                "ORDER BY appointmentDate DESC, startTime DESC";
+        String queryString = "SELECT a FROM Appointment a WHERE a.providerNo = ?1 AND a.appointmentDate >= ?2 AND a.appointmentDate <= ?3 AND a.status NOT LIKE 'B%' AND a.status NOT LIKE 'C%' AND a.status NOT LIKE 'N%' AND a.status NOT LIKE 'T%' AND a.status NOT LIKE 't%' AND a.demographicNo != 0 ORDER BY a.appointmentDate DESC, a.startTime DESC";
 
         Query q = entityManager.createQuery(queryString);
         q.setParameter(1, providerNo);
@@ -819,7 +769,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Appointment> findDemoAppointmentsToday(Integer demographicNo) {
-        String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate=DATE(NOW()) ORDER BY a.appointmentDate, a.startTime";
+        String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE ORDER BY a.appointmentDate, a.startTime";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, demographicNo);
 

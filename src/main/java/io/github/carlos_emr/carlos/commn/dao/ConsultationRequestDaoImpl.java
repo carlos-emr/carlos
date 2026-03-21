@@ -31,7 +31,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigInteger;
 import java.util.Date;
 import java.util.List;
 
@@ -52,7 +51,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         Query query = entityManager.createNativeQuery("select count(*) from consultationRequests where referalDate < ?1 and status != 4");
         query.setParameter(1, referralDateCutoff);
 
-        return ((BigInteger) query.getSingleResult()).intValue();
+        return ((Number) query.getSingleResult()).intValue();
     }
 
     public int getCountReferralsAfterCutOffDateAndNotCompleted(Date referralDateCutoff, String sendto) {
@@ -60,7 +59,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         query.setParameter(1, referralDateCutoff);
         query.setParameter(2, sendto);
 
-        return ((BigInteger) query.getSingleResult()).intValue();
+        return ((Number) query.getSingleResult()).intValue();
     }
 
     public List<ConsultationRequest> getConsults(Integer demoNo) {

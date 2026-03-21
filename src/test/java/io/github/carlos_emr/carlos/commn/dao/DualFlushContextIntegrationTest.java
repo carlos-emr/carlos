@@ -98,7 +98,7 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             // When — query via Hibernate Session (native SQL through HibernateTemplate)
             @SuppressWarnings("unchecked")
             List<Facility> results = (List<Facility>) hibernateTemplate.find(
-                    "FROM Facility f WHERE f.name = ?0", "JPA Persisted Facility");
+                    "FROM Facility f WHERE f.name = ?1", "JPA Persisted Facility");
 
             // Then — Hibernate Session should see the JPA-written data
             assertThat(results).isNotEmpty();
@@ -123,7 +123,7 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             // When — query via Hibernate Session
             @SuppressWarnings("unchecked")
             List<Facility> results = (List<Facility>) hibernateTemplate.find(
-                    "FROM Facility f WHERE f.name = ?0", "Updated Via JPA");
+                    "FROM Facility f WHERE f.name = ?1", "Updated Via JPA");
 
             // Then
             assertThat(results).hasSize(1);
@@ -256,7 +256,7 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             // When — count via Hibernate
             @SuppressWarnings("unchecked")
             List<Long> counts = (List<Long>) hibernateTemplate.find(
-                    "SELECT COUNT(f) FROM Facility f WHERE f.name = ?0", "Mixed Ops Test");
+                    "SELECT COUNT(f) FROM Facility f WHERE f.name = ?1", "Mixed Ops Test");
 
             // Then
             assertThat(counts).isNotEmpty();

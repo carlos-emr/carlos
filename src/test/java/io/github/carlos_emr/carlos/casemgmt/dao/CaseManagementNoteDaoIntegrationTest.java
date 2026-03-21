@@ -172,14 +172,16 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             note.setArchived(false);
             note.setLocked(false);
 
-            // When - saveAndReturn returns the generated Serializable ID from Session.save()
+            // When - saveAndReturn persists and returns the note entity
             Object result = caseManagementNoteDAO.saveAndReturn(note);
             hibernateTemplate.flush();
 
-            // Then - result should be the generated Long ID matching the note's ID
-            assertThat(result).isInstanceOf(Long.class);
-            assertThat((Long) result).isEqualTo(note.getId());
-            assertThat((Long) result).isPositive();
+            // Then - result should be the persisted note with a generated ID
+            assertThat(result).isInstanceOf(CaseManagementNote.class);
+            CaseManagementNote returned = (CaseManagementNote) result;
+            assertThat(returned.getId()).isNotNull();
+            assertThat(returned.getId()).isEqualTo(note.getId());
+            assertThat(returned.getId()).isPositive();
         }
 
         @Test

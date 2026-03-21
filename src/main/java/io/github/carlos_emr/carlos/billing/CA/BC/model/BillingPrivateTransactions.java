@@ -56,7 +56,7 @@ public class BillingPrivateTransactions extends AbstractModel<Integer> {
     @Column(name = "billingmaster_no", nullable = false)
     private int billingmasterNo;
 
-    @Column(name = "amount_received", nullable = false, precision = 22, scale = 0)
+    @Column(name = "amount_received", nullable = false)
     private double amountReceived;
 
     @Temporal(TemporalType.TIMESTAMP)

@@ -235,7 +235,7 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
             createSecurity("800001", "zuser", "pw1");
             createSecurity("800002", "auser", "pw2");
 
-            List<Security> results = securityDao.findAllOrderBy("user_name");
+            List<Security> results = securityDao.findAllOrderBy("userName");
             assertThat(results).hasSize(2);
             assertThat(results.get(0).getUserName()).isEqualTo("auser");
             assertThat(results.get(1).getUserName()).isEqualTo("zuser");

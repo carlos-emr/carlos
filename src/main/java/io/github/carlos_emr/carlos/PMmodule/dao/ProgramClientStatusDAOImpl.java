@@ -51,7 +51,11 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
     }
 
     public void saveProgramClientStatus(ProgramClientStatus status) {
-        currentSession().merge(status);
+        if (status.getId() == null) {
+            currentSession().persist(status);
+        } else {
+            currentSession().merge(status);
+        }
     }
 
     public ProgramClientStatus getProgramClientStatus(String id) {

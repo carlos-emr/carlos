@@ -30,7 +30,6 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -311,7 +310,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         query.setParameter(1, providerNo);
         query.setParameter(2, startDate);
         query.setParameter(3, endDate);
-        BigInteger bint = (BigInteger) query.getSingleResult();
+        Number bint = (Number) query.getSingleResult();
         return bint.intValue();
     }
 

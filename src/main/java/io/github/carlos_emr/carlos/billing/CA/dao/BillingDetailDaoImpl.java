@@ -66,7 +66,7 @@ public class BillingDetailDaoImpl extends AbstractDaoImpl<BillingDetail> impleme
 
     @Override
     public List<BillingDetail> findByBillingNo(Integer billingNo) {
-        Query query = createQuery("bd", "bd.billingNo = :billingNo AND bd.status <> 'D' ORDER BY service_code");
+        Query query = createQuery("bd", "bd.billingNo = :billingNo AND bd.status <> 'D' ORDER BY bd.serviceCode");
         query.setParameter("billingNo", billingNo);
         return query.getResultList();
     }

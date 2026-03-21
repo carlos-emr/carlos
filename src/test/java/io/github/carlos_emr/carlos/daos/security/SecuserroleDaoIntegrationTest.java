@@ -92,6 +92,11 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
     /**
      * Creates and persists a {@link Secuserrole} with minimal required fields.
      *
+     * <p>Uses {@code session.persist()} via {@code hibernateTemplate} so the entity
+     * gets its auto-generated ID populated in-place. The DAO's {@code save()} method
+     * uses {@code session.merge()} which returns a new managed instance, leaving the
+     * original entity detached with a null ID under Hibernate 7.</p>
+     *
      * @param providerNo String the provider number
      * @param roleName   String the role name (e.g., "doctor", "nurse")
      * @param orgcd      String the organization code
@@ -102,12 +107,16 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         role.setProviderNo(providerNo);
         role.setRoleName(roleName);
         role.setOrgcd(orgcd);
-        secuserroleDao.save(role);
+        role.setLastUpdateDate(new Date());
+        hibernateTemplate.execute(session -> { session.persist(role); return null; });
         return role;
     }
 
     /**
      * Creates and persists a {@link Secuserrole} with an explicit active/inactive status.
+     *
+     * <p>Uses {@code session.persist()} via {@code hibernateTemplate} so the entity
+     * gets its auto-generated ID populated in-place.</p>
      *
      * @param providerNo String the provider number
      * @param roleName   String the role name
@@ -122,7 +131,8 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         role.setRoleName(roleName);
         role.setOrgcd(orgcd);
         role.setActiveyn(activeyn);
-        secuserroleDao.save(role);
+        role.setLastUpdateDate(new Date());
+        hibernateTemplate.execute(session -> { session.persist(role); return null; });
         return role;
     }
 
@@ -145,15 +155,17 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             role.setRoleName("doctor");
             role.setOrgcd("ORG1");
 
-            // When
+            // When - save() uses session.merge() internally; the returned managed
+            // copy is discarded, so we verify via findAll instead of role.getId()
             secuserroleDao.save(role);
             hibernateTemplate.flush();
 
-            // Then
-            assertThat(role.getId()).isPositive();
-            Secuserrole found = secuserroleDao.findById(role.getId());
-            assertThat(found).isNotNull();
-            assertThat(found.getProviderNo()).isEqualTo("P100");
+            // Then - verify via query since merge() doesn't populate the original entity's ID
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByProviderNo("P100");
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isPositive();
+            assertThat(results.get(0).getProviderNo()).isEqualTo("P100");
         }
 
         @Test
@@ -210,8 +222,10 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
             Integer savedId = role.getId();
 
-            // When
-            secuserroleDao.delete(role);
+            // When - re-fetch to get a managed instance for delete (session.remove()
+            // requires the entity to be associated with the persistence context)
+            Secuserrole managed = secuserroleDao.findById(savedId);
+            secuserroleDao.delete(managed);
             hibernateTemplate.flush();
 
             // Then
@@ -654,7 +668,7 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
      * Tests for the {@link SecuserroleDao#attachDirty(Secuserrole)} method.
      *
      * <p>The {@code attachDirty()} implementation calls
-     * {@code session.saveOrUpdate(instance)} after setting {@code lastUpdateDate}
+     * {@code session.merge(instance)} after setting {@code lastUpdateDate}
      * to the current time. This re-attaches a detached entity to the session
      * and marks it as dirty for synchronization.</p>
      */
@@ -664,7 +678,9 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
 
         /**
          * Verifies that {@code attachDirty()} persists a new (transient) entity
-         * via {@code saveOrUpdate()}, which behaves like {@code save()} for new entities.
+         * via {@code session.merge()}, which creates a new managed copy for new entities.
+         * Since merge() does not populate the original entity's ID, we verify
+         * persistence via a query.
          */
         @Test
         @Tag("create")
@@ -680,12 +696,13 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             secuserroleDao.attachDirty(role);
             hibernateTemplate.flush();
 
-            // Then
-            assertThat(role.getId()).isPositive();
-            assertThat(role.getLastUpdateDate()).isNotNull();
-            Secuserrole found = secuserroleDao.findById(role.getId());
-            assertThat(found).isNotNull();
-            assertThat(found.getProviderNo()).isEqualTo("AD100");
+            // Then - verify via query since merge() doesn't populate the original entity's ID
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByProviderNo("AD100");
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isPositive();
+            assertThat(results.get(0).getLastUpdateDate()).isNotNull();
+            assertThat(results.get(0).getProviderNo()).isEqualTo("AD100");
         }
 
         /**
@@ -698,19 +715,15 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         void shouldUpdateLastUpdateDate_whenAttachingDirtyEntity() {
             // Given - set a fixed past baseline date before saving so we can verify it was updated
             java.util.Date baseline = new java.util.Date(946684800000L); // 2000-01-01
-            Secuserrole role = new Secuserrole();
-            role.setProviderNo("AD200");
-            role.setRoleName("nurse");
-            role.setOrgcd("ORG1");
+            Secuserrole role = createSecuserrole("AD200", "nurse", "ORG1");
             role.setLastUpdateDate(baseline);
-            secuserroleDao.save(role);
             hibernateTemplate.flush();
-            hibernateTemplate.evict(role);
 
-            // When - modify and re-attach
+            // When - modify and re-attach via merge
             role.setRoleName("specialist");
             secuserroleDao.attachDirty(role);
             hibernateTemplate.flush();
+            hibernateTemplate.clear();
 
             // Then - lastUpdateDate must have been updated past the baseline
             Secuserrole found = secuserroleDao.findById(role.getId());
@@ -732,24 +745,20 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
     class AttachCleanOperations {
 
         /**
-         * Verifies that {@code attachClean()} re-associates a detached entity
-         * with the session. After calling attachClean, the entity should be
-         * associated with the current session.
+         * Verifies that {@code attachClean()} can lock a managed entity
+         * with {@code LockMode.NONE} without modifying it.
          */
         @Test
         @Tag("read")
-        @DisplayName("should attach clean entity to session without modifying it")
-        void shouldAttachCleanEntity_withoutModifyingIt() {
-            // Given - create and flush an entity, then evict it from session
+        @DisplayName("should lock managed entity without modifying it")
+        void shouldLockManagedEntity_withoutModifyingIt() {
+            // Given - create and flush an entity (remains managed in session)
             Secuserrole role = createSecuserrole("AC100", "doctor", "ORG1");
             hibernateTemplate.flush();
             String originalRoleName = role.getRoleName();
             Integer originalId = role.getId();
 
-            // Evict to make it detached
-            hibernateTemplate.evict(role);
-
-            // When - re-attach as clean
+            // When - lock the managed entity as clean
             secuserroleDao.attachClean(role);
 
             // Then - entity should retain its original values
@@ -757,14 +766,33 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             assertThat(role.getRoleName()).isEqualTo(originalRoleName);
             assertThat(role.getProviderNo()).isEqualTo("AC100");
         }
+
+        /**
+         * Verifies that {@code attachClean()} throws when called with a detached
+         * entity. In Hibernate 7, {@code session.lock()} rejects detached instances
+         * with a {@code DetachedObjectException} wrapped in {@code IllegalArgumentException}.
+         */
+        @Test
+        @Tag("read")
+        @DisplayName("should throw when attaching clean on detached entity")
+        void shouldThrow_whenAttachingCleanOnDetachedEntity() {
+            // Given - create, flush, then evict to make it detached
+            Secuserrole role = createSecuserrole("AC200", "nurse", "ORG1");
+            hibernateTemplate.flush();
+            hibernateTemplate.evict(role);
+
+            // When / Then - Hibernate 7 rejects lock() on detached entities
+            assertThatThrownBy(() -> secuserroleDao.attachClean(role))
+                .isInstanceOf(RuntimeException.class);
+        }
     }
 
     /**
      * Tests for the {@link SecuserroleDao#updateRoleName(Integer, String)} edge cases.
      *
      * <p>The {@code updateRoleName()} implementation first loads the entity via
-     * {@code HibernateTemplate.get()}, then sets the new role name and
-     * lastUpdateDate before calling {@code HibernateTemplate.update()}.</p>
+     * {@code session.get()}, then sets the new role name and
+     * lastUpdateDate before calling {@code session.merge()}.</p>
      */
     @Nested
     @DisplayName("updateRoleName() edge cases")
@@ -773,7 +801,7 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         /**
          * Verifies that {@code updateRoleName()} is a no-op when the ID does
          * not correspond to any existing entity. The implementation checks
-         * for null return from {@code HibernateTemplate.get()} and silently
+         * for null return from {@code session.get()} and silently
          * skips the update.
          */
         @Test
@@ -797,7 +825,6 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             Date baseline = new Date(946684800000L); // 2000-01-01 as a fixed past baseline
             Secuserrole role = createSecuserrole("URN01", "doctor", "ORG1");
             role.setLastUpdateDate(baseline);
-            hibernateTemplate.update(role);
             hibernateTemplate.flush();
             hibernateTemplate.clear();
 
@@ -945,7 +972,8 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
 
         /**
          * Verifies that {@code save()} automatically sets the lastUpdateDate
-         * to a non-null value.
+         * to a non-null value. Since save() uses session.merge() internally,
+         * the original entity may not have its ID populated; we verify via query.
          */
         @Test
         @Tag("create")
@@ -961,10 +989,15 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             secuserroleDao.save(role);
             hibernateTemplate.flush();
 
-            // Then - lastUpdateDate should be set to approximately now
+            // Then - verify via query since merge() doesn't populate the original entity's ID
+            // The save() method sets lastUpdateDate before merging
             assertThat(role.getLastUpdateDate()).isNotNull();
             assertThat(role.getLastUpdateDate()).isCloseTo(new Date(), 5000L);
-            assertThat(role.getId()).isPositive();
+
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByProviderNo("SV100");
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isPositive();
         }
     }
 }

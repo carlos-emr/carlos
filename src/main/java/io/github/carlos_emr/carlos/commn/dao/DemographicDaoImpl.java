@@ -31,7 +31,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Objects;
-import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -270,7 +269,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         Iterator iter = results.iterator();
         while (iter.hasNext()) {
             Object[] result = (Object[]) iter.next();
-            if (((BigInteger) result[3]).intValue() == 0) {
+            if (((Number) result[3]).intValue() == 0) {
                 Demographic d = new Demographic();
                 d.setDemographicNo((Integer) result[0]);
                 d.setFirstName((String) result[1]);
@@ -1482,7 +1481,11 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(demographic.getDemographicNo());
         }
 
-        currentSession().merge(demographic);
+        if (objExists) {
+            currentSession().merge(demographic);
+        } else {
+            currentSession().persist(demographic);
+        }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
             (new HL7A04Generator()).generateHL7A04(demographic);
@@ -2056,7 +2059,11 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(client.getDemographicNo());
 
         client.setLastUpdateDate(new Date());
-        currentSession().merge(client);
+        if (objExists) {
+            currentSession().merge(client);
+        } else {
+            currentSession().persist(client);
+        }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
             (new HL7A04Generator()).generateHL7A04(client);
@@ -2661,7 +2668,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 sqlQuery.setParameter(key, params.get(key));
                 MiscUtils.getLogger().warn(key + "=" + params.get(key));
             }
-            Integer result = ((BigInteger) sqlQuery.uniqueResult()).intValue();
+            Integer result = ((Number) sqlQuery.uniqueResult()).intValue();
             return result;
     }
 

@@ -72,7 +72,11 @@ public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implem
     }
 
     public void save(ProgramClientRestriction restriction) {
-        currentSession().merge(restriction);
+        if (restriction.getId() == null || restriction.getId() == 0) {
+            currentSession().persist(restriction);
+        } else {
+            currentSession().merge(restriction);
+        }
     }
 
     public ProgramClientRestriction find(int restrictionId) {

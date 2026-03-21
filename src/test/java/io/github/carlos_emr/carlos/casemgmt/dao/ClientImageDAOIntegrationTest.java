@@ -162,7 +162,7 @@ public class ClientImageDAOIntegrationTest extends CarlosTestBase {
 
         // When - persist via DAO and flush to synchronize with the database
         clientImageDAO.saveClientImage(image);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - retrieve by demographic_no and verify all fields survived the roundtrip
         ClientImage retrieved = clientImageDAO.getClientImage(10001);
@@ -196,7 +196,7 @@ public class ClientImageDAOIntegrationTest extends CarlosTestBase {
         // Given - persist an image so there is data to retrieve
         ClientImage image = createClientImage(10002, "image/jpeg", new byte[]{10, 20, 30}, new Date());
         clientImageDAO.saveClientImage(image);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // When - retrieve the image by its demographic_no
         ClientImage found = clientImageDAO.getClientImage(10002);
@@ -267,7 +267,7 @@ public class ClientImageDAOIntegrationTest extends CarlosTestBase {
         // Given - save first image with PNG type
         ClientImage image1 = createClientImage(10004, "image/png", new byte[]{1, 2, 3}, new Date());
         clientImageDAO.saveClientImage(image1);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // When - save second image with same demographic_no but different type.
         // The DAO's saveClientImage copies data from the new image to the existing
@@ -278,7 +278,7 @@ public class ClientImageDAOIntegrationTest extends CarlosTestBase {
                 // the DAO's now() override on the existing entity is more recent
                 new Date(System.currentTimeMillis() - 3600000));
         clientImageDAO.saveClientImage(image2);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - retrieval should return an image with the updated JPEG type,
         // because the DAO copied image_type from image2 onto the existing entity
@@ -318,17 +318,17 @@ public class ClientImageDAOIntegrationTest extends CarlosTestBase {
         // Older image: update_date set to 24 hours ago
         ClientImage olderImage = createClientImage(10005, "image/png", null,
                 new Date(System.currentTimeMillis() - 86400000));
-        entityManager.persist(olderImage);
+        hibernateTemplate.save(olderImage);
 
         // Newer image: update_date set to now
         ClientImage newerImage = createClientImage(10005, "image/jpeg", null, new Date());
-        entityManager.persist(newerImage);
+        hibernateTemplate.save(newerImage);
 
         // Flush writes to the database, then clear the first-level persistence
         // context cache so the DAO query hits the database instead of returning
         // a stale cached entity reference
-        entityManager.flush();
-        entityManager.clear();
+        hibernateTemplate.flush();
+        hibernateTemplate.clear();
 
         // When - retrieve via DAO, which queries with ORDER BY update_date DESC
         ClientImage found = clientImageDAO.getClientImage(10005);

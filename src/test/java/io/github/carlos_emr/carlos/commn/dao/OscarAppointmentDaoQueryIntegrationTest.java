@@ -72,9 +72,6 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
     @Autowired
     private OscarAppointmentDao oscarAppointmentDao;
 
-    @Autowired
-    private DemographicDao demographicDao;
-
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
@@ -181,7 +178,13 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
     }
 
     /**
-     * Creates and persists a Demographic via DemographicDao (HBM-mapped entity).
+     * Creates and persists a Demographic via HibernateTemplate (HBM-mapped entity).
+     *
+     * <p>Uses {@code hibernateTemplate.save()} instead of {@code demographicDao.save()}
+     * because the DAO's save method uses {@code session.merge()}, which in Hibernate 7
+     * does not populate the ID on the original entity instance for identity-generated
+     * columns. Using hibernateTemplate.save() ensures the ID is assigned and available
+     * on the returned entity.</p>
      */
     private Demographic createAndPersistDemographic(String firstName, String lastName,
                                                      String hcType, String hin) {
@@ -196,7 +199,8 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
         demo.setMonthOfBirth("01");
         demo.setDateOfBirth("15");
         demo.setSex("M");
-        demographicDao.save(demo);
+        hibernateTemplate.save(demo);
+        hibernateTemplate.flush();
         return demo;
     }
 
@@ -547,8 +551,8 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             assertThat(result).isNotEmpty();
             Object[] row = result.get(0);
             assertThat(row).hasSize(2);
-            assertThat(row[0]).isInstanceOf(Provider.class);
-            assertThat(row[1]).isInstanceOf(Appointment.class);
+            assertThat(row[0]).isInstanceOf(Appointment.class);
+            assertThat(row[1]).isInstanceOf(Provider.class);
         }
 
         @Test

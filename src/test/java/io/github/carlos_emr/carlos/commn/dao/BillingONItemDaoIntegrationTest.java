@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Arrays;
 import java.util.List;
 
@@ -58,6 +60,21 @@ public class BillingONItemDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingONCHeader1Dao bONCH1Dao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    /**
+     * Creates a parent BillingONCHeader1 record and returns its generated ID.
+     * Required because billing_on_item.ch1_id has a FK constraint to billing_on_cheader1.id.
+     */
+    private int createParentHeader() throws Exception {
+        BillingONCHeader1 header = new BillingONCHeader1();
+        EntityDataGenerator.generateTestDataForModelClass(header);
+        bONCH1Dao.persist(header);
+        entityManager.flush();
+        return header.getId();
+    }
+
     @Nested
     @DisplayName("Query operations")
     class QueryOperations {
@@ -66,7 +83,8 @@ public class BillingONItemDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should get billing items by ch1 ID")
         void shouldGetBillingItems_byCh1Id() throws Exception {
-            int ch1Id1 = 101, ch1Id2 = 202;
+            int ch1Id1 = createParentHeader();
+            int ch1Id2 = createParentHeader();
 
             BillingONItem bONI1 = new BillingONItem();
             EntityDataGenerator.generateTestDataForModelClass(bONI1);
@@ -106,7 +124,7 @@ public class BillingONItemDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should get active billing items by ch1 ID excluding deleted status")
         void shouldGetActiveBillingItems_byCh1Id() throws Exception {
-            int ch1Id1 = 101, ch1Id2 = 202;
+            int ch1Id1 = createParentHeader(), ch1Id2 = createParentHeader();
             String status1 = "D", status2 = "Active";
 
             BillingONItem bONI1 = new BillingONItem();
@@ -198,7 +216,7 @@ public class BillingONItemDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find billing items by ch1 ID with non-deleted and non-settled status")
         void shouldFindBillingItems_byCh1IdWithActiveStatus() throws Exception {
-            int ch1Id1 = 101, ch1Id2 = 202;
+            int ch1Id1 = createParentHeader(), ch1Id2 = createParentHeader();
             String status1 = "D", status2 = "N", status3 = "S";
 
             BillingONItem bONI1 = new BillingONItem();
@@ -268,7 +286,7 @@ public class BillingONItemDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find billing items by ch1 ID and status not equal to given status")
         void shouldFindBillingItems_byCh1IdAndStatusNotEqual() throws Exception {
-            int ch1Id1 = 101, ch1Id2 = 202;
+            int ch1Id1 = createParentHeader(), ch1Id2 = createParentHeader();
             String status1 = "D", status2 = "Active";
 
             BillingONItem bONI1 = new BillingONItem();

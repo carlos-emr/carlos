@@ -292,15 +292,15 @@ public class BillingmasterDAO {
     }
 
     public List<Billingmaster> findByDemoNoCodeStatusesAndYear(Integer demoNo, Date date, String billingCode) {
-        String sql = "FROM Billingmaster bm " +
-                "WHERE bm.demographicNo = :demoNo " +
-                "AND bm.billingCode = :billingCode " +
-                "AND YEAR(bm.serviceDate) = YEAR(:date) " +
-                "AND bm.billingstatus != 'D'";
+        // serviceDate is stored as String in yyyyMMdd format, so use SUBSTRING to extract the year
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTime(date);
+        String yearStr = String.valueOf(cal.get(java.util.Calendar.YEAR));
 
-        Query query = entityManager.createQuery(sql);
+        Query query = entityManager.createQuery(
+                "FROM Billingmaster bm WHERE bm.demographicNo = :demoNo AND bm.billingCode = :billingCode AND SUBSTRING(bm.serviceDate, 1, 4) = :year AND bm.billingstatus != 'D'");
         query.setParameter("demoNo", demoNo);
-        query.setParameter("date", date);
+        query.setParameter("year", yearStr);
         query.setParameter("billingCode", billingCode);
         return query.getResultList();
     }

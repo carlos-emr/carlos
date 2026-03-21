@@ -36,13 +36,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.base.HibernateTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -62,7 +62,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @DisplayName("DiseaseRegistryHandler integration tests")
 class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
 
-    private static DemographicDao demographicDao;
     private static DxresearchDAO dxDao;
     private static DiseaseRegistryHandler diseaseRegistryHandler;
     private static final String PROVIDER_NO = "999998";
@@ -70,7 +69,7 @@ class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
 
     @BeforeAll
     static void setUpBeforeAll() throws Exception {
-        demographicDao = SpringUtils.getBean(DemographicDao.class);
+        HibernateTemplate ht = SpringUtils.getBean(HibernateTemplate.class);
         dxDao = SpringUtils.getBean(DxresearchDAO.class);
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod();
@@ -108,7 +107,11 @@ class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
             demographic.setRosterStatus("");
             demographic.setPatientStatus("");
             demographic.setHcType("");
-            demographicDao.save(demographic);
+            ht.execute(session -> {
+                session.persist(demographic);
+                return null;
+            });
+            ht.flush();
             demoNos.add(demographic.getDemographicNo());
         }
 

@@ -45,8 +45,16 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     }
 
     @Override
-    public List<Security> findAllOrderBy(String columnName) {
-        Query query = entityManager.createQuery("SELECT s FROM Security s ORDER BY " + columnName);
+    public List<Security> findAllOrderBy(String propertyName) {
+        String hql;
+        if ("userName".equals(propertyName)) {
+            hql = "SELECT s FROM Security s ORDER BY s.userName";
+        } else if ("providerNo".equals(propertyName)) {
+            hql = "SELECT s FROM Security s ORDER BY s.providerNo";
+        } else {
+            throw new IllegalArgumentException("Unsupported order property: " + propertyName);
+        }
+        Query query = entityManager.createQuery(hql);
         @SuppressWarnings("unchecked")
         List<Security> secList = query.getResultList();
         return secList;

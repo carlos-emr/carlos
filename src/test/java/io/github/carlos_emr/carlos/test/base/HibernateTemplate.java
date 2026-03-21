@@ -77,8 +77,14 @@ public class HibernateTemplate {
 
     /**
      * Persist a new entity. Replaces the removed {@code Session.save()} in Hibernate 7.
-     * Returns null since {@code persist()} is void — callers that need the generated ID
-     * should access the entity's ID field after persist + flush.
+     *
+     * <p><strong>Hibernate 7 migration note:</strong> {@code persist()} requires the entity's
+     * identifier to be null (or the unsaved-value) for identity-generated columns. Tests that
+     * need specific IDs should let the DB generate the ID and query it after flush, or use
+     * native SQL for setup.</p>
+     *
+     * @return null — callers that need the generated ID should access the entity's
+     *         ID field after persist + flush
      */
     public Serializable save(Object entity) {
         sessionFactory.getCurrentSession().persist(entity);

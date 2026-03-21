@@ -67,6 +67,8 @@ public class RScheduleDaoIntegrationTest extends CarlosTestBase {
         RSchedule rs = new RSchedule();
         rs.setProviderNo(providerNo);
         rs.setsDate(sdate);
+        // Set eDate to same as sDate to satisfy findByProviderNoAndDates range query
+        rs.seteDate(sdate);
         rs.setAvailable(available);
         rs.setDayOfWeek(dayOfWeek);
         rScheduleDao.persist(rs);

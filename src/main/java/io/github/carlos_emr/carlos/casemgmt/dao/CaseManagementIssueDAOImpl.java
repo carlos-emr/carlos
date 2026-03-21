@@ -152,7 +152,11 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
 
     public void saveIssue(CaseManagementIssue issue) {
         issue.setUpdate_date(new Date());
-        currentSession().merge(issue);
+        if (issue.getId() == null || issue.getId() <= 0) {
+            currentSession().persist(issue);
+        } else {
+            currentSession().merge(issue);
+        }
     }
 
     @SuppressWarnings("unchecked")

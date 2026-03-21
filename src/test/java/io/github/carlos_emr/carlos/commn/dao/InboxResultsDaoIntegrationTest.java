@@ -91,9 +91,9 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     private EntityManager entityManager;
 
     private static final String PROVIDER_NO = "999001";
-    private static final Integer DEMO_ID = 2001;
 
     private Date today;
+    private Integer demoId;
 
     @BeforeEach
     void setUp() {
@@ -102,13 +102,12 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         cal.set(Calendar.MILLISECOND, 0);
         today = cal.getTime();
 
-        // Create a demographic record (HBM-mapped)
-        createDemographic(DEMO_ID);
+        // Create a demographic record (HBM-mapped) — let identity generator assign ID
+        demoId = createDemographic();
     }
 
-    private void createDemographic(Integer demoNo) {
+    private Integer createDemographic() {
         Demographic demo = new Demographic();
-        demo.setDemographicNo(demoNo);
         demo.setFirstName("Test");
         demo.setLastName("Patient");
         demo.setHin("1234567890");
@@ -119,6 +118,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         demo.setDateJoined(today);
         hibernateTemplate.save(demo);
         hibernateTemplate.flush();
+        return demo.getDemographicNo();
     }
 
     /**
@@ -279,7 +279,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenNoLabRouting() {
             // Given — demographic exists but no patientLabRouting entries
             // When
-            ArrayList result = inboxResultsDao.populateHL7ResultsData(String.valueOf(DEMO_ID), "1", false);
+            ArrayList result = inboxResultsDao.populateHL7ResultsData(String.valueOf(demoId), "1", false);
 
             // Then
             assertThat(result).isEmpty();
@@ -301,7 +301,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenNoDocuments() {
             // When
             ArrayList result = inboxResultsDao.populateDocumentResultsData(
-                    PROVIDER_NO, String.valueOf(DEMO_ID), "", "", "", "");
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "");
 
             // Then
             assertThat(result).isEmpty();
@@ -313,11 +313,11 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_forProviderWithNoRoutedDocs() {
             // Given — document exists but no providerLabRouting to this provider
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
-            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
 
             // When
             ArrayList result = inboxResultsDao.populateDocumentResultsData(
-                    PROVIDER_NO, String.valueOf(DEMO_ID), "", "", "", "");
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "");
 
             // Then
             assertThat(result).isEmpty();
@@ -340,12 +340,12 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnDocuments_forDemographicWithRouting() {
             // Given
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
-            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
 
             // When — !mixLabsAndDocs, specific demographicNo
             ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
-                    PROVIDER_NO, String.valueOf(DEMO_ID), "", "", "", "",
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
                     false, null, null, false, null);
 
             // Then
@@ -362,12 +362,12 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnDocuments_filteredByStatus() {
             // Given
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
-            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
 
             // When — filter by status "N"
             ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
-                    PROVIDER_NO, String.valueOf(DEMO_ID), "", "", "", "N",
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "N",
                     false, null, null, false, null);
 
             // Then
@@ -380,12 +380,12 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenStatusDoesntMatch() {
             // Given
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
-            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
 
             // When — filter by status "A" (but routing has "N")
             ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
-                    PROVIDER_NO, String.valueOf(DEMO_ID), "", "", "", "A",
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "A",
                     false, null, null, false, null);
 
             // Then
@@ -398,12 +398,12 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenProviderDoesntMatch() {
             // Given
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
-            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
 
             // When — different provider
             ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
-                    "OTHER", String.valueOf(DEMO_ID), "", "", "", "",
+                    "OTHER", String.valueOf(demoId), "", "", "", "",
                     false, null, null, false, null);
 
             // Then
@@ -472,7 +472,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldFilterDocuments_byDateRange() {
             // Given
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
-            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
 
             Calendar cal = Calendar.getInstance();
@@ -483,7 +483,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
             // When — with date range that includes the document
             ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
-                    PROVIDER_NO, String.valueOf(DEMO_ID), "", "", "", "",
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
                     false, null, null, false, null, startDate, endDate);
 
             // Then
@@ -496,7 +496,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenOutsideDateRange() {
             // Given
             Document doc = createDocument("lab", PROVIDER_NO, 'A');
-            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
 
             Calendar cal = Calendar.getInstance();
@@ -507,7 +507,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
             // When — date range before document creation
             ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
-                    PROVIDER_NO, String.valueOf(DEMO_ID), "", "", "", "",
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
                     false, null, null, false, null, startDate, endDate);
 
             // Then

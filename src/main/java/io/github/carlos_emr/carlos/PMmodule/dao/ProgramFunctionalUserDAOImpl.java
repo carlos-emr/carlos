@@ -78,7 +78,11 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        currentSession().merge(fut);
+        if (fut.getId() == null) {
+            currentSession().persist(fut);
+        } else {
+            currentSession().merge(fut);
+        }
 
         if (log.isDebugEnabled()) {
             log.debug("saveFunctionalUserType:" + fut.getId());
@@ -134,7 +138,11 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
             throw new IllegalArgumentException();
         }
 
-        currentSession().merge(pfu);
+        if (pfu.getId() == null) {
+            currentSession().persist(pfu);
+        } else {
+            currentSession().merge(pfu);
+        }
 
         if (log.isDebugEnabled()) {
             log.debug("saveFunctionalUser:" + pfu.getId());
