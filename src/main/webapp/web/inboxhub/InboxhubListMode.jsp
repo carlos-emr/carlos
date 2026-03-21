@@ -69,7 +69,7 @@
                     </td>
                     <td><c:out value="${labResult.sex}" /></td>
                     <td><c:out value="${labResult.resultStatus == 'A' ? 'Abnormal' : ''}" /></td>
-                    <td><c:out value="${labResult.label}" /></td>
+                    <td><c:out value="${labResult.label == 'null' ? '' : labResult.label}" /></td>
                     <td><c:out value="${labResult.dateTime}" /><c:out value="${labResult.document ? ' / ' : ''}" /><c:out value="${labResult.document ?  labResult.lastUpdateDate : ''}"/></td>
                     <td><c:out value="${labResult.requestingClient}" /></td>
                     <td><c:out value="${labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString}" /></td>
