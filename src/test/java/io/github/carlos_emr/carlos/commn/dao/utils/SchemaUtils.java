@@ -48,7 +48,7 @@
 
 package io.github.carlos_emr.carlos.commn.dao.utils;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.BufferedReader;
 import java.io.File;
