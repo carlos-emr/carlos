@@ -209,9 +209,9 @@
     });
 
     function removeReport(reportId) {
-        const el = jQuery("#labdoc_" + reportId);
-        if (el != null) {
-            el.remove();
+        const rowEl = jQuery("#labdoc_" + reportId);
+        if (rowEl.length > 0) {
+            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
         }
     }
 </script>
