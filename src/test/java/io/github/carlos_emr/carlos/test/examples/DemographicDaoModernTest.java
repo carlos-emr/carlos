@@ -65,6 +65,7 @@ class DemographicDaoModernTest extends CarlosTestBase {
 
         // When
         demographicDao.save(demographic);
+        hibernateTemplate.flush();
         Demographic retrieved = demographicDao.getDemographicById(demographic.getDemographicNo());
 
         // Then
@@ -102,6 +103,7 @@ class DemographicDaoModernTest extends CarlosTestBase {
 
         // When
         demographicDao.save(demographic);
+        hibernateTemplate.flush();
         Demographic retrieved = demographicDao.getDemographicById(demographic.getDemographicNo());
 
         // Then
@@ -125,6 +127,7 @@ class DemographicDaoModernTest extends CarlosTestBase {
         // Don't set HIN for this test to avoid conflicts
         demographic.setHin(null);
         demographicDao.save(demographic);
+        hibernateTemplate.flush();
 
         // When - search using the actual value or a test value
         String actualSearchValue = searchField.equals("chartNo") ? uniqueChartNo : searchValue;
@@ -157,6 +160,7 @@ class DemographicDaoModernTest extends CarlosTestBase {
         // Create and save a demographic
         Demographic demographic = createTestDemographic("ROLLBACK", "Test", "Rollback");
         demographicDao.save(demographic);
+        hibernateTemplate.flush();
 
         // Verify it was saved within the transaction
         Demographic retrieved = demographicDao.getDemographicById(demographic.getDemographicNo());
@@ -185,6 +189,7 @@ class DemographicDaoModernTest extends CarlosTestBase {
                 demographicDao.save(demo);
                 saved.add(demo);
             }
+            hibernateTemplate.flush();
 
             // Verify all were saved
             for (Demographic demo : saved) {
@@ -212,6 +217,7 @@ class DemographicDaoModernTest extends CarlosTestBase {
         // Save both in the current transaction
         demographicDao.save(demo1);
         demographicDao.save(demo2);
+        hibernateTemplate.flush();
 
         // Verify both were saved
         Demographic retrieved1 = demographicDao.getDemographicById(demo1.getDemographicNo());

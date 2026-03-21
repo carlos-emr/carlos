@@ -72,6 +72,7 @@ public class ProgramQueueDaoIntegrationTest extends CarlosTestBase {
         createProgramQueue(testProgramId1, testClientId2, "active");  // Active, different client
         createProgramQueue(testProgramId2, testClientId1, "active");  // Active, different program
         createProgramQueue(testProgramId1, testClientId1, "inactive");  // Inactive, same program/client
+        hibernateTemplate.flush();
     }
 
     private ProgramQueue createProgramQueue(Long programId, Long clientId, String status) {

@@ -103,6 +103,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         status.setProgramId(programId);
         status.setName(name);
         hibernateTemplate.save(status);
+        hibernateTemplate.flush();
         return status;
     }
 

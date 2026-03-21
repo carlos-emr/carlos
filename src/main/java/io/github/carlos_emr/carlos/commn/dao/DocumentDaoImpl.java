@@ -188,7 +188,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         }
 
         String q = "select d from Demographic d, CtlDocument c where c.id.module='demographic'"
-                + " and c.id.moduleId!='-1' and c.id.moduleId=d.DemographicNo and c.id.documentNo=?1 ";
+                + " and c.id.moduleId != -1 and c.id.moduleId=d.DemographicNo and c.id.documentNo=?1 ";
 
         Query query = entityManager.createQuery(q);
         query.setParameter(1, id);
@@ -459,8 +459,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         Query query = entityManager.createNativeQuery(
                 "SELECT d.* FROM document d, ctl_document c WHERE c.document_no = d.document_no AND d.doctype = ?1 AND d.status NOT LIKE 'D' AND c.module LIKE 'demographic' AND c.module_id = ?2",
                 Document.class);
-        query.setParameter(1, demographicId);
-        query.setParameter(2, documentType.getName());
+        query.setParameter(1, documentType.getName());
+        query.setParameter(2, demographicId);
 
         @SuppressWarnings("unchecked")
         List<Document> results = query.getResultList();
@@ -493,8 +493,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         Query query = entityManager.createNativeQuery(
                 "SELECT d.* FROM document d, ctl_document c WHERE c.document_no = d.document_no AND d.docfilename = ?1 AND d.status NOT LIKE 'D' AND c.module LIKE 'demographic' AND c.module_id = ?2",
                 Document.class);
-        query.setParameter(1, demographicId);
-        query.setParameter(2, fileName);
+        query.setParameter(1, fileName);
+        query.setParameter(2, demographicId);
 
         return getSingleResultOrNull(query);
     }

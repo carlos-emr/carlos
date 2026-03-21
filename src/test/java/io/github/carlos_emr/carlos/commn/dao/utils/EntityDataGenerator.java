@@ -149,14 +149,34 @@ public class EntityDataGenerator {
                     value = "ON"; // Ontario version code
                 } else if ("hc_type".equalsIgnoreCase(fieldName) || "hcType".equalsIgnoreCase(fieldName)) {
                     value = "ON"; // Ontario health card type
-                } else if ("province".equalsIgnoreCase(fieldName)) {
+                } else if ("dateOfBirth".equalsIgnoreCase(fieldName) || "date_of_birth".equalsIgnoreCase(fieldName)) {
+                    value = String.format("%02d", (int) (Math.random() * 28) + 1); // "01"-"28"
+                } else if ("monthOfBirth".equalsIgnoreCase(fieldName) || "month_of_birth".equalsIgnoreCase(fieldName)) {
+                    value = String.format("%02d", (int) (Math.random() * 12) + 1); // "01"-"12"
+                } else if ("yearOfBirth".equalsIgnoreCase(fieldName) || "year_of_birth".equalsIgnoreCase(fieldName)) {
+                    value = String.valueOf(1950 + (int) (Math.random() * 70)); // "1950"-"2019"
+                } else if ("rosterTerminationReason".equalsIgnoreCase(fieldName) || "roster_termination_reason".equalsIgnoreCase(fieldName)) {
+                    value = "NR"; // Not Rostered
+                } else if ("postal".equalsIgnoreCase(fieldName) || "residentialPostal".equalsIgnoreCase(fieldName)) {
+                    value = "M5V2T6"; // Valid Canadian postal code, fits VARCHAR(9)
+                } else if ("chartNo".equalsIgnoreCase(fieldName) || "chart_no".equalsIgnoreCase(fieldName)) {
+                    int counter = uniqueCounter.incrementAndGet();
+                    value = "CH" + (counter % 100000); // Fits VARCHAR(10)
+                } else if ("sin".equalsIgnoreCase(fieldName)) {
+                    int counter = uniqueCounter.incrementAndGet();
+                    value = String.valueOf(100000000 + (counter % 900000000)); // 9-digit SIN, fits VARCHAR(15)
+                } else if ("province".equalsIgnoreCase(fieldName) || "residentialProvince".equalsIgnoreCase(fieldName)) {
                     value = "ON";
                 } else if ("roster_status".equalsIgnoreCase(fieldName) || "rosterStatus".equalsIgnoreCase(fieldName)) {
                     value = "RO";
                 } else if ("patient_status".equalsIgnoreCase(fieldName) || "patientStatus".equalsIgnoreCase(fieldName)) {
                     value = "AC";
                 } else {
-                    // Generate a unique value, respecting column length constraints
+                    // Generate a unique value, respecting column length constraints.
+                    // Note: maxLength defaults to 255 for HBM-mapped entities where
+                    // @Column is not present, but HBM may define shorter lengths.
+                    // Use a compact format (prefix + counter) that fits most HBM
+                    // column lengths while still being unique.
                     int counter = uniqueCounter.incrementAndGet();
                     if (maxLength <= 5) {
                         // Very short columns: use counter-based value
@@ -165,7 +185,9 @@ public class EntityDataGenerator {
                             value = value.substring(0, maxLength);
                         }
                     } else {
-                        value = fieldName.substring(0, Math.min(3, fieldName.length())) + System.currentTimeMillis() + "_" + counter;
+                        // Use compact format: 3-char prefix + counter (typically 8-12 chars)
+                        // This fits most HBM column lengths (>= 10) while staying unique
+                        value = fieldName.substring(0, Math.min(3, fieldName.length())) + counter;
                         if (value.length() > maxLength) {
                             value = value.substring(0, maxLength);
                         }

@@ -90,8 +90,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<MatchBO> getClientMatches(int vacancyId) {
-        String sql = "SELECT client_id, first_name, last_name, DATEDIFF(CURDATE(), e.form_date) days_in_waitlist, " +
-                "DATEDIFF(CURDATE(), last_contact_date) last_contact_days, form_id, match_percent, proportion "
+        String sql = "SELECT client_id, first_name, last_name, TIMESTAMPDIFF(DAY, e.form_date, CURRENT_DATE) days_in_waitlist, " +
+                "TIMESTAMPDIFF(DAY, last_contact_date, CURRENT_DATE) last_contact_days, form_id, match_percent, proportion "
                 + " FROM vacancy_client_match m, demographic  d, eform_data e WHERE vacancy_id = ?1  " +
                 "and d.demographic_no = m.client_id and m.form_id = e.fdid"
                 + " order by match_percent desc";
@@ -105,8 +105,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<MatchBO> getClientMatchesWithMinPercentage(int vacancyId, double percentage) {
-        String sql = "SELECT client_id, first_name, last_name, DATEDIFF(CURDATE(), e.form_date) days_in_waitlist, " +
-                "DATEDIFF(CURDATE(), last_contact_date) last_contact_days, form_id, match_percent, proportion "
+        String sql = "SELECT client_id, first_name, last_name, TIMESTAMPDIFF(DAY, e.form_date, CURRENT_DATE) days_in_waitlist, " +
+                "TIMESTAMPDIFF(DAY, last_contact_date, CURRENT_DATE) last_contact_days, form_id, match_percent, proportion "
                 + " FROM vacancy_client_match m, demographic  d, eform_data e WHERE vacancy_id = ?1  " +
                 "and d.demographic_no = m.client_id and m.form_id = e.fdid and m.match_percent>=?2"
                 + " order by match_percent desc";

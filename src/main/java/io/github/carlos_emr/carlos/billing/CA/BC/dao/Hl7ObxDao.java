@@ -53,9 +53,7 @@ public class Hl7ObxDao extends AbstractDaoImpl<Hl7Obx> {
     }
 
     public List<Object[]> findObxAndObrByObrId(Integer id) {
-        String sql = "FROM Hl7Obx obx, Hl7Obr obr " +
-                "WHERE obr.id = :id " +
-                "AND obr.id = obx.obrId ";
+        String sql = "SELECT obx, obr FROM Hl7Obx obx, Hl7Obr obr WHERE obr.id = :id AND obr.id = obx.obrId";
         Query query = entityManager.createQuery(sql);
         query.setParameter("id", id);
         return query.getResultList();
@@ -63,11 +61,7 @@ public class Hl7ObxDao extends AbstractDaoImpl<Hl7Obx> {
     }
 
     public List<Object[]> findByMessageIdAndAbnormalFlags(Integer messageId, List<String> abnormalFlags) {
-        String sql = "FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx " +
-                "WHERE obr.pidId = pid.id " +
-                "AND obx.obrId = obr.id " +
-                "AND obx.abnormalFlags IN (:abnormalFlags) " +
-                "AND pid.messageId = :messageId";
+        String sql = "SELECT pid, obr, obx FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx WHERE obr.pidId = pid.id AND obx.obrId = obr.id AND obx.abnormalFlags IN (:abnormalFlags) AND pid.messageId = :messageId";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter("abnormalFlags", abnormalFlags);

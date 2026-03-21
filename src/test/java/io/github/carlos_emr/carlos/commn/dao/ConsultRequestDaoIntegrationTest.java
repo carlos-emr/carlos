@@ -71,6 +71,8 @@ public class ConsultRequestDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistConsultationRequest_whenValidDataProvided() throws Exception {
             ConsultationRequest entity = new ConsultationRequest();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            // Clear FK fields that reference lookup tables not populated in tests
+            entity.setAppointmentInstructions(null);
             hibernateTemplate.save(entity);
             hibernateTemplate.flush();
 
@@ -320,6 +322,7 @@ public class ConsultRequestDaoIntegrationTest extends CarlosTestBase {
                                                       String status, String sendTo, String urgency) throws Exception {
         ConsultationRequest cr = new ConsultationRequest();
         EntityDataGenerator.generateTestDataForModelClass(cr);
+        cr.setAppointmentInstructions(null);
         cr.setServiceId(serviceId);
         cr.setDemographicId(demoNo);
         cr.setAppointmentDate(appointmentDate);

@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 import java.util.List;
 
@@ -56,6 +58,9 @@ public class ProviderLabRoutingDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderLabRoutingDao dao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private ProviderLabRoutingModel createRouting(String providerNo, int labNo, String labType, String status) {
         ProviderLabRoutingModel entity = new ProviderLabRoutingModel();
@@ -326,6 +331,9 @@ public class ProviderLabRoutingDaoIntegrationTest extends CarlosTestBase {
             createRouting("103002", 103, "HL7", "X");
 
             dao.updateStatus(103, "HL7");
+            // Clear JPA persistence context to evict stale cached entities after bulk UPDATE
+            entityManager.flush();
+            entityManager.clear();
 
             List<ProviderLabRoutingModel> results = dao.findAllLabRoutingByIdandType(103, "HL7");
             assertThat(results).hasSize(2);

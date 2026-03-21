@@ -80,7 +80,7 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     }
 
     public Double getTotalPaidFromHistory(Integer bmn, boolean ignoreIA) {
-        String historyQry = "SELECT SUM(bh.amountReceived) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
+        String historyQry = "SELECT SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
         if (ignoreIA) {
             historyQry += " and bh.paymentTypeId <> " + MSPReconcile.PAYTYPE_IA;
         }
@@ -91,11 +91,11 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
             return 0.0;
         }
 
-        String d = (String) result.get(0);
+        Object d = result.get(0);
         if (d == null) {
             return 0.0;
         }
 
-        return Double.valueOf(d);
+        return ((Number) d).doubleValue();
     }
 }

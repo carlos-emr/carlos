@@ -191,6 +191,25 @@ CREATE TABLE IF NOT EXISTS app_lookuptable_fields (
     PRIMARY KEY (tableid, fieldname)
 );
 
+-- BC billing lookup tables (no JPA entity, accessed via native SQL in BillingBCDao)
+CREATE TABLE IF NOT EXISTS billinglocation (
+    billinglocation varchar(10) DEFAULT '00',
+    billinglocation_desc varchar(200) DEFAULT '',
+    region varchar(5) DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS billingvisit (
+    visittype varchar(10) DEFAULT '00',
+    visit_desc varchar(100) DEFAULT '',
+    region varchar(5) DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS wcb_side (
+    sidetype char(2) DEFAULT '00',
+    sidedesc varchar(30) DEFAULT '',
+    usagenote varchar(255) DEFAULT ''
+);
+
 -- Fix wcb table: dual entity mapping (Wcb + WCB) causes hbm2ddl to create
 -- the id column without IDENTITY when primitive int id (from WCB.java) is processed last.
 -- This ALTER ensures auto-increment works for both entity types.

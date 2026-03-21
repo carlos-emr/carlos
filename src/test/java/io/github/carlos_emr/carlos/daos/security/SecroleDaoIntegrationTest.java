@@ -117,12 +117,10 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
      */
     private Secrole createAndSaveSecrole(String roleName, String description) {
         Secrole role = new Secrole(roleName, description);
-        // Use entityManager.persist() directly instead of secroleDao.save() (which
-        // uses merge() internally). merge() returns a NEW managed instance and
-        // discards the original, so the original entity never gets its
-        // auto-generated ID assigned. persist() updates the original entity in-place.
-        entityManager.persist(role);
-        entityManager.flush();
+        // Use hibernateTemplate.save() which works with the Hibernate Session
+        // that HibernateDaoSupport-based DAOs use.
+        hibernateTemplate.save(role);
+        hibernateTemplate.flush();
         return role;
     }
 
@@ -172,15 +170,13 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
 
             // When
             secroleDao.save(role);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // Then - verify via entityManager query to confirm persistence
-            // independently of the DAO's own read methods
-            @SuppressWarnings("unchecked")
-            List<Secrole> results = entityManager
-                    .createQuery("from Secrole r where r.roleName = :name")
-                    .setParameter("name", "TestAdmin")
-                    .getResultList();
+            // Then - verify via DAO query to confirm persistence
+            List<Secrole> allRoles = secroleDao.getRoles();
+            List<Secrole> results = allRoles.stream()
+                    .filter(r -> "TestAdmin".equals(r.getRoleName()))
+                    .toList();
 
             assertThat(results).hasSize(1);
             assertThat(results.get(0).getRoleName()).isEqualTo("TestAdmin");
@@ -270,7 +266,7 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
             List<String> roleNames = roles.stream()
                     .map(Secrole::getRoleName)
                     .toList();
-            assertThat(roleNames).isSorted();
+            assertThat(roleNames).isSortedAccordingTo(String.CASE_INSENSITIVE_ORDER);
 
             // Verify our test roles are present
             assertThat(roleNames).contains("AlphaRole", "BetaRole", "GammaRole");

@@ -202,8 +202,9 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
         CaseManagementCPP cpp = createCPP("20001", "provA");
 
         // When - persist via the DAO and flush to force SQL execution
+        // Use hibernateTemplate.flush() because the DAO writes through Hibernate Session
         caseManagementCPPDAO.saveCPP(cpp);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - verify the entity received a generated ID
         assertThat(cpp.getId()).isNotNull();
@@ -244,7 +245,7 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
         // Given - save a CPP with known clinical content
         CaseManagementCPP cpp = createCPP("20002", "provB");
         caseManagementCPPDAO.saveCPP(cpp);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // When - retrieve by demographic number
         CaseManagementCPP found = caseManagementCPPDAO.getCPP("20002");
@@ -316,7 +317,7 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
 
         // When - save via the DAO, which internally calls setUpdate_date(new Date())
         caseManagementCPPDAO.saveCPP(cpp);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Capture a timestamp after saving to establish an upper bound
         Date afterSave = new Date();
@@ -378,7 +379,7 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
 
         // When - saveCPP should convert all nulls to empty strings before persisting
         caseManagementCPPDAO.saveCPP(cpp);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then (Part 1) - verify in-memory: saveCPP modifies the entity object directly
         // via setters, so the conversion is visible on the same object reference
@@ -393,7 +394,7 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
 
         // Then (Part 2) - verify via database round-trip: reload from the database
         // to confirm empty strings were actually persisted, not just set in memory
-        entityManager.clear();
+        hibernateTemplate.clear();
         CaseManagementCPP loaded = caseManagementCPPDAO.getCPP("20005");
         assertThat(loaded).isNotNull();
         assertThat(loaded.getFamilyHistory()).isEqualTo("");
@@ -455,7 +456,7 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
         olderCpp.setSocialHistory("Older social history");
         // 86400000 ms = 24 hours; this ensures a clear ordering gap
         olderCpp.setUpdate_date(new Date(System.currentTimeMillis() - 86400000));
-        entityManager.persist(olderCpp);
+        hibernateTemplate.save(olderCpp);
 
         // Create a newer CPP record with update_date set to now
         CaseManagementCPP newerCpp = new CaseManagementCPP();
@@ -463,14 +464,14 @@ public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
         newerCpp.setProviderNo("provNew");
         newerCpp.setSocialHistory("Newer social history");
         newerCpp.setUpdate_date(new Date());
-        entityManager.persist(newerCpp);
+        hibernateTemplate.save(newerCpp);
 
         // Flush to ensure both entities are written to the database
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Clear the first-level (session) cache so getCPP's HQL query must actually
         // execute against the database, exercising the ORDER BY clause
-        entityManager.clear();
+        hibernateTemplate.clear();
 
         // When - retrieve the CPP for this demographic; should get the newest one
         CaseManagementCPP found = caseManagementCPPDAO.getCPP("20006");

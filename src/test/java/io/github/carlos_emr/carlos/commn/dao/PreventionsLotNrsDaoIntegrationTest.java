@@ -164,7 +164,7 @@ public class PreventionsLotNrsDaoIntegrationTest extends CarlosTestBase {
             createLotNr("Flu", "abcdef3", true);
 
             // When
-            List<PreventionsLotNrs> result = dao.findPagedData("Flu", null, 0, 10);
+            List<PreventionsLotNrs> result = dao.findPagedData("flu", null, 0, 10);
 
             // Then
             assertThat(result).hasSize(3);

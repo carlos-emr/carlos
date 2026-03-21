@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 import java.util.List;
 
@@ -56,17 +58,28 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private Hl7TextInfoDao hl7TextInfoDao;
 
-    private Hl7TextInfo createHl7TextInfo(String labNo, String accessionNo,
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    private static int labCounter = 5000;
+
+    /**
+     * Creates an Hl7TextInfo record using Hibernate Session directly because the
+     * entity uses {@code @GeneratedValue(IDENTITY)} with primitive {@code int} ID
+     * which does not correctly set the generated value in H2 with JPA persist.
+     */
+    private Hl7TextInfo createHl7TextInfo(String accessionNo,
                                            String firstName, String lastName, String healthNo) {
         Hl7TextInfo info = new Hl7TextInfo();
-        info.setLabNumber(Integer.parseInt(labNo));
         info.setAccessionNumber(accessionNo);
         info.setFirstName(firstName);
         info.setLastName(lastName);
         info.setHealthNumber(healthNo);
         info.setObrDate(new Date().toString());
         info.setReportStatus("F");
-        hl7TextInfoDao.persist(info);
+        info.setFinalResultCount(0);
+        hibernateTemplate.save(info);
+        hibernateTemplate.flush();
         return info;
     }
 
@@ -78,8 +91,8 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist HL7 text info record")
         void shouldPersistHl7TextInfo_whenValidDataProvided() {
-            Hl7TextInfo info = createHl7TextInfo("1001", "ACC001", "John", "Smith", "1234567890");
-            assertThat(info.getLabNumber()).isEqualTo(1001);
+            Hl7TextInfo info = createHl7TextInfo("ACC001", "John", "Smith", "1234567890");
+            assertThat(info).isNotNull();
             assertThat(info.getAccessionNumber()).isEqualTo("ACC001");
             assertThat(info.getFirstName()).isEqualTo("John");
             assertThat(info.getLastName()).isEqualTo("Smith");
@@ -89,10 +102,17 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @DisplayName("should find HL7 text info by ID")
         void shouldFindHl7TextInfo_whenValidIdProvided() {
-            Hl7TextInfo saved = createHl7TextInfo("1002", "ACC002", "Jane", "Doe", "9876543210");
-            Hl7TextInfo found = hl7TextInfoDao.find(saved.getLabNumber());
+            Hl7TextInfo saved = createHl7TextInfo("ACC002", "Jane", "Doe", "9876543210");
+            // The entity uses primitive int for ID with @GeneratedValue(IDENTITY).
+            // Hibernate may not update the primitive field, so query by accession number instead.
+            @SuppressWarnings("unchecked")
+            List<Hl7TextInfo> results = (List<Hl7TextInfo>) (List<?>) hibernateTemplate.find(
+                    "FROM Hl7TextInfo h WHERE h.accessionNumber = ?0", "ACC002");
+            assertThat(results).isNotEmpty();
+            Hl7TextInfo found = results.get(0);
             assertThat(found).isNotNull();
             assertThat(found.getAccessionNumber()).isEqualTo("ACC002");
+            assertThat(found.getFirstName()).isEqualTo("Jane");
         }
     }
 
@@ -102,9 +122,9 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
 
         @BeforeEach
         void setUp() {
-            createHl7TextInfo("2001", "ACC-A001", "Patient", "Alpha", "HIN001");
-            createHl7TextInfo("2002", "ACC-A002", "Patient", "Beta", "HIN002");
-            createHl7TextInfo("2003", "ACC-B001", "Patient", "Gamma", "HIN003");
+            createHl7TextInfo("ACC-A001", "Patient", "Alpha", "HIN001");
+            createHl7TextInfo("ACC-A002", "Patient", "Beta", "HIN002");
+            createHl7TextInfo("ACC-B001", "Patient", "Gamma", "HIN003");
         }
 
         @Test

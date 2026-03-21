@@ -59,7 +59,7 @@ public class Criteria extends AbstractModel<Integer> implements java.io.Serializ
     private Integer templateId;
     @Column(name = "VACANCY_ID")
     private Integer vacancyId;
-    @Column(name = "MATCH_SCORE_WEIGHT", nullable = false, precision = 22, scale = 0)
+    @Column(name = "MATCH_SCORE_WEIGHT", nullable = false)
     private Double matchScoreWeight = 1.0;
     @Column(name = "CAN_BE_ADHOC", nullable = false)
     private Integer canBeAdhoc = 0;

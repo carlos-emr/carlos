@@ -551,8 +551,8 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             assertThat(result).isNotEmpty();
             Object[] row = result.get(0);
             assertThat(row).hasSize(2);
-            assertThat(row[0]).isInstanceOf(Provider.class);
-            assertThat(row[1]).isInstanceOf(Appointment.class);
+            assertThat(row[0]).isInstanceOf(Appointment.class);
+            assertThat(row[1]).isInstanceOf(Provider.class);
         }
 
         @Test

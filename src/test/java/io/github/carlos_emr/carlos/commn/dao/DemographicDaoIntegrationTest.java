@@ -134,6 +134,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
             demo.setRosterStatus(rosterStatus);
         }
         demographicDao.save(demo);
+        hibernateTemplate.flush();
         return demo;
     }
 
@@ -180,6 +181,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
             // When
             demographicDao.save(newDemo);
+            hibernateTemplate.flush();
 
             // Then
             assertThat(newDemo.getDemographicNo()).isNotNull();

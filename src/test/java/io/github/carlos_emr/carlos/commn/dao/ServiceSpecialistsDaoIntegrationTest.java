@@ -67,14 +67,27 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
      * Creates a ProfessionalSpecialist record with the given ID to satisfy FK constraints.
      */
     private void ensureSpecialistExists(int specId) {
-        String sql = "MERGE INTO professionalSpecialists (specId, fName, lName, deleted) KEY(specId) VALUES (?, 'Test', 'Specialist', 0)";
+        String sql = "MERGE INTO professionalSpecialists (specId, fName, lName, deleted, hideFromView) KEY(specId) VALUES (?, 'Test', 'Specialist', false, false)";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, specId)
                 .executeUpdate();
         entityManager.flush();
     }
 
+    /**
+     * Creates a ConsultationServices record with the given ID to satisfy FK constraints
+     * from serviceSpecialists.serviceId to consultationServices.serviceId.
+     */
+    private void ensureConsultationServiceExists(int serviceId) {
+        String sql = "MERGE INTO consultationServices (serviceId, serviceDesc, active) KEY(serviceId) VALUES (?, 'Test Service', '1')";
+        entityManager.createNativeQuery(sql)
+                .setParameter(1, serviceId)
+                .executeUpdate();
+        entityManager.flush();
+    }
+
     private ServiceSpecialists createServiceSpecialist(int serviceId, int specId) {
+        ensureConsultationServiceExists(serviceId);
         ensureSpecialistExists(specId);
         ServiceSpecialists entity = new ServiceSpecialists();
         entity.setId(new ServiceSpecialistsPK(serviceId, specId));
@@ -147,16 +160,21 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return empty list when no ProfessionalSpecialist records match")
-        void shouldReturnEmptyList_whenNoProfessionalSpecialistRecordsMatch() {
-            // Create service specialist mappings without corresponding ProfessionalSpecialist records
+        @DisplayName("should return specialists joined with service specialist mappings")
+        void shouldReturnSpecialists_whenServiceSpecialistMappingsExist() {
+            // Create service specialist mappings with corresponding ProfessionalSpecialist records
+            // (parent records required by FK constraints)
             createServiceSpecialist(30, 901);
             createServiceSpecialist(30, 902);
 
             List<Object[]> results = dao.findSpecialists(30);
 
-            // Join with ProfessionalSpecialist will yield no results since no specialist records exist
-            assertThat(results).isEmpty();
+            // Join with ProfessionalSpecialist should return the mapped specialists
+            assertThat(results).hasSize(2);
+            for (Object[] row : results) {
+                assertThat(row[0]).isInstanceOf(ServiceSpecialists.class);
+                assertThat(row[1]).isInstanceOf(ProfessionalSpecialist.class);
+            }
         }
 
         @Test

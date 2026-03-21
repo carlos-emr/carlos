@@ -60,12 +60,20 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
 
     private static int counter = 1;
 
-    private Ichppccode createIchppccode() {
-        Ichppccode entity = new Ichppccode();
-        entity.setId("ICH" + counter++);
-        entity.setDiagnosticCode("D" + counter);
-        entity.setDescription("Test diagnosis " + counter);
-        return entity;
+    /**
+     * Inserts an ichppccode record using native SQL to bypass Hibernate's
+     * identity-generation strategy, which conflicts with manually assigned
+     * String IDs in H2.
+     */
+    private String insertIchppccodeNative(String id, String diagnosticCode, String description) {
+        entityManager.createNativeQuery(
+                "INSERT INTO ichppccode (ichppccode, diagnostic_code, description) VALUES (:id, :dc, :desc)")
+                .setParameter("id", id)
+                .setParameter("dc", diagnosticCode)
+                .setParameter("desc", description)
+                .executeUpdate();
+        entityManager.flush();
+        return id;
     }
 
     @Nested
@@ -76,20 +84,22 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist ichppccode with manual ID")
         void shouldPersistIchppccode_whenValidDataProvided() {
-            Ichppccode entity = createIchppccode();
-            entityManager.merge(entity);
-            assertThat(entity.getId()).isNotNull();
+            String id = "ICH" + counter++;
+            insertIchppccodeNative(id, "D" + counter, "Test diagnosis " + counter);
+            Ichppccode found = ichppccodeDao.find(id);
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(id);
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find ichppccode by ID")
         void shouldFindIchppccode_whenValidIdProvided() {
-            Ichppccode saved = createIchppccode();
-            entityManager.merge(saved);
-            Ichppccode found = ichppccodeDao.find(saved.getId());
+            String id = "ICH" + counter++;
+            insertIchppccodeNative(id, "D" + counter, "Test diagnosis " + counter);
+            Ichppccode found = ichppccodeDao.find(id);
             assertThat(found).isNotNull();
-            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getId()).isEqualTo(id);
         }
     }
 
@@ -101,8 +111,8 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should count all ichppccode records")
         void shouldCountAllIchppccodes() {
-            Ichppccode entity = createIchppccode();
-            entityManager.merge(entity);
+            String id = "ICH" + counter++;
+            insertIchppccodeNative(id, "D" + counter, "Test diagnosis " + counter);
             long count = ichppccodeDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }

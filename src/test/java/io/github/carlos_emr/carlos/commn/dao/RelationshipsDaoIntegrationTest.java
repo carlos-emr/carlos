@@ -81,13 +81,12 @@ public class RelationshipsDaoIntegrationTest extends CarlosTestBase {
             relationships3.setDemographicNo(demographicNo3);
             dao.persist(relationships3);
 
-            List<Relationships> expectedResult = Arrays.asList(relationships2, relationships3, relationships1);
             List<Relationships> result = dao.findAll(null, null);
 
-            assertThat(result).hasSize(expectedResult.size());
-            for (int i = 0; i < expectedResult.size(); i++) {
-                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
-            }
+            // findAll has no ORDER BY, so don't assert ordering - just verify all entities present
+            assertThat(result).hasSize(3);
+            assertThat(result).extracting(Relationships::getDemographicNo)
+                .containsExactlyInAnyOrder(demographicNo1, demographicNo2, demographicNo3);
         }
 
         @Test

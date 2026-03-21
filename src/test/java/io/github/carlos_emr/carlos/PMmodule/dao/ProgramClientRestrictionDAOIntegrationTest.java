@@ -112,6 +112,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         pcr.setComments("Test restriction");
         pcr.setCommentId("test-" + System.nanoTime());  // Required non-null field
         programClientRestrictionDAO.save(pcr);
+        hibernateTemplate.flush();
         return pcr;
     }
 

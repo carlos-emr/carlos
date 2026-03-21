@@ -51,38 +51,28 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
     }
 
     public List<Object[]> findPidsByStatus(String status) {
-        String sql = "FROM Hl7Pid p, Hl7Link l " +
-                "WHERE p.id = l.id " +
-                "AND ( l.status = :status " +
-                "OR l.status IS NULL)";
+        String sql = "SELECT p, l FROM Hl7Pid p, Hl7Link l WHERE p.id = l.id AND ( l.status = :status OR l.status IS NULL)";
         Query query = entityManager.createQuery(sql);
         query.setParameter("status", status);
         return query.getResultList();
     }
 
     public List<Object[]> findPidsAndMshByMessageId(Integer messageId) {
-        String sql = "FROM Hl7Pid pid, Hl7Msh msh " +
-                "WHERE pid.messageId = :msgId " +
-                "AND msh.messageId = pid.messageId";
+        String sql = "SELECT pid, msh FROM Hl7Pid pid, Hl7Msh msh WHERE pid.messageId = :msgId AND msh.messageId = pid.messageId";
         Query query = entityManager.createQuery(sql);
         query.setParameter("msgId", messageId);
         return query.getResultList();
     }
 
     public List<Object[]> findSigned(Integer pid) {
-        String sql = "FROM Hl7Pid hl7_pid, Hl7Link hl7_link, Provider provider " +
-                "WHERE hl7_pid.id = hl7_link.id " +
-                "AND provider.ProviderNo = hl7_link.providerNo " +
-                "AND hl7_pid.id = :pid";
+        String sql = "SELECT hl7_pid, hl7_link, provider FROM Hl7Pid hl7_pid, Hl7Link hl7_link, Provider provider WHERE hl7_pid.id = hl7_link.id AND provider.ProviderNo = hl7_link.providerNo AND hl7_pid.id = :pid";
         Query query = entityManager.createQuery(sql);
         query.setParameter("pid", pid);
         return query.getResultList();
     }
 
     public List<Object[]> findDocNotes(Integer pid) {
-        String sql = "FROM Hl7Pid hl7_pid, Hl7Message hl7_message " +
-                "WHERE hl7_pid.id = :pid " +
-                "AND hl7_pid.messageId = hl7_message.id";
+        String sql = "SELECT hl7_pid, hl7_message FROM Hl7Pid hl7_pid, Hl7Message hl7_message WHERE hl7_pid.id = :pid AND hl7_pid.messageId = hl7_message.id";
         Query query = entityManager.createQuery(sql);
         query.setParameter("pid", pid);
         return query.getResultList();
@@ -105,11 +95,7 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
     }
 
     public List<Object[]> findByObservationResultStatusAndMessageId(String observationResultStatus, Integer messageId) {
-        String sql = "FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx " +
-                "WHERE obx.observationResultStatus like :observationResultStatus " +
-                "AND obx.obrId = obr.id " +
-                "AND obr.pidId = pid.id " +
-                "AND pid.messageId = :messageId";
+        String sql = "SELECT pid, obr, obx FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx WHERE obx.observationResultStatus like :observationResultStatus AND obx.obrId = obr.id AND obr.pidId = pid.id AND pid.messageId = :messageId";
         Query query = entityManager.createQuery(sql);
         query.setParameter("observationResultStatus", observationResultStatus);
         query.setParameter("messageId", messageId);
