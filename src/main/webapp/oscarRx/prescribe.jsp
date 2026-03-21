@@ -737,51 +737,28 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
               }
             }
 
-            YAHOO.example.FnMultipleFields = function () {
-        let url = "<%= request.getContextPath() %>/oscarRx/search.do?parameterValue=searchSpecialInstructions";
-                let oDS = new YAHOO.util.XHRDataSource(url, {connMethodPost: true, connXhrMode: 'ignoreStaleResponse'});
-                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;// Set the responseType
-                // Define the schema of the delimited results
-                oDS.responseSchema = {
-                    resultsList: "results"
-                };
-
-        oDS.subscribe('dataErrorEvent', function(type, args) {
-            console.error('Special Instructions autocomplete failed:', args);
-        });
-                // Enable caching
-                oDS.maxCacheEntries = 0;
-                // oDS.connXhrMode = "cancelStaleRequests";
-                // Instantiate AutoComplete
-                let oAC = new YAHOO.widget.AutoComplete("siInput_<%=rand%>", "siContainer_<%=rand%>", oDS);
-                oAC.useShadow = true;
-                oAC.resultTypeList = false;
-                oAC.queryMatchSubset = true;
-                oAC.minQueryLength = 1;
-                oAC.maxResultsDisplayed = 40;
-
-                oAC.doBeforeExpandContainer = function (sQuery, oResponse) {
-                    if (oAC._nDisplayedItems < oAC.maxResultsDisplayed) {
-                        oAC.setFooter("");
-                    } else {
-                        oAC.setFooter("<a href='javascript:void(0)' onClick='popupRxSearchWindow();oAC.collapseContainer();'>See more results...</a>");
-                    }
-                    return true;
+            jQuery("#siInput_<%=rand%>").autocomplete({
+                source: function(request, response) {
+                    jQuery.ajax({
+                        url: "<%= request.getContextPath() %>/oscarRx/search.do?parameterValue=searchSpecialInstructions",
+                        type: "POST",
+                        data: { query: request.term },
+                        dataType: "json",
+                        success: function(data) {
+                            response(data.results ? data.results.slice(0, 40) : []);
+                        },
+                        error: function() {
+                            console.error("Special Instructions autocomplete failed");
+                            response([]);
+                        }
+                    });
+                },
+                minLength: 1,
+                select: function(event, ui) {
+                    jQuery("#siInput_<%=rand%>").val(ui.item.value);
+                    return false;
                 }
-
-                oAC.containerCollapseEvent.subscribe(function () {
-                    var el = document.getElementById('autocomplete_choices');
-                    if (el) el.style.display = 'none';
-                });
-                oAC.dataRequestEvent.subscribe(function () {
-                    var el = document.getElementById('autocomplete_choices');
-                    if (el) el.style.display = '';
-                });
-                return {
-                    oDS: oDS,
-                    oAC: oAC
-                };
-            }();
+            });
 
             checkAllergy('<%=rand%>','<%=rx.getAtcCode()%>');
             checkIfInactive('<%=rand%>','<%=rx.getRegionalIdentifier()%>');
