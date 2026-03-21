@@ -64,12 +64,16 @@ function getDrugRefStatus() {
 			if (!json || json.lastUpdate === 'updating' ) {
 				let statusDisplay = document.getElementById('statusDisplay');
 				statusDisplay.innerHTML = msgDrugrefUnavailable;
-				statusDisplay.style.fontColor = 'red';
+				statusDisplay.style.color = 'red';
 				statusDisplay.style.fontWeight = 'bold';
 			} else {
-                const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-                const trimmedDate = new Intl.DateTimeFormat(undefined, options).format(new Date(json.lastUpdate));
-				document.getElementById('dbDateTime').textContent = trimmedDate;
+				try {
+					const options = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+					const trimmedDate = new Intl.DateTimeFormat(undefined, options).format(new Date(json.lastUpdate));
+					document.getElementById('dbDateTime').textContent = trimmedDate;
+				} catch (e) {
+					document.getElementById('dbDateTime').textContent = json.lastUpdate || '';
+				}
 				document.getElementById('drugDatabaseVersion').textContent = json.version;
 				document.getElementById('drugDatabase').textContent = json.drugDatabase;
 			}
@@ -82,10 +86,9 @@ function getDrugRefStatus() {
 		});
     }
 
-document.addEventListener("DOMContentLoaded", getDrugRefStatus);
-const tooltipTriggerList = [...document.querySelectorAll('[data-bs-toggle="tooltip"]')];
-const tooltipList = tooltipTriggerList.map(tooltipTriggerEl => {
-  return new bootstrap.Tooltip(tooltipTriggerEl);
+document.addEventListener("DOMContentLoaded", () => {
+    getDrugRefStatus();
+    [...document.querySelectorAll('[data-bs-toggle="tooltip"]')].forEach(el => new bootstrap.Tooltip(el));
 });
 </script>
 <nav id="header" class="navbar navbar-expand-lg bg-body-tertiary">
@@ -98,7 +101,7 @@ const tooltipList = tooltipTriggerList.map(tooltipTriggerEl => {
           <span class="text-nowrap"><b><fmt:message key="SearchDrug.nameText"/></b>
           <%=Encode.forHtmlContent(patient2.getFirstName()) %> <%= Encode.forHtmlContent(patient2.getSurname()) %>
           </span><span class="text-nowrap" title="<%= Encode.forHtmlAttribute(String.valueOf(patient2.getAge())) %>y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
-          <%= RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy") %></span>
+          <%= Encode.forHtmlContent(RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy")) %></span>
          <span><label for="Calcs">
             <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
                onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="<fmt:message key='SearchDrug.pharmacyClickToEdit'/>">
@@ -116,7 +119,7 @@ const tooltipList = tooltipTriggerList.map(tooltipTriggerEl => {
                       mapper.writeValue(sw, pi);
                       String json = sw.toString();
             %>
-              <option value="<%= Encode.forHtmlAttribute(json) %>" data-bs-toggle="tooltip" title="<%= Encode.forHtmlAttribute(pi.getAddress()) %>, <%= Encode.forHtmlAttribute(pi.getCity()) %>, Fax: <%= Encode.forHtmlAttribute(pi.getFax()) %>">
+              <option value="<%= Encode.forHtmlAttribute(json) %>" title="<%= Encode.forHtmlAttribute(pi.getAddress()) %>, <%= Encode.forHtmlAttribute(pi.getCity()) %>, Fax: <%= Encode.forHtmlAttribute(pi.getFax()) %>">
                 <%= Encode.forHtmlContent(pi.getName()) %>
               </option>
             <%
