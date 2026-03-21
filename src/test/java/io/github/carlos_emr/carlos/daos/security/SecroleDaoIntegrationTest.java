@@ -103,10 +103,12 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
      * Creates and persists a {@link Secrole} with the given role name and description.
      *
      * <p>This helper method constructs a new {@link Secrole} using the two-argument
-     * constructor, persists it via {@link SecroleDao#save(Secrole)}, and then flushes
-     * the EntityManager to synchronize the persistence context with the underlying
-     * H2 database. This ensures the entity is fully persisted and its generated
-     * {@code id} (role_no) is available before subsequent read operations.</p>
+     * constructor, persists it via {@link EntityManager#persist(Object)}, and then
+     * flushes the EntityManager to synchronize the persistence context with the
+     * underlying H2 database. Using {@code persist()} rather than
+     * {@link SecroleDao#save(Secrole)} is necessary because the DAO's save method
+     * uses {@code merge()}, which returns a new managed instance without updating
+     * the original entity's auto-generated ID.</p>
      *
      * @param roleName    String the role name to assign (maps to {@code role_name} column)
      * @param description String the role description to assign (maps to {@code description} column)
@@ -115,9 +117,11 @@ public class SecroleDaoIntegrationTest extends CarlosTestBase {
      */
     private Secrole createAndSaveSecrole(String roleName, String description) {
         Secrole role = new Secrole(roleName, description);
-        secroleDao.save(role);
-        // Flush to synchronize the persistence context with the database,
-        // ensuring the auto-generated ID is assigned before assertions.
+        // Use entityManager.persist() directly instead of secroleDao.save() (which
+        // uses merge() internally). merge() returns a NEW managed instance and
+        // discards the original, so the original entity never gets its
+        // auto-generated ID assigned. persist() updates the original entity in-place.
+        entityManager.persist(role);
         entityManager.flush();
         return role;
     }

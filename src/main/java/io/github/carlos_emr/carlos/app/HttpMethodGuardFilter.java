@@ -260,7 +260,7 @@ public class HttpMethodGuardFilter implements Filter {
      * so their presence on GET indicates a CSRF or manipulation attempt.
      */
     private static final Set<String> JSP_MUTATOR_PARAMS = Set.of(
-            "dboperation", "submit", "submitFrm", "formAction"
+            "dboperation", "submit", "submitfrm", "formaction"
     );
 
     private Set<String> allowList = Collections.emptySet();

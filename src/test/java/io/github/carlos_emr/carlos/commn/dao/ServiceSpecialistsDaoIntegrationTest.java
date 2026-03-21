@@ -67,7 +67,7 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
      * Creates a ProfessionalSpecialist record with the given ID to satisfy FK constraints.
      */
     private void ensureSpecialistExists(int specId) {
-        String sql = "MERGE INTO professionalSpecialists (specId, fName, lName) KEY(specId) VALUES (?, 'Test', 'Specialist')";
+        String sql = "MERGE INTO professionalSpecialists (specId, fName, lName, deleted) KEY(specId) VALUES (?, 'Test', 'Specialist', 0)";
         entityManager.createNativeQuery(sql)
                 .setParameter(1, specId)
                 .executeUpdate();

@@ -72,6 +72,17 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         entityManager.flush();
     }
 
+    /**
+     * Creates a site record in the database to satisfy FK constraints on providersite.
+     */
+    private void ensureSiteExists(int siteId) {
+        String sql = "MERGE INTO site (site_id, name, short_name, bg_color, status) KEY(site_id) VALUES (?, 'Test Site', 'TS', '#FFFFFF', 1)";
+        entityManager.createNativeQuery(sql)
+                .setParameter(1, siteId)
+                .executeUpdate();
+        entityManager.flush();
+    }
+
     @Nested
     @DisplayName("Create operations")
     class CreateOperations {
@@ -85,6 +96,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             entity.getId().setProviderNo("000001");
             entity.getId().setSiteId(1);
             ensureProviderExists("000001");
+            ensureSiteExists(1);
             dao.persist(entity);
 
             assertThat(entity.getId()).isNotNull();
@@ -111,6 +123,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             ps1.setId(new ProviderSitePK());
             ps1.getId().setProviderNo(providerNo1);
             ensureProviderExists(providerNo1);
+            ensureSiteExists(ps1.getId().getSiteId());
             dao.persist(ps1);
 
             ProviderSite ps2 = new ProviderSite();
@@ -118,6 +131,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             ps2.setId(new ProviderSitePK());
             ps2.getId().setProviderNo(providerNo2);
             ensureProviderExists(providerNo2);
+            ensureSiteExists(ps2.getId().getSiteId());
             dao.persist(ps2);
 
             List<ProviderSite> result = dao.findByProviderNo(providerNo1);
@@ -146,6 +160,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             ps1.getId().setProviderNo(providerNo);
             ps1.getId().setSiteId(10);
             ensureProviderExists(providerNo);
+            ensureSiteExists(10);
             dao.persist(ps1);
 
             ProviderSite ps2 = new ProviderSite();
@@ -153,6 +168,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             ps2.setId(new ProviderSitePK());
             ps2.getId().setProviderNo(providerNo);
             ps2.getId().setSiteId(20);
+            ensureSiteExists(20);
             dao.persist(ps2);
 
             List<ProviderSite> result = dao.findByProviderNo(providerNo);

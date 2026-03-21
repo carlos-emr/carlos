@@ -668,6 +668,7 @@
     <bean id="ticklerManager" class="io.github.carlos_emr.carlos.managers.TicklerManagerImpl" autowire="byName" />
     <bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
     <bean id="nioFileManager" class="io.github.carlos_emr.carlos.managers.NioFileManagerImpl" autowire="byName" />
+    <bean id="clientRestrictionManager" class="io.github.carlos_emr.carlos.PMmodule.service.ClientRestrictionManagerImpl" autowire="byName" />
     <bean id="admissionManager" class="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManagerImpl" autowire="byType" />
     <bean id="oscarSuperManager" class="io.github.carlos_emr.carlos.service.OscarSuperManagerImpl" autowire="byName" />
 

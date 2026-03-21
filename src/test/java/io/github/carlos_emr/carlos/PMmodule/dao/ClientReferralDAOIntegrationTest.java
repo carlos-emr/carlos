@@ -100,6 +100,10 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         // Integer (implicit default null) — restoring 0 preserves the original semantics.
         program.setFacilityId(0);
         hibernateTemplate.save(program);
+        // Flush immediately so the identity-generated ID is populated on the entity.
+        // Without this, getId() returns null because Hibernate 7 persist() with identity
+        // generation only assigns the ID after the INSERT is flushed to the database.
+        hibernateTemplate.flush();
         return program;
     }
 
@@ -112,6 +116,8 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         ref.setStatus(status);
         ref.setReferralDate(new Date());
         hibernateTemplate.save(ref);
+        // Flush immediately so the identity-generated ID is populated on the entity.
+        hibernateTemplate.flush();
         return ref;
     }
 

@@ -80,14 +80,14 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         testIssue1.setDescription("Test Issue 1");
         testIssue1.setRole("doctor");
         testIssue1.setType("system");
-        issueDAO.saveIssue(testIssue1);
+        hibernateTemplate.save(testIssue1);
 
         testIssue2 = new Issue();
         testIssue2.setCode("TEST002");
         testIssue2.setDescription("Test Issue 2");
         testIssue2.setRole("doctor");
         testIssue2.setType("system");
-        issueDAO.saveIssue(testIssue2);
+        hibernateTemplate.save(testIssue2);
 
         hibernateTemplate.flush();
     }
@@ -101,14 +101,15 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         cmi.setMajor(false);
         cmi.setResolved(false);
         cmi.setUpdate_date(new Date());
-        caseManagementIssueDAO.saveIssue(cmi);
+        hibernateTemplate.save(cmi);
+        hibernateTemplate.flush();
         return cmi;
     }
 
     /**
      * Creates a CaseManagementIssue with a specific update date.
-     * Note: saveIssue() overwrites update_date with new Date(), so we must
-     * re-set the date after saving and flush to persist the correct value.
+     * Uses hibernateTemplate.save() (persist) to properly populate the ID,
+     * then sets the desired update_date and flushes.
      */
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue, Date updateDate) {
         CaseManagementIssue cmi = new CaseManagementIssue();
@@ -119,9 +120,8 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         cmi.setMajor(false);
         cmi.setResolved(false);
         cmi.setUpdate_date(updateDate);
-        caseManagementIssueDAO.saveIssue(cmi);
-        // saveIssue() overwrites update_date with new Date() — re-set to desired date
-        cmi.setUpdate_date(updateDate);
+        hibernateTemplate.save(cmi);
+        hibernateTemplate.flush();
         return cmi;
     }
 
@@ -134,7 +134,8 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         cmi.setMajor(false);
         cmi.setResolved(true);
         cmi.setUpdate_date(new Date());
-        caseManagementIssueDAO.saveIssue(cmi);
+        hibernateTemplate.save(cmi);
+        hibernateTemplate.flush();
         return cmi;
     }
 
@@ -164,7 +165,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             cmi.setUpdate_date(new Date());
 
             // When
-            caseManagementIssueDAO.saveIssue(cmi);
+            hibernateTemplate.save(cmi);
             hibernateTemplate.flush();
 
             // Then

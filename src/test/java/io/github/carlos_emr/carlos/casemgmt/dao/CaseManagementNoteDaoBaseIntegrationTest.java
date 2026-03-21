@@ -219,7 +219,8 @@ public abstract class CaseManagementNoteDaoBaseIntegrationTest extends CarlosTes
         issue.setDescription(description);
         issue.setRole("doctor");
         issue.setType("system");
-        issueDAO.saveIssue(issue);
+        hibernateTemplate.save(issue);
+        hibernateTemplate.flush();
         return issue;
     }
 
@@ -239,7 +240,8 @@ public abstract class CaseManagementNoteDaoBaseIntegrationTest extends CarlosTes
         cmi.setMajor(false);
         cmi.setResolved(false);
         cmi.setUpdate_date(new Date());
-        caseManagementIssueDAO.saveIssue(cmi);
+        hibernateTemplate.save(cmi);
+        hibernateTemplate.flush();
         return cmi;
     }
 

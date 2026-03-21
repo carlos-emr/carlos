@@ -93,16 +93,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
     private PopulationReportDao populationReportDao;
 
     @Autowired
-    private DemographicDao demographicDao;
-
-    @Autowired
     private DataSource dataSource;
-
-    /**
-     * Counter for generating unique program IDs across test methods.
-     * Seeded from the current nanosecond timestamp to avoid inter-run collisions.
-     */
-    private int programIdCounter = (int) (System.nanoTime() % 100000);
 
     // =====================================================================
     // Helper methods for creating test data
@@ -121,7 +112,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
      */
     private Program createActiveServiceProgram(String name) {
         Program program = new Program();
-        program.setId(++programIdCounter);
         program.setName(name);
         program.setType("service");
         program.setProgramStatus("active");
@@ -138,7 +128,6 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
      */
     private Program createActiveCommunityProgram(String name) {
         Program program = new Program();
-        program.setId(++programIdCounter);
         program.setName(name);
         program.setType("community");
         program.setProgramStatus("active");
@@ -166,7 +155,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         demo.setSex("M");
         demo.setHin("");
         demo.setHcType("ON");
-        demographicDao.save(demo);
+        hibernateTemplate.save(demo);
+        hibernateTemplate.flush();
         return demo;
     }
 
@@ -409,7 +399,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
             inactiveClient.setSex("M");
             inactiveClient.setHin("");
             inactiveClient.setHcType("ON");
-            demographicDao.save(inactiveClient);
+            hibernateTemplate.save(inactiveClient);
+            hibernateTemplate.flush();
 
             createCurrentAdmission(inactiveClient.getDemographicNo(), serviceProgram.getId(), monthsAgo(1));
             hibernateTemplate.flush();
