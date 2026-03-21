@@ -32,7 +32,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -109,7 +108,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         query.setParameter(1, providerNo);
         query.setParameter(2, startDate);
         query.setParameter(3, endDate);
-        BigInteger bint = (BigInteger) query.getSingleResult();
+        Number bint = (Number) query.getSingleResult();
         return bint.intValue();
     }
 

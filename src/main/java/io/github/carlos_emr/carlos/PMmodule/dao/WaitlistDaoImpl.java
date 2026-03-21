@@ -31,7 +31,6 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -73,16 +72,12 @@ public class WaitlistDaoImpl implements WaitlistDao {
             out.setClientName((String) cols[1]);
             out.setClientName(out.getClientName() + " " + (String) cols[2]);
 
-            if (cols[3] instanceof BigInteger) { // to avoid java.lang.ClassCastException exception
-                out.setDaysInWaitList(((BigInteger) cols[3]).intValue());
-            } else if (cols[3] instanceof Long) {
-                out.setDaysInWaitList(((Long) cols[3]).intValue());
+            if (cols[3] instanceof Number) {
+                out.setDaysInWaitList(((Number) cols[3]).intValue());
             }
 
-            if (cols[4] instanceof BigInteger) {
-                out.setDaysSinceLastContact(((BigInteger) cols[4]).intValue());
-            } else if (cols[4] instanceof Long) {
-                out.setDaysSinceLastContact(((Long) cols[4]).intValue());
+            if (cols[4] instanceof Number) {
+                out.setDaysSinceLastContact(((Number) cols[4]).intValue());
             }
             out.setFormDataID((Integer) cols[5]);
             out.setPercentageMatch((Double) cols[6]);
@@ -301,9 +296,9 @@ public class WaitlistDaoImpl implements WaitlistDao {
         if (rows.size() > 0) {
             Object[] result = rows.get(0);
             if (result != null) {
-                bo.setRejectedCount(((BigInteger) result[0]).intValue());
-                bo.setAcceptedCount(((BigInteger) result[1]).intValue());
-                bo.setPendingCount(((BigInteger) result[2]).intValue());
+                bo.setRejectedCount(((Number) result[0]).intValue());
+                bo.setAcceptedCount(((Number) result[1]).intValue());
+                bo.setPendingCount(((Number) result[2]).intValue());
             }
         }
     }
@@ -347,7 +342,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
         for (Object[] cols : results) {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setProgramId((Integer) cols[0]);
-            bo.setNoOfVacancy(((BigInteger) cols[1]).intValue());
+            bo.setNoOfVacancy(((Number) cols[1]).intValue());
             bo.setVacancyName((String) cols[2]);
             bo.setCreated((java.util.Date) cols[3]);
             bo.setVacancyID((Integer) cols[4]);

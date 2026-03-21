@@ -92,9 +92,6 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public Appointment findDemoAppointmentToday(Integer demographicNo);
 
-    public List<Appointment> findByEverything(Date appointmentDate, String providerNo, Date startTime, Date endTime,
-                                              String name, String notes, String reason, Date createDateTime, String creator, int demographicNo);
-
     public List<Appointment> findByProviderAndDate(String providerNo, Date appointmentDate);
 
     public List<Object[]> findAppointments(Date sDate, Date eDate);

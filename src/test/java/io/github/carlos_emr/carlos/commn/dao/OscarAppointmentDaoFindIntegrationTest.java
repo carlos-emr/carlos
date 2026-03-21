@@ -921,43 +921,6 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
     }
 
     // ========================================================================
-    // findByEverything (10-parameter)
-    // ========================================================================
-
-    @Nested
-    @DisplayName("findByEverything")
-    @Tag("read")
-    @Tag("query")
-    class FindByEverything {
-
-        @Test
-        @DisplayName("should return appointment matching all 10 parameters")
-        void shouldReturnAppointment_whenAllParametersMatch() {
-            // Given
-            Date createDt = new Date();
-            Appointment appt = createTestAppointment(today, PROVIDER_NO, 142, "A");
-            appt.setStartTime(time0900);
-            appt.setEndTime(time1000);
-            appt.setName("Everything Match");
-            appt.setNotes("notes");
-            appt.setReason("reason");
-            appt.setCreateDateTime(createDt);
-            appt.setCreator("creator1");
-            entityManager.persist(appt);
-            entityManager.flush();
-
-            // When
-            List<Appointment> result = oscarAppointmentDao.findByEverything(
-                    today, PROVIDER_NO, time0900, time1000,
-                    "Everything Match", "notes", "reason",
-                    createDt, "creator1", 142);
-
-            // Then
-            assertThat(result).isNotEmpty();
-        }
-    }
-
-    // ========================================================================
     // findByProviderAndDate
     // ========================================================================
 

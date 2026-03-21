@@ -95,12 +95,47 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 // all SQL statements here
 public final class EDocUtil {
 
-    private static ConsultDocsDao consultDocsDao = (ConsultDocsDao) SpringUtils.getBean(ConsultDocsDao.class);
-    private static DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
+    private static ConsultDocsDao consultDocsDao = null;
+    private static DocumentDao documentDao = null;
     private static Logger logger = MiscUtils.getLogger();
-    private static ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
-    private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    private static EFormDocsDao eformDocsDao = SpringUtils.getBean(EFormDocsDao.class);
+    private static ProgramManager2 programManager2 = null;
+    private static PartialDateDao partialDateDao = null;
+    private static EFormDocsDao eformDocsDao = null;
+
+    private static ConsultDocsDao getConsultDocsDao() {
+        if (consultDocsDao == null) {
+            consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
+        }
+        return consultDocsDao;
+    }
+
+    private static DocumentDao getDocumentDao() {
+        if (documentDao == null) {
+            documentDao = SpringUtils.getBean(DocumentDao.class);
+        }
+        return documentDao;
+    }
+
+    private static ProgramManager2 getProgramManager2() {
+        if (programManager2 == null) {
+            programManager2 = SpringUtils.getBean(ProgramManager2.class);
+        }
+        return programManager2;
+    }
+
+    private static PartialDateDao getPartialDateDao() {
+        if (partialDateDao == null) {
+            partialDateDao = SpringUtils.getBean(PartialDateDao.class);
+        }
+        return partialDateDao;
+    }
+
+    private static EFormDocsDao getEformDocsDao() {
+        if (eformDocsDao == null) {
+            eformDocsDao = SpringUtils.getBean(EFormDocsDao.class);
+        }
+        return eformDocsDao;
+    }
 
     public static final String PUBLIC = "public";
     public static final String PRIVATE = "private";
@@ -279,7 +314,7 @@ public final class EDocUtil {
         doc.setNumberofpages(newDocument.getNumberOfPages());
         doc.setAppointmentNo(newDocument.getAppointmentNo());
         doc.setRestrictToProgram(newDocument.isRestrictToProgram());
-        documentDao.persist(doc);
+        getDocumentDao().persist(doc);
 
         Integer document_no = doc.getId();
 
@@ -323,18 +358,18 @@ public final class EDocUtil {
     }
 
     public static void detachDocConsult(String docNo, String consultId) {
-        List<ConsultDocs> consultDocs = consultDocsDao.findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), ConsultDocs.DOCTYPE_DOC);
+        List<ConsultDocs> consultDocs = getConsultDocsDao().findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), ConsultDocs.DOCTYPE_DOC);
         for (ConsultDocs consultDoc : consultDocs) {
             consultDoc.setDeleted("Y");
-            consultDocsDao.merge(consultDoc);
+            getConsultDocsDao().merge(consultDoc);
         }
     }
 
     public static void detachDocEForm(String docNo, String consultId) {
-        List<EFormDocs> eformDocs = eformDocsDao.findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), EFormDocs.DOCTYPE_DOC);
+        List<EFormDocs> eformDocs = getEformDocsDao().findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), EFormDocs.DOCTYPE_DOC);
         for (EFormDocs eformDoc : eformDocs) {
             eformDoc.setDeleted("Y");
-            eformDocsDao.merge(eformDoc);
+            getEformDocsDao().merge(eformDoc);
         }
     }
 
@@ -345,7 +380,7 @@ public final class EDocUtil {
         consultDoc.setDocType(ConsultDocs.DOCTYPE_DOC);
         consultDoc.setAttachDate(new Date());
         consultDoc.setProviderNo(providerNo);
-        consultDocsDao.persist(consultDoc);
+        getConsultDocsDao().persist(consultDoc);
     }
 
     public static void attachDocEForm(String providerNo, String docNo, String consultId) {
@@ -355,12 +390,12 @@ public final class EDocUtil {
         eformDoc.setDocType(ConsultDocs.DOCTYPE_DOC);
         eformDoc.setAttachDate(new Date());
         eformDoc.setProviderNo(providerNo);
-        eformDocsDao.persist(eformDoc);
+        getEformDocsDao().persist(eformDoc);
     }
 
     public static void editDocumentSQL(EDoc newDocument, boolean doReview) {
 
-        Document doc = documentDao.find(ConversionUtils.fromIntString(newDocument.getDocId()));
+        Document doc = getDocumentDao().find(ConversionUtils.fromIntString(newDocument.getDocId()));
         if (doc != null) {
             doc.setDoctype(newDocument.getType());
             doc.setDocClass(newDocument.getDocClass());
@@ -391,7 +426,7 @@ public final class EDocUtil {
 
             doc.setAbnormal(Boolean.parseBoolean(newDocument.getAbnormal()));
             doc.setReceivedDate(MyDateFormat.getSysDate(newDocument.getReceivedDate()));
-            documentDao.merge(doc);
+            getDocumentDao().merge(doc);
         }
     }
 
@@ -401,10 +436,10 @@ public final class EDocUtil {
      */
     //Consultation Request fetch documents
     public static ArrayList<EDoc> listDocs(LoggedInInfo loggedInInfo, String demoNo, String requestId, boolean attached) {
-        List<Object[]> docs = documentDao.findDocsAndConsultDocsByConsultId(ConversionUtils.fromIntString(requestId));
+        List<Object[]> docs = getDocumentDao().findDocsAndConsultDocsByConsultId(ConversionUtils.fromIntString(requestId));
         List<Object[]> ctlDocs = null;
         if (!attached) {
-            ctlDocs = documentDao.findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
+            ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
         return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
     }
@@ -413,20 +448,20 @@ public final class EDocUtil {
         if (StringUtils.isEmpty(requestId)) {
             return new ArrayList<EDoc>();
         }
-        List<Object[]> docs = documentDao.findDocsAndEFormDocsByFdid(ConversionUtils.fromIntString(requestId));
+        List<Object[]> docs = getDocumentDao().findDocsAndEFormDocsByFdid(ConversionUtils.fromIntString(requestId));
         List<Object[]> ctlDocs = null;
         if (!attached) {
-            ctlDocs = documentDao.findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
+            ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
         return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
     }
 
     //Consultation Response fetch documents
     public static ArrayList<EDoc> listResponseDocs(LoggedInInfo loggedInInfo, String demoNo, String responseId, boolean attached) {
-        List<Object[]> docs = documentDao.findDocsAndConsultResponseDocsByConsultId(ConversionUtils.fromIntString(responseId));
+        List<Object[]> docs = getDocumentDao().findDocsAndConsultResponseDocsByConsultId(ConversionUtils.fromIntString(responseId));
         List<Object[]> ctlDocs = null;
         if (!attached) {
-            ctlDocs = documentDao.findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
+            ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
         return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
     }
@@ -575,7 +610,7 @@ public final class EDocUtil {
         boolean includePublic = publicDoc.equals(PUBLIC);
         boolean includeDeleted = viewstatus.equals("deleted");
         boolean includeActive = viewstatus.equals("active");
-        List<Object[]> documents = documentDao.findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, null);
+        List<Object[]> documents = getDocumentDao().findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, null);
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
@@ -596,7 +631,7 @@ public final class EDocUtil {
 
     public static List<EDoc> listAllDemographicDocsSince(LoggedInInfo loggedInInfo, int demographicNo, Date since) {
 
-        List<Document> documents = documentDao.findByDemographicUpdateDate(demographicNo, since);
+        List<Document> documents = getDocumentDao().findByDemographicUpdateDate(demographicNo, since);
 
         List<EDoc> edocList = new ArrayList<EDoc>();
         for (Document document : documents) {
@@ -618,7 +653,7 @@ public final class EDocUtil {
         boolean includeActive = viewstatus.equals("active");
 
 
-        List<Object[]> documents = documentDao.findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, since);
+        List<Object[]> documents = getDocumentDao().findDocuments(module, moduleid, docType, includePublic, includeDeleted, includeActive, sort, since);
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (Object[] o : documents) {
@@ -635,7 +670,7 @@ public final class EDocUtil {
     }
 
     public static ArrayList<Integer> listDemographicIdsSince(Date since) {
-        return (ArrayList<Integer>) documentDao.findDemographicIdsSince(since);
+        return (ArrayList<Integer>) getDocumentDao().findDemographicIdsSince(since);
     }
 
 
@@ -724,7 +759,7 @@ public final class EDocUtil {
     private static ArrayList<EDoc> documentProgramFiltering(LoggedInInfo loggedInInfo, List<EDoc> eDocs) {
         ArrayList<EDoc> results = new ArrayList<EDoc>();
 
-        List<ProgramProvider> ppList = programManager2.getProgramDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+        List<ProgramProvider> ppList = getProgramManager2().getProgramDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
 
         for (EDoc eDoc : eDocs) {
 
@@ -835,7 +870,7 @@ public final class EDocUtil {
     }
 
     public String getDocumentName(String id) {
-        Document d = documentDao.find(ConversionUtils.fromIntString(id));
+        Document d = getDocumentDao().find(ConversionUtils.fromIntString(id));
         if (d != null) {
             return d.getDocfilename();
         }
@@ -849,27 +884,27 @@ public final class EDocUtil {
             status = cd.getStatus();
         }
 
-        Document d = documentDao.find(ConversionUtils.fromIntString(documentNo));
+        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
         if (d != null) {
             d.setStatus(status.toCharArray()[0]);
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
-            documentDao.merge(d);
+            getDocumentDao().merge(d);
         }
     }
 
     public static void deleteDocument(String documentNo) {
-        Document d = documentDao.find(ConversionUtils.fromIntString(documentNo));
+        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
         if (d != null) {
             d.setStatus('D');
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
-            documentDao.merge(d);
+            getDocumentDao().merge(d);
         }
     }
 
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
         String sourceDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        Document d = documentDao.find(ConversionUtils.fromIntString(documentNo));
+        Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
         File sourceFile = new File(sourceDocDir, d.getDocfilename());
 
         String destFileName = sourceFile.getName();
@@ -936,11 +971,11 @@ public final class EDocUtil {
         doc.setSource(source);
         doc.setSourceFacility(sourceFacility);
         doc.setNumberofpages(1);
-        doc.setReceivedDate(partialDateDao.StringToDate(receivedDate));
+        doc.setReceivedDate(getPartialDateDao().StringToDate(receivedDate));
 
-        documentDao.persist(doc);
+        getDocumentDao().persist(doc);
 
-        partialDateDao.setPartialDate(PartialDate.DOC, doc.getId(), PartialDate.DOC_RECEIVEDDATE, partialDateDao.getFormat(receivedDate));
+        getPartialDateDao().setPartialDate(PartialDate.DOC, doc.getId(), PartialDate.DOC_RECEIVEDDATE, getPartialDateDao().getFormat(receivedDate));
 
 
         if (doc.getDocumentNo() > 0) {
@@ -1058,10 +1093,10 @@ public final class EDocUtil {
     }
 
     public static void subtractOnePage(String docId) {
-        Document doc = documentDao.find(ConversionUtils.fromIntString(docId));
+        Document doc = getDocumentDao().find(ConversionUtils.fromIntString(docId));
         doc.setNumberofpages(doc.getNumberofpages() - 1);
 
-        documentDao.merge(doc);
+        getDocumentDao().merge(doc);
     }
 
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {

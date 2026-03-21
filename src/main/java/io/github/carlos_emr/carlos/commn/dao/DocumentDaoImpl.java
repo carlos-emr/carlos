@@ -32,7 +32,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -207,7 +206,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setParameter(1, providerNo);
         query.setParameter(2, new Timestamp(startDate.getTime()));
         query.setParameter(3, new Timestamp(endDate.getTime()));
-        BigInteger result = (BigInteger) query.getSingleResult();
+        Number result = (Number) query.getSingleResult();
         if (result == null)
             return 0;
         return result.intValue();

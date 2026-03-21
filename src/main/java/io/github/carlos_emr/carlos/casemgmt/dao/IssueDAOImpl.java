@@ -94,7 +94,11 @@ public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
 
     @Override
     public void saveIssue(Issue issue) {
-        currentSession().merge(issue);
+        if (issue.getId() == null) {
+            currentSession().persist(issue);
+        } else {
+            currentSession().merge(issue);
+        }
     }
 
     @Deprecated

@@ -46,23 +46,11 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         super(ProviderLabRoutingModel.class);
     }
 
-    private List<ProviderLabRoutingModel> getProviderLabRoutings(Integer labNo, String labType, String providerNo,
-                                                                 String status) {
-        Query q = entityManager.createQuery("select x from " + modelClass.getName() + " x "
-                    + "where x.labNo LIKE ?1 and x.labType LIKE ?2 and x.providerNo LIKE ?3 and x.status LIKE ?4");
-        q.setParameter(1, labNo != null ? labNo : "%");
-        q.setParameter(2, labType != null ? labType : "%");
-        q.setParameter(3, providerNo != null ? providerNo : "%");
-        q.setParameter(4, status != null ? status : "%");
-
-        return q.getResultList();
-    }
-
     @Override
     public List<ProviderLabRoutingModel> findByLabNoAndLabTypeAndProviderNo(int labNo, String labType,
                                                                             String providerNo) {
         Query q = entityManager.createQuery(
-                "select x from " + modelClass.getName() + " x where x.labNo=?1 and x.labType=?2 and x.providerNo=?3");
+                "select x from ProviderLabRoutingModel x where x.labNo=?1 and x.labType=?2 and x.providerNo=?3");
         q.setParameter(1, labNo);
         q.setParameter(2, labType);
         q.setParameter(3, providerNo);
@@ -72,23 +60,41 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
 
     @Override
     public List<ProviderLabRoutingModel> getProviderLabRoutingDocuments(Integer labNo) {
-        return getProviderLabRoutings(labNo, "DOC", null, null);
+        Query q = entityManager.createQuery(
+                "select x from ProviderLabRoutingModel x where x.labNo = ?1 and x.labType = ?2");
+        q.setParameter(1, labNo);
+        q.setParameter(2, "DOC");
+        return q.getResultList();
     }
 
     @Override
     public List<ProviderLabRoutingModel> getProviderLabRoutingForLabProviderType(Integer labNo, String providerNo,
                                                                                  String labType) {
-        return getProviderLabRoutings(labNo, labType, providerNo, null);
+        Query q = entityManager.createQuery(
+                "select x from ProviderLabRoutingModel x where x.labNo = ?1 and x.labType = ?2 and x.providerNo = ?3");
+        q.setParameter(1, labNo);
+        q.setParameter(2, labType);
+        q.setParameter(3, providerNo);
+        return q.getResultList();
     }
 
     @Override
     public List<ProviderLabRoutingModel> getProviderLabRoutingForLabAndType(Integer labNo, String labType) {
-        return getProviderLabRoutings(labNo, labType, null, "N");
+        Query q = entityManager.createQuery(
+                "select x from ProviderLabRoutingModel x where x.labNo = ?1 and x.labType = ?2 and x.status = ?3");
+        q.setParameter(1, labNo);
+        q.setParameter(2, labType);
+        q.setParameter(3, "N");
+        return q.getResultList();
     }
 
     @Override
     public List<ProviderLabRoutingModel> findAllLabRoutingByIdandType(Integer labNo, String labType) {
-        return getProviderLabRoutings(labNo, labType, null, null);
+        Query q = entityManager.createQuery(
+                "select x from ProviderLabRoutingModel x where x.labNo = ?1 and x.labType = ?2");
+        q.setParameter(1, labNo);
+        q.setParameter(2, labType);
+        return q.getResultList();
     }
 
     @Override
