@@ -57,8 +57,10 @@ RUN apt-get update && apt-get install -y golang-go
 # Install javadoc2md utility for converting Javadoc to Markdown
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
 
-# Install Claude Code CLI and Docusaurus
-RUN which npm && npm install -g @anthropic-ai/claude-code @docusaurus/core @docusaurus/preset-classic
+# Install Claude Code CLI (native binary) and Docusaurus
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && which npm && npm install -g @docusaurus/core @docusaurus/preset-classic
+ENV PATH="${PATH}:/root/.local/bin"
 
 # Install Gemini CLI.
 RUN npm install -g @google/gemini-cli
@@ -68,11 +70,11 @@ RUN npm install -g @google/gemini-cli
 RUN npm install -g playwright@1.56.0 && \
     echo "✅ Playwright CLI installed: $(npx playwright --version)"
 
-# Install all Playwright browsers (Chromium, Chrome, Firefox) with system dependencies
-# Note: --with-deps installs required system libraries for each browser
+# Install Playwright browsers (Chromium, Firefox) with system dependencies
+# Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
 # Version 1.56.0+ correctly uses t64 package names (e.g., libasound2t64) for Ubuntu 24.04
-RUN npx playwright install --with-deps chromium chrome firefox && \
-    echo "✅ Playwright browsers installed (Chromium, Chrome, Firefox)"
+RUN npx playwright install --with-deps chromium firefox && \
+    echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
 # Install pipx and Aider AI coding assistant
 RUN apt-get update && apt-get install -y pipx && \
