@@ -26,7 +26,7 @@ package io.github.carlos_emr.carlos.util.plugin;
 import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class SpecialPlugins extends TagSupport {
     /**
@@ -41,7 +41,7 @@ public class SpecialPlugins extends TagSupport {
         this.moduleName = moduleName;
     }
 
-    public boolean propertiesOn(String proName, OscarProperties proper) {
+    public boolean propertiesOn(String proName, CarlosProperties proper) {
 
         if (proper.getProperty(proName, "").equalsIgnoreCase("yes")
                 || proper.getProperty(proName, "").equalsIgnoreCase("true")
@@ -56,7 +56,7 @@ public class SpecialPlugins extends TagSupport {
         String[] mNameArray = moduleName.split(",");
         boolean flag = false;
         try {
-            OscarProperties proper = OscarProperties.getInstance();
+            CarlosProperties proper = CarlosProperties.getInstance();
 
             for (int i = 0; i < mNameArray.length; i++) {
                 String mname = mNameArray[i];

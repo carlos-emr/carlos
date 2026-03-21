@@ -35,14 +35,14 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class RxInstructionPolicy {
 
     public static List<String> checkInstructions(String instr) {
         List<String> errors = new ArrayList<String>();
 
-        String policies = OscarProperties.getInstance().getProperty("prescript.policy");
+        String policies = CarlosProperties.getInstance().getProperty("prescript.policy");
         if (policies != null) {
             String[] policiesArray = policies.split(",");
             for (String policy : policiesArray) {

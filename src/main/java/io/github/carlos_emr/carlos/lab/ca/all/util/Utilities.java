@@ -58,7 +58,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class Utilities {
 
@@ -124,7 +124,7 @@ public class Utilities {
         String retVal = null;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String place = props.getProperty("DOCUMENT_DIR");
 
             // Validate filename and construct path using PathValidationUtils
@@ -155,7 +155,7 @@ public class Utilities {
 
     public static String saveHRMFile(InputStream stream, String filename) {
         String retVal = null;
-        String place = OscarProperties.getInstance().getProperty("OMD_hrm");
+        String place = CarlosProperties.getInstance().getProperty("OMD_hrm");
 
         try {
             if (!place.endsWith("/")) {
@@ -191,7 +191,7 @@ public class Utilities {
                 throw new IllegalArgumentException("Filename cannot be null or empty");
             }
 
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String place = props.getProperty("DOCUMENT_DIR");
 
             if (!place.endsWith("/")) {

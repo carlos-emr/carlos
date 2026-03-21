@@ -42,7 +42,7 @@ import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @deprecated 2013-12-09 use io.github.carlos_emr.carlos.util.DateUtils instead
@@ -52,8 +52,8 @@ public final class DateUtils {
 
     private static Logger logger = MiscUtils.getLogger();
 
-    private static String dateFormatString = OscarProperties.getInstance().getProperty("DATE_FORMAT");
-    private static String timeFormatString = OscarProperties.getInstance().getProperty("TIME_FORMAT");
+    private static String dateFormatString = CarlosProperties.getInstance().getProperty("DATE_FORMAT");
+    private static String timeFormatString = CarlosProperties.getInstance().getProperty("TIME_FORMAT");
 
     /**
      * @param locale can be null

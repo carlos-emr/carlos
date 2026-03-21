@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.v26.datatype.CX;
 import ca.uhn.hl7v2.model.v26.message.ADT_A09;
@@ -60,8 +60,8 @@ public final class AdtA09Handler {
     private static final String PATIENT_CLASS = "P";
     private static OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
     private static DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private static int checkInLateAllowance = Integer.parseInt(OscarProperties.getInstance().getProperty(AdtA09Handler.class.getSimpleName() + ".CHECK_IN_LATE_ALLOWANCE"));
-    private static int checkInEarlyAllowance = Integer.parseInt(OscarProperties.getInstance().getProperty(AdtA09Handler.class.getSimpleName() + ".CHECK_IN_EARLY_ALLOWANCE"));
+    private static int checkInLateAllowance = Integer.parseInt(CarlosProperties.getInstance().getProperty(AdtA09Handler.class.getSimpleName() + ".CHECK_IN_LATE_ALLOWANCE"));
+    private static int checkInEarlyAllowance = Integer.parseInt(CarlosProperties.getInstance().getProperty(AdtA09Handler.class.getSimpleName() + ".CHECK_IN_EARLY_ALLOWANCE"));
 
     public static void handle(LoggedInInfo loggedInInfo, ADT_A09 message) throws HL7Exception {
         // algorithm

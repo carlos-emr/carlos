@@ -57,7 +57,7 @@
         errorPage="/errorpage.jsp" %>
 
 <%!
-    OscarProperties op = OscarProperties.getInstance();
+    CarlosProperties op = CarlosProperties.getInstance();
 %>
 
 <html>

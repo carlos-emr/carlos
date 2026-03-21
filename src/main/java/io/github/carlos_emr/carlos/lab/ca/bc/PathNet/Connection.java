@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Communication.HTTP;
 
 /*
@@ -73,7 +73,7 @@ public class Connection {
     private HTTP http;
 
     public Connection() {
-        this.url = OscarProperties.getInstance().getProperty("pathnet_url");
+        this.url = CarlosProperties.getInstance().getProperty("pathnet_url");
         this.http = new HTTP(this.url);
     }
 

@@ -167,8 +167,7 @@ jobs:
               mvn -B verify sonar:sonar \
                 -Dsonar.host.url=https://sonarcloud.io \
                 -Dsonar.projectKey=carlos-emr_carlos \
-                -DskipLegacyTests=true
-            "
+                            "
 
       - name: Build and analyze (Pull Request)
         if: github.event_name == 'pull_request'
@@ -199,5 +198,4 @@ jobs:
                 \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \
                 \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
-                -DskipLegacyTests=true
-            "
+                            "

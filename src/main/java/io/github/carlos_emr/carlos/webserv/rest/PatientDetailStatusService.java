@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientDetailStatusTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 @Path("/patientDetailStatusService")
@@ -59,7 +59,7 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Autowired
     private DemographicManager demographicManager;
 
-    private OscarProperties oscarProperties = OscarProperties.getInstance();
+    private CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private Logger logger = MiscUtils.getLogger();
 
 

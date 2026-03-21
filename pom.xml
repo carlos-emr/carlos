@@ -86,12 +86,6 @@
         <struts.devMode>false</struts.devMode>
         <!-- Struts 7.x has migrated com.opensymphony.xwork2.* to org.apache.struts2.* -->
         <maven.compiler.showDeprecation>false</maven.compiler.showDeprecation>
-        <!-- Test properties -->
-        <skipModernTests>false</skipModernTests>
-        <skipLegacyTests>false</skipLegacyTests>
-        <!-- Control test execution phases - set to 'none' to skip -->
-        <modern.tests.phase>test</modern.tests.phase>
-        <legacy.tests.phase>test</legacy.tests.phase>
         <!-- Dependency lock file name - can be overridden via -Ddependency.lock.filename -->
         <dependency.lock.filename>dependencies-lock.json</dependency.lock.filename>
     </properties>
@@ -1151,6 +1145,36 @@
         </dependency>
 
         <!-- Mockito JUnit Jupiter integration -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.23.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter API - explicit version to override mockito-junit-jupiter transitive -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter Params for parameterized tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>6.0.3</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- AssertJ for fluent assertions -->
         <dependency>
@@ -1552,108 +1576,36 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.5</version>
-                <executions>
-                    <!-- Override default test execution -->
-                    <execution>
-                        <id>default-test</id>
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
-                    </execution>
-                    <!-- Run modern tests with JUnit 5 -->
-                    <execution>
-                        <id>modern-tests</id>
-                        <phase>${modern.tests.phase}</phase>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${skipModernTests}</skip>
-                            <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
-                                 so forks are completely isolated and safe to run in parallel.
-                                 Legacy tests use a real MariaDB and must remain sequential. -->
-                            <forkCount>2</forkCount>
-                            <reuseForks>true</reuseForks>
-                            <testSourceDirectory>src/test-modern/java</testSourceDirectory>
-                            <reportsDirectory>${project.build.directory}/surefire-reports-modern</reportsDirectory>
-                            <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
-                            <includes>
-                                <include>**/test/**/*Test.java</include>
-                                <include>**/test/**/*Tests.java</include>
-                                <include>**/tickler/**/*Test.java</include>
-                                <include>**/messenger/**/*Test.java</include>
-                                <include>**/provider/**/*Test.java</include>
-                                <include>**/managers/**/*Test.java</include>
-                                <include>**/*IntegrationTest.java</include>
-                                <include>**/*UnitTest.java</include>
-                            </includes>
-                            <excludes>
-                                <!-- Exclude archive tests from modern test run -->
-                                <exclude>**/archive/**/*Test.java</exclude>
-                            </excludes>
-                            <argLine>
-                               @{argLine}
-                               -Xmx2048m
-                               -Dnet.bytebuddy.experimental=true
-                               --add-opens java.base/java.lang=ALL-UNNAMED
-                               --add-opens java.base/java.util=ALL-UNNAMED
-                               -Djdk.attach.allowAttachSelf=true
-                               -XX:+EnableDynamicAgentLoading
-                             </argLine>
-                            <!-- Test filtering by groups when specified -->
-                            <groups>${groups}</groups>
-                        </configuration>
-                    </execution>
-                    <!-- Run legacy tests WITHOUT JUnit 5 -->
-                    <execution>
-                        <id>legacy-tests</id>
-                        <phase>${legacy.tests.phase}</phase>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${skipLegacyTests}</skip>
-                            <testSourceDirectory>src/test/java</testSourceDirectory>
-                            <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
-                            <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
-                            <!-- Exclude modern test classes from classpath -->
-                            <classpathDependencyExcludes>
-                                <classpathDependencyExclude>*:*test-modern*</classpathDependencyExclude>
-                            </classpathDependencyExcludes>
-                            <excludes>
-                                <exclude>**/*EDTTest.java</exclude>
-                                <exclude>**/AR2005*.java</exclude>
-                                <exclude>**/OntarioMDSpec4DataTest.java</exclude>
-                                <exclude>**/ONAREnhancedBornConnectorTest.java</exclude>
-                                <exclude>org/oscarehr/e2e/**/*.java</exclude>
-                                <!-- Exclude modern test packages from legacy test run -->
-                                <exclude>**/tickler/dao/**IntegrationTest.java</exclude>
-                                <exclude>**/tickler/dao/**UnitTest.java</exclude>
-                                <exclude>**/tickler/manager/**Test.java</exclude>
-                                <exclude>**/test/simple/**Test.java</exclude>
-                                <exclude>**/test/examples/**Test.java</exclude>
-                                <exclude>**/test/base/**Test.java</exclude>
-                                <exclude>tests/**</exclude>
-                            </excludes>
-                            <systemPropertyVariables>
-                                <oscar.dbinit.skip>${oscar.dbinit.skip}</oscar.dbinit.skip>
-                                <buildDirectory>${project.build.directory}</buildDirectory>
-                            </systemPropertyVariables>
-                            <!-- Java 21 compatibility flags for JAXB -->
-                            <argLine>
-                                @{argLine}
-                                -Xmx2048m
-                                -Dnet.bytebuddy.experimental=true
-                                --add-opens java.base/java.lang=ALL-UNNAMED
-                                --add-opens java.base/java.lang.reflect=ALL-UNNAMED
-                                --add-opens java.base/sun.reflect=ALL-UNNAMED
-                                --add-opens java.base/sun.nio.ch=ALL-UNNAMED
-                                --add-opens java.base/java.io=ALL-UNNAMED
-                                --add-opens java.base/java.util=ALL-UNNAMED
-                            </argLine>
-                        </configuration>
-                    </execution>
-                </executions>
+                <configuration>
+                    <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
+                         so forks are completely isolated and safe to run in parallel. -->
+                    <forkCount>2</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <includes>
+                        <include>**/test/**/*Test.java</include>
+                        <include>**/test/**/*Tests.java</include>
+                        <include>**/tickler/**/*Test.java</include>
+                        <include>**/messenger/**/*Test.java</include>
+                        <include>**/provider/**/*Test.java</include>
+                        <include>**/managers/**/*Test.java</include>
+                        <include>**/*IntegrationTest.java</include>
+                        <include>**/*UnitTest.java</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/archive/**/*Test.java</exclude>
+                    </excludes>
+                    <argLine>
+                       @{argLine}
+                       -Xmx2048m
+                       -Dnet.bytebuddy.experimental=true
+                       --add-opens java.base/java.lang=ALL-UNNAMED
+                       --add-opens java.base/java.util=ALL-UNNAMED
+                       -Djdk.attach.allowAttachSelf=true
+                       -XX:+EnableDynamicAgentLoading
+                     </argLine>
+                    <!-- Test filtering by groups when specified -->
+                    <groups>${groups}</groups>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -1730,82 +1682,6 @@
     </build>
 
     <profiles>
-        <!-- Profile for modern tests with JUnit 5 -->
-        <profile>
-            <id>modern-tests</id>
-            <activation>
-                <property>
-                    <!-- Activate when NOT skipping modern tests -->
-                    <name>!skipModernTests</name>
-                </property>
-            </activation>
-            <properties>
-                <!-- Use modern lock file when modern-tests profile is active -->
-                <dependency.lock.filename>dependencies-lock-modern.json</dependency.lock.filename>
-            </properties>
-            <dependencies>
-                <!-- JUnit 5 (Jupiter) -->
-                <dependency>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter</artifactId>
-                    <version>6.0.3</version>
-                    <scope>test</scope>
-                </dependency>
-                <!-- JUnit 5 Params for parameterized tests -->
-                <dependency>
-                    <groupId>org.junit.jupiter</groupId>
-                    <artifactId>junit-jupiter-params</artifactId>
-                    <version>6.0.3</version>
-                    <scope>test</scope>
-                </dependency>
-                <!-- Mockito JUnit Jupiter integration -->
-                <dependency>
-                    <groupId>org.mockito</groupId>
-                    <artifactId>mockito-junit-jupiter</artifactId>
-                    <version>5.23.0</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-            <build>
-                <plugins>
-                    <!-- Add modern test sources only when profile is active -->
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>build-helper-maven-plugin</artifactId>
-                        <version>3.6.0</version>
-                        <executions>
-                            <execution>
-                                <id>add-modern-test-source</id>
-                                <phase>generate-test-sources</phase>
-                                <goals>
-                                    <goal>add-test-source</goal>
-                                </goals>
-                                <configuration>
-                                    <sources>
-                                        <source>src/test-modern/java</source>
-                                    </sources>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>add-modern-test-resource</id>
-                                <phase>generate-test-resources</phase>
-                                <goals>
-                                    <goal>add-test-resource</goal>
-                                </goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <directory>src/test-modern/resources</directory>
-                                        </resource>
-                                    </resources>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
         <profile>
             <!-- Skip jsp compile, run 'mvn package -Pjspc' to compile jsps -->
             <id>jspc</id>
@@ -1844,32 +1720,5 @@
             </build>
         </profile>
 
-        <!-- Profile to skip modern tests if needed -->
-        <profile>
-            <id>skip-modern-tests</id>
-            <activation>
-                <property>
-                    <name>skipModernTests</name>
-                    <value>true</value>
-                </property>
-            </activation>
-            <properties>
-                <skipModernTests>true</skipModernTests>
-                <modern.tests.phase>none</modern.tests.phase>
-            </properties>
-        </profile>
-        <profile>
-            <id>skip-legacy-tests</id>
-            <activation>
-                <property>
-                    <name>skipLegacyTests</name>
-                    <value>true</value>
-                </property>
-            </activation>
-            <properties>
-                <skipLegacyTests>true</skipLegacyTests>
-                <legacy.tests.phase>none</legacy.tests.phase>
-            </properties>
-        </profile>
     </profiles>
 </project>

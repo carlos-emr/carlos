@@ -58,7 +58,7 @@ import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jay
@@ -98,7 +98,7 @@ public class TeleplanAPI {
     }
 
     private void getClient() {
-        CONTACT_URL = OscarProperties.getInstance().getProperty("TELEPLAN_URL", CONTACT_URL);
+        CONTACT_URL = CarlosProperties.getInstance().getProperty("TELEPLAN_URL", CONTACT_URL);
 
         BasicCookieStore cookieStore = new BasicCookieStore();
         BasicClientCookie cookie = new BasicClientCookie("mycookie", "stuff");

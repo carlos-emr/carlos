@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.commons.codec.binary.Base32;
 import java.io.UnsupportedEncodingException;
@@ -52,7 +52,7 @@ public interface MfaManager {
      * @return true if MFA is enabled, false otherwise.
      */
     static boolean isOscarMfaEnabled() {
-        return Boolean.parseBoolean(OscarProperties.getInstance().getProperty(MFA_ENABLE_PROPERTY));
+        return Boolean.parseBoolean(CarlosProperties.getInstance().getProperty(MFA_ENABLE_PROPERTY));
     }
 
     /**
@@ -61,7 +61,7 @@ public interface MfaManager {
      * @return true if legacy PIN authentication is enabled, false otherwise.
      */
     static boolean isOscarLegacyPinEnabled() {
-        return Boolean.parseBoolean(OscarProperties.getInstance()
+        return Boolean.parseBoolean(CarlosProperties.getInstance()
                 .getProperty(MFA_LEGACY_PIN_ENABLE, String.valueOf(!MfaManager.isOscarMfaEnabled())));
     }
 

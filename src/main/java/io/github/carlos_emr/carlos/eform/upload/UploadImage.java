@@ -48,7 +48,7 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @MultipartConfig(maxFileSize = 52428800, maxRequestSize = 52428800, fileSizeThreshold = 1048576)
 public class UploadImage extends HttpServlet {
@@ -56,7 +56,7 @@ public class UploadImage extends HttpServlet {
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         String foldername = "", fileheader = "";
 
-        Properties ap = OscarProperties.getInstance();
+        Properties ap = CarlosProperties.getInstance();
         foldername = ap.getProperty("EFORM_IMAGES_DIR");
 
         File imageDir = new File(foldername);

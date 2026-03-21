@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.DataTypeException;
 import ca.uhn.hl7v2.model.v26.group.REF_I12_PATIENT_VISIT;
@@ -75,7 +75,7 @@ public final class RefI12 {
         REF_I12 referralMsg = new REF_I12();
 
         DataTypeUtils.fillMsh(referralMsg.getMSH(), new Date(), clinic.getClinicName(), "REF", "I12", "REF_I12", DataTypeUtils.HL7_VERSION_ID);
-        DataTypeUtils.fillSft(referralMsg.getSFT(), OscarProperties.getBuildTag(), OscarProperties.getBuildDate());
+        DataTypeUtils.fillSft(referralMsg.getSFT(), CarlosProperties.getBuildTag(), CarlosProperties.getBuildDate());
 
         fillRf1(referralMsg.getRF1(), null, null, null, null, consultationRequest.getId(), consultationRequest.getReferralDate(), null, null);
 

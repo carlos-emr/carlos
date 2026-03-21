@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -69,7 +69,7 @@ public class Pregnancy2Action extends ActionSupport {
     static String labReqVersion;
 
     static {
-        labReqVersion = OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+        labReqVersion = CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
         if (labReqVersion == "") {
             labReqVersion = "10";
         }

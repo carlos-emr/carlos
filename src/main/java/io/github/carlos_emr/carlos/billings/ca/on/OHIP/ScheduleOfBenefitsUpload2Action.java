@@ -42,7 +42,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 /**
@@ -125,7 +125,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
             //retrieve the file data
             //ByteArrayOutputStream baos = new ByteArrayOutputStream();
             //InputStream stream = file.getInputStream();
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
 
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");

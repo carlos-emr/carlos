@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -412,7 +412,7 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
 
         try {
             // Get the configured document directory
-            String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             if (documentDir == null || documentDir.trim().isEmpty()) {
                 logger.error("DOCUMENT_DIR not configured in properties");
                 return null;

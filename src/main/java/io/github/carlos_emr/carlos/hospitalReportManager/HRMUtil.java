@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory;
@@ -63,7 +63,7 @@ public class HRMUtil {
      * Because multiple versions of a single HRM document can be received,
      */
     public static ArrayList<HashMap<String, ? extends Object>> listHRMDocuments(LoggedInInfo loggedInInfo, String sortBy, boolean sortAsc, String demographicNo, boolean filterDuplicates) {
-        if (!OscarProperties.getInstance().isOntarioBillingRegion()) {
+        if (!CarlosProperties.getInstance().isOntarioBillingRegion()) {
             return new ArrayList<>();
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)) {

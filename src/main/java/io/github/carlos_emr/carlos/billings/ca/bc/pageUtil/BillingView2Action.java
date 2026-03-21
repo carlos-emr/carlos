@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
@@ -70,7 +70,7 @@ public final class BillingView2Action
     public String execute() throws IOException,
             ServletException {
 
-        Properties oscarVars = OscarProperties.getInstance();
+        Properties oscarVars = CarlosProperties.getInstance();
 
         if (oscarVars.getProperty("billregion").equals("ON")) {
             String newURL = "/billing/CA/ON/billingOB2.jsp";

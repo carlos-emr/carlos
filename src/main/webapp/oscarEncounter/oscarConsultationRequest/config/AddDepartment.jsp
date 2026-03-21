@@ -31,9 +31,9 @@
 
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

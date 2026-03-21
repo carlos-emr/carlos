@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -71,7 +71,7 @@ public class FrmLabReq07Record extends FrmRecord {
                 props.setProperty("demographic_no", String.valueOf(demographic.getDemographicNo()));
                 props.setProperty("patientName", demographic.getLastName() + ", " + demographic.getFirstName());
 
-                String uhipStatus = OscarProperties.getInstance().getProperty("demo_uhip_status", "");
+                String uhipStatus = CarlosProperties.getInstance().getProperty("demo_uhip_status", "");
                 if (!uhipStatus.isEmpty() && demographic.getRosterStatus().equals(uhipStatus)) {
                     props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
                     props.setProperty("version", "");
@@ -121,7 +121,7 @@ public class FrmLabReq07Record extends FrmRecord {
                 props.setProperty("patientChartNo", chartNo);
             }
 
-            OscarProperties oscarProps = OscarProperties.getInstance();
+            CarlosProperties oscarProps = CarlosProperties.getInstance();
             if (oscarProps.getBooleanProperty("use_lab_clientreference", "true")) {
                 String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "oscarEncounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
                 props.setProperty("clientRefNo", additionalInfo);
@@ -214,7 +214,7 @@ public class FrmLabReq07Record extends FrmRecord {
         }
 
         //lab_req_override=true
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
         if (oscarProps.getProperty("lab_req_provider", "").length() > 0) {
             props.setProperty("reqProvName", oscarProps.getProperty("lab_req_provider"));
         }

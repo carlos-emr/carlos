@@ -47,7 +47,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
-<%@page import="io.github.carlos_emr.OscarProperties"%>
+<%@page import="io.github.carlos_emr.CarlosProperties"%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>

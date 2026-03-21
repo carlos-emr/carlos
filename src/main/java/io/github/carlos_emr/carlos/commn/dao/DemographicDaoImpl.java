@@ -83,7 +83,7 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
@@ -1484,7 +1484,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         currentSession().merge(demographic);
 
-        if (OscarProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
+        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
             (new HL7A04Generator()).generateHL7A04(demographic);
         }
 
@@ -2058,7 +2058,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         client.setLastUpdateDate(new Date());
         currentSession().merge(client);
 
-        if (OscarProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
+        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
             (new HL7A04Generator()).generateHL7A04(client);
 
         // the new way
@@ -2696,7 +2696,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     private String generateDemographicSearchQuery(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest,
                                                   Map<String, Object> params, String select) {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         params.put("keyword", searchRequest.getKeyword());
 

@@ -38,7 +38,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/errorpage.jsp" buffer="64kb" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
 
 <caisi:isModuleLoad moduleName="caisi">
@@ -112,7 +112,7 @@
         int nowYear = now.get(Calendar.YEAR);
         int nowMonth = now.get(Calendar.MONTH) + 1; //be care for the month +-1
         int nowDay = now.get(Calendar.DAY_OF_MONTH);
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String caisiView = null;
         caisiView = request.getParameter("GoToCaisiViewFromOscarView");
         boolean viewAll_bool = true;  // false, restore original schedule view on appointment screen

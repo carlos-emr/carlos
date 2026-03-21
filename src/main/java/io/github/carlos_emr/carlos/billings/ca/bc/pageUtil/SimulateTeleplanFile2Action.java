@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanSubmission;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -65,7 +65,7 @@ public class SimulateTeleplanFile2Action extends ActionSupport {
 
     public String execute() throws Exception {
 
-        String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
 
         String provider = request.getParameter("providers");
         String providerBillingNo = request.getParameter("providers");

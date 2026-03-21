@@ -42,7 +42,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jay
@@ -65,7 +65,7 @@ public class TeleplanResponse {
 
     void processResponseStream(InputStream in) {
         try {
-            String directory = OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
+            String directory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
             double randNum = Math.random();
             String tempFile = directory + "teleplan.msp" + randNum;
             BufferedReader bin = new BufferedReader(new InputStreamReader(in));
@@ -91,7 +91,7 @@ public class TeleplanResponse {
                 realFilename = "teleplan" + this.getFilename() + randNum;
 
                 // Use PathValidationUtils to validate destination path
-                File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));
+                File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
                 File file2;
                 try {
                     file2 = PathValidationUtils.validatePath(realFilename, allowedDir);
@@ -161,7 +161,7 @@ public class TeleplanResponse {
     }
 
     public File getFile() {
-        String directory = OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
+        String directory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "./");
         return new File(directory + realFilename);
     }
 

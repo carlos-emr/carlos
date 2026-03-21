@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -371,7 +371,7 @@ public final class MessageUploader {
             for (int i = 0; i < docNums.size(); i++) {
 
                 if (docNums.get(i) != null && !((String) docNums.get(i)).trim().equals("")) {
-                    if ("ON".equals(OscarProperties.getInstance().getProperty("billregion", "ON"))) {
+                    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
                         StringBuilder practitionerNum = new StringBuilder(((String) docNums.get(i)).trim());
                         if (sqlSearchOn.equalsIgnoreCase("ohip_no")) {
                             while (practitionerNum.length() < 6) {
@@ -390,7 +390,7 @@ public final class MessageUploader {
                     rs.close();
                     pstmt.close();
 
-                    String otherIdMatchKey = OscarProperties.getInstance().getProperty("lab.other_id_matching", "");
+                    String otherIdMatchKey = CarlosProperties.getInstance().getProperty("lab.other_id_matching", "");
                     if (otherIdMatchKey.length() > 0) {
                         OtherId otherId = OtherIdManager.searchTable(OtherIdManager.PROVIDER, otherIdMatchKey, (String) docNums.get(i));
                         if (otherId != null) {
@@ -463,7 +463,7 @@ public final class MessageUploader {
 
 				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
-					if (OscarProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
+					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
 						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";
 					} else {
 						sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name like '" + lastName + "%' and " + " first_name like '" + firstName + "%' and " + " year_of_birth like '" + dobYear + "' and " + " month_of_birth like '" + dobMonth + "' and " + " date_of_birth like '" + dobDay + "' and " + " sex like '" + sex + "%' ";

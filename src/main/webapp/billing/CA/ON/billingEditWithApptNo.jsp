@@ -41,7 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     String prov = request.getParameter("billRegion");
@@ -61,7 +61,7 @@
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
     }
 
-    OscarProperties oscarVariables = OscarProperties.getInstance();
+    CarlosProperties oscarVariables = CarlosProperties.getInstance();
 
     String user_no = (String) session.getAttribute("user");
 

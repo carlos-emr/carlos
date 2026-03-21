@@ -37,7 +37,7 @@
       java.net.*,
       org.apache.commons.io.FileUtils,
       org.apache.commons.text.StringEscapeUtils,
-      io.github.carlos_emr.OscarProperties,
+      io.github.carlos_emr.CarlosProperties,
       io.github.carlos_emr.carlos.util.FileSortByDate
 " %>
 
@@ -75,7 +75,7 @@
 
 <%
     // Load backup_path
-    Properties oscarVars = OscarProperties.getInstance();
+    Properties oscarVars = CarlosProperties.getInstance();
     String backuppath = oscarVars.getProperty("backup_path");
     session.setAttribute("backupfilepath", backuppath);
 

@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -110,7 +110,7 @@ public class ExtractBean extends Object implements Serializable {
 
 
     public synchronized void dbQuery() {
-        String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         if (HasBillingItemsToSubmit()) {
 
 
@@ -326,7 +326,7 @@ public class ExtractBean extends Object implements Serializable {
 
     public void writeFile(String value1) {
         try {
-            String home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
+            String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
 
             FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
             PrintStream p = new PrintStream(out);
@@ -340,7 +340,7 @@ public class ExtractBean extends Object implements Serializable {
     public void writeHtml(String htmlvalue1) {
         if (eFlag.equals("1")) {
             try {
-                String home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
+                String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
                 FileOutputStream out = new FileOutputStream(home_dir + htmlFilename);
                 PrintStream p = new PrintStream(out);
                 p.println(htmlvalue1);

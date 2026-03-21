@@ -28,7 +28,7 @@
 package io.github.carlos_emr.carlos.provider.web;
 
 import org.apache.struts2.ActionSupport;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -328,7 +328,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     }
 
     private static File getImageFolder() throws IOException {
-        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory() + "/");
+        File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs()) {
             throw new IOException("Could not create eform image directory: " + imageFolder.getAbsolutePath());
         }

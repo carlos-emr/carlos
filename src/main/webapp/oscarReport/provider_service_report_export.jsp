@@ -54,7 +54,7 @@
 <%@page import="java.text.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
-    String agencyName = io.github.carlos_emr.OscarProperties.getInstance().getProperty("db_name", "");
+    String agencyName = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("db_name", "");
     String startDateString = request.getParameter("startDate");
     String endDateString = request.getParameter("endDate");
     SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy");

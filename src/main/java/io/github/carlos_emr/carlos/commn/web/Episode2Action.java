@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.BeanUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -86,7 +86,7 @@ public class Episode2Action extends ActionSupport {
             request.setAttribute("episode", e);
         }
 
-        String[] codingSystems = OscarProperties.getInstance().getProperty("dxResearch_coding_sys", "").split(",");
+        String[] codingSystems = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "").split(",");
         List<String> cs = Arrays.asList(codingSystems);
         request.setAttribute("codingSystems", cs);
         request.setAttribute("demographicNo", request.getParameter("demographicNo"));

@@ -41,7 +41,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.DashboardManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Dashboard" %>
 <%@ page import="java.util.Properties" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.List" %>
@@ -64,7 +64,7 @@
     AppManager appManager = SpringUtils.getBean(AppManager.class);
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
-    Properties oscarVariables = OscarProperties.getInstance();
+    Properties oscarVariables = CarlosProperties.getInstance();
     String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
     String resourcebaseurl = oscarVariables.getProperty("resource_base_url");
     String curUser_no = (String) session.getAttribute("user");
@@ -207,7 +207,7 @@
                             </security:oscarSec>
                         </caisi:isModuleLoad>
                         <%
-                            boolean hide_eConsult = OscarProperties.getInstance().isPropertyActive("hide_eConsult_link");
+                            boolean hide_eConsult = CarlosProperties.getInstance().isPropertyActive("hide_eConsult_link");
                             if ("on".equalsIgnoreCase(prov) && !hide_eConsult) {
                         %>
                         <li id="econ">

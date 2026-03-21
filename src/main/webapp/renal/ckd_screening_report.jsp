@@ -63,7 +63,7 @@
     CkdScreenerReportHandler report = new CkdScreenerReportHandler();
     List<CKDReportContainer> ckds = report.generateReport();
 
-    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.equals("")) {
         labReqVer = "07";
     }

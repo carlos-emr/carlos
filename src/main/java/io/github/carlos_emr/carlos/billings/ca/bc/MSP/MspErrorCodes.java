@@ -43,7 +43,7 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class MspErrorCodes extends Properties {
 
@@ -54,11 +54,11 @@ public class MspErrorCodes extends Properties {
         super();
         try {
             InputStream is = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarBilling/ca/bc/MSP/mspEditCodes.properties");
-            if (OscarProperties.getInstance().getProperty("msp_error_codes") != null) {
-                String filename = OscarProperties.getInstance().getProperty("msp_error_codes");
+            if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {
+                String filename = CarlosProperties.getInstance().getProperty("msp_error_codes");
                 is = new FileInputStream(filename);
             } else {
-                File file = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
+                File file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
                 if (file != null && file.exists()) {
                     is = new FileInputStream(file);
                 }
@@ -66,7 +66,7 @@ public class MspErrorCodes extends Properties {
             load(is);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            MiscUtils.getLogger().debug("Error loading MSP Error codes file :" + OscarProperties.getInstance().getProperty("msp_error_codes"));
+            MiscUtils.getLogger().debug("Error loading MSP Error codes file :" + CarlosProperties.getInstance().getProperty("msp_error_codes"));
         }
     }
 
@@ -74,11 +74,11 @@ public class MspErrorCodes extends Properties {
     public void save() {
         try {
             File file = null;
-            if (OscarProperties.getInstance().getProperty("msp_error_codes") != null) {
-                String filename = OscarProperties.getInstance().getProperty("msp_error_codes");
+            if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {
+                String filename = CarlosProperties.getInstance().getProperty("msp_error_codes");
                 file = new File(filename);
             } else {
-                file = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
+                file = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "msp_error_codes.properties");
             }
 
             store(new FileOutputStream(file), "Written on " + new Date());

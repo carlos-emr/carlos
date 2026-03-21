@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -132,7 +132,7 @@ public class EctConAddSpecialist2Action extends ActionSupport {
 
     private boolean referralNoValid(String referralNo) {
 
-        String pattern = OscarProperties.getInstance().getProperty("referral_no.pattern", "^[a-zA-Z0-9]*$");
+        String pattern = CarlosProperties.getInstance().getProperty("referral_no.pattern", "^[a-zA-Z0-9]*$");
 
         try {
             if (referralNo.matches(pattern))

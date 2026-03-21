@@ -13,7 +13,7 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <!--add for con report-->
@@ -1735,13 +1735,13 @@
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labHBsAg", "")) %>"></td>
                 </td>
                 <td>
-                    <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                    <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                     <input type="text" name="pg1_labExtra1Name" size="10" maxlength="20"
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labExtra1Name", "")) %>">
                     <%}%>
                 </td>
                 <td>
-                    <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                    <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                     <input type="text" name="pg1_labExtra1Value" size="10" maxlength="20"
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labExtra1Value", "")) %>">
                     <%}%>
@@ -1754,13 +1754,13 @@
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labVDRL", "")) %>"></td>
                 </td>
                 <td>
-                    <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                    <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                     <input type="text" name="pg1_labExtra2Name" size="10" maxlength="20"
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labExtra2Name", "")) %>">
                     <%}%>
                 </td>
                 <td>
-                    <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                    <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                     <input type="text" name="pg1_labExtra2Value" size="10" maxlength="20"
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labExtra2Value", "")) %>">
                     <%}%>
@@ -1773,13 +1773,13 @@
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labSickle", "")) %>"></td>
                 </td>
                 <td>
-                    <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                    <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                     <input type="text" name="pg1_labExtra3Name" size="10" maxlength="20"
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labExtra3Name", "")) %>">
                     <%}%>
                 </td>
                 <td>
-                    <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                    <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                     <input type="text" name="pg1_labExtra3Value" size="10" maxlength="20"
                            value="<%= UtilMisc.htmlEscape(props.getProperty("pg1_labExtra3Value", "")) %>">
                     <%}%>
@@ -1836,14 +1836,14 @@
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr bgcolor="#CCCCCC">
                 <th colspan="4"><b>Comments</b>
-                    <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                    <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                     (x4<input type="checkbox" name="pg1_4ColCom" id="pg1_4ColCom" onClick="commentMode(this.checked);"
                             <%= props.getProperty("pg1_4ColCom", "") %> <%= props.getProperty("pg1_4ColCom") == null ? "checked='checked'" : "" %> />)
                     <%}%>
                 </th>
             </tr>
             <tr>
-                <%if (OscarProperties.getInstance().getProperty("ar2005_enhance") != null && OscarProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
+                <%if (CarlosProperties.getInstance().getProperty("ar2005_enhance") != null && CarlosProperties.getInstance().getProperty("ar2005_enhance").equals("true")) {%>
                 <%
                     String commentSpan = "1";
                     String commentDisplay = "";

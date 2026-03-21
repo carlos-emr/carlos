@@ -64,7 +64,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ImportExportMeasurements;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.Measurements;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
@@ -206,7 +206,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
     }
 
     public String getFile() {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         String zipName = request.getParameter("zipFile");
         String dir = properties.getProperty("DOCUMENT_DIR");
         Util.downloadFile(zipName, dir, response);
@@ -216,7 +216,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         Clinic clinic = clinicDAO.getClinic();
         List<DataExport> dataExportList = dataExportDAO.findAllByType(DataExportDao.CIHI_OMD4);
         dataExportList.addAll(dataExportDAO.findAllByType(DataExportDao.CIHI_PHC_VRS));
@@ -877,7 +877,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
 
 /*
 	private void buildProcedure2(Demographic demo, PatientRecord patientRecord) {
-            OscarProperties properties = OscarProperties.getInstance();
+            CarlosProperties properties = CarlosProperties.getInstance();
             Calendar cal = Calendar.getInstance();
             Date procedureDate;
             boolean hasIssue;
@@ -1246,7 +1246,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
 
         //copy zip to document directory
         File zipFile = new File(tmpDir, zipName);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         File destDir = new File(properties.getProperty("DOCUMENT_DIR"));
         org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
 

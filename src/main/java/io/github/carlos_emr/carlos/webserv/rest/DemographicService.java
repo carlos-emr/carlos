@@ -99,7 +99,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.WaitingListNameTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 
 
@@ -635,7 +635,7 @@ public class DemographicService extends AbstractServiceImpl {
         req.setActive(true);
         //caisi
         boolean outOfDomain = true;
-        if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
+        if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
             outOfDomain = false;
         }
         req.setOutOfDomain(outOfDomain);
@@ -681,7 +681,7 @@ public class DemographicService extends AbstractServiceImpl {
         DemographicSearchRequest req = convertFromJSON(json);
         //caisi
         boolean outOfDomain = true;
-        if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
+        if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
             outOfDomain = false;
         }
         req.setOutOfDomain(outOfDomain);

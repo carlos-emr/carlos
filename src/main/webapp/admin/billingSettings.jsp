@@ -55,7 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.clinic.ClinicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
@@ -71,7 +71,7 @@
 <%
 
 
-    String billRegion = OscarProperties.getInstance().getProperty("billregion", "").trim();
+    String billRegion = CarlosProperties.getInstance().getProperty("billregion", "").trim();
     List<String> billingSettingsKeys = Arrays.asList("auto_populate_refer", "bc_default_service_location", "default_billing_form");
 
     /*
@@ -205,7 +205,7 @@
                                 String defaultServiceLocation = dataBean.getProperty("bc_default_service_location", "");
                                 if (StringUtils.isNullOrEmpty(defaultServiceLocation)) {
                                     // Get the visittype property
-                                    defaultServiceLocation = OscarProperties.getInstance().getProperty("visittype");
+                                    defaultServiceLocation = CarlosProperties.getInstance().getProperty("visittype");
                                 }
 
                                 // this captures and modifies any legacy codes that may be still hanging around
@@ -228,7 +228,7 @@
                         <select id="default_billing_form" name="default_billing_form">
                             <%
                                 BillingFormData.BillingForm[] billformlist = billingFormData.getFormList();
-                                String currentSelection = OscarProperties.getInstance().getProperty("default_view");
+                                String currentSelection = CarlosProperties.getInstance().getProperty("default_view");
                                 String currentUserSetting = dataBean.getProperty("default_billing_form");
                                 // current user setting overrides the carlos properties setting
                                 if (currentUserSetting != null && !currentUserSetting.isEmpty()) {

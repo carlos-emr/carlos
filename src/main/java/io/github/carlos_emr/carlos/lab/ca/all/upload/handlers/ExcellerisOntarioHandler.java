@@ -45,7 +45,7 @@ import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 public class ExcellerisOntarioHandler implements MessageHandler {
@@ -70,7 +70,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             }
             
             // Get expected document directory for validation
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir == null || documentDir.isEmpty()) {
                 logger.error("DOCUMENT_DIR property not configured");

@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
@@ -357,7 +357,7 @@ public class WCBTeleplanSubmission {
     }
 
     private String ClaimNote1Head(String logNo, String w_payeeno, String w_pracno) {
-        return Misc.forwardZero(OscarProperties.getInstance().getProperty("dataCenterId"), 5)
+        return Misc.forwardZero(CarlosProperties.getInstance().getProperty("dataCenterId"), 5)
                 + Misc.forwardZero(String.valueOf(logNo), 7)
                 + Misc.forwardZero(w_payeeno, 5)
                 + Misc.forwardZero(w_pracno, 5);

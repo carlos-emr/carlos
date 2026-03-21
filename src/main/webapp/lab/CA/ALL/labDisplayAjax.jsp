@@ -44,7 +44,7 @@
                  io.github.carlos_emr.carlos.lab.LabRequestReportLink,
                  io.github.carlos_emr.carlos.mds.data.ReportStatus,
                  io.github.carlos_emr.carlos.log.*,
-                 io.github.carlos_emr.OscarProperties,
+                 io.github.carlos_emr.CarlosProperties,
                  org.apache.commons.codec.binary.Base64,
                  io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,
                  io.github.carlos_emr.carlos.commn.model.Hl7TextInfo,
@@ -83,7 +83,7 @@
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String segmentID = request.getParameter("segmentID");
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = request.getParameter("searchProviderNo");

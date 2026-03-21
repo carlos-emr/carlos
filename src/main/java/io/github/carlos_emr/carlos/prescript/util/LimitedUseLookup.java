@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 /**
@@ -107,7 +107,7 @@ public class LimitedUseLookup {
             ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
             try {
 
-                String fileName = OscarProperties.getInstance().getProperty("odb_formulary_file");
+                String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
                 if (fileName != null && !fileName.isEmpty()) {
                     is = new BufferedInputStream(new FileInputStream(fileName));
                     log.info("loading odb file from property " + fileName);

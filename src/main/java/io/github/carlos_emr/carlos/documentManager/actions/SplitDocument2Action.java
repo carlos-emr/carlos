@@ -25,7 +25,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -100,7 +100,7 @@ public class SplitDocument2Action extends ActionSupport {
 
         Document doc = documentDao.getDocument(docNum);
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!docdownload.endsWith(File.separator)) {
             docdownload = docdownload + File.separator;
         }
@@ -227,7 +227,7 @@ public class SplitDocument2Action extends ActionSupport {
     public String rotate180() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         Path filePath = Paths.get(docdownload, doc.getDocfilename());
         File input = filePath.toFile();
         PDDocument pdf = Loader.loadPDF(input);
@@ -250,7 +250,7 @@ public class SplitDocument2Action extends ActionSupport {
     public String rotate90() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         Path filePath = Paths.get(docdownload, doc.getDocfilename());
         File file = filePath.toFile();
 
@@ -273,7 +273,7 @@ public class SplitDocument2Action extends ActionSupport {
     public String removeFirstPage() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         Path filePath = Paths.get(docdownload, doc.getDocfilename());
         File file = filePath.toFile();
 

@@ -25,12 +25,12 @@
 --%>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     session.setAttribute("homepath", props.getProperty("project_home", ""));
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <html>
 <head>

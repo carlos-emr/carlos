@@ -35,7 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo, io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
@@ -57,7 +57,7 @@
     Demographic demographic = demographicManager.getDemographicWithExt(loggedInInfo, Integer.parseInt(demoNo));
 
     // this is accessed in the newEncounterLayout after this header is included.
-    String privateConsentEnabledProperty = OscarProperties.getInstance().getProperty("privateConsentEnabled");
+    String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
 
 %>
@@ -106,7 +106,7 @@ function fallbackCopy(text) {
 </div>
 
 <div id="header-bottom-row">
-    <% if (OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
+    <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
     <div>
         <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','<c:out
                 value="${ctx}"/>/commons/omdDiseaseList.jsp?sex=<%=bean.patientSex%>&age=<%=demographic.getAge()%>'); return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Header.OntMD"/></a>
@@ -121,7 +121,7 @@ function fallbackCopy(text) {
 
 <%!
     String getEChartLinks() {
-        String str = OscarProperties.getInstance().getProperty("ECHART_LINK");
+        String str = CarlosProperties.getInstance().getProperty("ECHART_LINK");
         if (str == null) {
             return "";
         }

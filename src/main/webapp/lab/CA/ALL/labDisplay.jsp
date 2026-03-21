@@ -94,7 +94,7 @@
 <%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -164,7 +164,7 @@
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String segmentID = request.getParameter("segmentID");
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = StringUtils.trimToEmpty(request.getParameter("searchProviderNo"));
@@ -232,10 +232,10 @@
     String reqID = null, reqTableID = null;
     String remoteFacilityIdQueryString = "";
 
-    boolean bShortcutForm = OscarProperties.getInstance().getProperty("appt_formview", "").equalsIgnoreCase("on") ? true : false;
-    String formName = bShortcutForm ? OscarProperties.getInstance().getProperty("appt_formview_name") : "";
+    boolean bShortcutForm = CarlosProperties.getInstance().getProperty("appt_formview", "").equalsIgnoreCase("on") ? true : false;
+    String formName = bShortcutForm ? CarlosProperties.getInstance().getProperty("appt_formview_name") : "";
     String formNameShort = formName.length() > 3 ? (formName.substring(0, 2) + ".") : formName;
-    String formName2 = bShortcutForm ? OscarProperties.getInstance().getProperty("appt_formview_name2", "") : "";
+    String formName2 = bShortcutForm ? CarlosProperties.getInstance().getProperty("appt_formview_name2", "") : "";
     String formName2Short = formName2.length() > 3 ? (formName2.substring(0, 2) + ".") : formName2;
     boolean bShortcutForm2 = bShortcutForm && !formName2.equals("");
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();

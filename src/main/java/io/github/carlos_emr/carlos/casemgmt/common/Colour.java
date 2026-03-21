@@ -36,7 +36,7 @@ package io.github.carlos_emr.carlos.casemgmt.common;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jackson
@@ -46,7 +46,7 @@ public class Colour {
     public static Colour getInstance() {
         Colour c = null;
         try {
-            String colourClass = OscarProperties.getInstance().getProperty("ColourClass", "io.github.carlos_emr.carlos.casemgmt.common.Colour");
+            String colourClass = CarlosProperties.getInstance().getProperty("ColourClass", "io.github.carlos_emr.carlos.casemgmt.common.Colour");
             if (colourClass.length() > 0) {
                 c = (Colour) Class.forName(colourClass).newInstance();
             }

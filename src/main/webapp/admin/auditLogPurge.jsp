@@ -30,7 +30,7 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.text.ParseException" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -48,7 +48,7 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page
         import="java.util.*,io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,io.github.carlos_emr.carlos.demographic.pageUtil.*" %>
@@ -116,7 +116,7 @@
         <div class="col-md-12">
 
             <%
-                String minDays = OscarProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
+                String minDays = CarlosProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
                 Integer iMinDays = null;
                 try {
                     iMinDays = Integer.parseInt(minDays);
@@ -129,9 +129,9 @@
                 SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
                 String minDate = formatter.format(c.getTime());
 
-                String outputDirectory = OscarProperties.getInstance().getProperty("log.purge.outputdir");
+                String outputDirectory = CarlosProperties.getInstance().getProperty("log.purge.outputdir");
                 if (outputDirectory == null) {
-                    outputDirectory = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+                    outputDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                 }
 
             %>

@@ -79,7 +79,7 @@
         mygroupno = providerPreference.getMyGroupNo();
     }
     mygroupno = StringUtils.trimToEmpty(mygroupno);
-    String billingRegion = (io.github.carlos_emr.OscarProperties.getInstance()).getProperty("billregion");
+    String billingRegion = (io.github.carlos_emr.CarlosProperties.getInstance()).getProperty("billregion");
 %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.*, java.sql.*, java.text.*, java.net.*"

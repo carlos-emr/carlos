@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 
 /**
@@ -77,7 +77,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         EForm eForm = new EForm(id);
         eForm.setSignatureCode(request.getContextPath(), request.getHeader("User-Agent"), eForm.getDemographicNo(), providerId);
         eForm.setContextPath(request.getContextPath());
-        String projectHome = OscarProperties.getInstance().getProperty("project_home");
+        String projectHome = CarlosProperties.getInstance().getProperty("project_home");
 
 
         EFormValueDao efvDao = (EFormValueDao) SpringUtils.getBean(EFormValueDao.class);

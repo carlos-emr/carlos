@@ -60,7 +60,7 @@
 
         <%
             if (request.getParameter("action") != null && request.getParameter("action").equals("save")) {
-                String documentDir = io.github.carlos_emr.OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "");
+                String documentDir = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "");
                 try {
                     File f = new File(documentDir, "orn_patient_letter.txt");
                     PrintWriter pw = new PrintWriter(new FileWriter(f), true);
@@ -76,7 +76,7 @@
         <%
             String currentLetter = "";
 
-            String documentDir = io.github.carlos_emr.OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "");
+            String documentDir = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "");
             File f = new File(documentDir, "orn_patient_letter.txt");
             if (f.exists()) {
                 try {

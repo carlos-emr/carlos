@@ -38,7 +38,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptStatusData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
@@ -92,7 +92,7 @@
 
 
         int rowsAffected = 0;
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("isNewONbilling", "").equals("true")) {
             //search bill status
             BillingCorrectionPrep dbObj = new BillingCorrectionPrep();

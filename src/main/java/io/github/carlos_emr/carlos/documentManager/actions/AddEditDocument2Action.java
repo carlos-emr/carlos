@@ -46,7 +46,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
@@ -198,7 +198,7 @@ public class AddEditDocument2Action extends ActionSupport {
     public static int countNumOfPages(String fileName) {
 
         int numOfPage = 0;
-        String docdownload = OscarProperties.getInstance().getDocumentDirectory();
+        String docdownload = CarlosProperties.getInstance().getDocumentDirectory();
         if (!docdownload.endsWith(File.separator)) {
             docdownload += File.separator;
         }
@@ -450,7 +450,7 @@ public class AddEditDocument2Action extends ActionSupport {
             String fileName = "";
             boolean updateFileContent = false;
 
-            if (OscarProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
+            if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
@@ -549,7 +549,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         File file = null;
         try {
             // Validate file path using PathValidationUtils
-            String docDir = OscarProperties.getInstance().getDocumentDirectory();
+            String docDir = CarlosProperties.getInstance().getDocumentDirectory();
             File baseDirFile = new File(docDir);
             File validatedFile = PathValidationUtils.validatePath(fileName, baseDirFile);
             Path savePath = validatedFile.toPath();

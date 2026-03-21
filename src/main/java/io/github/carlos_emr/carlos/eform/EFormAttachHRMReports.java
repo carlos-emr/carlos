@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemogr
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author rjonasz
@@ -66,7 +66,7 @@ public class EFormAttachHRMReports {
         consultationId = consultationIdToAttach;
         hrmReports = new ArrayList<String>(hrmReportsToAttach.length);
 
-        if (OscarProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
+        if (CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
             for (int index = 0; index < hrmReportsToAttach.length; ++index) {
                 hrmReports.add(hrmReportsToAttach[index]);
             }
