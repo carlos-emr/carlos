@@ -71,7 +71,7 @@ public class OscarDemographicLinkTag implements Tag {
             } else {
                 p = p.substring(0, p.indexOf("/providers"));
                 p += "/demographic/demographiccontrol.jsp?displaymode=edit&dboperation=search_detail&demographic_no=" + demographicNo;
-                String temps = "<a href=\"javascript.void(0);\" onclick=\"window.open('" + p + "','demographic');return false;\">CARLOS Master File</a>";
+                String temps = "<a href=\"javascript:void(0);\" onclick=\"window.open('" + p + "','demographic');return false;\">CARLOS Master File</a>";
                 pc.getOut().print(temps);
             }
 
