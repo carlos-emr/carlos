@@ -63,18 +63,19 @@
     @since 2009-09-18
 --%>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@page import="java.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.rx.util.*" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<c:set var="ctx" value="${pageContext.request.contextPath}" />
 
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed=true;
@@ -88,9 +89,7 @@
 		return;
 	}
 %>
-
     <%
-
 List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("listRxDrugs");
 
         if(listRxDrugs!=null){
@@ -153,7 +152,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
          String pickupTime      = RxUtil.DateToString(rx.getPickupTime(), "HH:mm");
          String eTreatmentType  = rx.getETreatmentType()!=null ? rx.getETreatmentType() : "";
          String rxStatus        = rx.getRxStatus()!=null ? rx.getRxStatus() : "";		    
-		String protocol		= rx.getProtocol()!=null ? rx.getProtocol() : ""; 
+         String protocol        = rx.getProtocol()!=null ? rx.getProtocol() : ""; 
 		/*  Field not required. Commented out because it may be reactivated in the future. 
          String priorRxProtocol	= rx.getPriorRxProtocol()!=null ? rx.getPriorRxProtocol() : "";
          */
@@ -515,17 +514,13 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 					<%=drugForm%>
 				<% } %>
 
-
-
-
        			</div>
 
         </div>
            
            <div id="renalDosing_<%=rand%>" ></div>
            <div id="luc_<%=rand%>" style="margin-top:2px;" >
-            </div>
-         
+            </div> 
            
            <oscar:oscarPropertiesCheck property="RENAL_DOSING_DS" value="yes">
             <script type="text/javascript">getRenalDosingInformation('renalDosing_<%=rand%>','<%=rx.getAtcCode()%>');</script>
@@ -534,13 +529,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<%=rx.getRegionalIdentifier()%>');</script>
             </oscar:oscarPropertiesCheck>
 			
-
-
 </fieldset>
-
 <style type="text/css" >
-
-
 /*
  * jQuery UI Autocomplete 1.8.18
  *
@@ -621,11 +611,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 	}
 
 </style>
-
 <script type="text/javascript">
        jQuery("document").ready(function() {
     	   
-
                 jQuery('#rx_save_updates_<%=rand%>').hide();
 
 				var idindex = "";
@@ -672,12 +660,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        			close: function() {
        				jQuery( this ).removeClass( "ui-corner-top" ).addClass( "ui-corner-all" );
        			}
-       		})
+       		})		
 
-		
-
-		<%--   Removed during OMD Re-Evaluation.  This function auto set the LongTerm field
-		if number of refills more than 0.  This is not a definitive Long Term drug.        
+		<%--   if number of refills more than 0 set long term flag.  May not be OMD but is convenient --%>        
 			jQuery("input[id^='repeats_']").keyup(function(){
             	var rand = <%=rand%>;
             	var repeatsVal = this.value;
@@ -685,7 +670,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             		jQuery("#longTerm_"+rand).attr("checked","checked");
             		jQuery(".med-term").trigger('change');
             	}
-            }); --%>
+            }); 
       
 		  
        });
