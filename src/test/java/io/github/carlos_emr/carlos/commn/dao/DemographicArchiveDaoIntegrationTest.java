@@ -64,10 +64,21 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
     }
 
     private DemographicArchive createArchiveWithRosterStatus(int demoNo, String rosterStatus) throws Exception {
+        return createArchiveWithRosterStatusAndDates(demoNo, rosterStatus, null, null);
+    }
+
+    private DemographicArchive createArchiveWithRosterStatusAndDates(int demoNo, String rosterStatus,
+            java.util.Date rosterDate, java.util.Date rosterTerminationDate) throws Exception {
         DemographicArchive entity = new DemographicArchive();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(demoNo);
         entity.setRosterStatus(rosterStatus);
+        if (rosterDate != null) {
+            entity.setRosterDate(rosterDate);
+        }
+        if (rosterTerminationDate != null) {
+            entity.setRosterTerminationDate(rosterTerminationDate);
+        }
         dao.persist(entity);
         hibernateTemplate.flush();
         return entity;
@@ -131,9 +142,11 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
             createArchiveWithRosterStatus(demoNo1, "alpha");
             createArchiveWithRosterStatus(demoNo1, "bravo");
             createArchiveWithRosterStatus(demoNo2, "charlie");
-            // Two consecutive "charlie" entries for demoNo1 - one should be deduplicated
-            createArchiveWithRosterStatus(demoNo1, "charlie");
-            createArchiveWithRosterStatus(demoNo1, "charlie");
+            // Two consecutive "charlie" entries for demoNo1 with identical dates - one should be deduplicated
+            java.util.Date sharedRosterDate = new java.util.Date();
+            java.util.Date sharedTermDate = new java.util.Date();
+            createArchiveWithRosterStatusAndDates(demoNo1, "charlie", sharedRosterDate, sharedTermDate);
+            createArchiveWithRosterStatusAndDates(demoNo1, "charlie", sharedRosterDate, sharedTermDate);
 
             List<DemographicArchive> result = dao.findRosterStatusHistoryByDemographicNo(demoNo1);
 

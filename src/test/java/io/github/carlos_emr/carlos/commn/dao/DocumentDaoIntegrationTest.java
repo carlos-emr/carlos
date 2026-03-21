@@ -1094,7 +1094,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
     }
 
     // ========================================================================
-    // findByDemographicAndDoctype — native SQL (KNOWN BUG: params swapped)
+    // findByDemographicAndDoctype — native SQL (parameter order fixed in cf27f3d076)
     // ========================================================================
 
     @Nested
@@ -1103,24 +1103,23 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
     class FindByDemographicAndDoctype {
 
         @Test
-        @DisplayName("should document parameter order bug — params are swapped in implementation")
-        void shouldDocumentParamOrderBug() {
+        @DisplayName("should return documents matching demographic and doctype")
+        void shouldReturnDocuments_whenMatchingDemographicAndDoctype() {
             // Given
             createDocumentWithCtl("consult", PROVIDER_NO, 'A', DEMO_ID);
 
-            // When/Then — The implementation has a bug: setParameter(1, demographicId)
-            // but position 1 in the SQL is d.doctype = ?1 (expects doctype string).
-            // setParameter(2, documentType.getName()) but position 2 is c.module_id = ?2
-            // (expects int). H2 throws a DataException due to the type mismatch;
-            // MySQL silently returns wrong results.
-            assertThatThrownBy(() -> documentDao.findByDemographicAndDoctype(
-                    DEMO_ID, DocumentDao.DocumentType.CONSULT))
-                    .isInstanceOf(Exception.class);
+            // When
+            List<Document> result = documentDao.findByDemographicAndDoctype(
+                    DEMO_ID, DocumentDao.DocumentType.CONSULT);
+
+            // Then
+            assertThat(result).isNotEmpty();
+            assertThat(result.get(0).getDoctype()).isEqualTo("consult");
         }
     }
 
     // ========================================================================
-    // findByDemographicAndFilename — native SQL (KNOWN BUG: params swapped)
+    // findByDemographicAndFilename — native SQL (parameter order fixed in cf27f3d076)
     // ========================================================================
 
     @Nested
@@ -1129,18 +1128,17 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
     class FindByDemographicAndFilename {
 
         @Test
-        @DisplayName("should document parameter order bug — params are swapped in implementation")
-        void shouldDocumentParamOrderBug() {
+        @DisplayName("should return document matching demographic and filename")
+        void shouldReturnDocument_whenMatchingDemographicAndFilename() {
             // Given
             createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
 
-            // When/Then — Same bug as findByDemographicAndDoctype:
-            // setParameter(1, demographicId) but SQL position 1 is d.docfilename = ?1
-            // setParameter(2, fileName) but SQL position 2 is c.module_id = ?2
-            // H2 throws a DataException due to the type mismatch;
-            // MySQL silently returns wrong results.
-            assertThatThrownBy(() -> documentDao.findByDemographicAndFilename(DEMO_ID, "test.pdf"))
-                    .isInstanceOf(Exception.class);
+            // When
+            Document result = documentDao.findByDemographicAndFilename(DEMO_ID, "test.pdf");
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getDocfilename()).isEqualTo("test.pdf");
         }
     }
 }
