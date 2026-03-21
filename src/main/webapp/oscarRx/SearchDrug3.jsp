@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -726,7 +727,7 @@ function renderRxStage() {
                        float:left;
                    }
         </style>
-      <title>Rx-<%= Encode.forHtmlContent(patient.getSurname()) %></title>
+      <title>Rx-<%= Encode.forHtml(patient.getSurname()) %></title>
     </head>
 
     <%
@@ -749,14 +750,13 @@ function renderRxStage() {
 
                     <div class="floatingWindow" id="reRxConfirmBox">
                         <p style="margin-bottom: 12px; font-size: 11px; text-align: end">
-                            You have selected <span style="font-weight: bold" id="selectedCount">0</span> ReRx
-                            medications. Click Stage Medication to add them to your prescriptions.
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReRxConfirmPrefix"/> <span style="font-weight: bold" id="selectedCount">0</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReRxConfirmSuffix"/>
                         </p>
                         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                            <input type="button" name="cancel" class="ControlPushButton" value="Cancel"
-                                   onclick="cancelAndClearSelection()" title="Cancel">
-                            <input type="button" name="stage" class="ControlPushButton" value="Stage Medication"
-                                   onclick="stageSelectedReRxMedications()" title="Stage Medications">
+                            <input type="button" name="cancel" class="ControlPushButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCancel"/>"
+                                   onclick="cancelAndClearSelection()" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCancel"/>">
+                            <input type="button" name="stage" class="ControlPushButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgStageMedication"/>"
+                                   onclick="stageSelectedReRxMedications()" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgStageMedications"/>">
                         </div>
                     </div>
 

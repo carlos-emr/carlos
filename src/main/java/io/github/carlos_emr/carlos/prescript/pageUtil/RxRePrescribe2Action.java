@@ -508,17 +508,33 @@ public String saveDigitalSignature() throws IOException {
             response.sendRedirect("error.html");
             return null;
         }
-        CopyOnWriteArrayList<String> reRxDrugList = bean.getReRxDrugIdList();
-        // Also accept drug IDs passed directly in request to avoid race condition
-        // with the async session-update call from the checkbox handler
+        // Accept drug IDs passed directly in request to avoid race condition with
+        // the async session-update call from the checkbox handler.
+        // When present, treat them as the source of truth for this request rather
+        // than merging into the session-backed list (which a late async call could repopulate).
         String drugIdsParam = request.getParameter("drugIds");
-        if (drugIdsParam != null && !drugIdsParam.isEmpty()) {
+        List<String> reRxDrugList;
+        if (drugIdsParam != null && !drugIdsParam.isBlank()) {
+            reRxDrugList = new ArrayList<>();
             for (String id : drugIdsParam.split(",")) {
                 String trimmed = id.trim();
-                if (!trimmed.isEmpty() && !reRxDrugList.contains(trimmed)) {
-                    reRxDrugList.add(trimmed);
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                try {
+                    int parsedId = Integer.parseInt(trimmed);
+                    if (parsedId > 0) {
+                        String normalizedId = Integer.toString(parsedId);
+                        if (!reRxDrugList.contains(normalizedId)) {
+                            reRxDrugList.add(normalizedId);
+                        }
+                    }
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Skipping invalid drugId in represcribeMultiple: " + trimmed);
                 }
             }
+        } else {
+            reRxDrugList = new ArrayList<>(bean.getReRxDrugIdList());
         }
         MiscUtils.getLogger().debug(reRxDrugList);
         CopyOnWriteArrayList<RxPrescriptionData.Prescription> listReRxDrug = new CopyOnWriteArrayList<Prescription>();
