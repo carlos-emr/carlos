@@ -196,17 +196,14 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Integer> getAllDemographicNoSince(Date lastUpdateDate, List<Program> programs) {
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
+        List<Integer> programIds = new ArrayList<>();
         for (Program p : programs) {
-            if (i++ > 0)
-                sb.append(",");
-            sb.append(p.getId());
+            programIds.add(p.getId());
         }
         String sql = "select a.demographicNo FROM Appointment a WHERE a.updateDateTime > ?1 and a.programId in (?2) ORDER BY a.id";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, lastUpdateDate);
-        query.setParameter(2, sb.toString());
+        query.setParameter(2, programIds);
 
         List<Integer> rs = query.getResultList();
         return rs;
@@ -380,7 +377,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public Appointment findNextAppointment(Integer demographicId) {
         Query query = entityManager.createQuery(
-                "SELECT appt FROM Appointment appt WHERE appt.demographicNo = ?1 AND appt.status NOT LIKE '%C%' AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) ORDER BY appt.appointmentDate");
+                "SELECT appt FROM Appointment appt WHERE appt.demographicNo = ?1 AND appt.status NOT LIKE '%C%' AND appt.status NOT LIKE '%D%' AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) ORDER BY appt.appointmentDate, appt.startTime, appt.id");
         query.setParameter(1, demographicId);
         query.setMaxResults(1);
         return getSingleResultOrNull(query);

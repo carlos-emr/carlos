@@ -45,7 +45,7 @@ public class Hl7MessageDao extends AbstractDaoImpl<Hl7Message> {
     }
 
     public List<Object[]> findByDemographicAndLabType(Integer demographicNo, String labType) {
-        String sql = "SELECT m, patientLabRouting FROM Hl7Message m, PatientLabRouting patientLabRouting WHERE patientLabRouting.labNo = m.id AND patientLabRouting.labType = ?1 AND patientLabRouting.demographicNo = ?2 GROUP BY m.id, patientLabRouting";
+        String sql = "SELECT DISTINCT m, patientLabRouting FROM Hl7Message m, PatientLabRouting patientLabRouting WHERE patientLabRouting.labNo = m.id AND patientLabRouting.labType = ?1 AND patientLabRouting.demographicNo = ?2";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, labType);

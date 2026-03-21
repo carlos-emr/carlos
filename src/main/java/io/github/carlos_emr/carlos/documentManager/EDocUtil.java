@@ -669,8 +669,8 @@ public final class EDocUtil {
         return resultDocs;
     }
 
-    public static ArrayList<Integer> listDemographicIdsSince(Date since) {
-        return (ArrayList<Integer>) getDocumentDao().findDemographicIdsSince(since);
+    public static List<Integer> listDemographicIdsSince(Date since) {
+        return getDocumentDao().findDemographicIdsSince(since);
     }
 
 

@@ -528,7 +528,7 @@ public class ScheduleService extends AbstractServiceImpl {
                     String providerNo = (String) obj[0];
                     String firstName = (String) obj[1];
                     String lastName = (String) obj[2];
-                    Long appointmentsCount = ((Number) obj[3]).longValue();
+                    long appointmentsCount = ((Number) obj[3]).longValue();
 
                     ProviderApptsCountTo to = new ProviderApptsCountTo(providerNo, lastName + ", " + firstName, appointmentsCount);
 

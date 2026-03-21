@@ -1481,7 +1481,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(demographic.getDemographicNo());
         }
 
-        if (objExists) {
+        if (demographic.getDemographicNo() != null) {
+            // Non-null ID: merge handles both update (exists) and insert (identity generator assigns new ID)
             currentSession().merge(demographic);
         } else {
             currentSession().persist(demographic);
@@ -2059,7 +2060,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             objExists = clientExistsThenEvict(client.getDemographicNo());
 
         client.setLastUpdateDate(new Date());
-        if (objExists) {
+        if (client.getDemographicNo() != null) {
+            // Non-null ID: merge handles both update (exists) and insert (identity generator assigns new ID)
             currentSession().merge(client);
         } else {
             currentSession().persist(client);
