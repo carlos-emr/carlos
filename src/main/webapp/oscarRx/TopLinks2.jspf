@@ -34,6 +34,9 @@
 <jsp:include page="/images/spinner.jsp" flush="true"/>
 <fmt:setBundle basename="oscarResources"/>
 <script type="text/javascript">
+const msgDrugrefUnavailable = '<fmt:message key="oscarRx.drugrefUnavailable"/>';
+const msgDrugrefUnavailableContact = '<fmt:message key="oscarRx.drugrefUnavailableContact"/>';
+
 function newWindow(url) {
     var newwin = window.open(url, 'name', 'height=700,width=1000');
     if (window.focus) { newwin.focus(); }
@@ -60,7 +63,7 @@ function getDrugRefStatus() {
 		.then(json => {
 			if (!json || json.lastUpdate === 'updating' ) {
 				let statusDisplay = document.getElementById('statusDisplay');
-				statusDisplay.innerHTML = 'Drugref database is unavailable.';
+				statusDisplay.innerHTML = msgDrugrefUnavailable;
 				statusDisplay.style.fontColor = 'red';
 				statusDisplay.style.fontWeight = 'bold';
 			} else {
@@ -73,7 +76,7 @@ function getDrugRefStatus() {
 		})
 		.catch(error => {
 			let statusDisplay = document.getElementById('statusDisplay');
-			statusDisplay.innerHTML = 'Drugref database is unavailable. Contact support.';
+			statusDisplay.innerHTML = msgDrugrefUnavailableContact;
 			statusDisplay.style.color = 'red';
 			statusDisplay.style.fontWeight = 'bold';
 		});
@@ -87,19 +90,19 @@ const tooltipList = tooltipTriggerList.map(tooltipTriggerEl => {
 </script>
 <nav id="header" class="navbar navbar-expand-lg bg-body-tertiary">
 <div class="container-fluid">
-    <span class="navbar-brand">Rx</span>
+    <span class="navbar-brand"><fmt:message key="oscarRx.header.title"/></span>
           <%
             RxPatientData.Patient patient2 =
               (RxPatientData.Patient) request.getSession().getAttribute("Patient");
           %>
           <span class="text-nowrap"><b><fmt:message key="SearchDrug.nameText"/></b>
           <%=Encode.forHtmlContent(patient2.getFirstName()) %> <%= Encode.forHtmlContent(patient2.getSurname()) %>
-          </span><span class="text-nowrap" title="<%= Encode.forHtmlAttribute(String.valueOf(patient2.getAge())) %>y"><b>DOB:</b>
+          </span><span class="text-nowrap" title="<%= Encode.forHtmlAttribute(String.valueOf(patient2.getAge())) %>y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
           <%= RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy") %></span>
          <span><label for="Calcs">
             <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/oscarRx/SelectPharmacy2.jsp"
-               onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="click to edit">
-              Pharmacy:
+               onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="<fmt:message key='SearchDrug.pharmacyClickToEdit'/>">
+              <fmt:message key="SearchDrug.pharmacyLabel"/>
             </a>
             </label>
           <select id="Calcs" name="pharmacyId" onchange="populatePharmacy(this.value); showpic('Layer1');">
