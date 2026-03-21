@@ -65,6 +65,9 @@ public class ValidationsDaoImpl extends AbstractDaoImpl<Validations> implements 
         for (Object[] i : new Object[][]{{"regularExp", regularExpParam}, {"minValue", minValueParam}, {"maxValue", maxValueParam}, {"minLength", minLengthParam}, {"maxLength", maxLengthParam}, {"isNumeric", isNumericParam}, {"isDate", isDateParam}}) {
             String name = (String) i[0];
             Object value = i[1];
+            if (value == null) {
+                continue;
+            }
             if (buf.length() > 0) {
                 buf.append(" AND ");
             }

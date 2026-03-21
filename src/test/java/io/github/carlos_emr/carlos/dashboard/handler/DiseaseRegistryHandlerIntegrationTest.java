@@ -31,10 +31,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
@@ -60,21 +61,33 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @Tag("integration")
 @Tag("dashboard")
 @DisplayName("DiseaseRegistryHandler integration tests")
+@Transactional
 class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
 
-    private static DxresearchDAO dxDao;
-    private static DiseaseRegistryHandler diseaseRegistryHandler;
+    private DxresearchDAO dxDao;
+    private DiseaseRegistryHandler diseaseRegistryHandler;
     private static final String PROVIDER_NO = "999998";
-    private static List<Integer> demoNos = new ArrayList<>();
+    private List<Integer> demoNos = new ArrayList<>();
 
-    @BeforeAll
-    static void setUpBeforeAll() throws Exception {
+    @BeforeEach
+    void setUp() throws Exception {
         HibernateTemplate ht = SpringUtils.getBean(HibernateTemplate.class);
         dxDao = SpringUtils.getBean(DxresearchDAO.class);
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod();
         Provider provider = new Provider();
         provider.setProviderNo(PROVIDER_NO);
+        provider.setFirstName("Test");
+        provider.setLastName("Provider");
+        provider.setSpecialty("");
+        provider.setStatus("1");
+        provider.setSex("M");
+        provider.setProviderType("");
+        ht.execute(session -> {
+            session.persist(provider);
+            return null;
+        });
+        ht.flush();
 
         for (int i = 0; i < 12; i++) {
             Demographic demographic = new Demographic();

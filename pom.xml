@@ -1574,8 +1574,15 @@
                 <configuration>
                     <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
                          so forks are completely isolated and safe to run in parallel. -->
-                    <forkCount>2</forkCount>
+                    <forkCount>4</forkCount>
                     <reuseForks>true</reuseForks>
+                    <!-- Run test classes in parallel within each fork.
+                         Safe because: integration tests use @Transactional @Rollback (each test
+                         gets its own transaction), and the few static-mock unit tests don't share
+                         Spring context with integration tests. -->
+                    <parallel>classes</parallel>
+                    <threadCount>2</threadCount>
+                    <perCoreThreadCount>false</perCoreThreadCount>
                     <includes>
                         <include>**/test/**/*Test.java</include>
                         <include>**/test/**/*Tests.java</include>

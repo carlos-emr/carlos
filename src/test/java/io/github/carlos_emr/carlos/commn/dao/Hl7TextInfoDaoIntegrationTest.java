@@ -107,7 +107,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             // Hibernate may not update the primitive field, so query by accession number instead.
             @SuppressWarnings("unchecked")
             List<Hl7TextInfo> results = (List<Hl7TextInfo>) (List<?>) hibernateTemplate.find(
-                    "FROM Hl7TextInfo h WHERE h.accessionNumber = ?0", "ACC002");
+                    "FROM Hl7TextInfo h WHERE h.accessionNumber = ?1", "ACC002");
             assertThat(results).isNotEmpty();
             Hl7TextInfo found = results.get(0);
             assertThat(found).isNotNull();

@@ -188,7 +188,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             // Then - verify via HibernateTemplate (same persistence context as DAO)
             @SuppressWarnings("unchecked")
             List<CaseManagementIssue> results = (List<CaseManagementIssue>) hibernateTemplate
-                .find("from CaseManagementIssue where id = ?0", savedId);
+                .find("from CaseManagementIssue where id = ?1", savedId);
             assertThat(results).isEmpty();
         }
 

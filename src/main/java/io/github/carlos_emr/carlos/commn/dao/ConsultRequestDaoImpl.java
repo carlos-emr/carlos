@@ -307,11 +307,11 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         } else if (SORTMODE.Urgency.equals(filter.getSortMode())) {
             orderBy = "cr.urgency " + orderDir;
         }
-
-        orderBy = " ORDER BY " + orderBy;
-
-        sql.append(orderBy);
-
+        // Skip ORDER BY for count queries - meaningless and causes SQL errors in strict mode
+        if (!selectCountOnly) {
+            orderBy = " ORDER BY " + orderBy;
+            sql.append(orderBy);
+        }
         queryWithParams.sql = sql.toString();
         return queryWithParams;
     }
