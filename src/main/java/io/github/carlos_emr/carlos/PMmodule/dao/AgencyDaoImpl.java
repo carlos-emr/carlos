@@ -62,7 +62,11 @@ public class AgencyDaoImpl extends AbstractHibernateDao implements AgencyDao {
             throw new IllegalArgumentException();
         }
 
-        currentSession().merge(agency);
+        if (agency.getId() == null) {
+            currentSession().persist(agency);
+        } else {
+            currentSession().merge(agency);
+        }
 
         if (log.isDebugEnabled()) {
             log.debug("saveAgency : id = " + agency.getId());

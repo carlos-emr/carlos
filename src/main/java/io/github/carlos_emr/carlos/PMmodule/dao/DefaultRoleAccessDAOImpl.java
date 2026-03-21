@@ -59,7 +59,11 @@ public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements De
     }
 
     public void saveDefaultRoleAccess(DefaultRoleAccess dra) {
-        currentSession().merge(dra);
+        if (dra.getId() == null) {
+            currentSession().persist(dra);
+        } else {
+            currentSession().merge(dra);
+        }
     }
 
     public DefaultRoleAccess find(Long roleId, Long accessTypeId) {

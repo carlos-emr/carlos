@@ -61,7 +61,11 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
             throw new IllegalArgumentException();
         }
 
-        currentSession().merge(secobjprivilege);
+        if (secobjprivilege.getRoleusergroup() == null || secobjprivilege.getObjectname_code() == null) {
+            currentSession().persist(secobjprivilege);
+        } else {
+            currentSession().merge(secobjprivilege);
+        }
 
         if (logger.isDebugEnabled()) {
             logger.debug("SecobjprivilegeDao : save: " + secobjprivilege.getRoleusergroup() + ":"

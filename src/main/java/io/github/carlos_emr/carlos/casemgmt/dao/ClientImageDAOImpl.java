@@ -69,7 +69,7 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
             existing.setUpdate_date(new Date());
             currentSession().merge(existing);
         } else {
-            currentSession().merge(clientImage);
+            currentSession().persist(clientImage);
         }
 
         // update cache

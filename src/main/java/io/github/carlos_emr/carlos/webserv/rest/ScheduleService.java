@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import java.math.BigInteger;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -529,7 +528,7 @@ public class ScheduleService extends AbstractServiceImpl {
                     String providerNo = (String) obj[0];
                     String firstName = (String) obj[1];
                     String lastName = (String) obj[2];
-                    Long appointmentsCount = ((BigInteger) obj[3]).longValue();
+                    Long appointmentsCount = ((Number) obj[3]).longValue();
 
                     ProviderApptsCountTo to = new ProviderApptsCountTo(providerNo, lastName + ", " + firstName, appointmentsCount);
 

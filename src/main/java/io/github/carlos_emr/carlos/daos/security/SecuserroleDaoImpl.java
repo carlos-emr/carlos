@@ -92,7 +92,11 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         Session session = currentSession();
         try {
             transientInstance.setLastUpdateDate(new Date());
-            session.merge(transientInstance);
+            if (transientInstance.getId() == null) {
+                session.persist(transientInstance);
+            } else {
+                session.merge(transientInstance);
+            }
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);

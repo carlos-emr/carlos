@@ -140,7 +140,11 @@ public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramT
             throw new IllegalArgumentException();
         }
 
-        currentSession().merge(team);
+        if (team.getId() == null) {
+            currentSession().persist(team);
+        } else {
+            currentSession().merge(team);
+        }
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramTeam: id=" + team.getId());

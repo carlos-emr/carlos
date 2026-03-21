@@ -26,7 +26,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -248,7 +247,7 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         query.setParameter("groupno", myGroupNo);
         query.setParameter("sitename", siteName);
 
-        Long result = ((BigInteger) query.getSingleResult()).longValue();
+        Long result = ((Number) query.getSingleResult()).longValue();
         return result;
     }
 
