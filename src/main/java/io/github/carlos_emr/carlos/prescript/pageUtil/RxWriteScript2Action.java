@@ -129,6 +129,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                 searchSpecialInstructions();
                 yield null;
             }
+            case "getInstructionsAutocomplete" -> {
+                getInstructionsAutocomplete();
+                yield null;
+            }
             default -> null;
         };
 
@@ -1390,6 +1394,54 @@ public final class RxWriteScript2Action extends ActionSupport {
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
         return;
+    }
+
+    /**
+     * Returns a JSON list of instruction suggestions for the autocomplete on the instructions field.
+     * Uses the same data source as displayMedHistory (RxUtil.getPreviousInstructions), filtered by
+     * the typed term.
+     *
+     * @return null (writes JSON directly to response)
+     * @throws IOException if response writing fails
+     */
+    public String getInstructionsAutocomplete() throws IOException {
+        checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_READ);
+
+        String randomId = request.getParameter("randomId");
+        String term = request.getParameter("term");
+
+        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        if (bean == null || randomId == null || randomId.isBlank()) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
+
+        RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId.trim()));
+        List<HashMap<String, String>> history = RxUtil.getPreviousInstructions(rx);
+
+        List<String> instructions = new ArrayList<>();
+        for (HashMap<String, String> hm : history) {
+            String ins = hm.get("instruction");
+            if (ins != null && !ins.equalsIgnoreCase("null") && !ins.trim().isEmpty()) {
+                String trimmed = ins.trim();
+                // filter by typed term (case-insensitive), or include all if term is empty
+                if (term == null || term.isEmpty() || trimmed.toLowerCase().contains(term.toLowerCase())) {
+                    if (!instructions.contains(trimmed)) {
+                        instructions.add(trimmed);
+                    }
+                }
+            }
+        }
+
+        Map<String, Object> json = new HashMap<>();
+        json.put("results", instructions);
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        objectMapper.writeValue(response.getWriter(), json);
+        return null;
     }
 
     public String searchSpecialInstructions() throws IOException {

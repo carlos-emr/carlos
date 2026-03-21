@@ -662,7 +662,41 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        			}
        		})		
 
-		<%--   if number of refills more than 0 set long term flag.  May not be OMD but is convenient --%>        
+		<%-- Autocomplete for instructions field - draws from med history (same source as displayMedHistory *) --%>
+			jQuery("input[id^='instructions_']").autocomplete({
+				source: function(request, response) {
+					var randId = this.element[0].id.split("_")[1];
+					jQuery.ajax({
+						url: ctx + "/oscarRx/WriteScript.do?parameterValue=getInstructionsAutocomplete",
+						type: "POST",
+						data: "randomId=" + randId + "&term=" + encodeURIComponent(request.term),
+						dataType: "json",
+						success: function(data) {
+							response(jQuery.map(data.results, function(item) {
+								return { label: item, value: item };
+							}));
+						},
+						error: function() {
+							response([]);
+						}
+					});
+				},
+				minLength: 1,
+				delay: 200,
+				select: function(event, ui) {
+					event.preventDefault();
+					jQuery(this).val(ui.item.value);
+					parseIntr(this);
+				},
+				open: function() {
+					jQuery(this).removeClass("ui-corner-all").addClass("ui-corner-top");
+				},
+				close: function() {
+					jQuery(this).removeClass("ui-corner-top").addClass("ui-corner-all");
+				}
+			});
+
+		<%--   if number of refills more than 0 set long term flag.  May not be OMD but is convenient --%>
 			jQuery("input[id^='repeats_']").keyup(function(){
             	var rand = <%=rand%>;
             	var repeatsVal = this.value;
