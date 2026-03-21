@@ -1418,7 +1418,16 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
 
-        RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId.trim()));
+        int randomIdInt;
+        try {
+            randomIdInt = Integer.parseInt(randomId.trim());
+        } catch (NumberFormatException e) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
+        RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
         List<HashMap<String, String>> history = RxUtil.getPreviousInstructions(rx);
 
         List<String> instructions = new ArrayList<>();

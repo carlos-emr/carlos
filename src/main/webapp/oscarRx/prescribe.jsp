@@ -662,7 +662,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        			}
        		})		
 
-		<%-- Autocomplete for instructions field - draws from med history (same source as displayMedHistory *) --%>
+		<%-- Autocomplete for instructions field - draws from med history (same source as displayMedHistory).
+		     Controlled by AUTOCOMPLETE_RX_INSTRUCTIONS property (default: true). --%>
+		<% if (CarlosProperties.getInstance().isPropertyActive("AUTOCOMPLETE_RX_INSTRUCTIONS")) { %>
 			jQuery("input[id^='instructions_']").autocomplete({
 				source: function(request, response) {
 					var randId = this.element[0].id.split("_")[1];
@@ -695,13 +697,14 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 					jQuery(this).removeClass("ui-corner-top").addClass("ui-corner-all");
 				}
 			});
+		<% } %>
 
 		<%--   if number of refills more than 0 set long term flag.  May not be OMD but is convenient --%>
 			jQuery("input[id^='repeats_']").keyup(function(){
             	var rand = <%=rand%>;
             	var repeatsVal = this.value;
             	if(repeatsVal>0){
-            		jQuery("#longTerm_"+rand).attr("checked","checked");
+            		jQuery("#longTermY_"+rand).prop("checked", true);
             		jQuery(".med-term").trigger('change');
             	}
             }); 
