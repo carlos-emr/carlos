@@ -114,7 +114,7 @@ public class QuickBillingBCHandler {
     private QuickBillingBCFormBean quickBillingBCFormBean;
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private ProviderDataDao providerDao;
-    private Properties oscarProperties;
+    private Properties carlosProperties;
     private BillingBillingManager bmanager;
     private Billing billing;
     private BillingmasterDAO billingmasterDAO;
@@ -129,7 +129,7 @@ public class QuickBillingBCHandler {
 
         this.today = new Date();
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-        oscarProperties = CarlosProperties.getInstance();
+        carlosProperties = CarlosProperties.getInstance();
         bmanager = new BillingBillingManager();
         billing = new Billing();
         billingmasterDAO = (BillingmasterDAO) SpringUtils.getBean(BillingmasterDAO.class);
@@ -146,7 +146,7 @@ public class QuickBillingBCHandler {
 
         this.today = new Date();
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-        oscarProperties = CarlosProperties.getInstance();
+        carlosProperties = CarlosProperties.getInstance();
         bmanager = new BillingBillingManager();
         billing = new Billing();
         billingmasterDAO = (BillingmasterDAO) SpringUtils.getBean(BillingmasterDAO.class);
@@ -168,7 +168,7 @@ public class QuickBillingBCHandler {
      * @return Oscar Properties Object
      */
     public Properties getCarlosProperties() {
-        return oscarProperties;
+        return carlosProperties;
     }
 
 
@@ -333,7 +333,7 @@ public class QuickBillingBCHandler {
 
         // visit information
         bean.setVisitType(quickBillingBCFormBean.getVisitLocation());
-        bean.setVisitLocation(oscarProperties.getProperty("visitlocation")); //global location also sets the clarification code.
+        bean.setVisitLocation(carlosProperties.getProperty("visitlocation")); //global location also sets the clarification code.
         bean.setServiceDate(convertDDMMYYYY(quickBillingBCFormBean.getServiceDate()));
 
         //bean.setStartTimeHr(null);
@@ -414,7 +414,7 @@ public class QuickBillingBCHandler {
      */
     public boolean saveBills() {
 
-        String dataCenterId = oscarProperties.getProperty("dataCenterId");
+        String dataCenterId = carlosProperties.getProperty("dataCenterId");
         ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
         ListIterator<BillingSessionBean> it = billingSessionBeans.listIterator();
         int invoiceCount = billingSessionBeans.size();

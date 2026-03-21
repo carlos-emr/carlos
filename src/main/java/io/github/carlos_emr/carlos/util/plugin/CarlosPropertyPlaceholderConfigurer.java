@@ -29,7 +29,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
 
-public class OscarPropertyPlaceholderConfigurer extends PropertyPlaceholderConfigurer {
+public class CarlosPropertyPlaceholderConfigurer extends PropertyPlaceholderConfigurer {
 
 
     /* (non-Javadoc)

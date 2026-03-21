@@ -75,8 +75,8 @@
 
 <%
     // Load backup_path
-    Properties oscarVars = CarlosProperties.getInstance();
-    String backuppath = oscarVars.getProperty("backup_path");
+    Properties carlosVars = CarlosProperties.getInstance();
+    String backuppath = carlosVars.getProperty("backup_path");
     session.setAttribute("backupfilepath", backuppath);
 
     File dir = new File(backuppath);

@@ -41,7 +41,7 @@
 	<bean class="io.github.carlos_emr.carlos.config.ServletContextConfig"/>
     <!-- Enable annotation-driven transaction management with CGLIB proxies -->
     <tx:annotation-driven proxy-target-class="true"/>
-	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
+	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.CarlosPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>
 				<value>classpath:carlos.properties</value>

@@ -59,7 +59,7 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Autowired
     private DemographicManager demographicManager;
 
-    private CarlosProperties oscarProperties = CarlosProperties.getInstance();
+    private CarlosProperties carlosProperties = CarlosProperties.getInstance();
     private Logger logger = MiscUtils.getLogger();
 
 
@@ -69,13 +69,13 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
         PatientDetailStatusTo1 status = new PatientDetailStatusTo1();
 
         //from carlos.properties
-        status.setConformanceFeaturesEnabled(oscarProperties.isPropertyActive("ENABLE_CONFORMANCE_ONLY_FEATURES"));
-        status.setWorkflowEnhance(oscarProperties.isPropertyActive("workflow_enhance"));
-        status.setBillregion(oscarProperties.getProperty("billregion", ""));
-        status.setDefaultView(oscarProperties.getProperty("default_view", ""));
-        status.setHospitalView(oscarProperties.getProperty("hospital_view", status.getDefaultView()));
-        status.setShowPrimaryCarePhysicianCheck(oscarProperties.isPropertyActive("showPrimaryCarePhysicianCheck"));
-        status.setShowEmploymentStatus(oscarProperties.isPropertyActive("showEmploymentStatus"));
+        status.setConformanceFeaturesEnabled(carlosProperties.isPropertyActive("ENABLE_CONFORMANCE_ONLY_FEATURES"));
+        status.setWorkflowEnhance(carlosProperties.isPropertyActive("workflow_enhance"));
+        status.setBillregion(carlosProperties.getProperty("billregion", ""));
+        status.setDefaultView(carlosProperties.getProperty("default_view", ""));
+        status.setHospitalView(carlosProperties.getProperty("hospital_view", status.getDefaultView()));
+        status.setShowPrimaryCarePhysicianCheck(carlosProperties.isPropertyActive("showPrimaryCarePhysicianCheck"));
+        status.setShowEmploymentStatus(carlosProperties.isPropertyActive("showEmploymentStatus"));
 
         return status;
     }

@@ -87,8 +87,8 @@ public class CarlosPropertiesCheck extends TagSupport {
         }
 
         try {
-            String oscarVal = CarlosProperties.getInstance().getProperty(prop);
-            if (oscarVal.equals(val)) {
+            String carlosVal = CarlosProperties.getInstance().getProperty(prop);
+            if (carlosVal.equals(val)) {
                 conditionMet = true;
             }
 

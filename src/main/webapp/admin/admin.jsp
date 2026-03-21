@@ -58,7 +58,7 @@
 %>
 
 <%@ page errorPage="/errorpage.jsp" %>
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
+<% java.util.Properties carlosVariables = CarlosProperties.getInstance(); %>
 <%
     String country = request.getLocale().getCountry();
 %>
@@ -263,7 +263,7 @@
                                    reverse="<%=false%>">
                     <%
                         // Only show link to Clinicaid admin if Clinicaid Billing is enabled
-                        if (oscarVariables.getProperty("billregion", "").equals("CLINICAID")) {
+                        if (carlosVariables.getProperty("billregion", "").equals("CLINICAID")) {
                     %>
                     <li>
                         <a href="<%= request.getContextPath() %>/billing.do?billRegion=CLINICAID&action=invoice_reports" target="_blank">
@@ -271,7 +271,7 @@
                         </a>
                     </li>
                     <%
-                    } else if (oscarVariables.getProperty("billregion", "").equals("BC")) {
+                    } else if (carlosVariables.getProperty("billregion", "").equals("BC")) {
                     %>
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
@@ -325,7 +325,7 @@
                     </li>
 
                     <%
-                    } else if (oscarVariables.getProperty("billregion", "").equals("ON")) {
+                    } else if (carlosVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ScheduleOfBenefitsUpload.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
@@ -357,7 +357,7 @@
                     <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/viewMOHFiles.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
                     <li><a href="#"
-                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
+                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= carlosVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
                     <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
                     <li>
                         <a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/mcedt/mcedt.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.mcedt"/></a>
@@ -381,7 +381,7 @@
                     %>
                 </security:oscarSec>
 
-                <% if (oscarVariables.getProperty("billregion", "").equals("ON")) { %>
+                <% if (carlosVariables.getProperty("billregion", "").equals("ON")) { %>
                 <li><a href="#" onclick="popupPage(800,1000,'/billing/CA/ON/billingONPayment.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.paymentReceived"/></a></li>
                 <% } %>
             </ul>
@@ -501,7 +501,7 @@
                     <li><a href="#"
                            onclick='popupPage(600,900,"${pageContext.request.contextPath}/report/DxresearchReport.do")'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.diseaseRegister"/></a></li>
                     <%
-                        if (oscarVariables.getProperty("billregion", "").equals("ON")) {
+                        if (carlosVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
                            onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/reportonbilledphcp.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PHCP"/></a>
