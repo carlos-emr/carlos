@@ -856,31 +856,17 @@ function renderRxStage() {
                                             </td>
                                             <td>
                                                 <div id="searchDrugsButtonSet">
-                                                    <input type="button" name="search" class="ControlPushButton"  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSearch"/>" onclick="popupRxSearchWindow();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Search"/>">
-                                                    <input id="customDrug" type="button" class="ControlPushButton" onclick="customWarning2();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCustomDrugRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomDrug"/>" />
-                                                    <input id="customNote" type="button" class="ControlPushButton"  onclick="customNoteWarning();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgNoteRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomNote"/>"/>
-                                                    <input id="reset" type="button" class="ControlPushButton" title="Clear pending prescriptions"   onclick="resetStash();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgResetPrescriptionRx3"/>"/>
-<%--                                                    <% if(!CarlosProperties.getInstance().getProperty("rx.drugofchoice.hide","false").equals("true")) { %>--%>
-<%--														<input type="button" class="ControlPushButton"--%>
-<%--														       style="width:92px"--%>
-<%--														       onclick="callTreatments('searchString','treatmentsMyD')"--%>
-<%--														       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDrugOfChoiceRx3"/>"--%>
-<%--														       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.DrugOfChoice"/>"/>--%>
-<%--                                                    <%} %>--%>
-                                                    <%if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
+                                                    <input type="button" name="search" class="btn btn-secondary btn-sm"  value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSearch"/>" onclick="popupRxSearchWindow();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Search"/>">
+                                                    <input id="customDrug" type="button" class="btn btn-secondary btn-sm" onclick="customWarning2();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCustomDrugRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomDrug"/>" />
+                                                    <input id="customNote" type="button" class="btn btn-secondary btn-sm"  onclick="customNoteWarning();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgNoteRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomNote"/>"/>
+                                                    <input id="reset" type="button" class="btn btn-secondary btn-sm" title="Clear pending prescriptions"   onclick="resetStash();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgResetPrescriptionRx3"/>"/>
+                                                    <%if (OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
                                                     <a href="javascript:goOMD();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.OMD"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a>
                                                     <%}%>
                                                     <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="x">
-                                                    <input id="saveButton" type="button"  class="ControlPushButton" onclick="updateSaveAllDrugsPrintCheckContinue();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveAndPrint"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.SaveAndPrint"/>" />
+                                                    <input id="saveButton" type="button"  class="btn btn-primary btn-sm" onclick="updateSaveAllDrugsPrintCheckContinue();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveAndPrint"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.SaveAndPrint"/>" />
                                                     </security:oscarSec>
-
-                                                    <input id="saveOnlyButton" type="button"  class="ControlPushButton" onclick="updateSaveAllDrugsCheckContinue();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveOnly"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Save"/>"/>
-<%--                                                    <%--%>
-<%--                                                            if(CarlosProperties.getInstance().getProperty("oscarrx.medrec","false").equals("true")) {--%>
-<%--                                                    %>--%>
-<%--                                                        <input id="completeMedRecButton" class="ControlPushButton" type="button"  onclick="completeMedRec();" value="Complete Med Rec" />--%>
-<%--                                                    <% } %>--%>
-
+                                                    <input id="saveOnlyButton" type="button"  class="btn btn-secondary btn-sm" onclick="updateSaveAllDrugsCheckContinue();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveOnly"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Save"/>"/>
                                                 </div>
                                             </td>
 
