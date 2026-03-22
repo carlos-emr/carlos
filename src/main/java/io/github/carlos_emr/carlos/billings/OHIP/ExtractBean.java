@@ -51,6 +51,12 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Bean for extracting and holding Ontario OHIP billing claim data fields parsed from
+ * billing submission and remittance files.
+ *
+ * @since 2001-01-01
+ */
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;
