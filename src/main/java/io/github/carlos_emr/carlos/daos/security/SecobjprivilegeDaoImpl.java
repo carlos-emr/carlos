@@ -47,6 +47,11 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 import java.util.Set;
 
+/**
+ * Hibernate-based implementation of {@link SecobjprivilegeDao} for security object-privilege mapping persistence.
+ *
+ * @since 2005-01-01
+ */
 @Transactional
 public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements SecobjprivilegeDao {
 

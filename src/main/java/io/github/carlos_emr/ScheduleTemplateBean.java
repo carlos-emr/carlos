@@ -149,10 +149,24 @@ public class ScheduleTemplateBean {
         return (timecode);
     }
 
+    /**
+     * Gets the calculated step size in minutes per time slot.
+     *
+     * <p>Calculated as (24 * 60) / timecode length when the timecode is set.</p>
+     *
+     * @return int the number of minutes per time slot, or 0 if timecode is empty
+     */
     public int getStep() {
         return (step);
     }
 
+    /**
+     * Gets the schedule code character at the specified position in the timecode.
+     *
+     * @param i int the zero-based index into the timecode string
+     * @return char the schedule code character at the given position
+     * @throws StringIndexOutOfBoundsException if the index is out of range
+     */
     public char getTimecodeCharAt(int i) {
         return (timecode.charAt(i));
     }

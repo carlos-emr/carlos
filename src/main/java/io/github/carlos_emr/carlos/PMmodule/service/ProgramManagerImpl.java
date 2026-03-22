@@ -112,10 +112,12 @@ public class ProgramManagerImpl implements ProgramManager {
         this.programTeamDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramAccessDAO(ProgramAccessDAO dao) {
         this.programAccessDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public void setAdmissionDao(AdmissionDao dao) {
         this.admissionDao = dao;
     }

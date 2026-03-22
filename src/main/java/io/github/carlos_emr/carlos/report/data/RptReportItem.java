@@ -45,7 +45,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
- * @author yilee18
+ * Data access class for the {@code reportItem} table, which stores named report
+ * definitions. Provides CRUD operations including soft-delete (status toggle) and
+ * retrieval of active/deleted report name lists.
+ *
+ * @since 2005-07-20
  */
 public class RptReportItem {
     String report_name;

@@ -65,10 +65,26 @@ public class DiseaseRegistryHandler {
         return dao.getDescription(ICD9_CODING_SYSTEM, icd9code);
     }
 
+    /**
+     * Adds an ICD-9 code to the disease registry for the given patient using the
+     * logged-in provider number.
+     *
+     * @param demographicNo int the patient demographic number
+     * @param icd9code String the ICD-9 diagnosis code to add
+     */
     public void addToDiseaseRegistry(int demographicNo, String icd9code) {
         addToDiseaseRegistry(demographicNo, icd9code, getProviderNo());
     }
 
+    /**
+     * Adds an ICD-9 code to the disease registry for the given patient and provider.
+     * Skips the addition if an active entry already exists for this patient and code.
+     *
+     * @param demographicNo int the patient demographic number
+     * @param icd9code String the ICD-9 diagnosis code to add
+     * @param providerNo String the provider number to associate with the entry
+     * @return Integer the new Dxresearch record ID, or {@code null} if an active entry already exists
+     */
     public Integer addToDiseaseRegistry(int demographicNo, String icd9code, String providerNo) {
         boolean activeEntryExists = dao.activeEntryExists(demographicNo, ICD9_CODING_SYSTEM, icd9code);
         if (activeEntryExists) {

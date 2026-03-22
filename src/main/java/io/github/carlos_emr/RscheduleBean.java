@@ -155,6 +155,9 @@ public class RscheduleBean {
         creator = creator1;
     }
 
+    /**
+     * Resets all schedule properties to empty strings.
+     */
     public void clear() {
         provider_no = "";
         sdate = "";
@@ -166,18 +169,42 @@ public class RscheduleBean {
         creator = "";
     }
 
+    /**
+     * Determines whether the given date falls on an even week relative to the schedule start date.
+     *
+     * <p>Used for alternating week schedules to determine which week pattern applies.</p>
+     *
+     * @param aDate GregorianCalendar the date to check
+     * @return boolean true if the date is in an even week relative to the start date
+     */
     public boolean getEvenWeek(GregorianCalendar aDate) {
         int sWeek = (new GregorianCalendar(MyDateFormat.getYearFromStandardDate(this.sdate), MyDateFormat.getMonthFromStandardDate(this.sdate) - 1, MyDateFormat.getDayFromStandardDate(this.sdate))).get(Calendar.WEEK_OF_YEAR);
         int curWeek = aDate.get(Calendar.WEEK_OF_YEAR);
         return ((curWeek - sWeek) % 2 == 0 ? true : false);
     }
 
+    /**
+     * Determines whether the given date falls on an even week relative to the specified start date.
+     *
+     * @param sDate GregorianCalendar the reference start date
+     * @param aDate GregorianCalendar the date to check
+     * @return boolean true if the date is in an even week relative to the start date
+     */
     private boolean getEvenWeek(GregorianCalendar sDate, GregorianCalendar aDate) {
         int sWeek = sDate.get(Calendar.WEEK_OF_YEAR);
         int curWeek = aDate.get(Calendar.WEEK_OF_YEAR);
         return ((curWeek - sWeek) % 2 == 0 ? true : false);
     }
 
+    /**
+     * Checks whether the provider is available on the given date.
+     *
+     * <p>For alternating week schedules (available="A"), selects the appropriate
+     * day-of-week pattern based on whether the date falls in an even or odd week.</p>
+     *
+     * @param aDate GregorianCalendar the date to check availability for
+     * @return boolean true if the provider is available on the given date
+     */
     public boolean getDateAvail(GregorianCalendar aDate) {
         String aVailable = null, aDOW = null;
         if (this.available.compareTo("A") == 0) {
@@ -193,6 +220,18 @@ public class RscheduleBean {
         return (getSingleDateAvail(aDate, aVailable, aDOW));
     }
 
+    /**
+     * Checks availability for a single date against a specific availability flag and day-of-week set.
+     *
+     * <p>Tokenizes the day-of-week string and checks if the given date's day matches
+     * any of the specified days. The availability flag determines the default and
+     * matched states (e.g., "1" or "A" means default unavailable, match = available).</p>
+     *
+     * @param aDate GregorianCalendar the date to check
+     * @param aVailable String the availability flag ("0", "1", or "A")
+     * @param aDOW String space-separated day-of-week numbers
+     * @return boolean true if the provider is available on the given date
+     */
     public boolean getSingleDateAvail(GregorianCalendar aDate, String aVailable, String aDOW) {
         boolean bAvail = (aVailable.compareTo("1") == 0 || aVailable.compareTo("A") == 0) ? false : true;
         boolean bAvailableTemp = (aVailable.compareTo("0") == 0) ? false : true;
@@ -219,10 +258,26 @@ public class RscheduleBean {
         return bAvail;
     }
 
+    /**
+     * Checks whether the provider is available on the given date string.
+     *
+     * @param aDate String the date in standard format (yyyy-MM-dd)
+     * @return boolean true if the provider is available on the given date
+     */
     public boolean getDateAvail(String aDate) {
         return (getDateAvail(new GregorianCalendar(MyDateFormat.getYearFromStandardDate(aDate), MyDateFormat.getMonthFromStandardDate(aDate) - 1, MyDateFormat.getDayFromStandardDate(aDate))));
     }
 
+    /**
+     * Gets the available hour template name for the given date's day of week.
+     *
+     * <p>Extracts the schedule template name from the XML-formatted {@code avail_hour}
+     * or {@code avail_hourB} field using standard weekday tags (SUN, MON, etc.),
+     * selecting the appropriate week for alternating schedules.</p>
+     *
+     * @param aDate GregorianCalendar the date to look up the hour template for
+     * @return String the template name for the given day, or empty string if none
+     */
     public String getDateAvailHour(GregorianCalendar aDate) {
         String val = "";
         if (provider_no != "") {
@@ -238,6 +293,15 @@ public class RscheduleBean {
         return val;
     }
 
+    /**
+     * Gets the site availability value for the given date's day of week.
+     *
+     * <p>Similar to {@link #getDateAvailHour(GregorianCalendar)} but uses
+     * site-specific day tags (A7, A1, A2, etc.) instead of standard weekday tags.</p>
+     *
+     * @param aDate GregorianCalendar the date to look up site availability for
+     * @return String the site availability value, or empty string if none
+     */
     public String getSiteAvail(GregorianCalendar aDate) {
         String val = "";
         if (provider_no != "") {
@@ -253,10 +317,25 @@ public class RscheduleBean {
         return val;
     }
 
+    /**
+     * Gets the available hour template name for the given date string's day of week.
+     *
+     * @param aDate String the date in standard format (yyyy-MM-dd)
+     * @return String the template name for the given day, or empty string if none
+     */
     public String getDateAvailHour(String aDate) {
         return (getDateAvailHour(new GregorianCalendar(MyDateFormat.getYearFromStandardDate(aDate), MyDateFormat.getMonthFromStandardDate(aDate) - 1, MyDateFormat.getDayFromStandardDate(aDate))));
     }
 
+    /**
+     * Gets the full available hours XML string for the given date.
+     *
+     * <p>For alternating schedules, returns either {@code avail_hour} or
+     * {@code avail_hourB} depending on whether the date falls in an even or odd week.</p>
+     *
+     * @param aDate GregorianCalendar the date to determine the hours for
+     * @return String the full XML-formatted available hours string
+     */
     public String getAvailHour(GregorianCalendar aDate) {
         String val = "";
         if (this.available.compareTo("A") == 0) {

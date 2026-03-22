@@ -41,6 +41,11 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+/**
+ * Hibernate-based implementation of {@link SecroleDao} for security role persistence.
+ *
+ * @since 2005-01-01
+ */
 @Transactional
 public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
 

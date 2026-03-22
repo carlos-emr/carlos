@@ -242,6 +242,14 @@ public class ScheduleWs extends AbstractWs {
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
+    /**
+     * Retrieves appointments updated after a specified date with timezone control.
+     *
+     * @param updatedAfterThisDateExclusive Date only return appointments updated after this date
+     * @param itemsToReturn int the maximum number of appointments to return
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentTransfer[] array of recently updated appointments
+     */
     public AppointmentTransfer[] getAppointmentsUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
         List<Appointment> appointments = scheduleManager.getAppointmentUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));

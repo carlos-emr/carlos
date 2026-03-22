@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link UserAccessDao} for user access permission retrieval.
+ *
+ * @since 2005-01-01
+ */
 @Transactional
 public class UserAccessDaoImpl extends AbstractHibernateDao implements UserAccessDao {
 

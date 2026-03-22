@@ -45,7 +45,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
- * @author yilee18
+ * Data access and management class for the {@code reportConfig} table, which stores
+ * field configurations for form-based reports. Provides CRUD operations for report
+ * configuration records and methods to retrieve field names, captions, and table
+ * metadata for report construction.
+ *
+ * @see RptReportCreator
+ * @see RptTableFieldNameCaption
+ * @since 2005-07-22
  */
 public class RptReportConfigData {
 
