@@ -67,10 +67,12 @@ public class ProgramQueueManagerImpl implements ProgramQueueManager {
         this.vacancyDao = vacancyDao;
     }
 
+    /** {@inheritDoc} */
     public void setVacancyTemplateDao(VacancyTemplateDao vacancyTemplateDao) {
         this.vacancyTemplateDao = vacancyTemplateDao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramQueueDao(ProgramQueueDao dao) {
         this.dao = dao;
     }

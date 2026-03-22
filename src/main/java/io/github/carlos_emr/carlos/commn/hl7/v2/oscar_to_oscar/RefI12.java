@@ -55,6 +55,13 @@ import ca.uhn.hl7v2.model.v26.segment.PRD;
 import ca.uhn.hl7v2.model.v26.segment.PV1;
 import ca.uhn.hl7v2.model.v26.segment.RF1;
 
+/**
+ * Constructs HL7 v2.6 REF_I12 (Patient Referral) messages for inter-EMR referral
+ * exchange. Populates RF1, PRD, PID, and NTE segments with referral details including
+ * reason for consultation, clinical information, and appointment notes.
+ *
+ * @since 2007-01-18
+ */
 public final class RefI12 {
     private static final Logger logger = MiscUtils.getLogger();
 

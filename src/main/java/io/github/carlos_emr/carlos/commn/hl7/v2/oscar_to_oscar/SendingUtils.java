@@ -73,6 +73,14 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.AbstractMessage;
 
+/**
+ * Handles the secure transmission of HL7 messages to remote EMR installations.
+ * Encrypts the message with AES, signs it with RSA, and sends it as an HTTP
+ * multipart POST to the recipient's eData endpoint. Includes audit logging
+ * of all transmission attempts.
+ *
+ * @since 2007-01-18
+ */
 public final class SendingUtils {
 
     private static final Logger logger = MiscUtils.getLogger();

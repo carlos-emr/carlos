@@ -29,6 +29,13 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Lightweight value object representing basic patient demographic information
+ * for use in billing and claim contexts. Contains name, contact details,
+ * address, health insurance number (HIN), and date of birth.
+ *
+ * @since 2001-01-01
+ */
 public class Patient {
     private String firstName;
     private String lastName;
