@@ -44,6 +44,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.MessageTo1;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming MessageList domain entities to inter-provider message transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class MessagingConverter extends AbstractConverter<MessageList, MessageTo1> {
 
 

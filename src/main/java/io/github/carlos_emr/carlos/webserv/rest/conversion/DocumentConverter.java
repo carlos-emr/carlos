@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentReviewTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentTo1;
 
+/**
+ * Converter for transforming Document domain entities to clinical document transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> {
     @Override
     public Document getAsDomainObject(LoggedInInfo loggedInInfo, DocumentTo1 t) throws ConversionException {

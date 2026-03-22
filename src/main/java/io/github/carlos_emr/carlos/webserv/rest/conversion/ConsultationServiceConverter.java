@@ -39,6 +39,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProfessionalSpecialistT
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming ConsultationServices domain entities to consultation service transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class ConsultationServiceConverter extends AbstractConverter<ConsultationServices, ConsultationServiceTo1> {
 
     private ProfessionalSpecialistConverter converter = new ProfessionalSpecialistConverter();

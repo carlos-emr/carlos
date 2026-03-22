@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.Hl7TextMessageTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming Hl7TextMessage domain entities to HL7 text message transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class Hl7TextMessageConverter extends AbstractConverter<Hl7TextMessage, Hl7TextMessageTo1> {
 
     @Override

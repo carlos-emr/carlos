@@ -32,6 +32,11 @@ import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicMergedTo1;
 
+/**
+ * Converter for transforming DemographicMerged domain entities to merged demographic transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class DemographicMergedConverter extends AbstractConverter<DemographicMerged, DemographicMergedTo1> {
 
     @Override

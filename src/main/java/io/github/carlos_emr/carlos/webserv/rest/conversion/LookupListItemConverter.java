@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.LookupListItemTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming LookupListItem domain entities to lookup list item transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class LookupListItemConverter extends AbstractConverter<LookupListItem, LookupListItemTo1> {
 
     @Override

@@ -32,6 +32,11 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.CaseManagementIssueTo1;
 
+/**
+ * Converter for transforming CaseManagementIssue domain entities to case management issue transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class CaseManagementIssueConverter extends AbstractConverter<CaseManagementIssue, CaseManagementIssueTo1> {
 
     @Override

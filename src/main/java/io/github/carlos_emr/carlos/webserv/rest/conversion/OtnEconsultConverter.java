@@ -35,6 +35,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming Document domain entities to OTN eConsult document transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class OtnEconsultConverter extends AbstractConverter<Document, OtnEconsult> {
 
     @Override

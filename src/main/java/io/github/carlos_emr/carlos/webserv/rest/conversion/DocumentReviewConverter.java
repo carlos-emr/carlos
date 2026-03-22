@@ -32,6 +32,11 @@ import io.github.carlos_emr.carlos.commn.model.DocumentReview;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DocumentReviewTo1;
 
+/**
+ * Converter for transforming DocumentReview domain entities to document review transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class DocumentReviewConverter extends AbstractConverter<DocumentReview, DocumentReviewTo1> {
     @Override
     public DocumentReview getAsDomainObject(LoggedInInfo loggedInInfo, DocumentReviewTo1 t) throws ConversionException {

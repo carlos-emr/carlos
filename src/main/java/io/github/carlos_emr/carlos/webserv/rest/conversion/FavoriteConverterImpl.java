@@ -46,6 +46,11 @@ import org.springframework.stereotype.Component;
  * and the data model that is presented to a client.
  */
 @Component
+/**
+ * Converter for transforming Favorite domain entities to favorite/quick-pick transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteTo1> implements FavoriteConverter {
 
     @Autowired

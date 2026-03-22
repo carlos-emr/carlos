@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ProgramTo1;
 
 
+/**
+ * Converter for transforming Program domain entities to program transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class ProgramConverter extends AbstractConverter<Program, ProgramTo1> {
 
     @Override

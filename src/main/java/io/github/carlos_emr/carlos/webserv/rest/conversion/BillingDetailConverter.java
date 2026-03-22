@@ -32,6 +32,11 @@ import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.BillingDetailTo1;
 
+/**
+ * Converter for transforming BillingONCHeader1 domain entities to Ontario billing detail transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class BillingDetailConverter extends AbstractConverter<BillingONCHeader1, BillingDetailTo1> {
     @Override
     public BillingONCHeader1 getAsDomainObject(LoggedInInfo loggedInInfo, BillingDetailTo1 b) throws ConversionException {

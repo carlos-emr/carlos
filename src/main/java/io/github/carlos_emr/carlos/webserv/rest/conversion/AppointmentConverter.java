@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming Appointment domain entities to appointment transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class AppointmentConverter extends AbstractConverter<Appointment, AppointmentTo1> {
 
     private boolean includeDemographic;

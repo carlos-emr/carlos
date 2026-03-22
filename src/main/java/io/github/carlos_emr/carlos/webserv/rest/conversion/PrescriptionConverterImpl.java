@@ -46,6 +46,11 @@ import org.springframework.stereotype.Component;
  * and the data model that is presented to a client.
  */
 @Component
+/**
+ * Converter for transforming Prescription domain entities to prescription transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class PrescriptionConverterImpl extends AbstractConverter<Prescription, PrescriptionTo1>
         implements PrescriptionConverter {
 

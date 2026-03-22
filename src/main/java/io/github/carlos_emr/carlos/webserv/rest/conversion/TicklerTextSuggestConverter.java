@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerTextSuggestTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming TicklerTextSuggest domain entities to tickler text suggestion transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class TicklerTextSuggestConverter extends AbstractConverter<TicklerTextSuggest, TicklerTextSuggestTo1> {
 
     @Override

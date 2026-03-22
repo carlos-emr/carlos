@@ -36,6 +36,11 @@ import org.springframework.stereotype.Component;
 
 
 @Component
+/**
+ * Converter for transforming AppointmentStatus domain entities to appointment status transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class AppointmentStatusConverter extends AbstractConverter<AppointmentStatus, AppointmentStatusTo1> {
 
     @Override

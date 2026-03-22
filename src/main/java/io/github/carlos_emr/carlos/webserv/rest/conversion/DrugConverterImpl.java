@@ -53,6 +53,11 @@ import java.util.regex.Pattern;
  * and the data model that is presented to a client.
  */
 @Component
+/**
+ * Converter for transforming Drug domain entities to drug/medication transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implements DrugConverter {
     private static Logger logger = MiscUtils.getLogger();
 

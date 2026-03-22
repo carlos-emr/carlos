@@ -34,6 +34,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming ConsultationRequest domain entities to consultation request transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class ConsultationRequestConverter extends AbstractConverter<ConsultationRequest, ConsultationRequestTo1> {
 
     public ConsultationRequest getAsDomainObject(LoggedInInfo loggedInInfo, ConsultationRequestTo1 t, ConsultationRequest d) throws ConversionException {

@@ -51,6 +51,11 @@ import org.springframework.stereotype.Component;
 
 //this isn't working - not being injected
 @Component
+/**
+ * Converter for transforming Tickler domain entities to tickler/clinical reminder transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
 
     private boolean includeLinks;

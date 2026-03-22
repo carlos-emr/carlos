@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming Issue domain entities to clinical issue transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class IssueConverter extends AbstractConverter<Issue, IssueTo1> {
 
     @Override

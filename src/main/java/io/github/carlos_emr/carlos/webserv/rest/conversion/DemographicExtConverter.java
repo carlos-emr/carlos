@@ -34,6 +34,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicExtTo1;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming DemographicExt domain entities to demographic extension transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class DemographicExtConverter extends AbstractConverter<DemographicExt, DemographicExtTo1> {
 
     @Override

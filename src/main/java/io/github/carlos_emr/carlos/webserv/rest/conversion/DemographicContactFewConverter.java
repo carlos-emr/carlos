@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicContactFewTo
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming DemographicContact domain entities to demographic contact (minimal fields) transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class DemographicContactFewConverter {
 
     public DemographicContactFewTo1 getAsTransferObject(DemographicContact d, Object obj) throws ConversionException {

@@ -41,6 +41,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Converter for transforming Demographic domain entities to patient demographic transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class DemographicConverter extends AbstractConverter<Demographic, DemographicTo1> {
 
     private static Logger logger = MiscUtils.getLogger();

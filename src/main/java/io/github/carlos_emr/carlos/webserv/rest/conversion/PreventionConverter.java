@@ -32,6 +32,11 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionTo1;
 
+/**
+ * Converter for transforming Prevention domain entities to prevention/immunization transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class PreventionConverter extends AbstractConverter<Prevention, PreventionTo1> {
 
     @Override

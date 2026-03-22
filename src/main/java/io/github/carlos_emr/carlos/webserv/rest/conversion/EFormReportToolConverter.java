@@ -41,6 +41,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormReportToolTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming EFormReportTool domain entities to eForm report tool transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class EFormReportToolConverter extends AbstractConverter<EFormReportTool, EFormReportToolTo1> {
 
     private boolean eFormName = false;

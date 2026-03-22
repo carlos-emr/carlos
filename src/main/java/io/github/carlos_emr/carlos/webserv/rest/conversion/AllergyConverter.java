@@ -34,6 +34,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.AllergyTo1;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+/**
+ * Converter for transforming Allergy domain entities to patient allergy transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class AllergyConverter extends AbstractConverter<Allergy, AllergyTo1> {
 
     @Override

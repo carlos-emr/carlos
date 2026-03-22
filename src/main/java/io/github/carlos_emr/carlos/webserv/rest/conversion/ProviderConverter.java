@@ -37,6 +37,11 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 @Component
+/**
+ * Converter for transforming Provider domain entities to healthcare provider transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class ProviderConverter extends AbstractConverter<Provider, ProviderTo1> {
 
     @Override

@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.UserPrivilegeTo1;
 
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 
+/**
+ * Converter for transforming Secobjprivilege domain entities to security object privilege transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class SecobjprivilegeConverter extends AbstractConverter<Secobjprivilege, UserPrivilegeTo1> {
 
     @Override

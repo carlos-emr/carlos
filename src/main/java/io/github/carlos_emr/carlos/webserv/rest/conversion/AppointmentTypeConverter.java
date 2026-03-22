@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTypeTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming AppointmentType domain entities to appointment type transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class AppointmentTypeConverter extends AbstractConverter<AppointmentType, AppointmentTypeTo1> {
 
     @Override

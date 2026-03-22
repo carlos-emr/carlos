@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ServiceTypeTo;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming ServiceType domain entities to service type transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class ServiceTypeConverter extends AbstractConverter<ServiceType, ServiceTypeTo> {
 
     @Override

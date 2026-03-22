@@ -35,6 +35,11 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming TicklerLink domain entities to tickler link transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class TicklerLinkConverter extends AbstractConverter<TicklerLink, TicklerLinkTo1> {
 
     @Override

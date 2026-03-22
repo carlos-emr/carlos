@@ -35,6 +35,11 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 
 @Component
+/**
+ * Converter for transforming Secuserrole domain entities to security user role transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class SecuserroleConverter extends AbstractConverter<Secuserrole, UserRoleTo1> {
 
     @Override

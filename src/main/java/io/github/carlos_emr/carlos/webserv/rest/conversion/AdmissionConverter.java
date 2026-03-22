@@ -38,6 +38,11 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * Converter for transforming Admission domain entities to program admission transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class AdmissionConverter extends AbstractConverter<Admission, AdmissionTo1> {
 
     private boolean includeDemographic = false;

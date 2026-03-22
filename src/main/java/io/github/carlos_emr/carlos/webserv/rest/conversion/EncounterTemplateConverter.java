@@ -32,6 +32,11 @@ import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EncounterTemplateTo1;
 
+/**
+ * Converter for transforming EncounterTemplate domain entities to encounter template transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class EncounterTemplateConverter extends AbstractConverter<EncounterTemplate, EncounterTemplateTo1> {
 
     @Override

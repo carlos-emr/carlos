@@ -33,6 +33,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter for transforming EForm domain entities to electronic form transfer objects.
+ *
+ * @since 2012-08-13
+ */
 public class EFormConverter extends AbstractConverter<EForm, EFormTo1> {
 
     boolean excludeHtml = false;
