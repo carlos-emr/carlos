@@ -39,18 +39,71 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing patient allergy records in the CARLOS EMR system.
+ *
+ * <p>Provides retrieval operations for allergy data including lookup by patient,
+ * date-based synchronization queries, and program-scoped filtering. All methods
+ * require authenticated session context via {@link LoggedInInfo}.</p>
+ *
+ * @see AllergyManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Allergy
+ * @since 2026-03-17
+ */
 public interface AllergyManager {
 
+    /**
+     * Retrieves a single allergy record by its identifier.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param id Integer the allergy record identifier
+     * @return Allergy the allergy record, or null if not found
+     */
     public Allergy getAllergy(LoggedInInfo loggedInInfo, Integer id);
 
+    /**
+     * Retrieves all active (non-archived) allergies for a patient.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo Integer the patient demographic number
+     * @return List of active Allergy records for the patient
+     */
     public List<Allergy> getActiveAllergies(LoggedInInfo loggedInInfo, Integer demographicNo);
 
+    /**
+     * Retrieves allergy records updated on or after the specified date,
+     * useful for incremental data synchronization.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param updatedAfterThisDateInclusive Date the inclusive lower bound for update timestamps
+     * @param itemsToReturn int the maximum number of records to return
+     * @return List of Allergy records updated after the specified date
+     */
     public List<Allergy> getUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateInclusive,
                                              int itemsToReturn);
 
+    /**
+     * Retrieves allergy records for a specific patient updated after the given date.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicId Integer the patient demographic number
+     * @param updatedAfterThisDate Date the lower bound for update timestamps
+     * @return List of Allergy records matching the criteria
+     */
     public List<Allergy> getByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo, Integer demographicId,
                                                             Date updatedAfterThisDate);
 
+    /**
+     * Retrieves allergy records filtered by program, provider, patient, and date criteria.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param programId Integer the program identifier to filter by
+     * @param providerNo String the provider number to filter by
+     * @param demographicId Integer the patient demographic number
+     * @param updatedAfterThisDateInclusive Calendar the inclusive lower bound for update timestamps
+     * @param itemsToReturn int the maximum number of records to return
+     * @return List of Allergy records matching all specified criteria
+     */
     public List<Allergy> getAllergiesByProgramProviderDemographicDate(LoggedInInfo loggedInInfo, Integer programId,
                                                                       String providerNo, Integer demographicId, Calendar updatedAfterThisDateInclusive, int itemsToReturn);
 }

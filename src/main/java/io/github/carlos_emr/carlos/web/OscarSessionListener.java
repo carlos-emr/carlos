@@ -40,8 +40,22 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpSessionEvent;
 import jakarta.servlet.http.HttpSessionListener;
 
+/**
+ * HTTP session lifecycle listener for the CARLOS EMR application.
+ *
+ * <p>Handles session creation and destruction events. On session destruction,
+ * releases any case management note locks held by the session and unregisters
+ * the user session from the {@link UserSessionManager}.
+ *
+ * @since 2001-01-01
+ */
 public class OscarSessionListener implements HttpSessionListener {
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Logs the creation of a new session including its session ID.
+     */
     @Override
     public void sessionCreated(HttpSessionEvent se) {
         MiscUtils.getLogger().info("Creating new OSCAR session.");

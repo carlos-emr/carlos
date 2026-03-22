@@ -490,6 +490,12 @@ public class Prevention {
     }
 
 
+    /**
+     * Returns the number of months since the last prevention of the given type.
+     *
+     * @param preventionType String the prevention type name
+     * @return int the number of months since the last record, or -1 if no record exists
+     */
     public int getHowManyMonthsSinceLast(String preventionType) {
         int retval = -1;
         try {
@@ -502,6 +508,12 @@ public class Prevention {
         return retval;
     }
 
+    /**
+     * Returns the number of days since the last prevention of the given type.
+     *
+     * @param preventionType String the prevention type name
+     * @return int the number of days since the last record (negative value = days ago)
+     */
     public int getHowManyDaysSinceLast(String preventionType) {
         return getNumDays(getLastPreventionDate(preventionType), Calendar.getInstance().getTime());
     }

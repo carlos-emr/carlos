@@ -35,20 +35,66 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 
+/**
+ * Data access interface for managing {@link DefaultRoleAccess} entities that define
+ * default access permissions for program roles.
+ *
+ * @since 2005-01-18
+ * @see DefaultRoleAccess
+ * @see DefaultRoleAccessDAOImpl
+ */
 public interface DefaultRoleAccessDAO {
 
+    /**
+     * Deletes a default role access record by its ID.
+     *
+     * @param id Long the record ID to delete
+     */
     public void deleteDefaultRoleAccess(Long id);
 
+    /**
+     * Retrieves a default role access record by its ID.
+     *
+     * @param id Long the record ID
+     * @return DefaultRoleAccess the record, or {@code null} if not found
+     */
     public DefaultRoleAccess getDefaultRoleAccess(Long id);
 
+    /**
+     * Retrieves all default role access records ordered by role ID.
+     *
+     * @return List&lt;DefaultRoleAccess&gt; all records ordered by role_id
+     */
     public List<DefaultRoleAccess> getDefaultRoleAccesses();
 
+    /**
+     * Retrieves all default role access records.
+     *
+     * @return List&lt;DefaultRoleAccess&gt; all records
+     */
     public List<DefaultRoleAccess> findAll();
 
+    /**
+     * Saves or updates a default role access record.
+     *
+     * @param dra DefaultRoleAccess the record to save
+     */
     public void saveDefaultRoleAccess(DefaultRoleAccess dra);
 
+    /**
+     * Finds a default role access record by role ID and access type ID.
+     *
+     * @param roleId Long the role ID
+     * @param accessTypeId Long the access type ID
+     * @return DefaultRoleAccess the matching record, or {@code null} if not found
+     */
     public DefaultRoleAccess find(Long roleId, Long accessTypeId);
 
+    /**
+     * Retrieves all default role access records joined with their access types.
+     *
+     * @return List&lt;Object[]&gt; pairs of DefaultRoleAccess and AccessType objects
+     */
     public List<Object[]> findAllRolesAndAccessTypes();
 }
  

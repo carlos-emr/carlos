@@ -244,14 +244,29 @@ public class ClinicData {
         fillClinicData();
     }
 
+    /**
+     * Sets the clinic street address.
+     *
+     * @param clinic_address String the clinic address
+     */
     public void setClinic_address(String clinic_address) {
         this.clinic_address = clinic_address;
     }
 
+    /**
+     * Sets the clinic city.
+     *
+     * @param clinic_city String the clinic city
+     */
     public void setClinic_city(String clinic_city) {
         this.clinic_city = clinic_city;
     }
 
+    /**
+     * Sets the clinic fax number.
+     *
+     * @param clinic_fax String the clinic fax number
+     */
     public void setClinic_fax(String clinic_fax) {
         this.clinic_fax = clinic_fax;
     }

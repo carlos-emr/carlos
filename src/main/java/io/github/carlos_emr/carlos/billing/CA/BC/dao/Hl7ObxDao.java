@@ -36,14 +36,31 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obx;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link Hl7Obx} entities.
+ * Provides persistence operations for HL7 OBX (Observation Result) segments
+ * in the BC PathNet lab integration, including queries by OBR ID, message ID,
+ * and abnormal flag filtering.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7ObxDao extends AbstractDaoImpl<Hl7Obx> {
 
+    /**
+     * Constructs a new {@code Hl7ObxDao} with the {@link Hl7Obx} entity class.
+     */
     public Hl7ObxDao() {
         super(Hl7Obx.class);
     }
 
+    /**
+     * Finds all OBX (observation result) records associated with a given OBR ID.
+     *
+     * @param obrId int the OBR record ID
+     * @return List of {@link Hl7Obx} records for the OBR
+     */
     public List<Hl7Obx> findByObrId(int obrId) {
         Query q = entityManager.createQuery("select h from Hl7Obx h where h.obrId = ?1");
         q.setParameter(1, obrId);
@@ -52,6 +69,12 @@ public class Hl7ObxDao extends AbstractDaoImpl<Hl7Obx> {
         return results;
     }
 
+    /**
+     * Finds OBX and OBR pairs for a given OBR ID.
+     *
+     * @param id Integer the OBR record ID
+     * @return List of Object arrays containing {@link Hl7Obx} and Hl7Obr entities
+     */
     public List<Object[]> findObxAndObrByObrId(Integer id) {
         String sql = "SELECT obx, obr FROM Hl7Obx obx, Hl7Obr obr WHERE obr.id = :id AND obr.id = obx.obrId";
         Query query = entityManager.createQuery(sql);
@@ -60,6 +83,14 @@ public class Hl7ObxDao extends AbstractDaoImpl<Hl7Obx> {
 
     }
 
+    /**
+     * Finds PID, OBR, and OBX triples filtered by message ID and abnormal flags.
+     * Used to identify abnormal lab results within a specific message.
+     *
+     * @param messageId Integer the HL7 message ID
+     * @param abnormalFlags List of String abnormal flag values to filter by
+     * @return List of Object arrays containing Hl7Pid, Hl7Obr, and {@link Hl7Obx} entities
+     */
     public List<Object[]> findByMessageIdAndAbnormalFlags(Integer messageId, List<String> abnormalFlags) {
         String sql = "SELECT pid, obr, obx FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx WHERE obr.pidId = pid.id AND obx.obrId = obr.id AND obx.abnormalFlags IN (:abnormalFlags) AND pid.messageId = :messageId";
 

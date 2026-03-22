@@ -114,10 +114,21 @@ public final class AppointmentType {
         return (roleDurations);
     }
 
+    /**
+     * Sets role-specific duration overrides.
+     *
+     * @param roleDurations HashMap&lt;String, Integer&gt; map of role names to durations in minutes
+     */
     public void setRoleDurations(HashMap<String, Integer> roleDurations) {
         this.roleDurations = roleDurations;
     }
 
+    /**
+     * Creates an {@code AppointmentType} from a child-element-based XML node structure.
+     *
+     * @param node Node the XML node containing child elements for id, name, duration, and roles
+     * @return AppointmentType the parsed appointment type
+     */
     public static AppointmentType fromXml(Node node) {
         AppointmentType result = new AppointmentType();
 
@@ -147,6 +158,14 @@ public final class AppointmentType {
         return (result);
     }
 
+    /**
+     * Creates an {@code AppointmentType} from an attribute-based XML node structure.
+     *
+     * <p>Reads id, name, and mappingOscarApptType from XML attributes rather than child elements.</p>
+     *
+     * @param node Node the XML node with attributes for id, name, and mappingOscarApptType
+     * @return AppointmentType the parsed appointment type
+     */
     public static AppointmentType fromXml2(Node node) {
         AppointmentType result = new AppointmentType();
 
@@ -162,6 +181,12 @@ public final class AppointmentType {
     }
 
 
+    /**
+     * Creates an {@code AppointmentType} from a REST transfer object.
+     *
+     * @param apptNode AppointmentTypeTransfer the transfer object containing appointment type data
+     * @return AppointmentType the converted appointment type
+     */
     public static AppointmentType fromAppointmentTypeTransfer(AppointmentTypeTransfer apptNode) {
         AppointmentType result = new AppointmentType();
 

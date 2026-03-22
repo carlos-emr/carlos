@@ -146,22 +146,49 @@ public class DSDemographicAccess {
 
     private LoggedInInfo loggedInInfo;
 
+    /**
+     * Constructs a DSDemographicAccess for the specified patient.
+     *
+     * @param loggedInInfo LoggedInInfo session information for the evaluating provider
+     * @param demographicNo String patient identifier for data retrieval
+     */
     public DSDemographicAccess(LoggedInInfo loggedInInfo, String demographicNo) {
         this.loggedInInfo = loggedInInfo;
         this.demographicNo = demographicNo;
     }
 
+    /**
+     * Constructs a DSDemographicAccess for the specified patient with provider context.
+     *
+     * @param loggedInInfo LoggedInInfo session information for the evaluating provider
+     * @param demographicNo String patient identifier for data retrieval
+     * @param providerNo String provider identifier for provider-specific evaluation
+     */
     public DSDemographicAccess(LoggedInInfo loggedInInfo, String demographicNo, String providerNo) {
         this(loggedInInfo, demographicNo);
         this.providerNo = providerNo;
     }
 
+    /**
+     * Constructs a DSDemographicAccess for the specified patient with provider context and dynamic arguments.
+     *
+     * @param loggedInInfo LoggedInInfo session information for the evaluating provider
+     * @param demographicNo String patient identifier for data retrieval
+     * @param providerNo String provider identifier for provider-specific evaluation
+     * @param dynamicArgs List of Object runtime parameters (e.g., ATC codes from current prescription context)
+     */
     public DSDemographicAccess(LoggedInInfo loggedInInfo, String demographicNo, String providerNo, List<Object> dynamicArgs) {
         this(loggedInInfo, demographicNo, providerNo);
         this.dynamicArgs = dynamicArgs;
         logger.debug("dynamic args size " + this.dynamicArgs.size());
     }
 
+    /**
+     * Checks that none of the dynamic ATC codes match any active prescription's ATC code.
+     *
+     * @param atcCodes String comma-separated ATC codes (unused; dynamic args provide the codes)
+     * @return boolean true if no active prescriptions match any of the dynamic ATC codes
+     */
     public boolean hasRxClassNotany(String atcCodes) {
         List<Prescription> undeletedPrescriptions = this.getPrescriptionData();
         List<Prescription> prescriptions = new ArrayList<Prescription>();

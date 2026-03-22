@@ -29,16 +29,37 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.util.concurrent.ThreadFactory;
 
+/**
+ * A {@link ThreadFactory} that creates daemon threads with a specified name and priority.
+ *
+ * <p>All threads created by this factory are daemon threads, meaning they will not
+ * prevent JVM shutdown. Used for background tasks such as scheduled jobs and
+ * cache maintenance.
+ *
+ * @since 2026-03-17
+ */
 public final class DeamonThreadFactory implements ThreadFactory {
 
     private String threadName;
     private int threadPriority;
 
+    /**
+     * Creates a new factory that produces daemon threads with the given name and priority.
+     *
+     * @param threadName     String the name to assign to created threads
+     * @param threadPriority int the thread priority (e.g., {@link Thread#NORM_PRIORITY})
+     */
     public DeamonThreadFactory(String threadName, int threadPriority) {
         this.threadName = threadName;
         this.threadPriority = threadPriority;
     }
 
+    /**
+     * Creates a new daemon thread with the configured name and priority.
+     *
+     * @param r Runnable the task to execute in the new thread
+     * @return Thread a new daemon thread ready to run the given task
+     */
     public Thread newThread(Runnable r) {
         Thread thread = new Thread(r, threadName);
         thread.setDaemon(true);

@@ -279,6 +279,15 @@ public class Utility {
 
 
 
+    /**
+     * Formats a timestamp string (milliseconds since epoch) to a date string of the specified length.
+     *
+     * <p>Currently supports length 12 which produces yyyyMMddHHmm format.</p>
+     *
+     * @param pDate String the timestamp in milliseconds since epoch
+     * @param len Integer the desired output length (12 for yyyyMMddHHmm)
+     * @return String the formatted date string, or spaces if input is null
+     */
     public static String FormatDate(String pDate, Integer len) {
         String retVal = "";
 
@@ -303,6 +312,13 @@ public class Utility {
         return retVal;
     }
 
+    /**
+     * Left-pads a string with spaces to reach the specified total length.
+     *
+     * @param pStr String the string to pad
+     * @param tolLen int the desired total length
+     * @return String the left-padded string
+     */
     public static String FormatString(String pStr, int tolLen) {
 
         if (pStr == null) pStr = "";

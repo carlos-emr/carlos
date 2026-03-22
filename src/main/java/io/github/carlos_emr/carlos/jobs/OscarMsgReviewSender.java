@@ -58,7 +58,17 @@ import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 
 
 /**
- * @author rjonasz
+ * Scheduled job that sends chart review reminder messages to supervising providers.
+ *
+ * <p>Runs as a background task (via {@link OscarRunnable}) to check which providers have
+ * pending chart reviews from their supervised residents. For each provider whose configured
+ * review time matches the current time slot (rounded to 30-minute intervals), sends a
+ * system message listing the charts requiring attention. Providers without a configured
+ * time receive messages at the default time of 9:00 AM.</p>
+ *
+ * @see OscarRunnable
+ * @see MessagingManager
+ * @since 2026-03-17
  */
 public class OscarMsgReviewSender implements OscarRunnable {
 
@@ -69,6 +79,12 @@ public class OscarMsgReviewSender implements OscarRunnable {
     private static final Calendar DEFAULT_TIME = new GregorianCalendar(0, 0, 0, 9, 0);
     private final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Executes the chart review message sending job.
+     *
+     * <p>Queries for billing providers and their configured review times, then sends
+     * system messages containing pending chart review items to matching providers.</p>
+     */
     @Override
     public void run() {
 
@@ -199,16 +215,19 @@ public class OscarMsgReviewSender implements OscarRunnable {
         logger.info("Completed Sending OSCAR Review Messages");
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setLoggedInProvider(Provider provider) {
         this.provider = provider;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setLoggedInSecurity(Security security) {
         this.security = security;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setConfig(String string) {
     }

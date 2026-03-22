@@ -87,7 +87,12 @@ public class AddEditHtml2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Creates a new instance of AddLinkAction
+     * Handles the add/edit HTML document workflow. Validates required fields (description,
+     * type, HTML content), creates or updates the EDoc record, and optionally saves an
+     * annotation as a case management note link.
+     *
+     * @return String "failed" on validation error, or NONE on success (redirects to documentReport.jsp)
+     * @throws SecurityException if the user lacks _edoc write privilege
      */
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {

@@ -70,6 +70,26 @@ import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 import io.github.carlos_emr.CarlosProperties;
 
 
+/**
+ * Parses Ontario Medical Data (OMD) CDS XML files into {@link HRMReport} objects and
+ * provides routing logic for associating parsed reports with demographics, providers,
+ * and sub-classes within the Hospital Report Manager system.
+ *
+ * <p>Core responsibilities include:</p>
+ * <ul>
+ *   <li>JAXB unmarshalling of HRM XML files against the OMD HRM 1.1.2 XSD schema</li>
+ *   <li>Routing incoming reports to matching patient demographics by HCN and DOB</li>
+ *   <li>Routing reports to providers based on practitioner number and forwarding rules</li>
+ *   <li>Detecting similar/duplicate reports and establishing parent-child relationships</li>
+ *   <li>Extracting report sub-class information for diagnostic imaging and cardio respiratory reports</li>
+ * </ul>
+ *
+ * <p>This is a utility class with only static methods; it cannot be instantiated.</p>
+ *
+ * @see HRMReport
+ * @see HRMDocument
+ * @since 2008-11-05
+ */
 public class HRMReportParser {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -77,6 +97,13 @@ public class HRMReportParser {
     private HRMReportParser() {
     }
 
+    /**
+     * Parses an HRM report by looking up the document file path from the database.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session context
+     * @param hrmDocumentId Integer the database ID of the HRM document
+     * @return HRMReport the parsed report, or {@code null} if the document is not found
+     */
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, Integer hrmDocumentId) {
         HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
         HRMDocument hrmDocument = hrmDocumentDao.find(hrmDocumentId);
@@ -86,6 +113,13 @@ public class HRMReportParser {
         return null;
     }
 
+    /**
+     * Parses an HRM report from a file path with no error collection.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session context
+     * @param hrmReportFileLocation String the filesystem path to the HRM XML file
+     * @return HRMReport the parsed report, or {@code null} if parsing fails
+     */
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, String hrmReportFileLocation) {
         return parseReport(loggedInInfo, hrmReportFileLocation, null);
     }

@@ -80,6 +80,12 @@ public final class PrescriptionQrCodeUIBean {
         // not meant to be instantiated, just a utility class
     }
 
+    /**
+     * Generates a QR code PNG image containing the HL7 v2 representation of a prescription.
+     *
+     * @param prescriptionId int the unique identifier of the prescription
+     * @return byte[] the PNG image data as a byte array, or {@code null} if an error occurs
+     */
     public static byte[] getPrescriptionHl7QrCodeImage(int prescriptionId) {
 
         logger.debug("Display QR Code for prescriptionId=" + prescriptionId);
@@ -127,6 +133,12 @@ public final class PrescriptionQrCodeUIBean {
         return null;
     }
 
+    /**
+     * Checks whether QR code printing on prescriptions is enabled for a given provider.
+     *
+     * @param providerNo String the provider number to check
+     * @return boolean {@code true} if QR code printing is enabled in the provider's preferences
+     */
     public static boolean isPrescriptionQrCodeEnabledForProvider(String providerNo) {
         ProviderPreference providerPreference = ProviderPreferencesUIBean.getProviderPreference(providerNo);
         if (providerPreference == null) providerPreference = new ProviderPreference();

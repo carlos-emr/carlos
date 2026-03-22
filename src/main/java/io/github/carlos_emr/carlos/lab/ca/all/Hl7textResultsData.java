@@ -569,10 +569,11 @@ public class Hl7textResultsData {
     }
 
     /**
-     * End Populates labs attached to consultation
+     * Retrieves unacknowledged lab result data for a list of lab numbers.
+     *
+     * @param labNos List&lt;String&gt; the lab numbers to look up
+     * @return ArrayList&lt;LabResultData&gt; list of unacknowledged lab result data objects
      */
-
-
     public static ArrayList<LabResultData> getNotAckLabsFromLabNos(List<String> labNos) {
         ArrayList<LabResultData> ret = new ArrayList<LabResultData>();
         LabResultData lrd = new LabResultData();

@@ -115,6 +115,11 @@ public class dxQuickListBeanHandler {
         return true;
     }
 
+    /**
+     * Initializes the handler with all distinct quick list names from the database.
+     *
+     * @return boolean always {@code true}
+     */
     public boolean init() {
         QuickListDao dao = SpringUtils.getBean(QuickListDao.class);
         for (Object qlName : dao.findDistinct()) {
@@ -124,10 +129,20 @@ public class dxQuickListBeanHandler {
         return true;
     }
 
+    /**
+     * Returns the collection of quick list beans.
+     *
+     * @return Collection the loaded quick list beans
+     */
     public Collection getDxQuickListBeanVector() {
         return dxQuickListBeanVector;
     }
 
+    /**
+     * Returns the name of the last used or default quick list.
+     *
+     * @return String the quick list name, or {@code null} if none available
+     */
     public String getLastUsedQuickList() {
         return lastUsedQuickList;
     }

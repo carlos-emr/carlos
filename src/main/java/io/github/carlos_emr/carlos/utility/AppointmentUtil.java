@@ -36,6 +36,14 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Utility class for appointment-related operations.
+ *
+ * <p>Provides helper methods for querying appointment data, such as
+ * looking up the next scheduled appointment for a patient.
+ *
+ * @since 2026-03-17
+ */
 public class AppointmentUtil {
 
     private static final String NONE = "(none)";
@@ -43,6 +51,12 @@ public class AppointmentUtil {
     private AppointmentUtil() {
     }
 
+    /**
+     * Returns a formatted date string of the next appointment for the specified patient.
+     *
+     * @param demographicNo String the patient's demographic number
+     * @return String the formatted next appointment date, or "(none)" if no appointment is found
+     */
     public static String getNextAppointment(String demographicNo) {
         Date nextApptDate = null;
         if (demographicNo != null && !demographicNo.equalsIgnoreCase("") && !demographicNo.equalsIgnoreCase("null")) {

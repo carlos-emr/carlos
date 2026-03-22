@@ -41,9 +41,13 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Parses xml file, creating DosingRecomendation Objects storing them in a hashtable with the ATC code as the key
+ * Factory that loads and caches renal dosing recommendations from an XML configuration file.
+ * <p>
+ * Parses the renal dosing XML file on first access, creating {@link DosingRecomendation}
+ * objects keyed by ATC code. Provides lookup methods to retrieve dosing adjustments
+ * for patients with impaired renal function based on creatinine clearance values.
  *
- * @author jay
+ * @since 2026-03-17
  */
 public class RenalDosingFactory {
 

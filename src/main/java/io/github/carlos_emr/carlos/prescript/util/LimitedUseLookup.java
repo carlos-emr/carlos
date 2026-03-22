@@ -53,9 +53,14 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * Parses xml file, creating DosingRecomendation Objects storing them in a hashtable with the ATC code as the key
+ * Factory that loads and caches Ontario Drug Benefit (ODB) limited use codes from XML or database storage.
+ * <p>
+ * Parses the limited use code XML on first access, creating {@link LimitedUseCode} objects
+ * keyed by drug identifier. Supports loading from both classpath resources and the
+ * {@code resource_storage} database table. Provides lookup methods for retrieving
+ * limited use criteria applicable to specific drugs.
  *
- * @author jay
+ * @since 2026-03-17
  */
 public class LimitedUseLookup {
 

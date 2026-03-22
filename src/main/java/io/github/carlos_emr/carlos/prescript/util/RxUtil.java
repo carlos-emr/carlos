@@ -46,6 +46,17 @@ import io.github.carlos_emr.carlos.prescript.data.RxCodesData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 
+/**
+ * General utility class for the prescription module providing date, string, and
+ * prescription formatting helper methods.
+ * <p>
+ * Contains methods for date parsing and formatting, string-to-number conversion,
+ * quantity/unit extraction, prescription special instruction trimming, stash uniqueness
+ * checking, discontinuation status detection, and debug output. Used extensively
+ * across the prescription actions and data classes.
+ *
+ * @since 2026-03-17
+ */
 public class RxUtil {
 
     private static String defaultPattern = "yyyy/MM/dd";

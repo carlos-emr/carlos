@@ -42,7 +42,14 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * Handles logic of attaching documents to a specified consultation
+ * Manages the attachment and detachment of clinical documents (eDocs) to eForm
+ * data records. Reconciles currently attached documents with newly selected ones
+ * using {@link EDocUtil}.
+ *
+ * @see EFormAttachLabs
+ * @see EFormAttachEForms
+ * @see EFormAttachHRMReports
+ * @since 2006-05-25
  */
 public class EFormAttachDocs {
 
@@ -52,7 +59,9 @@ public class EFormAttachDocs {
     private ArrayList<String> docs; //document ids
 
     /**
-     * Creates a new instance of ConsultationAttachDocs
+     * Constructs an instance with the given eForm data ID and empty document list.
+     *
+     * @param req String the eForm data ID
      */
     public EFormAttachDocs(String req) {
         reqId = req;
@@ -61,10 +70,14 @@ public class EFormAttachDocs {
     }
 
     /**
-     * @param prov
-     * @param demo
-     * @param req
-     * @param d
+     * Constructs an instance with the given provider, demographic, eForm data ID,
+     * and array of document identifiers. When the {@code consultation_indivica_attachment_enabled}
+     * property is inactive, only IDs prefixed with 'D' are extracted.
+     *
+     * @param prov String the provider number performing the attachment
+     * @param demo String the demographic number of the patient
+     * @param req String the eForm data ID to attach documents to
+     * @param d String[] array of document identifiers
      */
     public EFormAttachDocs(String prov, String demo, String req, String[] d) {
         providerNo = prov;

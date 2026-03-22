@@ -351,6 +351,13 @@ public class CppPreferencesUIBean {
         return sb.toString();
     }
 
+    /**
+     * Populates bean fields from a simple string-to-string map (e.g., from database values).
+     *
+     * <p>Each field is set only if the corresponding key is present and non-null in the map.</p>
+     *
+     * @param map Map&lt;String, String&gt; the property key-value pairs loaded from the database
+     */
     public void deserialize(Map<String, String> map) {
         if (map.get(SOCIAL_HISTORY_POS) != null)
             setSocialHxPosition(map.get(SOCIAL_HISTORY_POS));
@@ -458,6 +465,11 @@ public class CppPreferencesUIBean {
             setMedicationInstructions(map.get(MEDICATION_INSTRUCTIONS));
     }
 
+    /**
+     * Constructs a new CPP preferences bean for the specified provider.
+     *
+     * @param providerNo String the provider number whose preferences to manage
+     */
     public CppPreferencesUIBean(String providerNo) {
         this.providerNo = providerNo;
     }

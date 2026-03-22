@@ -122,7 +122,14 @@ public class SQLNumerator implements Numerator {
     }
 
 
-    //TODO:Do i change this to pull fields out of the query?
+    /**
+     * Legacy evaluation method that checks if a count column returns a value greater
+     * than zero. Superseded by {@link #evaluate(LoggedInInfo, String)}.
+     *
+     * @param demographicNo String the patient demographic number
+     * @return boolean {@code true} if count is greater than zero
+     * @deprecated Use {@link #evaluate(LoggedInInfo, String)} instead
+     */
     public boolean evaluateOLD(String demographicNo) {
         boolean evalTrue = false;
 

@@ -394,10 +394,17 @@ public class AdmissionManagerImpl implements AdmissionManager {
         }
     }
 
+    /** {@inheritDoc} */
     public void processDischargeToCommunity(Integer communityProgramId, Integer demographicNo, String providerNo, String notes, String radioDischargeReason, Date dischargeDate) throws AdmissionException {
         processDischargeToCommunity(communityProgramId, demographicNo, providerNo, notes, radioDischargeReason, null, dischargeDate);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Discharges the client from their current community program (if any), creates a new
+     * admission in the target community program, and recursively processes dependents.</p>
+     */
     public void processDischargeToCommunity(Integer communityProgramId, Integer demographicNo, String providerNo, String notes, String radioDischargeReason, List<Integer> dependents, Date dischargeDate) throws AdmissionException {
         Admission currentCommunityAdmission = getCurrentCommunityProgramAdmission(demographicNo);
 

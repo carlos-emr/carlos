@@ -169,8 +169,19 @@ public class WLWaitingListUtil {
         rePositionWaitingList(waitingListID);
     }
 
-    /*
-     * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
+    /**
+     * Updates a specific waiting list entry by its record ID, modifying the list assignment,
+     * note, and enrollment date in place.
+     *
+     * <p>Unlike {@link #updateWaitingListRecord}, this method directly modifies the
+     * existing record rather than creating a new one. Silently returns if the ID
+     * is not set or the record is not found.</p>
+     *
+     * @param id              String the unique record ID of the waiting list entry
+     * @param waitingListID   String the waiting list identifier to assign
+     * @param waitingListNote String the updated note text
+     * @param demographicNo   String the patient demographic number
+     * @param onListSince     String the date the patient was placed on the list (yyyy-MM-dd)
      */
     static public synchronized void updateWaitingList(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingList(): waitingListID: " + waitingListID + " for patient " + demographicNo);
@@ -200,6 +211,12 @@ public class WLWaitingListUtil {
         dao.merge(waitingListEntry);
     }
 
+    /**
+     * Recalculates sequential position numbers (1-based) for all active entries
+     * in the specified waiting list.
+     *
+     * @param waitingListID String the waiting list identifier to reposition
+     */
     public static void rePositionWaitingList(String waitingListID) {
         int i = 1;
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);

@@ -1744,6 +1744,12 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Reloads the flowsheet template configuration cache. Forces a refresh of all system
+     * and user-created flowsheet definitions from their sources.
+     *
+     * @return {@code null}; no response body is written
+     */
     public String reload() {
         MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
 

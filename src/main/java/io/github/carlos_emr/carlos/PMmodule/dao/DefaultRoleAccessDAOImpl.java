@@ -38,10 +38,18 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link DefaultRoleAccessDAO} for managing
+ * {@link DefaultRoleAccess} entities.
+ *
+ * @since 2005-01-18
+ * @see DefaultRoleAccessDAO
+ */
 @Transactional
 @SuppressWarnings("unchecked")
 public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements DefaultRoleAccessDAO {
 
+    /** {@inheritDoc} */
     public void deleteDefaultRoleAccess(Long id) {
         currentSession().remove(getDefaultRoleAccess(id));
     }

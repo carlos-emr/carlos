@@ -41,6 +41,15 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDest
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.Region;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Birth Information System (BIS) API integration for FHIR-based communication.
+ *
+ * <p>Provides a synchronized factory method for building FHIR Communication messages
+ * that bundle clinical data (Well Baby, Well Baby CSD, and Antenatal Record)
+ * as Base64-encoded attachments targeted at the Ontario DHIR endpoint.</p>
+ *
+ * @since 2026-03-17
+ */
 public class BIS {
 
     private static Settings settings = new Settings(FhirDestination.DHIR, Region.ON);

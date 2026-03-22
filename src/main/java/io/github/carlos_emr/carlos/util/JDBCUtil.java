@@ -55,7 +55,25 @@ import org.xml.sax.InputSource;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
 
+/**
+ * JDBC-to-XML utility class providing bidirectional conversion between SQL {@link ResultSet}
+ * objects and W3C DOM {@link Document} structures. Supports converting query results to XML
+ * documents, saving XML to files, and importing XML data back into database tables.
+ *
+ * @since 2001-01-01
+ */
 public class JDBCUtil {
+
+    /**
+     * Converts a JDBC {@link ResultSet} into an XML {@link Document} with a {@code <Results>}
+     * root element containing {@code <Row>} elements, each with child elements named after
+     * the result set columns. Column names and values are XML-escaped.
+     *
+     * @param rs ResultSet the result set to convert (will be closed after conversion)
+     * @return Document the XML document representation
+     * @throws ParserConfigurationException if the XML parser cannot be created
+     * @throws SQLException if a database access error occurs
+     */
     public static Document toDocument(ResultSet rs)
             throws ParserConfigurationException, SQLException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -85,6 +103,13 @@ public class JDBCUtil {
         return doc;
     }
 
+    /**
+     * Saves an XML {@link Document} to a file on disk using XSLT transformation.
+     * If the save fails, the partially written file is deleted.
+     *
+     * @param doc Document the XML document to save
+     * @param fileName String the output file path
+     */
     public static void saveAsXML(Document doc, String fileName) {
         try {
             TransformerFactory transFactory = TransformerFactory.newInstance();

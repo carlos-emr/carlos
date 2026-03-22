@@ -106,7 +106,12 @@ public class OscarRequestTokenService {
         this.parser = parser;
     }
 
-    // Support POST
+    /**
+     * Handles POST requests to initiate the OAuth 1.0a request token flow.
+     *
+     * @param req HttpServletRequest the incoming request containing OAuth parameters
+     * @return Response form-encoded response with oauth_token, oauth_token_secret, and oauth_callback_confirmed
+     */
     @POST
     @Path("/initiate")
     @Produces(MediaType.APPLICATION_FORM_URLENCODED)
