@@ -492,7 +492,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // Uses validateExistingPath for containment check without stripping path components
         try {
             // First, perform any existing validation logic
-            PathValidationUtils.validateExistingPath(newFile, targetDir);
+            newFile = PathValidationUtils.validateExistingPath(newFile, targetDir);
 
             // Explicit canonical / normalized path containment check to prevent Zip Slip
             // and to make the security property obvious to static analysis tools.
@@ -2784,7 +2784,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                                 // This prevents path traversal attacks from malicious XML file paths
                                 try {
                                     File allowedRoot = new File(currentDirectory);
-                                    PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
+                                    sourceFile = PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
                                 } catch (SecurityException e) {
                                     logger.error("SECURITY: Rejecting file copy - resolved path outside allowed directory. FilePath: {}, SourceFile: {}",
                                         Encode.forJava(new File(filePath).getName()),
@@ -3374,7 +3374,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         // CRITICAL SECURITY: Validate the resolved path is within the allowed directory
         // This prevents path traversal attacks from malicious XML (e.g., "../../../etc/passwd")
         try {
-            PathValidationUtils.validateExistingPath(file, allowedRoot);
+            file = PathValidationUtils.validateExistingPath(file, allowedRoot);
             return file;
         } catch (SecurityException e) {
             logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",

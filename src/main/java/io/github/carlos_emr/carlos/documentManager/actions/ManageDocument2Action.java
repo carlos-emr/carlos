@@ -1245,7 +1245,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
         File file = new File(filePath);
-        PathValidationUtils.validateExistingPath(file, baseDir);
+        file = PathValidationUtils.validateExistingPath(file, baseDir);
 
         Locale locale = request.getLocale();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
@@ -1356,7 +1356,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Validate file path using PathValidationUtils
         File baseDir = new File(incomingDocDir);
         File file = new File(filePath);
-        PathValidationUtils.validateExistingPath(file, baseDir);
+        file = PathValidationUtils.validateExistingPath(file, baseDir);
 
         String contentType = "application/pdf";
         response.setContentType(contentType);
@@ -1506,7 +1506,7 @@ public class ManageDocument2Action extends ActionSupport {
         File documentDir = new File(incomingDocPath);
         File documentCacheDir = getDocumentCacheDir(incomingDocPath);
         File file = new File(documentDir, sanitizedPdfName);
-        PathValidationUtils.validateExistingPath(file, baseDir);
+        file = PathValidationUtils.validateExistingPath(file, baseDir);
 
         // Re-validate file path at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
@@ -1606,7 +1606,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         for (File allowedDir : allowedDirs) {
             try {
-                PathValidationUtils.validateExistingPath(file, allowedDir);
+                file = PathValidationUtils.validateExistingPath(file, allowedDir);
                 return; // Valid if we get here without exception
             } catch (SecurityException e) {
                 // File not in this directory, try next
