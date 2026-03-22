@@ -51,6 +51,14 @@ import io.github.carlos_emr.carlos.webserv.transfer_objects.DocumentTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP web service endpoint for clinical document operations in the inter-EMR Integrator system.
+ *
+ * <p>Provides methods for retrieving and synchronizing medical documents
+ * between CARLOS EMR installations.
+ *
+ * @since 2012-08-13
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)

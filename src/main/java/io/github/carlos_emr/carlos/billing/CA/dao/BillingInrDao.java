@@ -37,9 +37,29 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for {@link BillingInr} entities.
+ * Defines persistence operations for INR (International Normalized Ratio) billing records,
+ * used for billing anticoagulation monitoring services.
+ *
+ * @since 2026-03-17
+ */
 public interface BillingInrDao extends AbstractDao<BillingInr> {
 
+    /**
+     * Searches for INR billing records joined with demographic data by billing INR number.
+     * Excludes deleted records.
+     *
+     * @param billingInrNo Integer the billing INR record ID
+     * @return List of Object arrays containing {@link BillingInr} and Demographic entities
+     */
     public List<Object[]> search_inrbilling_dt_billno(Integer billingInrNo);
 
+    /**
+     * Finds current (non-deleted) INR billing records for a given provider.
+     *
+     * @param providerNo String the provider number pattern (supports LIKE wildcards)
+     * @return List of active {@link BillingInr} records
+     */
     public List<BillingInr> findCurrentByProviderNo(String providerNo);
 }

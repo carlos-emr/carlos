@@ -58,14 +58,30 @@ public class NextApptTag extends TagSupport {
     public NextApptTag() {
     }
 
+    /**
+     * Sets the demographic (patient) number to look up the next appointment for.
+     *
+     * @param demoNo1 String the demographic number
+     */
     public void setDemographicNo(String demoNo1) {
         demoNo = demoNo1;
     }
 
+    /**
+     * Returns the demographic (patient) number.
+     *
+     * @return String the demographic number
+     */
     public String getDemographicNo() {
         return demoNo;
     }
 
+    /**
+     * Processes the start tag by looking up and printing the next appointment date.
+     *
+     * @return int {@code SKIP_BODY} to skip the tag body
+     * @throws JspException if a JSP error occurs
+     */
     public int doStartTag() throws JspException {
         if (demoNo != null && !demoNo.isEmpty()) {
             try {
@@ -80,18 +96,39 @@ public class NextApptTag extends TagSupport {
         return (SKIP_BODY);
     }
 
+    /**
+     * Processes the end tag.
+     *
+     * @return int {@code EVAL_PAGE} to continue processing the page
+     * @throws JspException if a JSP error occurs
+     */
     public int doEndTag() throws JspException {
         return EVAL_PAGE;
     }
 
+    /**
+     * Returns the date attribute value.
+     *
+     * @return String the date
+     */
     public String getDate() {
         return date;
     }
 
+    /**
+     * Sets the date attribute value.
+     *
+     * @param date String the date
+     */
     public void setDate(String date) {
         this.date = date;
     }
 
+    /**
+     * Returns the date format pattern.
+     *
+     * @return String the format pattern
+     */
     public String getFormat() {
         return format;
     }

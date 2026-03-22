@@ -29,6 +29,14 @@ package io.github.carlos_emr.carlos.integration.fhir.resources.types;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+/**
+ * Represents a Public Health Unit (PHU) for Ontario immunization reporting.
+ *
+ * <p>Contains the PHU identifier, name, and the FHIR naming system URI
+ * used in Organization resource identifiers for DHIR submissions.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class PublicHealthUnitType {
 
     public static enum PhuKey {default_phu, phu}

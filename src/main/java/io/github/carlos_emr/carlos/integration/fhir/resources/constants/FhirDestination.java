@@ -30,6 +30,14 @@ package io.github.carlos_emr.carlos.integration.fhir.resources.constants;
  */
 
 
+/**
+ * Enumerates the available FHIR message destinations with their titles and endpoint URLs.
+ *
+ * <p>Currently includes the Ontario Digital Health Immunization Repository (DHIR).
+ * Additional destinations can be added as new enum constants.</p>
+ *
+ * @since 2026-03-17
+ */
 public enum FhirDestination {
 
     // add more locations here in this format: ID (["Title or Description"], ["endpoint"] )
@@ -43,10 +51,20 @@ public enum FhirDestination {
         this.endpoint = endpoint;
     }
 
+    /**
+     * Returns the display title for this destination.
+     *
+     * @return String the destination title
+     */
     public final String title() {
         return title;
     }
 
+    /**
+     * Returns the endpoint URL for this destination.
+     *
+     * @return String the destination endpoint URL
+     */
     public final String endpoint() {
         return endpoint;
     }

@@ -39,11 +39,18 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 
 /**
- * The Provider fields should only be used if this is a user based thread, i.e. a thread handling a user request.
- * If this is an internal system thread, those fields should be ignored and left null.
- * The initiatingCode field can be used for both internal threads as well as user requests.
- * It should signify where the code started for the most part, i.e. the thread class name,
- * or the jsp name, or www service name and method.
+ * Encapsulates session information for the currently logged-in user, including the
+ * provider identity, security credentials, current facility, locale, and IP address.
+ *
+ * <p>The provider fields should only be populated for user-based request threads.
+ * For internal system threads (scheduled jobs, background tasks), provider fields
+ * should remain {@code null}. The {@code initiatingCode} field indicates the origin
+ * of the request (e.g., JSP name, web service method, or background thread class).
+ *
+ * <p>Stored in the HTTP session by {@link LoggedInUserFilter} and retrieved via
+ * {@link #getLoggedInInfoFromSession(HttpServletRequest)}.
+ *
+ * @since 2026-03-17
  */
 public final class LoggedInInfo implements Serializable {
 

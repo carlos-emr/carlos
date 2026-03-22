@@ -37,8 +37,29 @@ import java.util.Hashtable;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
- * @author jay
+ * Interface for prevention compliance report generators.
+ *
+ * <p>Implementations evaluate a set of patients against specific prevention guidelines
+ * (e.g., PAP smear, mammogram, flu shot, childhood immunizations, FOBT) and return
+ * compliance statistics including up-to-date counts, percentages, and per-patient
+ * report display items.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReportFactory
+ * @see io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay
  */
 public interface PreventionReport {
+
+    /**
+     * Runs the prevention compliance report for the given patient set.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param list ArrayList&lt;ArrayList&lt;String&gt;&gt; the patient set where each inner list
+     *             contains demographic number as the first element
+     * @param asofDate Date the as-of date for calculating compliance
+     * @return Hashtable containing report results with keys: "up2date", "percent",
+     *         "percentWithGrace", "returnReport", "inEligible", "eformSearch",
+     *         "followUpType", "BillCode"
+     */
     public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate);
 }

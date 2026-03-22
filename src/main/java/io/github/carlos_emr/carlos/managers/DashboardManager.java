@@ -41,7 +41,22 @@ import io.github.carlos_emr.carlos.dashboard.display.beans.IndicatorBean;
 import io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateXML;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing clinical quality dashboards and indicator
+ * templates in the CARLOS EMR system.
+ *
+ * <p>Provides operations for importing, configuring, and displaying clinical
+ * quality indicators. Supports dashboard creation, indicator assignment,
+ * drill-down data retrieval, CSV export, and integration with shared
+ * outcomes dashboards for population health management.</p>
+ *
+ * @see DashboardManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Dashboard
+ * @see io.github.carlos_emr.carlos.commn.model.IndicatorTemplate
+ * @since 2026-03-17
+ */
 public interface DashboardManager {
+    /** Flag to enable multi-threaded indicator processing. */
     public static final boolean MULTI_THREAD_ON = Boolean.TRUE;
 
     // static final boolean MULTI_THREAD_ON = Boolean.TRUE;

@@ -142,6 +142,7 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         return null;
     }
 
+    /** {@inheritDoc} */
     public void saveClientRestriction(ProgramClientRestriction restriction) throws ClientAlreadyRestrictedException {
         if (restriction.getId() == null) {
             ProgramClientRestriction result = checkClientRestriction(restriction.getProgramId(), restriction.getDemographicNo(), new Date());
@@ -152,6 +153,7 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         programClientRestrictionDAO.save(restriction);
     }
 
+    /** {@inheritDoc} */
     public void terminateEarly(int programClientRestrictionId, String providerNo) {
         ProgramClientRestriction x = programClientRestrictionDAO.find(programClientRestrictionId);
 

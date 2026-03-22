@@ -46,6 +46,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Data access class for retrieving form metadata and patient form instances
+ * from the database.
+ *
+ * <p>Provides methods to query available form types, retrieve form instances
+ * for specific patients, and look up form table/page configuration. Used by
+ * the form display and encounter components to list and navigate clinical forms.</p>
+ *
+ * @see EncounterFormDao
+ * @since 2026-03-17
+ */
 public class FrmData {
     private static final Logger _log = MiscUtils.getLogger();
     private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);

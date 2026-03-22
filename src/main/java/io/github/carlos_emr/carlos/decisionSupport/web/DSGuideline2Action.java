@@ -54,7 +54,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 
 /**
- * @author apavel
+ * Struts2 action for managing and displaying clinical decision support guidelines.
+ * <p>
+ * This action provides a web interface for healthcare providers to view their assigned
+ * clinical decision support guidelines and examine detailed evaluation results for
+ * specific patients. It supports two main operations:
+ * </p>
+ * <ul>
+ *   <li><strong>list</strong> - Displays all guidelines assigned to a specific provider</li>
+ *   <li><strong>detail</strong> - Shows detailed evaluation of a specific guideline, optionally
+ *       evaluated against a specific patient's data with per-condition results</li>
+ * </ul>
+ *
+ * @since 2009-07-06
+ * @see DSService for guideline evaluation logic
+ * @see DSGuideline for guideline definitions
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -66,11 +80,23 @@ public class DSGuideline2Action extends ActionSupport {
 
     private DSService dsService = SpringUtils.getBean(DSService.class);
 
+    /**
+     * Default constructor for DSGuideline2Action.
+     */
     public DSGuideline2Action() {
 
     }
 
-
+    /**
+     * Routes to the appropriate method based on the "method" request parameter.
+     * <p>
+     * Dispatches to {@link #detail()} when method equals "detail", otherwise
+     * defaults to {@link #list()}.
+     * </p>
+     *
+     * @return String Struts result name ("guidelineList" or "guidelineDetail")
+     * @throws Exception if guideline evaluation fails
+     */
     public String execute() throws Exception {
         if ("detail".equals(request.getParameter("method"))) {
             return detail();

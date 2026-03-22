@@ -27,6 +27,22 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+/**
+ * Strategy interface for cloning cached values in {@link QueueCache}.
+ *
+ * <p>Implementations define how cache values are deep-copied when retrieved,
+ * preventing callers from accidentally modifying the cached instances.
+ *
+ * @param <V> the type of values to clone
+ * @since 2026-03-17
+ */
 public interface QueueCacheValueCloner<V> {
+
+    /**
+     * Creates a deep copy of the given cached value.
+     *
+     * @param var1 V the original value to clone
+     * @return V a new instance that is a copy of the original
+     */
     V cloneBean(V var1);
 }

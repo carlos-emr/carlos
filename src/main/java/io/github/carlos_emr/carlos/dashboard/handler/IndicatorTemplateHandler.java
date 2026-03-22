@@ -220,6 +220,11 @@ public class IndicatorTemplateHandler {
         }
     }
 
+    /**
+     * Returns the validation error message if XML parsing or validation failed.
+     *
+     * @return String the validation error message, or {@code null} if validation succeeded
+     */
     public String getValidationMessage() {
         return validationMessage;
     }
@@ -238,6 +243,11 @@ public class IndicatorTemplateHandler {
 
     }
 
+    /**
+     * Returns whether the last parsed XML was valid.
+     *
+     * @return boolean {@code true} if the XML is valid, {@code false} otherwise
+     */
     public boolean isValidXML() {
         return validXML;
     }

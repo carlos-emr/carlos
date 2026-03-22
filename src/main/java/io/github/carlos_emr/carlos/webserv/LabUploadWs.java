@@ -56,6 +56,14 @@ import java.text.ParseException;
 import java.util.Date;
 
 
+/**
+ * SOAP web service endpoint for uploading laboratory results to this CARLOS EMR instance.
+ *
+ * <p>Handles HL7-formatted lab result data transfers, including CLS (Community Lab Services)
+ * uploads with file validation and processing through the lab handler framework.
+ *
+ * @since 2012-08-13
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)

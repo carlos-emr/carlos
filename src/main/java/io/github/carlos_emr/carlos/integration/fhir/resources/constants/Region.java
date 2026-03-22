@@ -29,6 +29,11 @@ package io.github.carlos_emr.carlos.integration.fhir.resources.constants;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+/**
+ * Enumerates the Canadian provinces/regions supported for FHIR integration.
+ *
+ * @since 2026-03-17
+ */
 public enum Region {
 
     ON("Ontario"),
@@ -40,6 +45,11 @@ public enum Region {
         this.description = description;
     }
 
+    /**
+     * Returns the full name of the region.
+     *
+     * @return String the region description (e.g., "Ontario", "British Columbia")
+     */
     public final String description() {
         return description;
     }

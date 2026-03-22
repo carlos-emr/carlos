@@ -59,6 +59,14 @@ public class ScheduleCodesConverter extends AbstractConverter<ScheduleTemplateCo
         return d;
     }
 
+    /**
+     * Converts a schedule template code domain entity to its transfer object.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param d ScheduleTemplateCode the domain entity to convert
+     * @return ScheduleTemplateCodeTo the transfer object
+     * @throws ConversionException if conversion fails
+     */
     @Override
     public ScheduleTemplateCodeTo getAsTransferObject(LoggedInInfo loggedInInfo, ScheduleTemplateCode d) throws ConversionException {
         ScheduleTemplateCodeTo t = new ScheduleTemplateCodeTo();

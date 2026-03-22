@@ -28,6 +28,12 @@
  */
 package io.github.carlos_emr.carlos.integration.dashboard.model;
 
+/**
+ * Model representing a named identifier with a display label, used as a
+ * component within {@link MetricData} entries in the Outcomes Dashboard.
+ *
+ * @since 2012-07-12
+ */
 public class Name {
     private String identifier;
     private String label;

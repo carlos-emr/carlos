@@ -101,6 +101,13 @@ public abstract class JSONUtil {
         jsonResponse(response, jsonObject);
     }
 
+    /**
+     * Writes a JSON error response with HTTP 500 status code.
+     *
+     * @param response HttpServletResponse the response to write to
+     * @param name String the JSON property name for the error
+     * @param value String the error message value
+     */
     public static void errorResponse(HttpServletResponse response, String name, String value) {
         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         jsonResponse(response, name, value);

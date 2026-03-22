@@ -40,6 +40,14 @@ import io.github.carlos_emr.carlos.webserv.transfer_objects.FacilityTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP web service endpoint for facility data operations in the inter-EMR Integrator system.
+ *
+ * <p>Provides methods for retrieving facility information used to coordinate
+ * multi-site healthcare delivery across CARLOS EMR installations.
+ *
+ * @since 2012-08-13
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)

@@ -31,6 +31,12 @@ package io.github.carlos_emr.carlos.integration.dashboard.model;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Model representing a single metric data point in the Outcomes Dashboard,
+ * consisting of an integer value and a list of {@link Name} identifiers.
+ *
+ * @since 2012-07-12
+ */
 public class MetricData {
     private int value;
     private List<Name> name = new ArrayList<Name>();

@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link BillingInrDao}.
+ * Provides persistence operations for INR billing records using JPA queries.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingInrDaoImpl extends AbstractDaoImpl<BillingInr> implements BillingInrDao {
 
