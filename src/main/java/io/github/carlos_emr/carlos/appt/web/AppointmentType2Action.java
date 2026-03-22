@@ -45,10 +45,29 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Struts 2 action for managing appointment type configurations.
+ *
+ * <p>Handles CRUD operations (edit, save, delete) for appointment types used in the
+ * scheduling system. Supports multi-site location selection when the multi-sites
+ * feature is enabled.</p>
+ *
+ * @since 2026-03-17
+ */
 public class AppointmentType2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Executes the appointment type management action based on the {@code oper} request parameter.
+     *
+     * <p>Supports three operations: {@code edit} (load for editing), {@code save} (create or update),
+     * and {@code del} (delete). If multi-sites is enabled, populates the locations list.</p>
+     *
+     * @return String the result name ("success", "failure", or "redirect")
+     * @throws IOException if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     */
     @Override
     public String execute() throws IOException, ServletException {
         String sOper = request.getParameter("oper");

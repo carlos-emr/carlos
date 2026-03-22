@@ -35,6 +35,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Represents a batch eligibility response code in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code batchEligibility} table and stores Ministry of Health (MOH)
+ * response codes and their descriptions for health insurance eligibility verification
+ * batch processing results.</p>
+ *
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "batchEligibility")
 public class BatchEligibility extends AbstractModel<Integer> {

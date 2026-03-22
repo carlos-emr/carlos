@@ -32,6 +32,14 @@ package io.github.carlos_emr.carlos.integration.fhir.utils;
 import org.hl7.fhir.dstu3.model.Enumerations.AdministrativeGender;
 import io.github.carlos_emr.carlos.commn.Gender;
 
+/**
+ * Utility class for mapping between CARLOS EMR enums and FHIR DSTU3 enums.
+ *
+ * <p>Provides bidirectional conversion between the CARLOS {@link Gender} enum
+ * and the FHIR {@link AdministrativeGender} enum.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class EnumMappingUtil {
 
     public static final AdministrativeGender genderToAdministrativeGender(final Gender gender) {

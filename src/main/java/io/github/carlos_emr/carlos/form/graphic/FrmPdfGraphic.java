@@ -35,10 +35,22 @@ import java.util.Properties;
 
 
 /**
- * Base class for drawing growth charts on pdf
+ * Abstract base class for rendering growth chart graphics on PDF forms.
+ *
+ * <p>Subclasses implement specific chart types (e.g., Rourke growth charts,
+ * antenatal record charts) by providing initialization from form properties
+ * and coordinate calculation for plotting patient data points.</p>
+ *
+ * @see FrmGraphicFactory
+ * @since 2026-03-17
  */
 public abstract class FrmPdfGraphic {
 
+    /**
+     * Initializes the graphic renderer with form data properties.
+     *
+     * @param prop Properties the form properties containing patient and chart data
+     */
     public abstract void init(Properties prop);
 
     public abstract Properties getGraphicXYProp(List xDate, List yHeight);

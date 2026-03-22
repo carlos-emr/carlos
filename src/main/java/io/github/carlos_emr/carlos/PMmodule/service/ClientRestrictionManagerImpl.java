@@ -164,6 +164,7 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         }
     }
 
+    /** {@inheritDoc} */
     public void disableClientRestriction(int restrictionId) {
         ProgramClientRestriction pcr = programClientRestrictionDAO.find(restrictionId);
         pcr.setEnabled(false);
@@ -175,6 +176,7 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         }
     }
 
+    /** {@inheritDoc} */
     public void enableClientRestriction(Integer restrictionId) {
         ProgramClientRestriction pcr = programClientRestrictionDAO.find(restrictionId);
         pcr.setEnabled(true);
@@ -186,10 +188,20 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         }
     }
 
+    /**
+     * Returns the program client restriction data access object.
+     *
+     * @return ProgramClientRestrictionDAO the restriction DAO
+     */
     public ProgramClientRestrictionDAO getProgramClientRestrictionDAO() {
         return programClientRestrictionDAO;
     }
 
+    /**
+     * Sets the program client restriction data access object.
+     *
+     * @param programClientRestrictionDAO ProgramClientRestrictionDAO the restriction DAO to inject
+     */
     @Autowired
     public void setProgramClientRestrictionDAO(ProgramClientRestrictionDAO programClientRestrictionDAO) {
         this.programClientRestrictionDAO = programClientRestrictionDAO;

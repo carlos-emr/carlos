@@ -41,7 +41,10 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
 /**
- * @author rjonasz
+ * JPA implementation of {@link GstControlDao}.
+ * Provides persistence operations for GST control records using JPA queries.
+ *
+ * @since 2026-03-17
  */
 @Repository
 public class GstControlDaoImpl extends AbstractDaoImpl<GstControl> implements GstControlDao {

@@ -104,6 +104,14 @@ public class DSGuideline2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Lists all clinical guidelines assigned to the specified provider.
+     * <p>
+     * Sets the "guidelines" request attribute with the provider's guideline list.
+     * </p>
+     *
+     * @return String "guidelineList" Struts result name
+     */
     public String list() {
         String providerNo = request.getParameter("provider_no");
         List<DSGuideline> providerGuidelines = new ArrayList<DSGuideline>();
@@ -113,6 +121,18 @@ public class DSGuideline2Action extends ActionSupport {
         return "guidelineList";
     }
 
+    /**
+     * Displays detailed information about a specific guideline, optionally evaluated against a patient.
+     * <p>
+     * When only guidelineId is provided, shows guideline structure and conditions.
+     * When both guidelineId and demographic_no are provided, evaluates each condition
+     * individually against the patient and displays per-condition results along with
+     * the patient's actual values.
+     * </p>
+     *
+     * @return String "guidelineDetail" Struts result name, or null if guidelineId is missing
+     * @throws Exception if guideline evaluation fails
+     */
     public String detail() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -162,7 +182,10 @@ public class DSGuideline2Action extends ActionSupport {
 
     }
 
-    //for returning stuff
+    /**
+     * Inner class that pairs a condition with its evaluation result and the patient's actual values.
+     * Used to display per-condition evaluation details in the guideline detail view.
+     */
     public class ConditionResult {
         DSCondition condition;
         Boolean result;

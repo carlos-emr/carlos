@@ -65,6 +65,14 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
 
+/**
+ * Core engine for uploading and persisting parsed HL7 lab messages into the database.
+ * Handles demographic matching, provider routing, acknowledgement creation,
+ * measurement population, and forwarding rule application. Orchestrates the full
+ * lifecycle of a lab result from parsed HL7 message to database storage.
+ *
+ * @since 2007-01-18
+ */
 public final class MessageUploader {
 
     private static final Logger logger = MiscUtils.getLogger();

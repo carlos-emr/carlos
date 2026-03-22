@@ -32,6 +32,15 @@ import java.util.Arrays;
 
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 
+/**
+ * Transfer object for schedule template codes with online booking and open access attributes.
+ *
+ * <p>Extends the basic schedule template code data with booking-specific flags
+ * that indicate whether the code supports online booking and whether it
+ * represents an open-access appointment slot.</p>
+ *
+ * @since 2026-03-17
+ */
 public class BookingScheduleTemplateCodeTransfer {
 
     private Integer id;
@@ -116,6 +125,14 @@ public class BookingScheduleTemplateCodeTransfer {
         this.openAccess = openAccess;
     }
 
+    /**
+     * Creates a new transfer object from an existing one, enriching it with online booking
+     * and open access flags derived from the clinic's search configuration.
+     *
+     * @param appointmentCodeTransfer BookingScheduleTemplateCodeTransfer the source transfer object
+     * @param clinic SearchConfig the clinic search configuration containing booking settings
+     * @return BookingScheduleTemplateCodeTransfer a new transfer object with booking flags set
+     */
     public static BookingScheduleTemplateCodeTransfer getFromTransfer(BookingScheduleTemplateCodeTransfer appointmentCodeTransfer, SearchConfig clinic) {
         BookingScheduleTemplateCodeTransfer retval = new BookingScheduleTemplateCodeTransfer();
 

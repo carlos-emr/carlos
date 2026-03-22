@@ -52,7 +52,19 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Prevention compliance report for Fecal Occult Blood Test (FOBT) screening.
+ *
+ * <p>Evaluates a patient set against FOBT screening guidelines with a 2-year cycle
+ * and 6-month grace period. Patients with a completed colonoscopy within the last
+ * 10 years are classified as ineligible for FOBT. Supports "Pending" status for
+ * tests awaiting results, with Ontario billing code Q005A eligibility.</p>
+ *
+ * <p>Includes follow-up letter processing logic (L1, L2, P1) for patients who
+ * are not yet compliant.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReport
+ * @see PreventionReportFactory
  */
 public class FOBTReport implements PreventionReport {
     private static Logger log = MiscUtils.getLogger();

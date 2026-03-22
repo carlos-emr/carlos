@@ -49,6 +49,13 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import java.io.InputStream;
 import java.util.List;
 
+/**
+ * Factory for creating upload {@link MessageHandler} instances based on lab type.
+ * Reads the handler class mappings from an XML configuration file ({@code MessageHandler.xml})
+ * and instantiates the appropriate handler for processing uploaded lab files.
+ *
+ * @since 2007-01-18
+ */
 public final class HandlerClassFactory {
 
     private static final Logger logger = MiscUtils.getLogger();

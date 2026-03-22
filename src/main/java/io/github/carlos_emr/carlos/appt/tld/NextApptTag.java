@@ -133,6 +133,11 @@ public class NextApptTag extends TagSupport {
         return format;
     }
 
+    /**
+     * Sets the date format pattern.
+     *
+     * @param format String the format pattern
+     */
     public void setFormat(String format) {
         this.format = format;
     }

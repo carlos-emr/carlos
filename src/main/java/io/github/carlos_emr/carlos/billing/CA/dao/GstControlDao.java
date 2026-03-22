@@ -38,10 +38,18 @@ import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
 /**
- * @author rjonasz
+ * Data access interface for {@link GstControl} entities.
+ * Defines persistence operations for GST (Goods and Services Tax) control records,
+ * which manage tax rate configurations for billing purposes.
+ *
+ * @since 2026-03-17
  */
-
 public interface GstControlDao extends AbstractDao<GstControl> {
 
+    /**
+     * Retrieves all GST control records.
+     *
+     * @return List of all {@link GstControl} records
+     */
     public List<GstControl> findAll();
 }

@@ -45,6 +45,12 @@ public final class PublicHealthUnitType {
     private String name;
     private String systemURI;
 
+    /**
+     * Constructs a PublicHealthUnitType with the given ID and name.
+     *
+     * @param id the PHU identifier (e.g., Panorama PHU ID)
+     * @param name the PHU display name
+     */
     public PublicHealthUnitType(String id, String name) {
         this.id = id;
         this.name = name;

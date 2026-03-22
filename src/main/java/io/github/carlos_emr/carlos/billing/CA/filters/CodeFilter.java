@@ -31,6 +31,14 @@ package io.github.carlos_emr.carlos.billing.CA.filters;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 
+/**
+ * Value object representing a billing code filter configuration.
+ * Encapsulates the various criteria used to validate whether a billing code
+ * is applicable, including patient age ranges, sex, visit location, time of day,
+ * associated diagnostic codes, and procedure type flags.
+ *
+ * @since 2026-03-17
+ */
 public class CodeFilter {
 
     String CODE = null;

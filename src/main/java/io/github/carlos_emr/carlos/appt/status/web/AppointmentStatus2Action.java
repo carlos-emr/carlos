@@ -41,12 +41,26 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for managing appointment status configurations.
+ *
+ * <p>Handles viewing, modifying, resetting, and toggling active/inactive state of
+ * appointment statuses. Uses method-based routing via the {@code dispatch} request
+ * parameter to determine which operation to perform.</p>
+ *
+ * @since 2026-03-17
+ */
 public class AppointmentStatus2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Routes the request to the appropriate handler method based on the {@code dispatch} parameter.
+     *
+     * @return String the result name
+     */
     public String execute() {
         String method = request.getParameter("dispatch");
         if ("view".equals(method)) {

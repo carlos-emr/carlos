@@ -33,6 +33,16 @@ import java.util.Date;
 
 import jakarta.persistence.*;
 
+/**
+ * Represents a saved appointment search configuration in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code AppointmentSearch} table and stores provider-specific search
+ * templates or online appointment search configurations. Search contents are stored
+ * as binary data (BLOB) to support flexible configuration formats.</p>
+ *
+ * @see Appointment
+ * @since 2001-01-01
+ */
 @Entity
 public class AppointmentSearch extends AbstractModel<Integer> {
     public static final String ONLINE = "ONLINE";

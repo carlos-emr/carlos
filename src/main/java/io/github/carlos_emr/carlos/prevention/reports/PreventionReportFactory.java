@@ -31,7 +31,13 @@
 package io.github.carlos_emr.carlos.prevention.reports;
 
 /**
- * @author jay
+ * Factory for creating {@link PreventionReport} instances based on prevention type name.
+ *
+ * <p>Maps prevention type names to their corresponding report implementations:
+ * PAP, Mammogram, Flu, ChildImmunizations, and FOBT.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReport
  */
 public class PreventionReportFactory {
 
@@ -41,6 +47,15 @@ public class PreventionReportFactory {
     public PreventionReportFactory() {
     }
 
+    /**
+     * Returns the appropriate {@link PreventionReport} implementation for the given
+     * prevention type name.
+     *
+     * @param preventionName String the prevention type (e.g., "PAP", "Mammogram", "Flu",
+     *                       "ChildImmunizations", "FOBT")
+     * @return PreventionReport the report implementation, or {@code null} if the name
+     *         is unrecognized
+     */
     static public PreventionReport getPreventionReport(String preventionName) {
         PreventionReport report = null;
         if (preventionName == null) {

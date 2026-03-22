@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link WcbBpCodeDao}.
+ * Provides persistence operations for WCB body part codes using JPA queries.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class WcbBpCodeDaoImpl extends AbstractDaoImpl<WcbBpCode> implements WcbBpCodeDao {
 

@@ -46,6 +46,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * <p>
  * RegEx is:  "(\\$){1}(\\{){1}( )*(.)*( )*(\\}){1}"
  * ie: ${ parameter_id }
+ *
+ * @since 2026-03-17
  */
 public class IndicatorQueryHandler extends AbstractQueryHandler {
 
@@ -221,6 +223,12 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
 
     // helper utilities.
 
+    /**
+     * Converts graph plots to a JavaScript-compatible string array format for chart rendering.
+     *
+     * @param graphPlots List of GraphPlot[] the graph plot data
+     * @return String the plots formatted as nested JavaScript array literals
+     */
     public static String plotsToStringArray(List<GraphPlot[]> graphPlots) {
         StringBuilder json = new StringBuilder("");
         for (GraphPlot[] graphPlotArray : graphPlots) {

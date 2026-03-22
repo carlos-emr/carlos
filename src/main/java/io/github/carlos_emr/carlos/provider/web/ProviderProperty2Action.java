@@ -2186,6 +2186,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "complete";
     }
 
+    /**
+     * Displays the encounter window size preference form (width and height).
+     *
+     * @return String {@code "genEncounterWindowSize"} to forward to the window size configuration JSP
+     */
     public String viewEncounterWindowSize() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2228,6 +2233,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEncounterWindowSize";
     }
 
+    /**
+     * Saves the provider's encounter window size preferences (width, height, and maximize flag).
+     *
+     * @return String {@code "genEncounterWindowSize"} to re-display with success status
+     */
     public String saveEncounterWindowSize() {
         String checkboxValue = request.getParameter("encounterWindowMaximize.checked");
 
@@ -2284,6 +2294,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEncounterWindowSize";
     }
 
+    /**
+     * Displays the quick chart size preference form.
+     *
+     * @return String {@code "genQuickChartSize"} to forward to the configuration JSP
+     */
     public String viewQuickChartSize() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2310,6 +2325,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genQuickChartSize";
     }
 
+    /**
+     * Saves the provider's quick chart size preference.
+     *
+     * @return String {@code "genQuickChartSize"} to re-display with success status
+     */
     public String saveQuickChartSize() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2340,6 +2360,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genQuickChartSize";
     }
 
+    /**
+     * Displays the patient name display length preference form.
+     *
+     * @return String {@code "genPatientNameLength"} to forward to the configuration JSP
+     */
     public String viewPatientNameLength() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

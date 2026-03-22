@@ -30,6 +30,15 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.io.Serializable;
 
+/**
+ * REST transfer object representing a schedule template code for JSON serialization.
+ *
+ * <p>Mirrors the fields of {@link io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode}
+ * for use in REST API responses. Includes the single-character code, description,
+ * duration, display color, confirmation flag, and booking limit.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ScheduleTemplateCodeTo implements Serializable {
 
     private static final long serialVersionUID = 1L;

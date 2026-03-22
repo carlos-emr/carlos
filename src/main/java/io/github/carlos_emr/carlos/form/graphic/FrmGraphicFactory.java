@@ -34,10 +34,24 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
 /**
- * Creates pdf graphic class passed to it with reflection
+ * Factory for creating {@link FrmPdfGraphic} instances using reflection.
+ *
+ * <p>Instantiates the appropriate PDF growth chart graphic renderer based on the
+ * fully qualified class name. Used by the form printing subsystem to generate
+ * growth chart overlays on PDF forms.</p>
+ *
+ * @see FrmPdfGraphic
+ * @since 2026-03-17
  */
 public class FrmGraphicFactory {
 
+    /**
+     * Creates a FrmPdfGraphic instance for the specified class name.
+     *
+     * @param name String the fully qualified class name of the graphic renderer
+     * @return FrmPdfGraphic the instantiated graphic renderer, or {@code null}
+     *         if the class cannot be found or instantiated
+     */
     public static FrmPdfGraphic create(String name) {
         FrmPdfGraphic pdfGraph = null;
         try {

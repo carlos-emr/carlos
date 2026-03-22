@@ -36,7 +36,21 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for {@link WcbBpCode} entities.
+ * Defines persistence operations for WCB (Workers' Compensation Board) body part codes,
+ * supporting hierarchical lookup across three classification levels.
+ *
+ * @since 2026-03-17
+ */
 public interface WcbBpCodeDao extends AbstractDao<WcbBpCode> {
 
+    /**
+     * Finds WCB body part codes matching the given search term against code or any hierarchy level.
+     * The code parameter is truncated for the code field search and used with wildcards for level fields.
+     *
+     * @param code String the search term for code or level matching
+     * @return List of matching {@link WcbBpCode} records ordered by level1, level2, level3
+     */
     public List<WcbBpCode> findByCodeOrAnyLevel(String code);
 }

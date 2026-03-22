@@ -30,6 +30,19 @@ package io.github.carlos_emr.carlos.billing.CA.filters;
 
 import java.util.Map;
 
+/**
+ * Interface for providing billing code filter data.
+ * Implementations supply a map of billing code prefixes to their
+ * corresponding {@link CodeFilter} validation rules.
+ *
+ * @since 2026-03-17
+ */
 public interface CodeFilterDataSource {
+
+    /**
+     * Returns the map of billing code filters, keyed by 4-character billing code prefix.
+     *
+     * @return Map of String code prefixes to {@link CodeFilter} instances
+     */
     public Map<String, CodeFilter> getDataMap();
 }

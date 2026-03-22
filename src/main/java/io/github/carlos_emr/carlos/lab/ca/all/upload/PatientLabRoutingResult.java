@@ -28,6 +28,13 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
+/**
+ * Value object representing the result of patient-lab routing, containing the matched
+ * demographic number, assigned provider number, and match count. Used during lab upload
+ * processing to track how lab results are routed to patients and providers.
+ *
+ * @since 2007-01-18
+ */
 public class PatientLabRoutingResult {
 
     private Integer demographicNo;

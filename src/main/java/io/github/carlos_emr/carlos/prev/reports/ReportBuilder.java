@@ -66,6 +66,18 @@ import io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtil;
 import io.github.carlos_emr.carlos.prevention.reports.ReportItem;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Builds prevention compliance reports by evaluating patient demographics against
+ * configurable prevention search criteria (e.g., immunization schedules, screening programs).
+ *
+ * <p>Processes patient lists to determine prevention compliance status, eligibility,
+ * and generates report items with detailed per-patient information including billing
+ * codes, appointment history, and follow-up types.</p>
+ *
+ * @since 2001-01-01
+ * @see Report
+ * @see io.github.carlos_emr.carlos.prevention.reports.ReportItem
+ */
 public class ReportBuilder {
     private static Logger logger = MiscUtils.getLogger();
 
