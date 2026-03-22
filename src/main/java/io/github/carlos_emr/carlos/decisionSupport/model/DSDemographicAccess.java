@@ -66,14 +66,51 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 
 /**
- * @author apavel
+ * Provides access to patient demographic, clinical, prescription, billing, and flowsheet data
+ * for clinical decision support guideline evaluation.
+ * <p>
+ * DSDemographicAccess is the primary fact object inserted into the Drools rules engine
+ * during guideline evaluation. It exposes methods for evaluating patient data against
+ * guideline conditions, including diagnosis codes (ICD-9/ICD-10), prescriptions (ATC codes),
+ * patient demographics (age, sex), clinical notes, billing history, and flowsheet status.
+ * </p>
+ * <p>
+ * Each evaluation method follows a naming convention based on the {@link Module} enum's
+ * access method name combined with a {@link DSCondition.ListOperator} suffix:
+ * </p>
+ * <ul>
+ *   <li>{@code Any} - returns true if any condition value matches (OR logic)</li>
+ *   <li>{@code All} - returns true if all condition values match (AND logic)</li>
+ *   <li>{@code Not} - alias for Notany</li>
+ *   <li>{@code Notany} - returns true if no condition values match</li>
+ *   <li>{@code Notall} - returns true if not all condition values match</li>
+ * </ul>
+ * <p>
+ * The {@code passedGuideline} flag is set to {@code true} by the Drools rule consequence
+ * when all conditions are satisfied, signaling to the calling
+ * {@link DSGuideline#evaluate(io.github.carlos_emr.carlos.utility.LoggedInInfo, String)}
+ * method that the guideline matched.
+ * </p>
+ *
+ * @since 2009-07-06
+ * @see DSGuideline for guideline evaluation that uses this class
+ * @see DSCondition for condition definitions evaluated by this class
+ * @see Module for supported data source types
  */
 public class DSDemographicAccess {
     private static final Logger logger = MiscUtils.getLogger();
 
-    //To add new modules/types, add to enum with the access method, add the appropriate
-    //functions for all, any, not, notall, notany (see examples below), and add to
-    //getDemogrpahicValues list, that's it.
+    /**
+     * Defines the available healthcare data modules (data sources) for condition evaluation.
+     * <p>
+     * Each module maps to a base access method name that is combined with a
+     * {@link DSCondition.ListOperator} suffix to form the complete evaluation method name.
+     * To add new modules, add an enum value with the access method, implement the
+     * corresponding Any/All/Not/Notall/Notany methods, and add to getDemogrpahicValues.
+     * </p>
+     *
+     * @since 2009-07-06
+     */
     public enum Module {
         dxcodes("hasDxCodes"),
         drugs("hasRxCodes"),

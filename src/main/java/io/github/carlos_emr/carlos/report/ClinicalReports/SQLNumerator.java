@@ -40,9 +40,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.db.DBHandler;
 
 /**
- * The class should evaluate a query that has a count returned.  If the count is = 0 then false is returned if >0 is returned true
+ * SQL-based clinical report numerator that evaluates a patient by executing a
+ * SQL query against the database. Returns {@code true} if the query returns any
+ * rows for the given patient's demographic number.
  *
- * @author jay
+ * <p>The SQL statement may contain the placeholder {@code ${demographic_no}} which
+ * is replaced with the actual patient demographic number at evaluation time. If
+ * output fields are configured, the first result row's values are captured into
+ * the {@link #outputValues} map.</p>
+ *
+ * @see Numerator
+ * @see SQLDenominator
+ * @see ReportEvaluator
+ * @since 2006-06-17
  */
 public class SQLNumerator implements Numerator {
     String sql = null;
@@ -61,14 +71,30 @@ public class SQLNumerator implements Numerator {
 
     }
 
+    /**
+     * Sets the SQL query string to execute during evaluation. May contain
+     * {@code ${demographic_no}} placeholders.
+     *
+     * @param sql String the SQL query
+     */
     public void setSQL(String sql) {
         this.sql = sql;
     }
 
+    /**
+     * Sets the result column identifier used for count-based evaluation (legacy).
+     *
+     * @param identifier String the column name to check for count
+     */
     public void setIdentifier(String identifier) {
         this.identifier = identifier;
     }
 
+    /**
+     * Parses a comma-separated string of output field names into the output fields array.
+     *
+     * @param str String comma-separated field names, or {@code null} to skip
+     */
     public void parseOutputFields(String str) {
         if (str != null) {
             try {
@@ -84,11 +110,13 @@ public class SQLNumerator implements Numerator {
         }
     }
 
+    /** {@inheritDoc} */
     public String[] getOutputFields() {
 
         return outputfields;
     }
 
+    /** {@inheritDoc} */
     public Hashtable getOutputValues() {
         return outputValues;
     }

@@ -381,6 +381,13 @@ public class Hl7textResultsData {
         measurementsExtDao.batchPersist(measurementsExts, 50);
     }
 
+    /**
+     * Finds matching lab versions for CLS (Calgary Laboratory Services) labs by accession number
+     * and filler order number. Returns a comma-separated, sorted list of matching lab numbers.
+     *
+     * @param lab_no String the lab number to find matches for
+     * @return String comma-separated list of matching lab numbers, sorted ascending
+     */
     public static String getMatchingLabs_CLS(String lab_no) {
         String ret = "";
         Hl7TextInfo self = null;
@@ -424,6 +431,14 @@ public class Hl7textResultsData {
         return sb.toString();
     }
 
+    /**
+     * Finds matching lab versions by accession number, filtering out results with dates
+     * more than 4 months apart to avoid recycled accession number collisions.
+     * Delegates to {@link #getMatchingLabs_CLS(String)} for CLS-type labs.
+     *
+     * @param lab_no String the lab number to find matches for
+     * @return String comma-separated list of matching lab numbers
+     */
     public static String getMatchingLabs(String lab_no) {
         String ret = "";
         int monthsBetween = 0;
@@ -467,9 +482,13 @@ public class Hl7textResultsData {
     }
 
     /**
-     * Populates ArrayList with labs attached to a consultation request
+     * Populates a list of HL7 lab results attached to (or detached from) a consultation request.
+     *
+     * @param demographicNo String the patient demographic number
+     * @param consultationId String the consultation request identifier
+     * @param attached boolean if {@code true}, returns only attached labs; if {@code false}, returns unattached labs
+     * @return ArrayList&lt;LabResultData&gt; the filtered list of lab results
      */
-    // Populates labs to consult request
     public static ArrayList<LabResultData> populateHL7ResultsData(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
@@ -482,6 +501,14 @@ public class Hl7textResultsData {
         return populateHL7ResultsData(attachedLabs, labsHl7, attached);
     }
 
+    /**
+     * Populates a list of HL7 lab results attached to (or detached from) an eForm document.
+     *
+     * @param demographicNo String the patient demographic number
+     * @param fdid String the eForm data identifier
+     * @param attached boolean if {@code true}, returns only attached labs; if {@code false}, returns unattached labs
+     * @return ArrayList&lt;LabResultData&gt; the filtered list of lab results
+     */
     public static ArrayList<LabResultData> populateHL7ResultsDataEForm(String demographicNo, String fdid, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
@@ -494,7 +521,14 @@ public class Hl7textResultsData {
         return populateHL7ResultsData(attachedLabs, labsHl7, attached);
     }
 
-    // Populates labs to consult response
+    /**
+     * Populates a list of HL7 lab results attached to (or detached from) a consultation response.
+     *
+     * @param demographicNo String the patient demographic number
+     * @param consultationId String the consultation response identifier
+     * @param attached boolean if {@code true}, returns only attached labs; if {@code false}, returns unattached labs
+     * @return ArrayList&lt;LabResultData&gt; the filtered list of lab results
+     */
     public static ArrayList<LabResultData> populateHL7ResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {

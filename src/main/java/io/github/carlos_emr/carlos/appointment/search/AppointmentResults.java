@@ -42,38 +42,82 @@ public class AppointmentResults {
     private AppointmentOptionTransfer[] appointmentOptions = null;
     private BookingError bookingError = null;
 
+    /**
+     * Constructs an empty appointment results object.
+     */
     public AppointmentResults() {
     }
 
+    /**
+     * Constructs an appointment results object representing a search failure.
+     *
+     * @param bookingError BookingError the error that occurred during the search
+     */
     public AppointmentResults(BookingError bookingError) {
         this.bookingError = bookingError;
     }
 
+    /**
+     * Constructs a successful appointment results object with available options.
+     *
+     * @param nextStartDateEncrypted String encrypted pagination token for the next page of results
+     * @param appointmentOptions AppointmentOptionTransfer[] array of available appointment options
+     */
     public AppointmentResults(String nextStartDateEncrypted, AppointmentOptionTransfer[] appointmentOptions) {
         this.nextStartDateEncrypted = nextStartDateEncrypted;
         this.appointmentOptions = appointmentOptions;
     }
 
+    /**
+     * Returns the encrypted pagination token for fetching additional results.
+     *
+     * @return String the encrypted next start date token, or {@code null} if no more results
+     */
     public String getNextStartDateEncrypted() {
         return nextStartDateEncrypted;
     }
 
+    /**
+     * Returns the array of available appointment options.
+     *
+     * @return AppointmentOptionTransfer[] the available appointment options, or {@code null} if none
+     */
     public AppointmentOptionTransfer[] getAppointmentOptions() {
         return appointmentOptions;
     }
 
+    /**
+     * Returns the booking error, if any.
+     *
+     * @return BookingError the error, or {@code null} if the search succeeded
+     */
     public BookingError getBookingError() {
         return bookingError;
     }
 
+    /**
+     * Sets the encrypted pagination token.
+     *
+     * @param nextStartDateEncrypted String the encrypted next start date token
+     */
     public void setNextStartDateEncrypted(String nextStartDateEncrypted) {
         this.nextStartDateEncrypted = nextStartDateEncrypted;
     }
 
+    /**
+     * Sets the array of available appointment options.
+     *
+     * @param appointmentOptions AppointmentOptionTransfer[] the appointment options
+     */
     public void setAppointmentOptions(AppointmentOptionTransfer[] appointmentOptions) {
         this.appointmentOptions = appointmentOptions;
     }
 
+    /**
+     * Sets the booking error.
+     *
+     * @param bookingError BookingError the error that occurred
+     */
     public void setBookingError(BookingError bookingError) {
         this.bookingError = bookingError;
     }

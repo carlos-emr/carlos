@@ -71,6 +71,9 @@ public final class MisReportUIBean {
 
     private static int ELDERLY_AGE = 65;
 
+    /**
+     * Represents a single row of MIS report data identified by a standard MIS report ID.
+     */
     public static class DataRow {
         public int dataReportId;
         public String dataReportDescription;
@@ -100,6 +103,14 @@ public final class MisReportUIBean {
     /**
      * End dates should be treated as inclusive.
      */
+    /**
+     * Constructs an MIS report filtered by functional centre and date range.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param functionalCentreId String the functional centre ID to report on
+     * @param startDate GregorianCalendar the start date of the reporting period
+     * @param endDate GregorianCalendar the end date of the reporting period (inclusive)
+     */
     public MisReportUIBean(LoggedInInfo loggedInInfo, String functionalCentreId, GregorianCalendar startDate, GregorianCalendar endDate) {
 
         this.startDate = startDate;
@@ -115,6 +126,13 @@ public final class MisReportUIBean {
 
     /**
      * End dates should be treated as inclusive.
+     */
+    /**
+     * Constructs an MIS report for a set of specific program IDs and date range.
+     *
+     * @param programIds String[] array of program ID strings to include
+     * @param startDate GregorianCalendar the start date of the reporting period
+     * @param endDate GregorianCalendar the end date of the reporting period (inclusive)
      */
     public MisReportUIBean(String[] programIds, GregorianCalendar startDate, GregorianCalendar endDate) {
 
@@ -138,14 +156,31 @@ public final class MisReportUIBean {
     }
 
 
+    /**
+     * Returns the header row labels for the report table.
+     *
+     * @return ArrayList&lt;String&gt; the header labels (Id, Description, Results, plus any per-program columns)
+     */
     public ArrayList<String> getHeaderRow() {
         return (headerRow);
     }
 
+    /**
+     * Returns the HTML-escaped description of what this report is filtered by.
+     *
+     * @return String the report filter description (functional centre or program names)
+     */
     public String getReportByDescription() {
         return (reportByDescription);
     }
 
+    /**
+     * Formats a date range as an HTML-escaped display string.
+     *
+     * @param startDate GregorianCalendar the start date
+     * @param endDate GregorianCalendar the end date
+     * @return String the formatted range, e.g. "2025-01-01 to 2025-12-31 (inclusive)"
+     */
     public static String getDateRangeForDisplay(GregorianCalendar startDate, GregorianCalendar endDate) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         return (StringEscapeUtils.escapeHtml4(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(endDate.getTime()) + " (inclusive)"));
@@ -167,6 +202,10 @@ public final class MisReportUIBean {
         }
     }
 
+    /**
+     * Generates all data rows for this report, populating face-to-face visits,
+     * telephone visits, individuals seen, and total individuals served.
+     */
     public void generateDataRows() {
         dataRows = new ArrayList<DataRow>();
 
@@ -177,6 +216,11 @@ public final class MisReportUIBean {
         dataRows.add(getTotalIndividualsServed());
     }
 
+    /**
+     * Returns the generated data rows for this report.
+     *
+     * @return ArrayList&lt;DataRow&gt; the computed report data rows
+     */
     public ArrayList<DataRow> getDataRows() {
         return (dataRows);
     }
@@ -289,6 +333,15 @@ public final class MisReportUIBean {
         }
     }
 
+    /**
+     * Generates a combined MIS report with separate columns for each program,
+     * allowing side-by-side comparison of program statistics.
+     *
+     * @param programIds String[] array of program ID strings to compare
+     * @param startDate GregorianCalendar the start date of the reporting period
+     * @param endDate GregorianCalendar the end date of the reporting period (inclusive)
+     * @return MisReportUIBean a report bean with combined data rows and per-program columns
+     */
     public static MisReportUIBean getSplitProgramReports(String[] programIds, GregorianCalendar startDate, GregorianCalendar endDate) {
         ArrayList<MisReportUIBean> misReportBeans = new ArrayList<MisReportUIBean>();
         StringBuilder description = new StringBuilder();

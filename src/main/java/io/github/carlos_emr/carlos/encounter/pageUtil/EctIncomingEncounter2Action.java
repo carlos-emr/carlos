@@ -85,6 +85,15 @@ import java.util.Vector;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that initializes the encounter page when a provider enters
+ * a patient's chart. Handles entry from appointment screen, demographic search,
+ * appointment list selection, and program domain validation. Sets up the
+ * {@link EctSessionBean} with patient data and determines which encounter
+ * view (classic or new) to render.
+ *
+ * @since 2001-01-01
+ */
 public class EctIncomingEncounter2Action extends ActionSupport {
 
     private static Logger log = MiscUtils.getLogger();
@@ -92,6 +101,14 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     private CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Initializes the encounter session and determines the appropriate view to render.
+     *
+     * @return String the Struts result name ("success", "success2", or "domain-error")
+     * @throws IOException if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     * @throws SecurityException if the user lacks demographic read privileges
+     */
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();

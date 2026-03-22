@@ -39,9 +39,29 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Utility class for managing individual patient entries on waiting lists.
+ *
+ * <p>Provides synchronized static methods for adding, removing, and updating
+ * patient entries within a waiting list, as well as recalculating sequential
+ * positions after modifications. Removal is a soft-delete that sets the
+ * {@code is_history} flag, preserving historical records for auditing.</p>
+ *
+ * <p>All mutation methods are synchronized to prevent concurrent modification
+ * of waiting list positions.</p>
+ *
+ * @since 2026-03-17
+ */
 public class WLWaitingListUtil {
 
 
+    /**
+     * Soft-deletes a patient from a waiting list by marking their entries as historical,
+     * then recalculates positions for the remaining patients.
+     *
+     * @param waitingListID String the waiting list identifier
+     * @param demographicNo String the patient demographic number to remove
+     */
     // Modified this method in Feb 2007 to ensure that all records cannot be deleted except hidden.
     static public synchronized void removeFromWaitingList(String waitingListID, String demographicNo) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.removeFromWaitingList(): removing waiting list: " + waitingListID + " for patient " + demographicNo);
@@ -54,6 +74,19 @@ public class WLWaitingListUtil {
         rePositionWaitingList(waitingListID);
     }
 
+    /**
+     * Adds a patient to a waiting list at the next available position.
+     *
+     * <p>The patient is placed after the current last position. If {@code onListSince}
+     * is null or empty, the current date is used. After insertion, positions are
+     * recalculated for the entire list.</p>
+     *
+     * @param waitingListID   String the waiting list identifier
+     * @param waitingListNote String a note for this waiting list entry
+     * @param demographicNo   String the patient demographic number
+     * @param onListSince     String the date the patient was placed on the list (yyyy-MM-dd),
+     *                        or null/empty to use today's date
+     */
     static public synchronized void add2WaitingList(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.add2WaitingList(): adding to waitingList: " + waitingListID + " for patient " + demographicNo);
 
@@ -84,8 +117,19 @@ public class WLWaitingListUtil {
         rePositionWaitingList(waitingListID);
     }
 
-    /*
-     * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
+    /**
+     * Updates a patient's waiting list entry by archiving all previous records and
+     * creating a new record at the same position.
+     *
+     * <p>Previous entries are marked as historical (soft-deleted) rather than physically
+     * deleted, preserving an audit trail. The JSP display layer shows only the most
+     * current non-historical record.</p>
+     *
+     * @param waitingListID   String the waiting list identifier
+     * @param waitingListNote String the updated note text
+     * @param demographicNo   String the patient demographic number
+     * @param onListSince     String the date the patient was placed on the list (yyyy-MM-dd),
+     *                        or null/empty to use today's date
      */
     static public synchronized void updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingListRecord(): waitingListID: " + waitingListID + " for patient " + demographicNo);

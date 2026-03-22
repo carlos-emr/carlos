@@ -100,6 +100,12 @@ public class OscarOAuthDataProvider {
         return null;
     }
 
+    /**
+     * Creates and persists a new OAuth 1.0a request token.
+     *
+     * @param reg RequestTokenRegistration the registration containing client, callback, and scopes
+     * @return RequestToken the newly created request token with generated key and secret
+     */
     public RequestToken createRequestToken(RequestTokenRegistration reg) {
         logger.debug("createRequestToken() called");
         String tokenId = UUID.randomUUID().toString();
@@ -130,6 +136,12 @@ public class OscarOAuthDataProvider {
         return rt;
     }
 
+    /**
+     * Retrieves a request token by its token ID, expiring tokens older than 1 hour.
+     *
+     * @param tokenId String the request token ID to look up
+     * @return RequestToken the request token if found and not expired, or null otherwise
+     */
     public RequestToken getRequestToken(String tokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(tokenId);
         if (srt == null) return null;
@@ -170,6 +182,15 @@ public class OscarOAuthDataProvider {
     // }
 
 
+    /**
+     * Exchanges a verified request token for a new access token.
+     *
+     * <p>Creates a new access token with a 1-hour lifetime and removes the consumed request token.
+     *
+     * @param requestToken RequestToken the verified request token to exchange
+     * @return AccessToken the newly created access token
+     * @throws OAuth1Exception if the request token is invalid
+     */
     public AccessToken createAccessToken(RequestToken requestToken) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestToken.getTokenKey());
         if (srt == null) throw new OAuth1Exception(401, "Invalid request token");
@@ -200,6 +221,12 @@ public class OscarOAuthDataProvider {
         return at;
     }
 
+    /**
+     * Retrieves an access token by its token ID.
+     *
+     * @param tokenId String the access token ID to look up
+     * @return AccessToken the access token if found, or null otherwise
+     */
     public AccessToken getAccessToken(String tokenId) {
         ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(tokenId);
         if (sat == null) return null;
@@ -220,6 +247,11 @@ public class OscarOAuthDataProvider {
         return at;
     }
 
+    /**
+     * Removes a token (request or access) by its token ID.
+     *
+     * @param tokenId String the token ID to remove
+     */
     public void removeToken(String tokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(tokenId);
         if (srt != null) serviceRequestTokenDao.remove(srt);
@@ -228,6 +260,13 @@ public class OscarOAuthDataProvider {
         if (sat != null) serviceAccessTokenDao.remove(sat);
     }
 
+    /**
+     * Finalizes OAuth authorization by generating and persisting a verifier for the request token.
+     *
+     * @param requestToken RequestToken the request token to finalize
+     * @return String the generated verifier code
+     * @throws OAuth1Exception if the authorization cannot be completed
+     */
     public String finalizeAuthorization(RequestToken requestToken) throws OAuth1Exception {
         logger.debug("finalizeAuthorization() called");
         // RequestToken requestToken = data.getToken(); - now passing the token directly. 
@@ -241,16 +280,34 @@ public class OscarOAuthDataProvider {
     }
  
 
+    /**
+     * Retrieves the secret for an access token.
+     *
+     * @param accessTokenId String the access token ID
+     * @return String the token secret, or null if not found
+     */
     public String getAccessTokenSecret(String accessTokenId) {
         ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(accessTokenId);
         return sat != null ? sat.getTokenSecret() : null;
     }
 
+    /**
+     * Retrieves the provider number associated with an access token.
+     *
+     * @param accessTokenId String the access token ID
+     * @return String the provider number, or null if not found
+     */
     public String getProviderNoByAccessToken(String accessTokenId) {
         ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(accessTokenId);
         return sat != null ? sat.getProviderNo() : null;
     }
 
+    /**
+     * Retrieves the secret for a request token.
+     *
+     * @param requestTokenId String the request token ID
+     * @return String the token secret, or null if not found
+     */
     public String getRequestTokenSecret(String requestTokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestTokenId);
         return srt != null ? srt.getTokenSecret() : null;

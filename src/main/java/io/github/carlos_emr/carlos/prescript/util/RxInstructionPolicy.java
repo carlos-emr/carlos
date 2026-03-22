@@ -37,6 +37,16 @@ import java.util.regex.Pattern;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Validates prescription instructions against institutional abbreviation policies.
+ * <p>
+ * Checks prescription special instructions for dangerous or ambiguous abbreviations
+ * (e.g., "U" instead of "Unit", "SC" instead of "Subcutaneous") and returns policy
+ * violation messages with recommended replacements. Policy rules are configurable
+ * via the {@code prescript.policy} property.
+ *
+ * @since 2026-03-17
+ */
 public class RxInstructionPolicy {
 
     public static List<String> checkInstructions(String instr) {

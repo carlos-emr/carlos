@@ -413,6 +413,12 @@ public class Prevention {
         return !isPassedNextDate(preventionType);
     }
 
+    /**
+     * Returns the next scheduled date for the most recent prevention of the given type.
+     *
+     * @param preventionType String the prevention type name
+     * @return Date the next scheduled prevention date, or {@code null} if not set
+     */
     public Date getNextPreventionDate(String preventionType) {
         Date nextDate = null;
         Vector vec = (Vector) preventionTypes.get(preventionType);
@@ -424,6 +430,12 @@ public class Prevention {
         return nextDate; //
     }
 
+    /**
+     * Checks whether the most recent prevention of the given type is marked as "never".
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if the prevention is marked as never to be given
+     */
     public boolean isPreventionNever(String preventionType) {
         boolean ispreventionnever = false;
         Vector vec = (Vector) preventionTypes.get(preventionType);
@@ -435,11 +447,23 @@ public class Prevention {
         return ispreventionnever; //
     }
 
+    /**
+     * Checks whether the prevention is NOT marked as "never" for the given type.
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if the prevention is not marked as never
+     */
     public boolean isNotPreventionNever(String preventionType) {
         return !isNotPreventionNever(preventionType);
     }
 
 
+    /**
+     * Checks whether any record of the given prevention type is marked as ineligible.
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if at least one record is ineligible
+     */
     public boolean isInelligible(String preventionType) {
         boolean isInelligible = false;
         Vector vec = getPreventionData(preventionType);
@@ -455,6 +479,12 @@ public class Prevention {
         return isInelligible;
     }
 
+    /**
+     * Checks whether no record of the given prevention type is marked as ineligible.
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if no records are ineligible
+     */
     public boolean isNotInelligible(String preventionType) {
         return !isInelligible(preventionType);
     }

@@ -48,12 +48,24 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for combining multiple PDF documents into a single PDF in the
+ * CARLOS EMR document management system.
+ *
+ * <p>Accepts an array of document numbers via the "docNo" request parameter, resolves
+ * each to its file path in the configured DOCUMENT_DIR, and concatenates them using
+ * {@link ConcatPDF}. The resulting PDF is streamed directly to the HTTP response as
+ * either an inline or attachment download based on the "ContentDisposition" parameter.
+ *
+ * <p>Security: Requires {@code _edoc} write privilege via {@link SecurityInfoManager}.
+ *
+ * @see ConcatPDF
+ * @see EDocUtil
+ * @since 2006-07-27
+ */
 public class CombinePDF2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -61,6 +73,12 @@ public class CombinePDF2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Concatenates the requested PDF documents and streams the result to the HTTP response.
+     * The "docNo" parameter provides document IDs; "ContentDisposition" controls inline vs attachment.
+     *
+     * @return String null if PDFs are streamed successfully, or SUCCESS if no files are provided
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {

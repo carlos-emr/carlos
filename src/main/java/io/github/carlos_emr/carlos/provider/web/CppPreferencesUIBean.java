@@ -37,6 +37,23 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * UI data bean for Cumulative Patient Profile (CPP) display preferences.
+ *
+ * <p>Encapsulates provider-specific CPP layout settings including section positions
+ * (social history, medical history, ongoing concerns, reminders), visibility toggles
+ * for clinical modules (preventions, dx registry, forms, eForms, documents, labs,
+ * measurements, consultations, HRM, allergies, medications, etc.), and optional
+ * date-column display flags for each section.</p>
+ *
+ * <p>Supports serialization to/from {@link Map} for database persistence via
+ * {@link UserPropertyDAO}, and deserialization from HTTP request parameter maps.
+ * Position values use a grid notation (e.g., {@code "R1I1"} for Row 1, Column 1),
+ * while display values use {@code "SHOW"} or empty string for hide.</p>
+ *
+ * @see CppPreferences2Action
+ * @since 2026-03-17
+ */
 public class CppPreferencesUIBean {
     public static final String SOCIAL_HISTORY_POS = "cpp.social_hx.position";
     public static final String MEDICAL_HISTORY_POS = "cpp.medical_hx.position";
@@ -154,6 +171,11 @@ public class CppPreferencesUIBean {
     private String medicationRepeats = "";
     private String medicationInstructions = "";
 
+    /**
+     * Serializes all CPP preference fields into a key-value map for database storage.
+     *
+     * @return Map&lt;String, String&gt; map of property keys to their current values
+     */
     public Map<String, String> serialize() {
         Map<String, String> map = new HashMap<String, String>();
         map.put(SOCIAL_HISTORY_POS, this.getSocialHxPosition());
@@ -213,6 +235,14 @@ public class CppPreferencesUIBean {
         return map;
     }
 
+    /**
+     * Populates bean fields from an HTTP request parameter map (String arrays).
+     *
+     * <p>Required parameters (positions and module display flags) are read unconditionally.
+     * Optional date and treatment fields are set only if present in the map.</p>
+     *
+     * @param map Map&lt;String, String[]&gt; the request parameter map from {@link jakarta.servlet.http.HttpServletRequest#getParameterMap()}
+     */
     public void deserializeParams(Map<String, String[]> map) {
         setSocialHxPosition(map.get(SOCIAL_HISTORY_POS)[0]);
         setMedicalHxPosition(map.get(MEDICAL_HISTORY_POS)[0]);
@@ -308,6 +338,7 @@ public class CppPreferencesUIBean {
 
     }
 
+    /** {@inheritDoc} */
     public String toString() {
         StringBuilder sb = new StringBuilder();
         Map<String, String> map = this.serialize();

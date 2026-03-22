@@ -31,10 +31,20 @@
 package io.github.carlos_emr.carlos.utility;
 
 /**
- * This is meant to be a generic exception that's thrown when ever some one
- * requests something they are not authorised to do.
+ * Exception thrown when an operation is attempted without proper authorization.
+ *
+ * <p>Used throughout the application to signal that the current user lacks the
+ * required privileges for the requested action.
+ *
+ * @since 2026-03-17
  */
 public class NotAuthorisedException extends Exception {
+
+    /**
+     * Creates a new exception with the specified detail message.
+     *
+     * @param s String the detail message describing the authorization failure
+     */
     public NotAuthorisedException(String s) {
         super(s);
     }

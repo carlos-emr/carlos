@@ -45,6 +45,15 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
+/**
+ * Utility class for XML document manipulation used by the prescription module.
+ * <p>
+ * Provides helper methods for creating XML documents, adding nodes with text content,
+ * and serializing DOM trees to string format. Used primarily for constructing
+ * XML-RPC request payloads for the DrugRef service.
+ *
+ * @since 2026-03-17
+ */
 public class xml {
 
     public static Document newDocument() {

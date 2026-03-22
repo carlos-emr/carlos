@@ -42,13 +42,29 @@ import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Servlet filter that manages thread-local JDBC connections and ensures all
+ * database resources are released after each request.
+ *
+ * <p>On each request, the filter chain executes normally and then the {@code finally}
+ * block calls {@link #releaseAllThreadDbResources()} to close any thread-local
+ * JDBC connections, Hibernate sessions, and tracked data source connections.
+ *
+ * @deprecated New code should use JPA with {@code EntityManager} and Spring-managed
+ *             transactions instead of raw JDBC connections via this filter.
+ * @since 2026-03-17
+ */
 public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 
     private static ThreadLocal<Connection> dbConnection = new ThreadLocal<Connection>();
 
     /**
-     * deprecated we should stop using raw jdbc connections. Don't write new code using raw jdbc, use JPA and native queries instead.
+     * Returns the thread-local JDBC connection, creating one if necessary.
+     *
+     * @return Connection the thread-local database connection
+     * @throws SQLException if a connection cannot be obtained
+     * @deprecated Use JPA with {@code EntityManager} and native queries instead of raw JDBC.
      */
     @Deprecated
     public static Connection getThreadLocalDbConnection() throws SQLException {
@@ -61,10 +77,25 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         return (c);
     }
 
+    /**
+     * Initializes the filter and logs startup.
+     *
+     * @param filterConfig FilterConfig the filter configuration
+     * @throws ServletException if initialization fails
+     */
     public void init(FilterConfig filterConfig) throws ServletException {
         logger.info("Starting Filter : " + getClass().getSimpleName());
     }
 
+    /**
+     * Executes the filter chain and releases all thread-local database resources afterward.
+     *
+     * @param tmpRequest  ServletRequest the servlet request
+     * @param tmpResponse ServletResponse the servlet response
+     * @param chain       FilterChain the filter chain
+     * @throws IOException      if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     */
     public void doFilter(ServletRequest tmpRequest, ServletResponse tmpResponse, FilterChain chain) throws IOException, ServletException {
         try {
             chain.doFilter(tmpRequest, tmpResponse);
@@ -76,6 +107,9 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         }
     }
 
+    /**
+     * Closes and removes the thread-local JDBC connection, if one exists.
+     */
     public static void releaseThreadLocalDbConnection() {
         try {
             Connection c = dbConnection.get();
@@ -86,6 +120,10 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         }
     }
 
+    /**
+     * Releases all thread-local database resources: the raw JDBC connection,
+     * Hibernate sessions, and tracked data source connections.
+     */
     public static void releaseAllThreadDbResources() {
         releaseThreadLocalDbConnection();
         SpringHibernateLocalSessionFactoryBean.releaseThreadSessions();
@@ -102,6 +140,9 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         return (c);
     }
 
+    /**
+     * Called when the filter is taken out of service. No cleanup is required.
+     */
     public void destroy() {
         // can't think of anything to do right now.
     }

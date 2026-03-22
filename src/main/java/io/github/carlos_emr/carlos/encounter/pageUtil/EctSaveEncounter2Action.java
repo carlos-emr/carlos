@@ -63,6 +63,14 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that saves encounter (eChart) data for a patient visit.
+ * Handles saving, signing, split chart creation, billing redirection, and
+ * appointment status updates. Includes concurrency control to prevent
+ * simultaneous modifications to the same patient record.
+ *
+ * @since 2001-01-01
+ */
 public class EctSaveEncounter2Action extends ActionSupport {
     HttpServletRequest httpservletrequest = ServletActionContext.getRequest();
     HttpServletResponse httpservletresponse = ServletActionContext.getResponse();
@@ -118,6 +126,15 @@ public class EctSaveEncounter2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Saves the encounter data, updates appointment status, and determines
+     * the next view based on the button pressed (save, sign, bill, exit, split chart).
+     *
+     * @return String the Struts result name
+     * @throws IOException if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     * @throws SecurityException if the user lacks demographic write privileges
+     */
     public String execute() throws
             IOException, ServletException {
 

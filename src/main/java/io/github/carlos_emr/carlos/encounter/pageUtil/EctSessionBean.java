@@ -116,6 +116,9 @@ public class EctSessionBean implements java.io.Serializable {
     public ArrayList<String> measurementGroupNames;
     public String source;
 
+    /**
+     * Resets all clinical and demographic fields to empty strings or null.
+     */
     public void resetAll() {
         eChartTimeStamp = null;
         eChartId = "";
@@ -407,6 +410,11 @@ public class EctSessionBean implements java.io.Serializable {
                 .calcAge(UtilDateUtilities.calcDate(yearOfBirth, monthOfBirth, dateOfBirth));
     }
 
+    /**
+     * Returns the provider's team, lazily loaded from the consultation provider data.
+     *
+     * @return String the team name
+     */
     public String getTeam() {
         if (team == null) {
             EctConProviderData providerData = new EctConProviderData();
@@ -462,6 +470,11 @@ public class EctSessionBean implements java.io.Serializable {
         return retval;
     }
 
+    /**
+     * Checks whether this session bean has valid demographic and provider numbers.
+     *
+     * @return boolean true if both demographicNo and providerNo are non-empty
+     */
     public boolean isValid() {
         return demographicNo.length() > 0 && providerNo != null && providerNo.length() > 0;
     }

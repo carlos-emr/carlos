@@ -46,6 +46,17 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for managing healthcare facilities in the CARLOS EMR administration interface.
+ *
+ * <p>Provides CRUD operations for {@link Facility} entities including listing, creating,
+ * editing, saving, and soft-deleting facilities. Uses method-based routing via the
+ * {@code method} request parameter to dispatch to the appropriate handler.</p>
+ *
+ * @see Facility
+ * @see FacilityDao
+ * @since 2026-03-17
+ */
 public class FacilityManager2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -57,6 +68,11 @@ public class FacilityManager2Action extends ActionSupport {
     private static final String FORWARD_LIST = "list";
     private static final String BEAN_FACILITIES = "facilities";
 
+    /**
+     * Routes the request to the appropriate handler method based on the {@code method} parameter.
+     *
+     * @return String the Struts2 result name for view resolution
+     */
     @Override
     public String execute() {
         String method = request.getParameter("method");
@@ -72,6 +88,11 @@ public class FacilityManager2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Lists all active facilities and sets them as a request attribute.
+     *
+     * @return String the "list" result name for the facility listing view
+     */
     public String list() {
         List<Facility> facilities = facilityDao.findAll(true);
         request.setAttribute(BEAN_FACILITIES, facilities);
@@ -79,6 +100,11 @@ public class FacilityManager2Action extends ActionSupport {
         return FORWARD_LIST;
     }
 
+    /**
+     * Loads a facility by its ID for editing and sets it as the action's facility property.
+     *
+     * @return String the "edit" result name for the facility edit form view
+     */
     public String edit() {
         String id = request.getParameter("id");
         Facility facility = facilityDao.find(Integer.valueOf(id));
@@ -92,6 +118,11 @@ public class FacilityManager2Action extends ActionSupport {
         return FORWARD_EDIT;
     }
 
+    /**
+     * Soft-deletes a facility by setting its disabled flag to {@code true}.
+     *
+     * @return String the result of {@link #list()} to redisplay the facility listing
+     */
     public String delete() {
         String id = request.getParameter("id");
         Facility facility = facilityDao.find(Integer.valueOf(id));
@@ -101,6 +132,11 @@ public class FacilityManager2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Initializes a new empty facility for creation and displays the edit form.
+     *
+     * @return String the "edit" result name for the new facility form view
+     */
     public String add() {
         Facility facility = new Facility("", "");
         this.setFacility(facility);
@@ -108,6 +144,12 @@ public class FacilityManager2Action extends ActionSupport {
         return FORWARD_EDIT;
     }
 
+    /**
+     * Persists or merges the facility entity and refreshes the session cache if the
+     * saved facility is the currently active one.
+     *
+     * @return String the result of {@link #list()} to redisplay the facility listing
+     */
     public String save() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -134,11 +176,21 @@ public class FacilityManager2Action extends ActionSupport {
 
     private Facility facility;
 
+    /**
+     * Returns the facility being edited or created.
+     *
+     * @return Facility the current facility entity
+     */
     @StrutsParameter(depth = 1)
     public Facility getFacility() {
         return facility;
     }
 
+    /**
+     * Sets the facility entity, typically populated by Struts2 parameter injection.
+     *
+     * @param facility Facility the facility entity to set
+     */
     @StrutsParameter
     public void setFacility(Facility facility) {
         this.facility = facility;

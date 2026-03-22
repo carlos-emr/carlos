@@ -36,7 +36,14 @@ import java.util.Hashtable;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author jay
+ * Represents a renal dosing recommendation for a specific drug, identified by ATC code.
+ * <p>
+ * Contains dose adjustment data based on creatinine clearance (ClCr) ranges.
+ * Each dosing recommendation includes the drug name, ATC code, additional information,
+ * and a list of dose entries with ClCr range-based adjustments. The {@link #valueInRangeOfDose}
+ * method evaluates whether a patient's ClCr value falls within a specific dose range.
+ *
+ * @since 2026-03-17
  */
 public class DosingRecomendation {
 

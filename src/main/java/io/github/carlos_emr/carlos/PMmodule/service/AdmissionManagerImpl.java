@@ -328,6 +328,7 @@ public class AdmissionManagerImpl implements AdmissionManager {
         return dao.getTemporaryAdmission(demographicNo);
     }
 
+    /** {@inheritDoc} */
     public List<Admission> getCurrentTemporaryProgramAdmission(Integer demographicNo) {
         Admission admission = dao.getTemporaryAdmission(demographicNo);
         if (admission != null) {
@@ -338,22 +339,32 @@ public class AdmissionManagerImpl implements AdmissionManager {
         return null;
     }
 
+    /** {@inheritDoc} */
     public boolean isDependentInDifferentProgramFromHead(Integer demographicNo, List<JointAdmission> dependentList) {
         return false;
     }
 
+    /** {@inheritDoc} */
     public List search(AdmissionSearchBean searchBean) {
         return dao.search(searchBean);
     }
 
+    /** {@inheritDoc} */
     public void processDischarge(Integer programId, Integer demographicNo, String dischargeNotes, String radioDischargeReason) throws AdmissionException {
         processDischarge(programId, demographicNo, dischargeNotes, radioDischargeReason, null, null, false, false);
     }
 
+    /** {@inheritDoc} */
     public void processDischarge(Integer programId, Integer demographicNo, String dischargeNotes, String radioDischargeReason, Date dischargeDate) throws AdmissionException {
         processDischarge(programId, demographicNo, dischargeNotes, radioDischargeReason, dischargeDate, null, false, false);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Core discharge method that updates the admission status to discharged,
+     * records discharge details, and recursively discharges any dependents.</p>
+     */
     public void processDischarge(Integer programId, Integer demographicNo, String dischargeNotes, String radioDischargeReason, Date dischargeDate, List<Integer> dependents, boolean fromTransfer, boolean automaticDischarge) throws AdmissionException {
 
         Admission fullAdmission = getCurrentAdmission(String.valueOf(programId), demographicNo);

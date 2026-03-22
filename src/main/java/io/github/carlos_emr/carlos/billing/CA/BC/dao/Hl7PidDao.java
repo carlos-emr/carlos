@@ -81,6 +81,12 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
         return query.getResultList();
     }
 
+    /**
+     * Finds PID and MSH pairs for a given message ID.
+     *
+     * @param messageId Integer the HL7 message ID
+     * @return List of Object arrays containing {@link Hl7Pid} and Hl7Msh entities
+     */
     public List<Object[]> findPidsAndMshByMessageId(Integer messageId) {
         String sql = "SELECT pid, msh FROM Hl7Pid pid, Hl7Msh msh WHERE pid.messageId = :msgId AND msh.messageId = pid.messageId";
         Query query = entityManager.createQuery(sql);
@@ -88,6 +94,12 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
         return query.getResultList();
     }
 
+    /**
+     * Finds signed lab results with provider information for a given PID ID.
+     *
+     * @param pid Integer the PID record ID
+     * @return List of Object arrays containing {@link Hl7Pid}, Hl7Link, and Provider entities
+     */
     public List<Object[]> findSigned(Integer pid) {
         String sql = "SELECT hl7_pid, hl7_link, provider FROM Hl7Pid hl7_pid, Hl7Link hl7_link, Provider provider WHERE hl7_pid.id = hl7_link.id AND provider.ProviderNo = hl7_link.providerNo AND hl7_pid.id = :pid";
         Query query = entityManager.createQuery(sql);
@@ -95,6 +107,12 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
         return query.getResultList();
     }
 
+    /**
+     * Finds PID and HL7 message pairs for a given PID ID, used for retrieving document notes.
+     *
+     * @param pid Integer the PID record ID
+     * @return List of Object arrays containing {@link Hl7Pid} and Hl7Message entities
+     */
     public List<Object[]> findDocNotes(Integer pid) {
         String sql = "SELECT hl7_pid, hl7_message FROM Hl7Pid hl7_pid, Hl7Message hl7_message WHERE hl7_pid.id = :pid AND hl7_pid.messageId = hl7_message.id";
         Query query = entityManager.createQuery(sql);
@@ -102,6 +120,12 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
         return query.getResultList();
     }
 
+    /**
+     * Finds the latest observation date (max results report status change) for a given message ID.
+     *
+     * @param messageId Integer the HL7 message ID
+     * @return Timestamp the latest observation date, or null if no results found
+     */
     public Timestamp findObservationDateByMessageId(Integer messageId) {
         String sql = "SELECT MAX(obr.resultsReportStatusChange) " +
                 "FROM Hl7Pid pid, Hl7Obr obr " +
@@ -118,6 +142,13 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
         }
     }
 
+    /**
+     * Finds PID, OBR, and OBX triples filtered by observation result status and message ID.
+     *
+     * @param observationResultStatus String the observation result status pattern (supports LIKE wildcards)
+     * @param messageId Integer the HL7 message ID
+     * @return List of Object arrays containing Hl7Pid, Hl7Obr, and Hl7Obx entities
+     */
     public List<Object[]> findByObservationResultStatusAndMessageId(String observationResultStatus, Integer messageId) {
         String sql = "SELECT pid, obr, obx FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx WHERE obx.observationResultStatus like :observationResultStatus AND obx.obrId = obr.id AND obr.pidId = pid.id AND pid.messageId = :messageId";
         Query query = entityManager.createQuery(sql);
@@ -126,6 +157,13 @@ public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
         return query.getResultList();
     }
 
+    /**
+     * Finds distinct message IDs and their latest report status change dates for a given filler order number.
+     * Groups by message ID and orders by status change date.
+     *
+     * @param fillerOrderNumber String the filler order number pattern (supports LIKE wildcards)
+     * @return List of Object arrays containing message ID and max results report status change date
+     */
     public List<Object[]> findByFillerOrderNumber(String fillerOrderNumber) {
         String sql = "SELECT DISTINCT pid.messageId, MAX(obr.resultsReportStatusChange) " +
                 "FROM Hl7Pid pid, Hl7Orc orc, Hl7Obr obr " +

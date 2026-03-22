@@ -613,6 +613,11 @@ public class CaseManagementNote extends BaseObject {
         return isLinkTo(CaseManagementNoteLink.DRUGS);
     }
 
+    /**
+     * Checks whether this note is linked to an eForm data record.
+     *
+     * @return boolean true if the note is linked to an eForm data record
+     */
     public boolean isEformData() {
         return isLinkTo(CaseManagementNoteLink.EFORMDATA);
     }
@@ -629,6 +634,13 @@ public class CaseManagementNote extends BaseObject {
         return false;
     }
 
+    /**
+     * Retrieves the prescription associated with this note's drug annotation link.
+     * Returns null if this note is not a prescription annotation.
+     *
+     * @param cmnl CaseManagementNoteLink the note link containing the drug table ID
+     * @return RxPrescriptionData.Prescription the associated prescription, or null
+     */
     public RxPrescriptionData.Prescription getRxFromAnnotation(CaseManagementNoteLink cmnl) {
         if (this.isRxAnnotation()) {
             String drugId = cmnl.getTableId().toString();

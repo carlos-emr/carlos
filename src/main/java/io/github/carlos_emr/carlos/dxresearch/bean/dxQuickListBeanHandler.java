@@ -38,27 +38,65 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Handler that loads available diagnosis quick lists for a provider.
+ *
+ * <p>Retrieves the list of configured quick lists from the database, optionally
+ * filtered by coding system. Tracks which quick list was most recently used
+ * or matches the configured default (from the {@code DX_QUICK_LIST_DEFAULT}
+ * property).</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxQuickListBeanHandler {
 
     Vector dxQuickListBeanVector = new Vector();
     String lastUsedQuickList = null;
 
+    /**
+     * Constructs a handler and loads all quick lists for the specified provider.
+     *
+     * @param providerNo String the provider number
+     */
     public dxQuickListBeanHandler(String providerNo) {
         init(providerNo);
     }
 
+    /**
+     * Constructs a handler and loads quick lists filtered by coding system.
+     *
+     * @param providerNo String the provider number
+     * @param codingSystem String the coding system to filter by (e.g. "icd9"), or {@code null} for all
+     */
     public dxQuickListBeanHandler(String providerNo, String codingSystem) {
         init(providerNo, codingSystem);
     }
 
+    /**
+     * Constructs a handler and loads all distinct quick list names.
+     */
     public dxQuickListBeanHandler() {
         init();
     }
 
+    /**
+     * Initializes quick lists for a provider without coding system filtering.
+     *
+     * @param providerNo String the provider number
+     * @return boolean the result of the filtered initialization
+     */
     public boolean init(String providerNo) {
         return init(providerNo, null);
     }
 
+    /**
+     * Initializes quick lists for a provider, optionally filtered by coding system.
+     * Marks the configured default (or first available) quick list as selected.
+     *
+     * @param providerNo String the provider number
+     * @param codingSystem String the coding system filter, or {@code null} for all
+     * @return boolean always {@code true}
+     */
     public boolean init(String providerNo, String codingSystem) {
         String qlDefault = CarlosProperties.getInstance().getProperty("DX_QUICK_LIST_DEFAULT");
         QuickListDao dao = SpringUtils.getBean(QuickListDao.class);

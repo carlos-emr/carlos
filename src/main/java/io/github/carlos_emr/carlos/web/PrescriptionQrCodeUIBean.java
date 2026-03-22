@@ -57,6 +57,15 @@ import ca.uhn.hl7v2.model.v26.message.OMP_O09;
 
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 
+/**
+ * Utility bean for generating QR code images from prescription data.
+ *
+ * <p>Converts prescriptions into HL7 v2 OMP_O09 messages and encodes them as QR code
+ * PNG images for printing on physical prescriptions. The QR codes use configurable
+ * error correction levels and scale factors from application properties.
+ *
+ * @since 2012-08-13
+ */
 public final class PrescriptionQrCodeUIBean {
 
     private static final Logger logger = MiscUtils.getLogger();

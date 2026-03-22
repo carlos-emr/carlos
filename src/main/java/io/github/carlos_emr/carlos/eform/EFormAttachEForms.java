@@ -44,7 +44,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author rjonasz
+ * Manages the attachment and detachment of other eForms to a parent eForm
+ * data record. Reconciles currently attached eForms with newly selected ones,
+ * detaching removed selections and attaching new ones.
+ *
+ * @see EFormAttachDocs
+ * @see EFormAttachLabs
+ * @see EFormAttachHRMReports
+ * @since 2006-05-25
  */
 public class EFormAttachEForms {
 
@@ -56,7 +63,14 @@ public class EFormAttachEForms {
     private ArrayList<String> eForms;
 
     /**
-     * Creates a new instance of ConsultationAttachEForms
+     * Constructs an instance with the given provider, demographic, eForm data ID,
+     * and array of eForm identifiers. When the {@code consultation_indivica_attachment_enabled}
+     * property is inactive, only IDs prefixed with 'L' are extracted.
+     *
+     * @param provNo String the provider number performing the attachment
+     * @param demo String the demographic number (unused but kept for API consistency)
+     * @param req String the eForm data ID to attach eForms to
+     * @param d String[] array of eForm identifiers
      */
     public EFormAttachEForms(String provNo, String demo, String req, String[] d) {
         providerNumber = provNo;
@@ -78,6 +92,12 @@ public class EFormAttachEForms {
         }
     }
 
+    /**
+     * Reconciles eForm attachments by comparing currently attached eForms with
+     * the selected list, detaching removed ones and attaching new ones.
+     *
+     * @param loggedInInfo LoggedInInfo the current session context
+     */
     public void attach(LoggedInInfo loggedInInfo) {
 
         List<EFormData> oldList = EFormUtil.listPatientEformsCurrentAttachedToEForm(consultationId);
@@ -113,6 +133,12 @@ public class EFormAttachEForms {
             attachFormConsult(providerNumber, newList.get(index), consultationId);
     }
 
+    /**
+     * Soft-deletes eForm attachment records by setting the deleted flag.
+     *
+     * @param LabNo String the eForm document number to detach
+     * @param consultId String the parent eForm data ID
+     */
     public static void detachFormConsult(String LabNo, String consultId) {
         List<EFormDocs> consultDocs = eformDocsDao.findByFdidIdDocNoDocType(Integer.parseInt(consultId), Integer.parseInt(LabNo), ConsultDocs.DOCTYPE_EFORM);
         for (EFormDocs consultDoc : consultDocs) {
@@ -121,6 +147,13 @@ public class EFormAttachEForms {
         }
     }
 
+    /**
+     * Creates a new eForm-to-eForm attachment record.
+     *
+     * @param providerNo String the provider number performing the attachment
+     * @param eFormNo String the eForm document number to attach
+     * @param consultId String the parent eForm data ID
+     */
     public static void attachFormConsult(String providerNo, String eFormNo, String consultId) {
         EFormDocs consultDoc = new EFormDocs();
         consultDoc.setFdid(Integer.parseInt(consultId));

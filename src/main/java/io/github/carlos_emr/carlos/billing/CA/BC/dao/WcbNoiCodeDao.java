@@ -36,14 +36,31 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.WcbNoiCode;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link WcbNoiCode} entities.
+ * Provides lookup operations for WCB (Workers' Compensation Board) Nature of Injury codes
+ * used in BC workers' compensation billing.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class WcbNoiCodeDao extends AbstractDaoImpl<WcbNoiCode> {
 
+    /**
+     * Constructs a new {@code WcbNoiCodeDao} with the {@link WcbNoiCode} entity class.
+     */
     public WcbNoiCodeDao() {
         super(WcbNoiCode.class);
     }
 
+    /**
+     * Searches for WCB NOI codes by code value or any of the three hierarchy levels.
+     * Results are ordered by level1, level2, level3.
+     *
+     * @param search String the search pattern (supports LIKE wildcards) applied to code, level1, level2, and level3
+     * @return List of matching {@link WcbNoiCode} records
+     */
     public List<WcbNoiCode> findByCodeOrLevel(String search) {
         Query q = createQuery("w", "w.code like :s OR w.level1 like :s OR w.level2 like :s OR w.level3 like :s ORDER BY w.level1, w.level2, w.level3");
         q.setParameter("s", search);

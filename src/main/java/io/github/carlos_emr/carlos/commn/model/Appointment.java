@@ -34,6 +34,29 @@ import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 
+/**
+ * Represents a scheduled appointment in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code appointment} table and contains all scheduling details including
+ * date, time, provider, patient (demographic), status, and billing information. Appointments
+ * are the primary mechanism for scheduling patient visits with healthcare providers.</p>
+ *
+ * <p>Key fields include:</p>
+ * <ul>
+ *   <li>{@code providerNo} - the healthcare provider assigned to the appointment</li>
+ *   <li>{@code demographicNo} - the patient this appointment is for</li>
+ *   <li>{@code appointmentDate}, {@code startTime}, {@code endTime} - scheduling details</li>
+ *   <li>{@code status} - current appointment status (e.g., booked, arrived, completed)</li>
+ *   <li>{@code reasonCode} - coded reason for the visit</li>
+ *   <li>{@code bookingSource} - origin of the booking (e.g., OSCAR)</li>
+ * </ul>
+ *
+ * <p>The {@link #APPT_DATE_COMPARATOR} provides chronological ordering by appointment
+ * date and start time.</p>
+ *
+ * @see DemographicData
+ * @since 2012-01-11
+ */
 @Entity
 @Table(name = "appointment")
 public class Appointment extends AbstractModel<Integer> implements Serializable, DemographicData {
@@ -144,6 +167,13 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
         this.endTime = endTime;
     }
 
+    /**
+     * Calculates and returns the appointment duration as a human-readable string.
+     * Computes the difference between end time and start time.
+     *
+     * @return String the duration formatted as "Xh Ym" (e.g., "1H 30m"), or empty string
+     *         if the duration is zero
+     */
     public String getDuration() {
         String ret = "";
 
@@ -338,6 +368,10 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
         this.updateDateTime = new Date();
     }
 
+    /**
+     * Comparator that orders appointments chronologically by appointment date,
+     * then by start time for appointments on the same date. Handles null appointments gracefully.
+     */
     public static final Comparator<Appointment> APPT_DATE_COMPARATOR = new Comparator<Appointment>() {
         public int compare(Appointment o1, Appointment o2) {
             if (o1 == null && o2 != null) return -1;
@@ -358,6 +392,12 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     };
 
 
+    /**
+     * Combines the appointment date and start time into a single {@link Date} object.
+     * The appointment date provides year/month/day while start time provides hour/minute.
+     *
+     * @return Date the combined date-time, or {@code null} if an error occurs
+     */
     public Date getStartTimeAsFullDate() {
         try {
             Calendar cal = Calendar.getInstance();
@@ -374,6 +414,12 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
         }
     }
 
+    /**
+     * Combines the appointment date and end time into a single {@link Date} object.
+     * The appointment date provides year/month/day while end time provides hour/minute.
+     *
+     * @return Date the combined date-time, or {@code null} if an error occurs
+     */
     public Date getEndTimeAsFullDate() {
         try {
             Calendar cal = Calendar.getInstance();

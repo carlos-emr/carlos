@@ -31,7 +31,13 @@
 package io.github.carlos_emr.carlos.prescript.util;
 
 /**
- * @author jaygallagher
+ * Represents a limited use code entry from the Ontario Drug Benefit (ODB) formulary.
+ * <p>
+ * Limited use codes specify conditions under which certain drugs are covered by
+ * provincial drug benefit programs. Each code has a sequence number, type, descriptive
+ * text, and a use identifier.
+ *
+ * @since 2026-03-17
  */
 public class LimitedUseCode {
     private String seq;

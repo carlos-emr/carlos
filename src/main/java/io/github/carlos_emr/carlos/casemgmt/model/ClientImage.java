@@ -39,6 +39,15 @@ import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Persistent entity representing a patient (client) photograph stored in the case management system.
+ * Image data is stored as a byte array with Base64 encoding/decoding for BLOB persistence.
+ *
+ * <p>Provides placeholder URL constants for cases where a patient image is either
+ * missing ({@link #imageMissingPlaceholderUrl}) or present ({@link #imagePresentPlaceholderUrl}).</p>
+ *
+ * @since 2026-03-17
+ */
 public class ClientImage extends BaseObject {
     public static final String imageMissingPlaceholderUrl = "/images/defaultR_img.jpg";
     public static final String imagePresentPlaceholderUrl = "/images/default_img.jpg";
@@ -93,6 +102,11 @@ public class ClientImage extends BaseObject {
         this.update_date = update_date;
     }
 
+    /**
+     * Returns the image data as a Base64-encoded BLOB for database storage.
+     *
+     * @return Blob the Base64-encoded image blob, or null if no image data exists
+     */
     public Blob getImage_contents() {
         if (image_data == null) {
             return null;
@@ -106,6 +120,12 @@ public class ClientImage extends BaseObject {
         return null;
     }
 
+    /**
+     * Sets the image data from a Base64-encoded BLOB, decoding it to a byte array.
+     * Sets image data to null if decoding fails.
+     *
+     * @param image_contents Blob the Base64-encoded image blob
+     */
     public void setImage_contents(Blob image_contents) {
         if (image_contents != null) {
             try {

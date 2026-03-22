@@ -37,14 +37,46 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.CriteriaTypeOption;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for managing {@link CriteriaTypeOption} entities that define
+ * the available options for each criteria type.
+ *
+ * @since 2001-09-17
+ * @see CriteriaTypeOption
+ * @see CriteriaTypeOptionDaoImpl
+ */
 public interface CriteriaTypeOptionDao extends AbstractDao<CriteriaTypeOption> {
 
+    /**
+     * Retrieves all criteria type options.
+     *
+     * @return List&lt;CriteriaTypeOption&gt; all option records
+     */
     public List<CriteriaTypeOption> findAll();
 
+    /**
+     * Retrieves all options for a specific criteria type.
+     *
+     * @param typeId Integer the criteria type ID
+     * @return List&lt;CriteriaTypeOption&gt; options for the specified type
+     */
     public List<CriteriaTypeOption> getCriteriaTypeOptionByTypeId(Integer typeId);
 
+    /**
+     * Finds a criteria type option by its value.
+     *
+     * @param optionValue String the option value to search for
+     * @return CriteriaTypeOption the matching option, or {@code null} if not found
+     */
     public CriteriaTypeOption getByValue(String optionValue);
 
+    /**
+     * Finds a criteria type option by its value and criteria type ID.
+     *
+     * @param optionValue String the option value
+     * @param typeId Integer the criteria type ID
+     * @return CriteriaTypeOption the matching option, or {@code null} if not found
+     */
     public CriteriaTypeOption getByValueAndTypeId(String optionValue, Integer typeId);
 }
  

@@ -31,6 +31,18 @@ package io.github.carlos_emr.carlos.fax.core;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 
+/**
+ * Value object representing a fax account's identity and contact information.
+ *
+ * <p>Used primarily for cover page generation and sender display in the fax workflow.
+ * Holds facility name, letterhead name, fax number, phone, address, and supplementary
+ * text. Can be constructed from a {@link FaxConfig} to inherit the configured fax number
+ * and account name.</p>
+ *
+ * @see io.github.carlos_emr.carlos.fax.util.PdfCoverPageCreator
+ * @see FaxConfig
+ * @since 2026-03-17
+ */
 public class FaxAccount {
 
     private String facilityName;
@@ -42,10 +54,18 @@ public class FaxAccount {
     private String phone;
     private String address;
 
+    /**
+     * Default no-argument constructor.
+     */
     public FaxAccount() {
         // default constructor
     }
 
+    /**
+     * Constructs a FaxAccount from a fax configuration, inheriting the fax number and account name.
+     *
+     * @param faxConfig FaxConfig the fax configuration to extract account details from
+     */
     public FaxAccount(FaxConfig faxConfig) {
         fax = faxConfig.getFaxNumber();
         faxNumberOwner = faxConfig.getAccountName();

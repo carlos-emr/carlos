@@ -1358,6 +1358,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Updates the properties of an existing flowsheet measurement item. Saves the display name,
+     * guideline, graphable flag, measuring instruction, and validation rule from request
+     * parameters. Persists the updated XML to the database.
+     *
+     * @return {@code null}; writes a JSON response with success status
+     * @throws IOException if writing to the response fails
+     */
     public String saveFlowsheetItem() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
@@ -1423,6 +1431,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves the details of a specific measurement item within a flowsheet. Returns the
+     * item's display name, graphable flag, guideline, measuring instruction, type information,
+     * and associated validation rule.
+     *
+     * @return {@code null}; writes a JSON response with the item details
+     * @throws IOException if writing to the response fails
+     */
     public String getFlowsheetItem() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
@@ -1467,6 +1483,15 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves the complete details of a user-created flowsheet including its metadata
+     * (name, creator, creation date, display name, scope, colours, template) and all
+     * header items with their measurement types, prevention types, and validation rules.
+     * Diagnosis code triggers are resolved to their ICD-9 descriptions when available.
+     *
+     * @return {@code null}; writes a JSON response with the full flowsheet details
+     * @throws IOException if writing to the response fails
+     */
     public String getFlowsheet() throws IOException {
         String id = request.getParameter("id");
 
@@ -1567,6 +1592,13 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves the names of all non-custom system flowsheet templates. Excludes
+     * user-created (custom) flowsheets from the results.
+     *
+     * @return {@code null}; writes a JSON response with the template name list
+     * @throws IOException if writing to the response fails
+     */
     public String getTemplateNames() throws IOException {
         Hashtable<String, String> systemFlowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();
         ObjectNode resp = objectMapper.createObjectNode();
@@ -1590,6 +1622,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Lists all non-custom system flowsheet templates with their display names and resolved
+     * diagnosis code triggers. ICD-9 trigger codes are resolved to their human-readable
+     * descriptions when available.
+     *
+     * @return {@code null}; writes a JSON response with the system flowsheet list
+     * @throws IOException if writing to the response fails
+     */
     public String listSystem() throws IOException {
         Hashtable<String, String> systemFlowsheets = MeasurementTemplateFlowSheetConfig.getInstance().getFlowsheetDisplayNames();
         ObjectNode resp = objectMapper.createObjectNode();
@@ -1636,6 +1676,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Lists user-created flowsheets, optionally filtered by scope. Returns flowsheet metadata
+     * including id, name, display name, template, resolved diagnosis triggers, creation date,
+     * creator name, scope, and scope-specific details (patient name or provider name).
+     *
+     * @return {@code null}; writes a JSON response with the flowsheet list
+     * @throws IOException if writing to the response fails
+     */
     public String list() throws IOException {
 
         String scope = request.getParameter("scope");

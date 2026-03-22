@@ -186,31 +186,59 @@ public class ClinicData {
         return clinic_postal;
     }
 
+    /**
+     * Returns the clinic phone number.
+     *
+     * @return String the clinic phone number
+     */
     public String getClinicPhone() {
         fillClinicData();
         return clinic_phone;
     }
 
+    /**
+     * Returns the clinic fax number.
+     *
+     * @return String the clinic fax number
+     */
     public String getClinicFax() {
         fillClinicData();
         return clinic_fax;
     }
 
+    /**
+     * Returns the clinic location code used for billing and provincial systems.
+     *
+     * @return String the clinic location code
+     */
     public String getClinicLocationCode() {
         fillClinicData();
         return clinic_location_code;
     }
 
+    /**
+     * Returns the pipe-delimited list of clinic phone numbers.
+     *
+     * @return String pipe-delimited phone numbers
+     */
     public String getClinicDelimPhone() {
         fillClinicData();
         return clinic_delim_phone;
     }
 
+    /**
+     * Returns the pipe-delimited list of clinic fax numbers.
+     *
+     * @return String pipe-delimited fax numbers
+     */
     public String getClinicDelimFax() {
         fillClinicData();
         return clinic_delim_fax;
     }
 
+    /**
+     * Forces a reload of clinic data from the database on the next access.
+     */
     public void refreshClinicData() {
         filled = false;
         fillClinicData();

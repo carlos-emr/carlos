@@ -79,6 +79,15 @@ public class dxQuickListItemsHandler {
         init(quickListName);
     }
 
+    /**
+     * Loads quick list items for the specified provider, updating or creating
+     * usage tracking records and populating the items collection across all
+     * configured coding systems.
+     *
+     * @param quickListName String the name of the quick list (truncated to 10 characters)
+     * @param providerNo String the provider number for usage tracking
+     * @return boolean always {@code true}
+     */
     public boolean init(String quickListName, String providerNo) {
         int ListNameLen = 10;
 
@@ -127,6 +136,13 @@ public class dxQuickListItemsHandler {
         return true;
     }
 
+    /**
+     * Loads quick list items without provider usage tracking, populating the
+     * items collection across all configured coding systems.
+     *
+     * @param quickListName String the name of the quick list
+     * @return boolean always {@code true}
+     */
     public boolean init(String quickListName) {
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
@@ -151,10 +167,24 @@ public class dxQuickListItemsHandler {
         return true;
     }
 
+    /**
+     * Returns all items in the loaded quick list.
+     *
+     * @return Collection&lt;dxCodeSearchBean&gt; the quick list items
+     */
     public Collection<dxCodeSearchBean> getDxQuickListItemsVector() {
         return dxQuickListItemsVector;
     }
 
+    /**
+     * Returns quick list items that are not already in the patient's diagnosis list.
+     *
+     * <p>Filters out codes whose diagnosis search code matches any entry in the
+     * provided patient's research list.</p>
+     *
+     * @param patientsList Vector&lt;dxResearchBean&gt; the patient's current diagnosis research entries
+     * @return Collection&lt;dxCodeSearchBean&gt; quick list items not yet assigned to the patient
+     */
     public Collection<dxCodeSearchBean> getDxQuickListItemsVectorNotInPatientsList(Vector<dxResearchBean> patientsList) {
         Vector<String> dxList = new Vector<String>();
         Vector<dxCodeSearchBean> v = new Vector<dxCodeSearchBean>();
@@ -171,6 +201,14 @@ public class dxQuickListItemsHandler {
         return v;
     }
 
+    /**
+     * Updates the description of a diagnosis code in the coding system reference table.
+     *
+     * @param type String the coding system type (e.g. "icd9", "icd10"), must match
+     *             a valid {@link AbstractCodeSystemDaoImpl.codingSystem} enum value
+     * @param code String the diagnosis code to update
+     * @param desc String the new description for the code
+     */
     public static void updatePatientCodeDesc(String type, String code, String desc) {
         Class<?> daoClass = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDaoImpl.codingSystem.valueOf(type));
         @SuppressWarnings("unchecked")

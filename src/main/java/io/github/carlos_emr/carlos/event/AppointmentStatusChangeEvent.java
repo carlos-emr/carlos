@@ -60,6 +60,14 @@ public class AppointmentStatusChangeEvent extends ApplicationEvent {
      */
     private final String status;
 
+    /**
+     * Constructs a new appointment status change event.
+     *
+     * @param source Object the object that published this event
+     * @param appointment_no String the unique identifier of the appointment
+     * @param provider_no String the unique identifier of the provider
+     * @param status String the new appointment status value
+     */
     public AppointmentStatusChangeEvent(Object source, String appointment_no, String provider_no, String status) {
         super(source);
         this.appointment_no = appointment_no;

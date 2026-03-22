@@ -130,7 +130,15 @@ public class Utility {
         return isInt;
     }
 
-    // Convert dd/mm/yyyy d/m/yyyy to System format
+    /**
+     * Converts a date string in dd/mm/yyyy or d/m/yyyy format to a Java Date object.
+     *
+     * <p>Accepts the literal string "TODAY" (case-insensitive) to return the current date.
+     * Returns a far-future date (2999/12/31) if the input is null or empty.</p>
+     *
+     * @param pDate String the date string in dd/mm/yyyy format, or "TODAY"
+     * @return Date the parsed date, a far-future date for empty input, or null if parsing fails
+     */
     public static Date GetSysDate(String pDate) // throws Exception
     {
         Date date;
@@ -174,13 +182,29 @@ public class Utility {
         }
     }
 
+    /**
+     * Creates a Date object from the specified year, month, and day components.
+     *
+     * @param year int the year value
+     * @param month int the month value (0-based, where 0 = January)
+     * @param day int the day of the month
+     * @return Date the constructed date
+     */
     public static Date SetDate(int year, int month, int day) {
         Calendar c1 = Calendar.getInstance();
         c1.set(year, month, day);
         return c1.getTime();
     }
 
-    // Convert dd/mm/yyyy to System format
+    /**
+     * Converts a date string in dd/mm/yyyy format to a Date, defaulting to 1900/01/01 for empty input.
+     *
+     * <p>Used as a minimum date boundary for date range queries.</p>
+     *
+     * @param pDate String the date string in dd/mm/yyyy format, or "TODAY"
+     * @return Date the parsed date, or 1900/01/01 for empty input
+     * @throws Exception if the date string is in an invalid format or out of range
+     */
     public static Date GetSysDateMin(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             Calendar c1 = Calendar.getInstance();
@@ -203,6 +227,15 @@ public class Utility {
         }
     }
 
+    /**
+     * Converts a date string in dd/mm/yyyy format to a Date, defaulting to 2999/12/31 for empty input.
+     *
+     * <p>Used as a maximum date boundary for date range queries.</p>
+     *
+     * @param pDate String the date string in dd/mm/yyyy format, or "TODAY"
+     * @return Date the parsed date, or 2999/12/31 for empty input
+     * @throws Exception if the date string is in an invalid format or out of range
+     */
     public static Date GetSysDateMax(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             return SetDate(2999, 12, 31);
@@ -220,7 +253,12 @@ public class Utility {
         }
     }
 
-    // Convert a date to dd/mm/yyyy format
+    /**
+     * Formats a Date object to yyyy/MM/dd string representation.
+     *
+     * @param pDate Date the date to format
+     * @return String the formatted date string, empty string if null or epoch date, or null on error
+     */
     public static String FormatDate(Date pDate) //throws Exception
     {
         try {

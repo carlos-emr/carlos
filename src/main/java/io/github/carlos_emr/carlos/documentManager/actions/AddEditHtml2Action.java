@@ -59,6 +59,27 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding and editing HTML documents and URL links in the
+ * CARLOS EMR document management system.
+ *
+ * <p>Supports three modes via the "mode" parameter:
+ * <ul>
+ *   <li>{@code addLink} - Creates a new document containing a JavaScript redirect to an external URL</li>
+ *   <li>{@code addHtml} - Creates a new document with embedded HTML content</li>
+ *   <li>Edit mode (numeric document ID) - Updates an existing HTML document's metadata and content</li>
+ * </ul>
+ *
+ * <p>When adding a document, an annotation (case management note) can be attached via the
+ * "annotation_attrib" session attribute. New document types are automatically registered
+ * in the database for filter creation.
+ *
+ * <p>Security: Requires {@code _edoc} write privilege via {@link SecurityInfoManager}.
+ *
+ * @see AddEditDocument2Action
+ * @see EDocUtil
+ * @since 2006-07-27
+ */
 public class AddEditHtml2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

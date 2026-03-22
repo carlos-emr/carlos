@@ -35,6 +35,15 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTypeTransfer;
 import org.w3c.dom.Node;
 
+/**
+ * Represents a type of appointment available for online booking.
+ *
+ * <p>Defines an appointment category with its name, default duration, role-specific
+ * duration overrides, and a mapping to the internal CARLOS appointment type. Instances
+ * can be created from XML configuration or from REST transfer objects.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class AppointmentType {
     private Long id;
     private String name;
@@ -42,30 +51,65 @@ public final class AppointmentType {
     private Integer mappingOscarApptType;
     private HashMap<String, Integer> roleDurations = new HashMap<String, Integer>();
 
+    /**
+     * Returns the unique identifier for this appointment type.
+     *
+     * @return Long the appointment type ID
+     */
     public Long getId() {
         return (id);
     }
 
+    /**
+     * Sets the unique identifier for this appointment type.
+     *
+     * @param id Long the appointment type ID
+     */
     public void setId(Long id) {
         this.id = id;
     }
 
+    /**
+     * Returns the display name of this appointment type.
+     *
+     * @return String the appointment type name
+     */
     public String getName() {
         return (name);
     }
 
+    /**
+     * Sets the display name of this appointment type.
+     *
+     * @param name String the appointment type name
+     */
     public void setName(String name) {
         this.name = name;
     }
 
+    /**
+     * Returns the default duration in minutes for this appointment type.
+     *
+     * @return int the default duration in minutes
+     */
     public int getDefaultDurationMinutes() {
         return (defaultDurationMinutes);
     }
 
+    /**
+     * Sets the default duration in minutes for this appointment type.
+     *
+     * @param defaultDurationMinutes int the default duration in minutes
+     */
     public void setDefaultDurationMinutes(int defaultDurationMinutes) {
         this.defaultDurationMinutes = defaultDurationMinutes;
     }
 
+    /**
+     * Returns role-specific duration overrides keyed by role name.
+     *
+     * @return HashMap&lt;String, Integer&gt; map of role names to durations in minutes
+     */
     public HashMap<String, Integer> getRoleDurations() {
         return (roleDurations);
     }

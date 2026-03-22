@@ -45,7 +45,14 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 /**
- * @author rjonasz
+ * Manages the attachment and detachment of lab results to eForm data records.
+ * Reconciles currently attached labs with newly selected ones using the
+ * {@link CommonLabResultData} service.
+ *
+ * @see EFormAttachDocs
+ * @see EFormAttachEForms
+ * @see EFormAttachHRMReports
+ * @since 2006-05-25
  */
 public class EFormAttachLabs {
 
@@ -59,7 +66,14 @@ public class EFormAttachLabs {
     private ArrayList<String> docs;
 
     /**
-     * Creates a new instance of ConsultationAttachLabs
+     * Constructs an instance with the given provider, demographic, eForm data ID,
+     * and array of lab identifiers. When the {@code consultation_indivica_attachment_enabled}
+     * property is inactive, only IDs prefixed with 'L' are extracted.
+     *
+     * @param provNo String the provider number performing the attachment
+     * @param demo String the demographic number of the patient
+     * @param req String the eForm data ID to attach labs to
+     * @param d String[] array of lab identifiers
      */
     public EFormAttachLabs(String provNo, String demo, String req, String[] d) {
         providerNo = provNo;
@@ -82,6 +96,12 @@ public class EFormAttachLabs {
         }
     }
 
+    /**
+     * Reconciles lab attachments by comparing currently attached labs with
+     * the selected list, detaching removed ones and attaching new ones.
+     *
+     * @param loggedInInfo LoggedInInfo the current session context
+     */
     public void attach(LoggedInInfo loggedInInfo) {
 
         //first we get a list of currently attached labs
@@ -117,6 +137,12 @@ public class EFormAttachLabs {
             attachLabConsult(providerNo, newlist.get(i), reqId);
     }
 
+    /**
+     * Soft-deletes lab attachment records by setting the deleted flag.
+     *
+     * @param LabNo String the lab document number to detach
+     * @param consultId String the parent eForm data ID
+     */
     public static void detachLabConsult(String LabNo, String consultId) {
         List<EFormDocs> consultDocs = eformDocsDao.findByFdidIdDocNoDocType(Integer.parseInt(consultId), Integer.parseInt(LabNo), ConsultDocs.DOCTYPE_LAB);
         for (EFormDocs consultDoc : consultDocs) {
@@ -125,6 +151,13 @@ public class EFormAttachLabs {
         }
     }
 
+    /**
+     * Creates a new lab-to-eForm attachment record.
+     *
+     * @param providerNo String the provider number performing the attachment
+     * @param LabNo String the lab document number to attach
+     * @param consultId String the parent eForm data ID
+     */
     public static void attachLabConsult(String providerNo, String LabNo, String consultId) {
         EFormDocs consultDoc = new EFormDocs();
         consultDoc.setFdid(Integer.parseInt(consultId));

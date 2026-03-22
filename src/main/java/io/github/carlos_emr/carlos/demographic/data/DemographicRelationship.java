@@ -40,10 +40,26 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.*;
 
 /**
- * @author Jay Gallagher
+ * Manages inter-patient relationships such as family members, emergency contacts,
+ * and substitute decision makers (SDMs) within the demographic system.
+ *
+ * <p>This class provides CRUD operations for demographic relationships, including
+ * creating bidirectional relationships, soft-deleting relationships, and querying
+ * relationships by demographic number or relationship ID. Relationships can optionally
+ * be scoped to a specific facility.</p>
+ *
+ * <p>Relationships are stored via the {@link RelationshipsDao} and support flags for
+ * substitute decision maker and emergency contact designations.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.RelationshipsDao
+ * @see io.github.carlos_emr.carlos.commn.model.Relationships
+ * @since 2026-03-17
  */
 public class DemographicRelationship {
 
+    /**
+     * Constructs a new DemographicRelationship instance.
+     */
     public DemographicRelationship() {
     }
 
@@ -67,6 +83,11 @@ public class DemographicRelationship {
         dao.persist(relationships);
     }
 
+    /**
+     * Soft-deletes a demographic relationship by setting its deleted flag to true.
+     *
+     * @param id String the relationship record ID to delete
+     */
     public void deleteDemographicRelationship(String id) {
         RelationshipsDao dao = SpringUtils.getBean(RelationshipsDao.class);
         Relationships relationships = dao.find(ConversionUtils.fromIntString(id));
@@ -78,6 +99,15 @@ public class DemographicRelationship {
 		}
 	}
 
+    /**
+     * Retrieves all active relationships for a given demographic number.
+     *
+     * <p>Each relationship is returned as a Map with keys: "id", "demographic_no",
+     * "relation", "sub_decision_maker", "emergency_contact", and "notes".</p>
+     *
+     * @param demographic String the demographic number to query relationships for
+     * @return ArrayList&lt;Map&lt;String, String&gt;&gt; list of relationship maps, empty if none found
+     */
     public ArrayList<Map<String, String>> getDemographicRelationships(String demographic) {
         RelationshipsDao dao = SpringUtils.getBean(RelationshipsDao.class);
         ArrayList<Map<String, String>> list = new ArrayList<Map<String, String>>();
@@ -103,6 +133,16 @@ public class DemographicRelationship {
         return list;
     }
 
+	/**
+	 * Retrieves a specific relationship by its record ID.
+	 *
+	 * <p>Returns a list containing a single map with keys: "demographic_no",
+	 * "relation_demographic_no", "relation", "sub_decision_maker", "emergency_contact",
+	 * and "notes".</p>
+	 *
+	 * @param id String the relationship record ID
+	 * @return ArrayList&lt;Map&lt;String, String&gt;&gt; list with the relationship map, empty if not found
+	 */
 	public ArrayList<Map<String, String>> getDemographicRelationshipsByID(String id) {
 		RelationshipsDao dao = SpringUtils.getBean(RelationshipsDao.class);
 		Relationships r = dao.findActive(ConversionUtils.fromIntString(id));
@@ -124,6 +164,14 @@ public class DemographicRelationship {
         return list;
     }
 
+    /**
+     * Returns the demographic number of the Substitute Decision Maker for a patient.
+     *
+     * <p>If multiple SDMs exist, returns the last one found.</p>
+     *
+     * @param demographic String the patient's demographic number
+     * @return String the SDM's demographic number, or null if no SDM is assigned
+     */
     public String getSDM(String demographic) {
         RelationshipsDao dao = SpringUtils.getBean(RelationshipsDao.class);
         List<Relationships> rs = dao.findActiveSubDecisionMaker(ConversionUtils.fromIntString(demographic));
@@ -133,6 +181,13 @@ public class DemographicRelationship {
         return result;
     }
 
+    /**
+     * Retrieves SDM relationships with full contact details (name, phone, age).
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographic_no String the patient's demographic number
+     * @return List&lt;Map&lt;String, Object&gt;&gt; list of relationship maps with contact details
+     */
     public List<Map<String, Object>> getDemographicRelationshipsWithNamePhone(LoggedInInfo loggedInInfo, String demographic_no) {
         RelationshipsDao dao = SpringUtils.getBean(RelationshipsDao.class);
         List<Relationships> rs = dao.findActiveSubDecisionMaker(ConversionUtils.fromIntString(demographic_no));
@@ -160,6 +215,14 @@ public class DemographicRelationship {
         return list;
     }
 
+    /**
+     * Retrieves active relationships with contact details, filtered by facility.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographic_no String the patient's demographic number
+     * @param facilityId Integer the facility ID to filter by
+     * @return List&lt;Map&lt;String, Object&gt;&gt; list of relationship maps with contact details
+     */
     public List<Map<String, Object>> getDemographicRelationshipsWithNamePhone(LoggedInInfo loggedInInfo, String demographic_no, Integer facilityId) {
         RelationshipsDao dao = SpringUtils.getBean(RelationshipsDao.class);
         List<Relationships> rs = dao.findActiveByDemographicNumberAndFacility(ConversionUtils.fromIntString(demographic_no), facilityId);

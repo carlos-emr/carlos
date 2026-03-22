@@ -74,6 +74,18 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * OAuth 1.0a Request Token endpoint served at /ws/oauth/initiate.
+ *
+ * <p>Issues temporary request tokens after validating the client and signature.
+ * Parses OAuth parameters, verifies HMAC-SHA1/PLAINTEXT signatures, creates
+ * and persists request tokens, and returns form-encoded responses per RFC 5849.
+ *
+ * @see OscarOAuthDataProvider
+ * @see io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser
+ * @see io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier
+ * @since 2026-03-17
+ */
 public class OscarRequestTokenService {
 
     private final OscarOAuthDataProvider dataProvider;
@@ -82,6 +94,12 @@ public class OscarRequestTokenService {
     @Resource
     private OAuth1SignatureVerifier verifier;
 
+    /**
+     * Constructs the service with the required OAuth data provider and parameter parser.
+     *
+     * @param dataProvider OscarOAuthDataProvider for client and token storage
+     * @param parser OAuth1ParamParser for extracting OAuth parameters from requests
+     */
     public OscarRequestTokenService(OscarOAuthDataProvider dataProvider,
                                     OAuth1ParamParser parser) {
         this.dataProvider = dataProvider;

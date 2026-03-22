@@ -37,13 +37,28 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingStatusTypes;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingStatusTypes} entities.
+ * Provides persistence operations for billing status type lookup values
+ * used in the BC billing system.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingStatusTypesDao extends AbstractDaoImpl<BillingStatusTypes> {
 
+    /**
+     * Constructs a new {@code BillingStatusTypesDao} with the {@link BillingStatusTypes} entity class.
+     */
     protected BillingStatusTypesDao() {
         super(BillingStatusTypes.class);
     }
 
+    /**
+     * Retrieves all billing status types.
+     *
+     * @return List of all {@link BillingStatusTypes} records
+     */
     @SuppressWarnings("unchecked")
     public List<BillingStatusTypes> findAll() {
         Query query = entityManager.createQuery("SELECT x FROM " + modelClass.getSimpleName() + " x");
@@ -51,6 +66,13 @@ public class BillingStatusTypesDao extends AbstractDaoImpl<BillingStatusTypes> {
         return results;
     }
 
+    /**
+     * Finds billing status types matching the given list of single-character codes.
+     * Converts the string codes to characters for the IN clause query.
+     *
+     * @param codes List of String codes, where each string's first character is used as the lookup key
+     * @return List of {@link BillingStatusTypes} matching the provided codes
+     */
     @SuppressWarnings("unchecked")
     public List<BillingStatusTypes> findByCodes(List<String> codes) {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " bst WHERE bst.id IN (:typeCodes)");

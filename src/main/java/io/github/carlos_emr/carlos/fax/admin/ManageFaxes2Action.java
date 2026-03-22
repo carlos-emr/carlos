@@ -263,6 +263,14 @@ public class ManageFaxes2Action extends Fax2Action {
         getPreview();
     }
 
+    /**
+     * Fetches fax job records filtered by status, team, date range, provider, and demographic.
+     *
+     * <p>Populates request attributes {@code faxes} (list of FaxJob) and {@code faxClientLogs}
+     * (audit logs) for the fax status JSP view. Dates are parsed from {@code yyyy-MM-dd} format.</p>
+     *
+     * @return String "faxstatus" Struts result to render the filtered fax status view
+     */
     @SuppressWarnings("unused")
     public String fetchFaxStatus() {
 
@@ -338,6 +346,14 @@ public class ManageFaxes2Action extends Fax2Action {
         return "faxstatus";
     }
 
+    /**
+     * Marks a fax job as RESOLVED (completed) by the administrator.
+     *
+     * <p>Used to manually close out fax jobs that have been reviewed. Requires
+     * {@code _admin} write privilege.</p>
+     *
+     * @throws SecurityException if the user lacks {@code _admin} write privilege
+     */
     @SuppressWarnings("unused")
     public void SetCompleted() {
 

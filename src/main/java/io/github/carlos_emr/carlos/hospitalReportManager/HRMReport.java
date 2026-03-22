@@ -550,6 +550,14 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getReportsReceived().get(0).getResultStatus();
     }
 
+    /**
+     * Returns a list of OBR content sub-class data from the first report.
+     *
+     * <p>Each inner list contains: [0] sub-class, [1] mnemonic, [2] description,
+     * and optionally [3] observation date (Date) and [4] formatted date string.</p>
+     *
+     * @return List&lt;List&lt;Object&gt;&gt; the OBR content sub-class entries
+     */
     public List<List<Object>> getAccompanyingSubclassList() {
         LinkedList<List<Object>> subclassList = new LinkedList<List<Object>>();
 
@@ -579,6 +587,11 @@ public class HRMReport {
         return subclassList;
     }
 
+    /**
+     * Returns the formatted observation date/time string for the first OBR content sub-class.
+     *
+     * @return String the formatted date string, or empty string if unavailable
+     */
     public String getFirstAccompanyingSubClassDateTime() {
         if (hrmReport.getPatientRecord().getReportsReceived() != null &&
                 !hrmReport.getPatientRecord().getReportsReceived().isEmpty() &&
@@ -596,6 +609,11 @@ public class HRMReport {
         return "";
     }
 
+    /**
+     * Returns the description of the first OBR content accompanying sub-class.
+     *
+     * @return String the sub-class description, or {@code null} if unavailable
+     */
     public String getFirstAccompanyingSubClass() {
         if (hrmReport.getPatientRecord().getReportsReceived() != null &&
                 !hrmReport.getPatientRecord().getReportsReceived().isEmpty() &&
@@ -608,6 +626,11 @@ public class HRMReport {
         return null;
     }
 
+    /**
+     * Returns the unique message identifier from the transaction information.
+     *
+     * @return String the message unique ID, or empty string if unavailable
+     */
     public String getMessageUniqueId() {
         if (hrmReport.getPatientRecord().getTransactionInformation() == null || hrmReport.getPatientRecord().getTransactionInformation().isEmpty()) {
             return "";
@@ -615,6 +638,11 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getTransactionInformation().get(0).getMessageUniqueID();
     }
 
+    /**
+     * Returns the deliver-to user ID (practitioner number) from the transaction information.
+     *
+     * @return String the target user ID, or empty string if unavailable
+     */
     public String getDeliverToUserId() {
         if (hrmReport.getPatientRecord().getTransactionInformation() == null || hrmReport.getPatientRecord().getTransactionInformation().isEmpty()) {
             return "";
@@ -622,6 +650,12 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getTransactionInformation().get(0).getDeliverToUserID();
     }
 
+    /**
+     * Returns the first name of the provider the report is delivered to.
+     *
+     * @return String the provider's first name, empty string if no transaction info,
+     *         or {@code null} if no provider is set
+     */
     public String getDeliverToUserIdFirstName() {
         if (hrmReport.getPatientRecord().getTransactionInformation() == null || hrmReport.getPatientRecord().getTransactionInformation().isEmpty()) {
             return "";
@@ -631,6 +665,12 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getTransactionInformation().get(0).getProvider().getFirstName();
     }
 
+    /**
+     * Returns the last name of the provider the report is delivered to.
+     *
+     * @return String the provider's last name, empty string if no transaction info,
+     *         or {@code null} if no provider is set
+     */
     public String getDeliverToUserIdLastName() {
         if (hrmReport.getPatientRecord().getTransactionInformation() == null || hrmReport.getPatientRecord().getTransactionInformation().isEmpty()) {
             return "";
@@ -640,6 +680,11 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getTransactionInformation().get(0).getProvider().getLastName();
     }
 
+    /**
+     * Returns the formatted name of the deliver-to provider in "LastName, FirstName" format.
+     *
+     * @return String the formatted provider name, or empty string if no name is available
+     */
     public String getDeliveryToUserIdFormattedName() {
         String name = "";
         if (getDeliverToUserIdLastName() != null) {
@@ -656,18 +701,38 @@ public class HRMReport {
         return name;
     }
 
+    /**
+     * Returns the HRM document ID associated with this report.
+     *
+     * @return Integer the document ID, or {@code null} if not set
+     */
     public Integer getHrmDocumentId() {
         return hrmDocumentId;
     }
 
+    /**
+     * Sets the HRM document ID associated with this report.
+     *
+     * @param hrmDocumentId Integer the document ID
+     */
     public void setHrmDocumentId(Integer hrmDocumentId) {
         this.hrmDocumentId = hrmDocumentId;
     }
 
+    /**
+     * Returns the parent document ID if this report is a revision of an earlier report.
+     *
+     * @return Integer the parent document ID, or {@code null} if this is the original
+     */
     public Integer getHrmParentDocumentId() {
         return hrmParentDocumentId;
     }
 
+    /**
+     * Sets the parent document ID for report version tracking.
+     *
+     * @param hrmParentDocumentId Integer the parent document ID
+     */
     public void setHrmParentDocumentId(Integer hrmParentDocumentId) {
         this.hrmParentDocumentId = hrmParentDocumentId;
     }

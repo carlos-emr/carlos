@@ -301,6 +301,14 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Loads paginated document, lab, and HRM results for the inbox content page.
+     * Supports filtering by provider, patient demographics, date range, acknowledgement
+     * status, and view type (all, labs, documents, abnormal, normal). Groups results
+     * by accession number for related lab display and populates document queue mappings.
+     *
+     * @return String the Struts2 result name for the content page
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public String prepareForContentPage() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

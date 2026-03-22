@@ -312,6 +312,12 @@ public class UtilDateUtilities {
     //    private static String dateTimePattern = "yyyy-MM-dd HH:mm:ss"; timeStampPattern = "yyyyMMddHHmmss";
     private static Locale defaultLocale = Locale.CANADA;
 
+    /**
+     * Returns today's date formatted using the specified pattern.
+     *
+     * @param datePattern String the {@link SimpleDateFormat} pattern
+     * @return String today's date in the specified format
+     */
     public static String getToday(String datePattern) {
         Format formatter = new SimpleDateFormat(datePattern);
         return formatter.format(new Date());
@@ -427,6 +433,15 @@ public class UtilDateUtilities {
     }
 
 
+    /**
+     * Calculates gestational age in weeks based on the expected delivery date (EDD).
+     * Counts backwards from the EDD (40 weeks) to determine how many weeks
+     * of gestation have elapsed as of the specified date.
+     *
+     * @param today Date the current or reference date
+     * @param edd Date the expected delivery date
+     * @return int the gestational age in weeks
+     */
     public static int calculateGestationAge(Date today, Date edd) {
         int i = 40;
         Calendar calendar = Calendar.getInstance();
@@ -457,6 +472,13 @@ public class UtilDateUtilities {
     }
 
 
+    /**
+     * Null-safe comparison of two dates. Null values are sorted after non-null values.
+     *
+     * @param d1 Date the first date (may be null)
+     * @param d2 Date the second date (may be null)
+     * @return int 0 if equal, positive if d1 is before d2 or d1 is null, negative if d1 is after d2
+     */
     public static int nullSafeCompare(Date d1, Date d2) {
         if (d1 == null && d2 == null) return 0;
         if (d1 == null) return 1;
