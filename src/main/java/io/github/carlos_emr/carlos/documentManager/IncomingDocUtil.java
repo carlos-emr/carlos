@@ -311,7 +311,7 @@ public final class IncomingDocUtil {
                 File deletedPathDir = new File(filePath, pdfDir + "_deleted");
 
                 // Validate path is within bounds using PathValidationUtils
-                PathValidationUtils.validateExistingPath(deletedPathDir, baseDir);
+                deletedPathDir = PathValidationUtils.validateExistingPath(deletedPathDir, baseDir);
 
                 File canonicalDeletedDir = deletedPathDir.getCanonicalFile();
 
@@ -403,7 +403,7 @@ public final class IncomingDocUtil {
         // Validate path is within bounds using PathValidationUtils
         try {
             File baseDirFile = new File(baseDir);
-            PathValidationUtils.validateExistingPath(filePathDir, baseDirFile);
+            filePathDir = PathValidationUtils.validateExistingPath(filePathDir, baseDirFile);
 
             File canonicalDir = filePathDir.getCanonicalFile();
 

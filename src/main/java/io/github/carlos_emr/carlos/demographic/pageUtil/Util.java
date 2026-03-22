@@ -196,7 +196,7 @@ public class Util {
 
         // Validate that the resolved path is within the allowed directory
         try {
-            PathValidationUtils.validateExistingPath(f, baseDir);
+            f = PathValidationUtils.validateExistingPath(f, baseDir);
         } catch (SecurityException e) {
             logger.error("Error! Attempted path traversal attack detected for file: " + filename);
             return false;
@@ -276,7 +276,7 @@ public class Util {
 
             // Validate the file path using PathValidationUtils
             try {
-                PathValidationUtils.validateExistingPath(requestedFile, documentDir);
+                requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
             } catch (SecurityException e) {
                 logger.error("Path traversal attempt detected for file: " + fileName);
                 return;

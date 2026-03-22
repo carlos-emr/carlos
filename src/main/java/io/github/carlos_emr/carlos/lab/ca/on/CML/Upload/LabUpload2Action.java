@@ -113,7 +113,7 @@ public class LabUpload2Action extends ActionSupport {
                     if (documentDir != null) {
                         try {
                             File docDirFile = new File(documentDir);
-                            PathValidationUtils.validateExistingPath(localFile, docDirFile);
+                            localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
                         } catch (SecurityException e) {
                             _logger.error("Invalid file path: " + localFileName);
                             outcome = "accessDenied";

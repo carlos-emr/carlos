@@ -168,7 +168,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         // Use PathValidationUtils to validate file is in allowed directory or temp
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(file, allowedDir);
+            file = PathValidationUtils.validateExistingPath(file, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -241,7 +241,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         // Use PathValidationUtils to validate file is in allowed directory or temp
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
-            PathValidationUtils.validateExistingPath(file, allowedDir);
+            file = PathValidationUtils.validateExistingPath(file, allowedDir);
         } catch (SecurityException e) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -543,7 +543,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             // Use PathValidationUtils to validate file is in allowed directory or temp
             File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
             try {
-                PathValidationUtils.validateExistingPath(file, allowedDir);
+                file = PathValidationUtils.validateExistingPath(file, allowedDir);
             } catch (SecurityException e) {
                 // File might be in temp directory from Teleplan API
                 if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
