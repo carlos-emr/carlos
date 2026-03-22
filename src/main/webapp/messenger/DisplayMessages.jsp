@@ -499,14 +499,13 @@
                                 String rowClass = "";
                                 String cellStyle = "";
                                 if ("messenger.DisplayMessages.msgStatusNew".equals(key) || "messenger.DisplayMessages.msgStatusUnread".equals(key)) {
-                                    rowClass = "newMessage";
                                     cellStyle = "font-weight: bold;";
                                 }
                                 if (dm.getType() == 3) {
-                                    rowClass += (rowClass.isEmpty() ? "" : " ") + "integratedMessage";
+                                    rowClass = "integratedMessage";
                                 }
                                 %>
-                                <tr>
+                                <tr class="<%=rowClass%>">
                                     <td style="width:25px;">
                                     <%if (pageType != 1){%>
                                        <input type="checkbox" name="messageNo" value="<%=Encode.forHtmlAttribute(dm.getMessageId()) %>">
