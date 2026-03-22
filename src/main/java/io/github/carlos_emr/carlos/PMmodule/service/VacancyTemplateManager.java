@@ -109,16 +109,34 @@ public interface VacancyTemplateManager {
         return (results);
     }
 
+    /**
+     * Retrieves vacancies for a waitlist program filtered by status.
+     *
+     * @param wlProgramId Integer the waitlist program identifier
+     * @param status String the vacancy status filter
+     * @return List&lt;Vacancy&gt; list of matching vacancies
+     */
     public static List<Vacancy> getVacanciesByWlProgramIdAndStatus(Integer wlProgramId, String status) {
         List<Vacancy> results = vacancyDAO.getVacanciesByWlProgramIdAndStatus(wlProgramId, status);
         return (results);
     }
 
+    /**
+     * Retrieves criteria type options for a given criteria type.
+     *
+     * @param typeId Integer the criteria type identifier
+     * @return List&lt;CriteriaTypeOption&gt; list of options for the criteria type
+     */
     public static List<CriteriaTypeOption> getCriteriaTypeOptions(Integer typeId) {
         List<CriteriaTypeOption> results = criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(typeId);
         return (results);
     }
 
+    /**
+     * Retrieves all criteria type options.
+     *
+     * @return List&lt;CriteriaTypeOption&gt; list of all criteria type options
+     */
     public static List<CriteriaTypeOption> getAllCriteriaTypeOptions() {
         List<CriteriaTypeOption> results = criteriaTypeOptionDAO.findAll();
         return (results);

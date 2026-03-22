@@ -34,6 +34,12 @@ import java.text.SimpleDateFormat;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 
+/**
+ * Value object representing the status of an MDS lab report, including acknowledgment
+ * state, provider routing, and date information.
+ *
+ * @since 2001-01-01
+ */
 public class ReportStatus {
 
     private String providerName;
