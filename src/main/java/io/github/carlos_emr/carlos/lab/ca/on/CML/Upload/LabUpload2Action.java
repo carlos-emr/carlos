@@ -50,6 +50,13 @@ import java.io.*;
 import java.nio.file.Files;
 import java.util.Date;
 
+/**
+ * Struts2 action for uploading CML (Canadian Medical Laboratories) lab result files
+ * in Ontario. Handles file upload, duplicate detection via MD5, and delegates parsing
+ * to the {@link ABCDParser}. Requires {@code _lab} write privilege.
+ *
+ * @since 2007-01-18
+ */
 public class LabUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

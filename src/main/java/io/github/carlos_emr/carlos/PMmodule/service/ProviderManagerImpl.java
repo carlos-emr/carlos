@@ -151,6 +151,7 @@ public class ProviderManagerImpl implements ProviderManager {
         return secUserRoleDao.getUserRoles(providerNo);
     }
 
+    /** {@inheritDoc} */
     public void saveUserRole(SecUserRole sur) {
         secUserRoleDao.save(sur);
     }
