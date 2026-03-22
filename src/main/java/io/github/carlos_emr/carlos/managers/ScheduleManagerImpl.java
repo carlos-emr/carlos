@@ -336,6 +336,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
+    /** {@inheritDoc} */
     public List<Object[]> listAppointmentsByPeriodProvider(LoggedInInfo loggedInInfo, Date sDate, Date eDate, String providers) {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
         LogAction.addLogSynchronous(loggedInInfo, "listAppointmentsByPeriodProvider", "/" + df.format(sDate)
@@ -356,6 +357,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return apptsExt;
     }
 
+    /** {@inheritDoc} */
     public List<Object[]> listProviderAppointmentCounts(LoggedInInfo loggedInInfo, String sDateStr, String eDateStr) {
         LogAction.addLogSynchronous(loggedInInfo, "listProviderAppointmentCounts", "sDateStr=" + sDateStr + ", eDateStr=" + eDateStr);
 

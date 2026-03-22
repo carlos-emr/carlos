@@ -28,6 +28,16 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+/**
+ * Callback hook for extending the demographic export process.
+ *
+ * <p>This class serves as a base callback that can be subclassed to inject
+ * custom processing logic during medication export in {@link DemographicExportHelper}.
+ * The default implementation is a no-op.</p>
+ *
+ * @see DemographicExportHelper
+ * @since 2026-03-17
+ */
 public class DemographicExportHelperCallback {
 
     public void callback() {

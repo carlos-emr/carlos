@@ -48,6 +48,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * );
  */
 
+/**
+ * Service class for managing named demographic sets (patient groups). Provides methods
+ * to create, retrieve, and modify sets of patient demographic numbers stored in the
+ * {@code demographicSets} database table. Supports eligibility tracking and soft deletion
+ * via archive flags.
+ *
+ * @see PatientSetDenominator
+ * @since 2001-01-01
+ */
 public class DemographicSets {
 
     private DemographicSetsDao demographicSetsDao = SpringUtils.getBean(DemographicSetsDao.class);

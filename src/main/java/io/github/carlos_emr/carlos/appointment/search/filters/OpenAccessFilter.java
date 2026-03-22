@@ -89,7 +89,14 @@ public class OpenAccessFilter implements AvailableTimeSlotFilter {
         return (true);
     }
 
-    //Used for testing to be able to adjust when "now" is
+    /**
+     * Returns the current time in milliseconds, or a testing override if the
+     * {@code nowDate} parameter is present.
+     *
+     * @param params Map&lt;String, String&gt; the filter parameters with optional "nowDate"
+     *               in {@code yyyy-MM-dd HH:mm:ss} format
+     * @return long the current time in milliseconds
+     */
     public long getCurrentTimeMillis(Map<String, String> params) {
         String nowDate = null;
         if (params != null && params.get("nowDate") != null) {

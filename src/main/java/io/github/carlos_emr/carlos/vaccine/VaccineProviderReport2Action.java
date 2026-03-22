@@ -41,6 +41,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that generates a vaccine provider report for a specific patient.
+ *
+ * <p>Retrieves patient demographic information (name, date of birth, health card number)
+ * and prepares it as request attributes for the report view. Used within the program
+ * management module for vaccine administration tracking.</p>
+ *
+ * @see ClientManager
+ * @since 2026-03-17
+ */
 public class VaccineProviderReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -49,18 +59,42 @@ public class VaccineProviderReport2Action extends ActionSupport {
 
     private ClientManager clientManager = SpringUtils.getBean(ClientManager.class);
 
+    /**
+     * Posts a localized action message with a parameter value.
+     *
+     * @param request HttpServletRequest the current HTTP request
+     * @param key String the message key for localization
+     * @param val String the parameter value to include in the message
+     */
     protected void postMessage(HttpServletRequest request, String key, String val) {
         addActionMessage(getText(key, val));
     }
 
+    /**
+     * Posts a localized action message.
+     *
+     * @param request HttpServletRequest the current HTTP request
+     * @param key String the message key for localization
+     */
     protected void postMessage(HttpServletRequest request, String key) {
         addActionMessage(getText(key));
     }
 
+    /**
+     * Retrieves the current provider number from the HTTP session.
+     *
+     * @param request HttpServletRequest the current HTTP request
+     * @return String the provider number stored in the session
+     */
     protected String getProviderNo(HttpServletRequest request) {
         return (String) request.getSession().getAttribute("user");
     }
 
+    /**
+     * Delegates to {@link #show_report()}.
+     *
+     * @return String the Struts2 result name
+     */
     public String execute() {
         return show_report();
     }

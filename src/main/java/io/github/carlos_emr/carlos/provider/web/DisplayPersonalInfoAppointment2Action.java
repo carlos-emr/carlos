@@ -50,15 +50,27 @@ public class DisplayPersonalInfoAppointment2Action extends ActionSupport {
 
 
     /**
-     * Creates a new instance of DisplayPersonalInfoAppointment2Action
+     * Default constructor.
      */
     public DisplayPersonalInfoAppointment2Action() {
     }
 
+    /**
+     * Delegates to {@link #toggle()} to flip the personal info display state.
+     *
+     * @return String {@code null} (no Struts result navigation)
+     */
     public String execute() {
         return toggle();
     }
 
+    /**
+     * Toggles the {@code showPersonal} session attribute between {@code true} and {@code false}.
+     *
+     * <p>If the attribute has not been set yet, it defaults to {@code true} on first toggle.</p>
+     *
+     * @return String {@code null} (no Struts result navigation)
+     */
     public String toggle() {
 
         Boolean showPersonal = (Boolean) request.getSession().getAttribute("showPersonal");

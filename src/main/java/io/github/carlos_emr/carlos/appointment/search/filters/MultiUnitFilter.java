@@ -38,6 +38,16 @@ import io.github.carlos_emr.carlos.appointment.search.TimeSlot;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 
 
+/**
+ * Filters time slots to ensure multi-unit (multi-slot) appointments have enough
+ * contiguous consecutive slots available.
+ *
+ * <p>When the required appointment duration exceeds a single time slot, this filter
+ * checks that sufficient consecutive available slots exist before including the
+ * starting slot in the results.</p>
+ *
+ * @since 2026-03-17
+ */
 public class MultiUnitFilter implements AvailableTimeSlotFilter {
 
     @Override
@@ -72,6 +82,21 @@ public class MultiUnitFilter implements AvailableTimeSlotFilter {
         return (filteredResults);
     }
 
+    /**
+     * Alternative implementation of multi-unit filtering that checks only the immediately
+     * following slot for contiguous availability. This is a simpler version that only
+     * verifies one additional consecutive slot.
+     *
+     * @param clinic SearchConfig the booking search configuration
+     * @param mrp String the Most Responsible Provider number
+     * @param providerId String the provider number
+     * @param appointmentTypeId Long the appointment type being booked
+     * @param dayWorkScheduleTransfer DayWorkSchedule the provider's work schedule
+     * @param currentlyAllowedTimeSlots List&lt;TimeSlot&gt; the candidate time slots
+     * @param date Calendar the date being searched
+     * @param params Map&lt;String, String&gt; the filter parameters
+     * @return List&lt;TimeSlot&gt; the filtered time slots
+     */
     public List<TimeSlot> filterAvailableTimeSlots2(SearchConfig clinic, String mrp, String providerId, Long appointmentTypeId, DayWorkSchedule dayWorkScheduleTransfer, List<TimeSlot> currentlyAllowedTimeSlots, Calendar date, Map<String, String> params) {
         int timeSlotLen = dayWorkScheduleTransfer.getTimeSlotDurationMin();
         // allowed time codes

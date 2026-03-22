@@ -66,6 +66,11 @@ public class SaveOnCallClinic2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Routes to Save, Delete, or Load based on the "method" request parameter.
+     *
+     * @return String null (responses are written directly to the output stream)
+     */
     public String execute() {
         String method = request.getParameter("method");
         if ("Save".equals(method)) {
@@ -76,6 +81,11 @@ public class SaveOnCallClinic2Action extends ActionSupport {
         return Load();
     }
 
+    /**
+     * Saves an on-call clinic entry from the "event" JSON request parameter.
+     *
+     * @return String null (JSON response written directly)
+     */
     public String Save() {
         String json = "{\"error\" : \"false\"}";
         try {
@@ -107,6 +117,11 @@ public class SaveOnCallClinic2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Deletes an on-call clinic entry by the "id" request parameter.
+     *
+     * @return String null (JSON response written directly)
+     */
     public String Delete() {
         OnCallClinicDao dao = SpringUtils.getBean(OnCallClinicDao.class);
         String json = "{\"error\" : \"false\"}";
@@ -129,6 +144,11 @@ public class SaveOnCallClinic2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Loads all on-call clinic entries and writes them as JSON to the response.
+     *
+     * @return String null (JSON array written directly to output stream)
+     */
     public String Load() {
         OnCallClinicDao dao = SpringUtils.getBean(OnCallClinicDao.class);
         List<OnCallClinic> onCallClinics = dao.findAll(null, null);

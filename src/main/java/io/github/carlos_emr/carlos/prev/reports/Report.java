@@ -157,10 +157,16 @@ public class Report {
         this.searchConfig = searchConfig;
     }
 
+    /**
+     * Increments the total patient count by one.
+     */
     public void incrementTotalPatients() {
         this.totalPatients++;
     }
 
+    /**
+     * Increments the ineligible patient count by one.
+     */
     public void incrementIneligiblePatients() {
         this.ineligiblePatients++;
     }

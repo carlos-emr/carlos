@@ -44,6 +44,27 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
 
+/**
+ * Represents a patient consent record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code Consent} table and tracks whether a patient has given or withdrawn
+ * consent for specific types of data sharing or treatment. Each consent record is linked to
+ * a {@link ConsentType} that defines the category of consent (e.g., data sharing with
+ * external systems, treatment consent).</p>
+ *
+ * <p>Consent can be in several states:</p>
+ * <ul>
+ *   <li><strong>Explicit consent:</strong> patient actively consented ({@code explicit=true})</li>
+ *   <li><strong>Opt-out:</strong> patient has opted out ({@code optout=true})</li>
+ *   <li><strong>Deleted:</strong> consent record has been removed ({@code deleted=true})</li>
+ * </ul>
+ *
+ * <p>The {@link #getPatientConsented()} transient method provides a convenience check
+ * that returns {@code true} when the record is not deleted and not opted out.</p>
+ *
+ * @see ConsentType
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "Consent")
 public class Consent extends AbstractModel<Integer> {

@@ -73,6 +73,17 @@ public class ImportLogDownload2Action extends ActionSupport {
     
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Downloads an import log file from the servlet's temp directory.
+     *
+     * <p>Validates the filename parameter, sanitizes it against path traversal,
+     * and streams the file content to the HTTP response.</p>
+     *
+     * @return String null on success (response already committed), "error" on failure
+     * @throws FileNotFoundException if the log file cannot be found
+     * @throws IOException if an I/O error occurs during streaming
+     * @throws SecurityException if the user lacks "_demographic" read privilege
+     */
     public String execute() throws FileNotFoundException, IOException {
         // Security check - user must have demographic read privileges
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {

@@ -64,6 +64,11 @@ public class DAO {
         }
     }
 
+    /**
+     * Safely closes a {@link PreparedStatement}, logging any errors.
+     *
+     * @param pstmt PreparedStatement the statement to close (may be null)
+     */
     protected void close(PreparedStatement pstmt) {
         if (pstmt != null) {
             try {
@@ -76,6 +81,11 @@ public class DAO {
         }
     }
 
+    /**
+     * Safely closes a {@link Connection}, logging any errors.
+     *
+     * @param conn Connection the connection to close (may be null)
+     */
     protected void close(Connection conn) {
         if (conn != null) {
             try {
@@ -88,6 +98,11 @@ public class DAO {
         }
     }
 
+    /**
+     * Safely rolls back a transaction on the given {@link Connection}, logging any errors.
+     *
+     * @param conn Connection the connection to roll back (may be null)
+     */
     protected void rollback(Connection conn) {
         if (conn != null) {
             try {
@@ -101,6 +116,12 @@ public class DAO {
     }
 
 
+    /**
+     * Joins an array of ID strings into a comma-separated string suitable for SQL IN clauses.
+     *
+     * @param ids String[] the array of IDs
+     * @return String the comma-separated string
+     */
     protected String getStrIn(String[] ids) {
         String id = "";
 

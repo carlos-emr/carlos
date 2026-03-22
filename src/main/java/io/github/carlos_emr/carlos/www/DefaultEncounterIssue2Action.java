@@ -64,6 +64,11 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
 
 
 
+    /**
+     * Routes the request to the appropriate handler method based on the "method" parameter.
+     *
+     * @return String the Struts result name ("list", "edit", "editRemove")
+     */
     public String execute() {
         String method = request.getParameter("method");
         if ("edit".equals(method)) {
@@ -78,6 +83,11 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Lists all configured default encounter issues.
+     *
+     * @return String the "list" result name
+     */
     public String list() {
         DefaultIssueDao issueDao = SpringUtils.getBean(DefaultIssueDao.class);
         if (issueDao == null) {
@@ -111,14 +121,31 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Navigates to the edit view for adding default issues.
+     *
+     * @return String the "edit" result name
+     */
     public String edit() {
         return "edit";
     }
 
+    /**
+     * Navigates to the edit view for removing default issues.
+     *
+     * @return String the "editRemove" result name
+     */
     public String editRemove() {
         return "editRemove";
     }
 
+    /**
+     * Saves the specified issue names as default encounter issues.
+     *
+     * <p>Resolves comma-separated issue names to their IDs and persists them.
+     *
+     * @return String the result of the list action after saving
+     */
     public String save() {
         String issueNames = request.getParameter("issueNames");
         if (issueNames == null || issueNames.length() == 0) {
@@ -190,6 +217,11 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Removes the specified issue names from the default encounter issues.
+     *
+     * @return String the result of the list action after removal
+     */
     public String remove() {
         String issueNames = request.getParameter("issueNames");
         if (issueNames == null || issueNames.length() == 0) {

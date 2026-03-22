@@ -165,10 +165,12 @@ public class ClientManagerImpl implements ClientManager {
         }
     }
 
+    /** {@inheritDoc} */
     public List<ClientReferral> searchReferrals(ClientReferral referral) {
         return referralDAO.search(referral);
     }
 
+    /** {@inheritDoc} */
     public void saveJointAdmission(JointAdmission admission) {
         if (admission == null) {
             throw new IllegalArgumentException();

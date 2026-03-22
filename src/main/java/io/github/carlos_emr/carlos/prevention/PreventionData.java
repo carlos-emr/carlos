@@ -227,6 +227,12 @@ public class PreventionData {
         }
     }
 
+    /**
+     * Updates the next scheduled date for a prevention record.
+     *
+     * @param date String the next date in "yyyy-MM-dd" format
+     * @param id String the prevention record ID
+     */
     public static void setNextPreventionDate(String date, String id) {
         try {
             Prevention prevention = preventionDao.find(Integer.valueOf(id));
@@ -238,6 +244,13 @@ public class PreventionData {
         }
     }
 
+    /**
+     * Resolves the provider name from a prevention data hash map. Falls back to
+     * the stored provider_name if the provider number is not available.
+     *
+     * @param hash Map&lt;String, Object&gt; the prevention data map
+     * @return String the provider name, or empty string if not found
+     */
     public static String getProviderName(Map<String, Object> hash) {
         String name = "";
         if (hash != null) {

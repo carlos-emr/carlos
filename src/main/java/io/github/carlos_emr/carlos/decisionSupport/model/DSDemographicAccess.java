@@ -649,6 +649,13 @@ public class DSDemographicAccess {
         return false;
     }
 
+    /**
+     * Checks if the patient's age matches all specified conditions (AND logic).
+     *
+     * @param ageStatements String comma-separated age conditions
+     * @return boolean true if all age conditions are satisfied
+     * @throws DecisionSupportException if age comparison fails
+     */
     public boolean isAgeAll(String ageStatements) throws DecisionSupportException {
         List<DSValue> statements = DSValue.createDSValues(ageStatements);
         for (DSValue statement : statements) {
@@ -659,7 +666,13 @@ public class DSDemographicAccess {
         return true;
     }
 
-    //ageStatement: ">2y"
+    /**
+     * Negation alias for isAgeNotany. Returns true if the age does not match any condition.
+     *
+     * @param ageStatement String age condition (e.g., ">2y")
+     * @return boolean true if the patient's age does not match
+     * @throws DecisionSupportException if age comparison fails
+     */
     public boolean isAgeNot(String ageStatement) throws DecisionSupportException {
         return isAgeNotany(ageStatement);
     }

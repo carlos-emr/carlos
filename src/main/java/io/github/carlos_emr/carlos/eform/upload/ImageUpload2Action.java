@@ -48,6 +48,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 
+/**
+ * Struts2 action that handles uploading image files to the eForm image directory.
+ * Sanitizes the filename to remove dangerous characters, validates the upload
+ * using {@link PathValidationUtils}, and copies the file to the image directory.
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @since 2006-05-25
+ */
 public class ImageUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

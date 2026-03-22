@@ -44,12 +44,30 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
 
+/**
+ * Struts2 action that handles uploading an HTML file to create a new eForm template.
+ * Reads the uploaded file content, escapes newline sequences for database storage,
+ * and saves the new eForm via {@link EFormUtil#saveEForm}.
+ *
+ * <p>Includes validation that the form name is provided, the file is not empty,
+ * and the form name does not already exist in the database.</p>
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @since 2006-05-25
+ */
 public class HtmlUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Reads the uploaded HTML file and saves it as a new eForm template.
+     *
+     * @return String {@code SUCCESS} on success, {@code "fail"} on error
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

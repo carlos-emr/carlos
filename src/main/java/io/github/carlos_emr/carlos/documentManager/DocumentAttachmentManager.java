@@ -31,7 +31,7 @@ import java.util.*;
  *   <li>Base64 encoding of PDFs for data transmission and storage</li>
  * </ul>
  *
- * <p>This interface is central to OpenO EMR's document management workflow and ensures
+ * <p>This interface is central to CARLOS EMR's document management workflow and ensures
  * proper handling of patient health information (PHI) in compliance with HIPAA/PIPEDA
  * regulatory requirements.</p>
  *
@@ -256,7 +256,7 @@ public interface DocumentAttachmentManager {
      * Converts an electronic form (eForm) to an electronic document (eDoc) for permanent archival.
      *
      * <p>This method renders an eForm as a PDF and saves it as an electronic document in the
-     * OpenO EMR document management system. This conversion creates a permanent, immutable record
+     * CARLOS EMR document management system. This conversion creates a permanent, immutable record
      * of the eForm data and any attachments, which is essential for regulatory compliance and
      * long-term patient record retention.</p>
      *

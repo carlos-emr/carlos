@@ -39,6 +39,16 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.Settings;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Manages FHIR configuration for outbound messages including Sender, Destination,
+ * and resource attribute filter settings.
+ *
+ * <p>Instantiates the Sender via {@link SenderFactory}, the Destination via
+ * {@link DestinationFactory}, and the ResourceAttributeFilter via
+ * {@link ResourceAttributeFilterFactory} based on the provided {@link Settings}.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class OscarFhirConfigurationManager {
 
     private static Logger logger = MiscUtils.getLogger();

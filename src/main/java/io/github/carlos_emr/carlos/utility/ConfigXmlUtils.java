@@ -158,14 +158,36 @@ public final class ConfigXmlUtils {
         return node != null ? StringUtils.trimToNull(node.getTextContent()) : null;
     }
 
+    /**
+     * Returns a configuration property value as a boolean.
+     *
+     * @param category String the configuration category
+     * @param property String the property name within the category
+     * @return boolean the property value parsed as a boolean
+     */
     public static boolean getPropertyBoolean(String category, String property) {
         return Boolean.parseBoolean(getPropertyString(category, property));
     }
 
+    /**
+     * Returns a configuration property value as an integer.
+     *
+     * @param category String the configuration category
+     * @param property String the property name within the category
+     * @return int the property value parsed as an integer
+     * @throws NumberFormatException if the property value is not a valid integer
+     */
     public static int getPropertyInt(String category, String property) {
         return Integer.parseInt(getPropertyString(category, property));
     }
 
+    /**
+     * Returns a configuration property as a list of strings (for list-type entries).
+     *
+     * @param category String the configuration category
+     * @param property String the property name within the category
+     * @return ArrayList&lt;String&gt; the list of string values, or {@code null} if not found
+     */
     public static ArrayList<String> getPropertyStringList(String category, String property) {
         ArrayList<Node> nodeList = (ArrayList) getProperty(config, category, property);
         if (nodeList == null) {
@@ -183,11 +205,25 @@ public final class ConfigXmlUtils {
         }
     }
 
+    /**
+     * Returns a configuration property as a raw XML {@link Node}.
+     *
+     * @param category String the configuration category
+     * @param property String the property name within the category
+     * @return Node the XML node, or {@code null} if not found
+     */
     public static Node getPropertyNode(String category, String property) {
         Node node = (Node) getProperty(config, category, property);
         return node;
     }
 
+    /**
+     * Returns a configuration property as a list of XML nodes (for list-type entries).
+     *
+     * @param category String the configuration category
+     * @param property String the property name within the category
+     * @return ArrayList&lt;Node&gt; the list of XML nodes, or {@code null} if not found
+     */
     public static ArrayList<Node> getPropertyNodeList(String category, String property) {
         ArrayList<Node> nodeList = (ArrayList) getProperty(config, category, property);
         return nodeList;

@@ -45,7 +45,15 @@ import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 
 /**
- * Implementation of ProgramDao interface for database access to Program model objects.
+ * JPA-based implementation of {@link ProgramDao} for database access to {@link Program} entities.
+ *
+ * <p>Uses JPA Criteria API for complex searches with SOUNDEX matching,
+ * and typed queries for standard lookups. Supports filtering by program type,
+ * status, facility, gender, and various health-related flags.</p>
+ *
+ * @since 2005-01-18
+ * @see ProgramDao
+ * @see Program
  */
 @Transactional
 public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramDao {

@@ -35,6 +35,16 @@ import io.github.carlos_emr.carlos.dashboard.query.DrillDownAction;
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
 
+/**
+ * Abstract base class for dashboard display data transfer objects. Holds common indicator
+ * metadata such as name, category, framework information, query parameters, ranges,
+ * drilldown actions, and query results.
+ *
+ * <p>Subclasses ({@link IndicatorBean}, {@link DrilldownBean}) extend this with
+ * display-specific fields such as graph plots or table data.</p>
+ *
+ * @since 2026-03-17
+ */
 public abstract class AbstractDataDisplayBean {
 
     private Integer id;

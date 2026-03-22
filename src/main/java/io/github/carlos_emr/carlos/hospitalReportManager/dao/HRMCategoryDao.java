@@ -23,6 +23,13 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link HRMCategory} entities, providing lookups by ID,
+ * sub-class name/mnemonic, sending facility, and text search.
+ *
+ * @see HRMCategory
+ * @since 2008-11-05
+ */
 @Repository
 public class HRMCategoryDao extends AbstractDaoImpl<HRMCategory> {
 
@@ -30,6 +37,12 @@ public class HRMCategoryDao extends AbstractDaoImpl<HRMCategory> {
         super(HRMCategory.class);
     }
 
+    /**
+     * Finds HRM categories by their primary key ID.
+     *
+     * @param id int the category ID
+     * @return List&lt;HRMCategory&gt; matching categories (typically zero or one)
+     */
     public List<HRMCategory> findById(int id) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.id=?1";
         Query query = entityManager.createQuery(sql);
@@ -39,6 +52,11 @@ public class HRMCategoryDao extends AbstractDaoImpl<HRMCategory> {
         return documents;
     }
 
+    /**
+     * Returns all HRM categories.
+     *
+     * @return List&lt;HRMCategory&gt; all categories in the system
+     */
     public List<HRMCategory> findAll() {
         String sql = "select x from " + this.modelClass.getName() + " x ";
         Query query = entityManager.createQuery(sql);
@@ -47,6 +65,13 @@ public class HRMCategoryDao extends AbstractDaoImpl<HRMCategory> {
         return documents;
     }
 
+    /**
+     * Finds an HRM category by sub-class name/mnemonic and sending facility ID.
+     *
+     * @param sendingFacilityId String the sending facility identifier
+     * @param subClassNameMnemonic String the sub-class name mnemonic
+     * @return HRMCategory the matching category, or {@code null} if not found
+     */
     public HRMCategory findBySubClassNameMnemonic(String sendingFacilityId, String subClassNameMnemonic) {
         String sql = "select x from " + modelClass.getSimpleName() + " x where x.subClassNameMnemonic=?1 and x.sendingFacilityId = ?2";
         Query query = entityManager.createQuery(sql);
@@ -56,6 +81,12 @@ public class HRMCategoryDao extends AbstractDaoImpl<HRMCategory> {
 
     }
 
+    /**
+     * Finds an HRM category by sub-class name/mnemonic regardless of sending facility.
+     *
+     * @param subClassNameMnemonic String the sub-class name mnemonic
+     * @return HRMCategory the matching category, or {@code null} if not found
+     */
     public HRMCategory findBySubClassNameMnemonic(String subClassNameMnemonic) {
         try {
             String sql = "select x from " + modelClass.getSimpleName() + " x where x.subClassNameMnemonic=?1";

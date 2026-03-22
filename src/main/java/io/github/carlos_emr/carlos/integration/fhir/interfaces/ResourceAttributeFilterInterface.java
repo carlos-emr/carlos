@@ -31,6 +31,15 @@ package io.github.carlos_emr.carlos.integration.fhir.interfaces;
 
 import io.github.carlos_emr.carlos.integration.fhir.resources.ResourceAttributeFilter;
 
+/**
+ * Interface for filtering optional and mandatory FHIR resource attributes.
+ *
+ * <p>Provides a mechanism to control which attributes are included or required
+ * in outbound FHIR messages on a per-destination basis. Implementations
+ * consult filter properties files to determine attribute inclusion.</p>
+ *
+ * @since 2026-03-17
+ */
 public interface ResourceAttributeFilterInterface {
 
     public enum OptionalFHIRAttribute {

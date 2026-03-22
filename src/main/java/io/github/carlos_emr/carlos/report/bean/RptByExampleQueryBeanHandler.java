@@ -41,6 +41,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Handler that loads "Report By Example" saved queries from the database and
+ * converts them into {@link RptByExampleQueryBean} collections. Supports loading
+ * provider favourites, all queries, and queries filtered by date range.
+ *
+ * @see RptByExampleQueryBean
+ * @since 2001-01-01
+ */
 @SuppressWarnings("unchecked")
 public class RptByExampleQueryBeanHandler {
 

@@ -45,7 +45,11 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
- * @author Jay Gallagher
+ * Base servlet for secure file downloads. Resolves the download directory from a CARLOS
+ * property, validates file paths using {@link PathValidationUtils} to prevent path traversal
+ * attacks, and streams the file to the HTTP response with appropriate content-type headers.
+ *
+ * @since 2001-01-01
  */
 public class GenericDownload extends HttpServlet {
 

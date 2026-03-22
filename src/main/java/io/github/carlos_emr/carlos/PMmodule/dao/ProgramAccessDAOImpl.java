@@ -45,7 +45,15 @@ import io.github.carlos_emr.carlos.utility.QueueCache;
 import org.springframework.stereotype.Repository;
 
 /**
- * Implementation of ProgramAccessDAO interface for database access to ProgramAccess model objects.
+ * JPA-based implementation of {@link ProgramAccessDAO} for managing
+ * {@link ProgramAccess} and {@link AccessType} entities.
+ *
+ * <p>Uses a {@link QueueCache} to cache access lists by program ID with
+ * a one-hour TTL for performance optimization.</p>
+ *
+ * @since 2005-01-18
+ * @see ProgramAccessDAO
+ * @see ProgramAccess
  */
 @Repository
 public class ProgramAccessDAOImpl extends AbstractDaoImpl<ProgramAccess> implements ProgramAccessDAO {
