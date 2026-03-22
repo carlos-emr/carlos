@@ -28,6 +28,13 @@
  */
 package io.github.carlos_emr.carlos.dashboard.query;
 
+/**
+ * Defines the contract for range limit values used in dashboard query parameter
+ * substitution. Implementations ({@link RangeLowerLimit}, {@link RangeUpperLimit})
+ * represent the lower and upper boundaries of a range filter.
+ *
+ * @since 2026-03-17
+ */
 public interface RangeInterface {
 
     enum Limit {RangeUpperLimit, RangeLowerLimit}

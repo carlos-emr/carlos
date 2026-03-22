@@ -29,12 +29,12 @@ package io.github.carlos_emr.carlos.model.security;
 import java.util.Date;
 
 /**
- * Provider entity.
+ * Hibernate entity representing a healthcare provider in the security subsystem,
+ * mapped to the provider table. Contains provider identification, contact details,
+ * login credentials, and status information.
  *
- * @author JZhang
+ * @since 2005-01-01
  */
-
-
 public class SecProvider implements java.io.Serializable {
 
     // Fields

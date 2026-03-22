@@ -26,6 +26,12 @@
 
 package io.github.carlos_emr.carlos.model.security;
 
+/**
+ * Exception thrown when a user lacks the required security privileges to access
+ * a protected resource or perform a restricted action.
+ *
+ * @since 2005-01-01
+ */
 public class NoAccessException extends Exception {
     private static final long serialVersionUID = -4444364883235024698L;
 

@@ -371,6 +371,7 @@ public class ProgramManagerImpl implements ProgramManager {
         return this.programAccessDAO.getProgramAccess(Long.valueOf(programId), Long.valueOf(accessTypeId));
     }
 
+    /** {@inheritDoc} */
     public List<Program> getProgramDomain(String providerNo) {
         List<Program> programDomain = new ArrayList<Program>();
 
@@ -385,6 +386,7 @@ public class ProgramManagerImpl implements ProgramManager {
     }
 
 
+    /** {@inheritDoc} */
     public List<Program> getActiveProgramDomain(String providerNo) {
         List<Program> programDomain = new ArrayList<Program>();
 

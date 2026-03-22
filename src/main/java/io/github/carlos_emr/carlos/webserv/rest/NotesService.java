@@ -112,6 +112,11 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 @Path("/notes")
 @Component("notesService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for clinical case management note operations.
+ *
+ * @since 2012-08-13
+ */
 public class NotesService extends AbstractServiceImpl {
 
     public static String cppCodes[] = {"OMeds", "SocHistory", "MedHistory", "Concerns", "FamHistory", "Reminders", "RiskFactors", "OcularMedication", "TicklerNote"};

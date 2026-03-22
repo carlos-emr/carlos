@@ -55,6 +55,11 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 @Path("/inbox")
 @Component("inboxService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for provider inbox operations including lab results and documents.
+ *
+ * @since 2012-08-13
+ */
 public class InboxService extends AbstractServiceImpl {
 
     @Autowired

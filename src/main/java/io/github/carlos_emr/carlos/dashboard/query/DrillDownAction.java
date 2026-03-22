@@ -30,8 +30,13 @@ package io.github.carlos_emr.carlos.dashboard.query;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
-/*
- * A simple database query parameter POJO
+/**
+ * Represents an action available in a dashboard drilldown view, such as adding a
+ * diagnosis code to the disease registry ("dxUpdate") or excluding patients from
+ * an indicator. Each action has an ID, a display name, and an optional value
+ * (e.g., an ICD-9 code for disease registry updates).
+ *
+ * @since 2026-03-17
  */
 public class DrillDownAction {
 

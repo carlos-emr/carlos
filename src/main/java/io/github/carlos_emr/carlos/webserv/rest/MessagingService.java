@@ -48,6 +48,11 @@ import org.springframework.stereotype.Component;
 @Path("/messaging")
 @Component("messagingService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for inter-provider messaging operations.
+ *
+ * @since 2012-08-13
+ */
 public class MessagingService extends AbstractServiceImpl {
 
     @Autowired

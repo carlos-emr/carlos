@@ -90,6 +90,11 @@ import java.util.List;
 @Path("/measurements")
 @Component("measurementService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for clinical measurement and vital signs operations.
+ *
+ * @since 2012-08-13
+ */
 public class MeasurementService extends AbstractServiceImpl {
     /** Security manager for OAuth authentication and authorization. */
     @Autowired

@@ -71,6 +71,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 @Path("/labs")
 @Component("labService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for laboratory result retrieval and management operations.
+ *
+ * @since 2012-08-13
+ */
 public class LabService extends AbstractServiceImpl {
 	private static Logger logger = MiscUtils.getLogger();
 

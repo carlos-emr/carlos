@@ -79,6 +79,11 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 @Path("/forms")
 @Component("formsService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for encounter form operations.
+ *
+ * @since 2012-08-13
+ */
 public class FormsService extends AbstractServiceImpl {
     Logger logger = MiscUtils.getLogger();
 
