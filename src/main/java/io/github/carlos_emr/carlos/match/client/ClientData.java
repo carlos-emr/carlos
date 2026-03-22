@@ -34,7 +34,16 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * @author AnooshTech
+ * Data transfer object holding a waitlisted client's attributes for vacancy matching.
+ *
+ * <p>Contains the client (demographic) identifier, the associated waitlist intake form
+ * identifier, and a map of attribute key-value pairs extracted from the intake form.
+ * These attributes are compared against {@link VacancyTemplateData} criteria during
+ * the matching process.</p>
+ *
+ * @see VacancyData
+ * @see Matcher
+ * @since 2026-03-17
  */
 public class ClientData {
     private int clientId;

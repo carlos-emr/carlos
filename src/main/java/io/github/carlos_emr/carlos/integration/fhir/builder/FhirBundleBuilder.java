@@ -141,6 +141,11 @@ public class FhirBundleBuilder extends AbstractFhirMessageBuilder<Bundle> {
         addResource(messageHeader);
     }
 
+    /**
+     * Adds a set of CARLOS FHIR resources to the bundle.
+     *
+     * @param oscarFhirResources the set of resources to add as bundle entries
+     */
     public void addResources(HashSet<AbstractOscarFhirResource<?, ?>> oscarFhirResources) {
         for (AbstractOscarFhirResource<?, ?> oscarFhirResource : oscarFhirResources) {
             addResource(oscarFhirResource);

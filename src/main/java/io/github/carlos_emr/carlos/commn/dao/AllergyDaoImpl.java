@@ -37,12 +37,22 @@ import jakarta.persistence.Query;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * JPA implementation of {@link AllergyDao} for managing patient allergy records.
+ * <p>
+ * Provides JPQL-based queries for retrieving and filtering allergy data by patient,
+ * active status, severity, update date, and custom allergy type.
+ *
+ * @since 2005
+ */
 public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyDao {
 
+    /** Constructs the allergy DAO for the {@link Allergy} entity class. */
     public AllergyDaoImpl() {
         super(Allergy.class);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Allergy> findAllergies(Integer demographic_no) {
         String sql = "select x from " + modelClass.getSimpleName()
@@ -55,6 +65,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
         return allergies;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Allergy> findActiveAllergies(Integer demographic_no) {
         String sql = "select x from " + modelClass.getSimpleName()
@@ -67,6 +78,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
         return allergies;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Allergy> findActiveAllergiesOrderByDescription(Integer demographic_no) {
         String sql = "select x from " + modelClass.getSimpleName()
@@ -79,6 +91,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
         return allergies;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Allergy> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date updatedAfterThisDate) {
         String sqlCommand = "select x from " + modelClass.getSimpleName()
@@ -95,6 +108,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
     }
 
     // for integrator
+    /** {@inheritDoc} */
     @Override
     public List<Integer> findDemographicIdsUpdatedAfterDate(Date updatedAfterThisDate) {
         String sqlCommand = "select x.demographicNo from Allergy x where x.lastUpdateDate>?1";
@@ -150,6 +164,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
         return (results);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Allergy> findAllCustomAllergiesWithNullNonDrugFlag(int start, int limit) {
         String sqlCommand = "select x from " + modelClass.getSimpleName()

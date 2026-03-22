@@ -38,6 +38,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Defines the matching criteria for a single parameter of a vacancy template.
+ *
+ * <p>Each instance represents one matchable attribute (e.g., age, gender, diagnosis)
+ * with its acceptable values or ranges and matching weight. The {@link #matches(String)}
+ * method computes a match score (0-100) for a given client attribute value using
+ * exact matching, range checking, or Levenshtein distance-based fuzzy matching.</p>
+ *
+ * @see VacancyData
+ * @see Matcher
+ * @since 2026-03-17
+ */
 public class VacancyTemplateData {
     private static final Logger logger = MiscUtils.getLogger();
     private static final int MAX_WEIGHT = 100;
@@ -52,6 +64,17 @@ public class VacancyTemplateData {
     //TODO: Probably want to use the Gender object here. I'm not sure where these values are coming from at this time
     private List<String> transaGender = Arrays.asList("male", "female", "m", "f", "transgender");
 
+    /**
+     * Computes a match score (0-100) for the given client attribute value against
+     * this template's criteria.
+     *
+     * <p>Matching strategy depends on the parameter type: gender parameters use
+     * keyword containment, range parameters check numeric bounds, and other parameters
+     * use Levenshtein distance-based fuzzy matching.</p>
+     *
+     * @param value String the client's attribute value to match against this template
+     * @return int the match score from 0 (no match) to 100 (perfect match)
+     */
     public int matches(String value) {
         if (this.weight == 0) {
             this.weight = 1;
@@ -154,6 +177,15 @@ public class VacancyTemplateData {
         this.values = values;
     }
 
+    /**
+     * Adds a numeric range criterion to this template parameter.
+     *
+     * <p>Null boundaries are treated as unbounded (min defaults to {@link Integer#MIN_VALUE},
+     * max defaults to {@link Integer#MAX_VALUE}).</p>
+     *
+     * @param min Integer the lower bound of the range, or {@code null} for unbounded
+     * @param max Integer the upper bound of the range, or {@code null} for unbounded
+     */
     public void addRange(Integer min, Integer max) {
         if (min == null) {
             min = Integer.MIN_VALUE;

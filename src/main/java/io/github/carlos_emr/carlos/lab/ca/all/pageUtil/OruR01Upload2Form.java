@@ -34,6 +34,12 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import java.io.File;
 
+/**
+ * Form bean for the ORU_R01 lab upload action, holding client demographic data,
+ * message subject and text, and the uploaded file reference.
+ *
+ * @since 2007-01-18
+ */
 public class OruR01Upload2Form {
 
     private Integer professionalSpecialistId = null;

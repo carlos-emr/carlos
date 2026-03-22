@@ -43,6 +43,21 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents a billing record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code billing} table and tracks healthcare billing claims submitted for
+ * patient visits. Each billing record links a patient (demographic) to a provider, appointment,
+ * and the associated financial details such as service codes, claim amounts, and claim status.</p>
+ *
+ * <p>Billing records include both the submitting provider and the appointment provider,
+ * as well as OHIP and RMA numbers for Ontario billing integration. The {@code billingtype}
+ * field indicates the billing category (e.g., provincial health insurance, private, WCB).</p>
+ *
+ * @see Appointment
+ * @see Demographic
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "billing")
 public class Billing extends AbstractModel<Integer> {
@@ -124,6 +139,7 @@ public class Billing extends AbstractModel<Integer> {
     private String billingtype;
 
 
+    /** {@inheritDoc} */
     public Integer getId() {
         return id;
     }
@@ -244,6 +260,11 @@ public class Billing extends AbstractModel<Integer> {
         return status;
     }
 
+    /**
+     * Returns the billing status interpreted as a boolean value.
+     *
+     * @return boolean the status converted from its string representation
+     */
     public boolean getStatusAsBoolean() {
         return ConversionUtils.fromBoolString(getStatus());
     }

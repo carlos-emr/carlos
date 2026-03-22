@@ -73,6 +73,14 @@ public class PreventionItem {
         datePreformed = d;
     }
 
+    /**
+     * Constructs a prevention item with type, dates, and never-warn flag.
+     *
+     * @param name String the prevention type name
+     * @param dPreformed Date the date the prevention was performed
+     * @param never String "1" if marked as never, "0" otherwise
+     * @param dNext Date the next scheduled prevention date
+     */
     public PreventionItem(String name, Date dPreformed, String never, Date dNext) {
         this.name = name;
         this.datePreformed = dPreformed;
@@ -80,6 +88,15 @@ public class PreventionItem {
         this.nextDate = dNext;
     }
 
+    /**
+     * Constructs a prevention item with type, dates, never-warn flag, and result code.
+     *
+     * @param name String the prevention type name
+     * @param dPreformed Date the date the prevention was performed
+     * @param never String "1" if marked as never, "0" otherwise
+     * @param dNext Date the next scheduled prevention date
+     * @param result String the result code; "2" indicates ineligible
+     */
     public PreventionItem(String name, Date dPreformed, String never, Date dNext, String result) {
         this.name = name;
         this.datePreformed = dPreformed;
@@ -88,6 +105,11 @@ public class PreventionItem {
         this.inelligible = result.equalsIgnoreCase("2");
     }
 
+    /**
+     * Constructs a prevention item from a persistent {@link Prevention} model entity.
+     *
+     * @param pp Prevention the database prevention entity to copy from
+     */
     public PreventionItem(Prevention pp) {
         this.name = pp.getPreventionType();
         this.datePreformed = pp.getPreventionDate();

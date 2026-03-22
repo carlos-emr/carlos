@@ -218,6 +218,13 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Returns the description for a given ICD-9 code as a JSON response.
+     * Writes the JSON object containing {@code icd9code} and {@code description}
+     * fields directly to the response output stream.
+     *
+     * @return String {@code null} after writing JSON, or "error" if JSON serialization fails
+     */
     public String getICD9Description() {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -240,6 +247,13 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Sets the patient status to inactive for multiple demographics. Requires
+     * {@code _demographic} write privilege. Logs audit entries and sends
+     * notification messages to the provider and MRP.
+     *
+     * @return String {@code null} after processing, or "unauthorized" if privilege check fails
+     */
     public String setPatientsInactive() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

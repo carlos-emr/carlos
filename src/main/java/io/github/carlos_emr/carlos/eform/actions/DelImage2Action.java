@@ -51,6 +51,15 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that deletes an eForm image file from the configured image
+ * directory. Sanitizes the filename to prevent path traversal attacks and
+ * validates the resolved path using {@link PathValidationUtils}.
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @since 2006-05-25
+ */
 public class DelImage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -58,6 +67,13 @@ public class DelImage2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Deletes the image file specified by the {@code filename} request parameter.
+     * Sanitizes the filename and validates the path before deletion.
+     *
+     * @return String {@code SUCCESS} on success, {@code ERROR} on failure
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

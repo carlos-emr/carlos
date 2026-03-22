@@ -45,7 +45,17 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
 /**
- * @author jay
+ * Struts2 action for deleting bidirectional demographic relationships.
+ *
+ * <p>Deletes both sides of a patient relationship (e.g., if "Parent" is deleted from
+ * patient A to B, the corresponding "Child" from B to A is also removed). Uses
+ * relationship type mapping to find the inverse relationship record.</p>
+ *
+ * <p><b>Security:</b> Requires "_demographic" write privilege. Deletion is logged
+ * via {@link LogAction}.</p>
+ *
+ * @see io.github.carlos_emr.carlos.demographic.data.DemographicRelationship
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -63,6 +73,12 @@ public class DeleteDemographicRelationship2Action extends ActionSupport {
     public DeleteDemographicRelationship2Action() {
     }
 
+    /**
+     * Deletes a demographic relationship and its inverse counterpart.
+     *
+     * @return String SUCCESS after deletion
+     * @throws SecurityException if the user lacks "_demographic" write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {

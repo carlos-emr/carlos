@@ -43,12 +43,27 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that performs a diagnosis code search and stores results in the session.
+ *
+ * <p>Accepts up to five diagnosis code keywords and a coding system type, searches
+ * for matching codes, and stores the results in the HTTP session for the search
+ * results JSP. Requires {@code _dxresearch} read privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class dxResearchCodeSearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Searches for diagnosis codes matching the submitted keywords and stores results in session.
+     *
+     * @return String "success" on successful search
+     * @throws Exception if an error occurs during the search
+     */
     public String execute()
             throws Exception {
 

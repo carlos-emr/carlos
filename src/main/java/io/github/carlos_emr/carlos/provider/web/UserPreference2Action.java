@@ -258,6 +258,16 @@ public class UserPreference2Action extends ActionSupport {
         return "name=\"" + key + "\" value=\"" + val + "\"";
     }
 
+    /**
+     * Generates an HTML {@code <select>} element with options for the given preference key.
+     *
+     * <p>Options are determined by {@link #getOptions(String)} based on the key.
+     * The option matching the current preference value is marked as selected.</p>
+     *
+     * @param prefs Map&lt;String, String&gt; the current preferences
+     * @param key String the preference key determining which options to display
+     * @return String the complete HTML select element
+     */
     public static String getSelect(Map<String, String> prefs, String key) {
         StringBuilder sb = new StringBuilder();
 
@@ -373,6 +383,11 @@ public class UserPreference2Action extends ActionSupport {
         return options;
     }
 
+    /**
+     * Constructs a list of Canadian provinces/territories and US states for health card type selection.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; province/state options with display labels and code values
+     */
     public static ArrayList<LabelValueBean> constructProvinceList() {
 
         ArrayList<LabelValueBean> provinces = new ArrayList<LabelValueBean>();
@@ -451,6 +466,11 @@ public class UserPreference2Action extends ActionSupport {
         return provinces;
     }
 
+    /**
+     * Constructs a list of billing service types for workload management selection.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; unique billing service type options
+     */
     public static ArrayList<LabelValueBean> constructWorkloadManagementList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 

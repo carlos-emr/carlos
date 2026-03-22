@@ -41,6 +41,13 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * Struts2 action that adds an eForm to a named group. Requires {@code _eform}
+ * write privilege.
+ *
+ * @see EFormUtil#addEFormToGroup(String, String)
+ * @since 2006-05-25
+ */
 public class AddToGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -48,6 +55,13 @@ public class AddToGroup2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Adds the eForm identified by {@code fid} to the group identified by
+     * {@code groupName}, then sets the group view attribute for the result page.
+     *
+     * @return String {@code SUCCESS} result name
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");

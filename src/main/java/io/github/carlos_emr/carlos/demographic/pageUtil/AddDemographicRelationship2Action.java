@@ -46,7 +46,21 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 // TODO STRUTS2 - not sure if we need the servlet, thinking it is still needed so left it with the merge. Review if issues.
 
 /**
- * @author Jay Gallagher
+ * Struts2 action for creating bidirectional demographic relationships between patients.
+ *
+ * <p>This action handles adding a relationship (e.g., parent, spouse, sibling) between
+ * two patient demographics. It also creates the inverse relationship automatically
+ * using the {@link CtlRelationshipsDao} to look up gender-appropriate inverse relation
+ * names (e.g., if "Mother" is added, "Son" or "Daughter" is created in reverse).</p>
+ *
+ * <p>Relationships can be tagged as Substitute Decision Maker (SDM) and/or Emergency
+ * Contact, and are scoped to the current facility when applicable.</p>
+ *
+ * <p><b>Security:</b> Requires "_demographic" write privilege.</p>
+ *
+ * @see io.github.carlos_emr.carlos.demographic.data.DemographicRelationship
+ * @see io.github.carlos_emr.carlos.commn.dao.CtlRelationshipsDao
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -59,10 +73,21 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Constructs a new AddDemographicRelationship2Action instance.
+     */
     public AddDemographicRelationship2Action() {
 
     }
 
+    /**
+     * Creates a demographic relationship and its inverse between two patients.
+     *
+     * <p>Request parameters: origDemo, linkingDemo, relation, sdm, emergContact, notes, pmmClient.</p>
+     *
+     * @return String "pmmClient" if called from PMM client flow, otherwise SUCCESS
+     * @throws SecurityException if the user lacks "_demographic" write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {

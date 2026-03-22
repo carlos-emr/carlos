@@ -435,14 +435,32 @@ public class DSDemographicAccess {
         return true;
     }
 
+    /**
+     * Negation alias for hasDxCodesNotany. Returns true if no specified diagnosis codes match.
+     *
+     * @param dxCodesStr String comma-separated diagnosis codes in "type:code" format
+     * @return boolean true if the patient has none of the specified diagnoses
+     */
     public boolean hasDxCodesNot(String dxCodesStr) {
         return hasDxCodesNotany(dxCodesStr);
     }
 
+    /**
+     * Checks if not all of the specified diagnosis codes are present (NOT AND logic).
+     *
+     * @param dxCodesStr String comma-separated diagnosis codes
+     * @return boolean true if at least one specified diagnosis is absent
+     */
     public boolean hasDxCodesNotall(String dxCodesStr) {
         return !hasDxCodesAll(dxCodesStr);
     }
 
+    /**
+     * Checks that none of the specified diagnosis codes are present (NOT OR logic).
+     *
+     * @param dxCodesStr String comma-separated diagnosis codes
+     * @return boolean true if the patient has none of the specified diagnoses
+     */
     public boolean hasDxCodesNotany(String dxCodesStr) {
         return !hasDxCodesAny(dxCodesStr);
     }

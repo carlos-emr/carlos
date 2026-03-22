@@ -45,6 +45,13 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that extracts and downloads a Base64-encoded PDF document embedded
+ * within an HL7 lab result OBX segment. Supports both standard and legacy OBX result
+ * extraction for PATHL7 (Excelleris) labs. Requires {@code _lab} read privilege.
+ *
+ * @since 2007-01-18
+ */
 public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

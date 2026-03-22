@@ -53,6 +53,19 @@ import io.github.carlos_emr.carlos.commn.model.JointAdmission;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of {@link ClientManager} for managing clients within the
+ * CARLOS EMR Program Management module.
+ *
+ * <p>Handles client demographics, referral processing, joint admission (family) management,
+ * demographic extensions, and health card validation. Coordinates with
+ * {@link ProgramQueueManager} for queue operations, {@link AdmissionManager} for admission
+ * checks, and {@link ClientRestrictionManager} for service restriction enforcement.</p>
+ *
+ * @see ClientManager
+ * @see Demographic
+ * @since 2005
+ */
 @Transactional
 public class ClientManagerImpl implements ClientManager {
 

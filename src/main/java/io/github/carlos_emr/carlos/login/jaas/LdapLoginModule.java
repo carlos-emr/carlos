@@ -49,7 +49,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
 /**
- * Login module for authenticating user against LDAP.
+ * JAAS login module that authenticates CARLOS EMR providers against an LDAP directory.
+ *
+ * <p>Extends {@link BaseLoginModule} to provide LDAP-based credential validation.
+ * After successful LDAP bind, loads the provider's {@link OscarPrincipal} and roles
+ * from the CARLOS EMR database.
+ *
+ * <p>Supports configurable authentication methods (simple or DIGEST-MD5) and
+ * customizable LDAP URL and base DN via JAAS configuration options.
+ *
+ * @see BaseLoginModule
+ * @see LoginModuleFactory for configuration and context creation
+ * @since 2026-03-17
  */
 public final class LdapLoginModule extends BaseLoginModule {
 

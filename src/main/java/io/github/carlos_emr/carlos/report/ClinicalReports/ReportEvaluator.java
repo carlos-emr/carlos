@@ -195,10 +195,20 @@ public class ReportEvaluator {
         return denominatorCount;
     }
 
+    /**
+     * Returns the number of patients who passed all numerator criteria.
+     *
+     * @return int the numerator count
+     */
     public int getNumeratorCount() {
         return numeratorCount;
     }
 
+    /**
+     * Calculates the percentage of patients who passed the numerator criteria.
+     *
+     * @return float the percentage (0-100), or 0 on division by zero
+     */
     public float getPercentage() {
         float percentage = 0;
         try {
@@ -211,6 +221,11 @@ public class ReportEvaluator {
         return percentage;
     }
 
+    /**
+     * Returns the percentage as a truncated integer.
+     *
+     * @return int the percentage as an integer (0-100)
+     */
     public int getPercentageInt() {
         return Float.valueOf(getPercentage()).intValue();
     }

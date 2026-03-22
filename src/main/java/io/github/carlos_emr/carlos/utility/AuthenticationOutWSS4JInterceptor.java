@@ -35,9 +35,25 @@ import javax.security.auth.callback.CallbackHandler;
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor;
 import org.apache.wss4j.common.ext.WSPasswordCallback;
 
+/**
+ * CXF outbound interceptor that adds WS-Security UsernameToken authentication
+ * headers to SOAP web service requests.
+ *
+ * <p>Configures WSS4J with UsernameToken action using plaintext password type
+ * and acts as its own {@link CallbackHandler} to provide the password during
+ * token generation.
+ *
+ * @since 2026-03-17
+ */
 public class AuthenticationOutWSS4JInterceptor extends WSS4JOutInterceptor implements CallbackHandler {
     private String password = null;
 
+    /**
+     * Creates an interceptor configured for UsernameToken authentication.
+     *
+     * @param user     Object the username (converted to String via {@code toString()})
+     * @param password String the password for the UsernameToken
+     */
     public AuthenticationOutWSS4JInterceptor(Object user, String password) {
         this.password = password;
         HashMap<String, Object> properties = new HashMap();
@@ -48,6 +64,12 @@ public class AuthenticationOutWSS4JInterceptor extends WSS4JOutInterceptor imple
         this.setProperties(properties);
     }
 
+    /**
+     * Handles WSS4J password callbacks by setting the stored password on any
+     * {@link WSPasswordCallback} instances.
+     *
+     * @param callbacks Callback[] the security callbacks to handle
+     */
     public void handle(Callback[] callbacks) {
         Callback[] arr$ = callbacks;
         int len$ = callbacks.length;

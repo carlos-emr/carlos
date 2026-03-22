@@ -47,6 +47,15 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that loads and displays a clinical dashboard for the logged-in provider.
+ *
+ * <p>Retrieves the dashboard configuration and indicator panels via {@link DashboardManager}.
+ * Supports provider switching for users with {@code _dashboardChgUser} read privilege,
+ * allowing administrators to view dashboards for other providers.</p>
+ *
+ * @since 2026-03-17
+ */
 public class DisplayDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -48,16 +48,33 @@ import io.github.carlos_emr.carlos.integration.fhir.model.Destination;
 import io.github.carlos_emr.carlos.integration.fhir.model.Sender;
 
 /**
- * Use when the Communication resource is used to build a majority of the
- * message.
+ * Builds a FHIR Communication-based message where resources are contained within
+ * the Communication resource.
+ *
+ * <p>Use when the Communication resource is the primary wrapper for the message.
+ * Sender and recipient organizations are embedded as contained resources, and
+ * attachments are added as Communication.payload entries.</p>
+ *
+ * @since 2026-03-17
  */
 public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communication> {
 
+    /**
+     * Constructs a Communication builder using the configuration manager's Sender and Destination.
+     *
+     * @param configurationManager the FHIR configuration manager providing sender and destination
+     */
     public FhirCommunicationBuilder(OscarFhirConfigurationManager configurationManager) {
         super(configurationManager);
         setCommunication(new org.hl7.fhir.dstu3.model.Communication());
     }
 
+    /**
+     * Constructs a Communication builder with explicit Sender and Destination.
+     *
+     * @param sender the message sender
+     * @param destination the message destination
+     */
     public FhirCommunicationBuilder(Sender sender, Destination destination) {
         super(sender, destination);
         setCommunication(new org.hl7.fhir.dstu3.model.Communication());
@@ -108,10 +125,20 @@ public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communi
         addContainedRecipients(getDestination());
     }
 
+    /**
+     * Returns the assembled FHIR Communication resource.
+     *
+     * @return Communication the FHIR Communication resource
+     */
     public Communication getCommunication() {
         return getWrapper();
     }
 
+    /**
+     * Adds recipient resources from a Destination to the Communication resource.
+     *
+     * @param destination the destination containing recipient FHIR resources
+     */
     public void addContainedRecipients(Destination destination) {
         if (destination != null) {
             addContainedRecipients(destination.getOscarFhirResources());

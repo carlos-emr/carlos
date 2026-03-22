@@ -35,17 +35,66 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 
+/**
+ * Data access interface for managing {@link ProgramTeam} entities that organize
+ * providers into teams within programs.
+ *
+ * @since 2005-01-18
+ * @see ProgramTeam
+ * @see ProgramTeamDAOImpl
+ */
 public interface ProgramTeamDAO {
 
+    /**
+     * Checks whether a team with the given ID exists.
+     *
+     * @param teamId Integer the team ID to check
+     * @return {@code true} if the team exists, {@code false} otherwise
+     */
     public boolean teamExists(Integer teamId);
 
+    /**
+     * Checks whether a team name already exists within a program.
+     *
+     * @param programId Integer the program ID
+     * @param teamName String the team name to check
+     * @return {@code true} if the name already exists, {@code false} otherwise
+     * @throws IllegalArgumentException if parameters are invalid
+     */
     public boolean teamNameExists(Integer programId, String teamName);
 
+    /**
+     * Retrieves a program team by its ID.
+     *
+     * @param id Integer the team ID
+     * @return ProgramTeam the team, or {@code null} if not found
+     * @throws IllegalArgumentException if id is {@code null} or not positive
+     */
     public ProgramTeam getProgramTeam(Integer id);
 
+    /**
+     * Retrieves all teams for a specific program.
+     *
+     * @param programId Integer the program ID
+     * @return List&lt;ProgramTeam&gt; teams for the program
+     * @throws IllegalArgumentException if programId is invalid
+     */
     public List<ProgramTeam> getProgramTeams(Integer programId);
 
+    /**
+     * Saves or updates a program team.
+     *
+     * @param team ProgramTeam the team to save
+     * @throws IllegalArgumentException if team is {@code null}
+     */
     public void saveProgramTeam(ProgramTeam team);
 
+    /**
+     * Deletes a program team by its ID.
+     *
+     * @param id Integer the team ID to delete
+     * @throws IllegalArgumentException if id is invalid
+     * @throws org.springframework.dao.EmptyResultDataAccessException if no team found
+     */
     public void deleteProgramTeam(Integer id);
 }

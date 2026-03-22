@@ -72,6 +72,13 @@ public class StringUtils {
         return ret;
     }
 
+    /**
+     * Splits a string by the specified delimiter and returns the tokens as a Vector.
+     *
+     * @param str String the string to split
+     * @param delimeter String the delimiter characters
+     * @return Vector of String tokens
+     */
     public static Vector splitString(String str, String delimeter) {
         Vector result = new Vector();
         StringTokenizer st = new StringTokenizer(str, delimeter);
@@ -83,14 +90,33 @@ public class StringUtils {
         return result;
     }
 
+    /**
+     * Returns an empty string if the input is null, otherwise returns the input unchanged.
+     *
+     * @param value String the input value (may be null)
+     * @return String the input or an empty string
+     */
     public static String transformNullInEmptyString(String value) {
         return ((value == null) ? "" : value);
     }
 
+    /**
+     * Returns the replacement string if the input is null or empty, otherwise returns the input.
+     *
+     * @param value String the input value (may be null or empty)
+     * @param str String the replacement value
+     * @return String the input or the replacement
+     */
     public static String transformNullInOtherString(String value, String str) {
         return (((value == null) || value.equals("")) ? str : value);
     }
 
+    /**
+     * Generates a string of {@code n} space characters.
+     *
+     * @param n int the number of spaces
+     * @return String the space-padded string
+     */
     public static String preencheBranco(int n) {
         String espaco = "";
 
@@ -101,6 +127,15 @@ public class StringUtils {
         return espaco;
     }
 
+    /**
+     * Generates a left-padded string by repeating character {@code c} {@code n} times,
+     * followed by the suffix {@code c1}.
+     *
+     * @param n int the number of padding characters
+     * @param c String the padding character
+     * @param c1 String the suffix to append after padding
+     * @return String the padded string
+     */
     public static String preenchimentoEsquerda(int n, String c, String c1) {
         String result = "";
 
@@ -111,6 +146,13 @@ public class StringUtils {
         return result + c1;
     }
 
+    /**
+     * Generates a string by repeating character {@code c} {@code n} times.
+     *
+     * @param n int the number of repetitions
+     * @param c String the character to repeat
+     * @return String the repeated string
+     */
     public static String preenchimento(int n, String c) {
         String result = "";
 
@@ -121,6 +163,12 @@ public class StringUtils {
         return result;
     }
 
+    /**
+     * Checks whether a string is null, empty, or the literal string "null" (case-insensitive).
+     *
+     * @param obj String the string to check
+     * @return boolean true if the string is null, empty, or "null"
+     */
     public static boolean isNullOrEmpty(String obj) {
         if (obj == null) {
             return true;
@@ -135,10 +183,24 @@ public class StringUtils {
         }
     }
 
+    /**
+     * Replaces all occurrences of a character in a string. Null-safe.
+     *
+     * @param oldChar char the character to replace
+     * @param newChar char the replacement character
+     * @param word String the input string (may be null)
+     * @return String the modified string, or null if input is null
+     */
     public static String replaceChar(char oldChar, char newChar, String word) {
         return ((word == null) ? null : word.replace(oldChar, newChar));
     }
 
+    /**
+     * Joins an array of ID strings into a comma-separated string suitable for SQL IN clauses.
+     *
+     * @param ids String[] the array of IDs
+     * @return String the comma-separated string
+     */
     public static String getStrIn(String[] ids) {
         String id = "";
 

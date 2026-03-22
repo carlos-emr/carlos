@@ -53,6 +53,17 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for printing one or more HRM reports as a concatenated PDF document.
+ *
+ * <p>Accepts one or more {@code hrmReportId} parameters, generates individual PDFs
+ * via {@link HRMPDFCreator}, concatenates them using {@link ConcatPDF}, and streams
+ * the result to the HTTP response. Requires {@code _hrm} read privilege.</p>
+ *
+ * @see HRMPDFCreator
+ * @see ConcatPDF
+ * @since 2012-04-04
+ */
 public class PrintHRMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -62,6 +73,13 @@ public class PrintHRMReport2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Generates and streams a concatenated PDF of the requested HRM reports.
+     *
+     * @return String {@link ActionSupport#SUCCESS} on success, or "error" if PDF generation fails
+     * @throws IOException if an I/O error occurs during PDF streaming
+     * @throws SecurityException if the provider lacks {@code _hrm} read privilege
+     */
     public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {

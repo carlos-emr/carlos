@@ -49,6 +49,12 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Legacy lab display action for the encounter left navbar.
+ * Delegates to {@link EctDisplayLabAction22Action} for the actual implementation.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayLabAction2 extends EctDisplayAction {
     private static final Logger logger = MiscUtils.getLogger();
     private static final String cmd = "labs";

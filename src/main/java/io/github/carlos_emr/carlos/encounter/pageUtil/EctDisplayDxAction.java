@@ -52,6 +52,12 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 /**
  * retrieves info to display Disease entries for demographic
  */
+/**
+ * Legacy disease/diagnosis display action for the encounter left navbar.
+ * Delegates to {@link EctDisplayDx2Action} for the actual implementation.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayDxAction extends EctDisplayAction {
     private String cmd = "Dx";
 

@@ -42,6 +42,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that creates a new eForm group. Creates the group by adding
+ * a marker entry (fid=0) to the group table. Requires {@code _eform} write privilege.
+ *
+ * @see EFormUtil#addEFormToGroup(String, String)
+ * @since 2006-05-25
+ */
 public class AddGroup2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

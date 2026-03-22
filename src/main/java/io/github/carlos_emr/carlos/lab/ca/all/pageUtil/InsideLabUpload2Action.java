@@ -67,6 +67,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for uploading lab result files from within the application interface.
+ * Supports multi-file uploads, performs duplicate detection via MD5 checksums, and delegates
+ * parsing to the appropriate {@link MessageHandler} based on the lab type.
+ * Requires {@code _lab} write privilege.
+ *
+ * @since 2007-06-28
+ */
 public class InsideLabUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

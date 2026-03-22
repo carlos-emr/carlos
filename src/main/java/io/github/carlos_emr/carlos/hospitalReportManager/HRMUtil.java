@@ -38,6 +38,26 @@ import io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+/**
+ * Utility class for Hospital Report Manager (HRM) operations including listing,
+ * filtering, sorting, and rendering HRM documents associated with patient demographics.
+ *
+ * <p>Provides methods to:</p>
+ * <ul>
+ *   <li>List HRM documents for a demographic with duplicate filtering and multi-column sorting</li>
+ *   <li>Retrieve individual HRM documents with computed display names</li>
+ *   <li>List HRM sub-class mappings for administrative configuration</li>
+ *   <li>Render HRM reports to PDF via {@link HRMPDFCreator}</li>
+ * </ul>
+ *
+ * <p>All patient-data operations require {@code _hrm} read privilege and are restricted
+ * to the Ontario billing region.</p>
+ *
+ * @see HRMReport
+ * @see HRMReportParser
+ * @see HRMDocument
+ * @since 2008-11-05
+ */
 public class HRMUtil {
 
     private static final Logger logger = MiscUtils.getLogger();

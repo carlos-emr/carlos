@@ -41,6 +41,13 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link ProgramSignatureDao} for managing
+ * {@link ProgramSignature} entities.
+ *
+ * @since 2005-01-18
+ * @see ProgramSignatureDao
+ */
 @Transactional
 public class ProgramSignatureDaoImpl extends AbstractHibernateDao implements ProgramSignatureDao {
 

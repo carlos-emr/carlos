@@ -173,6 +173,11 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
         return new String[]{xml_research1, xml_research2, xml_research3, xml_research4, xml_research5};
     }
 
+    /**
+     * Returns the selected coding system identifier.
+     *
+     * @return String the coding system (e.g. "icd9", "icd10")
+     */
     public String getSelectedCodingSystem() {
         return selectedCodingSystem;
     }

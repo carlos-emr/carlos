@@ -41,7 +41,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Factory for obtaining login modules
+ * Factory for creating JAAS {@link LoginContext} instances configured with the appropriate
+ * login module for CARLOS EMR authentication.
+ *
+ * <p>Initializes LDAP configuration from CARLOS properties and creates login contexts
+ * using {@link LdapLoginModule}. Configuration is performed lazily on first use
+ * and cached for subsequent calls.
+ *
+ * @see LdapLoginModule
+ * @see OscarConfiguration
+ * @since 2026-03-17
  */
 public class LoginModuleFactory {
 
@@ -97,6 +106,13 @@ public class LoginModuleFactory {
     private LoginModuleFactory() {
     }
 
+    /**
+     * Creates a new JAAS LoginContext configured with the LDAP login module.
+     *
+     * @param handler CallbackHandler the callback handler for supplying credentials
+     * @return LoginContext a configured login context ready for authentication
+     * @throws LoginException if the context cannot be created or LDAP is not properly configured
+     */
     public static final LoginContext createContext(CallbackHandler handler) throws LoginException {
         init();
 

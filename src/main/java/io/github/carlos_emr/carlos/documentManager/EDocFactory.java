@@ -79,6 +79,26 @@ public class EDocFactory {
         demographic, provider;
     }
 
+    /**
+     * Creates a new {@link EDoc} instance with typed parameters, formatting dates to their
+     * expected string representations for the persistence layer.
+     *
+     * @param description String the document description/title
+     * @param type String the document type
+     * @param fileName String the document filename
+     * @param contentType String the MIME content type (e.g., "application/pdf")
+     * @param html String the HTML content for HTML-type documents
+     * @param creatorId String the provider number of the document creator
+     * @param responsibleId String the provider number of the responsible provider
+     * @param source String the document source
+     * @param status Status the document status enum value
+     * @param observationDate Date the clinical observation date
+     * @param reviewerId String the provider number of the reviewer
+     * @param reviewDateTime Date the review date/time
+     * @param module Module the module context (demographic or provider)
+     * @param moduleId String the module-specific identifier
+     * @return EDoc the constructed document object with content type set
+     */
     public EDoc createEDoc(String description, String type, String fileName, String contentType, String html, String creatorId, String responsibleId, String source, Status status, Date observationDate, String reviewerId, Date reviewDateTime, Module module, String moduleId) {
         SimpleDateFormat reviewDateTimeFormat = new SimpleDateFormat(EDocUtil.REVIEW_DATETIME_FORMAT);
         SimpleDateFormat observationDateFormat = new SimpleDateFormat(EDocUtil.DMS_DATE_FORMAT);

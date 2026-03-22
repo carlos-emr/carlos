@@ -47,12 +47,28 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that loads all available diagnosis quick lists into the session.
+ *
+ * <p>Retrieves distinct quick list names from the database and stores them in
+ * the HTTP session for rendering the quick list selection UI.
+ * Requires {@code _dxresearch} read privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchLoadQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Loads all available quick lists into the HTTP session.
+     *
+     * @return String "success" on successful load
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if an I/O error occurs
+     */
     public String execute()
             throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {

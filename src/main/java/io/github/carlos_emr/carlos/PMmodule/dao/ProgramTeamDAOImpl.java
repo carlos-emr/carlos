@@ -41,6 +41,13 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Hibernate-based implementation of {@link ProgramTeamDAO} for managing
+ * {@link ProgramTeam} entities.
+ *
+ * @since 2005-01-18
+ * @see ProgramTeamDAO
+ */
 @Transactional
 public class ProgramTeamDAOImpl extends AbstractHibernateDao implements ProgramTeamDAO {
 

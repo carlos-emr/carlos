@@ -214,7 +214,16 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Downloads an inbound fax from middleware endpoint.
+     * Downloads a specific inbound fax document from the middleware relay endpoint.
+     *
+     * <p>Sends an authenticated GET request with the fax filename to retrieve the full
+     * fax content as a JSON-serialized {@link FaxJob}. Returns ERROR status faxes as
+     * a provider exception rather than silently passing them through.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration with middleware URL and credentials
+     * @param fax FaxJob fax metadata identifying which document to download
+     * @return FaxJob the downloaded fax job with document content populated
+     * @throws FaxProviderException when download fails or the downloaded fax is in ERROR status
      */
     @Override
     public FaxJob downloadFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
@@ -257,7 +266,14 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Deletes an inbound fax on middleware after local import succeeds.
+     * Deletes an inbound fax from the middleware relay server after successful local import.
+     *
+     * <p>Middleware uses delete semantics for duplicate prevention: once a fax is imported
+     * locally, it is removed from the relay server so it is not re-downloaded on the next poll.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration with middleware URL and credentials
+     * @param fax FaxJob fax metadata identifying which document to delete on the relay server
+     * @throws FaxProviderException when the delete request fails or returns a non-204 status
      */
     @Override
     public void deleteFax(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
@@ -283,7 +299,15 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Retrieves outbound fax delivery status from middleware.
+     * Retrieves the current delivery status of an outbound fax from the middleware relay.
+     *
+     * <p>Queries the middleware status endpoint using the provider job ID and returns
+     * the updated fax job with current status information.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration with middleware URL and credentials
+     * @param faxJob FaxJob fax job with jobId to check status for
+     * @return FaxJob updated fax job with current delivery status from the middleware
+     * @throws FaxProviderException when the status check fails or communication errors occur
      */
     @Override
     public FaxJob fetchFaxStatus(FaxConfig faxConfig, FaxJob faxJob) throws FaxProviderException {

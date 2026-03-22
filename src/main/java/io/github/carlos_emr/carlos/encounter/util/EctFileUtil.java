@@ -38,6 +38,11 @@ import java.io.InputStreamReader;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Utility class for reading file resources from the classpath within the encounter module.
+ *
+ * @since 2001-01-01
+ */
 public class EctFileUtil {
     private static Logger logger = MiscUtils.getLogger();
 

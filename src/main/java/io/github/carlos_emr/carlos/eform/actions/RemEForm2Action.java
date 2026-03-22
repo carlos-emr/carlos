@@ -42,6 +42,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that removes (soft-deletes) a filled eForm data record by
+ * setting its {@code current} flag to false. The record remains in the database
+ * but is no longer displayed in the active eForm list.
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @see UnRemEForm2Action
+ * @since 2006-05-25
+ */
 public class RemEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -49,6 +59,13 @@ public class RemEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Marks the eForm data record identified by {@code fdid} as not current.
+     * Returns different result names based on the {@code callpage} parameter.
+     *
+     * @return String the Struts2 result name ({@code SUCCESS}, {@code "independent"}, or {@code "single"})
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

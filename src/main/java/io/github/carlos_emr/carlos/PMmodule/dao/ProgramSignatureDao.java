@@ -35,11 +35,37 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramSignature;
 
+/**
+ * Data access interface for managing {@link ProgramSignature} entities that track
+ * provider signatures (approvals) on programs.
+ *
+ * @since 2005-01-18
+ * @see ProgramSignature
+ * @see ProgramSignatureDaoImpl
+ */
 public interface ProgramSignatureDao {
 
+    /**
+     * Retrieves the first (earliest) signature for a program, representing the program creator.
+     *
+     * @param programId Integer the program ID
+     * @return ProgramSignature the first signature, or {@code null} if not found
+     */
     public ProgramSignature getProgramFirstSignature(Integer programId);
 
+    /**
+     * Retrieves all signatures for a program, ordered by update date ascending.
+     *
+     * @param programId Integer the program ID
+     * @return List&lt;ProgramSignature&gt; signatures for the program, or {@code null} if ID is invalid
+     */
     public List<ProgramSignature> getProgramSignatures(Integer programId);
 
+    /**
+     * Saves or updates a program signature, setting the update date to the current time.
+     *
+     * @param programSignature ProgramSignature the signature to save
+     * @throws IllegalArgumentException if programSignature is {@code null}
+     */
     public void saveProgramSignature(ProgramSignature programSignature);
 }

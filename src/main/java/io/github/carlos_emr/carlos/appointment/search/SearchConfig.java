@@ -273,6 +273,11 @@ public class SearchConfig {
         return null;
     }
 
+    /**
+     * Sets the advance booking buffer in minutes on the FutureApptFilter configuration.
+     *
+     * @param minutes Integer the number of minutes of advance buffer
+     */
     public void setNumberOfMinutesAdvance(Integer minutes) {
         if (filters != null) {
             for (FilterDefinition fd : filters) {
@@ -285,10 +290,20 @@ public class SearchConfig {
         }
     }
 
+    /**
+     * Returns the set of all configured provider numbers.
+     *
+     * @return Set&lt;String&gt; the provider numbers
+     */
     public Set<String> getProviderNo() {
         return providers.keySet();
     }
 
+    /**
+     * Returns the sorted array of open access schedule template codes from the OpenAccessFilter.
+     *
+     * @return Character[] the sorted open access codes, or {@code null} if not configured
+     */
     public Character[] getOpenAccessCodes() {
         if (filters != null) {
             for (FilterDefinition fd : filters) {
@@ -307,6 +322,11 @@ public class SearchConfig {
         return null;
     }
 
+    /**
+     * Sets the open access schedule template codes on the OpenAccessFilter.
+     *
+     * @param openAccessCodes Character[] the open access codes
+     */
     public void setOpenAccessCodes(Character[] openAccessCodes) {
         if (filters != null) {
             for (FilterDefinition fd : filters) {
@@ -321,6 +341,13 @@ public class SearchConfig {
 
     /////
 
+    /**
+     * Serializes this search configuration to an XML {@code Document}.
+     *
+     * @param clinic SearchConfig the configuration to serialize
+     * @return Document the XML document representation
+     * @throws Exception if XML creation fails
+     */
     public static Document toDocument(SearchConfig clinic) throws Exception {
 
         Document doc = XmlUtils.newDocument("clinic");
@@ -415,6 +442,13 @@ public class SearchConfig {
     }
 
 
+    /**
+     * Deserializes a search configuration from an XML {@code Document}.
+     *
+     * @param doc Document the XML document to parse
+     * @return SearchConfig the deserialized configuration
+     * @throws Exception if XML parsing fails
+     */
     public static SearchConfig fromDocument(Document doc) throws Exception {
         SearchConfig returnClinic = new SearchConfig();
 
@@ -523,6 +557,14 @@ public class SearchConfig {
     /////
 
 
+    /**
+     * Creates a new {@code SearchConfig} from a REST transfer object, falling back to
+     * the old configuration for fields that cannot be parsed.
+     *
+     * @param clinicTransfer SearchConfigTo1 the transfer object with updated settings
+     * @param oldClinic SearchConfig the previous configuration used as fallback
+     * @return SearchConfig the new configuration
+     */
     public static SearchConfig fromTransfer(SearchConfigTo1 clinicTransfer, SearchConfig oldClinic) {
         logger.debug("clinicTransfer:" + clinicTransfer);
         SearchConfig returnClinic = new SearchConfig();
@@ -693,6 +735,11 @@ public class SearchConfig {
         this.bookingProviders = bookingProviders;
     }
 
+    /**
+     * Generates a new AES-256 secret key for encrypting booking references.
+     *
+     * @throws Exception if key generation fails
+     */
     public void genSecKey() throws Exception {
         KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
         keyGenerator.init(256);
@@ -700,6 +747,13 @@ public class SearchConfig {
         secretKey = keyGenerator.generateKey();
     }
 
+    /**
+     * Encrypts the given string using AES with the configured secret key.
+     *
+     * @param toEncyrpt String the plaintext to encrypt
+     * @return String the Base64-encoded encrypted string, or the original if no key is set
+     * @throws Exception if encryption fails
+     */
     public String encrypt(String toEncyrpt) throws Exception {
         if (secretKey == null) return toEncyrpt;
         Cipher cipher = Cipher.getInstance("AES");
@@ -712,6 +766,13 @@ public class SearchConfig {
         return new String(encodedBytes);
     }
 
+    /**
+     * Decrypts the given Base64-encoded AES-encrypted string.
+     *
+     * @param toDecrypt String the Base64-encoded encrypted string
+     * @return String the decrypted plaintext, or the original if no key is set
+     * @throws Exception if decryption fails
+     */
     public String decrypt(String toDecrypt) throws Exception {
         if (secretKey == null) return (toDecrypt);
 
