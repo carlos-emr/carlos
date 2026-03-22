@@ -30,6 +30,12 @@
 
 package io.github.carlos_emr.carlos.mds.data;
 
+/**
+ * Value object holding a test mnemonic code and its associated description,
+ * used for mapping MDS lab test identifiers to human-readable names.
+ *
+ * @since 2001-01-01
+ */
 public class Mnemonics {
 
     public Mnemonics() {

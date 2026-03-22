@@ -60,6 +60,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 
+/**
+ * Data access class for retrieving and managing MDS (Medical Data Systems) lab results,
+ * including patient-provider linkage, report acknowledgment, and result filtering.
+ *
+ * @since 2001-01-01
+ */
 public class MDSResultsData {
     private ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private ConsultResponseDocDao consultResponseDocDao = SpringUtils.getBean(ConsultResponseDocDao.class);

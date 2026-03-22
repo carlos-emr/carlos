@@ -61,6 +61,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Data access and display helper for MDS lab report segments, providing methods to
+ * retrieve, format, and present individual lab result segments and their associated headers.
+ *
+ * @since 2001-01-01
+ */
 public class MDSSegmentData {
 
     static Logger logger = MiscUtils.getLogger();

@@ -56,12 +56,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ForwardingRules;
 
-/**
- * @author wrighd
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing lab forwarding rules that control automatic routing
+ * of incoming lab results to designated providers. Handles adding, removing, and
+ * toggling forwarding rules. Requires {@code _lab} write privilege.
+ *
+ * @since 2007-07-16
+ */
 public class ForwardingRules2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

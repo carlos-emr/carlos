@@ -54,6 +54,20 @@ import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Service interface for managing vacancy templates and criteria within the CARLOS EMR
+ * Program Management module.
+ *
+ * <p>Provides static utility methods for vacancy template CRUD, criteria management,
+ * criteria type lookups, and HTML rendering of selection options for vacancy configuration
+ * forms. Uses static Spring bean references for DAO access.</p>
+ *
+ * @see VacancyTemplateManagerImpl
+ * @see VacancyTemplate
+ * @see Vacancy
+ * @see Criteria
+ * @since 2001
+ */
 public interface VacancyTemplateManager {
     static VacancyTemplateDao vacancyTemplateDAO = SpringUtils.getBean(VacancyTemplateDao.class);
     static CriteriaDao criteriaDAO = SpringUtils.getBean(CriteriaDao.class);

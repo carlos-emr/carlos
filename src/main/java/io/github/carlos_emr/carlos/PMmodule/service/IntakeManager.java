@@ -27,8 +27,28 @@
 
 package io.github.carlos_emr.carlos.PMmodule.service;
 
+/**
+ * Service interface for managing intake form configuration within the CARLOS EMR
+ * Program Management module.
+ *
+ * <p>Provides configuration checks for the intake form subsystem, including whether
+ * new client forms are in use and whether the intake module is enabled.</p>
+ *
+ * @since 2005
+ */
 public interface IntakeManager {
+
+    /**
+     * Checks whether the intake form is configured as a new client form.
+     *
+     * @return boolean {@code true} if the intake form is a new client form
+     */
     public boolean isNewClientForm();
 
+    /**
+     * Checks whether the intake management module is enabled.
+     *
+     * @return boolean {@code true} if intake management is enabled
+     */
     public boolean getEnabled();
 }
