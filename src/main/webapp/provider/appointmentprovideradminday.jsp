@@ -2515,6 +2515,25 @@
 
     <!-- Quick Search Typeahead -->
     <script>
+
+    /**
+     * Builds the addappointment.jsp URL pre-filled with slot and patient info.
+     * Uses bFirstDisp=false so patient alert and status banners load server-side.
+     * Requires appointment_date in YYYY-MM-DD format.
+     */
+    function buildApptUrl(ctx, demographicNo, formattedName, providerNo, startTime, endTime, duration, appointmentDate) {
+        return ctx + '/appointment/addappointment.jsp'
+            + '?demographic_no='   + encodeURIComponent(demographicNo)
+            + '&name='             + encodeURIComponent(formattedName)
+            + '&provider_no='      + encodeURIComponent(providerNo)
+            + '&bFirstDisp=false'
+            + '&appointment_date=' + encodeURIComponent(appointmentDate)
+            + '&start_time='       + encodeURIComponent(startTime)
+            + '&end_time='         + encodeURIComponent(endTime)
+            + '&duration='         + encodeURIComponent(String(duration))
+            + '&status=t';
+    }
+
     (function() {
         'use strict';
 
@@ -2689,11 +2708,16 @@
             dobHin.appendChild(document.createTextNode(item.hin || '\u2014'));
             line2.appendChild(dobHin);
 
-            var apptBadge = makeBadge('Appt', 'qs-badge-appt', 'Find Next Open Slot', function(e) {
-                e.stopPropagation();
-                openNextAvailableAppt(item.demographicNo, apptBadge);
-            });
-            line2.appendChild(apptBadge);
+            // Only show Appt badge for active patients with a Most Responsible Provider (MRP)
+            var isPatientActive = !item.status || item.status === '' || item.status === 'AC';
+            var hasMrp = item.providerNo && item.providerNo.trim();
+            if (isPatientActive && hasMrp) {
+                var apptBadge = makeBadge('Appt', 'qs-badge-appt', 'Find Next Open Slot for MRP', function(e) {
+                    e.stopPropagation();
+                    openNextAvailableAppt(item, apptBadge);
+                });
+                line2.appendChild(apptBadge);
+            }
             row.appendChild(line2);
 
             // --- Line 3: cell/phone + email ---
@@ -2731,18 +2755,20 @@
         }
 
         /**
-         * Fetches the next available appointment slot across all visible schedule providers,
-         * stores the slot and demographic info in sessionStorage, then navigates the schedule
-         * to that day. On page load the schedule will detect the pending slot and open the
-         * add-appointment popup automatically (see window.addEventListener('load', ...) below).
+         * Fetches the next available appointment slot for the patient's MRP (Most Responsible
+         * Provider), stores the slot info in sessionStorage, then navigates the schedule to that
+         * day. On page load the pending slot handler opens the add-appointment popup pre-filled
+         * with the patient, provider, date, time, and duration.
          *
-         * @param {string} demographicNo - patient demographic number
-         * @param {HTMLElement} badgeEl  - the Appt badge element (used to show loading state)
+         * Only called when the patient is active and has an MRP (badge is hidden otherwise).
+         *
+         * @param {Object}      item    - result row data (demographicNo, formattedName, providerNo, …)
+         * @param {HTMLElement} badgeEl - the Appt badge element (used to show loading state)
          */
-        function openNextAvailableAppt(demographicNo, badgeEl) {
-            var providerNos = scheduleVisibleProviderNos || scheduleProviderNo;
-            if (!providerNos) {
-                alert('No providers visible on this schedule.');
+        function openNextAvailableAppt(item, badgeEl) {
+            var mrpProviderNo = item.providerNo;
+            if (!mrpProviderNo || !mrpProviderNo.trim()) {
+                alert('Patient has no Most Responsible Provider assigned.');
                 return;
             }
 
@@ -2753,8 +2779,8 @@
             badgeEl.style.pointerEvents = 'none';
 
             var url = ctx + '/demographic/FindNextAvailableSlot.do'
-                + '?providerNos=' + encodeURIComponent(providerNos)
-                + '&startDate=' + encodeURIComponent(scheduleCurrentDate);
+                + '?providerNos=' + encodeURIComponent(mrpProviderNo)
+                + '&startDate='   + encodeURIComponent(scheduleCurrentDate);
 
             fetch(url, { credentials: 'same-origin' })
                 .then(function(r) { return r.json(); })
@@ -2763,32 +2789,41 @@
                         badgeEl.textContent = origText;
                         badgeEl.style.opacity = '';
                         badgeEl.style.pointerEvents = '';
-                        alert('No available appointment slots found in the next 60 days for the visible providers.');
+                        alert('No available appointment slots found in the next 60 days for this patient\'s MRP.');
                         return;
                     }
+
+                    // Compute end_time: start + duration - 1 minute (matches schedule slot display)
+                    var startParts = slot.startTime.split(':');
+                    var startMins  = parseInt(startParts[0], 10) * 60 + parseInt(startParts[1], 10);
+                    var endMins    = startMins + slot.duration - 1;
+                    var endHH      = Math.floor(endMins / 60) % 24;
+                    var endMM      = endMins % 60;
+                    var endTime    = (endHH < 10 ? '0' : '') + endHH + ':' + (endMM < 10 ? '0' : '') + endMM;
+
+                    // Format appointment_date as YYYY-MM-DD (required by addappointment.jsp when bFirstDisp=false)
+                    var mm = String(slot.month).padStart(2, '0');
+                    var dd = String(slot.day).padStart(2, '0');
+                    var appointmentDate = slot.year + '-' + mm + '-' + dd;
 
                     // Store pending appointment in sessionStorage so the page-load handler can open the popup
                     try {
                         sessionStorage.setItem('carlosPendingAppt', JSON.stringify({
-                            demographicNo: demographicNo,
-                            providerNo:    slot.providerNo,
-                            startTime:     slot.startTime,
-                            duration:      slot.duration,
-                            year:          slot.year,
-                            month:         slot.month,
-                            day:           slot.day
+                            demographicNo:   item.demographicNo,
+                            formattedName:   item.formattedName || '',
+                            providerNo:      slot.providerNo,
+                            startTime:       slot.startTime,
+                            endTime:         endTime,
+                            duration:        slot.duration,
+                            year:            slot.year,
+                            month:           slot.month,
+                            day:             slot.day,
+                            appointmentDate: appointmentDate
                         }));
                     } catch (storageErr) {
-                        // sessionStorage unavailable — fall back to opening popup directly (no schedule nav)
-                        popupPage(360, 780, ctx + '/appointment/addappointment.jsp'
-                            + '?demographic_no=' + encodeURIComponent(demographicNo)
-                            + '&provider_no='    + encodeURIComponent(slot.providerNo)
-                            + '&year='           + encodeURIComponent(slot.year)
-                            + '&month='          + encodeURIComponent(slot.month)
-                            + '&day='            + encodeURIComponent(slot.day)
-                            + '&start_time='     + encodeURIComponent(slot.startTime)
-                            + '&duration='       + encodeURIComponent(slot.duration)
-                            + '&bFirstDisp=true');
+                        // sessionStorage unavailable — open popup directly (no schedule navigation)
+                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo, item.formattedName || '',
+                            slot.providerNo, slot.startTime, endTime, slot.duration, appointmentDate));
                         hideDropdown();
                         return;
                     }
@@ -2905,15 +2940,14 @@
         if (!pending || !pending.startTime) return;
 
         var ctx2 = document.getElementById('contextPath').value;
-        var popupUrl = ctx2 + '/appointment/addappointment.jsp'
-            + '?demographic_no=' + encodeURIComponent(pending.demographicNo)
-            + '&provider_no='    + encodeURIComponent(pending.providerNo)
-            + '&year='           + encodeURIComponent(pending.year)
-            + '&month='          + encodeURIComponent(pending.month)
-            + '&day='            + encodeURIComponent(pending.day)
-            + '&start_time='     + encodeURIComponent(pending.startTime)
-            + '&duration='       + encodeURIComponent(pending.duration)
-            + '&bFirstDisp=true';
+        var popupUrl = buildApptUrl(ctx2,
+            pending.demographicNo,
+            pending.formattedName || '',
+            pending.providerNo,
+            pending.startTime,
+            pending.endTime || '',
+            pending.duration,
+            pending.appointmentDate || '');
 
         // Wait for the page to finish rendering before opening the popup
         window.addEventListener('load', function() {
