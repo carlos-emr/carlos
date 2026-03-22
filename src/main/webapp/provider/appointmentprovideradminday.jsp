@@ -2593,6 +2593,10 @@
 
         function doSearch(query) {
             if (query.length < SEARCH_MIN_LENGTH) {
+                if (abortController) {
+                    try { abortController.abort(); } catch (e) { /* ignore */ }
+                    abortController = null;
+                }
                 hideDropdown();
                 return;
             }
@@ -2718,7 +2722,7 @@
             var dobStrong = document.createElement('strong');
             dobStrong.textContent = msgs.labelDob + ' ';
             dobHin.appendChild(dobStrong);
-            dobHin.appendChild(document.createTextNode((item.fomattedDob || '\u2014') + '\u00a0\u00a0'));
+            dobHin.appendChild(document.createTextNode((item.formattedDob || '\u2014') + '\u00a0\u00a0'));
             var hinStrong = document.createElement('strong');
             hinStrong.textContent = msgs.labelHin + ' ';
             dobHin.appendChild(hinStrong);

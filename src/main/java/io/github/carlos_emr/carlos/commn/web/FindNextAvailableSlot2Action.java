@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.ConversionUtils;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -129,7 +129,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
             int searchYear  = searchCal.get(Calendar.YEAR);
             int searchMonth = searchCal.get(Calendar.MONTH) + 1;
             int searchDay   = searchCal.get(Calendar.DAY_OF_MONTH);
-            String dateStr  = searchYear + "-" + searchMonth + "-" + searchDay;
+            String dateStr  = String.format("%04d-%02d-%02d", searchYear, searchMonth, searchDay);
 
             try {
                 java.util.Date searchDate = ConversionUtils.fromDateString(dateStr);
@@ -166,8 +166,12 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
                     for (Appointment appt : booked) {
                         String startStr = StringUtils.trimToEmpty(ConversionUtils.toTimeString(appt.getStartTime()));
                         String endStr   = StringUtils.trimToEmpty(ConversionUtils.toTimeString(appt.getEndTime()));
-                        int startIdx = timeStrToMins(startStr) / timecodeInterval;
-                        int endIdx   = timeStrToMins(endStr)   / timecodeInterval;
+                        int startMins = timeStrToMins(startStr);
+                        int endMins   = timeStrToMins(endStr);
+                        // Skip malformed appointment times to avoid incorrectly blocking midnight slots
+                        if (startMins < 0 || endMins < 0) continue;
+                        int startIdx = startMins / timecodeInterval;
+                        int endIdx   = endMins   / timecodeInterval;
                         startIdx = Math.max(0, startIdx);
                         endIdx   = Math.min(timecodeLength - 1, endIdx);
                         for (int i = startIdx; i <= endIdx; i++) {
@@ -234,15 +238,20 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
      * Converts a time string in "HH:mm" format to total minutes since midnight.
      *
      * @param timeStr String time in "HH:mm" format (e.g. "09:30")
-     * @return int total minutes since midnight, or 0 if the string cannot be parsed
+     * @return int total minutes since midnight, or -1 if the string cannot be parsed
      */
     private int timeStrToMins(String timeStr) {
-        if (timeStr == null || !timeStr.contains(":")) return 0;
+        if (timeStr == null) return -1;
+        String trimmed = timeStr.trim();
+        int colonIdx = trimmed.indexOf(':');
+        if (colonIdx <= 0 || colonIdx == trimmed.length() - 1) return -1;
         try {
-            String[] parts = timeStr.split(":");
-            return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
+            int hours = Integer.parseInt(trimmed.substring(0, colonIdx));
+            int minutes = Integer.parseInt(trimmed.substring(colonIdx + 1));
+            if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return -1;
+            return hours * 60 + minutes;
         } catch (NumberFormatException e) {
-            return 0;
+            return -1;
         }
     }
 
