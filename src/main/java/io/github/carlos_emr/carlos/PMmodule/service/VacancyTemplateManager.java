@@ -77,6 +77,12 @@ public interface VacancyTemplateManager {
     static ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
     static VacancyDao vacancyDAO = SpringUtils.getBean(VacancyDao.class);
 
+    /**
+     * Retrieves programs for a specific facility.
+     *
+     * @param facilityId Integer the facility identifier
+     * @return List&lt;Program&gt; list of programs at the facility
+     */
     public static List<Program> getPrograms(Integer facilityId) {
         return programDao.getProgramsByFacilityId(facilityId);
     }

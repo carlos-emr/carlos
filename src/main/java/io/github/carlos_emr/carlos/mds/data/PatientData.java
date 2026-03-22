@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Data access helper for patient demographic lookups used in the MDS lab result
+ * matching workflow, providing methods to find patients by name, HIN, and demographic number.
+ *
+ * @since 2001-01-01
+ */
 public class PatientData {
 
     public Patient getPatient(String demographicNo) {

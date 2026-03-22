@@ -30,6 +30,13 @@
 
 package io.github.carlos_emr.carlos.mds.data;
 
+/**
+ * Value object representing basic patient identification information for MDS lab result
+ * matching, including name, HIN, date of birth, and demographic number. Supports
+ * natural ordering by patient name.
+ *
+ * @since 2001-01-01
+ */
 public class PatientInfo implements Comparable<PatientInfo> {
     private String firstName = "";
     private String lastName = "";
