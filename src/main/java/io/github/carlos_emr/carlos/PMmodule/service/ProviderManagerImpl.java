@@ -67,14 +67,17 @@ public class ProviderManagerImpl implements ProviderManager {
         this.providerDao = providerDao;
     }
 
+    /** {@inheritDoc} */
     public void setAgencyDao(AgencyDao agencyDao) {
         this.agencyDao = agencyDao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramProviderDAO(ProgramProviderDAO dao) {
         this.programProviderDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public void setSecUserRoleDao(SecUserRoleDao secUserRoleDao) {
         this.secUserRoleDao = secUserRoleDao;
     }

@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * Data access helper for managing provider electronic signature images,
+ * providing methods to retrieve and store signature data via the provider
+ * extension system.
+ *
+ * @since 2001-01-01
+ */
 public class ProSignatureData {
 
     private ProviderExtDao providerExtDao = SpringUtils.getBean(ProviderExtDao.class);
