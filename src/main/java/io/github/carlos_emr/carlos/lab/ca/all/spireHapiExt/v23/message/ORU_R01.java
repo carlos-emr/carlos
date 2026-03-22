@@ -33,6 +33,14 @@ import io.github.carlos_emr.carlos.lab.ca.all.spireHapiExt.v23.segment.ZDS;
 import ca.uhn.hl7v2.model.Structure;
 import ca.uhn.hl7v2.parser.ModelClassFactory;
 
+/**
+ * Extended HL7 v2.3 ORU_R01 message class for Spire lab results that includes
+ * the custom ZDS (Z-segment Document Storage) segment not present in the standard
+ * HAPI model. Registered with the HAPI model class factory to enable automatic
+ * parsing of Spire-specific message structures.
+ *
+ * @since 2007-01-18
+ */
 public class ORU_R01 extends ca.uhn.hl7v2.model.v23.message.ORU_R01 {
 
     /**

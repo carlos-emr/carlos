@@ -30,8 +30,12 @@ package io.github.carlos_emr.carlos.dashboard.query;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
-/*
- * A simple database query parameter POJO
+/**
+ * Represents a query parameter for dashboard indicator and drilldown queries.
+ * Parameters have an ID matching a place-holder in the query template, a human-readable
+ * name, and one or more values that are substituted into the query at execution time.
+ *
+ * @since 2026-03-17
  */
 public class Parameter {
 

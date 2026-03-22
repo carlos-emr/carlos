@@ -27,6 +27,12 @@
 
 package io.github.carlos_emr.carlos.model;
 
+/**
+ * Simple key-value bean used for populating dropdown and select option lists
+ * in the UI layer, mapping a property value to a display label.
+ *
+ * @since 2005-01-01
+ */
 public class OptionsBean {
     private String property;
     private String labelProperty;

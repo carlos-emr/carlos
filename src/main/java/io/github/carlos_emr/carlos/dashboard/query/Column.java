@@ -31,7 +31,11 @@ package io.github.carlos_emr.carlos.dashboard.query;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 /**
- * The column description of a database query.
+ * Represents a column definition in a dashboard query result set. Each column has an
+ * ID, database column name, display title, and a flag indicating whether it is the
+ * primary key column (which is always displayed first in drilldown tables).
+ *
+ * @since 2026-03-17
  */
 public class Column {
 

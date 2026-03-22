@@ -58,6 +58,11 @@ import java.util.List;
  */
 @Path("/eforms")
 @Component("EFormsService")
+/**
+ * REST service for bulk electronic forms listing and management operations.
+ *
+ * @since 2012-08-13
+ */
 public class EFormsService extends AbstractServiceImpl
 {
 	Logger logger = MiscUtils.getLogger();

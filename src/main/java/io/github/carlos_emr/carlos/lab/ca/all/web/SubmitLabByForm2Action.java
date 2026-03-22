@@ -57,6 +57,13 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for manually submitting lab results via a web form.
+ * Generates an HL7 message from form input and uploads it through the
+ * standard lab message upload pipeline. Requires {@code _lab} write privilege.
+ *
+ * @since 2007-01-18
+ */
 public class SubmitLabByForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -53,6 +53,11 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 @Path("/dxRegisty")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for disease registry and chronic condition tracking operations.
+ *
+ * @since 2012-08-13
+ */
 public class DiseaseRegistryService extends AbstractServiceImpl {
 
     @Autowired

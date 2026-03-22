@@ -54,6 +54,11 @@ import org.springframework.stereotype.Component;
 @Path("/demographics/merge")
 @Component("demographicMergeService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for merging duplicate patient demographic records.
+ *
+ * @since 2012-08-13
+ */
 public class DemographicMergeService extends AbstractServiceImpl {
 
 

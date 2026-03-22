@@ -109,6 +109,11 @@ import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 @Path("/demographics")
 @Component("demographicService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for patient demographic CRUD operations, search, and HIN management.
+ *
+ * @since 2012-08-13
+ */
 public class DemographicService extends AbstractServiceImpl {
 
     private enum IncludeType {

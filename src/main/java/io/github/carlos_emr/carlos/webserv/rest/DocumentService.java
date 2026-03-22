@@ -60,6 +60,11 @@ import java.util.Map;
 @Path("/document")
 @Component("documentService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for clinical document management operations.
+ *
+ * @since 2012-08-13
+ */
 public class DocumentService extends AbstractServiceImpl {
     private static Logger logger = MiscUtils.getLogger();
 

@@ -62,6 +62,11 @@ import java.io.IOException;
  */
 @Path("/eform")
 @Component("EFormService")
+/**
+ * REST service for individual electronic form (eForm) operations.
+ *
+ * @since 2012-08-13
+ */
 public class EFormService extends AbstractServiceImpl {
 	Logger logger = MiscUtils.getLogger();
 
