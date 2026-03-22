@@ -44,7 +44,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
- * @author yilee18
+ * Data access class for the {@code reportFilter} table, which stores filter
+ * definitions for form-based reports. Each filter has a description, value,
+ * position, order, optional JavaScript validation, and date format. Supports
+ * soft-delete via status toggle.
+ *
+ * @since 2005-07-30
  */
 public class RptReportFilter {
 

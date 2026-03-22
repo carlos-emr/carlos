@@ -38,7 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.DemographicQueryFavourite;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author McMaster
+ * Data provider for demographic report search configuration. Retrieves roster status
+ * types, patient status types, providers with demographics, and saved query favourites
+ * for populating the demographic report search form.
+ *
+ * @see RptDemographicReport2Form
+ * @since 2001-01-01
  */
 @SuppressWarnings("rawtypes")
 public class RptSearchData {

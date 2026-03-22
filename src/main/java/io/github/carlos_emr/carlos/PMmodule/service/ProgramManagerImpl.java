@@ -122,10 +122,12 @@ public class ProgramManagerImpl implements ProgramManager {
         this.admissionDao = dao;
     }
 
+    /** {@inheritDoc} */
     public void setDefaultRoleAccessDAO(DefaultRoleAccessDAO dao) {
         this.defaultRoleAccessDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramClientStatusDAO(ProgramClientStatusDAO dao) {
         this.clientStatusDAO = dao;
     }

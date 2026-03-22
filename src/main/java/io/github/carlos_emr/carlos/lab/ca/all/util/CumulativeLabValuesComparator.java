@@ -49,9 +49,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * A custom comparator used to compare the Hashtables within an array by the
  * date value.
  * <p>
- * Used by /oscar/lab/CumulativeLabValues3.jsp
+ * Comparator for cumulative lab value entries, sorting by date in ascending order.
+ * Used by the cumulative lab values JSP view to order lab results chronologically.
+ * Each compared object must be a Hashtable containing a "date" key in "yyyy-MM-dd HH:mm:ss" format.
  *
- * @author wrighd
+ * @since 2007-01-18
  */
 public class CumulativeLabValuesComparator implements Comparator {
 

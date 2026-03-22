@@ -255,11 +255,30 @@ public class ScheduleWs extends AbstractWs {
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
+    /**
+     * Retrieves archived appointments updated after a specified date with timezone control.
+     *
+     * @param updatedAfterThisDateExclusive Date only return archives updated after this date
+     * @param itemsToReturn int the maximum number of archives to return
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentArchiveTransfer[] array of recently updated appointment archives
+     */
     public AppointmentArchiveTransfer[] getAppointmentArchivesUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
         List<AppointmentArchive> appointments = scheduleManager.getAppointmentArchiveUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentArchiveTransfer.toTransfers(appointments, useGMTTime));
     }
 
+    /**
+     * Retrieves appointments filtered by program, provider, demographic, and update date with timezone control.
+     *
+     * @param programId Integer the program ID to filter by
+     * @param providerNo String the provider number to filter by
+     * @param demographicId Integer the demographic ID to filter by
+     * @param updatedAfterThisDateExclusive Calendar only return appointments updated after this date
+     * @param itemsToReturn int the maximum number of appointments to return
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentTransfer[] array of matching appointments
+     */
     public AppointmentTransfer[] getAppointmentsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
         List<Appointment> appointments = scheduleManager.getAppointmentsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));

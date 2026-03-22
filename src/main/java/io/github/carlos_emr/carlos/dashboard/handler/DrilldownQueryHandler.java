@@ -37,6 +37,13 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Query handler for dashboard drilldown operations. Executes the drilldown SQL query
+ * and arranges the results into a tabular format with the primary key (patient ID)
+ * always in the first column.
+ *
+ * @since 2026-03-17
+ */
 public class DrilldownQueryHandler extends AbstractQueryHandler {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -62,6 +69,12 @@ public class DrilldownQueryHandler extends AbstractQueryHandler {
         super.setQuery(finalQuery);
     }
 
+    /**
+     * Returns the query results arranged as a table. The first row contains column
+     * headings and subsequent rows contain the data values.
+     *
+     * @return List of String[] the table data with headings in the first row
+     */
     public List<String[]> getTable() {
         return table;
     }
