@@ -62,6 +62,11 @@ import org.springframework.stereotype.Component;
 @Path("/productDispensing")
 @Component("productDispensingService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for product dispensing operations.
+ *
+ * @since 2012-08-13
+ */
 public class ProductDispensingService extends AbstractServiceImpl {
 
     @Autowired

@@ -29,6 +29,13 @@ package io.github.carlos_emr.carlos.model.security;
 import java.util.Date;
 
 
+/**
+ * Hibernate entity representing a provider-to-role assignment in the CARLOS EMR
+ * security system. Maps a provider number to a security role within an
+ * organizational context.
+ *
+ * @since 2005-01-01
+ */
 public class Secuserrole implements java.io.Serializable {
 
     // Fields

@@ -29,8 +29,30 @@ package io.github.carlos_emr.carlos.PMmodule.service;
 
 import java.util.List;
 
+/**
+ * Service interface for managing security roles within the CARLOS EMR Program Management module.
+ *
+ * <p>Provides operations for querying user roles and checking administrative privileges
+ * for healthcare providers.</p>
+ *
+ * @see io.github.carlos_emr.carlos.PMmodule.service.impl.OscarSecurityManagerImpl
+ * @since 2005
+ */
 public interface OscarSecurityManager {
+
+    /**
+     * Retrieves the security roles assigned to a provider.
+     *
+     * @param providerNo String the provider number
+     * @return List list of security user roles for the provider
+     */
     public List getUserRoles(String providerNo);
 
+    /**
+     * Checks whether a provider has the administrative role.
+     *
+     * @param providerNo String the provider number
+     * @return boolean {@code true} if the provider has admin privileges
+     */
     public boolean hasAdminRole(String providerNo);
 }

@@ -514,6 +514,7 @@ public class ProgramManagerImpl implements ProgramManager {
         }
     }
 
+    /** {@inheritDoc} */
     public List<Program> getAllProgramsByRole(String providerNo, int roleId) {
         List<Program> results = new ArrayList<Program>();
         List<ProgramProvider> ppList = programProviderDAO.getProgramProvidersByProvider(providerNo);

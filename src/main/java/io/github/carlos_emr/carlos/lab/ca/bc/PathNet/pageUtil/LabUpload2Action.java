@@ -52,6 +52,14 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
+/**
+ * Struts2 action for downloading and uploading BC PathNET lab results.
+ * Connects to the PathNET server, retrieves new lab results, parses them into
+ * HL7 message objects, and persists them in the database. Requires {@code _lab}
+ * write privilege.
+ *
+ * @since 2007-01-18
+ */
 public class LabUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

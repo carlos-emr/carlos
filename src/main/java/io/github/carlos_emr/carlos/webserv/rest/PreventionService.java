@@ -51,6 +51,11 @@ import jakarta.ws.rs.core.MediaType;
 @Path("/preventions/")
 @Component("preventionService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for immunization and preventive care record operations.
+ *
+ * @since 2012-08-13
+ */
 public class PreventionService extends AbstractServiceImpl {
 
     @Autowired

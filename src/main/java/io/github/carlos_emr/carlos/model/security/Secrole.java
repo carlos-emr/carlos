@@ -29,6 +29,13 @@ package io.github.carlos_emr.carlos.model.security;
 import java.util.Calendar;
 
 
+/**
+ * Hibernate entity representing a security role in the CARLOS EMR system.
+ * Roles group privilege assignments and are assigned to providers through
+ * {@link Secuserrole} mappings.
+ *
+ * @since 2005-01-01
+ */
 public class Secrole implements java.io.Serializable {
 
     // Fields
