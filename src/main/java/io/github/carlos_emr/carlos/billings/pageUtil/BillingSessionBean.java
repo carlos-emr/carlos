@@ -34,6 +34,12 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.pageUtil.BillingBillingManager.BillingItem;
 
+/**
+ * Session-scoped bean holding billing form state during a billing session,
+ * including appointment context, provider information, and billing item collections.
+ *
+ * @since 2001-01-01
+ */
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;

@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Manager class for billing operations providing methods to retrieve, format, and
+ * manage billing items including service codes, diagnostic codes, and billing amounts.
+ *
+ * @since 2001-01-01
+ */
 public class BillingBillingManager {
 
     public BillingItem[] getBillingItem(String[] service, String service1, String service2, String service3, String service1unit, String service2unit, String service3unit) {

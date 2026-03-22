@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * View bean for presenting billing record details in the billing view JSP pages,
+ * formatting billing data for display including amounts, dates, and status information.
+ *
+ * @since 2001-01-01
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;
