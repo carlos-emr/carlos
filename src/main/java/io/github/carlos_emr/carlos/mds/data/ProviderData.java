@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data access helper for provider lookups in the MDS and inbox modules,
+ * providing methods to retrieve provider information by number or formatted name.
+ *
+ * @since 2001-01-01
+ */
 public class ProviderData {
 
     public ProviderData(String refDoctor, String conDoctor, String admDoctor) {

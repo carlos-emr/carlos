@@ -87,11 +87,23 @@ public interface VacancyTemplateManager {
         return programDao.getProgramsByFacilityId(facilityId);
     }
 
+    /**
+     * Retrieves vacancy templates for a waitlist program.
+     *
+     * @param wlProgramId Integer the waitlist program identifier
+     * @return List&lt;VacancyTemplate&gt; list of vacancy templates
+     */
     public static List<VacancyTemplate> getVacancyTemplateByWlProgramId(Integer wlProgramId) {
         List<VacancyTemplate> results = vacancyTemplateDAO.getVacancyTemplateByWlProgramId(wlProgramId);
         return (results);
     }
 
+    /**
+     * Retrieves vacancies for a waitlist program.
+     *
+     * @param wlProgramId Integer the waitlist program identifier
+     * @return List&lt;Vacancy&gt; list of vacancies
+     */
     public static List<Vacancy> getVacanciesByWlProgramId(Integer wlProgramId) {
         List<Vacancy> results = vacancyDAO.getVacanciesByWlProgramId(wlProgramId);
         return (results);
