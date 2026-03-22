@@ -53,6 +53,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+/**
+ * Upload handler for True North laboratory result files.
+ *
+ * @since 2007-01-18
+ */
 public class TRUENORTHHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();

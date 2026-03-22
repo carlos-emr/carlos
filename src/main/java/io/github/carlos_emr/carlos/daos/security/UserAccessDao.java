@@ -30,9 +30,31 @@ package io.github.carlos_emr.carlos.daos.security;
 
 import java.util.List;
 
+/**
+ * Data access interface for retrieving user access permissions based on provider
+ * and facility (shelter) context.
+ *
+ * @since 2005-01-01
+ * @see io.github.carlos_emr.carlos.model.security.UserAccessValue
+ */
 public interface UserAccessDao {
+
+    /**
+     * Retrieves the access list for a provider at a specific facility.
+     *
+     * @param providerNo String the provider number
+     * @param shelterId Integer the facility/shelter identifier
+     * @return List of user access entries for the provider
+     */
     public List GetUserAccessList(String providerNo, Integer shelterId);
 
+    /**
+     * Retrieves the organizational access list for a provider at a specific facility.
+     *
+     * @param providerNo String the provider number
+     * @param shelterId Integer the facility/shelter identifier
+     * @return List of organizational access entries for the provider
+     */
     public List GetUserOrgAccessList(String providerNo, Integer shelterId);
 
 }

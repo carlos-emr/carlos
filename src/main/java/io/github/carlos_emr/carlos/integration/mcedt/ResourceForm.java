@@ -36,6 +36,12 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Form bean for MCEDT resource operations, holding resource identifiers and
+ * metadata for upload, download, and update actions.
+ *
+ * @since 2013-06-14
+ */
 public class ResourceForm {
 
     private static final long serialVersionUID = 1L;

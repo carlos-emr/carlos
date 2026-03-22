@@ -187,7 +187,10 @@ public class ScheduleWs extends AbstractWs {
     }
 
     /**
-     * @return the ID of the appointment just added
+     * Creates a new appointment from the provided transfer object.
+     *
+     * @param appointmentTransfer AppointmentTransfer the appointment data to persist
+     * @return Integer the ID of the newly created appointment
      */
     public Integer addAppointment(AppointmentTransfer appointmentTransfer) {
         Appointment appointment = new Appointment();
@@ -196,6 +199,11 @@ public class ScheduleWs extends AbstractWs {
         return (appointment.getId());
     }
 
+    /**
+     * Updates an existing appointment with the provided transfer object data.
+     *
+     * @param appointmentTransfer AppointmentTransfer the updated appointment data
+     */
     public void updateAppointment(AppointmentTransfer appointmentTransfer) {
         Appointment appointment = scheduleManager.getAppointment(getLoggedInInfo(), appointmentTransfer.getId());
 

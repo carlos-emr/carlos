@@ -48,6 +48,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for managing MCEDT resources, handling resource listing,
+ * detail viewing, and download operations from the EDT service.
+ *
+ * @since 2013-06-14
+ */
 public class Resource2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

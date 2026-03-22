@@ -83,6 +83,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * JAX-RS REST service for managing OAuth 1.0a tokens and checking authorization status.
+ *
+ * <p>Provides endpoints for token lifecycle management, authorization status checks,
+ * and provider-consumer relationship queries used by the CARLOS EMR REST API layer.
+ *
+ * @since 2012-08-13
+ */
 @Path("/oauth")
 public class OAuthStatusService extends AbstractServiceImpl {
 

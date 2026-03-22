@@ -35,7 +35,13 @@ package io.github.carlos_emr.carlos.report.data;
 
 
 /**
- * @author yilee18
+ * Constants class defining a regex pattern of database field names to be excluded
+ * (shadowed) from report configuration displays. These system-internal fields
+ * (ID, demographic_no, provider_no, formCreated, formEdited, c_lastVisited) are
+ * filtered out when presenting form table columns to users.
+ *
+ * @see RptTableFieldNameCaption
+ * @since 2005-07-25
  */
 public class RptTableShadowFieldConst {
     public static String fieldName = "ID|demographic_no|provider_no|formCreated|formEdited|c_lastVisited";

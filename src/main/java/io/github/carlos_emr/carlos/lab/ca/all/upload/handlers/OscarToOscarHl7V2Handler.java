@@ -46,6 +46,13 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.OscarToOscarHl7V2.
 import ca.uhn.hl7v2.model.AbstractMessage;
 import ca.uhn.hl7v2.model.v26.message.ADT_A09;
 
+/**
+ * Upload handler for inter-EMR (OSCAR-to-OSCAR) HL7 v2.6 message files.
+ * Routes messages to specific sub-handlers based on HL7 message type
+ * (ORU_R01, REF_I12, ADT_A09).
+ *
+ * @since 2007-01-18
+ */
 public class OscarToOscarHl7V2Handler implements MessageHandler {
     private Logger logger = MiscUtils.getLogger();
 

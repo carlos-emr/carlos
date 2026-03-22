@@ -87,10 +87,12 @@ public class ProgramManagerImpl implements ProgramManager {
         return programSignatureDao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramSignatureDao(ProgramSignatureDao programSignatureDao) {
         this.programSignatureDao = programSignatureDao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramDao(ProgramDao dao) {
         this.programDao = dao;
     }

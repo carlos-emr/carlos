@@ -53,6 +53,13 @@ public class MessageHandler {
     private static final String SYSTEM_USER_ID = "-1";
     private static final String SYSTEM_USER_NAME = "System";
 
+    /**
+     * Sends a system message to a provider without linked demographic numbers.
+     *
+     * @param subject String the message subject
+     * @param messageBody String the message body text
+     * @param providerNo String the target provider number
+     */
     public void notifyProvider(
             String subject,
             String messageBody,
@@ -65,7 +72,15 @@ public class MessageHandler {
                 null);
     }
 
-    // This is based on EaapsHandler.notifyProvider
+    /**
+     * Sends a system message to a provider, optionally linking it to specific patient
+     * demographic numbers. The message is sent from the system user account.
+     *
+     * @param subject String the message subject
+     * @param messageBody String the message body text
+     * @param providerNo String the target provider number
+     * @param linkedDemographicNumbers List of Integer the demographic numbers to attach, or {@code null}
+     */
     public void notifyProvider(
             String subject,
             String messageBody,

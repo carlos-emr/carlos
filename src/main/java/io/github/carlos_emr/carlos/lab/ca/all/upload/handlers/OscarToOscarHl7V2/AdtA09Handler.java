@@ -53,6 +53,13 @@ import ca.uhn.hl7v2.model.v26.message.ADT_A09;
 import ca.uhn.hl7v2.model.v26.segment.PID;
 import ca.uhn.hl7v2.model.v26.segment.PV1;
 
+/**
+ * Handler for processing HL7 v2.6 ADT_A09 (Patient Departing - Tracking) messages
+ * received via inter-EMR communication. Updates the patient's appointment status
+ * in the waiting room based on the PV1 segment data.
+ *
+ * @since 2007-01-18
+ */
 public final class AdtA09Handler {
     private static Logger logger = MiscUtils.getLogger();
 

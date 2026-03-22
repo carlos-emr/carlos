@@ -45,7 +45,14 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
+ * DAO interface for patient demographic data access operations.
+ * <p>
+ * Provides comprehensive operations for managing patient demographics including
+ * search, retrieval, creation, and updates. Supports merged demographic queries,
+ * Health Insurance Number (HIN) lookups, provider-based patient lists, and
+ * integration with the CAISI community module.
  *
+ * @since 2005
  */
 public interface DemographicDao {
 
