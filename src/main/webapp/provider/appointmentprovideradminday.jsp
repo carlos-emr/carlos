@@ -1164,6 +1164,7 @@
     <table id="scheduleNavigation">
         <tr id="ivoryBar">
             <td id="dateAndCalendar">
+                <input type="text" placeholder="Search" style="width: 170px;">
                 <a class="redArrow"
                    href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
                     <span class="fa-solid fa-backward-step"
