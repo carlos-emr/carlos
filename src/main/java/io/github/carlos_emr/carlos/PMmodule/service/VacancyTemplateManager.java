@@ -593,6 +593,12 @@ public interface VacancyTemplateManager {
         }
     }
 
+    /**
+     * Saves or updates a vacancy record. Merges if the vacancy has an existing ID,
+     * otherwise persists a new record.
+     *
+     * @param v Vacancy the vacancy to save
+     */
     public static void saveVacancy(Vacancy v) {
         if (v.getId() != null) {
             vacancyDAO.merge(v);
@@ -602,6 +608,12 @@ public interface VacancyTemplateManager {
 
     }
 
+    /**
+     * Saves or updates a vacancy template. Merges if the template has an existing ID,
+     * otherwise persists a new record.
+     *
+     * @param vt VacancyTemplate the vacancy template to save
+     */
     public static void saveVacancyTemplate(VacancyTemplate vt) {
         if (vt.getId() != null) {
             vacancyTemplateDAO.merge(vt);

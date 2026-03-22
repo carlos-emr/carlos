@@ -35,6 +35,12 @@ package io.github.carlos_emr.carlos.billings.MSP;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+/**
+ * Validates billing data before MSP claim submission, checking for required fields
+ * and data integrity in the billing records.
+ *
+ * @since 2001-01-01
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1
