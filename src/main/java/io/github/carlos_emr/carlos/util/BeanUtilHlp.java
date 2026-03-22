@@ -34,14 +34,16 @@ import org.springframework.beans.BeanWrapperImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * <p>Title:BeanUtil </p>
+ * Provides a simplified interface for dynamically accessing JavaBean properties via
+ * Spring's {@link BeanWrapper} reflection API. Wraps error handling for safe property
+ * value retrieval.
  *
- * <p>Description: BeanUtil Provides a simplified interface for dynamically manipulating a Java Bean via reflection</p>
- *
- * @author Joel Legris
- * @version 1.0
+ * @since 2001-01-01
  */
 public class BeanUtilHlp {
+    /**
+     * Creates a new BeanUtilHlp instance.
+     */
     public BeanUtilHlp() {
     }
 

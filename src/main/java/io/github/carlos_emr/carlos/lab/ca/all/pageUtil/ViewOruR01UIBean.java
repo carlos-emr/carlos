@@ -50,6 +50,14 @@ import ca.uhn.hl7v2.model.v26.message.ORU_R01;
 import ca.uhn.hl7v2.model.v26.segment.PID;
 import ca.uhn.hl7v2.parser.EncodingNotSupportedException;
 
+/**
+ * UI backing bean for viewing an ORU_R01 (Observation Result) HL7 message.
+ * Parses the HL7 message body from storage, extracts patient demographics and
+ * observation data, and provides display-ready strings for sender/receiver
+ * provider information, patient details, and message content.
+ *
+ * @since 2007-01-18
+ */
 public final class ViewOruR01UIBean {
     private String segmentId;
     private ORU_R01 oruR01;

@@ -33,7 +33,12 @@ import java.util.List;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 /**
- * Indicator display POJO
+ * Display bean for a single dashboard indicator, extending {@link AbstractDataDisplayBean}
+ * with graph visualization data. Contains {@link GraphPlot} arrays for pie charts and
+ * pre-serialized JSON/string array representations for client-side rendering, including
+ * tooltip data.
+ *
+ * @since 2026-03-17
  */
 public class IndicatorBean extends AbstractDataDisplayBean {
 

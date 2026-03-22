@@ -38,9 +38,15 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AppUser;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link AppUserDao} for managing OAuth application user associations.
+ *
+ * @since 2001
+ */
 @Repository
 public class AppUserDaoImpl extends AbstractDaoImpl<AppUser> implements AppUserDao {
 
+    /** Constructs the application user DAO for the {@link AppUser} entity class. */
     public AppUserDaoImpl() {
         super(AppUser.class);
     }

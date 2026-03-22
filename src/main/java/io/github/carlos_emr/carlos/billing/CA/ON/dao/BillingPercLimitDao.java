@@ -39,15 +39,30 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingPercLimit} entities.
+ * Provides persistence operations for Ontario billing percentage limits,
+ * which define time-based fee limits for specific service codes.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingPercLimitDao extends AbstractDaoImpl<BillingPercLimit> {
 
+    /**
+     * Constructs a new {@code BillingPercLimitDao} with the {@link BillingPercLimit} entity class.
+     */
     public BillingPercLimitDao() {
         super(BillingPercLimit.class);
     }
 
-
+    /**
+     * Finds all percentage limit records for a given service code.
+     *
+     * @param serviceCode String the Ontario billing service code
+     * @return List of {@link BillingPercLimit} records for the service code
+     */
     public List<BillingPercLimit> findByServiceCode(String serviceCode) {
         String sql = "select x from BillingPercLimit x where x.service_code=?1";
         Query query = entityManager.createQuery(sql);
@@ -57,6 +72,13 @@ public class BillingPercLimitDao extends AbstractDaoImpl<BillingPercLimit> {
         return results;
     }
 
+    /**
+     * Finds a specific percentage limit by service code and effective date.
+     *
+     * @param serviceCode String the Ontario billing service code
+     * @param effectiveDate Date the exact effective date to match
+     * @return BillingPercLimit the matching record, or null if not found
+     */
     public BillingPercLimit findByServiceCodeAndEffectiveDate(String serviceCode, Date effectiveDate) {
         String sql = "select x from BillingPercLimit x where x.service_code=?1 and x.effective_date=?2";
         Query query = entityManager.createQuery(sql);
@@ -68,6 +90,13 @@ public class BillingPercLimitDao extends AbstractDaoImpl<BillingPercLimit> {
     }
 
 
+    /**
+     * Finds percentage limits for a service code using the latest effective date on or before the given date.
+     *
+     * @param serviceCode String the Ontario billing service code
+     * @param date Date the reference date for finding the most recent applicable limit
+     * @return List of {@link BillingPercLimit} records with the latest applicable effective date
+     */
     public List<BillingPercLimit> findByServiceCodeAndLatestDate(String serviceCode, Date date) {
         String sql = "FROM BillingPercLimit b WHERE b.service_code = :serviceCode " +
                 "AND b.effective_date = (" +

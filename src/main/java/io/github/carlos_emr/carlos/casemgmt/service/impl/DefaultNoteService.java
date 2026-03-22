@@ -69,7 +69,14 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * Default implementation of the notes service
+ * Default implementation of {@link NoteService} that retrieves and filters clinical notes
+ * for a demographic record. Applies role-based, provider-based, and issue-based filtering,
+ * sorts results by observation date, and supports pagination with configurable result limits.
+ *
+ * <p>Integrates with {@link CaseManagementManager} for note retrieval and access filtering,
+ * and enriches note results with linked documents, eforms, and encounter metadata.</p>
+ *
+ * @since 2026-03-17
  */
 @Component
 public class DefaultNoteService implements NoteService {

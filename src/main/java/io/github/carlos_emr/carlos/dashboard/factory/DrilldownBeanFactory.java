@@ -41,6 +41,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Factory for constructing {@link DrilldownBean} objects from an {@link IndicatorTemplate}.
+ *
+ * <p>Parses the indicator template XML, configures the {@link DrilldownQueryHandler} with
+ * parameters, columns, ranges, and actions, then executes the drilldown query and
+ * populates the resulting bean with tabular data.</p>
+ *
+ * @since 2026-03-17
+ */
 public class DrilldownBeanFactory {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -50,10 +59,25 @@ public class DrilldownBeanFactory {
     private DrilldownBean drilldownBean;
     private DrilldownQueryHandler drilldownQueryHandler = SpringUtils.getBean(DrilldownQueryHandler.class);
 
+    /**
+     * Constructs a drilldown bean for the given indicator template without provider filtering.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param indicatorTemplate IndicatorTemplate the template to drill down into
+     */
     public DrilldownBeanFactory(LoggedInInfo loggedInInfo, IndicatorTemplate indicatorTemplate) {
         this(loggedInInfo, indicatorTemplate, null, null);
     }
 
+    /**
+     * Constructs a drilldown bean for the given indicator template, optionally
+     * scoped to a specific provider and metric label.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param indicatorTemplate IndicatorTemplate the template to drill down into
+     * @param providerNo String the provider number to filter by, or {@code null} for all
+     * @param metricLabel String the metric label for shared metric filtering, or {@code null}
+     */
     public DrilldownBeanFactory(LoggedInInfo loggedInInfo, IndicatorTemplate indicatorTemplate, String providerNo, String metricLabel) {
 
         logger.info("Building Drilldown Bean for Indicator ID: " + indicatorTemplate.getId());
@@ -75,6 +99,11 @@ public class DrilldownBeanFactory {
         setDrilldownBean(new DrilldownBean());
     }
 
+    /**
+     * Returns the indicator template used to build this drilldown.
+     *
+     * @return IndicatorTemplate the source indicator template
+     */
     public IndicatorTemplate getIndicatorTemplate() {
         return indicatorTemplate;
     }
@@ -83,6 +112,11 @@ public class DrilldownBeanFactory {
         this.indicatorTemplate = indicatorTemplate;
     }
 
+    /**
+     * Returns the parsed XML representation of the indicator template.
+     *
+     * @return IndicatorTemplateXML the parsed template XML
+     */
     public IndicatorTemplateXML getIndicatorTemplateXML() {
         return indicatorTemplateXML;
     }
@@ -91,6 +125,11 @@ public class DrilldownBeanFactory {
         this.indicatorTemplateXML = indicatorTemplateXML;
     }
 
+    /**
+     * Returns the handler used to parse the indicator template XML.
+     *
+     * @return IndicatorTemplateHandler the template handler
+     */
     public IndicatorTemplateHandler getIndicatorTemplateHandler() {
         return indicatorTemplateHandler;
     }
@@ -99,10 +138,20 @@ public class DrilldownBeanFactory {
         this.indicatorTemplateHandler = indicatorTemplateHandler;
     }
 
+    /**
+     * Returns the query handler used to execute the drilldown query.
+     *
+     * @return DrilldownQueryHandler the drilldown query handler
+     */
     public DrilldownQueryHandler getDrilldownQueryHandler() {
         return drilldownQueryHandler;
     }
 
+    /**
+     * Returns the fully constructed drilldown display bean with query results and table data.
+     *
+     * @return DrilldownBean the constructed drilldown bean
+     */
     public DrilldownBean getDrilldownBean() {
         return drilldownBean;
     }

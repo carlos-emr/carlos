@@ -38,6 +38,14 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Teleplan S00 (remittance claim line) record in the BC MSP billing system.
+ * Maps to the {@code teleplanS00} table, storing individual claim line details from MSP remittance
+ * responses including practitioner number, MSP control number, office number, and up to seven
+ * explanation codes.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplanS00")
 public class TeleplanS00 extends AbstractModel<Integer> {

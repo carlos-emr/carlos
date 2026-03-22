@@ -30,6 +30,15 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
+/**
+ * Bidirectional mapping between demographic database column names and their
+ * human-readable display titles. Used by demographic report builders to translate
+ * between internal field names (e.g. "last_name") and UI labels (e.g. "Last Name").
+ *
+ * @see RptDemographicQueryBuilder
+ * @see RptDemographicQuery2Builder
+ * @since 2001-01-01
+ */
 public class RptDemographicColumnNames {
     java.util.Hashtable hstbl;
     java.util.Hashtable backhash;
@@ -102,6 +111,12 @@ public class RptDemographicColumnNames {
     }
 
 
+    /**
+     * Returns the human-readable title for a database column name.
+     *
+     * @param str String the database column name (e.g. "last_name")
+     * @return String the display title (e.g. "Last Name"), or empty string if not found
+     */
     public String getColumnTitle(String str) {
         if (hstbl != null) {
             return (String) hstbl.get(str);
@@ -110,6 +125,12 @@ public class RptDemographicColumnNames {
         }
     }
 
+    /**
+     * Returns the database column name for a human-readable display title.
+     *
+     * @param str String the display title (e.g. "Last Name")
+     * @return String the database column name (e.g. "last_name"), or empty string if not found
+     */
     public String getColumnName(String str) {
         if (backhash != null) {
             return (String) backhash.get(str);

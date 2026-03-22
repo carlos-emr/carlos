@@ -28,6 +28,13 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * JSP custom tag for conditionally rendering content based on the {@code specialencounter}
+ * CARLOS property. Checks whether the configured module name appears in the property value.
+ * Supports exact matching and reverse (negation) modes.
+ *
+ * @since 2006-01-01
+ */
 public class SpecialEncounter extends TagSupport {
     /**
      *
@@ -38,10 +45,22 @@ public class SpecialEncounter extends TagSupport {
     private boolean reverse = false;
     private boolean exactEqual = false;
 
+    /**
+     * Sets the module name to check against the {@code specialencounter} property.
+     *
+     * @param moduleName String the module name to match
+     */
     public void setModuleName(String moduleName) {
         this.moduleName = moduleName;
     }
 
+    /**
+     * Evaluates whether the module name matches the {@code specialencounter} property
+     * and includes or skips the tag body accordingly.
+     *
+     * @return int {@link TagSupport#EVAL_BODY_INCLUDE} or {@link TagSupport#SKIP_BODY}
+     * @throws JspException if property access fails
+     */
     public int doStartTag() throws JspException {
         try {
             CarlosProperties proper = CarlosProperties.getInstance();
@@ -64,16 +83,31 @@ public class SpecialEncounter extends TagSupport {
 
     }
 
+    /**
+     * Sets the reverse flag. When "true" or "yes", the inclusion condition is inverted.
+     *
+     * @param reverse String the reverse flag value
+     */
     public void setReverse(String reverse) {
         this.reverse = "true".equalsIgnoreCase(reverse)
                 || "yes".equalsIgnoreCase(reverse);
     }
 
 
+    /**
+     * Returns whether exact matching is enabled (as opposed to substring matching).
+     *
+     * @return boolean true if exact matching is enabled
+     */
     public boolean isExactEqual() {
         return exactEqual;
     }
 
+    /**
+     * Sets whether to use exact equality matching instead of substring matching.
+     *
+     * @param exactEqual boolean true to enable exact matching
+     */
     public void setExactEqual(boolean exactEqual) {
         this.exactEqual = exactEqual;
     }

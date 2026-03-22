@@ -48,6 +48,15 @@ import org.springframework.stereotype.Service;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Service for purging old audit log records from the CARLOS EMR database.
+ *
+ * <p>Exports audit log data to a SQL dump file before deleting records older
+ * than a configurable threshold. Protects against accidental data loss by
+ * enforcing a minimum retention period defined in the application properties.</p>
+ *
+ * @since 2026-03-17
+ */
 @Service
 public class AuditLogManager {
 

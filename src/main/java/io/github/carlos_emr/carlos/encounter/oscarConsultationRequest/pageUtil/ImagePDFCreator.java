@@ -54,6 +54,12 @@ import org.openpdf.text.pdf.PdfWriter;
  * @see PathValidationUtils
  * @since 2012-04-09
  */
+/**
+ * Generates PDF documents containing image attachments for consultation requests.
+ * Extends iText PdfPageEventHelper for page formatting.
+ *
+ * @since 2001-01-01
+ */
 public class ImagePDFCreator extends PdfPageEventHelper {
 
     private static Logger logger = MiscUtils.getLogger();

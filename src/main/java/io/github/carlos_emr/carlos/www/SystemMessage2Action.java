@@ -41,6 +41,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for managing system-wide broadcast messages.
+ *
+ * <p>Provides list, edit, save, and view operations for system messages
+ * that are displayed to all users across the application.
+ *
+ * @since 2012-08-13
+ */
 public class SystemMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -48,6 +56,11 @@ public class SystemMessage2Action extends ActionSupport {
 
     private SystemMessageDao systemMessageDao = SpringUtils.getBean(SystemMessageDao.class);
 
+    /**
+     * Routes the request to the appropriate handler based on the "method" parameter.
+     *
+     * @return String the Struts result name
+     */
     public String execute() {
         String mtd = request.getParameter("method");
         if ("edit".equals(mtd)) {
@@ -60,12 +73,22 @@ public class SystemMessage2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Lists all system messages.
+     *
+     * @return String the "list" result name
+     */
     public String list() {
         List<SystemMessage> activeMessages = systemMessageDao.findAll();
         request.setAttribute("ActiveMessages", activeMessages);
         return "list";
     }
 
+    /**
+     * Loads a system message for editing, or prepares a blank form for a new message.
+     *
+     * @return String the "edit" result name, or the list result if the message is not found
+     */
     public String edit() {
         String messageId = request.getParameter("id");
 
@@ -84,6 +107,12 @@ public class SystemMessage2Action extends ActionSupport {
         return "edit";
     }
 
+    /**
+     * Saves or updates a system message. Creates a new record if no ID exists,
+     * otherwise merges changes to the existing record.
+     *
+     * @return String the list result after saving
+     */
     public String save() {
 
         SystemMessage msg = this.getSystem_message();
@@ -106,6 +135,11 @@ public class SystemMessage2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Displays all system messages in a read-only view.
+     *
+     * @return String the "view" result name
+     */
     public String view() {
         List<SystemMessage> messages = systemMessageDao.findAll();
         if (messages.size() > 0) {

@@ -45,7 +45,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @deprecated 2013-12-09 use io.github.carlos_emr.carlos.util.DateUtils instead
+ * Date formatting and parsing utility class providing locale-aware date/time
+ * operations, calendar arithmetic, age calculations, and null-safe date comparisons.
+ * Reads date and time format patterns from CARLOS properties.
+ *
+ * @deprecated 2013-12-09 use {@code io.github.carlos_emr.carlos.util.DateUtils} - note: this class
+ *     appears to be the intended replacement despite sharing the same simple name. The deprecation
+ *     notice is inherited from the upstream project.
+ * @since 2001-01-01
  */
 @Deprecated
 public final class DateUtils {
@@ -71,6 +78,13 @@ public final class DateUtils {
         return (format(timeFormatString, date, locale));
     }
 
+    /**
+     * Formats a date and time into a single string using the configured date and time patterns.
+     *
+     * @param date Date the date to format
+     * @param locale Locale the locale for formatting (can be null)
+     * @return String the formatted date-time string
+     */
     public static String formatDateTime(Date date, Locale locale) {
         return (formatDate(date, locale) + ' ' + formatTime(date, locale));
     }
@@ -129,6 +143,13 @@ public final class DateUtils {
         return (formatTime(calendar.getTime(), locale));
     }
 
+    /**
+     * Formats a calendar date and time into a single string.
+     *
+     * @param calendar Calendar the calendar to format
+     * @param locale Locale the locale for formatting (can be null)
+     * @return String the formatted date-time string
+     */
     public static String formatDateTime(Calendar calendar, Locale locale) {
         return (formatDate(calendar, locale) + ' ' + formatTime(calendar, locale));
     }
@@ -163,6 +184,13 @@ public final class DateUtils {
         cal.getTimeInMillis();
     }
 
+    /**
+     * Formats a date using the specified pattern with the default locale.
+     *
+     * @param format String the {@link SimpleDateFormat} pattern
+     * @param date Date the date to format
+     * @return String the formatted date string, or blank if date is null
+     */
     public static String format(String format, Date date) {
         return format(format, date, null);
     }
@@ -194,6 +222,12 @@ public final class DateUtils {
     @Deprecated
     private static String formatDate = "dd/MM/yyyy";
 
+    /**
+     * Formats a calendar to ISO date-time format with a space instead of 'T' separator.
+     *
+     * @param cal Calendar the calendar to format
+     * @return String the ISO date-time string with space separator
+     */
     public static String getISODateTimeFormatNoT(Calendar cal) {
         return (DateFormatUtils.ISO_DATETIME_FORMAT.format(cal).replace('T', ' '));
     }
@@ -214,12 +248,23 @@ public final class DateUtils {
 
     }
 
+    /**
+     * Sets the global date formatter pattern.
+     *
+     * @param pattern String the {@link SimpleDateFormat} pattern
+     * @deprecated use formatDate() parseDate() instead
+     */
     public static void setDateFormatter(String pattern) {
 
         sdf = new SimpleDateFormat(pattern);
 
     }
 
+    /**
+     * Returns today's date formatted using the default locale date format.
+     *
+     * @return String today's date as a formatted string
+     */
     public static String getDate() {
 
         Date date = new Date();
@@ -228,6 +273,12 @@ public final class DateUtils {
 
     }
 
+    /**
+     * Formats a date using the default SimpleDateFormat pattern.
+     *
+     * @param date Date the date to format
+     * @return String the formatted date string
+     */
     public static String getDate(Date date) {
 
         SimpleDateFormat sdf = new SimpleDateFormat();
@@ -236,6 +287,14 @@ public final class DateUtils {
 
     }
 
+    /**
+     * Formats a date using the specified pattern and locale.
+     *
+     * @param date Date the date to format (returns empty string if null)
+     * @param format String the {@link SimpleDateFormat} pattern
+     * @param locale Locale the locale for formatting
+     * @return String the formatted date string, or empty if date is null
+     */
     public static String getDate(Date date, String format, Locale locale) {
         if (date == null) return "";
 
@@ -244,12 +303,24 @@ public final class DateUtils {
         return sdf.format(date);
     }
 
+    /**
+     * Formats a date using the specified pattern.
+     *
+     * @param date Date the date to format
+     * @param format String the {@link SimpleDateFormat} pattern
+     * @return String the formatted date string
+     */
     public static String getDate(Date date, String format) {
         SimpleDateFormat sdf = new SimpleDateFormat(format);
 
         return sdf.format(date);
     }
 
+    /**
+     * Returns the current date and time formatted using the default locale date-time format.
+     *
+     * @return String the current date-time as a formatted string
+     */
     public static String getDateTime() {
 
         Date date = new Date();
@@ -320,6 +391,14 @@ public final class DateUtils {
 
     }
 
+    /**
+     * Adds a number of days to a start date and returns the result as a formatted string.
+     *
+     * @param startDate Date the starting date
+     * @param numDaysAdded int the number of days to add
+     * @param locale Locale the locale for date formatting
+     * @return String the resulting date formatted as a string, or "INVALID DATE" if start is null
+     */
     public static String sumDate(Date startDate, int numDaysAdded, Locale locale) {
         String sumDateStr = "INVALID DATE";
         if (startDate != null) {
@@ -332,6 +411,13 @@ public final class DateUtils {
         return sumDateStr;
     }
 
+    /**
+     * Adds a number of days (as a string) to today's date and returns the result formatted.
+     *
+     * @param format String the {@link SimpleDateFormat} pattern for the result
+     * @param pSum String the number of days to add (parsed as integer)
+     * @return String the resulting date formatted as a string
+     */
     public static String sumDate(String format, String pSum) {
 
         int iSum = Integer.valueOf(pSum).intValue();

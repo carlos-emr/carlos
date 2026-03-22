@@ -34,6 +34,16 @@ import java.util.Calendar;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+/**
+ * Value object representing a provider's work schedule configuration for a single day.
+ *
+ * <p>Contains holiday status, the duration of each time slot, and a sorted map of
+ * time slots to their corresponding {@link io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode}
+ * characters. Built by {@link ScheduleManagerImpl#getDayWorkSchedule(String, java.util.Calendar)}
+ * from schedule date, template, and holiday data.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class DayWorkSchedule {
     private boolean isHoliday;
 
@@ -47,26 +57,59 @@ public final class DayWorkSchedule {
      */
     private TreeMap<Calendar, Character> timeSlots = new TreeMap<Calendar, Character>();
 
+    /**
+     * Gets the duration of each time slot in minutes.
+     *
+     * @return Integer the time slot duration in minutes, or null if no schedule is configured
+     */
     public Integer getTimeSlotDurationMin() {
         return (timeSlotDurationMin);
     }
 
+    /**
+     * Sets the duration of each time slot in minutes.
+     *
+     * @param timeSlotDurationMin Integer the time slot duration in minutes
+     */
     public void setTimeSlotDurationMin(Integer timeSlotDurationMin) {
         this.timeSlotDurationMin = timeSlotDurationMin;
     }
 
+    /**
+     * Checks whether this day is a holiday.
+     *
+     * @return boolean true if this day is a holiday
+     */
     public boolean isHoliday() {
         return (isHoliday);
     }
 
+    /**
+     * Sets whether this day is a holiday.
+     *
+     * @param isHoliday boolean true if this day is a holiday
+     */
     public void setHoliday(boolean isHoliday) {
         this.isHoliday = isHoliday;
     }
 
+    /**
+     * Gets the ordered map of time slot start times to schedule template code characters.
+     *
+     * <p>Entries are sorted chronologically. Each key is the start time of a slot,
+     * and each value is the single-character code from the schedule template.</p>
+     *
+     * @return TreeMap mapping Calendar start times to Character schedule codes
+     */
     public TreeMap<Calendar, Character> getTimeSlots() {
         return (timeSlots);
     }
 
+    /**
+     * Sets the ordered map of time slot start times to schedule template code characters.
+     *
+     * @param timeSlots TreeMap mapping Calendar start times to Character schedule codes
+     */
     public void setTimeSlots(TreeMap<Calendar, Character> timeSlots) {
         this.timeSlots = timeSlots;
     }

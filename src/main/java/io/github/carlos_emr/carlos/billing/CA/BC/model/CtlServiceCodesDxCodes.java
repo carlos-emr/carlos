@@ -37,6 +37,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a mapping between BC MSP billing service codes and diagnostic codes.
+ * Maps to the {@code ctl_servicecodes_dxcodes} table, associating billing service codes
+ * with their valid ICD-9 diagnostic codes.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "ctl_servicecodes_dxcodes")
 public class CtlServiceCodesDxCodes extends AbstractModel<Integer> {

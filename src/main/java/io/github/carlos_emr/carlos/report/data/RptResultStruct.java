@@ -36,7 +36,22 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
+/**
+ * Utility class that converts JDBC {@link java.sql.ResultSet} data into HTML table markup.
+ * Provides two formatting variants: {@link #getStructure(ResultSet)} for basic tables
+ * and {@link #getStructure2(ResultSet)} for enhanced CSS-styled tables used by the
+ * "Report By Template" feature.
+ *
+ * @since 2001-01-01
+ */
 public class RptResultStruct {
+    /**
+     * Converts a ResultSet into a basic HTML table with alternating row colors.
+     *
+     * @param rs ResultSet the query results to render
+     * @return String the HTML table markup
+     * @throws SQLException if a database access error occurs
+     */
     public static String getStructure(ResultSet rs) throws SQLException {
 
 // assuming  multiple rows in rs
@@ -84,6 +99,14 @@ CSS:
  *td.reportCell{}
  */
 //~apavel (Paul)
+    /**
+     * Converts a ResultSet into an enhanced CSS-styled HTML table suitable for
+     * DataTables integration. Displays "No Results" if the ResultSet is empty.
+     *
+     * @param rs ResultSet the query results to render
+     * @return String the HTML table markup with CSS class annotations
+     * @throws SQLException if a database access error occurs
+     */
     public static String getStructure2(ResultSet rs) throws SQLException {
 
 // assuming  multiple rows in rs

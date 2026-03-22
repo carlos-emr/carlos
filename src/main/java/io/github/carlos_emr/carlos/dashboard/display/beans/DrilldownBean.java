@@ -33,6 +33,13 @@ import java.util.List;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 
+/**
+ * Display bean for dashboard drilldown views, extending {@link AbstractDataDisplayBean}
+ * with tabular data. Contains the column definitions and row data resulting from
+ * a drilldown query, suitable for rendering as an HTML table.
+ *
+ * @since 2026-03-17
+ */
 public class DrilldownBean extends AbstractDataDisplayBean {
 
     private List<Column> displayColumns;

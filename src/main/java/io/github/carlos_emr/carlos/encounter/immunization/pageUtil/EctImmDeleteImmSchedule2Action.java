@@ -52,6 +52,11 @@ import io.github.carlos_emr.carlos.util.UtilXML;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that deletes an immunization schedule entry for a patient.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmDeleteImmSchedule2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

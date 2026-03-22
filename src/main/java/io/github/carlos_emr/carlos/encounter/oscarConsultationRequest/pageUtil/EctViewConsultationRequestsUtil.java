@@ -49,6 +49,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Utility class for retrieving and formatting consultation request data for display.
+ *
+ * @since 2001-01-01
+ */
 public class EctViewConsultationRequestsUtil {  
    public List<String> ids;
    public List<String> status;

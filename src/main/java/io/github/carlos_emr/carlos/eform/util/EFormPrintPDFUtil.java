@@ -52,12 +52,33 @@ import io.github.carlos_emr.carlos.form.FrmRecordFactory;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Utility class for preparing Rourke growth chart data for PDF printing.
+ * Collects height, weight, and head circumference measurements from both
+ * the {@code formGrowth0_36} form and the measurements group, then organizes
+ * them into page-specific and section-specific collections for graph plotting.
+ *
+ * <p>Supports two graph types: {@code HEAD_CIRC} for head circumference vs weight,
+ * and {@code LENGTH} for height/weight vs date.</p>
+ *
+ * @see io.github.carlos_emr.carlos.eform.actions.PrintPDF2Action
+ * @see EFormPDFServlet
+ * @since 2006-05-25
+ */
 public final class EFormPrintPDFUtil {
     private static final String HEAD_CIRCUMFERENCE_GRAPH = "HEAD_CIRC";
     private static final String LENGTH_GRAPH = "LENGTH";
 
     private static DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
+    /**
+     * Prepares Rourke growth chart graph data by collecting measurements from
+     * the form and measurement groups, organized by graph type, page, and section.
+     *
+     * @param loggedInInfo LoggedInInfo the current session context
+     * @param full_props Properties the form field values including graph type and demographic
+     * @return Properties the prepared graph properties with measurement coordinates
+     */
     public static Properties getFrmRourkeGraph(LoggedInInfo loggedInInfo, Properties full_props) {
         String graphType = full_props.getProperty("__graphType");
         Integer demographicNo = Integer.valueOf(full_props.getProperty("demographic_no"));

@@ -34,14 +34,23 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.commn.model.Site;
 
 /**
- * This class contains Appointment related presentation layer helper methods.
+ * Utility class containing appointment-related presentation layer helper methods.
  *
- * @author Eugene Petruhin
+ * <p>Provides methods for copying appointment data into the HTTP session, resolving
+ * site-based background colors, and looking up site details by name.</p>
+ *
+ * @since 2026-03-17
  */
 public class ApptUtil {
 
     private static final String SESSION_APPT_BEAN = "apptBean";
 
+    /**
+     * Copies appointment form data from the HTTP request parameters into the session
+     * as an {@link ApptData} bean.
+     *
+     * @param request HttpServletRequest the incoming request containing appointment parameters
+     */
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
         ApptData obj = new ApptData();
         obj.setAppointment_date(request.getParameter("appointment_date"));
@@ -66,6 +75,12 @@ public class ApptUtil {
         request.getSession().setAttribute(SESSION_APPT_BEAN, obj);
     }
 
+    /**
+     * Retrieves the appointment data bean from the HTTP session.
+     *
+     * @param request HttpServletRequest the incoming request
+     * @return ApptData the appointment data from the session, or {@code null} if not set
+     */
     public static ApptData getAppointmentFromSession(HttpServletRequest request) {
         return (ApptData) request.getSession().getAttribute(SESSION_APPT_BEAN);
     }

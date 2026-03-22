@@ -32,6 +32,11 @@ package io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil;
 
 import org.apache.struts2.ActionSupport;
 
+/**
+ * Struts2 action that initializes the immunization configuration page with available sets.
+ *
+ * @since 2001-01-01
+ */
 public final class EctImmInitConfig2Action extends ActionSupport {
     public String execute() {
         return SUCCESS;

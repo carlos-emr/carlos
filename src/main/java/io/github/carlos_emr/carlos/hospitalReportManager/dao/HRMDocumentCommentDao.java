@@ -21,6 +21,13 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link HRMDocumentComment} entities, managing comments
+ * attached to HRM documents with soft-delete support.
+ *
+ * @see HRMDocumentComment
+ * @since 2012-04-04
+ */
 @Repository
 public class HRMDocumentCommentDao extends AbstractDaoImpl<HRMDocumentComment> {
 
@@ -29,6 +36,12 @@ public class HRMDocumentCommentDao extends AbstractDaoImpl<HRMDocumentComment> {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * Returns all non-deleted comments for a given HRM document, ordered by most recent first.
+     *
+     * @param documentId Integer the HRM document ID
+     * @return List&lt;HRMDocumentComment&gt; the non-deleted comments, newest first
+     */
     public List<HRMDocumentComment> getCommentsForDocument(Integer documentId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.deleted=false order by commentTime desc";
         Query query = entityManager.createQuery(sql);
@@ -36,6 +49,11 @@ public class HRMDocumentCommentDao extends AbstractDaoImpl<HRMDocumentComment> {
         return query.getResultList();
     }
 
+    /**
+     * Soft-deletes a comment by setting its deleted flag to {@code true}.
+     *
+     * @param commentId Integer the comment ID to delete
+     */
     public void deleteComment(Integer commentId) {
         HRMDocumentComment comment = this.find(commentId);
         if (comment != null) {

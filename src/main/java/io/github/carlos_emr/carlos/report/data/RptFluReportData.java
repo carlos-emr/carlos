@@ -44,6 +44,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Data provider for the flu vaccination report. Generates a list of patients eligible
+ * for flu vaccination based on provider and retrieves billing history for flu-related
+ * service codes (G590A, G591A). Contains the inner class {@link DemoFluDataStruct}
+ * to hold per-patient data.
+ *
+ * @since 2001-01-01
+ */
 public class RptFluReportData {
 
     public ArrayList<DemoFluDataStruct> demoList;

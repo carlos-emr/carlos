@@ -43,6 +43,27 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
+/**
+ * Represents a contact relationship for a patient (demographic) in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code DemographicContact} table and tracks the various people associated
+ * with a patient, including healthcare providers, family members, emergency contacts, and
+ * professional specialists. The contact type is determined by the {@code type} field:</p>
+ * <ul>
+ *   <li>{@link #TYPE_PROVIDER} (0) - links to the provider table</li>
+ *   <li>{@link #TYPE_DEMOGRAPHIC} (1) - links to another demographic (e.g., family member)</li>
+ *   <li>{@link #TYPE_CONTACT} (2) - links to the contact table</li>
+ *   <li>{@link #TYPE_PROFESSIONALSPECIALIST} (3) - links to professional specialists</li>
+ * </ul>
+ *
+ * <p>Contacts are categorized as either {@link #CATEGORY_PERSONAL} or
+ * {@link #CATEGORY_PROFESSIONAL}, and can be flagged as substitute decision maker (SDM),
+ * emergency contact (EC), or most responsible provider (MRP).</p>
+ *
+ * @see Demographic
+ * @see Contact
+ * @since 2001-01-01
+ */
 @Entity
 public class DemographicContact extends AbstractModel<Integer> {
 

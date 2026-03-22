@@ -49,14 +49,26 @@ import org.apache.commons.io.FileUtils;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
 /**
- * Utilities for traceability
+ * Utility class providing helper methods for the CARLOS EMR traceability system.
  *
- * @author oscar
+ * <p>Provides functionality for building file-hash trace maps of the deployed application,
+ * downloading generated trace files, and checking user privileges for traceability operations.
+ *
+ * @see GenerateTrace2Action
+ * @see GenerateTraceabilityReport2Action
+ * @since 2026-03-17
  */
 public class GenerateTraceabilityUtil {
     private GenerateTraceabilityUtil() {
     }
 
+    /**
+     * Builds a map of relative file paths to their SHA-256 hashes for all files in the web application.
+     *
+     * @param request HttpServletRequest used to resolve the web application's real path
+     * @return Map of String file paths to String SHA-256 hex digests
+     * @throws Exception if file reading or hashing fails
+     */
     public static Map<String, String> buildTraceMap(HttpServletRequest request) throws Exception {
         Map<String, String> traceMap = new HashMap<String, String>();
         HttpSession session = request.getSession();
@@ -75,6 +87,14 @@ public class GenerateTraceabilityUtil {
         return traceMap;
     }
 
+    /**
+     * Streams a file to the HTTP response as a downloadable attachment.
+     *
+     * @param response HttpServletResponse the response to write the file to
+     * @param fileName String the path to the file to download (also used as the attachment filename)
+     * @param contentType String the MIME content type for the response
+     * @throws Exception if file reading or response writing fails
+     */
     public static void download(HttpServletResponse response, String fileName, String contentType) throws Exception {
         response.setContentType(contentType);
         response.setHeader("Content-Disposition", "attachment;filename=" + fileName);
@@ -90,6 +110,13 @@ public class GenerateTraceabilityUtil {
         out.close();
     }
 
+    /**
+     * Checks if the specified role has privilege for the given security object.
+     *
+     * @param objectName String the security object name(s) to check
+     * @param roleName String the role name to check privileges for
+     * @return boolean true if the role has the required privilege
+     */
     @SuppressWarnings("unchecked")
     public static boolean hasPrivilege(String objectName, String roleName) {
         ArrayList<Object> v = OscarRoleObjectPrivilege.getPrivilegePropAsArrayList(objectName);

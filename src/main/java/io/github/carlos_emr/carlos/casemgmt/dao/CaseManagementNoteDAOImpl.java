@@ -61,6 +61,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link CaseManagementNoteDAO}. Provides comprehensive
+ * clinical note persistence and retrieval using HQL and native SQL queries.
+ * Supports UUID-based versioning, issue-based filtering, demographic searches,
+ * and encounter count statistics.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements CaseManagementNoteDAO {
 

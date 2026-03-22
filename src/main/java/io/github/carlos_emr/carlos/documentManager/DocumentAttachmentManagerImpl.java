@@ -36,7 +36,7 @@ import java.util.*;
 
 /**
  * Implementation of the DocumentAttachmentManager interface providing comprehensive document attachment
- * and rendering services for OpenO EMR healthcare documents.
+ * and rendering services for CARLOS EMR healthcare documents.
  *
  * This service manages the lifecycle of document attachments across multiple healthcare document types
  * including consultation requests, electronic forms (eForms), electronic documents (eDocs), laboratory

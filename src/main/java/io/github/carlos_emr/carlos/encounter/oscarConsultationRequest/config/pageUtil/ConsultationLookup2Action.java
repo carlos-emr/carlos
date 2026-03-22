@@ -39,6 +39,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2025-11-20
  */
+/**
+ * Struts2 action that performs specialist and service lookups for consultation requests.
+ *
+ * @since 2001-01-01
+ */
 public class ConsultationLookup2Action extends ActionSupport {
 
     private HttpServletRequest request = ServletActionContext.getRequest();

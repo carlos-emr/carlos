@@ -56,6 +56,19 @@ import java.util.regex.Pattern;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Extended {@link BasicDataSource} that tracks active JDBC connections per thread
+ * and logs warnings when a thread holds too many simultaneous connections.
+ *
+ * <p>Wraps each connection in a {@link TrackingJdbcConnection} that records the
+ * allocation stack trace for debugging connection leaks. Thread-local connections
+ * are released by {@link DbConnectionFilter} at the end of each request.
+ *
+ * <p>Also automatically appends the {@code serverTimezone} JDBC parameter to the
+ * connection URL if not already configured, using the JVM's default timezone.
+ *
+ * @since 2026-03-17
+ */
 public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public static final int MAX_CONNECTION_WARN_SIZE = 2;
@@ -85,6 +98,9 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         return (c);
     }
 
+    /**
+     * Closes all JDBC connections held by the current thread and clears the thread-local set.
+     */
     public static void releaseThreadConnections() {
         HashSet<Connection> threadConnections = connections.get();
         if (threadConnections != null && threadConnections.size() > 0) {
@@ -104,6 +120,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         connections.remove();
     }
 
+    /**
+     * Logs all tracked connections and their allocation stack traces at ERROR level.
+     * Useful for diagnosing connection leaks.
+     */
     public static void logDebugMapToError() {
         String divider = "------------------------------";
 
@@ -115,6 +135,14 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Wraps the returned connection in a {@link TrackingJdbcConnection} for leak detection.
+     *
+     * @return Connection a tracked database connection
+     * @throws SQLException if a connection cannot be obtained
+     */
     public Connection getConnection() throws SQLException {
         try {
             return trackConnection(super.getConnection());
@@ -125,6 +153,16 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Wraps the returned connection in a {@link TrackingJdbcConnection} for leak detection.
+     *
+     * @param username String the database username
+     * @param password String the database password
+     * @return Connection a tracked database connection
+     * @throws SQLException if a connection cannot be obtained
+     */
     public Connection getConnection(String username, String password) throws SQLException {
         try {
             return trackConnection(super.getConnection(username, password));
@@ -150,6 +188,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         super.setUrl(url);
     }
 
+    /**
+     * JDBC Connection wrapper that removes itself from the tracking map and
+     * thread-local set when closed. Delegates all operations to the underlying connection.
+     */
     public static class TrackingJdbcConnection implements Connection {
 
         private final Connection connection;

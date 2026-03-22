@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.Immunizations;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data access class for immunization records. Provides methods to query patient
+ * immunization history and available immunization types.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmImmunizationData {
     private static ImmunizationsDao dao = SpringUtils.getBean(ImmunizationsDao.class);
     private static ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

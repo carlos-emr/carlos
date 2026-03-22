@@ -50,6 +50,16 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleTemplatePrimaryKey;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Helper class that searches provider schedules for the next available appointment slots.
+ *
+ * <p>Iterates day-by-day through provider schedules, examining schedule templates and
+ * existing appointments to find open time slots matching the search criteria. Searches
+ * up to {@value #MAX_DAYS_TO_SEARCH} days ahead or until the requested number of results
+ * is found.</p>
+ *
+ * @since 2026-03-17
+ */
 public class NextAppointmentSearchHelper {
     static final int MAX_DAYS_TO_SEARCH = 180;
 

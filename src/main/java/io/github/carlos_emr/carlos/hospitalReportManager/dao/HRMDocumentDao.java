@@ -25,6 +25,14 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link HRMDocument} entities, providing CRUD operations,
+ * hash-based lookups, parent-child relationship queries, and paginated provider-filtered
+ * queries for the HRM inbox.
+ *
+ * @see HRMDocument
+ * @since 2008-11-05
+ */
 @Repository
 public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
@@ -32,6 +40,12 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         super(HRMDocument.class);
     }
 
+    /**
+     * Finds HRM documents by primary key ID.
+     *
+     * @param id int the document ID
+     * @return List&lt;HRMDocument&gt; matching documents (typically zero or one)
+     */
     public List<HRMDocument> findById(int id) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.id=?1";
         Query query = entityManager.createQuery(sql);
@@ -41,6 +55,13 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return documents;
     }
 
+    /**
+     * Returns a paginated list of all HRM documents ordered by ID.
+     *
+     * @param offset int the starting position
+     * @param limit int the maximum number of results
+     * @return List&lt;HRMDocument&gt; the documents in the specified range
+     */
     public List<HRMDocument> findAll(int offset, int limit) {
         String sql = "select x from " + this.modelClass.getName() + " x order by x.id";
         Query query = entityManager.createQuery(sql);
@@ -52,6 +73,11 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return documents;
     }
 
+    /**
+     * Returns all HRM documents ordered by ID.
+     *
+     * @return List&lt;HRMDocument&gt; all documents
+     */
     public List<HRMDocument> findAll() {
         String sql = "select x from " + this.modelClass.getName() + " x order by x.id";
         Query query = entityManager.createQuery(sql);
@@ -62,6 +88,12 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
     }
 
 
+    /**
+     * Finds distinct document IDs that match the given report hash.
+     *
+     * @param hash String the SHA hash of the report content
+     * @return List&lt;Integer&gt; distinct document IDs matching the hash
+     */
     public List<Integer> findByHash(String hash) {
         String sql = "select distinct id from " + this.modelClass.getName() + " x where x.reportHash=?1";
         Query query = entityManager.createQuery(sql);
@@ -72,6 +104,15 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * Finds parent report IDs for documents sharing the same demographic-stripped hash.
+     *
+     * <p>Used for duplicate detection: if the hash matches but demographics differ,
+     * it indicates the same report was sent for a different patient.</p>
+     *
+     * @param hash String the report hash with demographic info stripped
+     * @return List&lt;Integer&gt; parent report IDs or document IDs matching the hash
+     */
     public List<Integer> findAllWithSameNoDemographicInfoHash(String hash) {
         String sql = "select distinct parentReport from " + this.modelClass.getName() + " x where x.reportLessDemographicInfoHash=?1";
         Query query = entityManager.createQuery(sql);
@@ -88,6 +129,15 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * Finds all documents in the same parent-child chain as the specified document.
+     *
+     * <p>If the document is a child, returns the parent and all siblings. If it is the
+     * parent, returns itself and all children, ordered by ID ascending.</p>
+     *
+     * @param docId Integer the document ID to find relationships for
+     * @return List&lt;HRMDocument&gt; all related documents, or empty list if document not found
+     */
     public List<HRMDocument> findAllDocumentsWithRelationship(Integer docId) {
         List<HRMDocument> documentsWithRelationship = new LinkedList<HRMDocument>();
         // Get the document that was specified first
@@ -123,6 +173,12 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
 
     }
 
+    /**
+     * Returns all child documents of a parent document, excluding the parent itself.
+     *
+     * @param docId Integer the parent document ID
+     * @return List&lt;HRMDocument&gt; child documents ordered by ID ascending
+     */
     public List<HRMDocument> getAllChildrenOf(Integer docId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.parentReport=?1 and x.id != ?2 order by id asc";
         Query query = entityManager.createQuery(sql);
@@ -133,6 +189,19 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return documents;
     }
 
+    /**
+     * Queries HRM documents with provider, sign-off, and demographic filtering for the inbox.
+     *
+     * @param providerNo String the provider number to filter by, or {@code null} for all
+     * @param providerUnmatched boolean {@code true} to show only unmatched (providerNo="-1") documents
+     * @param noSignOff boolean {@code true} to show only unsigned documents
+     * @param demographicUnmatched boolean {@code true} to show only documents not linked to any demographic
+     * @param start int the first result offset for pagination
+     * @param length int the maximum number of results
+     * @param orderColumn String the column name to order by (formattedName, dob, reportDate, timeReceived, sourceFacility)
+     * @param orderDirection String "ASC" or "DESC"
+     * @return List&lt;HRMDocument&gt; matching documents, or empty list if order parameters are invalid
+     */
     public List<HRMDocument> query(String providerNo, boolean providerUnmatched, boolean noSignOff, boolean demographicUnmatched, int start, int length, String orderColumn, String orderDirection) {
 
         if (orderColumn != null && !orderColumn.equals("formattedName") && !orderColumn.equals("dob") && !orderColumn.equals("reportDate")
@@ -193,6 +262,19 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return documents;
     }
 
+    /**
+     * Returns the total count of documents matching the same criteria as {@link #query}.
+     *
+     * @param providerNo String the provider number to filter by, or {@code null} for all
+     * @param providerUnmatched boolean {@code true} to count only unmatched documents
+     * @param noSignOff boolean {@code true} to count only unsigned documents
+     * @param demographicUnmatched boolean {@code true} to count only documents not linked to any demographic
+     * @param start int unused (present for parameter parity with query)
+     * @param length int unused (present for parameter parity with query)
+     * @param orderColumn String the order column for validation
+     * @param orderDirection String the order direction for validation
+     * @return long the count of matching documents, or 0 if order parameters are invalid
+     */
     public long queryForCount(String providerNo, boolean providerUnmatched, boolean noSignOff, boolean demographicUnmatched, int start, int length, String orderColumn, String orderDirection) {
 
         if (orderColumn != null && !orderColumn.equals("formattedName") && !orderColumn.equals("dob") && !orderColumn.equals("reportDate")

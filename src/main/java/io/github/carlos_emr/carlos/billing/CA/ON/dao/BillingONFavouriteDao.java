@@ -36,13 +36,29 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingONFavourite} entities.
+ * Provides persistence operations for Ontario billing favourites,
+ * which are saved billing templates for quick reuse by providers.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingONFavouriteDao extends AbstractDaoImpl<BillingONFavourite> {
 
+    /**
+     * Constructs a new {@code BillingONFavouriteDao} with the {@link BillingONFavourite} entity class.
+     */
     public BillingONFavouriteDao() {
         super(BillingONFavourite.class);
     }
 
+    /**
+     * Finds billing favourites by name.
+     *
+     * @param name String the favourite name to search for
+     * @return List of matching {@link BillingONFavourite} records
+     */
     public List<BillingONFavourite> findByName(String name) {
         Query q = entityManager.createQuery("SELECT b FROM BillingONFavourite b WHERE b.name = ?1");
         q.setParameter(1, name);
@@ -53,6 +69,13 @@ public class BillingONFavouriteDao extends AbstractDaoImpl<BillingONFavourite> {
         return results;
     }
 
+    /**
+     * Finds billing favourites by name and provider number.
+     *
+     * @param name String the favourite name
+     * @param providerNo String the provider number
+     * @return List of matching {@link BillingONFavourite} records
+     */
     public List<BillingONFavourite> findByNameAndProviderNo(String name, String providerNo) {
         Query q = entityManager.createQuery("SELECT b FROM BillingONFavourite b WHERE b.name = ?1 AND b.providerNo = ?2");
         q.setParameter(1, name);
@@ -64,6 +87,11 @@ public class BillingONFavouriteDao extends AbstractDaoImpl<BillingONFavourite> {
         return results;
     }
 
+    /**
+     * Finds all non-deleted billing favourites.
+     *
+     * @return List of active {@link BillingONFavourite} records where deleted flag is 0
+     */
     public List<BillingONFavourite> findCurrent() {
         Query q = entityManager.createQuery("SELECT b FROM BillingONFavourite b WHERE b.deleted=0");
 

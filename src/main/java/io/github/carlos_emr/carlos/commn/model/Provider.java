@@ -37,7 +37,27 @@ import java.util.Comparator;
 import java.util.Date;
 
 /**
- * This is the object class that relates to the provider table. Any customizations belong here.
+ * Represents a healthcare provider in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code provider} table and stores information about clinicians, physicians,
+ * nurses, and other healthcare professionals who use the system. The provider is identified
+ * by a string-based provider number ({@code providerNo}), not an auto-generated integer.</p>
+ *
+ * <p>Key data includes:</p>
+ * <ul>
+ *   <li><strong>Identity:</strong> first name, last name, title, sex, date of birth</li>
+ *   <li><strong>Professional:</strong> provider type, specialty, OHIP number, billing number,
+ *       RMA number, HSO number, practitioner number</li>
+ *   <li><strong>Contact:</strong> phone, work phone, address, email</li>
+ *   <li><strong>Status:</strong> "1" for active, "0" for inactive</li>
+ *   <li><strong>Organization:</strong> team assignment, supervisor</li>
+ * </ul>
+ *
+ * <p>The special constant {@link #SYSTEM_PROVIDER_NO} ("-1") represents system-generated
+ * actions not attributable to a specific provider.</p>
+ *
+ * @see Demographic
+ * @since 2012-01-11
  */
 @Entity
 @Table(name = "provider")

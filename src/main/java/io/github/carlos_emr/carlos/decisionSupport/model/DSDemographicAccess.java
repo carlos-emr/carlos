@@ -677,18 +677,47 @@ public class DSDemographicAccess {
         return isAgeNotany(ageStatement);
     }
 
+    /**
+     * Checks if not all age conditions are met (NOT AND logic).
+     *
+     * @param ageStatement String comma-separated age conditions
+     * @return boolean true if at least one age condition is not satisfied
+     * @throws DecisionSupportException if age comparison fails
+     */
     public boolean isAgeNotall(String ageStatement) throws DecisionSupportException {
         return !isAgeAll(ageStatement);
     }
 
+    /**
+     * Checks that no age conditions are met (NOT OR logic).
+     *
+     * @param ageStatement String comma-separated age conditions
+     * @return boolean true if the patient's age does not match any condition
+     * @throws DecisionSupportException if age comparison fails
+     */
     public boolean isAgeNotany(String ageStatement) throws DecisionSupportException {
         return !isAgeAny(ageStatement);
     }
 
+    /**
+     * Gets the patient's sex from demographic data.
+     *
+     * @return String the patient's sex ("M" or "F")
+     */
     public String getSex() {
         return getDemographicData(loggedInInfo).getSex();
     }
 
+    /**
+     * Evaluates a sex condition against the patient's sex.
+     * <p>
+     * Accepts "male"/"female" or "M"/"F" values for comparison.
+     * </p>
+     *
+     * @param sexStatement DSValue containing the sex value to match
+     * @return boolean true if the patient's sex matches
+     * @throws DecisionSupportException if sex comparison fails
+     */
     public boolean isSex(DSValue sexStatement) throws DecisionSupportException {
         logger.debug("IS SEX CALLED");
         if (sexStatement.getValue().equalsIgnoreCase("male")) sexStatement.setValue("M");
@@ -696,6 +725,13 @@ public class DSDemographicAccess {
         return sexStatement.testValue(this.getSex());
     }
 
+    /**
+     * Checks if the patient's sex matches any of the specified values (OR logic).
+     *
+     * @param sexStatements String comma-separated sex values (e.g., "M,F")
+     * @return boolean true if the patient's sex matches any value
+     * @throws DecisionSupportException if sex comparison fails
+     */
     public boolean isSexAny(String sexStatements) throws DecisionSupportException {
         List<DSValue> statements = DSValue.createDSValues(sexStatements);
         for (DSValue statement : statements) {
@@ -707,7 +743,14 @@ public class DSDemographicAccess {
     }
 
 
-    //makes no sense, but for consistency...
+    /**
+     * Checks if the patient's sex matches all specified values. Functionally equivalent to isSexAny
+     * since a patient can only have one sex value, but provided for API consistency.
+     *
+     * @param sexStatements String comma-separated sex values
+     * @return boolean true if the patient's sex matches any value
+     * @throws DecisionSupportException if sex comparison fails
+     */
     public boolean isSexAll(String sexStatements) throws DecisionSupportException {
         List<DSValue> statements = DSValue.createDSValues(sexStatements);
         for (DSValue statement : statements) {
@@ -718,19 +761,46 @@ public class DSDemographicAccess {
         return false;
     }
 
+    /**
+     * Negation alias for isSexNotany.
+     *
+     * @param sexStatement String sex value to negate
+     * @return boolean true if the patient's sex does not match
+     * @throws DecisionSupportException if sex comparison fails
+     */
     public boolean isSexNot(String sexStatement) throws DecisionSupportException {
         return isSexNotany(sexStatement);
     }
 
+    /**
+     * Checks if the patient's sex does not match all specified values (NOT AND logic).
+     *
+     * @param sexStatement String comma-separated sex values
+     * @return boolean true if the patient's sex does not match all values
+     * @throws DecisionSupportException if sex comparison fails
+     */
     public boolean isSexNotall(String sexStatement) throws DecisionSupportException {
         return !isSexAll(sexStatement);
     }
 
+    /**
+     * Checks that the patient's sex does not match any of the specified values (NOT OR logic).
+     *
+     * @param sexStatement String comma-separated sex values
+     * @return boolean true if the patient's sex matches none of the values
+     * @throws DecisionSupportException if sex comparison fails
+     */
     public boolean isSexNotany(String sexStatement) throws DecisionSupportException {
         return !isSexAny(sexStatement);
     }
 
 
+    /**
+     * Checks if any clinical note for this patient contains the specified search text.
+     *
+     * @param searchValue DSValue containing the text to search for in clinical notes
+     * @return boolean true if any note contains the search text
+     */
     public boolean noteContains(DSValue searchValue) {
         CaseManagementNoteDAO dao = (CaseManagementNoteDAO) SpringUtils.getBean(CaseManagementNoteDAO.class);
         List<CaseManagementNote> notes = dao.searchDemographicNotes(demographicNo, "%" + searchValue.getValue() + "%");
@@ -738,6 +808,12 @@ public class DSDemographicAccess {
         else return false;
     }
 
+    /**
+     * Checks if clinical notes contain any of the specified search texts (OR logic).
+     *
+     * @param searchStrings String comma-separated search terms
+     * @return boolean true if any note contains at least one search term
+     */
     public boolean noteContainsAny(String searchStrings) {
         List<DSValue> searchValues = DSValue.createDSValues(searchStrings);
         for (DSValue searchValue : searchValues) {
@@ -746,6 +822,12 @@ public class DSDemographicAccess {
         return false;
     }
 
+    /**
+     * Checks if clinical notes contain all of the specified search texts (AND logic).
+     *
+     * @param searchStrings String comma-separated search terms
+     * @return boolean true if notes contain all specified search terms
+     */
     public boolean noteContainsAll(String searchStrings) {
         List<DSValue> searchValues = DSValue.createDSValues(searchStrings);
         for (DSValue searchValue : searchValues) {
@@ -754,18 +836,42 @@ public class DSDemographicAccess {
         return true;
     }
 
+    /**
+     * Negation alias for noteContainsNotany.
+     *
+     * @param searchStrings String comma-separated search terms
+     * @return boolean true if notes contain none of the search terms
+     */
     public boolean noteContainsNot(String searchStrings) {
         return noteContainsNotany(searchStrings);
     }
 
+    /**
+     * Checks if clinical notes do not contain all specified search texts (NOT AND logic).
+     *
+     * @param searchStrings String comma-separated search terms
+     * @return boolean true if at least one search term is absent from notes
+     */
     public boolean noteContainsNotall(String searchStrings) {
         return !noteContainsAll(searchStrings);
     }
 
+    /**
+     * Checks that clinical notes contain none of the specified search texts (NOT OR logic).
+     *
+     * @param searchStrings String comma-separated search terms
+     * @return boolean true if notes contain none of the specified search terms
+     */
     public boolean noteContainsNotany(String searchStrings) {
         return !noteContainsAny(searchStrings);
     }
 
+    /**
+     * Checks if the specified flowsheet is up-to-date with no outstanding warnings.
+     *
+     * @param flowsheetId String identifier of the flowsheet to check
+     * @return boolean true if the flowsheet has no outstanding warnings
+     */
     @SuppressWarnings("unchecked")
     public boolean flowsheetUptoDateAny(String flowsheetId) {
         boolean retval = false;
@@ -828,6 +934,13 @@ public class DSDemographicAccess {
     }
 
 
+    /**
+     * Checks if any of the specified billing codes have been paid within the given time constraints.
+     *
+     * @param searchStrings String comma-separated billing codes to check
+     * @param options Map containing payer type ("payer") and time constraint ("notInDays")
+     * @return boolean true if any code has not been paid/billed within the specified period
+     */
     public boolean paidAny(String searchStrings, Map<String, String> options) {
 
         boolean retval = true;  //Set this optimistically that it has not been paid in the said number of days
@@ -867,6 +980,13 @@ public class DSDemographicAccess {
         return retval;
     }
 
+    /**
+     * Checks if all of the specified billing codes have been paid within the given time constraints.
+     *
+     * @param searchStrings String comma-separated billing codes to check
+     * @param options Map containing payer type ("payer") and time constraint ("inDays")
+     * @return boolean true if all codes have been paid/billed within the specified period
+     */
     public boolean paidAll(String searchStrings, Map options) {
 
         int countPaid = 0;
@@ -917,11 +1037,20 @@ public class DSDemographicAccess {
 //        return true;
 //    }
 
-    //Look for any of the billing codes that have been billed for this patient
-    //Options:  notInDays=999              limit to the number of days to check for this code
-    //          notInCalendarYear=true
-    //          unitsBilledToday=<4
-    //          requiresStartTime=true     not implemented yet.
+    /**
+     * Checks if any of the specified billing codes have been billed for this patient.
+     * <p>
+     * Supported options:
+     * </p>
+     * <ul>
+     *   <li>{@code payer} - Payer type (e.g., "MSP" for BC Medical Services Plan)</li>
+     *   <li>{@code notInDays} - Returns true if none of the codes have been billed in this many days</li>
+     * </ul>
+     *
+     * @param searchStrings String comma-separated billing codes
+     * @param options Hashtable containing payer and time constraint parameters
+     * @return boolean true if none of the codes have been billed within the specified period
+     */
     public boolean billedForAny(String searchStrings, Hashtable<String, String> options) {
         boolean retval = false;
         if (options.containsKey("payer") && options.get("payer").equals("MSP")) {
@@ -973,6 +1102,13 @@ public class DSDemographicAccess {
         return retval;
     }
 
+    /**
+     * Alternative implementation of billedForAny with slightly different logic for time-based checks.
+     *
+     * @param searchStrings String comma-separated billing codes
+     * @param options Hashtable containing payer and time constraint parameters
+     * @return boolean true if any code has not been billed within the specified period
+     */
     public boolean billedForAny2(String searchStrings, Hashtable<String, String> options) {
         boolean retval = false;
         String[] codes = searchStrings.replaceAll("\'", "").split(",");
@@ -999,6 +1135,13 @@ public class DSDemographicAccess {
         return retval;
     }
 
+    /**
+     * Parses a string value from the options map as an integer.
+     *
+     * @param options Map containing the key-value pairs
+     * @param key String the key to look up
+     * @return int the parsed integer value
+     */
     public int getAsInt(Map options, String key) {
         String str = (String) options.get(key);
         int intval = Integer.parseInt(str);
@@ -1047,7 +1190,13 @@ public class DSDemographicAccess {
     //number of units billed today
 
 
-    //for testing purposes mostly (used to list patient values in echart
+    /**
+     * Returns a string representation of the patient's data for the specified module.
+     * Primarily used for testing and display in the e-chart clinical interface.
+     *
+     * @param module Module the data source type to retrieve values for
+     * @return String formatted patient data for the module, or null if unavailable
+     */
     public String getDemogrpahicValues(Module module) {
         try {
             if (module == Module.dxcodes) return this.getDxCodesStr();

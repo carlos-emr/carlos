@@ -36,20 +36,37 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Read compressed data from input stream,
- * Write it to servlet output stream for consuming(downloading) by client
+ * Callable that reads a traceability report from a piped input stream and streams it
+ * to the HTTP response as a downloadable text file (trace_report.txt).
  *
- * @author oscar
+ * <p>Runs in a separate thread from the {@link TraceabilityReportProcessor} producer,
+ * connected via piped streams for memory-efficient streaming.
+ *
+ * @see TraceabilityReportProcessor
+ * @see GenerateTraceabilityReport2Action
+ * @since 2026-03-17
  */
 public class TraceabilityReportConsumer implements Callable<String> {
     private InputStream inputStream;
     private HttpServletResponse response;
 
+    /**
+     * Constructs a consumer that reads from the given input stream and writes to the response.
+     *
+     * @param inputStream InputStream the piped input stream from the report producer
+     * @param response HttpServletResponse the HTTP response to stream the report to
+     */
     public TraceabilityReportConsumer(InputStream inputStream, HttpServletResponse response) {
         this.inputStream = inputStream;
         this.response = response;
     }
 
+    /**
+     * Reads the report data from the input stream and writes it to the servlet output stream.
+     *
+     * @return String the class name of this consumer
+     * @throws Exception if an I/O error occurs during streaming
+     */
     @Override
     public String call() throws Exception {
         //setting content type to 'binary'

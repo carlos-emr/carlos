@@ -86,6 +86,11 @@ import org.apache.struts2.ServletActionContext;
  * @see ConcatPDF
  * @since 2012-04-09
  */
+/**
+ * Struts2 action that generates printable output for consultation request forms.
+ *
+ * @since 2001-01-01
+ */
 public class EctConsultationFormRequestPrintAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

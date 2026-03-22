@@ -30,6 +30,11 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil;
 
+/**
+ * Form bean for adding or editing specialist information in consultation configuration.
+ *
+ * @since 2001-01-01
+ */
 public final class EctConAddSpecialistForm {
     String fName;
     String lName;

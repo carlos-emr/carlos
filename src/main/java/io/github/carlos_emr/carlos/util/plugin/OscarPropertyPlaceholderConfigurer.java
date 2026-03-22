@@ -29,11 +29,24 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
 
+/**
+ * Spring {@link PropertyPlaceholderConfigurer} extension that resolves property placeholders
+ * prefixed with {@code oscar.} from {@link CarlosProperties}. Falls back to standard Spring
+ * property resolution for non-CARLOS placeholders.
+ *
+ * @since 2006-01-01
+ */
 public class OscarPropertyPlaceholderConfigurer extends PropertyPlaceholderConfigurer {
 
 
-    /* (non-Javadoc)
-     * @see org.springframework.beans.factory.config.PropertyPlaceholderConfigurer#resolvePlaceholder(java.lang.String, java.util.Properties, int)
+    /**
+     * Resolves a placeholder, first checking CARLOS properties for {@code oscar.} prefixed keys,
+     * then falling back to standard Spring resolution.
+     *
+     * @param placeholder String the placeholder to resolve
+     * @param properties Properties the merged Spring properties
+     * @param systemPropertiesMode int the system properties resolution mode
+     * @return String the resolved value, or null if not found
      */
     protected String resolvePlaceholder(String placeholder, Properties properties, int systemPropertiesMode) {
 
@@ -50,8 +63,13 @@ public class OscarPropertyPlaceholderConfigurer extends PropertyPlaceholderConfi
         return super.resolvePlaceholder(placeholder, properties, systemPropertiesMode);
     }
 
-    /* (non-Javadoc)
-     * @see org.springframework.beans.factory.config.PropertyPlaceholderConfigurer#resolvePlaceholder(java.lang.String, java.util.Properties)
+    /**
+     * Resolves a placeholder, first checking CARLOS properties for {@code oscar.} prefixed keys,
+     * then falling back to standard Spring resolution.
+     *
+     * @param placeholder String the placeholder to resolve
+     * @param properties Properties the merged Spring properties
+     * @return String the resolved value, or null if not found
      */
     protected String resolvePlaceholder(String placeholder, Properties properties) {
 

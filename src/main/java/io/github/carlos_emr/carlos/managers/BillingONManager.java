@@ -46,7 +46,15 @@ import java.util.Locale;
 import java.util.Properties;
 
 /**
- * @author mweston4
+ * Service manager for Ontario-specific billing operations in the CARLOS EMR system.
+ *
+ * <p>Handles Ontario Health Insurance Plan (OHIP) billing invoice operations
+ * including email notification preparation. Currently, the invoice email
+ * notification method is deprecated pending migration to the new
+ * {@link EmailManager} implementation.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao
+ * @since 2026-03-17
  */
 @Service
 public class BillingONManager {

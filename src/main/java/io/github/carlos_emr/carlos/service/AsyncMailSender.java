@@ -31,11 +31,15 @@
 package io.github.carlos_emr.carlos.service;
 
 /**
- * See:
- * http://www.i-develop.be/blog/2010/10/01/execute-tasks-asynchronously-with-spring-3-0/
- * For reference of code implementation
+ * Asynchronous mail sender that wraps a synchronous {@link MailSender} and delegates
+ * send operations to a Spring {@link TaskExecutor} for non-blocking email delivery.
  *
- * @author mweston4
+ * <p>Each email send operation is wrapped in an {@code AsyncMailTask} runnable and
+ * submitted to the task executor, allowing the calling thread to continue without
+ * waiting for SMTP delivery to complete.</p>
+ *
+ * @since 2001-01-01
+ * @deprecated Use the EmailManager service instead for sending emails.
  */
 
 import org.springframework.core.task.TaskExecutor;
@@ -65,16 +69,33 @@ public class AsyncMailSender implements MailSender {
 
 
     @Autowired
+    /**
+     * Sets the Spring task executor used for asynchronous email delivery.
+     *
+     * @param taskExecutor TaskExecutor the task executor for background mail sending
+     */
     public void setTaskExecutor(TaskExecutor taskExecutor) {
         this.taskExecutor = taskExecutor;
     }
 
+    /**
+     * Sends multiple mail messages asynchronously by delegating each to the task executor.
+     *
+     * @param mailMessages SimpleMailMessage[] the array of messages to send
+     * @throws MailException if a mail sending error occurs
+     */
     public void send(SimpleMailMessage[] mailMessages) throws MailException {
         for (SimpleMailMessage message : mailMessages) {
             send(message);
         }
     }
 
+    /**
+     * Sends a single mail message asynchronously by submitting it to the task executor.
+     *
+     * @param mailMessage SimpleMailMessage the message to send
+     * @throws MailException if a mail sending error occurs
+     */
     public void send(SimpleMailMessage mailMessage) throws MailException {
         taskExecutor.execute(new AsyncMailTask(mailMessage));
     }

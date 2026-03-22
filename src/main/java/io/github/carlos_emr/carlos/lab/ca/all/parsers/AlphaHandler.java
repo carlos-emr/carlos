@@ -43,6 +43,12 @@ import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
+/**
+ * HL7 message handler for Alpha laboratory results. Extends {@link DefaultGenericHandler}
+ * with Alpha-specific parsing logic for ORU_R01 messages across HL7 v2.2 and v2.3.
+ *
+ * @since 2007-01-18
+ */
 public class AlphaHandler extends DefaultGenericHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();

@@ -34,6 +34,11 @@ import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 @Deprecated
+/**
+ * Handles attaching laboratory results to consultation requests.
+ *
+ * @since 2001-01-01
+ */
 public class ConsultationAttachLabs extends ConsultationAttach {
 
     private static final String DOCTYPE = ConsultDocs.DOCTYPE_LAB;

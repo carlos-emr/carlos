@@ -40,6 +40,19 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents a healthcare facility in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code Facility} table and stores configuration for healthcare
+ * organizations that use the system. Facilities define organizational boundaries
+ * for multi-site deployments and control feature availability such as digital
+ * signatures, health number registry, and integrated community care.</p>
+ *
+ * <p>A facility can be marked as an HIC (Health Information Custodian) for
+ * privacy compliance purposes, and can be enabled or disabled without deletion.</p>
+ *
+ * @since 2012-01-11
+ */
 @Entity
 public class Facility extends AbstractModel<Integer> implements Serializable {
 

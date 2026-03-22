@@ -31,7 +31,15 @@
 package io.github.carlos_emr.carlos.workflow;
 
 /**
- * @author jay
+ * Represents a single state within a clinical workflow, identified by a key with a
+ * human-readable name and description.
+ *
+ * <p>Used by {@link WorkFlow} implementations to define the possible states
+ * a workflow instance can be in (e.g., "No Appt made", "Appt Booked", "Closed").</p>
+ *
+ * @see WorkFlow
+ * @see RHWorkFlow
+ * @since 2026-03-17
  */
 public class WFState {
 
@@ -45,6 +53,13 @@ public class WFState {
     public WFState() {
     }
 
+    /**
+     * Constructs a new workflow state with the specified key, name, and description.
+     *
+     * @param key String the unique state identifier key
+     * @param name String the human-readable state name
+     * @param desc String the state description
+     */
     public WFState(String key, String name, String desc) {
         this.key = key;
         this.name = name;
@@ -52,26 +67,56 @@ public class WFState {
 
     }
 
+    /**
+     * Returns the unique state key identifier.
+     *
+     * @return String the state key
+     */
     public String getKey() {
         return key;
     }
 
+    /**
+     * Sets the unique state key identifier.
+     *
+     * @param key String the state key to set
+     */
     public void setKey(String key) {
         this.key = key;
     }
 
+    /**
+     * Returns the human-readable state name.
+     *
+     * @return String the state name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Sets the human-readable state name.
+     *
+     * @param name String the state name to set
+     */
     public void setName(String name) {
         this.name = name;
     }
 
+    /**
+     * Returns the state description.
+     *
+     * @return String the state description
+     */
     public String getDesc() {
         return desc;
     }
 
+    /**
+     * Sets the state description.
+     *
+     * @param desc String the state description to set
+     */
     public void setDesc(String desc) {
         this.desc = desc;
     }

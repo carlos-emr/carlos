@@ -43,6 +43,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that purges audit log records older than a specified date.
+ *
+ * <p>Requires {@code _admin.auditLogPurge} read privilege. Accepts a "dateBegin"
+ * request parameter in yyyy-MM-dd format and removes all audit log entries before
+ * that date.
+ *
+ * @see io.github.carlos_emr.carlos.managers.AuditLogManager
+ * @since 2026-03-17
+ */
 public class AuditLogPurge2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -50,6 +60,14 @@ public class AuditLogPurge2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Purges audit log records before the date specified by the "dateBegin" request parameter.
+     *
+     * <p>Sets a "msg" request attribute with the result (success count or error message).
+     *
+     * @return String SUCCESS after processing the purge request
+     * @throws Exception if an unexpected error occurs
+     */
     @Override
     public String execute() throws Exception {
 

@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDest
  * <p>
  * The ultimate intention of this class is to auto populate and translate specific data
  * according to its environment.
+ *
+ * @since 2026-03-17
  */
 public final class Destination {
 
@@ -59,18 +61,39 @@ public final class Destination {
     private List<AbstractOscarFhirResource<?, ?>> oscarFhirResource;
     private List<BaseResource> fhirResources;
 
+    /**
+     * Constructs a Destination from a single FhirDestination enum.
+     *
+     * @param destination the FHIR destination enum
+     */
     public Destination(FhirDestination destination) {
         addDestination(destination);
     }
 
+    /**
+     * Constructs a Destination with an explicit name and endpoint URL.
+     *
+     * @param name the destination name
+     * @param endpoint the destination endpoint URL
+     */
     public Destination(String name, String endpoint) {
         addDestination(name, endpoint);
     }
 
+    /**
+     * Constructs a Destination from multiple FhirDestination enums.
+     *
+     * @param destinations the list of FHIR destination enums
+     */
     public Destination(List<FhirDestination> destinations) {
         setDestinations(destinations);
     }
 
+    /**
+     * Returns the list of FHIR MessageDestinationComponents for this destination.
+     *
+     * @return List of MessageDestinationComponent objects
+     */
     public List<MessageDestinationComponent> getMessageDestinationComponents() {
         if (messageDestinationComponents == null) {
             messageDestinationComponents = new ArrayList<MessageDestinationComponent>();
@@ -110,11 +133,21 @@ public final class Destination {
         addMessageDestinationComponent(messageDestinationComponent);
     }
 
+    /**
+     * Adds a CARLOS FHIR Organization as a destination recipient.
+     *
+     * @param organization the Organization resource to add
+     */
     public void addOrganization(Organization<?> organization) {
         addFhirResource(organization.getFhirResource());
         getOscarFhirResources().add(organization);
     }
 
+    /**
+     * Adds a raw FHIR Organization as a destination recipient.
+     *
+     * @param organization the FHIR Organization resource to add
+     */
     public void addOrganization(org.hl7.fhir.dstu3.model.Organization organization) {
         addFhirResource(organization);
     }

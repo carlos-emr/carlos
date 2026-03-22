@@ -34,6 +34,11 @@ import io.github.carlos_emr.carlos.commn.dao.SpecialistsJavascriptDao;
 import io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Generates JavaScript data structures for consultation configuration dropdowns.
+ *
+ * @since 2001-01-01
+ */
 public class EctConConfigurationJavascriptData {
 
     private SpecialistsJavascriptDao dao = SpringUtils.getBean(SpecialistsJavascriptDao.class);

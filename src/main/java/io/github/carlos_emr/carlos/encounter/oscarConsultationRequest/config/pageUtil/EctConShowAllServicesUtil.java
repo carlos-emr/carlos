@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Utility class for retrieving all consultation services for display.
+ *
+ * @since 2001-01-01
+ */
 public class EctConShowAllServicesUtil {
 
     private ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);

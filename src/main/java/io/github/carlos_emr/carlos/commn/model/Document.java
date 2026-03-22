@@ -65,7 +65,24 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.io.FileUtils;
 
 /**
- * @author jackson
+ * Represents a clinical document stored in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code document} table and manages all types of documents including
+ * scanned images, lab reports, consultation letters, photos, and other clinical
+ * attachments. Documents are linked to patients, providers, and programs.</p>
+ *
+ * <p>Key attributes include:</p>
+ * <ul>
+ *   <li><strong>Document metadata:</strong> type, description, filename, content type, source</li>
+ *   <li><strong>Lifecycle:</strong> creation datetime, observation date, update datetime, status (A=Active, D=Deleted)</li>
+ *   <li><strong>Review tracking:</strong> reviewer provider number, review datetime</li>
+ *   <li><strong>Physical storage:</strong> file content stored on disk, path resolved via {@code CarlosProperties}</li>
+ * </ul>
+ *
+ * <p>Provides extensive named queries for searching documents by various criteria including
+ * type, creator, status, reviewer, and appointment number.</p>
+ *
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "document")

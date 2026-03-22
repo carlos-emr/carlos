@@ -56,7 +56,31 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 
 
 /**
- * The persistent class for the admission database table.
+ * Represents a program admission record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code admission} table and tracks patient (client) enrollment in
+ * healthcare programs. Each admission record links a patient to a specific
+ * {@link Program} with an assigned {@link ProgramTeam} and optional
+ * {@link ProgramClientStatus}.</p>
+ *
+ * <p>Admission status is tracked via string constants:</p>
+ * <ul>
+ *   <li>{@link #STATUS_CURRENT} - patient is currently admitted to the program</li>
+ *   <li>{@link #STATUS_DISCHARGED} - patient has been discharged from the program</li>
+ * </ul>
+ *
+ * <p>Key relationships (all eagerly loaded):</p>
+ * <ul>
+ *   <li>{@link Program} - the program the patient is admitted to</li>
+ *   <li>{@link ProgramTeam} - the care team within the program</li>
+ *   <li>{@link ProgramClientStatus} - the client's status within the program</li>
+ *   <li>{@link Demographic} - the patient (client) record</li>
+ * </ul>
+ *
+ * @see Program
+ * @see ProgramTeam
+ * @see Demographic
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "admission")

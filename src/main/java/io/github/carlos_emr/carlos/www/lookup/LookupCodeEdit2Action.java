@@ -46,12 +46,28 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Struts 2 action for editing and saving individual lookup code entries.
+ *
+ * <p>Handles loading a lookup code for editing (or creating a new one) and
+ * saving validated field values. Performs type-specific validation for date,
+ * numeric, and string fields, and checks for duplicate codes and active client
+ * references before deactivation.
+ *
+ * @since 2009-01-01
+ */
 public class LookupCodeEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private LookupManager lookupManager = SpringUtils.getBean(LookupManager.class);
 
+    /**
+     * Routes the request to save or load-code based on the "method" parameter.
+     *
+     * @return String the Struts result name
+     * @throws Exception if an error occurs during processing
+     */
     public String execute() throws Exception {
         if ("save".equals(request.getParameter("method"))) {
             return save();
@@ -89,6 +105,15 @@ public class LookupCodeEdit2Action extends ActionSupport {
         return "edit";
     }
 
+    /**
+     * Validates and saves the lookup code field values.
+     *
+     * <p>Performs field-type validation (date, numeric, string), checks for active
+     * clients when deactivating shelter/organization codes, and persists changes.
+     *
+     * @return String the "edit" result name (with success or error messages)
+     * @throws Exception if an error occurs during save
+     */
     public String save() throws Exception {
         LookupTableDefValue tableDef = this.getTableDef();
         List fieldDefList = this.getCodeFields();
@@ -164,6 +189,13 @@ public class LookupCodeEdit2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Determines whether the code editor is read-only for the given function.
+     *
+     * @param request HttpServletRequest the current request
+     * @param funName String the function name to check
+     * @return boolean always returns {@code false} in the current implementation
+     */
     public boolean isReadOnly(HttpServletRequest request, String funName) {
         return false;
     }

@@ -57,6 +57,16 @@ import org.w3c.dom.Element;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 
+/**
+ * Saves demographic report query criteria as a favourite in the
+ * {@code demographicQueryFavourites} table. Serializes multi-valued form fields
+ * (select columns, roster statuses, patient statuses, providers) to XML format
+ * for storage.
+ *
+ * @see RptDemographicQuery2Loader
+ * @see RptDemographicReport2Form
+ * @since 2001-01-01
+ */
 public class RptDemographicQuery2Saver {
 
     private DemographicQueryFavouritesDao demographicQueryFavouritesDao = SpringUtils.getBean(DemographicQueryFavouritesDao.class);

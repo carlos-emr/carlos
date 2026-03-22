@@ -34,6 +34,14 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 
+/**
+ * Value object aggregating HL7 segment data for BC PathNet lab results.
+ * Used as a constructor expression target in JPA queries to project joined
+ * HL7 MSH, PID, ORC, and OBR segments along with routing information
+ * into a single result object.
+ *
+ * @since 2026-03-17
+ */
 public class PathNetLabResults {
     private Hl7Msh hl7Msh;
     private Hl7Pid hl7Pid;
@@ -43,6 +51,16 @@ public class PathNetLabResults {
     private PatientLabRouting patientLabRouting;
     private Long minResultStatus;
 
+    /**
+     * Constructs a PathNetLabResults from provider lab routing data.
+     *
+     * @param hl7Msh Hl7Msh the message header segment
+     * @param hl7Pid Hl7Pid the patient identification segment
+     * @param hl7Orc Hl7Orc the common order segment
+     * @param hl7Obr Hl7Obr the observation request segment
+     * @param providerLabRouting ProviderLabRoutingModel the provider routing information
+     * @param minResultStatus String the minimum result status, parsed as Long
+     */
     public PathNetLabResults(Hl7Msh hl7Msh, Hl7Pid hl7Pid, Hl7Orc hl7Orc, Hl7Obr hl7Obr, ProviderLabRoutingModel providerLabRouting, String minResultStatus) {
         this.hl7Msh = hl7Msh;
         this.hl7Pid = hl7Pid;
@@ -52,6 +70,16 @@ public class PathNetLabResults {
         this.minResultStatus = Long.valueOf(minResultStatus);
     }
 
+    /**
+     * Constructs a PathNetLabResults from patient lab routing data.
+     *
+     * @param hl7Msh Hl7Msh the message header segment
+     * @param hl7Pid Hl7Pid the patient identification segment
+     * @param hl7Orc Hl7Orc the common order segment
+     * @param hl7Obr Hl7Obr the observation request segment
+     * @param patientLabRouting PatientLabRouting the patient routing information
+     * @param minResultStatus String the minimum result status, parsed as Long
+     */
     public PathNetLabResults(Hl7Msh hl7Msh, Hl7Pid hl7Pid, Hl7Orc hl7Orc, Hl7Obr hl7Obr, PatientLabRouting patientLabRouting, String minResultStatus) {
         this.hl7Msh = hl7Msh;
         this.hl7Pid = hl7Pid;

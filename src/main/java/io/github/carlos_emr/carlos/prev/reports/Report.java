@@ -171,14 +171,27 @@ public class Report {
         this.ineligiblePatients++;
     }
 
+    /**
+     * Increments the up-to-date patient count by one.
+     */
     public void incrementUp2Date() {
         this.up2date++;
     }
 
+    /**
+     * Returns whether this prevention report is active.
+     *
+     * @return boolean true if the report is active, false otherwise
+     */
     public boolean isActive() {
         return active;
     }
 
+    /**
+     * Sets whether this prevention report is active.
+     *
+     * @param active boolean true to mark the report as active, false otherwise
+     */
     public void setActive(boolean active) {
         this.active = active;
     }

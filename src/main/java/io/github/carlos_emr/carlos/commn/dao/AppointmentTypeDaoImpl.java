@@ -37,13 +37,20 @@ import jakarta.persistence.Query;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 
+/**
+ * JPA implementation of {@link AppointmentTypeDao} for managing appointment type definitions.
+ *
+ * @since 2005
+ */
 @Repository
 public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> implements AppointmentTypeDao {
 
+    /** Constructs the appointment type DAO for the {@link AppointmentType} entity class. */
     public AppointmentTypeDaoImpl() {
         super(AppointmentType.class);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<AppointmentType> listAll() {
         String sqlCommand = "select x from AppointmentType x order by x.name";
@@ -56,6 +63,7 @@ public class AppointmentTypeDaoImpl extends AbstractDaoImpl<AppointmentType> imp
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public AppointmentType findByAppointmentTypeByName(String name) {
         Query query = entityManager.createQuery("from AppointmentType atype where atype.name = ?1").setParameter(1, name);

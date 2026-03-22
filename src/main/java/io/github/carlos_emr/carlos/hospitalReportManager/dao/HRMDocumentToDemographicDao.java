@@ -27,6 +27,14 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemo
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link HRMDocumentToDemographic} entities, managing the
+ * association between HRM documents and patient demographics, including lookups
+ * for consultation and eForm attachments.
+ *
+ * @see HRMDocumentToDemographic
+ * @since 2008-11-05
+ */
 @Repository
 public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDemographic> {
 
@@ -35,6 +43,13 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
     }
 
 
+    /**
+     * Finds all HRM document-to-demographic associations for a given demographic,
+     * ordered by report date descending.
+     *
+     * @param demographicNo String the demographic number to search for
+     * @return List&lt;HRMDocumentToDemographic&gt; the matching associations
+     */
     public List<HRMDocumentToDemographic> findByDemographicNo(String demographicNo) {
         String sql = "select x from " + this.modelClass.getName() + " x, HRMDocument h where x.hrmDocumentId = h.id and  x.demographicNo=?1 order by h.reportDate DESC";
         Query query = entityManager.createQuery(sql);
@@ -58,6 +73,12 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
         return documentToDemographics;
     }
 
+    /**
+     * Finds all demographic associations for a given HRM document ID.
+     *
+     * @param hrmDocumentId Integer the HRM document ID
+     * @return List&lt;HRMDocumentToDemographic&gt; the matching associations
+     */
     public List<HRMDocumentToDemographic> findByHrmDocumentId(Integer hrmDocumentId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1";
         Query query = entityManager.createQuery(sql);
@@ -111,6 +132,13 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
 
 
     @SuppressWarnings("unchecked")
+    /**
+     * Finds HRM documents attached to a specific eForm via the EFormDocs join table.
+     *
+     * @param fdid String the eForm data ID
+     * @return List&lt;HRMDocumentToDemographic&gt; the attached HRM document associations,
+     *         or an empty list if the fdid is invalid or no results are found
+     */
     public List<HRMDocumentToDemographic> findHRMDocumentsAttachedToEForm(String fdid) {
         //Creates a new empty list, it remains empty if an error occurs
         List<HRMDocumentToDemographic> attachedHRMDocumentToDemographics = new ArrayList<HRMDocumentToDemographic>();

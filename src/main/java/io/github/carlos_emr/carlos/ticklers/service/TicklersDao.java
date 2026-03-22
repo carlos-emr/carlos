@@ -38,9 +38,32 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.ticklers.web.TicklerQuery;
 
+/**
+ * Data access interface for tickler (clinical reminder) operations with pagination and query support.
+ *
+ * <p>Extends the generic {@link AbstractDao} for Tickler entities and adds methods for
+ * counting and retrieving ticklers based on flexible query criteria. Ticklers are clinical
+ * reminders used by healthcare providers to track follow-up tasks for patients.</p>
+ *
+ * @since 2001-01-01
+ * @see io.github.carlos_emr.carlos.commn.model.Tickler
+ * @see io.github.carlos_emr.carlos.ticklers.web.TicklerQuery
+ */
 public interface TicklersDao extends AbstractDao<Tickler> {
 
+    /**
+     * Returns the count of ticklers matching the specified pagination query criteria.
+     *
+     * @param paginationQuery PaginationQuery the query containing filter and pagination parameters
+     * @return int the number of ticklers matching the query
+     */
     public int getTicklersCount(PaginationQuery paginationQuery);
 
+    /**
+     * Retrieves a list of ticklers matching the specified query criteria.
+     *
+     * @param ticklerQuery TicklerQuery the query containing filter, sort, and pagination parameters
+     * @return List of Tickler entities matching the query
+     */
     public List<Tickler> getTicklers(TicklerQuery ticklerQuery);
 }

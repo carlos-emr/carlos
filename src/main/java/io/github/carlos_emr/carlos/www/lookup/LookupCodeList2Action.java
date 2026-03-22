@@ -38,12 +38,25 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Struts 2 action for listing all codes within a specific lookup table.
+ *
+ * <p>Retrieves the lookup table definition and all associated code entries
+ * for display in the lookup code management interface.
+ *
+ * @since 2009-01-01
+ */
 public class LookupCodeList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private LookupManager lookupManager = SpringUtils.getBean(LookupManager.class);
 
+    /**
+     * Executes the action by loading all codes for the specified lookup table.
+     *
+     * @return String the "list" result name
+     */
     public String execute() {
         return list();
     }
@@ -59,6 +72,13 @@ public class LookupCodeList2Action extends ActionSupport {
         return "list";
     }
 
+    /**
+     * Determines whether the code list is read-only for the given function.
+     *
+     * @param request HttpServletRequest the current request
+     * @param funName String the function name to check
+     * @return boolean always returns {@code false} in the current implementation
+     */
     public boolean isReadOnly(HttpServletRequest request, String funName) {
         boolean readOnly = false;
 

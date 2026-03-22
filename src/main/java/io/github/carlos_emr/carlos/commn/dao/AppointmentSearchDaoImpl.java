@@ -38,20 +38,28 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link AppointmentSearchDao} for managing appointment search configurations.
+ *
+ * @since 2001
+ */
 @Repository
 public class AppointmentSearchDaoImpl extends AbstractDaoImpl<AppointmentSearch> implements AppointmentSearchDao {
 
+    /** Constructs the appointment search DAO for the {@link AppointmentSearch} entity class. */
     public AppointmentSearchDaoImpl() {
         super(AppointmentSearch.class);
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public List<AppointmentSearch> findAll() {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " a order by a.createDate desc");
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<AppointmentSearch> findActive() {
         Query q = entityManager.createQuery("select a from AppointmentSearch a where a.active= true");
@@ -61,6 +69,7 @@ public class AppointmentSearchDaoImpl extends AbstractDaoImpl<AppointmentSearch>
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<AppointmentSearch> findByUUID(String uuid, Boolean active) {
         String queryStr = "select a from AppointmentSearch a where a.uuid=?1";
@@ -76,6 +85,7 @@ public class AppointmentSearchDaoImpl extends AbstractDaoImpl<AppointmentSearch>
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public AppointmentSearch findForProvider(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {

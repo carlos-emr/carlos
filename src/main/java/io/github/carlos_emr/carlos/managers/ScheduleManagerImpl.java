@@ -379,6 +379,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return providerCounts;
     }
 
+    /** {@inheritDoc} */
     public boolean removeIfDoubleBooked(LoggedInInfo loggedInInfo, Calendar startTime, Calendar endTime, String providerNo, Appointment appointment) {
         logger.debug("appt saved : " + appointment + ", " + appointment.getStartTimeAsFullDate().getTime() + ", " + appointment.getEndTimeAsFullDate().getTime());
 

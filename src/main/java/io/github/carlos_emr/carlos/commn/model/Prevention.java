@@ -171,6 +171,11 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         this.preventionType = preventionType;
     }
 
+    /**
+     * Returns whether this prevention record has been soft-deleted.
+     *
+     * @return boolean {@code true} if the record is marked as deleted
+     */
     public boolean isDeleted() {
         return deleted == '1';
     }
@@ -179,14 +184,29 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         this.deleted = deleted ? '1' : '0';
     }
 
+    /**
+     * Returns whether the patient refused this prevention.
+     *
+     * @return boolean {@code true} if the prevention was refused by the patient
+     */
     public boolean isRefused() {
         return refused == '1';
     }
 
+    /**
+     * Returns whether the patient is ineligible for this prevention.
+     *
+     * @return boolean {@code true} if the patient is ineligible
+     */
     public boolean isIneligible() {
         return refused == '2';
     }
 
+    /**
+     * Returns whether this prevention was completed at an external facility.
+     *
+     * @return boolean {@code true} if completed outside this clinic
+     */
     public boolean isCompletedExternally() {
         return refused == '3';
     }
@@ -270,6 +290,13 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         this.preventionExts = preventionExts;
     }
 
+    /**
+     * Adds an extension property to this prevention record and establishes
+     * the bidirectional relationship.
+     *
+     * @param preventionExt PreventionExt the extension property to add
+     * @return PreventionExt the added extension property
+     */
     public PreventionExt addPreventionExt(PreventionExt preventionExt) {
         getPreventionExts().add(preventionExt);
         preventionExt.setPrevention(this);
@@ -277,6 +304,12 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         return preventionExt;
     }
 
+    /**
+     * Adds an immunization property as an extension record using the specified key and value.
+     *
+     * @param key ImmunizationProperty the property key (e.g., lot, route, dose)
+     * @param value String the property value
+     */
     public void addPreventionExt(ImmunizationProperty key, String value) {
         PreventionExt preventionExt = new PreventionExt();
         preventionExt.setKeyval(key.name());
@@ -316,6 +349,12 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         getPreventionExtendedProperties().put(property.getkeyval(), property.getVal());
     }
 
+    /**
+     * Retrieves the value of a specific immunization property from the extended properties map.
+     *
+     * @param immunizationProperty ImmunizationProperty the property to retrieve
+     * @return String the property value, or {@code null} if not set
+     */
     public String getImmunizationProperty(ImmunizationProperty immunizationProperty) {
         return getPreventionExtendedProperties().get(immunizationProperty.name());
     }

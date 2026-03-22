@@ -22,6 +22,13 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link HRMDocumentSubClass} entities, managing sub-class
+ * records associated with individual HRM documents (e.g. Diagnostic Imaging sub-types).
+ *
+ * @see HRMDocumentSubClass
+ * @since 2008-11-05
+ */
 @Repository
 public class HRMDocumentSubClassDao extends AbstractDaoImpl<HRMDocumentSubClass> {
 
@@ -29,6 +36,12 @@ public class HRMDocumentSubClassDao extends AbstractDaoImpl<HRMDocumentSubClass>
         super(HRMDocumentSubClass.class);
     }
 
+    /**
+     * Returns all sub-classes associated with a given HRM document.
+     *
+     * @param id Integer the HRM document ID
+     * @return List&lt;HRMDocumentSubClass&gt; the sub-class records for the document
+     */
     public List<HRMDocumentSubClass> getSubClassesByDocumentId(Integer id) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1";
         Query query = entityManager.createQuery(sql);
@@ -38,6 +51,12 @@ public class HRMDocumentSubClassDao extends AbstractDaoImpl<HRMDocumentSubClass>
         return subClasses;
     }
 
+    /**
+     * Returns only the active sub-classes associated with a given HRM document.
+     *
+     * @param id Integer the HRM document ID
+     * @return List&lt;HRMDocumentSubClass&gt; the active sub-class records
+     */
     public List<HRMDocumentSubClass> getActiveSubClassesByDocumentId(Integer id) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.isActive=1";
         Query query = entityManager.createQuery(sql);
@@ -47,6 +66,13 @@ public class HRMDocumentSubClassDao extends AbstractDaoImpl<HRMDocumentSubClass>
         return subClasses;
     }
 
+    /**
+     * Deactivates all sub-classes for a given HRM document, typically before
+     * setting a new active sub-class.
+     *
+     * @param id Integer the HRM document ID
+     * @return boolean {@code true} if at least one record was updated
+     */
     public boolean setAllSubClassesForDocumentAsInactive(Integer id) {
         String sql = "update " + this.modelClass.getName() + " x set isActive=false where x.hrmDocumentId=?1";
         Query query = entityManager.createQuery(sql);

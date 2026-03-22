@@ -42,6 +42,18 @@ import java.io.OutputStream;
 
 import javax.imageio.ImageIO;
 
+/**
+ * Renders graphical drawing data onto a background image, supporting freehand
+ * drawing, text annotations, and symbol pattern overlays. Used to convert
+ * client-side canvas drawing data into a server-side image for PDF generation
+ * or display.
+ *
+ * <p>Drawing commands are encoded as pipe-delimited parameter strings with a
+ * drawing type prefix ({@code Freehand}, {@code Text}, or {@code SymbolPattern}),
+ * separated by commas for multiple commands.</p>
+ *
+ * @since 2006-05-25
+ */
 public class GraphicalCanvasToImage {
 
     Color getColor(String name) {
@@ -147,6 +159,16 @@ public class GraphicalCanvasToImage {
         }
     }
 
+    /**
+     * Reads a background image from the input stream, overlays all drawing commands
+     * from the draw data string, and writes the result to the output stream.
+     *
+     * @param image InputStream the background image to draw on
+     * @param drawData String comma-separated drawing commands in pipe-delimited format
+     * @param outputFormat String the output image format (e.g., "png", "jpeg")
+     * @param out OutputStream the stream to write the resulting image to
+     * @throws IOException if reading or writing the image fails
+     */
     public void convertToImage(InputStream image, String drawData, String outputFormat, OutputStream out) throws IOException {
         BufferedImage img = ImageIO.read(image);
         int width = img.getWidth();
@@ -164,6 +186,16 @@ public class GraphicalCanvasToImage {
         ImageIO.write(bi, outputFormat, out);
     }
 
+    /**
+     * Reads a background image from a file path, overlays drawing commands,
+     * and writes the result to the output stream.
+     *
+     * @param imageFile String the file path to the background image
+     * @param drawData String comma-separated drawing commands
+     * @param outputFormat String the output image format
+     * @param out OutputStream the stream to write the resulting image to
+     * @throws IOException if reading or writing the image fails
+     */
     public void convertToImage(String imageFile, String drawData, String outputFormat, OutputStream out) throws IOException {
         FileInputStream istream = new FileInputStream(imageFile);
         convertToImage(istream, drawData, outputFormat, out);

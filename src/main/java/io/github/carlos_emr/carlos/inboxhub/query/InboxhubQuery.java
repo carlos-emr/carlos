@@ -26,6 +26,26 @@ package io.github.carlos_emr.carlos.inboxhub.query;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Objects;
 
+/**
+ * Query parameter container for the Inbox Hub, holding all search filters, pagination settings,
+ * and display mode flags used to retrieve and display lab results, documents, and HRM records.
+ *
+ * <p>Supports filtering by provider, patient demographics (name, health number, demographic number),
+ * result status (new, acknowledged, filed), abnormality, date range, document type (lab, doc, HRM),
+ * and matched/unmatched patient status. Also includes pagination and view mode controls.</p>
+ *
+ * <p>Contains several inner enum types implementing {@link FilterEnum} for type-safe filter values:</p>
+ * <ul>
+ *   <li>{@link TypeFilter} - Document type filtering (ALL, DOC, LAB, HRM)</li>
+ *   <li>{@link AbnormalFilter} - Abnormal result filtering (ALL, NORMAL_ONLY, ABNORMAL_ONLY)</li>
+ *   <li>{@link StatusFilter} - Result status filtering (ALL, NEW, ACKNOWLEDGED, FILED)</li>
+ *   <li>{@link ProviderSearchFilter} - Provider scope filtering (ANY, NONE, SPECIFIC)</li>
+ * </ul>
+ *
+ * @since 2023-01-01
+ * @see io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2Action
+ * @see io.github.carlos_emr.carlos.inboxhub.inboxdata.LabDataController
+ */
 public class InboxhubQuery {
     /**
      * Type filters for the inbox hub
@@ -316,8 +336,13 @@ public class InboxhubQuery {
     }
 
     /**
-     * Reset all of the InboxhubQuery related variables
-     * @param request
+     * Resets all query filter variables to their default values.
+     *
+     * <p>Clears all search criteria including provider, patient, status, date range,
+     * and type filters. After reset, the query defaults to showing new results
+     * for a specific provider with no patient filtering.</p>
+     *
+     * @param request HttpServletRequest the HTTP request (currently unused but maintained for interface compatibility)
      */
     public void reset(HttpServletRequest request) {
         this.clearFilters = false;
@@ -339,6 +364,12 @@ public class InboxhubQuery {
         this.viewMode = false;
     }
 
+    /**
+     * Common interface for type-safe filter enums used in inbox hub queries.
+     *
+     * <p>Provides a standard {@link #getValue()} method and a generic {@link #fromValue} factory
+     * method for converting string values back to enum constants with a default fallback.</p>
+     */
     public interface FilterEnum {
         String getValue();
         

@@ -59,7 +59,18 @@ import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author Jay Gallagher
+ * Struts2 action that generates prevention compliance reports for a patient set.
+ *
+ * <p>Loads a saved demographic query, builds the patient list, then delegates to
+ * the appropriate {@link PreventionReport} implementation (PAP, Mammogram, Flu,
+ * Child Immunizations, or FOBT) to calculate compliance statistics and return
+ * per-patient report data. Results are stored as request attributes for JSP rendering.</p>
+ *
+ * <p>Requires the {@code _report} read privilege.</p>
+ *
+ * @since 2005-05-30
+ * @see io.github.carlos_emr.carlos.prevention.reports.PreventionReport
+ * @see io.github.carlos_emr.carlos.prevention.reports.PreventionReportFactory
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -73,9 +84,16 @@ public class PreventionReport2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /** Default no-argument constructor. */
     public PreventionReport2Action() {
     }
 
+    /**
+     * Executes the prevention compliance report for the configured patient set and prevention type.
+     *
+     * @return String "success" with report data stored in request attributes
+     * @throws SecurityException if the logged-in user lacks {@code _report} read privilege
+     */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -141,6 +159,11 @@ public class PreventionReport2Action extends ActionSupport {
     private String prevention;
     private String asofDate;
 
+    /**
+     * Returns the saved patient set query name.
+     *
+     * @return String the patient set name
+     */
     public String getPatientSet() {
         return patientSet;
     }

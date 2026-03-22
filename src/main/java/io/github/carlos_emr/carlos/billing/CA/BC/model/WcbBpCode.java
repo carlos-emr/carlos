@@ -38,6 +38,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a WCB (Workers' Compensation Board) body part code
+ * in British Columbia. Maps to the {@code wcb_bp_code} table, providing a lookup
+ * of body part codes used in WCB injury claims.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "wcb_bp_code")
 public class WcbBpCode extends AbstractModel<Integer> {

@@ -27,7 +27,22 @@
 
 package io.github.carlos_emr.carlos.util;
 
+/**
+ * Utility methods for {@link StringBuilder} operations not available in the standard library.
+ *
+ * @since 2005-01-01
+ */
 public class StringBuilderUtils {
+
+    /**
+     * Performs a case-insensitive search for the target string within the StringBuilder,
+     * starting at the specified index.
+     *
+     * @param strbuf StringBuilder the buffer to search within
+     * @param target String the string to search for (case-insensitive)
+     * @param start int the starting index for the search
+     * @return int the index of the first occurrence, or -1 if not found
+     */
     static public int indexOfIgnoreCase(StringBuilder strbuf, String target, int start) {
         String searchStr = strbuf.toString().toLowerCase();
         String lowerTarget = target.toLowerCase();

@@ -62,6 +62,16 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action providing renal/CKD clinical decision support endpoints.
+ *
+ * <p>Routes requests via the {@code method} parameter to support disease registry
+ * checks, adding diagnoses, computing next clinical steps based on eGFR/ACR values,
+ * generating patient letters, creating lab requisitions, and submitting ORN reports.
+ * Responses are typically JSON or HTML written directly to the response.</p>
+ *
+ * @since 2026-03-17
+ */
 public class Renal2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -83,6 +93,12 @@ public class Renal2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Routes the request to the appropriate handler method based on the {@code method} parameter.
+     *
+     * @return String result name or {@code null} for direct response writing
+     * @throws Exception if an error occurs during processing
+     */
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("checkForDx".equals(method)) {
@@ -106,6 +122,11 @@ public class Renal2Action extends ActionSupport {
     }
 
 
+    /**
+     * Checks whether a diagnosis code exists in the disease registry for a patient.
+     *
+     * @return String {@code null} (JSON response written directly)
+     */
     public String checkForDx() {
         String demographicNo = request.getParameter("demographicNo");
         String codingSystem = request.getParameter("codingSystem");
@@ -125,6 +146,11 @@ public class Renal2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Adds or reactivates a diagnosis code in the disease registry for a patient.
+     *
+     * @return String {@code null} (JSON response written directly)
+     */
     public String addtoDx() {
         String demographicNo = request.getParameter("demographicNo");
         String codingSystem = request.getParameter("codingSystem");
@@ -166,6 +192,12 @@ public class Renal2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Computes the next clinical steps for a patient based on their eGFR and ACR
+     * values, returning the recommendation as HTML in a JSON response.
+     *
+     * @return String {@code null} (JSON response written directly)
+     */
     public String getNextSteps() {
         String demographicNo = request.getParameter("demographicNo");
 
@@ -272,6 +304,11 @@ public class Renal2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Generates a patient letter from the ORN template using Velocity templating.
+     *
+     * @return String {@code null} (HTML response written directly)
+     */
     public String generatePatientLetter() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -308,6 +345,13 @@ public class Renal2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Creates a lab requisition (version 07 or 10) pre-populated with creatinine,
+     * ACR, and urinalysis tests for CKD screening.
+     *
+     * @return String {@code null} (lab req stored in session)
+     * @throws SQLException if a database error occurs
+     */
     public String createLabReq() throws SQLException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
@@ -418,6 +462,11 @@ public class Renal2Action extends ActionSupport {
         // return null;
     }
 
+    /**
+     * Submits the ORN pre-implementation report by starting a background thread.
+     *
+     * @return String {@code null}
+     */
     public String submitPreimplementationReport() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -432,6 +481,11 @@ public class Renal2Action extends ActionSupport {
 
     }
 
+    /**
+     * Submits the CKD screening report by starting a background thread.
+     *
+     * @return String {@code null}
+     */
     public String submitCkdScreeningReport() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

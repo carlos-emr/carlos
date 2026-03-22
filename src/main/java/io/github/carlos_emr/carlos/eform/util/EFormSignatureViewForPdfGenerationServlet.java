@@ -28,12 +28,27 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to access eform signatures.
+ * Servlet that provides localhost-only access to eForm digital signatures for
+ * PDF generation. Retrieves the digital signature image from the database and
+ * streams it as JPEG content. Restricted to requests from {@code 127.0.0.1}.
+ *
+ * @see EFormViewForPdfGenerationServlet
+ * @see io.github.carlos_emr.carlos.managers.DigitalSignatureManager
+ * @since 2008-01-01
  */
 public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Validates localhost origin, retrieves the digital signature by ID, and
+     * streams the signature image as JPEG to the response.
+     *
+     * @param request HttpServletRequest containing the {@code digitalSignatureId} parameter
+     * @param response HttpServletResponse to write the signature image to
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if writing to the response fails
+     */
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.

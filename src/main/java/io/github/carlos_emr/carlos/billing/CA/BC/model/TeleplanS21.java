@@ -39,6 +39,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Teleplan S21 (remittance summary header) record in the BC MSP billing system.
+ * Maps to the {@code teleplanS21} table, storing remittance batch header information
+ * including filename, payment details, payee number, and processing status.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplanS21")
 public class TeleplanS21 extends AbstractModel<Integer> {

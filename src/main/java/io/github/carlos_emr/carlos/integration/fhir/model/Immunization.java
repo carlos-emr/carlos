@@ -95,7 +95,17 @@ import org.apache.logging.log4j.Logger;
  */
 
 /**
- * constraint: Oscar class must implement ImmunizationInterface.
+ * FHIR resource mapping for immunization records.
+ *
+ * <p>Maps between CARLOS EMR Prevention entities (implementing {@link ImmunizationInterface})
+ * and FHIR DSTU3 Immunization resources. Handles vaccine codes (SNOMED), administration dates,
+ * lot numbers, routes, body sites, dose quantities, and practitioner references.</p>
+ *
+ * <p>The generic type constraint requires the CARLOS model to implement
+ * {@link ImmunizationInterface} for bidirectional attribute mapping.</p>
+ *
+ * @param <T> the CARLOS EMR model type that implements ImmunizationInterface
+ * @since 2026-03-17
  */
 public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterface>
         extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.Immunization, T> {
@@ -104,10 +114,21 @@ public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterfa
     private static final Pattern measurementValuePattern = Pattern.compile("^([0-9])*(\\.)*([0-9])*");
     private boolean isHistorical;
 
+    /**
+     * Constructs an Immunization from a CARLOS EMR model.
+     *
+     * @param from the source immunization entity
+     */
     public Immunization(T from) {
         super(new org.hl7.fhir.dstu3.model.Immunization(), from);
     }
 
+    /**
+     * Constructs an Immunization from a CARLOS EMR model with configuration for attribute filtering.
+     *
+     * @param from the source immunization entity
+     * @param configurationManager the FHIR configuration manager
+     */
     public Immunization(T from, OscarFhirConfigurationManager configurationManager) {
         super(new org.hl7.fhir.dstu3.model.Immunization(), from, configurationManager);
     }
@@ -543,10 +564,20 @@ public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterfa
         getFhirResource().setPatient(reference);
     }
 
+    /**
+     * Returns whether this immunization is historical (estimated date).
+     *
+     * @return boolean {@code true} if the immunization date was estimated
+     */
     public boolean isHistorical() {
         return isHistorical;
     }
 
+    /**
+     * Sets whether this immunization is historical (estimated date).
+     *
+     * @param isHistorical {@code true} if the immunization date was estimated
+     */
     public void setHistorical(boolean isHistorical) {
         this.isHistorical = isHistorical;
     }

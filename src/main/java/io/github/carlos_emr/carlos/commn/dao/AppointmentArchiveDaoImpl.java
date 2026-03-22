@@ -42,13 +42,22 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link AppointmentArchiveDao} for managing archived appointment records.
+ * <p>
+ * Uses Spring's {@link BeanUtils} to copy appointment properties into archive entities.
+ *
+ * @since 2001
+ */
 @Repository
 public class AppointmentArchiveDaoImpl extends AbstractDaoImpl<AppointmentArchive> implements AppointmentArchiveDao {
 
+    /** Constructs the appointment archive DAO for the {@link AppointmentArchive} entity class. */
     public AppointmentArchiveDaoImpl() {
         super(AppointmentArchive.class);
     }
 
+    /** {@inheritDoc} */
     @Override
     public AppointmentArchive archiveAppointment(Appointment appointment) {
         AppointmentArchive aa = new AppointmentArchive();

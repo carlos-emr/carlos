@@ -41,12 +41,27 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Struts 2 action for listing and searching lookup codes within a lookup table.
+ *
+ * <p>Supports browsing lookup table entries by table ID and parent code,
+ * as well as keyword-based searching. Access to certain system tables
+ * (PRP, SIT, LKT, QGV, RPG) is restricted.
+ *
+ * @since 2009-01-01
+ */
 public class LookupList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private LookupManager lookupManager = SpringUtils.getBean(LookupManager.class);
 
+    /**
+     * Routes the request to search or list based on the "method" parameter.
+     *
+     * @return String the Struts result name
+     * @throws NoAccessException if the user attempts to access restricted lookup tables
+     */
     public String execute() throws NoAccessException {
         if ("search".equals(request.getParameter("method"))) {
             return search();
@@ -70,6 +85,11 @@ public class LookupList2Action extends ActionSupport {
         return "list";
     }
 
+    /**
+     * Searches lookup codes by keyword within the specified table.
+     *
+     * @return String the "list" result name with filtered results
+     */
     public String search() {
         String tableId = request.getParameter("tableId");
         String parentCode = request.getParameter("parentCode");
@@ -83,6 +103,13 @@ public class LookupList2Action extends ActionSupport {
     }
 
 
+    /**
+     * Determines whether the lookup list is read-only for the given function.
+     *
+     * @param request HttpServletRequest the current request
+     * @param funName String the function name to check
+     * @return boolean always returns {@code false} in the current implementation
+     */
     public boolean isReadOnly(HttpServletRequest request, String funName) {
         boolean readOnly = false;
 

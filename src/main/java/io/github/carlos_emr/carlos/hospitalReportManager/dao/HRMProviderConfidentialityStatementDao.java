@@ -20,6 +20,13 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMProviderConfidentialityStatement;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link HRMProviderConfidentialityStatement} entities,
+ * managing provider-specific confidentiality statements appended to printed HRM reports.
+ *
+ * @see HRMProviderConfidentialityStatement
+ * @since 2008-11-05
+ */
 @Repository
 public class HRMProviderConfidentialityStatementDao extends AbstractDaoImpl<HRMProviderConfidentialityStatement> {
 
@@ -27,6 +34,12 @@ public class HRMProviderConfidentialityStatementDao extends AbstractDaoImpl<HRMP
         super(HRMProviderConfidentialityStatement.class);
     }
 
+    /**
+     * Returns the confidentiality statement text for a given provider.
+     *
+     * @param providerNo String the provider number
+     * @return String the statement text, or empty string if no statement exists
+     */
     public String getConfidentialityStatementForProvider(String providerNo) {
         String sql = "select x.statement from " + this.modelClass.getName() + " x where x.providerNo=?1";
         Query query = entityManager.createQuery(sql);
@@ -39,6 +52,12 @@ public class HRMProviderConfidentialityStatementDao extends AbstractDaoImpl<HRMP
         }
     }
 
+    /**
+     * Finds the confidentiality statement entity for a given provider.
+     *
+     * @param providerNo String the provider number
+     * @return HRMProviderConfidentialityStatement the statement entity, or {@code null} if not found
+     */
     public HRMProviderConfidentialityStatement findByProvider(String providerNo) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.providerNo=?1";
         Query query = entityManager.createQuery(sql);

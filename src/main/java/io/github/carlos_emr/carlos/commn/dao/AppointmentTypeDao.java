@@ -35,11 +35,29 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 
+/**
+ * DAO interface for managing appointment type definitions.
+ * <p>
+ * Provides operations to retrieve appointment types (e.g., regular visit,
+ * follow-up, consultation) used in the CARLOS EMR scheduling module.
+ *
+ * @since 2005
+ */
 public interface AppointmentTypeDao extends AbstractDao<AppointmentType> {
 
-
+    /**
+     * Retrieves all appointment type definitions.
+     *
+     * @return List of all {@link AppointmentType} records
+     */
     public List<AppointmentType> listAll();
 
+    /**
+     * Finds an appointment type by its name.
+     *
+     * @param name String the appointment type name
+     * @return the matching {@link AppointmentType}, or {@code null} if not found
+     */
     public AppointmentType findByAppointmentTypeByName(String name);
 
 }

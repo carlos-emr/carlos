@@ -60,6 +60,12 @@ import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
+/**
+ * HL7 message handler for CDL (Calgary Diagnostic Laboratories) lab results.
+ * Parses ORU_R01 v2.3 messages with CDL-specific segment interpretation.
+ *
+ * @since 2007-01-18
+ */
 public class CDLHandler implements MessageHandler {
 
     ORU_R01 msg = null;

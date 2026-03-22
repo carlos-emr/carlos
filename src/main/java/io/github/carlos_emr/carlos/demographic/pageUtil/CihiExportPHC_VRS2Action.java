@@ -86,6 +86,19 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.util.*;
 
+/**
+ * Struts2 action for exporting patient data in CIHI PHC-VRS (Primary Health Care Voluntary Reporting System) format.
+ *
+ * <p>Generates CDS-CIHI PHC-VRS XML export files for voluntary reporting to CIHI.
+ * Similar to {@link CihiExport2Action} but uses the PHC-VRS-specific schema variant
+ * with additional lab result processing capabilities.</p>
+ *
+ * <p>Supports batch exports by demographic set with ZIP packaging.</p>
+ *
+ * @see CihiExport2Action
+ * @see Util
+ * @since 2026-03-17
+ */
 public class CihiExportPHC_VRS2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

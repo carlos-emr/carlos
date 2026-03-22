@@ -35,6 +35,12 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 /**
  * An IndicatorPanelBean contains a panel of IndicatorBeans
  * sorted by category and sub-category.
+ *
+ * <p>Supports both single-threaded mode (where {@link IndicatorBean} objects are
+ * pre-loaded) and multi-threaded mode (where only indicator IDs are stored for
+ * deferred loading).</p>
+ *
+ * @since 2026-03-17
  */
 public class IndicatorPanelBean {
 

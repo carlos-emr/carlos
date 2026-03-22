@@ -51,6 +51,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
+/**
+ * Struts2 action that handles editing of specialist entries in consultation configuration.
+ *
+ * @since 2001-01-01
+ */
 public class EctConEditSpecialists2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

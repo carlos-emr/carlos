@@ -49,6 +49,17 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Static utility class that computes aggregate CKD screening statistics for the
+ * pre-implementation report.
+ *
+ * <p>Provides methods to calculate population totals by risk factor (diabetic,
+ * hypertensive, elevated BP, family history, Aboriginal, age &gt; 55), screening
+ * rates (overall and within last year), screening percentages, CKD stage
+ * distributions based on eGFR values, and medication/BP target correlations.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ReportHelper {
 
     static DxresearchDAO dxDao = (DxresearchDAO) SpringUtils.getBean(DxresearchDAO.class);
@@ -62,6 +73,13 @@ public class ReportHelper {
     static CkdScreener screener = new CkdScreener();
 
 
+    /**
+     * Checks whether a patient has been screened for CKD within the last year,
+     * based on the presence of ACR/eGFR and BP measurements.
+     *
+     * @param demographicNo int the patient demographic number
+     * @return boolean {@code true} if screened within the last year
+     */
     public static boolean patientScreenedInLastYear(int demographicNo) {
         //acr
         List<String> idents = new ArrayList<String>();
@@ -91,6 +109,13 @@ public class ReportHelper {
         return false;
     }
 
+    /**
+     * Checks whether a patient has ever been screened for CKD, based on the
+     * presence of ACR/eGFR and BP measurements at any time.
+     *
+     * @param demographicNo int the patient demographic number
+     * @return boolean {@code true} if the patient has been screened
+     */
     public static boolean patientScreened(int demographicNo) {
         //acr
         List<String> idents = new ArrayList<String>();
@@ -118,6 +143,11 @@ public class ReportHelper {
         return false;
     }
 
+    /**
+     * Populates total counts for each CKD risk factor category in the report container.
+     *
+     * @param r ReportDataContainer the report container to populate
+     */
     public static void getTotals(ReportDataContainer r) {
         int diabeticCount = 0;
         int hypertensiveCount = 0;
@@ -188,6 +218,11 @@ public class ReportHelper {
         r.setTotalAge(ageCount);
     }
 
+    /**
+     * Populates screened-in-last-year counts for each risk factor category.
+     *
+     * @param r ReportDataContainer the report container to populate
+     */
     public static void getTotalsScreenedLastYear(ReportDataContainer r) {
         int diabeticCount = 0;
         int hypertensiveCount = 0;
@@ -272,6 +307,11 @@ public class ReportHelper {
     }
 
 
+    /**
+     * Populates ever-screened counts for each risk factor category.
+     *
+     * @param r ReportDataContainer the report container to populate
+     */
     public static void getTotalsScreened(ReportDataContainer r) {
         int diabeticCount = 0;
         int hypertensiveCount = 0;
@@ -354,6 +394,12 @@ public class ReportHelper {
         r.setAgeScreened(ageCount);
     }
 
+    /**
+     * Calculates screening percentages (overall and last-year) for each risk factor
+     * category based on the previously computed totals and screened counts.
+     *
+     * @param r ReportDataContainer the report container with totals to compute percentages for
+     */
     public static void calculateScreenPercs(ReportDataContainer r) {
         if (r.getTotalDiabetic() > 0)
             r.setDiabeticScreenedPerc(((double) r.getDiabeticScreened() / (double) r.getTotalDiabetic()) * 100);
@@ -383,6 +429,11 @@ public class ReportHelper {
 
     }
 
+    /**
+     * Distributes patients into CKD stages (1-5) based on their most recent eGFR values.
+     *
+     * @param r ReportDataContainer the report container to populate with stage counts
+     */
     public static void getCKDStages(ReportDataContainer r) {
         //CKD Stages
         List<String> idents = new ArrayList<String>();
@@ -425,6 +476,12 @@ public class ReportHelper {
     //"select distinct(tc_atc_number) from cd_therapeutic_class where tc_ahfs = 'ANGIOTENSIN-CONVERTING ENZYME INHIBITORS' or tc_ahfs = 'ANGIOTENSIN II RECEPTOR ANTAGONISTS' or tc_ahfs='RENIN INHIBITORS'"
 
 
+    /**
+     * Generates the complete pre-implementation report data by aggregating all
+     * population-level CKD screening statistics.
+     *
+     * @return ReportDataContainer the fully populated report data
+     */
     public static ReportDataContainer getPreImplementationReportData() {
 
         ReportDataContainer r = new ReportDataContainer();

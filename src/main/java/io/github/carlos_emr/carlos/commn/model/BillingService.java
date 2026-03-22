@@ -48,6 +48,20 @@ import jakarta.persistence.Temporal;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 
+/**
+ * Represents a billing service code definition in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code billingservice} table and defines the medical service codes
+ * available for billing claims. Each service code includes a description, fee amount,
+ * effective dates, and percentage limits for billing calculations.</p>
+ *
+ * <p>Service codes are province-specific and used in conjunction with
+ * {@link Billing} records to generate healthcare claims for provincial
+ * health insurance plans (e.g., OHIP in Ontario, MSP in British Columbia).</p>
+ *
+ * @see Billing
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "billingservice")
 public class BillingService extends AbstractModel<Integer> implements Serializable {

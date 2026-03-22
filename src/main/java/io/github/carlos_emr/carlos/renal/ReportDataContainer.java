@@ -30,6 +30,16 @@ package io.github.carlos_emr.carlos.renal;
 
 import jakarta.xml.bind.annotation.XmlRootElement;
 
+/**
+ * JAXB-serializable data container for the CKD pre-implementation report.
+ *
+ * <p>Aggregates population-level screening statistics including totals, screened counts,
+ * screening percentages (overall and last-year), CKD stage distributions (1-5),
+ * lab test ordering/receipt ratios (eGFR, ACR, PCR), medication correlations,
+ * and blood pressure target achievement rates.</p>
+ *
+ * @since 2026-03-17
+ */
 @XmlRootElement(name = "PreImplementationReport")
 public class ReportDataContainer {
 

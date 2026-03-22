@@ -45,7 +45,10 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 
 
 /**
- * @author Jay Gallagher
+ * JSP custom tag that renders consultation request count and status information
+ * for a patient in encounter views.
+ *
+ * @since 2001-01-01
  */
 public class ConsultTag extends TagSupport {
 

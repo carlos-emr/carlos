@@ -48,10 +48,17 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 
 /**
- * Build 'traceability report' from compressed serialized stream
- * Send to output stream for later consuming
+ * Callable that generates a traceability comparison report by deserializing an uploaded
+ * trace file and comparing it against the current deployment.
  *
- * @author oscar
+ * <p>Reads the uploaded GZIP-compressed serialized trace map, builds a local trace map
+ * of the current deployment, and uses Google Guava's {@link Maps#difference} to identify
+ * changed, added, removed, and unchanged files. The report is written as plain text
+ * to the output stream.
+ *
+ * @see TraceabilityReportConsumer
+ * @see GenerateTraceabilityReport2Action
+ * @since 2026-03-17
  */
 public class TraceabilityReportProcessor implements Callable<String> {
     private OutputStream outputStream = null;
@@ -60,12 +67,26 @@ public class TraceabilityReportProcessor implements Callable<String> {
 
     private String newLine = System.getProperty("line.separator");
 
+    /**
+     * Constructs a report processor with the output stream, uploaded trace file, and request context.
+     *
+     * @param outputStream OutputStream the piped output stream for the report text
+     * @param uploadedFile File the uploaded GZIP-compressed trace binary file
+     * @param request HttpServletRequest used to resolve the web application's real path for local trace
+     */
     public TraceabilityReportProcessor(OutputStream outputStream, File uploadedFile, HttpServletRequest request) {
         this.request = request;
         this.uploadedFile = uploadedFile;
         this.outputStream = outputStream;
     }
 
+    /**
+     * Deserializes the uploaded trace, compares it with the local deployment, and writes
+     * a report listing changed, removed, added, and unchanged files.
+     *
+     * @return String the class name of this processor
+     * @throws Exception if deserialization, file hashing, or report writing fails
+     */
     @Override
     public String call() throws Exception {
         ClinicDAO dao = SpringUtils.getBean(ClinicDAO.class);

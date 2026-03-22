@@ -60,7 +60,12 @@ import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 /**
- * @author wrighd
+ * Default implementation of {@link MessageHandler} that uses the HAPI {@link Terser} to extract
+ * data from HL7 ORU_R01 messages in a version-agnostic manner. Provides fallback implementations
+ * for all handler methods and serves as the base class for lab-specific handlers that need
+ * only override specific behavior.
+ *
+ * @since 2007-06-08
  */
 public class DefaultGenericHandler implements MessageHandler {
 

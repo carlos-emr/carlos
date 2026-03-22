@@ -45,6 +45,19 @@ import io.github.carlos_emr.CarlosProperties;
 
 import java.util.*;
 
+/**
+ * Chronic Kidney Disease (CKD) population screener for the Ontario Renal Network pilot.
+ *
+ * <p>Screens the active patient population against configurable risk criteria including
+ * diagnosis codes (diabetes, hypertension), blood pressure thresholds, medication usage
+ * (ACE inhibitors, ARBs, renin inhibitors), family history from CPP notes, Aboriginal
+ * descent, and overdue eGFR labs. Patients matching the criteria are tagged with the
+ * "CKDSCREEN" OscarCode in the disease registry.</p>
+ *
+ * <p>Configuration is loaded from {@code ckd.xml} on the classpath.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CkdScreener {
 
     private Logger logger = MiscUtils.getLogger();
@@ -63,6 +76,12 @@ public class CkdScreener {
 
     List<Issue> issues = new ArrayList<Issue>();
 
+    /**
+     * Returns the list of ATC codes for ACE inhibitors, ARBs, and renin inhibitors
+     * relevant to CKD screening.
+     *
+     * @return List&lt;String&gt; ATC codes associated with hypertension medications
+     */
     public static List<String> getInterestingATCs() {
         List<String> atcList = new ArrayList<String>();
         atcList.add("C09CA08");
@@ -123,6 +142,12 @@ public class CkdScreener {
         }
     }
 
+    /**
+     * Screens the entire active patient population for CKD risk factors and generates
+     * notifications for matching patients whose screening is due.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for audit purposes
+     */
     public void screenPopulation(LoggedInInfo loggedInInfo) {
         logger.debug("beginning screening");
         //TODO: only ones which havn't been screened, or don't have have active dx for screening
@@ -173,6 +198,18 @@ public class CkdScreener {
 
     }
 
+    /**
+     * Screens an individual patient for CKD risk factors.
+     *
+     * <p>Evaluates diagnosis codes, medications, blood pressure, CPP family history,
+     * Aboriginal descent, and lab recency. If the patient matches and has overdue labs,
+     * they are tagged with the CKDSCREEN code in the disease registry.</p>
+     *
+     * @param demographicNo int the patient demographic number
+     * @param reasons List&lt;String&gt; populated with human-readable reasons for the match
+     * @param first MyBoolean set to {@code true} if this is the patient's first screening match
+     * @return boolean {@code true} if the patient matches CKD screening criteria
+     */
     public boolean screenDemographic(int demographicNo, List<String> reasons, MyBoolean first) {
 
         logger.debug("checking demographic " + demographicNo);
@@ -384,6 +421,10 @@ public class CkdScreener {
         return labs;
     }
 
+    /**
+     * Mutable wrapper around a {@link Boolean} value, used as an output parameter
+     * in methods that need to return multiple values.
+     */
     public class MyBoolean {
         private Boolean value;
 

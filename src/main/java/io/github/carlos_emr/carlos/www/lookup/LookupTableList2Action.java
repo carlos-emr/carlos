@@ -38,6 +38,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Struts 2 action for listing lookup table modules (functional centre tables).
+ *
+ * <p>Loads the "FCT" (Functional Centre Table) lookup codes and enriches each
+ * entry with its associated lookup table ("LKT") entries.
+ *
+ * @since 2009-01-01
+ */
 public class LookupTableList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -48,6 +56,11 @@ public class LookupTableList2Action extends ActionSupport {
         this.lookupManager = lookupManager;
     }
 
+    /**
+     * Executes the action by loading the lookup table list.
+     *
+     * @return String the "list" result name
+     */
     public String execute() {
         return list();
     }

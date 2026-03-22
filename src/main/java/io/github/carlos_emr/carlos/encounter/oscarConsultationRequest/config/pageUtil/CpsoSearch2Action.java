@@ -48,6 +48,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-03-15
  */
+/**
+ * Struts2 action that searches the CPSO (College of Physicians and Surgeons of Ontario)
+ * directory for specialist information.
+ *
+ * @since 2001-01-01
+ */
 public class CpsoSearch2Action extends ActionSupport {
 
     private static final long serialVersionUID = 1L;

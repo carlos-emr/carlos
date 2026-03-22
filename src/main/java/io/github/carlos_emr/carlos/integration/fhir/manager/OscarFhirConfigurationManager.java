@@ -82,18 +82,39 @@ public final class OscarFhirConfigurationManager {
         logger.debug("FHIR Resource Attribute Filter: " + this.resourceAttributeFilter);
     }
 
+    /**
+     * Returns the configured FHIR message destination.
+     *
+     * @return Destination the message destination
+     */
     public Destination getDestination() {
         return destination;
     }
 
+    /**
+     * Returns the configured FHIR message sender.
+     *
+     * @return Sender the message sender
+     */
     public Sender getSender() {
         return sender;
     }
 
+    /**
+     * Returns the logged-in user session context.
+     *
+     * @return LoggedInInfo the current user's session information
+     */
     public LoggedInInfo getLoggedInInfo() {
         return loggedInInfo;
     }
 
+    /**
+     * Returns the resource attribute filter scoped to the given FHIR resource class.
+     *
+     * @param targetResource the FHIR resource class to filter attributes for
+     * @return ResourceAttributeFilter the filter for the target resource, or {@code null} if none loaded
+     */
     public ResourceAttributeFilter getResourceAttributeFilter(Class<?> targetResource) {
         if (resourceAttributeFilter == null) {
             return null;
@@ -101,10 +122,20 @@ public final class OscarFhirConfigurationManager {
         return resourceAttributeFilter.getFilter(targetResource);
     }
 
+    /**
+     * Returns the FHIR settings for this configuration.
+     *
+     * @return Settings the FHIR settings, or {@code null} if not explicitly set after construction
+     */
     public Settings getSettings() {
         return settings;
     }
 
+    /**
+     * Sets the FHIR settings for this configuration.
+     *
+     * @param settings the FHIR settings to apply
+     */
     public void setSettings(Settings settings) {
         this.settings = settings;
     }

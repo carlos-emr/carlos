@@ -60,6 +60,12 @@ import org.apache.struts2.ServletActionContext;
  * @see EReferAttachmentDao
  * @since 2026-01-24
  */
+/**
+ * Struts2 action that handles electronic referral (eReferral) creation and submission
+ * through the Ocean eReferral integration platform.
+ *
+ * @since 2001-01-01
+ */
 public class ERefer2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

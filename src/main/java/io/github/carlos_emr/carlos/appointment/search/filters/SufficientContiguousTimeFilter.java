@@ -38,6 +38,16 @@ import io.github.carlos_emr.carlos.appointment.search.TimeSlot;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 
 
+/**
+ * Filters time slots to ensure there is sufficient contiguous free time
+ * following each candidate slot to accommodate the full appointment duration.
+ *
+ * <p>Walks forward through consecutive time slots from each candidate position,
+ * verifying that there are no gaps and the total contiguous time meets or
+ * exceeds the required appointment duration.</p>
+ *
+ * @since 2026-03-17
+ */
 public class SufficientContiguousTimeFilter implements AvailableTimeSlotFilter {
 
     public List<TimeSlot> filterAvailableTimeSlots(SearchConfig clinic, String mrp, String providerId, Long appointmentTypeId, DayWorkSchedule dayWorkScheduleTransfer, List<TimeSlot> currentlyAllowedTimeSlots, Calendar date, Map<String, String> params) {

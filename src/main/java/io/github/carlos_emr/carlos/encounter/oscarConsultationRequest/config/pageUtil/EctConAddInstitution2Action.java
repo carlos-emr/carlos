@@ -46,6 +46,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that adds a new institution to the consultation configuration.
+ *
+ * @since 2001-01-01
+ */
 public class EctConAddInstitution2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

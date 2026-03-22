@@ -46,7 +46,15 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author cronnie
+ * JSP custom tag that conditionally includes its body based on the provider's
+ * exclusive view setting.
+ *
+ * <p>Checks whether the provider's default program has an exclusive view configured
+ * (e.g., "appointment" or "case-management"). If the configured exclusive view matches
+ * the tag's {@code value} attribute, the tag body is included; otherwise it is skipped.
+ * When no exclusive view is set, the body is skipped (user can switch between views).
+ *
+ * @since 2007-05-24
  */
 public class programExclusiveViewTag extends TagSupport {
 
@@ -59,22 +67,51 @@ public class programExclusiveViewTag extends TagSupport {
         exclusiveView = "no";
     }
 
+    /**
+     * Sets the provider number to look up the exclusive view setting for.
+     *
+     * @param providerNo1 String the provider number
+     */
     public void setProviderNo(String providerNo1) {
         providerNo = providerNo1;
     }
 
+    /**
+     * Returns the provider number.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Sets the view type value to match against the exclusive view setting.
+     *
+     * @param value1 String the view type (e.g., "appointment", "case-management")
+     */
     public void setValue(String value1) {
         value = value1;
     }
 
+    /**
+     * Returns the view type value to match against.
+     *
+     * @return String the view type value
+     */
     public String getValue() {
         return value;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Evaluates the provider's exclusive view setting and includes the tag body
+     * only if it matches the configured value attribute.
+     *
+     * @return int {@code EVAL_BODY_INCLUDE} if the view matches, {@code SKIP_BODY} otherwise
+     * @throws JspException if an error occurs during tag processing
+     */
     public int doStartTag() throws JspException {
         ProviderDefaultProgramDao dao = SpringUtils.getBean(ProviderDefaultProgramDao.class);
         for (Program p : dao.findProgramsByProvider(providerNo)) {
@@ -97,6 +134,12 @@ public class programExclusiveViewTag extends TagSupport {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @return int always returns {@code EVAL_PAGE} to continue page evaluation
+     * @throws JspException if an error occurs during tag processing
+     */
     public int doEndTag() throws JspException {
         return EVAL_PAGE;
     }

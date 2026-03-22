@@ -36,13 +36,30 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingONHeader} entities.
+ * Provides persistence operations for Ontario billing submission headers,
+ * which contain provider registration information for billing batches.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingONHeaderDao extends AbstractDaoImpl<BillingONHeader> {
 
+    /**
+     * Constructs a new {@code BillingONHeaderDao} with the {@link BillingONHeader} entity class.
+     */
     public BillingONHeaderDao() {
         super(BillingONHeader.class);
     }
 
+    /**
+     * Finds billing headers for a given disk ID and provider registration number.
+     *
+     * @param diskId Integer the disk submission batch ID
+     * @param providerRegNum String the provider registration number
+     * @return List of matching {@link BillingONHeader} records
+     */
     public List<BillingONHeader> findByDiskIdAndProviderRegNum(Integer diskId, String providerRegNum) {
         Query query = entityManager.createQuery("SELECT b FROM BillingONHeader b where b.diskId = ?1 AND b.providerRegNum=?2");
         query.setParameter(1, diskId);

@@ -39,6 +39,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Form bean for consultation fax submission parameters.
+ *
+ * @since 2001-01-01
+ */
 public final class EctConsultationFaxForm {
 
     private ObjectMapper objectMapper = new ObjectMapper();

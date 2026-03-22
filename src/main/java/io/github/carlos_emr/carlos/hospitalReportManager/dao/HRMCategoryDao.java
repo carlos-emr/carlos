@@ -98,6 +98,12 @@ public class HRMCategoryDao extends AbstractDaoImpl<HRMCategory> {
         }
     }
 
+    /**
+     * Searches HRM categories by category name or sub-class name mnemonic prefix.
+     *
+     * @param q String the search prefix to match against category name or mnemonic
+     * @return List&lt;HRMCategory&gt; matching categories
+     */
     public List<HRMCategory> search(String q) {
         String sql = "select x from " + this.modelClass.getName() + " x WHERE x.categoryName LIKE ?1 OR x.subClassNameMnemonic LIKE ?2";
         Query query = entityManager.createQuery(sql);

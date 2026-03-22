@@ -82,6 +82,14 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 /**
  * @author wrighd
  */
+/**
+ * Generates PDF and RTF documents from HL7 lab results for printing and download.
+ * Renders patient information, OBR/OBX segments with result values, reference ranges,
+ * abnormal flags, and comments into a formatted document. Supports embedding Base64-encoded
+ * PDF attachments from OBX segments into the output document.
+ *
+ * @since 2007-11-27
+ */
 public class LabPDFCreator extends PdfPageEventHelper {
     private OutputStream os;
     private boolean isUnstructuredDoc = false;

@@ -264,11 +264,35 @@ public class PreventionData {
         return name;
     }
 
+    /**
+     * Updates a prevention record by soft-deleting the original and inserting a new version.
+     *
+     * @param id String the original prevention record ID to replace
+     * @param creator String the provider number of the creator
+     * @param demoNo String the patient's demographic number
+     * @param date String the prevention date
+     * @param providerNo String the administering provider number
+     * @param providerName String the administering provider name
+     * @param preventionType String the prevention type name
+     * @param refused String status code
+     * @param nextDate String the next scheduled date
+     * @param neverWarn String "1" if never remind
+     * @param list ArrayList&lt;Map&lt;String, String&gt;&gt; extended key-value properties
+     * @param snomedId String the SNOMED concept ID
+     * @return Integer the ID of the new prevention record
+     */
     public static Integer updatetPreventionData(String id, String creator, String demoNo, String date, String providerNo, String providerName, String preventionType, String refused, String nextDate, String neverWarn, ArrayList<Map<String, String>> list, String snomedId) {
         deletePreventionData(id);
         return insertPreventionData(creator, demoNo, date, providerNo, providerName, preventionType, refused, nextDate, neverWarn, list, snomedId, null);
     }
 
+    /**
+     * Retrieves non-deleted prevention records matching the given extended property key-value pair.
+     *
+     * @param extKey String the extended property key to search for
+     * @param extVal String the extended property value to match
+     * @return ArrayList&lt;Map&lt;String, Object&gt;&gt; the matching prevention data maps
+     */
     public static ArrayList<Map<String, Object>> getPreventionDataFromExt(String extKey, String extVal) {
         ArrayList<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
 
@@ -289,6 +313,13 @@ public class PreventionData {
     /*
      * Fetch one extended prevention key
      * Requires prevention id and keyval to return
+     */
+    /**
+     * Fetches one extended prevention property value by prevention ID and key.
+     *
+     * @param id String the prevention record ID
+     * @param keyval String the property key to retrieve
+     * @return String the property value, or empty string if not found
      */
     public static String getExtValue(String id, String keyval) {
         try {
@@ -332,6 +363,13 @@ public class PreventionData {
         return list;
     }
 
+    /**
+     * Returns the date of birth for the given patient.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param demoNo Integer the demographic number
+     * @return Date the patient's date of birth, or {@code null} if not available
+     */
     public static Date getDemographicDateOfBirth(LoggedInInfo loggedInInfo, Integer demoNo) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         Demographic dd = demographicManager.getDemographic(loggedInInfo, demoNo);
@@ -341,10 +379,25 @@ public class PreventionData {
         return (bday.getTime());
     }
 
+    /**
+     * Returns all non-deleted prevention records for a patient.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param demoNo Integer the demographic number
+     * @return ArrayList&lt;Map&lt;String, Object&gt;&gt; the prevention data maps
+     */
     public static ArrayList<Map<String, Object>> getPreventionData(LoggedInInfo loggedInInfo, Integer demoNo) {
         return getPreventionData(loggedInInfo, null, demoNo);
     }
 
+    /**
+     * Returns prevention entity records for a specific type and patient.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param preventionType String the prevention type name
+     * @param demographicId Integer the demographic number
+     * @return List&lt;Prevention&gt; the matching prevention entities
+     */
     public static List<Prevention> getPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         return preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
     }
@@ -407,6 +460,12 @@ public class PreventionData {
         return list;
     }
 
+    /**
+     * Returns the comments for a prevention record.
+     *
+     * @param id String the prevention record ID
+     * @return String the comments text, or {@code null} if empty or not found
+     */
     public static String getPreventionComment(String id) {
         log.debug("Calling getPreventionComment " + id);
         String comment = null;
@@ -424,6 +483,15 @@ public class PreventionData {
         return comment;
     }
 
+    /**
+     * Builds a {@link io.github.carlos_emr.carlos.prevention.Prevention} Drools fact
+     * object for the given patient, populated with their demographics and all active
+     * prevention items.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param demoNo Integer the demographic number
+     * @return io.github.carlos_emr.carlos.prevention.Prevention the populated fact object
+     */
     public static io.github.carlos_emr.carlos.prevention.Prevention getPrevention(LoggedInInfo loggedInInfo, Integer demoNo) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         Demographic dd = demographicManager.getDemographic(loggedInInfo, demoNo);
@@ -446,6 +514,9 @@ public class PreventionData {
         return p;
     }
 
+    /**
+     * Comparator that sorts prevention data maps by their prevention date in ascending order.
+     */
     public static class PreventionsComparator implements Comparator<Map<String, Object>> {
         public int compare(Map<String, Object> o1, Map<String, Object> o2) {
             Comparable date1 = (Comparable) o1.get("prevention_date_asDate");
@@ -467,6 +538,9 @@ public class PreventionData {
         }
     }
 
+    /**
+     * Comparator that sorts Prevention entities by their prevention date in ascending order.
+     */
     public static class PreventionComparator implements Comparator<Prevention> {
         public int compare(Prevention o1, Prevention o2) {
             Date date1 = o1.getPreventionDate();
@@ -481,6 +555,13 @@ public class PreventionData {
         }
     }
 
+    /**
+     * Retrieves a complete prevention record by ID, including all extended properties,
+     * provider information, DHIR submission details, and a human-readable summary.
+     *
+     * @param id String the prevention record ID
+     * @return Map&lt;String, Object&gt; the full prevention data map, or {@code null} if not found
+     */
     public static Map<String, Object> getPreventionById(String id) {
         Map<String, Object> h = null;
 

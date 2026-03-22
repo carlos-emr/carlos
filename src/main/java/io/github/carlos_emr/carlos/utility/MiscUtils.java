@@ -56,30 +56,15 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.CxfClientUtils.TrustAllManager;
 
 /**
- * When using the shutdown hook...
- * <br /><br />
- * In the context of a normal JVM, you only need to use
- * the register and deregister methods where ever appropriate.
- * In your code you can periodically checkShutdownSignaled on long
- * running threads.
- * <br /><br />
- * In the conext of a application context such as a servlet
- * container. You should register and deregister in the context
- * startup/shutdown methods. In addition you should manually flag
- * set shutdownSignaled=true upon context shutdown as the jvm
- * itself may not be shutting down and no shutdown hook signal
- * maybe sent. Similarly you should set the shutdownSignaled=false
- * upon startup as it may have been set true by a previous context stop
- * even though the jvm itself has not restarted.
- * <p>
- * -----------------------
- * <p>
- * This file has been renamed to "Old" because this file should no longer be enhanced. A commons version of this class
- * is made available from the Utils package. There maybe some methods left here which don't entirely make sense
- * or don't make sense in the context of a general purpose project agnostic utility class. This class still exists as "Old" so
- * we can slowly refactor the non sensical code to use the new commons utilities. Any remaining methods which do make sense
- * should then me moved to a generic Oscar Utility class or similar. If the method makes sense in a project
- * agnostic fashion, then it should be moved to the util project itself.
+ * General-purpose utility class providing miscellaneous helper methods for logging,
+ * string manipulation, serialization, file I/O, SSL configuration, and JVM shutdown management.
+ *
+ * <p>Includes a shutdown hook mechanism for graceful JVM/container shutdown. In servlet
+ * container environments, register via {@link #registerShutdownHook()} on context startup
+ * and set {@code shutdownSignaled=true} on context shutdown. Long-running threads should
+ * periodically call {@link #checkShutdownSignaled()} to detect shutdown requests.
+ *
+ * @since 2026-03-17
  */
 public final class MiscUtils {
     public static final String DEFAULT_UTF8_ENCODING = "UTF-8";
@@ -89,6 +74,12 @@ public final class MiscUtils {
     public MiscUtils() {
     }
 
+    /**
+     * Loads an additional Log4j override configuration file if specified via the
+     * {@code log4j.override.configuration} system property.
+     *
+     * @param contextPath String the servlet context path for variable substitution
+     */
     public static void addLoggingOverrideConfiguration(String contextPath) {
         String configLocation = System.getProperty("log4j.override.configuration");
         if (configLocation != null) {
@@ -109,16 +100,33 @@ public final class MiscUtils {
 
     }
 
+    /**
+     * Returns a Log4j logger named after the calling class. Inspects the call stack
+     * to automatically determine the caller's class name.
+     *
+     * @return Logger a logger for the calling class
+     */
     public static Logger getLogger() {
         StackTraceElement[] ste = Thread.currentThread().getStackTrace();
         String caller = ste[2].getClassName();
         return LogManager.getLogger(caller);
     }
 
+    /**
+     * Returns the application build date/time from configuration.
+     *
+     * @return String the build datetime string, or {@code null} if not configured
+     */
     public static String getBuildDateTime() {
         return ConfigXmlUtils.getPropertyString("misc", "build_date_time");
     }
 
+    /**
+     * Trims and lowercases a string, returning {@code null} for blank inputs.
+     *
+     * @param s String the input string
+     * @return String the trimmed lowercase string, or {@code null} if blank
+     */
     public static String trimToNullLowerCase(String s) {
         s = StringUtils.trimToNull(s);
         if (s != null) {
@@ -128,6 +136,12 @@ public final class MiscUtils {
         return s;
     }
 
+    /**
+     * Trims and uppercases a string, returning {@code null} for blank inputs.
+     *
+     * @param s String the input string
+     * @return String the trimmed uppercase string, or {@code null} if blank
+     */
     public static String trimToNullUpperCase(String s) {
         s = StringUtils.trimToNull(s);
         if (s != null) {
@@ -137,6 +151,12 @@ public final class MiscUtils {
         return s;
     }
 
+    /**
+     * Returns the local part of an email address (everything before the '@' symbol).
+     *
+     * @param s String the email address
+     * @return String the local part, or {@code null} if the input is {@code null}
+     */
     public static String getEmailAddressNoDomain(String s) {
         if (s == null) {
             return null;
@@ -150,6 +170,13 @@ public final class MiscUtils {
         }
     }
 
+    /**
+     * Serializes an object to a byte array.
+     *
+     * @param s Serializable the object to serialize
+     * @return byte[] the serialized byte representation
+     * @throws IOException if serialization fails
+     */
     public static byte[] serialize(Serializable s) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -157,10 +184,25 @@ public final class MiscUtils {
         return baos.toByteArray();
     }
 
+    /**
+     * Deserializes an object from a byte array.
+     *
+     * @param b byte[] the serialized byte data
+     * @return Serializable the deserialized object
+     * @throws IOException            if deserialization fails
+     * @throws ClassNotFoundException if the object's class cannot be found
+     */
     public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException {
         return (Serializable) (new ObjectInputStream(new ByteArrayInputStream(b))).readObject();
     }
 
+    /**
+     * Serializes an object to a file.
+     *
+     * @param s        Serializable the object to serialize
+     * @param filename String the file path to write to
+     * @throws IOException if file writing fails
+     */
     public static void serializeToFile(Serializable s, String filename) throws IOException {
         try (FileOutputStream fos = new FileOutputStream(filename);
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
@@ -170,6 +212,14 @@ public final class MiscUtils {
         }
     }
 
+    /**
+     * Deserializes an object from a file, trying the classpath first then the filesystem.
+     *
+     * @param filename String the file path or classpath resource
+     * @return Serializable the deserialized object
+     * @throws IOException            if the file cannot be read
+     * @throws ClassNotFoundException if the object's class cannot be found
+     */
     public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException {
         InputStream is = MiscUtils.class.getResourceAsStream(filename);
         if (is == null) {
@@ -186,6 +236,13 @@ public final class MiscUtils {
         return var2;
     }
 
+    /**
+     * Reads a classpath resource into a byte array.
+     *
+     * @param url String the classpath resource path
+     * @return byte[] the file contents
+     * @throws IOException if the file cannot be read
+     */
     public static byte[] readFileAsByteArray(String url) throws IOException {
         try (InputStream is = MiscUtils.class.getResourceAsStream(url)) {
             int size = is.available();
@@ -195,10 +252,25 @@ public final class MiscUtils {
         }
     }
 
+    /**
+     * Reads a classpath resource as a string using the default charset.
+     *
+     * @param url String the classpath resource path
+     * @return String the file contents
+     * @throws IOException if the file cannot be read
+     */
     public static String readFileAsString(String url) throws IOException {
         return new String(readFileAsByteArray(url));
     }
 
+    /**
+     * Generates a random string of printable ASCII characters, excluding visually
+     * ambiguous characters (e.g., 0/O, 1/l/I) and special characters that may
+     * cause issues in certain contexts.
+     *
+     * @param length int the desired string length
+     * @return String a random string of the specified length
+     */
     public static String getRandomString(int length) {
         StringBuilder sb = new StringBuilder();
         Random random = new Random();
@@ -214,6 +286,13 @@ public final class MiscUtils {
         return sb.toString();
     }
 
+    /**
+     * Escapes a string for safe inclusion in a CSV field by quoting and escaping
+     * double quotes, commas, and newlines.
+     *
+     * @param s String the value to escape
+     * @return String the CSV-safe value, or {@code null} if the input is {@code null}
+     */
     public static String escapeCsv(String s) {
         if (s == null) {
             return null;
@@ -236,6 +315,13 @@ public final class MiscUtils {
         }
     }
 
+    /**
+     * Configures the JVM's default SSL socket factory to accept all certificates
+     * and hostnames. Used for inter-system communication in development environments.
+     *
+     * @throws NoSuchAlgorithmException if the TLS algorithm is not available
+     * @throws KeyManagementException   if the SSL context cannot be initialized
+     */
     public static void setJvmDefaultSSLSocketFactoryAllowAllCertificates() throws NoSuchAlgorithmException, KeyManagementException {
         TrustAllManager[] tam = new TrustAllManager[]{new TrustAllManager()};
         SSLContext ctx = SSLContext.getInstance("TLS");
@@ -250,10 +336,27 @@ public final class MiscUtils {
         HttpsURLConnection.setDefaultHostnameVerifier(hostNameVerifier);
     }
 
+    /**
+     * Returns whether two strings are phonetically similar using the Refined Soundex algorithm
+     * (score of 4 or higher).
+     *
+     * @param s1 String the first string
+     * @param s2 String the second string
+     * @return boolean {@code true} if the strings are phonetically similar
+     * @throws EncoderException if encoding fails
+     */
     public static boolean soundex(String s1, String s2) throws EncoderException {
         return soundexScore(s1, s2) >= 4;
     }
 
+    /**
+     * Returns the Refined Soundex similarity score between two strings.
+     *
+     * @param s1 String the first string
+     * @param s2 String the second string
+     * @return int the similarity score (higher is more similar), or -1 if either is blank
+     * @throws EncoderException if encoding fails
+     */
     public static int soundexScore(String s1, String s2) throws EncoderException {
         s1 = StringUtils.trimToNull(s1);
         s2 = StringUtils.trimToNull(s2);
@@ -276,6 +379,11 @@ public final class MiscUtils {
         }
     }
 
+    /**
+     * Checks if a JVM shutdown has been signaled and throws if so.
+     *
+     * @throws ShutdownException if shutdown has been signaled
+     */
     public static void checkShutdownSignaled() throws ShutdownException {
         if (shutdownSignaled) throw (new ShutdownException());
     }
@@ -290,6 +398,9 @@ public final class MiscUtils {
         }
     }
 
+    /**
+     * Deregisters the JVM shutdown hook. Should be called during context shutdown.
+     */
     public static synchronized void deregisterShutdownHook() {
         if (shutdownHookThread != null) {
             Runtime.getRuntime().removeShutdownHook(shutdownHookThread);

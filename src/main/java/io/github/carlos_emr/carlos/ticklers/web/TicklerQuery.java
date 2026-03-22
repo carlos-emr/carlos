@@ -30,6 +30,19 @@ package io.github.carlos_emr.carlos.ticklers.web;
 
 import io.github.carlos_emr.carlos.commn.PaginationQuery;
 
+/**
+ * Query parameter container for tickler (clinical reminder) searches, extending the
+ * base pagination query with tickler-specific filter criteria.
+ *
+ * <p>Supports filtering by date range, status (Active/Completed/Deleted), provider,
+ * assignee, MRP (Most Responsible Provider), program, demographic number, client,
+ * message content, and site. Also supports keyword-based searching across multiple
+ * tickler fields and advanced filtering via the "withOption" flag.</p>
+ *
+ * @since 2001-01-01
+ * @see io.github.carlos_emr.carlos.commn.PaginationQuery
+ * @see io.github.carlos_emr.carlos.ticklers.service.TicklersDao
+ */
 public class TicklerQuery extends PaginationQuery {
     private static final long serialVersionUID = 5994830654027801723L;
 

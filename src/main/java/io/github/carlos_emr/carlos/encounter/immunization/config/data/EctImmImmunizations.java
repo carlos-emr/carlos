@@ -35,6 +35,11 @@ import java.util.Vector;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Represents an immunization entry within an immunization set configuration.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmImmunizations {
 
     public void sortAgeVector() {

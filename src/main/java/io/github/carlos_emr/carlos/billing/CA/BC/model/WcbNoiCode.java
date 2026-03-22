@@ -39,6 +39,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a WCB (Workers' Compensation Board) Nature of Injury code
+ * in British Columbia. Maps to the {@code wcb_noi_code} table, providing a hierarchical
+ * lookup of injury nature codes (three levels) used in WCB claims.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "wcb_noi_code")
 public class WcbNoiCode extends AbstractModel<Integer> {

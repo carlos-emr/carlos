@@ -37,6 +37,11 @@ import org.w3c.dom.Element;
 
 import io.github.carlos_emr.carlos.util.UtilXML;
 
+/**
+ * Writes immunization set data to XML format for configuration export and persistence.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmImmunizationSetWriter {
 
     public EctImmImmunizationSetWriter() {

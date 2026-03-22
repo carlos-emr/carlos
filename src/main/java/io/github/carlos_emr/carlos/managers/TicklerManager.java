@@ -44,6 +44,19 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
+/**
+ * Service interface for managing clinical ticklers (reminders) in the CARLOS EMR system.
+ *
+ * <p>Ticklers are task-oriented reminders assigned to healthcare providers for specific
+ * patients. They support prioritization, categorization, status tracking, custom
+ * filtering, and text suggestions. This manager provides the complete tickler
+ * lifecycle including creation, update, completion, deletion, and search.</p>
+ *
+ * @see TicklerManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Tickler
+ * @see io.github.carlos_emr.carlos.commn.model.CustomFilter
+ * @since 2026-03-17
+ */
 public interface TicklerManager {
 
     public static String DEMOGRAPHIC_NAME = "demographic_name";

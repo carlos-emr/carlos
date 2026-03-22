@@ -30,6 +30,14 @@ package io.github.carlos_emr.carlos.managers;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Base interface for CARLOS EMR manager services providing a shared logger instance.
+ *
+ * <p>Manager implementations can extend this interface to inherit a pre-configured
+ * Log4j2 logger without needing to declare one in each class.</p>
+ *
+ * @since 2026-03-17
+ */
 public interface OscarManagerBase {
 
     Logger logger = MiscUtils.getLogger();

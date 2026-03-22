@@ -38,9 +38,18 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Generic WorkFlow Description
+ * Implementation of the Rh immunoglobulin (RhIg) clinical workflow for managing
+ * Rh-negative pregnant patients.
  *
- * @author jay
+ * <p>Tracks patients through states such as "No Appt made", "Appt Booked",
+ * "Injection 28" (28-week injection), "Requires Another Injection", "Missed Appt",
+ * and "Closed". Uses Drools rules ({@code Rh_workflow.drl}) for automated state
+ * transition decisions based on gestational age and appointment status.</p>
+ *
+ * @see WorkFlow
+ * @see WorkFlowDS
+ * @see WorkFlowDSFactory
+ * @since 2026-03-17
  */
 public class RHWorkFlow implements WorkFlow {
 
@@ -80,16 +89,19 @@ public class RHWorkFlow implements WorkFlow {
     }
 
 
+    /** {@inheritDoc} */
     public ArrayList getActiveWorkFlowList(String demographicNo) {
         WorkFlowState wfs = new WorkFlowState();
         return wfs.getActiveWorkFlowList(RHWorkFlow.WORKFLOWTYPE, demographicNo);
     }
 
+    /** {@inheritDoc} */
     public ArrayList getActiveWorkFlowList() {
         WorkFlowState wfs = new WorkFlowState();
         return wfs.getActiveWorkFlowList(RHWorkFlow.WORKFLOWTYPE);
     }
 
+    /** {@inheritDoc} */
     public String getState(String state) {
         MiscUtils.getLogger().debug("state: " + state);
         WFState wf = states.get(state);
@@ -102,15 +114,18 @@ public class RHWorkFlow implements WorkFlow {
         return ret;
     }
 
+    /** {@inheritDoc} */
     public List<WFState> getStates() {
         return stateList;
     }
 
+    /** {@inheritDoc} */
     public int addToWorkFlow(String providerNo, String demographicNo, Date endDate) {
         WorkFlowState wfs = new WorkFlowState();
         return wfs.addToWorkFlow(WorkFlowState.RHWORKFLOW, providerNo, demographicNo, endDate, WorkFlowState.INIT_STATE);
     }
 
+    /** {@inheritDoc} */
     public WorkFlowInfo executeRules(Hashtable hashtable) {
         WorkFlowInfo wfi = new WorkFlowInfo(hashtable);
         WorkFlowDS wfDS = WorkFlowDSFactory.getWorkFlowDS("Rh_workflow.drl");
@@ -122,6 +137,7 @@ public class RHWorkFlow implements WorkFlow {
         return wfi;
     }
 
+    /** {@inheritDoc} */
     public WorkFlowInfo executeRules(WorkFlowDS wfDS, Hashtable hashtable) {
         WorkFlowInfo wfi = new WorkFlowInfo(hashtable);
         try {
@@ -133,10 +149,12 @@ public class RHWorkFlow implements WorkFlow {
     }
 
 
+    /** {@inheritDoc} */
     public WorkFlowDS getWorkFlowDS() {
         return WorkFlowDSFactory.getWorkFlowDS("Rh_workflow.drl");
     }
 
+    /** {@inheritDoc} */
     public String getLink(String demographicNo, String workFlowId) {
         return "../form/forwardshortcutname.do?formname=RH Form&amp;demographic_no=" + demographicNo;
     }

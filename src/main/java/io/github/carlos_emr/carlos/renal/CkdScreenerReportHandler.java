@@ -49,6 +49,16 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Generates the CKD screening report for all actively screened patients.
+ *
+ * <p>Queries patients with an active {@code OscarCode:CKDSCREEN} diagnosis entry
+ * and builds a list of {@link CKDReportContainer} objects with clinical details
+ * including diabetes/hypertension status, blood pressure, family history, lab
+ * status, medication usage, last visit, and letter/lab request history.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CkdScreenerReportHandler {
 
     private DxresearchDAO dxResearchDao = (DxresearchDAO) SpringUtils.getBean(DxresearchDAO.class);
@@ -62,6 +72,12 @@ public class CkdScreenerReportHandler {
     SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     SimpleDateFormat apptFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
+    /**
+     * Generates the CKD screening report containing clinical details for all patients
+     * with active CKDSCREEN diagnosis entries.
+     *
+     * @return List&lt;CKDReportContainer&gt; the screening report items, one per patient
+     */
     public List<CKDReportContainer> generateReport() {
         List<CKDReportContainer> results = new ArrayList<CKDReportContainer>();
 

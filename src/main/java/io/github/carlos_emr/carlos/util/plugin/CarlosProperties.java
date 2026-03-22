@@ -25,12 +25,25 @@ package io.github.carlos_emr.carlos.util.plugin;
 
 import java.util.Properties;
 
+/**
+ * Singleton holder for CARLOS EMR application properties within the plugin subsystem.
+ * Extends {@link Properties} to provide static access to the shared properties instance.
+ * Note: This is separate from the top-level {@link io.github.carlos_emr.CarlosProperties}
+ * class used elsewhere in the application.
+ *
+ * @since 2006-01-01
+ */
 public class CarlosProperties extends Properties {
     private static Properties properties;
 
     private CarlosProperties() {
     }
 
+    /**
+     * Returns the singleton properties instance cast to CarlosProperties.
+     *
+     * @return CarlosProperties the singleton instance
+     */
     public CarlosProperties getInstance() {
         return (CarlosProperties) properties;
     }

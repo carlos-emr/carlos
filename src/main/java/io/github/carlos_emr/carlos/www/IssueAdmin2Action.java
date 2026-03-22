@@ -47,6 +47,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for administering clinical issue definitions.
+ *
+ * <p>Provides CRUD operations for managing the issue catalog used in case management.
+ * All operations require "_admin" security privileges. Issues are identified by
+ * unique codes and can be associated with roles.
+ *
+ * @since 2012-08-13
+ */
 public class IssueAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -58,6 +67,12 @@ public class IssueAdmin2Action extends ActionSupport {
     private SecRoleDao secRoleDao = SpringUtils.getBean(SecRoleDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Routes the request to the appropriate handler based on the "method" parameter.
+     *
+     * @return String the Struts result name
+     * @throws SecurityException if the user lacks "_admin" privileges
+     */
     public String execute() {
         String mtd = request.getParameter("method");
         if ("cancel".equals(mtd)) {
@@ -72,10 +87,21 @@ public class IssueAdmin2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Cancels the current operation and returns to the list view.
+     *
+     * @return String the list result
+     */
     public String cancel() {
         return list();
     }
 
+    /**
+     * Deletes the specified issue definition.
+     *
+     * @return String the list result after deletion
+     * @throws SecurityException if the user lacks "_admin" write privileges
+     */
     public String delete() {
         if (log.isDebugEnabled()) {
             log.debug("entering 'delete' method...");
@@ -91,6 +117,12 @@ public class IssueAdmin2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Loads an issue for editing. A null ID indicates a new issue creation.
+     *
+     * @return String the "edit" result name
+     * @throws SecurityException if the user lacks "_admin" write privileges
+     */
     public String edit() {
         if (log.isDebugEnabled()) {
             log.debug("entering 'edit' method...");
@@ -116,6 +148,12 @@ public class IssueAdmin2Action extends ActionSupport {
         return "edit";
     }
 
+    /**
+     * Lists all administered issues.
+     *
+     * @return String the "list" result name
+     * @throws SecurityException if the user lacks "_admin" read privileges
+     */
     public String list() {
         if (log.isDebugEnabled()) {
             log.debug("entering 'list' method...");
@@ -129,6 +167,12 @@ public class IssueAdmin2Action extends ActionSupport {
         return "list";
     }
 
+    /**
+     * Saves an issue definition, checking for duplicate codes before persisting.
+     *
+     * @return String the list result after saving, or "edit" if a duplicate code is detected
+     * @throws SecurityException if the user lacks "_admin" write privileges
+     */
     public String save() {
         if (log.isDebugEnabled()) {
             log.debug("entering 'save' method...");

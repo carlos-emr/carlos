@@ -73,6 +73,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see FaxManager
  * @since 2012-04-09
  */
+/**
+ * Struts2 action that handles faxing of consultation request forms.
+ *
+ * @since 2001-01-01
+ */
 public class EctConsultationFormFax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

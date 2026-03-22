@@ -48,6 +48,27 @@ import org.hibernate.annotations.NotFoundAction;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 
+/**
+ * Represents a tickler (clinical reminder/task) in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code tickler} table and provides a task management mechanism for
+ * healthcare providers to create, assign, and track clinical reminders and follow-up
+ * tasks for patients. Ticklers are commonly used for appointment follow-ups, lab result
+ * reviews, prescription renewals, and other time-sensitive clinical actions.</p>
+ *
+ * <p>Tickler lifecycle states ({@link STATUS}):</p>
+ * <ul>
+ *   <li>{@code A} - Active: the tickler is pending action</li>
+ *   <li>{@code C} - Completed: the task has been fulfilled</li>
+ *   <li>{@code D} - Deleted: the tickler has been removed</li>
+ * </ul>
+ *
+ * <p>Priority levels ({@link PRIORITY}): High, Normal, Low.</p>
+ *
+ * @see Demographic
+ * @see Program
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "tickler")
 public class Tickler extends AbstractModel<Integer> {

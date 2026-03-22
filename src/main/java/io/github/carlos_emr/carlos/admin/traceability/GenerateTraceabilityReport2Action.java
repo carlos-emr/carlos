@@ -45,11 +45,17 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
 /**
- * Upload 'trace', process it,
- * compare with the local 'trace'
- * and create report
+ * Struts2 action that generates a traceability report by comparing an uploaded trace file
+ * against the current deployment.
  *
- * @author oscar
+ * <p>Accepts a compressed trace binary file upload, processes it in parallel using
+ * {@link TraceabilityReportProcessor}, and streams the comparison report to the client
+ * via {@link TraceabilityReportConsumer}. Requires {@code _admin.traceability} privilege.
+ *
+ * @see TraceabilityReportProcessor
+ * @see TraceabilityReportConsumer
+ * @see GenerateTrace2Action
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -62,6 +68,12 @@ public class GenerateTraceabilityReport2Action extends ActionSupport {
 
     private File file;
 
+    /**
+     * Processes the uploaded trace file and streams the traceability comparison report.
+     *
+     * @return String null (report is streamed directly to the response)
+     * @throws Exception if piped stream or thread processing fails
+     */
     @Override
     public String execute() throws Exception {
         String userName = (String) request.getSession().getAttribute("user");
@@ -102,10 +114,20 @@ public class GenerateTraceabilityReport2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Gets the uploaded trace file.
+     *
+     * @return File the uploaded trace binary file
+     */
     public File getFile() {
         return file;
     }
 
+    /**
+     * Sets the uploaded trace file from the Struts2 file upload interceptor.
+     *
+     * @param file File the uploaded trace binary file
+     */
     @StrutsParameter
     public void setFile(File file) {
         this.file = file;

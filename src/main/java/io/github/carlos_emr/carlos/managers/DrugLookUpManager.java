@@ -40,6 +40,16 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Vector;
 
+/**
+ * Implementation of the {@link DrugLookUp} interface that searches the drug
+ * reference database via the {@link io.github.carlos_emr.carlos.prescript.util.RxDrugRef} utility.
+ *
+ * <p>Translates drug reference results into {@link DrugSearchTo1} transfer
+ * objects for the REST API and prescription management UI.</p>
+ *
+ * @see DrugLookUp
+ * @since 2026-03-17
+ */
 @Service
 public class DrugLookUpManager implements DrugLookUp {
 

@@ -39,6 +39,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Data provider for the visit type report. Queries Ontario billing records to count
+ * visits grouped by visit type code for a given provider and date range. Supports
+ * both legacy and new Ontario billing systems.
+ *
+ * @since 2001-01-01
+ */
 public class VisitReportData {
 
     private String dateBegin = null;
@@ -60,6 +67,12 @@ public class VisitReportData {
         providerNo = value;
     }
 
+    /**
+     * Counts billing visits by creator (the provider who created the billing) grouped
+     * by visit type. Returns a 6-element array indexed by visit type code.
+     *
+     * @return String[] counts indexed by visit type (0-5)
+     */
     public String[] getCreatorCount() {
         String retval, retcount;
         String[] retVisit = new String[6];

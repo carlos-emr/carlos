@@ -47,6 +47,13 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link CaseManagementIssueDAO}. Provides HQL-based
+ * queries for patient-issue associations with support for filtering by demographic,
+ * resolution status, issue code, and program.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements CaseManagementIssueDAO {
 

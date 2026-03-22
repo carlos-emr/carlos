@@ -86,10 +86,30 @@ import cdshrm.TransactionInformationDocument.TransactionInformation;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author ronnie
+ * Generates Hospital Report Manager (HRM) XML files from CDS demographic and report data.
+ *
+ * <p>Converts CDS (Clinical Data Standard) demographics and reports into the HRM
+ * OMD CDS XML format used for electronic health report interchange between
+ * healthcare facilities in Ontario. The generated files include patient demographics,
+ * health card information, contact details, and received reports with OBR content.</p>
+ *
+ * <p>Output files are saved to the configured document directory or a specified file path.</p>
+ *
+ * @see cdshrm.OmdCdsDocument
+ * @since 2026-03-17
  */
 public class CreateHRMFile {
 
+    /**
+     * Creates an HRM XML file from CDS demographic and report data.
+     *
+     * <p>If the filepath does not contain a path separator, the file is saved
+     * to the configured DOCUMENT_DIR.</p>
+     *
+     * @param demographic DemographicsDocument.Demographics the CDS demographic data
+     * @param reports List&lt;Reports&gt; the list of CDS reports to include
+     * @param filepath String the output file path or filename
+     */
     static public void create(DemographicsDocument.Demographics demographic, List<Reports> reports, String filepath) {
 
         OmdCdsDocument omdCdsDoc = OmdCdsDocument.Factory.newInstance();

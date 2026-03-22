@@ -47,6 +47,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * <p>
  * This class is chained together with the Indicator and PanelBean Factories to
  * create a full Dashboard from a list of Indicators and Dashboards.
+ *
+ * @since 2026-03-17
  */
 public class DashboardBeanFactory {
 
@@ -82,6 +84,11 @@ public class DashboardBeanFactory {
         getDashboardBean().setLastChecked(new Date(System.currentTimeMillis()));
     }
 
+    /**
+     * Returns the fully constructed dashboard display bean with all panels and indicators.
+     *
+     * @return DashboardBean the constructed dashboard bean
+     */
     public DashboardBean getDashboardBean() {
         return dashboardBean;
     }

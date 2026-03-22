@@ -36,6 +36,22 @@ import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
 
+/**
+ * Represents a professional specialist (external consultant) in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code professionalSpecialists} table and stores information about external
+ * specialists who receive consultation referrals from the clinic. Implements
+ * {@link ContactInterface} for FHIR interoperability.</p>
+ *
+ * <p>Key information includes the specialist's name, professional letters,
+ * contact details (address, phone, fax, email), specialty, and referring provider
+ * associations. Specialists are referenced by {@link ConsultationRequest} entities
+ * when creating referrals.</p>
+ *
+ * @see ConsultationRequest
+ * @see ContactInterface
+ * @since 2012-01-11
+ */
 @Entity
 @Table(name = "professionalSpecialists")
 public class ProfessionalSpecialist extends AbstractModel<Integer> implements Serializable, ContactInterface {

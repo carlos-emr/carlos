@@ -49,6 +49,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
+/**
+ * Struts2 action that handles editing of institution entries in consultation configuration.
+ *
+ * @since 2001-01-01
+ */
 public class EctConEditInstitutions2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

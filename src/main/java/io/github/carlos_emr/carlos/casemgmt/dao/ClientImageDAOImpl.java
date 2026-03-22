@@ -44,8 +44,13 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
- * Anyone modifying get and set methods should take note of the dataCache and
- * add/remove items as appropriate.
+ * Hibernate-based implementation of {@link ClientImageDAO}. Provides patient image
+ * persistence with an in-memory {@link QueueCache} to reduce database load for
+ * frequently accessed images under 1 MB. Cache entries expire after one hour.
+ *
+ * <p>Implementations modifying get and set methods should update the cache accordingly.</p>
+ *
+ * @since 2026-03-17
  */
 @Transactional
 public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientImageDAO {

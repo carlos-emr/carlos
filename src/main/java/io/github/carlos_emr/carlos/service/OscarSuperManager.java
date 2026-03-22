@@ -35,12 +35,52 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.dao.OscarSuperDao;
 
+/**
+ * Super manager interface providing generic DAO-based data access through named queries.
+ *
+ * <p>Provides a registry of named {@link OscarSuperDao} instances that can be accessed
+ * by name to execute select queries and row-mapped queries. Used as a flexible data
+ * access abstraction in the CARLOS EMR system.</p>
+ *
+ * @since 2005-01-01
+ * @see OscarSuperDao
+ * @see OscarSuperManagerImpl
+ */
 public interface OscarSuperManager {
+
+    /**
+     * Sets the provider DAO for data access operations.
+     *
+     * @param providerDao OscarSuperDao the provider data access object
+     */
     void setProviderSuperDao(OscarSuperDao providerDao);
 
+    /**
+     * Initializes the manager by registering all DAOs and validating their injection.
+     *
+     * @throws IllegalStateException if any required DAO has not been injected
+     */
     void init();
 
+    /**
+     * Executes a named query on the specified DAO and returns results as a list of maps.
+     *
+     * @param daoName String the registered name of the DAO to query
+     * @param queryName String the name of the query to execute
+     * @param params Object[] the query parameters
+     * @return List of Map objects where each map represents a result row with column name keys
+     * @throws IllegalArgumentException if no DAO is registered with the given name
+     */
     List<Map<String, Object>> find(String daoName, String queryName, Object[] params);
 
+    /**
+     * Executes a named query on the specified DAO and returns results as mapped objects.
+     *
+     * @param daoName String the registered name of the DAO to query
+     * @param queryName String the name of the query to execute
+     * @param params Object[] the query parameters
+     * @return List of mapped result objects
+     * @throws IllegalArgumentException if no DAO is registered with the given name
+     */
     List<Object> populate(String daoName, String queryName, Object[] params);
 }

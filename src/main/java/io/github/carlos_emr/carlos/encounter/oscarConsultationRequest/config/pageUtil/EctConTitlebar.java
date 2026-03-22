@@ -45,6 +45,11 @@ import org.owasp.encoder.Encode;
  *
  * @since 2026-02-11
  */
+/**
+ * Provides title bar content and navigation data for consultation configuration pages.
+ *
+ * @since 2001-01-01
+ */
 public class EctConTitlebar {
 
     /**

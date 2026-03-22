@@ -42,8 +42,19 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.providers.bean.ProviderNameBean;
 
+/**
+ * Utility class that retrieves a list of doctor-type providers from the database,
+ * returning them as {@link ProviderNameBean} objects for use in report selection UIs.
+ *
+ * @since 2007-08-27
+ */
 public class DoctorList {
 
+    /**
+     * Retrieves all providers with type "doctor" and returns them as name beans.
+     *
+     * @return ArrayList&lt;ProviderNameBean&gt; list of doctor providers with ID and full name
+     */
     public ArrayList<ProviderNameBean> getDoctorNameList() {
 
         ArrayList<ProviderNameBean> dnl = new ArrayList<ProviderNameBean>();

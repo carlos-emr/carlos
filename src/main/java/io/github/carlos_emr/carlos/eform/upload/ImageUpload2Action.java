@@ -64,6 +64,13 @@ public class ImageUpload2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes the image upload by sanitizing the filename, validating the upload
+     * path, and writing the file to the eForm image directory.
+     *
+     * @return String {@code SUCCESS} on success, {@code ERROR} on failure
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
@@ -129,6 +136,12 @@ public class ImageUpload2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Returns the eForm image directory, creating it if it does not exist.
+     *
+     * @return File the eForm image directory
+     * @throws IOException if the directory cannot be created
+     */
     public static File getImageFolder() throws IOException {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs())

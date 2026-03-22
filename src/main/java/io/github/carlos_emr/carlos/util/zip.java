@@ -46,6 +46,13 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Utility class for ZIP file operations including compressing form record files into
+ * a ZIP archive and extracting XML files from ZIP archives. Used for form data
+ * import/export in the medical forms subsystem.
+ *
+ * @since 2001-01-01
+ */
 public class zip {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -61,6 +68,12 @@ public class zip {
         write2Zip(fileformat);
     }
 
+    /**
+     * Compresses all files matching the specified format in the form record directory
+     * into a single ZIP archive named {@code formRecords.zip}.
+     *
+     * @param fileformat String the file extension to filter (e.g., "xml")
+     */
     public void write2Zip(String fileformat) {
         MiscUtils.getLogger().debug("writing to Zip");
         try {
@@ -95,6 +108,15 @@ public class zip {
         }
     }
 
+    /**
+     * Extracts XML files from a ZIP archive into the specified directory. Uses
+     * {@link PathValidationUtils} to prevent zip slip attacks. After extraction,
+     * the ZIP file is moved to an {@code unzip_archive} subdirectory.
+     *
+     * @param dirName String the target extraction directory (must end with separator)
+     * @param fName String the ZIP filename (must have {@code .zip} extension)
+     * @return boolean true if extraction succeeded, false on failure
+     */
     public static boolean unzipXML(String dirName, String fName) {
         int BUFFER = 2048;
 

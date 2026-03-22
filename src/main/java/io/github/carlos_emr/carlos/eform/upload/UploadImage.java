@@ -50,9 +50,28 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Servlet that handles multipart image file uploads for the eForm image library.
+ * Validates uploaded filenames using {@link PathValidationUtils} to prevent path
+ * traversal attacks and saves files to the configured {@code EFORM_IMAGES_DIR}.
+ *
+ * <p>After successful upload, redirects to the image management page with a
+ * one-second JavaScript delay.</p>
+ *
+ * @since 2006-05-25
+ */
 @MultipartConfig(maxFileSize = 52428800, maxRequestSize = 52428800, fileSizeThreshold = 1048576)
 public class UploadImage extends HttpServlet {
 
+    /**
+     * Processes multipart upload requests, saving each uploaded file part to
+     * the eForm image directory after path validation.
+     *
+     * @param request HttpServletRequest the multipart upload request
+     * @param response HttpServletResponse the response to write confirmation HTML to
+     * @throws IOException if an I/O error occurs during file saving
+     * @throws ServletException if a servlet error occurs during part processing
+     */
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         String foldername = "", fileheader = "";
 

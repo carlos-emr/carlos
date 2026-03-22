@@ -34,6 +34,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+/**
+ * Utility class that reads build metadata from the {@code buildNumber.properties} resource file.
+ *
+ * <p>Loads the properties file once at class initialization time and provides static
+ * access to build identifiers such as the Git SHA-1 commit hash. Used by the
+ * traceability system to embed build information in trace data.
+ *
+ * @see TraceDataProcessor
+ * @since 2026-03-17
+ */
 public class BuildNumberPropertiesFileReader {
 
     private static final Properties properties;
@@ -59,6 +69,11 @@ public class BuildNumberPropertiesFileReader {
     private BuildNumberPropertiesFileReader() {
     }
 
+    /**
+     * Returns the Git SHA-1 commit hash from the build properties.
+     *
+     * @return String the Git SHA-1 hash of the build commit
+     */
     public static String getGitSha1() {
         return properties.getProperty("git-sha-1");
     }

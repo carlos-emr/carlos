@@ -51,6 +51,17 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.*;
 
+/**
+ * Central service interface for the case management module. Provides operations for
+ * managing clinical notes, issues, CPP (Cumulative Patient Profile), note links,
+ * note extensions, prescriptions, allergies, and role-based access control.
+ *
+ * <p>Coordinates between multiple DAOs and services to implement note saving with
+ * signature verification, issue management, program-based filtering, and
+ * clinical decision support integration.</p>
+ *
+ * @since 2026-03-17
+ */
 public interface CaseManagementManager {
 
     public enum IssueType {

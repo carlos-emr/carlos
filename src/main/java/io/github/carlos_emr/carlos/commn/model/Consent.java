@@ -193,6 +193,12 @@ public class Consent extends AbstractModel<Integer> {
         this.deleted = deleted;
     }
 
+    /**
+     * Returns whether the patient has effectively consented. A patient is considered
+     * to have consented if the record is not deleted and the patient has not opted out.
+     *
+     * @return boolean {@code true} if the patient has active consent
+     */
     @Transient
     public boolean getPatientConsented() {
         return (!isDeleted() && !isOptout());

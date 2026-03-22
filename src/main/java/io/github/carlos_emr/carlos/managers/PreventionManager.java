@@ -38,6 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing immunization and prevention records in the
+ * CARLOS EMR system.
+ *
+ * <p>Supports retrieval of prevention records by patient and date, management
+ * of prevention extension data, and configuration of prevention type lists
+ * including custom prevention items per provincial healthcare schedules.</p>
+ *
+ * @see PreventionManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Prevention
+ * @see io.github.carlos_emr.carlos.commn.model.PreventionExt
+ * @since 2026-03-17
+ */
 public interface PreventionManager {
 
     public List<Prevention> getUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive,

@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.utility.WebUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 
+/**
+ * Struts2 form bean for consultation request form parameters.
+ *
+ * @since 2001-01-01
+ */
 public final class EctConsultationFormRequest2Form {
 
     String allergies;

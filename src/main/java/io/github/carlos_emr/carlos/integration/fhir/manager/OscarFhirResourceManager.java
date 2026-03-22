@@ -57,6 +57,16 @@ import org.springframework.stereotype.Service;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Service manager for retrieving and assembling CARLOS EMR domain objects into FHIR resources.
+ *
+ * <p>Provides static factory methods that load Patient, Practitioner, Immunization,
+ * and Public Health Unit data from the database and wrap them in FHIR-compatible
+ * transport objects. Also links related resources (e.g., performing practitioners
+ * to immunizations) for bundle construction.</p>
+ *
+ * @since 2026-03-17
+ */
 @Service
 public class OscarFhirResourceManager {
 
@@ -96,9 +106,11 @@ public class OscarFhirResourceManager {
     }
 
     /**
-     * @param configurationManager
-     * @param preventionId
-     * @return io.github.carlos_emr.carlos.integration.fhir.model.Immunization<Prevention>
+     * Retrieves a single immunization record by its prevention ID.
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param preventionId the prevention/immunization record ID
+     * @return Immunization the FHIR-wrapped immunization, or {@code null} if not found
      */
     public static final Immunization<Prevention> getImmunizationById(OscarFhirConfigurationManager configurationManager, int preventionId) {
         PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
@@ -115,9 +127,11 @@ public class OscarFhirResourceManager {
     }
 
     /**
-     * @param configurationManager
-     * @param demographic_no
-     * @return io.github.carlos_emr.carlos.integration.fhir.model.Patient
+     * Retrieves a patient by demographic number and wraps it as a FHIR Patient resource.
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param demographic_no the patient's demographic ID
+     * @return Patient the FHIR-wrapped patient, or {@code null} if not found
      */
     public static final Patient getPatientByDemographicNumber(OscarFhirConfigurationManager configurationManager, int demographic_no) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -163,6 +177,16 @@ public class OscarFhirResourceManager {
         return patientList;
     }
 
+    /**
+     * Retrieves the most responsible practitioner (MRP) for a patient.
+     *
+     * <p>First checks the demographic's directly assigned provider, then falls back
+     * to the MRP list from the demographic manager.</p>
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param demographic_no the patient's demographic ID
+     * @return Practitioner the FHIR-wrapped MRP, or {@code null} if none found
+     */
     public static final Practitioner getDemographicMostResponsiblePractitioner(OscarFhirConfigurationManager configurationManager, int demographic_no) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         Demographic demographic = demographicManager.getDemographic(configurationManager.getLoggedInInfo(), demographic_no);
@@ -186,9 +210,11 @@ public class OscarFhirResourceManager {
     }
 
     /**
-     * @param configurationManager
-     * @param providerNo
-     * @return io.github.carlos_emr.carlos.integration.fhir.model.PerformingPractitioner
+     * Retrieves a performing practitioner by provider number.
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param providerNo the provider number string
+     * @return PerformingPractitioner the FHIR-wrapped practitioner, or {@code null} if not found
      */
     public static final PerformingPractitioner getPerformingPractitionerByProviderNumber(OscarFhirConfigurationManager configurationManager, String providerNo) {
         ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
@@ -205,9 +231,11 @@ public class OscarFhirResourceManager {
     }
 
     /**
-     * @param configurationManager
-     * @param providerNo
-     * @return io.github.carlos_emr.carlos.integration.fhir.model.Practitioner
+     * Retrieves a practitioner by provider number.
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param providerNo the provider number string
+     * @return Practitioner the FHIR-wrapped practitioner, or {@code null} if not found
      */
     public static final Practitioner getPractitionerByProviderNumber(OscarFhirConfigurationManager configurationManager, String providerNo) {
         ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
@@ -261,9 +289,14 @@ public class OscarFhirResourceManager {
     }
 
     /**
-     * @param configurationManager
-     * @param demographicNo
-     * @return org.hl7.fhir.dstu3.model.Organization
+     * Retrieves the Public Health Unit (PHU) Organization for a patient.
+     *
+     * <p>Looks up the PHU identifier from the patient's demographic extension.
+     * Falls back to the default PHU from application properties if not set on the patient.</p>
+     *
+     * @param configurationManager the FHIR configuration manager
+     * @param demographicNo the patient's demographic ID
+     * @return Organization the FHIR Organization for the PHU, or {@code null} if not found
      */
     public static final org.hl7.fhir.dstu3.model.Organization getPublicHealthUnit(OscarFhirConfigurationManager configurationManager, int demographicNo) {
 

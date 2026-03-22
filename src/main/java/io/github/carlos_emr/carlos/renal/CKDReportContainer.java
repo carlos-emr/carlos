@@ -32,6 +32,15 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 
+/**
+ * JAXB-serializable container for a single CKD screening report item.
+ *
+ * <p>Holds demographic information and clinical screening indicators for a patient
+ * who has been flagged by the CKD screening process, including diabetes, hypertension,
+ * blood pressure, family history, lab results, and medication status.</p>
+ *
+ * @since 2026-03-17
+ */
 @XmlRootElement(name = "CkdScreeningReportItem")
 public class CKDReportContainer {
     private Demographic demographic;

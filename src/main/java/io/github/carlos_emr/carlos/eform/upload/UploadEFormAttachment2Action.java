@@ -50,6 +50,16 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
+/**
+ * Struts2 action that handles uploading attachment documents for eForms.
+ * Creates a {@link Document} record in the database and links it to the
+ * patient's demographic record via {@link CtlDocument}. Writes an HTML
+ * response fragment indicating success or failure for AJAX consumption.
+ *
+ * <p>Requires {@code _edoc} write privilege.</p>
+ *
+ * @since 2006-05-25
+ */
 public class UploadEFormAttachment2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -57,6 +67,13 @@ public class UploadEFormAttachment2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes the attachment upload, creates a document record, links it to
+     * the demographic, and writes an HTML response with success/error status.
+     *
+     * @return String always returns null (response written directly)
+     * @throws SecurityException if the user lacks {@code _edoc} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {

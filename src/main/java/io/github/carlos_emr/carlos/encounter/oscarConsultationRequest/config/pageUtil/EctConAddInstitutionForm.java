@@ -28,6 +28,11 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil;
 
+/**
+ * Form bean for adding a new institution to the consultation configuration.
+ *
+ * @since 2001-01-01
+ */
 public class EctConAddInstitutionForm {
     private String id;
 

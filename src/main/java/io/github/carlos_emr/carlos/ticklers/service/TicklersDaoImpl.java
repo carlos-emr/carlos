@@ -44,9 +44,23 @@ import io.github.carlos_emr.carlos.ticklers.web.TicklerQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA-based implementation of the {@link TicklersDao} interface for tickler data access.
+ *
+ * <p>Builds dynamic JPQL queries based on {@link TicklerQuery} parameters to support
+ * flexible tickler searching with filtering by date range, status, provider, assignee,
+ * MRP, program, demographic, keyword, and sorting/pagination options.</p>
+ *
+ * @since 2001-01-01
+ * @see TicklersDao
+ * @see io.github.carlos_emr.carlos.ticklers.web.TicklerQuery
+ */
 @Repository
 public class TicklersDaoImpl extends AbstractDaoImpl<Tickler> implements TicklersDao {
 
+    /**
+     * Constructs a TicklersDaoImpl for the Tickler entity class.
+     */
     public TicklersDaoImpl() {
         super(Tickler.class);
     }

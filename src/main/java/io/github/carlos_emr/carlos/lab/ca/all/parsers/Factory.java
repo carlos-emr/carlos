@@ -59,6 +59,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Factory for creating and configuring {@link MessageHandler} instances based on HL7 message type.
+ * Retrieves the HL7 message body from the database, determines the lab type, and instantiates
+ * the appropriate handler using an XML-based configuration file ({@code MessageHandler.xml}).
+ * Also provides utility methods for retrieving raw HL7 message bodies.
+ *
+ * @since 2007-06-04
+ */
 public final class Factory {
 
     private static Logger logger = MiscUtils.getLogger();

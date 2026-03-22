@@ -28,6 +28,13 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * JSP custom tag for conditionally rendering content based on one or more CARLOS properties.
+ * Accepts a comma-separated list of property names and includes the tag body if any of them
+ * are enabled (value is "yes", "true", or "on"). Supports a reverse mode that inverts the logic.
+ *
+ * @since 2006-01-01
+ */
 public class SpecialPlugins extends TagSupport {
     /**
      *
@@ -37,10 +44,22 @@ public class SpecialPlugins extends TagSupport {
     private String moduleName;
     private boolean reverse = false;
 
+    /**
+     * Sets the comma-separated list of property names to check.
+     *
+     * @param moduleName String the property names
+     */
     public void setModuleName(String moduleName) {
         this.moduleName = moduleName;
     }
 
+    /**
+     * Checks whether the named property is enabled in the given properties instance.
+     *
+     * @param proName String the property name to check
+     * @param proper CarlosProperties the properties instance to query
+     * @return boolean true if the property value is "yes", "true", or "on"
+     */
     public boolean propertiesOn(String proName, CarlosProperties proper) {
 
         if (proper.getProperty(proName, "").equalsIgnoreCase("yes")
@@ -52,6 +71,13 @@ public class SpecialPlugins extends TagSupport {
 
     }
 
+    /**
+     * Evaluates whether any of the configured module properties are enabled
+     * and includes or skips the tag body accordingly.
+     *
+     * @return int {@link TagSupport#EVAL_BODY_INCLUDE} or {@link TagSupport#SKIP_BODY}
+     * @throws JspException if property access fails
+     */
     public int doStartTag() throws JspException {
         String[] mNameArray = moduleName.split(",");
         boolean flag = false;
@@ -76,6 +102,11 @@ public class SpecialPlugins extends TagSupport {
 
     }
 
+    /**
+     * Sets the reverse flag. When "true" or "yes", the inclusion condition is inverted.
+     *
+     * @param reverse String the reverse flag value
+     */
     public void setReverse(String reverse) {
         this.reverse = "true".equalsIgnoreCase(reverse)
                 || "yes".equalsIgnoreCase(reverse);

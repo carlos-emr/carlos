@@ -50,6 +50,11 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for electronic consultation (eConsult) submission and management.
+ *
+ * @since 2001-01-01
+ */
 public class EConsult2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

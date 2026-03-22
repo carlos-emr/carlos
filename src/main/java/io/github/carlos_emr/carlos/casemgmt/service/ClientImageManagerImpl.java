@@ -34,6 +34,12 @@ import io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Spring-managed transactional implementation of {@link ClientImageManager}.
+ * Delegates patient image persistence operations to the {@link ClientImageDAO}.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class ClientImageManagerImpl implements ClientImageManager {
     protected ClientImageDAO clientImageDAO;

@@ -46,6 +46,18 @@ import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Builds parameterized SQL queries for demographic reports based on form criteria
+ * including age filters, roster/patient status, provider, name, sex, and result limits.
+ * Supports optional post-query rostering date filtering for prevention reports.
+ *
+ * <p>This is the original query builder. See {@link RptDemographicQuery2Builder} for
+ * an updated version with additional demographic ID filtering.</p>
+ *
+ * @see RptDemographicReport2Form
+ * @see RptDemographicColumnNames
+ * @since 2001-01-01
+ */
 public class RptDemographicQueryBuilder {
 
     int theWhereFlag;

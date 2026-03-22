@@ -74,7 +74,20 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author Ronnie
+ * Utility class for CDS (Clinical Data Standard) demographic export operations.
+ *
+ * <p>Provides helper methods for XML date handling, file operations (ZIP, copy, clean),
+ * CDS data type conversions, partial date formatting, provider name writing,
+ * prevention/immunization mapping, and summary line construction used during
+ * patient data export to CDS XML format.</p>
+ *
+ * <p>This class is used extensively by the demographic export actions
+ * ({@link DemographicExportAction42Action}, {@link CihiExport2Action},
+ * {@link CihiExportPHC_VRS2Action}) and the {@link DemographicExportHelper}.</p>
+ *
+ * @see DemographicExportAction42Action
+ * @see DemographicExportHelper
+ * @since 2026-03-17
  */
 public class Util {
     static private final Logger logger = MiscUtils.getLogger();

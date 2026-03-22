@@ -30,6 +30,13 @@ package io.github.carlos_emr.carlos.dashboard.display.beans;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
+/**
+ * Represents a single data point on a dashboard indicator graph (typically a pie chart slice).
+ * Each plot has a label, a key for tooltip display, a numerator value, and a denominator
+ * (defaulting to 100.0 for percentage-based charts or 1.0 for raw number display).
+ *
+ * @since 2026-03-17
+ */
 public class GraphPlot {
 
     // default denominator in percent - if not set by the query results.

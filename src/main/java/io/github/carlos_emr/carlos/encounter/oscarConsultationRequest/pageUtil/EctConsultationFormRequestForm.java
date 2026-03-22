@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.utility.WebUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 
+/**
+ * Legacy form bean for consultation request parameters.
+ *
+ * @since 2001-01-01
+ */
 public final class EctConsultationFormRequestForm {
 
     String allergies;

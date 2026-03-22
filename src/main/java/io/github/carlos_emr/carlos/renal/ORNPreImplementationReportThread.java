@@ -40,14 +40,32 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Background thread that generates and persists the Ontario Renal Network
+ * pre-implementation report.
+ *
+ * <p>Delegates to {@link ReportHelper#getPreImplementationReportData()} for data
+ * collection, serializes the result to XML via JAXB, and persists to the
+ * {@code ORNPreImplementationReportLog} database table.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ORNPreImplementationReportThread extends Thread {
 
     private String providerNo = null;
 
+    /**
+     * Sets the provider number to associate with the report log entry.
+     *
+     * @param providerNo String the provider number who initiated the report
+     */
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Generates the pre-implementation report, marshals to XML, and persists to the database.
+     */
     public void run() {
         try {
             ReportDataContainer r = ReportHelper.getPreImplementationReportData();

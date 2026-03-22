@@ -44,6 +44,16 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 
+/**
+ * Service interface for managing eForm data submissions in the CARLOS EMR system.
+ *
+ * <p>Handles saving eForm responses, retrieving submitted eForm data by patient,
+ * and rendering eForm instances to PDF format for printing and faxing.</p>
+ *
+ * @see EformDataManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.EFormData
+ * @since 2026-03-17
+ */
 public interface EformDataManager {
 
     public Integer saveEformData(LoggedInInfo loggedInInfo, EForm eform);

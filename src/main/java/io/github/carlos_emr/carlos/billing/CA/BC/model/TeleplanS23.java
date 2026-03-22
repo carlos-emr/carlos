@@ -39,6 +39,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Teleplan S23 (remittance adjustment summary) record in the BC MSP billing system.
+ * Maps to the {@code teleplanS23} table, storing adjustment summary details from MSP remittance
+ * responses linked to a parent S21 header record.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplanS23")
 public class TeleplanS23 extends AbstractModel<Integer> {

@@ -40,6 +40,23 @@ import org.hl7.fhir.dstu3.model.Resource;
 import ca.uhn.fhir.context.FhirContext;
 
 
+/**
+ * Abstract base class for bidirectional mapping between CARLOS EMR domain models
+ * and FHIR DSTU3 resources.
+ *
+ * <p>Provides the framework for converting between CARLOS entities (extending
+ * {@link AbstractModel}) and FHIR resources (extending {@link org.hl7.fhir.dstu3.model.BaseResource}).
+ * Subclasses implement {@link #mapAttributes(org.hl7.fhir.dstu3.model.BaseResource)} and
+ * {@link #mapAttributes(AbstractModel)} to define the attribute mapping in each direction.</p>
+ *
+ * <p>Also implements {@link ResourceAttributeFilterInterface} to support destination-specific
+ * attribute filtering, and tracks focus resource designation and actor type for message
+ * header construction.</p>
+ *
+ * @param <FHIR> the FHIR DSTU3 resource type
+ * @param <OSCAR> the CARLOS EMR domain model type
+ * @since 2026-03-17
+ */
 public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.model.BaseResource, OSCAR extends AbstractModel<?>>
         implements ResourceAttributeFilterInterface {
 
@@ -101,6 +118,11 @@ public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.
         setOscarResource(to);
     }
 
+    /**
+     * Returns the mapped FHIR resource.
+     *
+     * @return FHIR the FHIR DSTU3 resource
+     */
     public FHIR getFhirResource() {
         return fhirResource;
     }
@@ -114,6 +136,11 @@ public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.
         }
     }
 
+    /**
+     * Returns the CARLOS EMR domain model.
+     *
+     * @return OSCAR the source domain entity
+     */
     public OSCAR getOscarResource() {
         return this.oscarResource;
     }
@@ -126,22 +153,47 @@ public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.
         this.oscarResource = oscarResource;
     }
 
+    /**
+     * Returns the shared FHIR context (DSTU3).
+     *
+     * @return FhirContext the DSTU3 FHIR context
+     */
     public static FhirContext getFhirContext() {
         return fhirContext;
     }
 
+    /**
+     * Replaces the shared FHIR context instance.
+     *
+     * @param fhirContext the new FhirContext to use
+     */
     public static void setFhirContext(FhirContext fhirContext) {
         AbstractOscarFhirResource.fhirContext = fhirContext;
     }
 
+    /**
+     * Serializes the FHIR resource to a pretty-printed JSON string.
+     *
+     * @return String the JSON representation of the FHIR resource
+     */
     public String getFhirJSON() {
         return getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(getFhirResource());
     }
 
+    /**
+     * Serializes the FHIR resource to an XML string.
+     *
+     * @return String the XML representation of the FHIR resource
+     */
     public String getFhirXML() {
         return getFhirContext().newXmlParser().encodeResourceToString(getFhirResource());
     }
 
+    /**
+     * Creates a FHIR Reference pointing to this resource.
+     *
+     * @return Reference containing both the reference link and the resource itself
+     */
     public Reference getReference() {
         Reference reference = new Reference();
         reference.setReference(getReferenceLink());
@@ -149,10 +201,22 @@ public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.
         return reference;
     }
 
+    /**
+     * Returns a relative reference link in the format {@code ResourceType/id}.
+     *
+     * @return String the relative reference link
+     */
     public String getReferenceLink() {
         return String.format("%s/%s", ((Resource) getFhirResource()).getResourceType(), getFhirResource().getId());
     }
 
+    /**
+     * Returns a contained reference link prefixed with {@code #} for inline resources.
+     *
+     * <p>Also updates the resource's own ID to match the contained reference format.</p>
+     *
+     * @return String the contained reference link (e.g., "#Patient123")
+     */
     public String getContainedReferenceLink() {
         String resourceType = ((Resource) getFhirResource()).getResourceType().name();
         String referenceLink = String.format("%s%s", resourceType, getFhirResource().getId().replaceAll(resourceType, ""));
@@ -192,10 +256,20 @@ public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.
         return resourceAttributeFilter;
     }
 
+    /**
+     * Returns the configuration manager for this resource.
+     *
+     * @return OscarFhirConfigurationManager the configuration manager, or {@code null} if not set
+     */
     public OscarFhirConfigurationManager getConfigurationManager() {
         return configurationManager;
     }
 
+    /**
+     * Returns whether this resource is designated as the focus resource in the message.
+     *
+     * @return boolean {@code true} if this is the focus resource
+     */
     public boolean isFocusResource() {
         return focusResource;
     }

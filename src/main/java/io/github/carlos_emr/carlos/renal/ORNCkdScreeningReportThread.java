@@ -41,14 +41,31 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Background thread that generates and persists a CKD screening report.
+ *
+ * <p>Runs the {@link CkdScreenerReportHandler} to generate the report, serializes
+ * the results to XML via JAXB, and persists the output to the
+ * {@code ORNCkdScreeningReportLog} database table.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ORNCkdScreeningReportThread extends Thread {
 
     private String providerNo = null;
 
+    /**
+     * Sets the provider number to associate with the report log entry.
+     *
+     * @param providerNo String the provider number who initiated the report
+     */
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Generates the CKD screening report, marshals to XML, and persists to the database.
+     */
     public void run() {
         try {
             CkdScreenerReportHandler report = new CkdScreenerReportHandler();

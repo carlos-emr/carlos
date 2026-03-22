@@ -47,6 +47,13 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link IssueDAO}. Provides HQL-based CRUD operations
+ * and search capabilities for clinical issue definitions with role-based filtering
+ * and pagination support.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
     private static Logger logger = MiscUtils.getLogger();

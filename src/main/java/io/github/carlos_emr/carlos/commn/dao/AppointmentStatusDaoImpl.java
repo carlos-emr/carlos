@@ -38,20 +38,28 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link AppointmentStatusDao} for managing appointment status definitions.
+ *
+ * @since 2001
+ */
 @Repository
 public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus> implements AppointmentStatusDao {
 
+    /** Constructs the appointment status DAO for the {@link AppointmentStatus} entity class. */
     public AppointmentStatusDaoImpl() {
         super(AppointmentStatus.class);
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public List<AppointmentStatus> findAll() {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName());
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<AppointmentStatus> findActive() {
         Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1");
@@ -63,6 +71,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public AppointmentStatus findByStatus(String status) {
         if (status == null || status.length() == 0) {
@@ -84,6 +93,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void modifyStatus(int ID, String strDesc, String strColor) {
         AppointmentStatus appts = find(ID);

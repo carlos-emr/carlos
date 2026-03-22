@@ -76,6 +76,15 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 
+/**
+ * Struts2 action for receiving lab result file uploads from external systems.
+ * Handles encrypted and signed lab data, decrypts using RSA/AES keys, verifies
+ * digital signatures, performs duplicate detection via MD5, and delegates parsing
+ * to the appropriate {@link MessageHandler}. Supports HHS EMR download format
+ * and standard HL7 lab uploads.
+ *
+ * @since 2007-06-12
+ */
 public class LabUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

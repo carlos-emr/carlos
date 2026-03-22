@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link CaseManagementNoteExtDAO}. Provides HQL-based
+ * queries for note extension key-value pairs with null-safe parameter handling.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class CaseManagementNoteExtDAOImpl extends AbstractHibernateDao implements CaseManagementNoteExtDAO {
 

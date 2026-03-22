@@ -38,9 +38,31 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
+/**
+ * DAO interface for managing archived appointment records.
+ * <p>
+ * Supports the appointment history tracking system by providing operations to
+ * archive current appointments and query archived records by update date.
+ *
+ * @since 2001
+ */
 public interface AppointmentArchiveDao extends AbstractDao<AppointmentArchive> {
 
+    /**
+     * Creates an archive copy of the given appointment.
+     * Copies all properties from the appointment (except ID) into a new archive record.
+     *
+     * @param appointment the {@link Appointment} to archive
+     * @return the newly created {@link AppointmentArchive} record
+     */
     public AppointmentArchive archiveAppointment(Appointment appointment);
 
+    /**
+     * Finds archived appointments updated after the specified date, ordered by update date.
+     *
+     * @param updatedAfterThisDateExclusive Date the cutoff date (exclusive)
+     * @param itemsToReturn                 int the maximum number of results to return
+     * @return List of {@link AppointmentArchive} records ordered by update date ascending
+     */
     public List<AppointmentArchive> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
 }

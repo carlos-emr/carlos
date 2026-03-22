@@ -39,6 +39,15 @@ import org.w3c.dom.NodeList;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 
+/**
+ * Version 2 loader for saved demographic query favourites. Loads a favourite by ID
+ * and populates a {@link RptDemographicReport2Form} with the saved criteria including
+ * demographic IDs. Deserializes XML-encoded multi-valued fields into string arrays.
+ *
+ * @see RptDemographicQuery2Saver
+ * @see RptDemographicReport2Form
+ * @since 2001-01-01
+ */
 public class RptDemographicQuery2Loader {
 
     private DemographicQueryFavouritesDao demographicQueryFavouritesDao = SpringUtils.getBean(DemographicQueryFavouritesDao.class);

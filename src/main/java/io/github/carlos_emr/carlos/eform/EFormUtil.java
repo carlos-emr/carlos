@@ -78,6 +78,23 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Central utility class for eForm operations including CRUD operations on eForm
+ * templates and data, group management, form listing and filtering, field value
+ * persistence, encounter note template writing, and HTML attribute parsing.
+ *
+ * <p>Provides static methods used throughout the eForm module by Struts2 actions,
+ * servlets, and other components. Manages interactions with multiple DAOs
+ * including {@link EFormDao}, {@link EFormDataDao}, {@link EFormValueDao},
+ * and {@link EFormGroupDao}.</p>
+ *
+ * <p>Sort order constants ({@link #NAME}, {@link #SUBJECT}, {@link #DATE},
+ * {@link #FILE_NAME}, {@link #PROVIDER}) and status filter constants
+ * ({@link #DELETED}, {@link #CURRENT}, {@link #ALL}) are defined for
+ * list query parameterization.</p>
+ *
+ * @since 2006-05-25
+ */
 public class EFormUtil {
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -109,18 +126,58 @@ public class EFormUtil {
     private EFormUtil() {
     }
 
+    /**
+     * Saves a new eForm template to the database from an EForm data object.
+     *
+     * @param eForm EForm the eForm to save
+     * @return String the generated form ID
+     */
     public static String saveEForm(EForm eForm) {
         return saveEForm(eForm.getFormName(), eForm.getFormSubject(), eForm.getFormFileName(), eForm.getFormHtml(), eForm.getFormCreator(), eForm.isShowLatestFormOnly(), eForm.isPatientIndependent(), eForm.getRoleType());
     }
 
+    /**
+     * Saves a new eForm template with default options (no showLatestOnly, not patient-independent).
+     *
+     * @param formName String the form display name
+     * @param formSubject String the form subject/description
+     * @param fileName String the original HTML filename
+     * @param htmlStr String the HTML content of the form
+     * @return String the generated form ID
+     */
     public static String saveEForm(String formName, String formSubject, String fileName, String htmlStr) {
         return saveEForm(formName, formSubject, fileName, htmlStr, false, false, null);
     }
 
+    /**
+     * Saves a new eForm template with the specified display options.
+     *
+     * @param formName String the form display name
+     * @param formSubject String the form subject/description
+     * @param fileName String the original HTML filename
+     * @param htmlStr String the HTML content of the form
+     * @param showLatestFormOnly boolean whether to show only the most recent instance
+     * @param patientIndependent boolean whether the form is patient-independent
+     * @param roleType String the role type restriction, or null for no restriction
+     * @return String the generated form ID
+     */
     public static String saveEForm(String formName, String formSubject, String fileName, String htmlStr, boolean showLatestFormOnly, boolean patientIndependent, String roleType) {
         return saveEForm(formName, formSubject, fileName, htmlStr, null, showLatestFormOnly, patientIndependent, roleType);
     }
 
+    /**
+     * Saves a new eForm template to the database with full options including creator.
+     *
+     * @param formName String the form display name
+     * @param formSubject String the form subject/description
+     * @param fileName String the original HTML filename
+     * @param htmlStr String the HTML content of the form
+     * @param creator String the creator name, or null
+     * @param showLatestFormOnly boolean whether to show only the most recent instance
+     * @param patientIndependent boolean whether the form is patient-independent
+     * @param roleType String the role type restriction
+     * @return String the generated form ID
+     */
     public static String saveEForm(String formName, String formSubject, String fileName, String htmlStr, String creator, boolean showLatestFormOnly, boolean patientIndependent, String roleType) {
         // called by the upload action, puts the uploaded form into DB
 
@@ -140,6 +197,13 @@ public class EFormUtil {
         return eform.getId().toString();
     }
 
+    /**
+     * Lists eForm templates filtered by deletion status and sorted by the specified column.
+     *
+     * @param sortBy String the sort column (use class constants like {@link #NAME}, {@link #DATE})
+     * @param deleted String the status filter ({@link #DELETED}, {@link #CURRENT}, or {@link #ALL})
+     * @return ArrayList of HashMap containing form metadata (fid, formName, formSubject, etc.)
+     */
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted) {
 
         // sends back a list of forms that were uploaded (those that can be added to the patient)
@@ -178,6 +242,14 @@ public class EFormUtil {
         return (results);
     }
 
+    /**
+     * Lists eForm templates filtered by deletion status, sorted, and filtered by user role privileges.
+     *
+     * @param sortBy String the sort column
+     * @param deleted String the status filter
+     * @param userRoles String comma-separated role names for privilege filtering
+     * @return ArrayList of HashMap containing form metadata for accessible forms
+     */
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted, String userRoles) {
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         ArrayList<HashMap<String, ? extends Object>> eForms = listEForms(sortBy, deleted);
@@ -200,6 +272,11 @@ public class EFormUtil {
         return (results);
     }
 
+    /**
+     * Lists all security role names from the database.
+     *
+     * @return ArrayList of String role names
+     */
     public static ArrayList<String> listSecRole() {
         SecRoleDao dao = (SecRoleDao) SpringUtils.getBean(SecRoleDao.class);
         ArrayList<String> results = new ArrayList<String>();
@@ -209,6 +286,11 @@ public class EFormUtil {
         return (results);
     }
 
+    /**
+     * Lists all image filenames available in the eForm image directory.
+     *
+     * @return ArrayList of String image filenames
+     */
     public static ArrayList<String> listImages() {
         String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
         logger.debug("Img Path: " + imagePath);

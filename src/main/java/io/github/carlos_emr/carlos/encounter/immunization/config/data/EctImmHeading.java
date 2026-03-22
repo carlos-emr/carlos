@@ -31,6 +31,11 @@
 package io.github.carlos_emr.carlos.encounter.immunization.config.data;
 
 
+/**
+ * Represents an immunization heading entry used in immunization set configuration.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmHeading {
 
     public int col;

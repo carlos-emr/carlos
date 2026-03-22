@@ -27,6 +27,14 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProv
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link HRMDocumentToProvider} entities, managing the
+ * association between HRM documents and healthcare providers with sign-off tracking,
+ * inbox filtering, and date-based searching.
+ *
+ * @see HRMDocumentToProvider
+ * @since 2008-11-05
+ */
 @Repository
 public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvider> {
 
@@ -34,6 +42,14 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         super(HRMDocumentToProvider.class);
     }
 
+    /**
+     * Finds provider-document associations for a given provider number with pagination.
+     *
+     * @param providerNo String the provider number
+     * @param page Integer the zero-based page number
+     * @param pageSize Integer the number of results per page
+     * @return List&lt;HRMDocumentToProvider&gt; the matching associations
+     */
     public List<HRMDocumentToProvider> findByProviderNo(String providerNo, Integer page, Integer pageSize) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.providerNo=?1";
         Query query = entityManager.createQuery(sql);
@@ -46,6 +62,24 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
     }
 
 
+    /**
+     * Finds provider-document associations with comprehensive filtering for the HRM inbox.
+     *
+     * <p>Supports filtering by demographic numbers, date range (using system preference
+     * for date type), viewed status, signed-off status, and pagination.</p>
+     *
+     * @param providerNo String the provider number (supports LIKE matching)
+     * @param demographicNumbers List&lt;Integer&gt; demographic numbers to filter by; use [0] for unmatched
+     * @param patientSearch boolean {@code true} if filtering by patient demographics
+     * @param newestDate Date the upper bound for the date filter, or {@code null}
+     * @param oldestDate Date the lower bound for the date filter, or {@code null}
+     * @param viewed Integer 0 for unviewed, 1 for viewed, 2 for either
+     * @param signedOff Integer 0 for unsigned, 1 for signed, 2 for either
+     * @param isPaged boolean {@code true} to apply pagination
+     * @param page Integer the zero-based page number
+     * @param pageSize Integer the number of results per page
+     * @return List&lt;HRMDocumentToProvider&gt; the matching associations
+     */
     public List<HRMDocumentToProvider> findByProviderNoLimit(String providerNo, List<Integer> demographicNumbers, boolean patientSearch, Date newestDate, Date oldestDate,
                                                              Integer viewed, Integer signedOff, boolean isPaged, Integer page, Integer pageSize) {
 
@@ -129,6 +163,12 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
     }
 
 
+    /**
+     * Finds all provider associations for a given HRM document.
+     *
+     * @param hrmDocumentId Integer the HRM document ID
+     * @return List&lt;HRMDocumentToProvider&gt; the matching associations
+     */
     public List<HRMDocumentToProvider> findByHrmDocumentId(Integer hrmDocumentId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1";
         Query query = entityManager.createQuery(sql);
@@ -138,6 +178,12 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         return documentToProviders;
     }
 
+    /**
+     * Finds all provider associations for a document, excluding the system user ("-1").
+     *
+     * @param hrmDocumentId Integer the HRM document ID
+     * @return List&lt;HRMDocumentToProvider&gt; the non-system-user associations
+     */
     public List<HRMDocumentToProvider> findByHrmDocumentIdNoSystemUser(Integer hrmDocumentId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.providerNo != '-1'";
         Query query = entityManager.createQuery(sql);
@@ -147,6 +193,13 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         return documentToProviders;
     }
 
+    /**
+     * Finds the most recent provider association for a specific document and provider combination.
+     *
+     * @param hrmDocumentId Integer the HRM document ID
+     * @param providerNo String the provider number
+     * @return HRMDocumentToProvider the last matching association, or {@code null} if none found
+     */
     public HRMDocumentToProvider findByHrmDocumentIdAndProviderNo(Integer hrmDocumentId, String providerNo) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.providerNo=?2";
         Query query = entityManager.createQuery(sql);
@@ -160,6 +213,13 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         }
     }
 
+    /**
+     * Finds all provider associations for a specific document and provider combination.
+     *
+     * @param hrmDocumentId Integer the HRM document ID
+     * @param providerNo String the provider number
+     * @return List&lt;HRMDocumentToProvider&gt; the matching associations
+     */
     public List<HRMDocumentToProvider> findByHrmDocumentIdAndProviderNoList(Integer hrmDocumentId, String providerNo) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.providerNo=?2";
         Query query = entityManager.createQuery(sql);
@@ -170,6 +230,12 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         return documentToProviders;
     }
 
+    /**
+     * Finds all signed-off provider associations for a given HRM document.
+     *
+     * @param hrmDocumentId Integer the HRM document ID
+     * @return List&lt;HRMDocumentToProvider&gt; the signed-off associations
+     */
     public List<HRMDocumentToProvider> findSignedByHrmDocumentId(Integer hrmDocumentId) {
         String sql = "select x from " + this.modelClass.getName() + " x where x.hrmDocumentId=?1 and x.signedOff=1";
         Query query = entityManager.createQuery(sql);
@@ -179,6 +245,12 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
         return documentToProviders;
     }
 
+    /**
+     * Returns the count of unsigned HRM documents for a given provider.
+     *
+     * @param providerNo String the provider number
+     * @return Integer the count of unsigned documents
+     */
     public Integer getCountByProviderNo(String providerNo) {
         String sql = "select count(*) from " + this.modelClass.getName() + " x where x.providerNo=?1 and x.signedOff=0";
         Query query = entityManager.createQuery(sql);

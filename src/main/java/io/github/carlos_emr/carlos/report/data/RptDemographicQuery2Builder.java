@@ -45,6 +45,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Version 2 of the demographic query builder with parameterized SQL construction.
+ * Builds SQL queries for demographic reports based on form criteria including age
+ * filters, roster/patient status, provider, name, sex, demographic IDs, and result
+ * limits. Supports optional post-query rostering date filtering for prevention reports.
+ *
+ * @see RptDemographicReport2Form
+ * @see RptDemographicColumnNames
+ * @see RptDemographicQueryBuilder
+ * @since 2001-01-01
+ */
 public class RptDemographicQuery2Builder {
 
     int theWhereFlag;

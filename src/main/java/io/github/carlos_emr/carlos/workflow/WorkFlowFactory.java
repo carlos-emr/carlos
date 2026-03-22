@@ -31,7 +31,15 @@
 package io.github.carlos_emr.carlos.workflow;
 
 /**
- * @author jay
+ * Factory for creating {@link WorkFlow} instances based on workflow type.
+ *
+ * <p>Currently returns an {@link RHWorkFlow} instance for all workflow types.
+ * Future implementations may support additional workflow types by inspecting
+ * the provided type string.</p>
+ *
+ * @see WorkFlow
+ * @see RHWorkFlow
+ * @since 2026-03-17
  */
 public class WorkFlowFactory {
 
@@ -41,6 +49,12 @@ public class WorkFlowFactory {
     public WorkFlowFactory() {
     }
 
+    /**
+     * Creates a WorkFlow instance for the specified workflow type.
+     *
+     * @param workflowType String the workflow type identifier (currently unused)
+     * @return WorkFlow a new {@link RHWorkFlow} instance
+     */
     public WorkFlow getWorkFlow(String workflowType) {
         return new RHWorkFlow();
     }

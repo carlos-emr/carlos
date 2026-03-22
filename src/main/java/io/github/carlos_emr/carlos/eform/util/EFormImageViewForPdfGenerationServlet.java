@@ -25,12 +25,26 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to access eform images.
+ * Servlet that provides localhost-only access to eForm images for PDF generation.
+ * Forwards requests to the standard {@code displayImage.do} action with a
+ * {@code prepareForFax} flag set. Restricted to requests from {@code 127.0.0.1}.
+ *
+ * @see EFormViewForPdfGenerationServlet
+ * @see io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action
+ * @since 2008-01-01
  */
 public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Validates localhost origin and forwards to the eForm image display action.
+     *
+     * @param request HttpServletRequest containing the {@code imagefile} parameter
+     * @param response HttpServletResponse for the forwarded image content
+     * @throws ServletException if forwarding fails
+     * @throws IOException if an I/O error occurs
+     */
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.

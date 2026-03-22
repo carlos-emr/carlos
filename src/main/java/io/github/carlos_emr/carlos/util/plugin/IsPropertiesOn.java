@@ -25,8 +25,20 @@ package io.github.carlos_emr.carlos.util.plugin;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Utility class for checking whether CARLOS EMR properties are enabled.
+ * A property is considered "on" if its value is "yes", "true", or "on" (case-insensitive).
+ *
+ * @since 2006-01-01
+ */
 public class IsPropertiesOn {
 
+    /**
+     * Checks whether the named property is enabled (value is "yes", "true", or "on").
+     *
+     * @param proName String the property name to check
+     * @return boolean true if the property is enabled
+     */
     public static boolean propertiesOn(String proName) {
 
         CarlosProperties proper = CarlosProperties.getInstance();
@@ -40,15 +52,31 @@ public class IsPropertiesOn {
 
     }
 
+    /**
+     * Retrieves a CARLOS property value by name.
+     *
+     * @param proName String the property name
+     * @return String the property value, or null if not set
+     */
     public static String getProperty(String proName) {
         CarlosProperties proper = CarlosProperties.getInstance();
         return proper.getProperty(proName, null);
     }
 
+    /**
+     * Checks whether the CAISI (Community Approach to Integrated Services Initiative) module is enabled.
+     *
+     * @return boolean true if the "caisi" property is on
+     */
     public static boolean isCaisiEnable() {
         return propertiesOn("caisi");
     }
 
+    /**
+     * Checks whether the program management module is enabled.
+     *
+     * @return boolean true if the "program" property is on
+     */
     public static boolean isProgramEnable() {
         return propertiesOn("program");
     }

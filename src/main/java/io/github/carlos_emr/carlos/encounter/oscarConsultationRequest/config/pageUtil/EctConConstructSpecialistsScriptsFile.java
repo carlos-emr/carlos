@@ -50,6 +50,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data.EctConConfigurationJavascriptData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Generates JavaScript data files containing specialist listings for consultation forms.
+ *
+ * @since 2001-01-01
+ */
 public class EctConConstructSpecialistsScriptsFile {
     private ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
 

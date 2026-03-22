@@ -44,6 +44,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Utility class for retrieving and formatting consultation service display data.
+ *
+ * @since 2001-01-01
+ */
 public class EctConDisplayServiceUtil {
     private ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
 

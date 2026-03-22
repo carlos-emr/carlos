@@ -179,10 +179,12 @@ public class ClientManagerImpl implements ClientManager {
         jointAdmissionDao.persist(admission);
     }
 
+    /** {@inheritDoc} */
     public List<JointAdmission> getDependents(Integer clientId) {
         return jointAdmissionDao.getSpouseAndDependents(clientId);
     }
 
+    /** {@inheritDoc} */
     public List<Integer> getDependentsList(Integer clientId) {
         List<Integer> list = new ArrayList<Integer>();
         List<JointAdmission> jadms = jointAdmissionDao.getSpouseAndDependents(clientId);
@@ -192,10 +194,12 @@ public class ClientManagerImpl implements ClientManager {
         return list;
     }
 
+    /** {@inheritDoc} */
     public JointAdmission getJointAdmission(Integer clientId) {
         return jointAdmissionDao.getJointAdmission(clientId);
     }
 
+    /** {@inheritDoc} */
     public boolean isClientDependentOfFamily(Integer clientId) {
 
         JointAdmission clientsJadm = null;
@@ -209,6 +213,7 @@ public class ClientManagerImpl implements ClientManager {
     }
 
 
+    /** {@inheritDoc} */
     public boolean isClientFamilyHead(Integer clientId) {
 
         List<JointAdmission> dependentList = getDependents(Integer.valueOf(clientId.toString()));
@@ -218,18 +223,27 @@ public class ClientManagerImpl implements ClientManager {
         return false;
     }
 
+    /** {@inheritDoc} */
     public void removeJointAdmission(Integer clientId, String providerNo) {
         jointAdmissionDao.removeJointAdmission(clientId, providerNo);
     }
 
+    /** {@inheritDoc} */
     public void removeJointAdmission(JointAdmission admission) {
         jointAdmissionDao.removeJointAdmission(admission);
     }
 
+    /** {@inheritDoc} */
     public void processReferral(ClientReferral referral) throws AlreadyAdmittedException, AlreadyQueuedException, ServiceRestrictionException {
         processReferral(referral, false);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Validates service restrictions, checks for existing admissions and queue entries,
+     * then saves the referral and queues the client plus any dependents.</p>
+     */
     public void processReferral(ClientReferral referral, boolean override) throws AlreadyAdmittedException, AlreadyQueuedException, ServiceRestrictionException {
         if (!override) {
             // check if there's a service restriction in place on this individual for this program
@@ -268,67 +282,110 @@ public class ClientManagerImpl implements ClientManager {
 
     }
 
+    /** {@inheritDoc} */
     public void saveClient(Demographic client) {
         dao.saveClient(client);
     }
 
+    /** {@inheritDoc} */
     public DemographicExt getDemographicExt(String id) {
         return demographicExtDao.getDemographicExt(Integer.valueOf(id));
     }
 
+    /** {@inheritDoc} */
     public List<DemographicExt> getDemographicExtByDemographicNo(int demographicNo) {
         return demographicExtDao.getDemographicExtByDemographicNo(demographicNo);
     }
 
+    /** {@inheritDoc} */
     public DemographicExt getDemographicExt(int demographicNo, String key) {
         return demographicExtDao.getDemographicExt(demographicNo, key);
     }
 
+    /** {@inheritDoc} */
     public void updateDemographicExt(DemographicExt de) {
         demographicExtDao.updateDemographicExt(de);
     }
 
+    /** {@inheritDoc} */
     public void saveDemographicExt(int demographicNo, String key, String value) {
         demographicExtDao.saveDemographicExt(demographicNo, key, value);
     }
 
+    /** {@inheritDoc} */
     public void removeDemographicExt(String id) {
         demographicExtDao.removeDemographicExt(Integer.valueOf(id));
     }
 
+    /** {@inheritDoc} */
     public void removeDemographicExt(int demographicNo, String key) {
         demographicExtDao.removeDemographicExt(demographicNo, key);
     }
 
+    /**
+     * Sets the joint admission data access object.
+     *
+     * @param jointAdmissionDao JointAdmissionDao the joint admission DAO to inject
+     */
     public void setJointAdmissionDao(JointAdmissionDao jointAdmissionDao) {
         this.jointAdmissionDao = jointAdmissionDao;
     }
 
+    /**
+     * Sets the demographic data access object.
+     *
+     * @param dao DemographicDao the demographic DAO to inject
+     */
     @Autowired
     public void setDemographicDao(DemographicDao dao) {
         this.dao = dao;
     }
 
+    /**
+     * Sets the demographic extension data access object.
+     *
+     * @param dao DemographicExtDao the demographic extension DAO to inject
+     */
     @Autowired
     public void setDemographicExtDao(DemographicExtDao dao) {
         this.demographicExtDao = dao;
     }
 
+    /**
+     * Sets the client referral data access object.
+     *
+     * @param dao ClientReferralDAO the client referral DAO to inject
+     */
     @Autowired
     public void setClientReferralDAO(ClientReferralDAO dao) {
         this.referralDAO = dao;
     }
 
+    /**
+     * Sets the program queue manager.
+     *
+     * @param mgr ProgramQueueManager the queue manager to inject
+     */
     @Autowired
     public void setProgramQueueManager(ProgramQueueManager mgr) {
         this.queueManager = mgr;
     }
 
+    /**
+     * Sets the admission manager.
+     *
+     * @param mgr AdmissionManager the admission manager to inject
+     */
     @Autowired
     public void setAdmissionManager(AdmissionManager mgr) {
         this.admissionManager = mgr;
     }
 
+    /**
+     * Sets the client restriction manager.
+     *
+     * @param clientRestrictionManager ClientRestrictionManager the restriction manager to inject
+     */
     @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;

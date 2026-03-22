@@ -39,6 +39,18 @@ import java.util.Date;
 import java.util.List;
 import java.util.Calendar;
 
+/**
+ * Service interface for managing prescriptions and drug records in the CARLOS EMR system.
+ *
+ * <p>Provides retrieval of prescription records, associated drug entries, and
+ * support for date-based synchronization queries. Also supports creating new
+ * prescriptions with associated drug lists.</p>
+ *
+ * @see PrescriptionManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Prescription
+ * @see io.github.carlos_emr.carlos.commn.model.Drug
+ * @since 2026-03-17
+ */
 public interface PrescriptionManager {
 
     public Prescription getPrescription(LoggedInInfo loggedInInfo, Integer prescriptionId);

@@ -57,6 +57,8 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
  * <p>
  * For the time being, this class is written with the intention to map patient encounter notes or various text messages
  * such as health registry transmissions.
+ *
+ * @since 2026-03-17
  */
 public class ClinicalImpression extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.ClinicalImpression, AbstractModel<?>> {
 
@@ -139,6 +141,11 @@ public class ClinicalImpression extends AbstractOscarFhirResource<org.hl7.fhir.d
         return getFhirResource().getDescription();
     }
 
+    /**
+     * Returns the annotation text, or an empty string if not set.
+     *
+     * @return String the annotation text
+     */
     public String getAnnotation() {
         if (annotation == null) {
             return "";
@@ -150,6 +157,11 @@ public class ClinicalImpression extends AbstractOscarFhirResource<org.hl7.fhir.d
         this.annotation = annotation;
     }
 
+    /**
+     * Returns the associated case management note, if any.
+     *
+     * @return CaseManagementNote the case management note, or {@code null}
+     */
     public CaseManagementNote getCaseManagementNote() {
         return caseManagementNote;
     }

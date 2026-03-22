@@ -49,6 +49,12 @@ import java.util.List;
  * attachments such as attachments to eForms, Forms or Documents.
  */
 @Deprecated
+/**
+ * Base class for consultation attachment handling. Provides common functionality
+ * for attaching documents, labs, and eForms to consultation requests.
+ *
+ * @since 2001-01-01
+ */
 public class ConsultationAttach {
 
     private ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);

@@ -69,6 +69,13 @@ import java.util.Set;
  * @see EctConsultationFaxForm
  * @since 2012-04-09
  */
+/**
+ * Generates PDF documents for consultation requests including patient data,
+ * clinical notes, and attached documents. Extends iText PdfPageEventHelper
+ * for page header/footer customization.
+ *
+ * @since 2001-01-01
+ */
 public class ConsultationPDFCreator extends PdfPageEventHelper {
 
     private static Logger logger = MiscUtils.getLogger();

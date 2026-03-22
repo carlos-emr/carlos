@@ -38,6 +38,16 @@ import io.github.carlos_emr.carlos.commn.model.DrugProductTemplate;
 import io.github.carlos_emr.carlos.commn.model.ProductLocation;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing drug product inventory in the CARLOS EMR system.
+ *
+ * <p>Provides CRUD operations for drug products, product templates, and
+ * product location tracking used in the pharmacy dispensing workflow.</p>
+ *
+ * @see DrugProductManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.DrugProduct
+ * @since 2026-03-17
+ */
 public interface DrugProductManager {
 
     public void saveDrugProduct(LoggedInInfo loggedInInfo, DrugProduct drugProduct);

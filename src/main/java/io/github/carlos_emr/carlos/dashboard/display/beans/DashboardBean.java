@@ -33,6 +33,14 @@ import java.util.List;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
+/**
+ * Top-level display bean representing an entire clinical dashboard. Contains metadata
+ * (name, description, creator, active/locked status) and a list of {@link PanelBean}
+ * objects organized by indicator category. Tracks the last time the dashboard data
+ * was refreshed.
+ *
+ * @since 2026-03-17
+ */
 public class DashboardBean {
 
     private Integer id;

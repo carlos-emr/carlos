@@ -69,6 +69,14 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Spring-managed transactional implementation of {@link CaseManagementManager}.
+ * Coordinates clinical note lifecycle, issue management, CPP operations,
+ * role-based access control, and integration with program management, admissions,
+ * and diagnosis coding subsystems.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class CaseManagementManagerImpl implements CaseManagementManager {
 

@@ -45,6 +45,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 
+/**
+ * Manages notifications for patients who match CKD screening criteria.
+ *
+ * <p>Supports sending tickler-based notifications to the patient's provider (or a
+ * configured receiver) with screening reasons, lab results, links to flowsheets,
+ * and actions for completing/dismissing the screening or ordering labs.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CkdNotificationManager {
     private Logger logger = MiscUtils.getLogger();
 
@@ -59,6 +68,13 @@ public class CkdNotificationManager {
 
     }
 
+    /**
+     * Dispatches CKD screening notifications based on the configured notification scheme.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo Integer the patient demographic number
+     * @param reasons List&lt;String&gt; the screening match reasons
+     */
     public void doNotify(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> reasons) {
         String notificationScheme = CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa");
         if (notificationScheme.equalsIgnoreCase("tickler") || notificationScheme.equalsIgnoreCase("all")) {
@@ -66,6 +82,14 @@ public class CkdNotificationManager {
         }
     }
 
+    /**
+     * Creates a tickler notification with CKD screening details, lab results, and
+     * action links for the receiving provider.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo Integer the patient demographic number
+     * @param reasons List&lt;String&gt; the screening match reasons
+     */
     public void notifyByTickler(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> reasons) {
         Demographic d = demographicDao.getDemographicById(demographicNo);
 

@@ -40,6 +40,21 @@ import jakarta.persistence.Transient;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao.codingSystem;
 
+/**
+ * Represents a diagnostic code entry in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code diagnosticcode} table and stores medical diagnosis codes used
+ * for clinical documentation and billing purposes. Extends {@link AbstractCodeSystemModel}
+ * to participate in the unified coding system framework alongside ICD-9, ICD-10, and
+ * other classification systems.</p>
+ *
+ * <p>Each diagnostic code has a code string, description, status (active/inactive),
+ * and region (for province-specific code sets). The coding system defaults to
+ * MSP (Medical Services Plan) for BC billing integration.</p>
+ *
+ * @see AbstractCodeSystemModel
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "diagnosticcode")
 public class DiagnosticCode extends AbstractCodeSystemModel<Integer> implements java.io.Serializable {

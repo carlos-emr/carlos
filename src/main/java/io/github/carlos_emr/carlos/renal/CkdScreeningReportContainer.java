@@ -34,16 +34,34 @@ import java.util.List;
 import jakarta.xml.bind.annotation.XmlRootElement;
 import jakarta.xml.bind.annotation.XmlSeeAlso;
 
+/**
+ * JAXB-serializable wrapper containing a list of CKD screening report items.
+ *
+ * <p>Serves as the root element for XML serialization of the full CKD screening
+ * report, wrapping a collection of {@link CKDReportContainer} instances.</p>
+ *
+ * @since 2026-03-17
+ */
 @XmlRootElement(name = "CkdScreeningReport")
 @XmlSeeAlso(CKDReportContainer.class)
 public class CkdScreeningReportContainer {
 
     private List<CKDReportContainer> items = new ArrayList<CKDReportContainer>();
 
+    /**
+     * Returns the list of CKD screening report items.
+     *
+     * @return List&lt;CKDReportContainer&gt; the report items
+     */
     public List<CKDReportContainer> getItems() {
         return items;
     }
 
+    /**
+     * Sets the list of CKD screening report items.
+     *
+     * @param items List&lt;CKDReportContainer&gt; the report items
+     */
     public void setItems(List<CKDReportContainer> items) {
         this.items = items;
     }

@@ -37,6 +37,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a link between a Teleplan submission and a billing record
+ * in the BC MSP billing system. Maps to the {@code teleplan_submission_link} table,
+ * associating bill activity records with Teleplan submission data.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplan_submission_link")
 public class TeleplanSubmissionLink extends AbstractModel<Integer> {

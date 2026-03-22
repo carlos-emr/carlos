@@ -44,6 +44,13 @@ import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Servlet for downloading database backup files with role-based access control.
+ * Extends {@link GenericDownload} and checks that the logged-in user has
+ * {@code _admin.backup} or {@code _admin} privileges before allowing the download.
+ *
+ * @since 2001-01-01
+ */
 public class BackupDownload extends GenericDownload {
 
     @SuppressWarnings("unchecked")

@@ -54,6 +54,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that retrieves clinical data summaries for inclusion in consultation requests.
+ *
+ * @since 2001-01-01
+ */
 public class ConsultationClinicalData2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

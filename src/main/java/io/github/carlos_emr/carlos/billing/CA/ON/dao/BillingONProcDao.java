@@ -32,9 +32,19 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONProc;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingONProc} entities.
+ * Provides persistence operations for Ontario billing procedure records.
+ * Inherits standard CRUD from {@link AbstractDaoImpl}.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingONProcDao extends AbstractDaoImpl<BillingONProc> {
 
+    /**
+     * Constructs a new {@code BillingONProcDao} with the {@link BillingONProc} entity class.
+     */
     public BillingONProcDao() {
         super(BillingONProc.class);
     }

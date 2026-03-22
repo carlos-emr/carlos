@@ -39,6 +39,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Scheduled background job that runs the CKD population screening process.
+ *
+ * <p>Executes as a {@link TimerTask} and is gated by the {@code ORN_PILOT}
+ * application property. When enabled, creates a synthetic logged-in context
+ * using the configured pilot user and delegates to {@link CkdScreener#screenPopulation}.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CkdScreenerSchedulerJob extends TimerTask {
 
     private Logger logger = MiscUtils.getLogger();

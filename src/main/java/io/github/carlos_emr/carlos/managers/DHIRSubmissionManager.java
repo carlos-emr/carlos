@@ -35,25 +35,58 @@ import io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service for managing Digital Health Immunization Repository (DHIR) submissions
+ * in the CARLOS EMR system.
+ *
+ * <p>Tracks the lifecycle of immunization data submissions to the Ontario DHIR
+ * system, including creation, status updates, and retrieval of submission logs
+ * by prevention record identifier.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.DHIRSubmissionLogDao
+ * @see io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog
+ * @since 2026-03-17
+ */
 @Service
 public class DHIRSubmissionManager {
 
     @Autowired
     DHIRSubmissionLogDao dhirSubmissionDao;
 
-
+    /**
+     * Persists a new DHIR submission log record.
+     *
+     * @param submission DHIRSubmissionLog the submission record to save
+     */
     public void save(DHIRSubmissionLog submission) {
         dhirSubmissionDao.persist(submission);
     }
 
+    /**
+     * Updates an existing DHIR submission log record.
+     *
+     * @param submission DHIRSubmissionLog the submission record to update
+     */
     public void update(DHIRSubmissionLog submission) {
         dhirSubmissionDao.merge(submission);
     }
 
+    /**
+     * Finds the most recent pending submission for a prevention record.
+     *
+     * @param preventionId Integer the prevention record identifier
+     * @return DHIRSubmissionLog the latest pending submission, or null if none
+     */
     public DHIRSubmissionLog findLatestPendingByPreventionId(Integer preventionId) {
         return dhirSubmissionDao.findLatestPendingByPreventionId(preventionId);
     }
 
+    /**
+     * Retrieves all submission log records for a prevention record.
+     *
+     * @param preventionId Integer the prevention record identifier
+     * @return List of DHIRSubmissionLog records for the prevention
+     */
     public List<DHIRSubmissionLog> findByPreventionId(Integer preventionId) {
         return dhirSubmissionDao.findByPreventionId(preventionId);
     }

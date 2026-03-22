@@ -37,13 +37,29 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingONDiskName} entities.
+ * Provides persistence operations for Ontario billing disk name records,
+ * which track billing submission batches and their creation dates.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
 
+    /**
+     * Constructs a new {@code BillingONDiskNameDao} with the {@link BillingONDiskName} entity class.
+     */
     public BillingONDiskNameDao() {
         super(BillingONDiskName.class);
     }
 
+    /**
+     * Gets the latest solo (non-group) disk name record for a provider's OHIP number.
+     *
+     * @param providerOhipNo String the provider's OHIP number
+     * @return BillingONDiskName the latest solo record, or null if none found
+     */
     public BillingONDiskName getLatestSoloMonthCodeBatchNum(String providerOhipNo) {
         String q = "select d from BillingONDiskName d, BillingONFilename f where f.providerOhipNo=?1 and d.groupNo='' and d.id=f.diskId order by d.id desc";
         Query query = entityManager.createQuery(q);
@@ -55,6 +71,12 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
         return result;
     }
 
+    /**
+     * Finds the most recent disk name record for a group number, ordered by creation date descending.
+     *
+     * @param groupNo String the group number
+     * @return BillingONDiskName the most recent record, or null if none found
+     */
     public BillingONDiskName findByGroupNo(String groupNo) {
         String q = "SELECT b FROM BillingONDiskName b WHERE b.groupNo=?1 order by b.createDateTime DESC";
         Query query = entityManager.createQuery(q);
@@ -66,6 +88,13 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
         return result;
     }
 
+    /**
+     * Finds the most recent disk name record created before the given date for a group number.
+     *
+     * @param date Date the cutoff date (exclusive upper bound)
+     * @param groupNo String the group number
+     * @return BillingONDiskName the previous record, or null if none found
+     */
     public BillingONDiskName getPrevDiskCreateDate(Date date, String groupNo) {
         String q = "SELECT b FROM BillingONDiskName b WHERE  b.createDateTime<?1 and b.groupNo=?2 order by b.createDateTime DESC";
         Query query = entityManager.createQuery(q);
@@ -78,6 +107,14 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
         return result;
     }
 
+    /**
+     * Finds disk name records within a creation date range and matching a specific status.
+     *
+     * @param sDate Date the start date (inclusive)
+     * @param eDate Date the end date (inclusive)
+     * @param status String the status to filter by
+     * @return List of {@link BillingONDiskName} matching the criteria, ordered by date descending
+     */
     public List<BillingONDiskName> findByCreateDateRangeAndStatus(Date sDate, Date eDate, String status) {
         String q = "SELECT b FROM BillingONDiskName b WHERE b.createDateTime >= :sd AND b.createDateTime <= :ed AND b.status IN (:status) ORDER BY b.createDateTime DESC";
         Query query = entityManager.createQuery(q);

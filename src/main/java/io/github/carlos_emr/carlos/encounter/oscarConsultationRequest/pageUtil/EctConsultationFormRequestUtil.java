@@ -48,6 +48,11 @@ import org.owasp.encoder.Encode;
 
 import java.util.*;
 
+/**
+ * Utility class providing helper methods for consultation request form processing.
+ *
+ * @since 2001-01-01
+ */
 public class EctConsultationFormRequestUtil {
 
     public String patientName;

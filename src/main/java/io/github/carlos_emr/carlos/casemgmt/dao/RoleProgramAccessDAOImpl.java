@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link RoleProgramAccessDAO}. Queries default
+ * role-based access rights using HQL with null-safe parameter handling.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class RoleProgramAccessDAOImpl extends AbstractHibernateDao implements RoleProgramAccessDAO {
 

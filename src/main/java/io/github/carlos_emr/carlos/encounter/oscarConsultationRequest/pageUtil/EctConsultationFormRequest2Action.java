@@ -111,6 +111,12 @@ import java.util.*;
  * @see ConsultationManager
  * @since 2003-07-21
  */
+/**
+ * Struts2 action that processes consultation request form submissions,
+ * including creating, updating, and completing consultation requests.
+ *
+ * @since 2001-01-01
+ */
 public class EctConsultationFormRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

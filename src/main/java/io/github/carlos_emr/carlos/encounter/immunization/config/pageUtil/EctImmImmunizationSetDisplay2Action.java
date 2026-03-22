@@ -42,6 +42,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Struts2 action that displays the details of an immunization set configuration.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmImmunizationSetDisplay2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

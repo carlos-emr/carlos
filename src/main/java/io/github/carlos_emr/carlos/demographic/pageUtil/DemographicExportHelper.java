@@ -54,8 +54,18 @@ import cds.MedicationsAndTreatmentsDocument.MedicationsAndTreatments;
 import cds.PatientRecordDocument.PatientRecord;
 
 /**
- * Manager class for handling demographic exports. This component retains state for each export, and therefore must not be
- * created as a field, but instead looked up for each individual export.
+ * Spring-managed helper for handling medication data during demographic CDS exports.
+ *
+ * <p>This prototype-scoped component retains state (export errors) for each export,
+ * and therefore must not be created as a field but instead looked up for each individual
+ * export operation via Spring's prototype scope.</p>
+ *
+ * <p>Handles medication export including dosage parsing, prescription details,
+ * provider information, and case management note annotations.</p>
+ *
+ * @see DemographicExportAction42Action
+ * @see DemographicExportHelperCallback
+ * @since 2026-03-17
  */
 @Component
 @Scope("prototype")
@@ -74,6 +84,14 @@ public class DemographicExportHelper {
 
     private List<String> exportErrors = new ArrayList<String>();
 
+    /**
+     * Returns the default XML formatting options for CDS export documents.
+     *
+     * <p>Configures pretty printing, aggressive namespaces, and the "cdsd" prefix
+     * for the "cds_dt" namespace.</p>
+     *
+     * @return XmlOptions the configured XML serialization options
+     */
     public static XmlOptions getDefaultOptions() {
         XmlOptions options = new XmlOptions();
         options.put(XmlOptions.SAVE_PRETTY_PRINT);

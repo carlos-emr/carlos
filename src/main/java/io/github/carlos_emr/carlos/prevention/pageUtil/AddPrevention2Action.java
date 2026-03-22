@@ -63,7 +63,18 @@ import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 
 /**
- * @author Jay Gallagher
+ * Struts2 action for creating, updating, and deleting prevention/immunization records.
+ *
+ * <p>Handles form submissions from the prevention entry UI. Validates input, persists
+ * prevention data via {@link PreventionData}, and optionally submits immunization records
+ * to the Digital Health Immunization Repository (DHIR) via FHIR bundles when consent
+ * is available.</p>
+ *
+ * <p>Requires the {@code _prevention} write privilege.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionData
+ * @see PreventionDisplayConfig
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -85,9 +96,23 @@ public class AddPrevention2Action extends ActionSupport {
     PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
 
 
+    /** Default no-argument constructor. */
     public AddPrevention2Action() {
     }
 
+    /**
+     * Processes a prevention record creation, update, or deletion.
+     *
+     * <p>Extracts form parameters from the request, validates the prevention type
+     * and demographic existence, then performs the appropriate operation (insert,
+     * update, or delete). If DHIR submission is requested and consent is available,
+     * builds a FHIR bundle for review.</p>
+     *
+     * @return String the Struts result name: "success" on completion, "form" on
+     *         validation errors, "review" for DHIR submission review, or "Logout"
+     *         if the session has expired
+     * @throws SecurityException if the logged-in user lacks {@code _prevention} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "w", null)) {

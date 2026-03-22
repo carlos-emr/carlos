@@ -42,6 +42,12 @@ import org.w3c.dom.Document;
 
 import io.github.carlos_emr.carlos.util.UtilXML;
 
+/**
+ * Data access class for immunization set configuration. Provides CRUD operations
+ * for managing immunization sets, headings, and their associated immunizations.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmImmunizationSetData {
 
     private ConfigImmunizationDao configImmunizationDao = (ConfigImmunizationDao) SpringUtils.getBean(ConfigImmunizationDao.class);

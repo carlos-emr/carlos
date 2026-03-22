@@ -42,6 +42,16 @@ import org.apache.cxf.transports.http.configuration.ConnectionType;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Utility class for configuring Apache CXF web service clients with timeouts,
+ * GZIP compression, SSL settings, and WS-Security authentication.
+ *
+ * <p>Configuration values (connection timeout, receive timeout, GZIP threshold, SSL policy)
+ * are read from {@code config.xml} during class initialization. The class provides
+ * static methods to apply these settings to CXF client proxies.
+ *
+ * @since 2026-03-17
+ */
 public class CxfClientUtils {
     private static Logger logger = MiscUtils.getLogger();
     private static long connectionTimeout = 1500L;
@@ -52,6 +62,9 @@ public class CxfClientUtils {
     public CxfClientUtils() {
     }
 
+    /**
+     * Initializes SSL configuration from the application config. Currently a no-op placeholder.
+     */
     public static void initSslFromConfig() {
     }
 
@@ -91,6 +104,11 @@ public class CxfClientUtils {
         logger.info("CxfClientUtils using : connectionTimeout=" + connectionTimeout + ", receiveTimeout=" + receiveTimeout + ", useGZip=" + useGZip + ", gZipThreshold=" + gZipThreshold + ", allowAllSsl=" + allowAllSsl);
     }
 
+    /**
+     * Configures a CXF web service client proxy with SSL, timeouts, and optional GZIP compression.
+     *
+     * @param wsPort Object the CXF web service port proxy
+     */
     public static void configureClientConnection(Object wsPort) {
         Client cxfClient = ClientProxy.getClient(wsPort);
         HTTPConduit httpConduit = (HTTPConduit) cxfClient.getConduit();
@@ -102,11 +120,21 @@ public class CxfClientUtils {
 
     }
 
+    /**
+     * Adds GZIP compression interceptors to the CXF client.
+     *
+     * @param cxfClient Client the CXF client to configure
+     */
     public static void configureGzip(Client cxfClient) {
         cxfClient.getInInterceptors().add(new GZIPInInterceptor());
         cxfClient.getOutInterceptors().add(new GZIPOutInterceptor(gZipThreshold));
     }
 
+    /**
+     * Configures connection and receive timeouts on the HTTP conduit.
+     *
+     * @param httpConduit HTTPConduit the conduit to configure
+     */
     public static void configureTimeout(HTTPConduit httpConduit) {
         HTTPClientPolicy httpClientPolicy = new HTTPClientPolicy();
         httpClientPolicy.setConnection(ConnectionType.KEEP_ALIVE);
@@ -116,6 +144,11 @@ public class CxfClientUtils {
         httpConduit.setClient(httpClientPolicy);
     }
 
+    /**
+     * Configures SSL settings on the HTTP conduit, disabling CN check and trusting all certificates.
+     *
+     * @param httpConduit HTTPConduit the conduit to configure
+     */
     public static void configureSsl(HTTPConduit httpConduit) {
         TLSClientParameters tslClientParameters = httpConduit.getTlsClientParameters();
         if (tslClientParameters == null) {
@@ -129,6 +162,13 @@ public class CxfClientUtils {
         httpConduit.setTlsClientParameters(tslClientParameters);
     }
 
+    /**
+     * Adds WS-Security UsernameToken authentication to a CXF web service client.
+     *
+     * @param user     Object the username
+     * @param password String the password
+     * @param wsPort   Object the CXF web service port proxy
+     */
     public static void addWSS4JAuthentication(Object user, String password, Object wsPort) {
         Client cxfClient = ClientProxy.getClient(wsPort);
         cxfClient.getOutInterceptors().add(new AuthenticationOutWSS4JInterceptor(user, password));
@@ -138,6 +178,11 @@ public class CxfClientUtils {
         initialiseFromConfigXml();
     }
 
+    /**
+     * X.509 trust manager that trusts all certificates without validation.
+     * Used for development and inter-system communication where certificate
+     * management is handled externally.
+     */
     public static class TrustAllManager implements X509TrustManager {
         public TrustAllManager() {
         }

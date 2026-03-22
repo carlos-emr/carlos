@@ -44,14 +44,12 @@ import io.github.carlos_emr.carlos.utility.ShutdownException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * <p>Title:AlertTimer </p>
+ * Manages the scheduled execution of CDM (Chronic Disease Management) reminder alerts
+ * at regular intervals using a {@link Timer}. Implemented as a singleton that triggers
+ * {@link CDMReminderHlp#manageCDMTicklers} on a fixed-rate schedule to create and
+ * manage ticklers for chronic disease follow-ups.
  *
- * <p>Description: </p>
- * AlertTimer is responsible for managing the execution Schedule of the CDM Reminders(or any other future alerts)
- * at regular intervals.
- *
- * @author not Joel Legris
- * @version 1.0
+ * @since 2001-01-01
  */
 public class AlertTimer {
     private static Logger logger = MiscUtils.getLogger();
@@ -69,6 +67,14 @@ public class AlertTimer {
         timer.scheduleAtFixedRate(new ReminderClass(), 5000, interval);
     }
 
+    /**
+     * Returns the singleton AlertTimer instance, creating it if necessary.
+     * The timer begins executing alerts 5 seconds after creation.
+     *
+     * @param codes String[] the CDM alert codes to process
+     * @param interval long the interval in milliseconds between alert executions
+     * @return AlertTimer the singleton instance
+     */
     public static AlertTimer getInstance(String[] codes, long interval) {
         if (alerts == null) {
             alerts = new AlertTimer(codes, interval);

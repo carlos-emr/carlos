@@ -39,19 +39,38 @@ import java.util.zip.GZIPOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Build 'trace' map and send it to serialized compressed stream
+ * Callable that builds a file-hash trace map of the deployed application and writes it
+ * as a GZIP-compressed serialized object to the output stream.
  *
- * @author oscar
+ * <p>The trace map includes SHA-256 hashes for all deployed files, plus metadata
+ * entries for the origin date and Git SHA commit hash. Runs in a separate thread
+ * connected to a {@link TraceDataConsumer} via piped streams.
+ *
+ * @see TraceDataConsumer
+ * @see GenerateTrace2Action
+ * @since 2026-03-17
  */
 public class TraceDataProcessor implements Callable<String> {
     private OutputStream outputStream = null;
     private HttpServletRequest request = null;
 
+    /**
+     * Constructs a processor that writes the trace map to the given output stream.
+     *
+     * @param outputStream OutputStream the piped output stream to write compressed data to
+     * @param request HttpServletRequest used to resolve the web application's real path
+     */
     public TraceDataProcessor(OutputStream outputStream, HttpServletRequest request) {
         this.request = request;
         this.outputStream = outputStream;
     }
 
+    /**
+     * Builds the trace map and writes it as a GZIP-compressed serialized Java object.
+     *
+     * @return String the class name of this processor
+     * @throws Exception if file hashing, serialization, or compression fails
+     */
     @Override
     public String call() throws Exception {
         Map<String, String> traceMap = GenerateTraceabilityUtil.buildTraceMap(request);

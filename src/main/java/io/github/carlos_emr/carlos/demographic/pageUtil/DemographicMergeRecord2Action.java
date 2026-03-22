@@ -54,7 +54,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 
 /**
- * @author wrighd
+ * Struts2 action for merging and unmerging patient demographic records.
+ *
+ * <p>Handles two operations based on the "mergeAction" request parameter:</p>
+ * <ul>
+ *   <li><b>merge</b> - Merges selected demographic records into a designated head record</li>
+ *   <li><b>unmerge</b> - Reverses previous merge operations for selected records</li>
+ * </ul>
+ *
+ * <p><b>Security:</b> Requires "_demographic" write privilege.</p>
+ *
+ * @see io.github.carlos_emr.carlos.demographic.data.DemographicMerged
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -67,10 +78,20 @@ public class DemographicMergeRecord2Action extends ActionSupport {
     Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Constructs a new DemographicMergeRecord2Action instance.
+     */
     public DemographicMergeRecord2Action() {
 
     }
 
+    /**
+     * Executes the merge or unmerge operation based on the "mergeAction" parameter.
+     *
+     * @return String "success" for merge, "successUnMerge" for unmerge, "failure" on error,
+     *         or "caisiSearch" if invoked from CAISI search context
+     * @throws SecurityException if the user lacks "_demographic" write privilege
+     */
     public String execute() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

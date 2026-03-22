@@ -142,6 +142,23 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+/**
+ * Struts2 action for importing patient demographic data from CDS 4.0 XML files.
+ *
+ * <p>Handles the import of comprehensive patient records from CDS-compliant XML documents
+ * including demographics, medications, allergies, immunizations, lab results, clinical notes,
+ * appointments, problem lists, family history, care elements, and HRM reports.
+ * Supports ZIP file upload containing multiple patient XML files.</p>
+ *
+ * <p>The import process performs duplicate detection, maps imported data to existing
+ * providers and programs, and generates detailed import logs for review.</p>
+ *
+ * <p><b>Security:</b> Requires appropriate demographic and administrative privileges.</p>
+ *
+ * @see DemographicExportAction42Action
+ * @see Util
+ * @since 2026-03-17
+ */
 public class ImportDemographicDataAction42Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

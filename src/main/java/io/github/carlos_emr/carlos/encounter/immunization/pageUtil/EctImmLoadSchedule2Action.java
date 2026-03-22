@@ -40,6 +40,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that loads the immunization schedule data for a patient.
+ *
+ * @since 2001-01-01
+ */
 public final class EctImmLoadSchedule2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

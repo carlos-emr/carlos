@@ -80,6 +80,18 @@ import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.*;
 
+/**
+ * Struts2 action for exporting patient data in CIHI (Canadian Institute for Health Information) format.
+ *
+ * <p>Generates CDS-CIHI XML export files containing demographics, medications, allergies,
+ * immunizations, lab results, problem lists, procedures, family history, risk factors,
+ * care elements, and appointments for submission to CIHI.</p>
+ *
+ * <p>Supports batch exports by demographic set with ZIP packaging.</p>
+ *
+ * @see Util
+ * @since 2026-03-17
+ */
 public class CihiExport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

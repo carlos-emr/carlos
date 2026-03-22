@@ -40,6 +40,9 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
  */
 public class DemographicExportHelperCallback {
 
+    /**
+     * Invoked during medication export processing. Override to add custom behavior.
+     */
     public void callback() {
 
     }

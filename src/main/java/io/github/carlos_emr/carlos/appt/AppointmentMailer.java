@@ -61,14 +61,15 @@ import org.springframework.mail.SimpleMailMessage;
 import io.github.carlos_emr.carlos.service.MessageMailer;
 
 /**
- * @author mweston4
- */
-
-/*
- * New emailing feature (EmailManager) is in production, utilizing JavaMailSender.
- * This method will be updated to use EmailManager for sending emails in the future.
+ * Sends appointment reminder emails to patients using a configurable template system.
  *
- * TODO: Update the deprecated code to use the EmailManager once the new emailing feature is fully implemented.
+ * <p>Reads a message template file (configured via {@code appt_reminder_template} property),
+ * populates it with appointment, patient, and clinic details, and sends it via Spring's
+ * {@link MailSender}. Supports provider-team-specific templates.</p>
+ *
+ * @deprecated New emailing feature (EmailManager) is in production, utilizing JavaMailSender.
+ *             This class will be updated to use EmailManager once fully implemented.
+ * @since 2026-03-17
  */
 @Deprecated
 public class AppointmentMailer implements MessageMailer {
@@ -84,6 +85,12 @@ public class AppointmentMailer implements MessageMailer {
     OscarAppointmentDao dao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
 
 
+    /**
+     * Constructs an appointment mailer for the given appointment and patient.
+     *
+     * @param apptNo Integer the appointment number
+     * @param demographic Demographic the patient demographic record
+     */
     public AppointmentMailer(Integer apptNo, Demographic demographic) {
         this.mailSender = (MailSender) SpringUtils.getBean(MailSender.class);
         this.message = null;
@@ -92,14 +99,29 @@ public class AppointmentMailer implements MessageMailer {
         this.demographic = demographic;
     }
 
+    /**
+     * Sets the Spring mail sender to use for sending emails.
+     *
+     * @param mailSender MailSender the mail sender
+     */
     public void setMailSender(MailSender mailSender) {
         this.mailSender = mailSender;
     }
 
+    /**
+     * Sets the appointment number.
+     *
+     * @param apptNo Integer the appointment number
+     */
     public void setApptNo(Integer apptNo) {
         this.apptNo = apptNo;
     }
 
+    /**
+     * Sets the patient demographic record.
+     *
+     * @param demographic Demographic the patient demographic
+     */
     public void setDemographic(Demographic demographic) {
         this.demographic = demographic;
     }
@@ -226,11 +248,20 @@ public class AppointmentMailer implements MessageMailer {
         }
     }
 
+    /**
+     * Prepares the email message by loading the template, setting headers, and
+     * populating the message body with appointment and patient details.
+     */
     public void prepareMessage() {
         setMessageHeader();
         fillMessageText();
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws UnsupportedOperationException always, as this method is no longer supported
+     */
     @Override
     public void send() throws Exception {
         throw new UnsupportedOperationException("This method is no longer supported.");

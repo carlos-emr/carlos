@@ -204,6 +204,12 @@ public abstract class AbstractDataDisplayBean {
         return actions;
     }
 
+    /**
+     * Sets the drilldown actions and extracts action IDs. If a "dxUpdate" action
+     * is found, its value is stored as the ICD-9 code for disease registry updates.
+     *
+     * @param actions List of DrillDownAction the available drilldown actions
+     */
     public void setActions(List<DrillDownAction> actions) {
         this.actions = actions;
         this.actionIds = new ArrayList<String>();

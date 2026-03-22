@@ -46,6 +46,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+/**
+ * Singleton properties loader for spoken language codes and names.
+ *
+ * <p>Loads language code-to-name mappings from the {@code spoken_languages_codes.properties}
+ * classpath resource. Supports bidirectional lookup (code-to-language and language-to-code)
+ * and provides a sorted set of language names for UI dropdown menus.</p>
+ *
+ * <p>Preferred languages are indicated with a caret prefix ("^") in the properties file,
+ * which takes precedence when multiple codes map to the same language name.</p>
+ *
+ * @since 2026-03-17
+ */
 public class SpokenLangProperties extends Properties {
     private static SpokenLangProperties spokenLangProperties = new SpokenLangProperties();
     private static SortedSet<String> langSorted = new TreeSet<String>();
@@ -89,14 +101,33 @@ public class SpokenLangProperties extends Properties {
         }
     }
 
+    /**
+     * Returns the singleton instance of SpokenLangProperties.
+     *
+     * @return SpokenLangProperties the shared instance
+     */
     public static SpokenLangProperties getInstance() {
         return spokenLangProperties;
     }
 
+    /**
+     * Returns the language code for a given language name.
+     *
+     * @param lang String the language name
+     * @return String the corresponding code, or null if not found
+     */
     public String getCodeByLang(String lang) {
         return langToCode.get(lang);
     }
 
+    /**
+     * Returns the language name for a given language code.
+     *
+     * <p>Strips the preferred marker prefix ("^") from the returned name.</p>
+     *
+     * @param code String the language code
+     * @return String the language name, or null if the code is empty
+     */
     public String getLangByCode(String code) {
         if (StringUtils.empty(code)) return null;
 
@@ -106,6 +137,11 @@ public class SpokenLangProperties extends Properties {
         return lang;
     }
 
+    /**
+     * Returns all language names sorted alphabetically.
+     *
+     * @return SortedSet&lt;String&gt; the sorted set of language names
+     */
     public SortedSet<String> getLangSorted() {
         return langSorted;
     }

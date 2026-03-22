@@ -42,7 +42,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Struts2 action for previewing and rendering medical documents as PDFs in the OpenO EMR system.
+ * Struts2 action for previewing and rendering medical documents as PDFs in the CARLOS EMR system.
  *
  * This action handles the preview and rendering of various healthcare document types including
  * electronic documents (EDocs), electronic forms (EForms), hospital report manager documents (HRM),
@@ -151,7 +151,7 @@ public class DocumentPreview2Action extends ActionSupport {
      *
      * Retrieves the specified EForm by ID and generates a PDF representation using the
      * DocumentAttachmentManager. Electronic forms are structured clinical data entry forms
-     * used throughout the OpenO EMR system. The resulting PDF is converted to base64 and
+     * used throughout the CARLOS EMR system. The resulting PDF is converted to base64 and
      * returned in a JSON response.
      *
      * Expected request parameters:

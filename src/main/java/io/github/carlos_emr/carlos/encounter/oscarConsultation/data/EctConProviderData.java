@@ -33,6 +33,12 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data access class for consultation provider information. Retrieves provider
+ * team assignments and provider-specific data needed for consultation requests.
+ *
+ * @since 2001-01-01
+ */
 public class EctConProviderData {
 
     public EctConProviderData() {

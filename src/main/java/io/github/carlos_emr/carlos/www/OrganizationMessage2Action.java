@@ -50,6 +50,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for managing facility-level organization messages.
+ *
+ * <p>Provides list, edit, save, and view operations for facility messages that
+ * can be targeted to specific programs. Messages are scoped to the user's
+ * current facility and optionally associated with a specific program.
+ *
+ * @since 2012-08-13
+ */
 public class OrganizationMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -61,6 +70,11 @@ public class OrganizationMessage2Action extends ActionSupport {
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
+    /**
+     * Routes the request to the appropriate handler based on the "method" parameter.
+     *
+     * @return String the Struts result name
+     */
     public String execute() {
         String mtd = request.getParameter("method");
         if ("edit".equals(mtd)) {
@@ -73,6 +87,11 @@ public class OrganizationMessage2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Lists all active facility messages for the current facility, enriched with program names.
+     *
+     * @return String the "list" result name
+     */
     public String list() {
         //List activeMessages = mgr.getMessages();
         Facility facility = (Facility) request.getSession().getAttribute("currentFacility");
@@ -99,6 +118,11 @@ public class OrganizationMessage2Action extends ActionSupport {
         return "list";
     }
 
+    /**
+     * Loads a facility message for editing, or prepares a blank form for creating a new one.
+     *
+     * @return String the "edit" result name, or the list result if the message is not found
+     */
     public String edit() {
         String messageId = request.getParameter("id");
 
@@ -127,6 +151,11 @@ public class OrganizationMessage2Action extends ActionSupport {
         return "edit";
     }
 
+    /**
+     * Saves a facility message with the current date and facility name.
+     *
+     * @return String the list result after saving
+     */
     public String save() {
         FacilityMessage msg = this.getFacility_message();
         msg.setCreationDate(new Date());
@@ -142,6 +171,11 @@ public class OrganizationMessage2Action extends ActionSupport {
         return list();
     }
 
+    /**
+     * Displays facility messages filtered by the current facility and program context.
+     *
+     * @return String the "view" result name
+     */
     public String view() {
 
         //String providerNo = (String)request.getSession().getAttribute("user");
@@ -164,11 +198,21 @@ public class OrganizationMessage2Action extends ActionSupport {
 
     private FacilityMessage facility_message;
 
+    /**
+     * Returns the facility message model bound from the request form.
+     *
+     * @return FacilityMessage the facility message
+     */
     @StrutsParameter(depth = 1)
     public FacilityMessage getFacility_message() {
         return facility_message;
     }
 
+    /**
+     * Sets the facility message model from the request form.
+     *
+     * @param facility_message FacilityMessage the facility message to set
+     */
     @StrutsParameter
     public void setFacility_message(FacilityMessage facility_message) {
         this.facility_message = facility_message;

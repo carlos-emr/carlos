@@ -35,14 +35,45 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 
+/**
+ * DAO interface for managing appointment search configurations.
+ * <p>
+ * Provides operations to retrieve appointment search definitions, which define
+ * saved search criteria for finding appointments in the scheduling module.
+ *
+ * @since 2001
+ */
 public interface AppointmentSearchDao extends AbstractDao<AppointmentSearch> {
 
+    /**
+     * Retrieves all appointment search configurations.
+     *
+     * @return List of all {@link AppointmentSearch} records
+     */
     public List<AppointmentSearch> findAll();
 
+    /**
+     * Retrieves all active appointment search configurations.
+     *
+     * @return List of active {@link AppointmentSearch} records
+     */
     public List<AppointmentSearch> findActive();
 
+    /**
+     * Finds appointment search configurations by UUID and active status.
+     *
+     * @param uuid   String the unique identifier for the search configuration
+     * @param active Boolean whether to filter by active status
+     * @return List of matching {@link AppointmentSearch} records
+     */
     public List<AppointmentSearch> findByUUID(String uuid, Boolean active);
 
+    /**
+     * Finds the appointment search configuration for a specific provider.
+     *
+     * @param providerNo String the provider number
+     * @return the matching {@link AppointmentSearch}, or {@code null} if not found
+     */
     public AppointmentSearch findForProvider(String providerNo);
 
 }

@@ -80,6 +80,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
+/**
+ * Struts2 action that displays the details of a single consultation request.
+ *
+ * @since 2001-01-01
+ */
 public class EctViewRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -90,6 +90,11 @@ import org.apache.struts2.ServletActionContext;
  * @see io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager
  * @since 2003-07-22
  */
+/**
+ * Struts2 action that attaches documents to a consultation request.
+ *
+ * @since 2001-01-01
+ */
 public class ConsultationAttachDocs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

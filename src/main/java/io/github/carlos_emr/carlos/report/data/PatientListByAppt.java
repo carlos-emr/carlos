@@ -46,6 +46,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Servlet that exports a patient appointment list as a downloadable CSV text file.
+ * Queries appointments by provider and date range, outputting patient name, phone,
+ * appointment time, type, provider, and location as comma-separated values.
+ *
+ * @since 2001-01-01
+ */
 public class PatientListByAppt extends HttpServlet {
 
 

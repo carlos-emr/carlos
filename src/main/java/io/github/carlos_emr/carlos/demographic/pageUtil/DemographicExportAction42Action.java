@@ -185,7 +185,21 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
- * @author Ronnie Cheng
+ * Struts2 action for exporting patient demographic data in CDS 4.0 (Clinical Data Standard) XML format.
+ *
+ * <p>Exports comprehensive patient records including demographics, medications, allergies,
+ * immunizations, lab results, clinical notes, appointments, problem lists, family history,
+ * care elements, risk factors, and reports into OMD CDS-compliant XML documents.
+ * Exported files are packaged into ZIP archives with optional PGP encryption.</p>
+ *
+ * <p>Supports both individual and batch demographic exports with configurable
+ * demographic set selection.</p>
+ *
+ * <p><b>Security:</b> Requires "_demographic" read privilege.</p>
+ *
+ * @see Util
+ * @see DemographicExportHelper
+ * @since 2026-03-17
  */
 public class DemographicExportAction42Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

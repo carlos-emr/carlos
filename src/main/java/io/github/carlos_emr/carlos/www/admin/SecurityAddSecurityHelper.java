@@ -44,7 +44,13 @@ import io.github.carlos_emr.carlos.log.LogConst;
 
 
 /**
- * Helper class for securityaddsecurity.jsp page.
+ * Helper class for the securityaddsecurity.jsp page that handles creating new
+ * user login (Security) records for providers.
+ *
+ * <p>Validates that no duplicate provider or username exists before creating the
+ * security record with password hashing, expiration, lock settings, and optional MFA.
+ *
+ * @since 2001-01-01
  */
 public class SecurityAddSecurityHelper {
 

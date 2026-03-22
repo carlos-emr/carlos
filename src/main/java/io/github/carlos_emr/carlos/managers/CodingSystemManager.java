@@ -35,9 +35,26 @@ import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service for resolving clinical coding system descriptions in the CARLOS EMR system.
+ *
+ * <p>Provides a generic lookup mechanism for retrieving human-readable descriptions
+ * from any registered coding system (ICD-9, ICD-10, SNOMED CT, ATC, etc.) by
+ * dynamically resolving the appropriate DAO based on the coding system name.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao
+ * @since 2026-03-17
+ */
 @Service
 public class CodingSystemManager {
 
+    /**
+     * Retrieves the description for a code within a specified coding system.
+     *
+     * @param codingSystem String the coding system identifier (e.g., "icd9", "icd10")
+     * @param code String the code to look up
+     * @return String the code description, or null if not found or parameters are empty
+     */
     public String getCodeDescription(String codingSystem, String code) {
         if (codingSystem != null && !codingSystem.isEmpty() && code != null && !code.isEmpty()) {
             Class<?> daoClass = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDaoImpl.codingSystem.valueOf(codingSystem));
@@ -54,6 +71,13 @@ public class CodingSystemManager {
         return null;
     }
 
+    /**
+     * Checks whether a code exists and has a non-blank description in the specified coding system.
+     *
+     * @param codingSystem String the coding system identifier
+     * @param code String the code to check
+     * @return boolean true if the code exists with a non-blank description
+     */
     public boolean isCodeAvailable(String codingSystem, String code) {
         String description = getCodeDescription(codingSystem, code);
         return StringUtils.isNotBlank(description);

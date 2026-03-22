@@ -322,6 +322,11 @@ public class ProviderProperty2Action extends ActionSupport {
 
     }
 
+    /**
+     * Displays the default patient sex preference configuration form.
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewDefaultSex() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -353,6 +358,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    /**
+     * Saves the provider's default patient sex preference.
+     *
+     * @return String {@code "gen"} to re-display the configuration form with success status
+     */
     public String saveDefaultSex() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -385,6 +395,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
     /////
 
+    /**
+     * Displays the default health card type preference configuration form.
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewHCType() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -416,6 +431,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    /**
+     * Saves the provider's default health card type preference.
+     *
+     * @return String {@code "gen"} to re-display the configuration form with success status
+     */
     public String saveHCType() {
 
 
@@ -451,6 +471,11 @@ public class ProviderProperty2Action extends ActionSupport {
     /////
 
 
+    /**
+     * Displays the prescription page size preference configuration form.
+     *
+     * @return String {@code "genRxPageSize"} to forward to the Rx page size configuration JSP
+     */
     public String viewRxPageSize() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -474,6 +499,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxPageSize";
     }
 
+    /**
+     * Saves the provider's prescription page size preference (e.g., A4, A6).
+     *
+     * @return String {@code "genRxPageSize"} to re-display with success status
+     */
     public String saveRxPageSize() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -505,6 +535,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxPageSize";
     }
 
+    /**
+     * Saves the provider's default document queue preference, supporting both existing and new queues.
+     *
+     * @return String {@code "genDefaultDocQueue"} to re-display with success or error status
+     */
     public String saveDefaultDocQueue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -556,6 +591,11 @@ public class ProviderProperty2Action extends ActionSupport {
     //public String viewDefaultDocQueue(){
     //    return "genDefaultDocQueue";
     //}
+    /**
+     * Displays the default document queue preference configuration form with available queues.
+     *
+     * @return String {@code "genDefaultDocQueue"} to forward to the queue configuration JSP
+     */
     public String viewDefaultDocQueue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -588,6 +628,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genDefaultDocQueue";
     }
 
+    /**
+     * Displays the prescription profile view preference form with multi-select filter options.
+     *
+     * @return String {@code "genRxProfileView"} to forward to the Rx profile view JSP
+     */
     public String viewRxProfileView() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -634,6 +679,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxProfileView";
     }
 
+    /**
+     * Saves the provider's prescription profile view filter preferences.
+     *
+     * @return String {@code "genRxProfileView"} to re-display with success or error status
+     */
     public String saveRxProfileView() {
 
         try {
@@ -678,6 +728,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxProfileView";
     }
 
+    /**
+     * Displays the "show patient date of birth on prescriptions" checkbox preference form.
+     *
+     * @return String {@code "genShowPatientDOB"} to forward to the DOB display configuration JSP
+     */
     public String viewShowPatientDOB() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -714,6 +769,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genShowPatientDOB";
     }
 
+    /**
+     * Saves the provider's preference for showing patient date of birth on prescriptions.
+     *
+     * @return String {@code "genShowPatientDOB"} to re-display with success status
+     */
     public String saveShowPatientDOB() {
         String checkboxValue = request.getParameter("rxShowPatientDOBProperty.checked");
 
@@ -752,6 +812,11 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
 
+    /**
+     * Displays the "use Rx3 prescription format" checkbox preference form.
+     *
+     * @return String {@code "genRxUseRx3"} to forward to the Rx3 configuration JSP
+     */
     public String viewUseRx3() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -786,6 +851,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxUseRx3";
     }
 
+    /**
+     * Saves the provider's Rx3 prescription format preference.
+     *
+     * @return String {@code "genRxUseRx3"} to re-display with success status
+     */
     public String saveUseRx3() {
         String checkboxValue = request.getParameter("rxUseRx3Property.checked");
 
@@ -822,6 +892,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxUseRx3";
     }
 
+    /**
+     * Displays the default prescription quantity preference configuration form.
+     *
+     * @return String {@code "genRxDefaultQuantity"} to forward to the quantity configuration JSP
+     */
     public String viewDefaultQuantity() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -848,6 +923,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxDefaultQuantity";
     }
 
+    /**
+     * Saves the provider's default prescription quantity preference.
+     *
+     * @return String {@code "genRxDefaultQuantity"} to re-display with success status
+     */
     public String saveDefaultQuantity() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -879,7 +959,11 @@ public class ProviderProperty2Action extends ActionSupport {
     /////
 
 
-    /*ontario md*/
+    /**
+     * Displays the Ontario MD credentials configuration form.
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewOntarioMDId() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -913,6 +997,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves the provider's Ontario MD username and password credentials.
+     *
+     * @return String {@code "gen"} to re-display with success status
+     */
     public String saveOntarioMDId() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -970,6 +1059,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
     /*ontario md*/
 
+    /**
+     * Displays the consultation request cutoff date warning preference form.
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewConsultationRequestCuffOffDate() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -996,6 +1090,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves the provider's consultation request cutoff date warning preference.
+     *
+     * @return String {@code "gen"} to re-display with success status
+     */
     public String saveConsultationRequestCuffOffDate() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1034,6 +1133,11 @@ public class ProviderProperty2Action extends ActionSupport {
 
     //// CONSULT TEAM
 
+    /**
+     * Displays the consultation request team warning preference form with available teams.
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewConsultationRequestTeamWarning() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1077,6 +1181,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves the provider's consultation team warning preference.
+     *
+     * @return String {@code "gen"} to re-display with success status
+     */
     public String saveConsultationRequestTeamWarning() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

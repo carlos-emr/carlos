@@ -40,7 +40,15 @@ import io.github.carlos_emr.carlos.commn.dao.WorkFlowDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * Manages the persistence and retrieval of workflow instance states in the database.
+ *
+ * <p>Provides methods to create new workflow instances, update their states, and query
+ * for active or all workflow instances by type and demographic number. Uses
+ * {@link WorkFlowDao} for database access.</p>
+ *
+ * @see WorkFlowDao
+ * @see WorkFlow
+ * @since 2026-03-17
  */
 public class WorkFlowState {
     public final static String RHWORKFLOW = "RH";
@@ -53,6 +61,16 @@ public class WorkFlowState {
     }
 
     //TODO: need to add which providers added it  OR i could just logg it as well
+    /**
+     * Creates a new workflow instance with the specified parameters.
+     *
+     * @param workflowType String the workflow type identifier (e.g., "RH")
+     * @param providerNo String the provider initiating the workflow
+     * @param demographicNo String the patient's demographic number
+     * @param endDate Date the expected completion date
+     * @param current_state String the initial state key
+     * @return int the generated workflow instance identifier
+     */
     public int addToWorkFlow(String workflowType, String providerNo, String demographicNo, Date endDate, String current_state) {
         WorkFlow wf = new WorkFlow();
         wf.setWorkflowType(workflowType);
@@ -66,6 +84,12 @@ public class WorkFlowState {
         return wf.getId();
     }
 
+    /**
+     * Updates the current state of a workflow instance.
+     *
+     * @param workflowId String the workflow instance identifier
+     * @param state String the new state key to set
+     */
     public void updateWorkFlowState(String workflowId, String state) {
         WorkFlow wf = dao.find(Integer.parseInt(workflowId));
         if (wf != null) {
@@ -74,6 +98,13 @@ public class WorkFlowState {
         }
     }
 
+    /**
+     * Updates the current state and completion date of a workflow instance.
+     *
+     * @param workflowId String the workflow instance identifier
+     * @param state String the new state key to set
+     * @param date Date the new completion date
+     */
     public void updateWorkFlowState(String workflowId, String state, Date date) {
         WorkFlow wf = dao.find(Integer.parseInt(workflowId));
         if (wf != null) {
@@ -84,6 +115,12 @@ public class WorkFlowState {
     }
 
 
+    /**
+     * Returns all workflow instances of the specified type.
+     *
+     * @param workflowType String the workflow type identifier
+     * @return ArrayList of Hashtable workflow data maps
+     */
     public ArrayList getWorkFlowList(String workflowType) {
         ArrayList list = new ArrayList();
 
@@ -104,6 +141,12 @@ public class WorkFlowState {
         return list;
     }
 
+    /**
+     * Returns all active (non-closed) workflow instances of the specified type.
+     *
+     * @param workflowType String the workflow type identifier
+     * @return ArrayList of Hashtable workflow data maps
+     */
     public ArrayList getActiveWorkFlowList(String workflowType) {
         ArrayList list = new ArrayList();
 
@@ -124,6 +167,13 @@ public class WorkFlowState {
         return list;
     }
 
+    /**
+     * Returns active workflow instances of the specified type for a specific patient.
+     *
+     * @param workflowType String the workflow type identifier
+     * @param demographicNo String the patient's demographic number
+     * @return ArrayList of Hashtable workflow data maps
+     */
     public ArrayList getActiveWorkFlowList(String workflowType, String demographicNo) {
         ArrayList list = new ArrayList();
         List<WorkFlow> ws = dao.findActiveByWorkflowTypeAndDemographicNo(workflowType, demographicNo);
@@ -143,6 +193,12 @@ public class WorkFlowState {
     }
 
 
+    /**
+     * Translates an RH workflow state key to its human-readable display name.
+     *
+     * @param s Object the state key as a String
+     * @return String the human-readable state name, or {@code null} if the key is not recognized
+     */
     public static String rhState(Object s) {
         Hashtable h = new Hashtable();
         h.put("1", "No Appt made");

@@ -59,9 +59,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * All Data with getters should be HTML escaped.
- * For the parameters read in as query parameters this should already be escaped but
- * for things like the textMessage you need to escape it manually.
+ * UI backing bean for the ORU_R01 send form that prepares client demographic data
+ * and message content for transmission to a professional specialist. All getter data
+ * is HTML-escaped for safe rendering. Supports initialization from request parameters
+ * or from an existing clinical note (via noteId).
+ *
+ * <p>All data with getters should be HTML escaped. For parameters read in as query
+ * parameters this should already be escaped, but for things like the textMessage
+ * you need to escape it manually.</p>
+ *
+ * @since 2007-01-18
  */
 public final class SendOruR01UIBean {
 

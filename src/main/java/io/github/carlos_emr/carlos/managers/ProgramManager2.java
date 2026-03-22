@@ -38,6 +38,20 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing healthcare programs and provider-program
+ * assignments in the CARLOS EMR system.
+ *
+ * <p>Programs represent clinical or administrative groupings such as case
+ * management programs, community health initiatives, or specialized care
+ * teams. This manager handles program retrieval and provider domain
+ * management (which program a provider is currently working in).</p>
+ *
+ * @see ProgramManager2Impl
+ * @see io.github.carlos_emr.carlos.PMmodule.model.Program
+ * @see io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider
+ * @since 2026-03-17
+ */
 public interface ProgramManager2 {
 
     public Program getProgram(LoggedInInfo loggedInInfo, Integer programId);

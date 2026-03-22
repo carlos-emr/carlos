@@ -229,6 +229,11 @@ public final class ConfigXmlUtils {
         return nodeList;
     }
 
+    /**
+     * Returns the entire configuration map (category -&gt; property -&gt; value).
+     *
+     * @return HashMap&lt;String, HashMap&lt;String, Object&gt;&gt; the complete configuration
+     */
     public static HashMap<String, HashMap<String, Object>> getConfig() {
         return config;
     }

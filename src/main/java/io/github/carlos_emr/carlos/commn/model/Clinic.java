@@ -44,7 +44,17 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactR
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactType;
 
 /**
- * @author Jay Gallagher
+ * Represents a clinic location in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code clinic} table and stores the physical clinic's identifying
+ * information including name, address, phone, fax, and clinic-specific billing
+ * details. Implements {@link ContactInterface} for FHIR integration.</p>
+ *
+ * <p>The clinic entity is used for letterhead generation, billing submissions,
+ * and identifying the originating location for clinical documents and records.</p>
+ *
+ * @see ContactInterface
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "clinic")

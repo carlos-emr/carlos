@@ -108,6 +108,12 @@ public class VaccineProviderReport2Action extends ActionSupport {
      * list of medications
      *
      */
+    /**
+     * Generates the vaccine provider report by loading patient demographics and setting
+     * them as request attributes for the report view.
+     *
+     * @return String "report" on success, "error" if the client is not found
+     */
     public String show_report() {
         String clientId = request.getParameter("id");
 

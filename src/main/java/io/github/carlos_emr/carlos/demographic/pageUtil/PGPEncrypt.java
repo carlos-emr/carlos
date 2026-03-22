@@ -41,7 +41,19 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author Ronnie Cheng
+ * Provides PGP encryption for demographic export files.
+ *
+ * <p>Wraps the system's PGP command-line binary to encrypt files using a
+ * configured encryption key. PGP settings are loaded from CarlosProperties:</p>
+ * <ul>
+ *   <li>{@code PGP_BIN} - Path to the PGP binary executable</li>
+ *   <li>{@code PGP_CMD} - The encryption command to execute</li>
+ *   <li>{@code PGP_KEY} - The encryption key identifier</li>
+ *   <li>{@code PGP_ENV} - Environment variable for the PGP process</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.CarlosProperties
+ * @since 2026-03-17
  */
 public class PGPEncrypt {
     String bin;
@@ -49,6 +61,11 @@ public class PGPEncrypt {
     String key;
     String env;
 
+    /**
+     * Constructs a PGPEncrypt instance, loading configuration from CarlosProperties.
+     *
+     * <p>Logs warnings if any of the required PGP properties are not configured.</p>
+     */
     public PGPEncrypt() {
         CarlosProperties op = CarlosProperties.getInstance();
         this.bin = StringUtils.noNull(op.getProperty("PGP_BIN"));
@@ -64,6 +81,16 @@ public class PGPEncrypt {
             MiscUtils.getLogger().debug("Warning: PGP environment variable (PGP_ENV) not set!");
     }
 
+    /**
+     * Verifies that PGP encryption is functional by encrypting a test file.
+     *
+     * <p>Creates a temporary file, encrypts it, and cleans up both files to confirm
+     * that the PGP binary, command, and key are correctly configured.</p>
+     *
+     * @param dirName String the working directory to use for the test
+     * @return boolean true if encryption is functional, false otherwise
+     * @throws Exception if an unexpected error occurs during the check
+     */
     public boolean check(String dirName) throws Exception {
         if (!Util.checkDir(dirName)) {
             MiscUtils.getLogger().debug("Error! Cannot write to directory [" + dirName + "]");

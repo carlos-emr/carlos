@@ -96,6 +96,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 
+/**
+ * JAX-RS REST service for appointment scheduling and management.
+ *
+ * <p>Provides endpoints under {@code /schedule} for CRUD operations on appointments,
+ * day/monthly schedule retrieval, appointment status/type management, search
+ * configuration, and reporting. All endpoints consume and produce JSON.</p>
+ *
+ * <p>Supports convenience path substitutions: "me" for the current provider number,
+ * and "today" for the current date.</p>
+ *
+ * @since 2026-03-17
+ */
 @Path("/schedule")
 @Component("scheduleService")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -116,6 +128,12 @@ public class ScheduleService extends AbstractServiceImpl {
     @Autowired
     private BillingONCHeader1Dao billingONCHeader1Dao;
 
+    /**
+     * Retrieves appointments for the current provider on a specific date.
+     *
+     * @param date String the date in ISO 8601 format (yyyy-MM-dd), or "today"
+     * @return PatientListApptItemBean[] array of appointment items for the day
+     */
     @GET
     @Path("/day/{date}")
     @Produces("application/json")
@@ -124,17 +142,21 @@ public class ScheduleService extends AbstractServiceImpl {
         return getAppointmentsForDay(providerNo, date);
     }
 
+    /**
+     * Retrieves appointments for a specific provider on a specific date.
+     *
+     * <p>Supports convenience substitutions: "me" resolves to the current
+     * provider number, and "today" resolves to the current date.
+     * Example: {@code /schedule/me/day/today}</p>
+     *
+     * @param providerNo String the provider number, or "me" for the current provider
+     * @param date String the date in ISO 8601 format (yyyy-MM-dd), or "today"
+     * @return PatientListApptItemBean[] array of appointment items for the day
+     * @throws RuntimeException if the date format is invalid
+     */
     @GET
     @Path("/{providerNo}/day/{date}")
     @Produces("application/json")
-    /**
-     * Will substitute "me" to your logged in providers no, and "today" to doday's date.
-     * eg /schedule/me/day/today
-     *
-     * @param providerNo
-     * @param date
-     * @return
-     */
     public PatientListApptItemBean[] getAppointmentsForDay(@PathParam("providerNo") String providerNo, @PathParam("date") String date) {
         SimpleDateFormat timeFormatter = new SimpleDateFormat("hh:mm aa");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
@@ -177,6 +199,11 @@ public class ScheduleService extends AbstractServiceImpl {
         return response.getPatients().toArray(new PatientListApptItemBean[response.getPatients().size()]);
     }
 
+    /**
+     * Retrieves all configured appointment statuses.
+     *
+     * @return AbstractSearchResponse containing AppointmentStatusTo1 transfer objects
+     */
     @GET
     @Path("/statuses")
     @Produces("application/json")
@@ -192,6 +219,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Creates a new appointment.
+     *
+     * @param appointmentTo NewAppointmentTo1 the appointment data to create
+     * @return SchedulingResponse containing the newly created appointment
+     */
     @POST
     @Path("/add")
     @Produces("application/json")
@@ -212,6 +245,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves a single appointment by ID with full details.
+     *
+     * @param appointmentTo AppointmentTo1 containing the appointment ID to retrieve
+     * @return SchedulingResponse containing the appointment details
+     */
     @POST
     @Path("/getAppointment")
     @Produces("application/json")
@@ -228,6 +267,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Deletes an appointment by ID.
+     *
+     * @param appointmentTo AppointmentTo1 containing the appointment ID to delete
+     * @return Response with OK status on success
+     */
     @POST
     @Path("/deleteAppointment")
     @Consumes("application/json")
@@ -239,6 +284,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return Response.status(Status.OK).build();
     }
 
+    /**
+     * Updates an existing appointment.
+     *
+     * @param appointmentTo AppointmentTo1 the updated appointment data
+     * @return SchedulingResponse containing the updated appointment
+     */
     @POST
     @Path("/updateAppointment")
     @Consumes("application/json")
@@ -255,6 +306,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves appointment history for a patient, including billing details where available.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return SchedulingResponse containing the patient's appointment history with billing info
+     */
     @POST
     @Path("/{demographicNo}/appointmentHistory")
     @Consumes("application/json")
@@ -275,6 +332,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Builds a map of appointment IDs to their corresponding billing details for a patient.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return Map mapping appointment IDs to BillingDetailTo1 transfer objects
+     */
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
         List<BillingONCHeader1> billingHeaders = billingONCHeader1Dao.findByDemoNo(demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
         if (billingHeaders.size() == OscarAppointmentDao.MAX_LIST_RETURN_SIZE) {
@@ -291,6 +354,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return apptIdBillingMap;
     }
 
+    /**
+     * Retrieves appointment history for a patient, excluding deleted appointments.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return List of AppointmentTo1 transfer objects
+     */
     private List<AppointmentTo1> getAppointmentHistoryWithoutDeleted(Integer demographicNo) {
         SchedulingResponse response = new SchedulingResponse();
         List<Appointment> appts = appointmentManager.getAppointmentHistoryWithoutDeleted(getLoggedInInfo(), demographicNo, 0, OscarAppointmentDao.MAX_LIST_RETURN_SIZE);
@@ -301,6 +370,13 @@ public class ScheduleService extends AbstractServiceImpl {
         return converter.getAllAsTransferObjects(getLoggedInInfo(), appts);
     }
 
+    /**
+     * Updates the status of an existing appointment.
+     *
+     * @param id Integer the appointment ID
+     * @param appt AppointmentTo1 containing the new status value
+     * @return SchedulingResponse containing the updated appointment
+     */
     @POST
     @Path("/appointment/{id}/updateStatus")
     @Produces("application/json")
@@ -317,6 +393,13 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Updates the type of an existing appointment.
+     *
+     * @param id Integer the appointment ID
+     * @param appt AppointmentTo1 containing the new type value
+     * @return SchedulingResponse containing the updated appointment
+     */
     @POST
     @Path("/appointment/{id}/updateType")
     @Produces("application/json")

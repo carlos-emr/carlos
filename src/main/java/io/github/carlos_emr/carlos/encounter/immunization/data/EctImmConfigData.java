@@ -42,6 +42,12 @@ import org.w3c.dom.Node;
 
 import io.github.carlos_emr.carlos.util.UtilXML;
 
+/**
+ * Data access class for immunization configuration. Reads and writes immunization
+ * schedule configuration data from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctImmConfigData {
 
     private ConfigImmunizationDao configImmunizationDao = (ConfigImmunizationDao) SpringUtils.getBean(ConfigImmunizationDao.class);

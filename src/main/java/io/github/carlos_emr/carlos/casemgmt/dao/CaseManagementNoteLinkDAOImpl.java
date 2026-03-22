@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link CaseManagementNoteLinkDAO}. Provides HQL-based
+ * queries for note-to-clinical-entity links with ascending and descending ordering support.
+ *
+ * @since 2026-03-17
+ */
 @Transactional
 public class CaseManagementNoteLinkDAOImpl extends AbstractHibernateDao implements CaseManagementNoteLinkDAO {
 

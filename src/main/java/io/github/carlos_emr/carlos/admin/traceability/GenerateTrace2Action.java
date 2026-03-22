@@ -44,11 +44,19 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
 /**
- * Make use of pipe implementation
- * Produce compressed trace data
- * Pipe it to another process that decorates it and sends to client in form of a binary file
+ * Struts2 action that generates a compressed trace binary file of the current CARLOS EMR deployment.
  *
- * @author oscar
+ * <p>Builds a SHA-256 hash map of all deployed files, serializes and GZIP-compresses the data,
+ * and streams it to the client as a downloadable binary file. Uses piped streams with
+ * {@link TraceDataProcessor} and {@link TraceDataConsumer} running in parallel threads.
+ *
+ * <p>Requires {@code _admin.traceability} privilege. The generated trace file can later be
+ * uploaded to {@link GenerateTraceabilityReport2Action} for comparison.
+ *
+ * @see TraceDataProcessor
+ * @see TraceDataConsumer
+ * @see GenerateTraceabilityReport2Action
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -59,6 +67,12 @@ public class GenerateTrace2Action extends ActionSupport {
 
     public static int BUFFER_SIZE = 8192;
 
+    /**
+     * Generates the trace binary and streams it to the client as a downloadable file.
+     *
+     * @return String null (binary data is streamed directly to the response)
+     * @throws Exception if piped stream or thread processing fails
+     */
     public String execute() throws Exception {
         String userName = (String) request.getSession().getAttribute("user");
         String roleName$ = (String) request.getSession().getAttribute("userrole") + "," + userName;

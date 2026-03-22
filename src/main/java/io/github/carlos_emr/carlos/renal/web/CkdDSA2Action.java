@@ -43,6 +43,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that provides the CKD Decision Support Alert (DSA) detail view.
+ *
+ * <p>Screens a specific patient for CKD risk factors and populates the request
+ * with matching reasons for display in the DSA popup. Requires {@code _demographic}
+ * read privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CkdDSA2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -51,10 +60,21 @@ public class CkdDSA2Action extends ActionSupport {
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Delegates to the detail method.
+     *
+     * @return String the result of {@link #detail()}
+     */
     public String execute() {
         return detail();
     }
 
+    /**
+     * Screens the specified patient for CKD and populates the request with
+     * the patient name and matching reasons.
+     *
+     * @return String "detail" for the JSP view
+     */
     public String detail() {
         String demographicNo = request.getParameter("demographic_no");
 

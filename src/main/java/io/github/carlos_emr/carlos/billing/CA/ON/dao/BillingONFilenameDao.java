@@ -36,13 +36,30 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingONFilename} entities.
+ * Provides persistence operations for Ontario billing filename records,
+ * which track individual billing files within submission batches.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingONFilenameDao extends AbstractDaoImpl<BillingONFilename> {
 
+    /**
+     * Constructs a new {@code BillingONFilenameDao} with the {@link BillingONFilename} entity class.
+     */
     public BillingONFilenameDao() {
         super(BillingONFilename.class);
     }
 
+    /**
+     * Finds billing filenames by disk ID and status, ordered by ID descending.
+     *
+     * @param diskId Integer the disk submission batch ID
+     * @param status String the file status to filter by
+     * @return List of matching {@link BillingONFilename} records
+     */
     public List<BillingONFilename> findByDiskIdAndStatus(Integer diskId, String status) {
         String q = "SELECT b FROM BillingONFilename b WHERE b.diskId = ?1  AND b.status = ?2 ORDER BY b.id DESC";
         Query query = entityManager.createQuery(q);
@@ -55,6 +72,13 @@ public class BillingONFilenameDao extends AbstractDaoImpl<BillingONFilename> {
         return results;
     }
 
+    /**
+     * Finds billing filenames by disk ID and provider number, ordered by ID descending.
+     *
+     * @param diskId Integer the disk submission batch ID
+     * @param provider String the provider number
+     * @return List of matching {@link BillingONFilename} records
+     */
     public List<BillingONFilename> findByDiskIdAndProvider(Integer diskId, String provider) {
         String q = "SELECT b FROM BillingONFilename b WHERE b.diskId = ?1  AND b.providerNo = ?2 ORDER BY b.id DESC";
         Query query = entityManager.createQuery(q);
@@ -67,6 +91,12 @@ public class BillingONFilenameDao extends AbstractDaoImpl<BillingONFilename> {
         return results;
     }
 
+    /**
+     * Finds all billing filenames for a given disk ID.
+     *
+     * @param diskId Integer the disk submission batch ID
+     * @return List of all {@link BillingONFilename} records for the disk
+     */
     public List<BillingONFilename> findByDiskId(Integer diskId) {
         String q = "SELECT b FROM BillingONFilename b WHERE b.diskId = ?1";
         Query query = entityManager.createQuery(q);
@@ -78,6 +108,13 @@ public class BillingONFilenameDao extends AbstractDaoImpl<BillingONFilename> {
         return results;
     }
 
+    /**
+     * Finds non-deleted billing filenames for a given disk ID, ordered by ID descending.
+     * Excludes records with status 'D' (deleted).
+     *
+     * @param diskId Integer the disk submission batch ID
+     * @return List of current (non-deleted) {@link BillingONFilename} records
+     */
     public List<BillingONFilename> findCurrentByDiskId(Integer diskId) {
         String q = "SELECT b FROM BillingONFilename b WHERE b.diskId = ?1  AND b.status != ?2 ORDER BY b.id DESC";
         Query query = entityManager.createQuery(q);

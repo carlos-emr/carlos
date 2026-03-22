@@ -66,6 +66,18 @@ import ca.uhn.fhir.context.FhirContext;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Service for managing Canadian Vaccine Catalogue (CVC) data via FHIR integration
+ * in the CARLOS EMR system.
+ *
+ * <p>Fetches and synchronizes vaccine medication data, immunization mappings,
+ * GTIN codes, and lot numbers from the CVC FHIR server. Caches the data locally
+ * in the database for offline use during prevention record entry.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.model.CVCMedication
+ * @see io.github.carlos_emr.carlos.commn.model.CVCImmunization
+ * @since 2026-03-17
+ */
 @Service
 public class CanadianVaccineCatalogueManager {
 

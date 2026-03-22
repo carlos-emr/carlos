@@ -37,20 +37,38 @@ import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Read compressed data from input stream,
- * Write it to servlet output stream for consuming(downloading) by client
+ * Callable that reads compressed trace data from a piped input stream and streams it
+ * to the HTTP response as a downloadable binary file.
  *
- * @author oscar
+ * <p>The output filename is derived from the server's hostname
+ * (e.g., trace_myserver.bin). Runs in a separate thread from the
+ * {@link TraceDataProcessor} producer, connected via piped streams.
+ *
+ * @see TraceDataProcessor
+ * @see GenerateTrace2Action
+ * @since 2026-03-17
  */
 public class TraceDataConsumer implements Callable<String> {
     private InputStream inputStream;
     private HttpServletResponse response;
 
+    /**
+     * Constructs a consumer that reads from the given input stream and writes to the response.
+     *
+     * @param inputStream InputStream the piped input stream from the trace data producer
+     * @param response HttpServletResponse the HTTP response to stream the binary data to
+     */
     public TraceDataConsumer(InputStream inputStream, HttpServletResponse response) {
         this.inputStream = inputStream;
         this.response = response;
     }
 
+    /**
+     * Reads compressed trace data from the input stream and writes it as a binary download.
+     *
+     * @return String the class name of this consumer
+     * @throws Exception if an I/O error occurs during streaming
+     */
     @Override
     public String call() throws Exception {
         //setting content type to 'binary'

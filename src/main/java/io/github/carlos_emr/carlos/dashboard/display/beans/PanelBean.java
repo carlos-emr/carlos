@@ -32,6 +32,13 @@ import java.util.List;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
+/**
+ * Display bean representing a top-level dashboard panel, grouped by indicator category.
+ * Each panel contains one or more {@link IndicatorPanelBean} objects sorted by
+ * indicator sub-category.
+ *
+ * @since 2026-03-17
+ */
 public class PanelBean {
 
     private String name;

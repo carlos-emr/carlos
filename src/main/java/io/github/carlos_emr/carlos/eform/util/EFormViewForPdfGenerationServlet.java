@@ -34,12 +34,33 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 
 /**
- * The purpose of this servlet is to allow a local process to convert an eform html page into a pdf file.
+ * Servlet that serves eForm HTML content exclusively to localhost processes for
+ * PDF generation. Loads a filled eForm by its form data ID, injects signatures
+ * and image paths, and streams the processed HTML for conversion to PDF by an
+ * external rendering engine.
+ *
+ * <p>Restricted to requests from {@code 127.0.0.1} only. Remote requests
+ * receive a 403 Forbidden response. Supports a {@code prepareForFax} mode
+ * that wraps letter content with margin offsets.</p>
+ *
+ * @see EFormImageViewForPdfGenerationServlet
+ * @see EFormSignatureViewForPdfGenerationServlet
+ * @since 2008-01-01
  */
 public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Loads and renders the eForm HTML for PDF generation. Validates the request
+     * originates from localhost, loads the form data, injects signatures and image
+     * paths, and writes the HTML to the response.
+     *
+     * @param request HttpServletRequest containing {@code fdid} and optional {@code providerId} parameters
+     * @param response HttpServletResponse to write the processed HTML to
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if writing to the response fails
+     */
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.

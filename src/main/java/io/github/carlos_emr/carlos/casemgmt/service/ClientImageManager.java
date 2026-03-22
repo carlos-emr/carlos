@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 
+/**
+ * Service interface for managing patient (client) photographs in the case management system.
+ * Provides save, retrieve, and delete operations for client images.
+ *
+ * @since 2026-03-17
+ */
 public interface ClientImageManager {
     void setClientImageDAO(ClientImageDAO dao);
 

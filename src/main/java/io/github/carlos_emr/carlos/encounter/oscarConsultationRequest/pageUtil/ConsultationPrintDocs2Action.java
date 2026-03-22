@@ -51,6 +51,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that generates printable PDF versions of consultation requests.
+ *
+ * @since 2001-01-01
+ */
 public class ConsultationPrintDocs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

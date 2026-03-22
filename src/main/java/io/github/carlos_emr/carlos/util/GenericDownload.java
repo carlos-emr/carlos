@@ -56,6 +56,14 @@ public class GenericDownload extends HttpServlet {
     public GenericDownload() {
     }
 
+    /**
+     * Handles GET requests by resolving the file directory from a CARLOS property
+     * and streaming the requested file to the response.
+     *
+     * @param req HttpServletRequest containing {@code filename}, {@code dir_property}, and optional {@code contentType} parameters
+     * @param res HttpServletResponse the response to write the file to
+     * @throws IOException if a file transfer error occurs
+     */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
         HttpSession session = req.getSession(true);
 
@@ -75,6 +83,16 @@ public class GenericDownload extends HttpServlet {
 
     }
 
+    /**
+     * Downloads a file or displays an access denied message.
+     *
+     * @param bDownload boolean true to proceed with download, false to show an error page
+     * @param res HttpServletResponse the response to write to
+     * @param dir String the directory containing the file
+     * @param filename String the name of the file to download
+     * @param contentType String the MIME type, or null for {@code application/octet-stream}
+     * @throws IOException if a file transfer error occurs
+     */
     public void download(boolean bDownload, HttpServletResponse res, String dir, String filename, String contentType)
             throws IOException {
         if (bDownload) {

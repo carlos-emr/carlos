@@ -38,9 +38,15 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AppDefinition;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link AppDefinitionDao} for managing OAuth application definitions.
+ *
+ * @since 2001
+ */
 @Repository
 public class AppDefinitionDaoImpl extends AbstractDaoImpl<AppDefinition> implements AppDefinitionDao {
 
+    /** Constructs the application definition DAO for the {@link AppDefinition} entity class. */
     public AppDefinitionDaoImpl() {
         super(AppDefinition.class);
     }

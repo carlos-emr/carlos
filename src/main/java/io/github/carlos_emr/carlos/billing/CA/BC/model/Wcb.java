@@ -41,6 +41,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Workers' Compensation Board (WCB) billing record
+ * in British Columbia. Maps to the {@code wcb} table, storing WCB claim details
+ * including injury information, employer details, and billing associations.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "wcb")
 public class Wcb extends AbstractModel<Integer> {

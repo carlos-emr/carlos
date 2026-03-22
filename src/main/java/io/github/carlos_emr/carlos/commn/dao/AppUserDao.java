@@ -34,7 +34,22 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.AppUser;
 
+/**
+ * DAO interface for managing OAuth application user associations.
+ * <p>
+ * Provides operations to look up application-specific user credentials
+ * linked to healthcare providers in the CARLOS EMR system.
+ *
+ * @since 2001
+ */
 public interface AppUserDao extends AbstractDao<AppUser> {
 
+    /**
+     * Finds the application user record for a specific provider in a given application.
+     *
+     * @param appId      int the application definition identifier
+     * @param providerNo String the provider number
+     * @return the matching {@link AppUser}, or {@code null} if not found
+     */
     public AppUser findForProvider(int appId, String providerNo);
 }

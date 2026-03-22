@@ -46,6 +46,30 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
+/**
+ * Represents an extended property for a patient (demographic) record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code demographicExt} table and provides a flexible key-value extension
+ * mechanism for storing additional demographic attributes that are not part of the core
+ * {@link Demographic} entity. Each extension record is linked to a specific demographic
+ * and identified by a key string.</p>
+ *
+ * <p>Common demographic properties tracked via this extension mechanism include:</p>
+ * <ul>
+ *   <li>Public Health Unit (PHU) assignment</li>
+ *   <li>Employment status</li>
+ *   <li>Privacy and informed consent flags</li>
+ *   <li>First Nations community and family information</li>
+ *   <li>Ethnicity and area codes</li>
+ *   <li>Phone extension numbers and cell phone</li>
+ * </ul>
+ *
+ * <p>The {@link DemographicProperty} enum defines the standardized key names for
+ * commonly used extension properties.</p>
+ *
+ * @see Demographic
+ * @since 2012-01-11
+ */
 @Entity
 @Table(name = "demographicExt")
 public class DemographicExt extends AbstractModel<Integer> implements Serializable {

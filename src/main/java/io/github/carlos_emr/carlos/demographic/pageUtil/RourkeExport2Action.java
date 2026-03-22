@@ -61,6 +61,20 @@ import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.util.*;
 
+/**
+ * Struts2 action for exporting Rourke Baby Record data in CDS XML format.
+ *
+ * <p>Exports pediatric growth and development records from the Rourke 2009 form
+ * into CDS-compliant XML documents. Supports batch exports by demographic set
+ * with ZIP packaging for multiple patients.</p>
+ *
+ * <p>The Rourke Baby Record is a standardized well-baby/well-child visit form
+ * used across Canadian healthcare practices for tracking developmental milestones,
+ * growth measurements, and preventive care.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.forms.Rourke2009DAO
+ * @since 2026-03-17
+ */
 public class RourkeExport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

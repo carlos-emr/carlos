@@ -38,7 +38,17 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Data transfer object representing the current state of a workflow instance, used as
+ * a Drools fact object for rule evaluation.
+ *
+ * <p>Contains workflow metadata (type, state, dates, demographic) and rule-evaluated
+ * properties such as {@code colour} that indicate the urgency or status of the workflow.
+ * The {@link #getGestationAge()} method calculates gestational age from the completion
+ * date for prenatal workflow rules.</p>
+ *
+ * @see WorkFlowDS
+ * @see WorkFlow
+ * @since 2026-03-17
  */
 public class WorkFlowInfo {
 
@@ -56,6 +66,12 @@ public class WorkFlowInfo {
     public WorkFlowInfo() {
     }
 
+    /**
+     * Constructs a WorkFlowInfo populated from a workflow data map.
+     *
+     * @param h Hashtable the workflow data containing keys "ID", "workflow_type",
+     *          "create_date_time", "demographic_no", "completion_date", "current_state"
+     */
     public WorkFlowInfo(Hashtable h) {
         MiscUtils.getLogger().debug("loading data...");
         this.setID((String) h.get("ID"));
@@ -123,6 +139,12 @@ public class WorkFlowInfo {
         this.colour = colour;
     }
 
+    /**
+     * Checks whether this workflow instance is in the specified state.
+     *
+     * @param state String the state key to compare against
+     * @return boolean {@code true} if the current state matches the specified state
+     */
     public boolean isCurrentState(String state) {
         boolean is = false;
         if (state != null && currentState != null) {
@@ -133,6 +155,14 @@ public class WorkFlowInfo {
         return is;
     }
 
+    /**
+     * Calculates the gestational age in weeks based on the completion (due) date.
+     *
+     * <p>Used by prenatal workflow Drools rules to determine appropriate actions
+     * based on gestational timing. Returns -1 if no completion date is set.</p>
+     *
+     * @return int the gestational age in weeks, or -1 if the completion date is null
+     */
     public int getGestationAge() {
         //TODO: WHAT HAPPENS WITH NO EDD???
         int ret = -1;
