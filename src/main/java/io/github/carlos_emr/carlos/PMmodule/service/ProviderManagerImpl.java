@@ -102,10 +102,12 @@ public class ProviderManagerImpl implements ProviderManager {
         return providerDao.getActiveProviders();
     }
 
+    /** {@inheritDoc} */
     public List<Provider> getActiveProviders(String facilityId, String programId) {
         return providerDao.getActiveProviders(facilityId, programId);
     }
 
+    /** {@inheritDoc} */
     public List<Provider> getActiveProviders(String providerNo, Integer shelterId) {
         return providerDao.getActiveProviders(providerNo, shelterId);
     }

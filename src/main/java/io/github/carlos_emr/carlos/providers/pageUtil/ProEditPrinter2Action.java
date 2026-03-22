@@ -38,6 +38,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for editing a provider's default printer configuration.
+ *
+ * @since 2001-01-01
+ */
 public class ProEditPrinter2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private UserPropertyDAO propertyDao = SpringUtils.getBean(UserPropertyDAO.class);
