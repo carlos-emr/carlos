@@ -34,6 +34,13 @@ import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 
 import javax.xml.datatype.XMLGregorianCalendar;
 
+/**
+ * Interface for Ontario health card validation (HCV) operations, supporting
+ * single and batch validation of Health Insurance Numbers (HIN) against
+ * the Ontario Ministry of Health validation service.
+ *
+ * @since 2014-07-25
+ */
 public interface HCValidator {
 
     String VALID_RESPONSE_CODE = "51";

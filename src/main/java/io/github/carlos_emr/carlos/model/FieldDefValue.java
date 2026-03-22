@@ -27,6 +27,12 @@ package io.github.carlos_emr.carlos.model;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 
+/**
+ * Value object representing a field definition within a lookup table,
+ * including the field name, type, length, and display properties.
+ *
+ * @since 2005-01-01
+ */
 public class FieldDefValue extends BaseObject {
     private String tableId;
     private String fieldName;

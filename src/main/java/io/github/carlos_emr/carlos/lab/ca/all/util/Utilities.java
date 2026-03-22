@@ -60,6 +60,13 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Utility class for lab file processing operations including splitting HL7 flat files
+ * into individual messages, saving uploaded files to the filesystem, and reading
+ * file contents. Handles MSH and FHS segment boundaries for multi-message files.
+ *
+ * @since 2007-01-18
+ */
 public class Utilities {
 
     private static final Logger logger = MiscUtils.getLogger();

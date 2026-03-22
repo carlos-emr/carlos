@@ -304,6 +304,13 @@ public class ScheduleWs extends AbstractWs {
         return (cal);
     }
 
+    /**
+     * Retrieves all patient demographic IDs associated with a specific program and provider.
+     *
+     * @param programId Integer the program ID to filter by
+     * @param providerNo String the provider number to filter by
+     * @return Integer[] array of demographic IDs
+     */
     public Integer[] getAllDemographicIdByProgramProvider(Integer programId, String providerNo) {
         List<Integer> results = scheduleManager.getAllDemographicIdByProgramProvider(getLoggedInInfo(), programId, providerNo);
         return (results.toArray(new Integer[0]));

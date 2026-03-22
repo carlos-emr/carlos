@@ -51,6 +51,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Online implementation of {@link HCValidator} that validates Ontario health cards
+ * against the Ministry of Health HCV web service via EDT client connectivity.
+ *
+ * @see HCValidator
+ * @since 2014-07-25
+ */
 public class OnlineHCValidator implements HCValidator {
     private static Logger logger = MiscUtils.getLogger();
 

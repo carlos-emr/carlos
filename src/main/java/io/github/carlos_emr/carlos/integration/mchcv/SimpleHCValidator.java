@@ -33,6 +33,13 @@ import ca.ontario.health.hcv.Requests;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 
+/**
+ * Simple implementation of {@link HCValidator} that performs basic health card
+ * validation using a direct web service call without the full EDT client infrastructure.
+ *
+ * @see HCValidator
+ * @since 2014-07-25
+ */
 public class SimpleHCValidator implements HCValidator {
 
     @Override

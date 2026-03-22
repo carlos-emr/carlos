@@ -40,6 +40,12 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a default clinical issue that can be assigned to patient encounters
+ * in the case management system.
+ *
+ * @since 2005-01-01
+ */
 @Entity
 @Table(name = "default_issue")
 public class DefaultIssue extends AbstractModel<Integer> {

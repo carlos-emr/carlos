@@ -46,6 +46,11 @@ import io.github.carlos_emr.CarlosProperties;
 
 @Path("/billing")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for healthcare billing operations including claims and service codes.
+ *
+ * @since 2012-08-13
+ */
 public class BillingService extends AbstractServiceImpl {
 
     @Autowired

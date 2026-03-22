@@ -49,6 +49,11 @@ import org.springframework.stereotype.Component;
 @Path("/allergies")
 @Component("allergyService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for patient allergy management operations.
+ *
+ * @since 2012-08-13
+ */
 public class AllergyService extends AbstractServiceImpl {
 
     @Autowired

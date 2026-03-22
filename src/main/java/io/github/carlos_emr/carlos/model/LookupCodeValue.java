@@ -30,6 +30,12 @@ import io.github.carlos_emr.Misc;
 import java.util.Calendar;
 import java.util.List;
 
+/**
+ * Value object representing a code entry in a lookup table, with fields for code,
+ * description, prefix, and associated field values.
+ *
+ * @since 2005-01-01
+ */
 public class LookupCodeValue {
     private String prefix;
     private String code;

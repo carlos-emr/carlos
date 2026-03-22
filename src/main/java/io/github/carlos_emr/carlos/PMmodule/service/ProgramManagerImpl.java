@@ -137,14 +137,17 @@ public class ProgramManagerImpl implements ProgramManager {
         return programDao.getProgram(Integer.valueOf(programId));
     }
 
+    /** {@inheritDoc} */
     public Program getProgram(Integer programId) {
         return programDao.getProgram(programId);
     }
 
+    /** {@inheritDoc} */
     public Program getProgram(Long programId) {
         return programDao.getProgram(Integer.valueOf(programId.intValue()));
     }
 
+    /** {@inheritDoc} */
     public List<Program> getActiveProgramByFacility(String providerNo, Integer facilityId) {
         List<Program> programs = new ArrayList<Program>();
         for (ProgramProvider programProvider : programProviderDAO.getProgramDomainByFacility(providerNo, facilityId)) {

@@ -43,6 +43,13 @@ import io.github.carlos_emr.carlos.commn.model.PublicKey;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Utility class for generating and managing RSA key pairs used in encrypted
+ * lab data exchange. Handles key generation, storage in the database, and
+ * retrieval for inter-EMR communication cryptographic operations.
+ *
+ * @since 2007-01-18
+ */
 public final class KeyPairGen {
 
     private static Logger logger = MiscUtils.getLogger();

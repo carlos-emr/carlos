@@ -45,6 +45,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Path("/app")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for application-level operations and configuration.
+ *
+ * @since 2012-08-13
+ */
 public class AppService extends AbstractServiceImpl {
     protected Logger logger = MiscUtils.getLogger();
 

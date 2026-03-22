@@ -66,6 +66,15 @@ public class DemographicPatientStatusRosterStatusHandler {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Sets patient status to inactive for all demographic IDs in the given JSON array string.
+     *
+     * @param jsonString String JSON array of demographic numbers
+     * @return Boolean {@code true} if all patients were updated, {@code false} on any failure
+     * @throws JsonParseException if the JSON string cannot be parsed
+     * @throws JsonMappingException if the JSON cannot be mapped to an array
+     * @throws Exception if any unexpected error occurs
+     */
     public Boolean setPatientStatusInactiveJson(String jsonString) throws JsonParseException, JsonMappingException, Exception {
         Boolean result = false;
         if (jsonString == null || jsonString.isEmpty()) return false;

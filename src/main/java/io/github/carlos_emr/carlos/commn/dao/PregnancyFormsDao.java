@@ -89,6 +89,12 @@ public interface PregnancyFormsDao {
         return 0;
     }
 
+    /**
+     * Returns the most recent ONAR 2005 form ID for the given patient.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return Integer the most recent form ID, or 0 if not found or on error
+     */
     public static Integer getLatestAR2005FormIdByDemographicNo(Integer demographicNo) {
         String sql = "SELECT id from formONAR WHERE demographic_no=" + demographicNo + " ORDER BY formEdited DESC";
         ResultSet rs = DBHelp.searchDBRecord(sql);

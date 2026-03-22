@@ -47,6 +47,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  */
 @Produces({"application/xml"})
 @Consumes({"application/xml"})
+/**
+ * Abstract base class for all JAX-RS REST service implementations in the CARLOS EMR API.
+ *
+ * <p>Provides common infrastructure including HTTP context injection, security
+ * validation, and logged-in user resolution for REST endpoints.
+ *
+ * @since 2012-08-13
+ */
 public abstract class AbstractServiceImpl {
 
     protected HttpServletRequest getHttpServletRequest() {
