@@ -77,15 +77,18 @@ public class ProgramQueueManagerImpl implements ProgramQueueManager {
         this.dao = dao;
     }
 
+    /** {@inheritDoc} */
     public void setClientReferralDAO(ClientReferralDAO dao) {
         this.referralDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public ProgramQueue getProgramQueue(String queueId) {
         ProgramQueue pq = dao.getProgramQueue(Long.valueOf(queueId));
         return pq;
     }
 
+    /** {@inheritDoc} */
     public List<ProgramQueue> getProgramQueuesByProgramId(Long programId) {
         return dao.getProgramQueuesByProgramId(programId);
     }

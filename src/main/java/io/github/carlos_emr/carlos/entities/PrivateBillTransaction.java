@@ -32,6 +32,12 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Entity representing a private billing payment transaction, tracking the amount received,
+ * payment type, date, and association to a billing master record.
+ *
+ * @since 2001-01-01
+ */
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;

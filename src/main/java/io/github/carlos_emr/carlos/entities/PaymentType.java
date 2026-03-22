@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Value object representing a payment type classification used in the billing system,
+ * mapping an identifier to a payment type description (e.g., cash, cheque, credit).
+ *
+ * @since 2001-01-01
+ */
 public class PaymentType {
     private String id;
     private String paymentType;

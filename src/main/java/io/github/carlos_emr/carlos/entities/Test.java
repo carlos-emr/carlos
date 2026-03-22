@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Base entity representing a laboratory test with its description, value, and
+ * frequency. Serves as the parent class for specialized test types like {@link LabTest}.
+ *
+ * @since 2001-01-01
+ */
 public class Test {
     private String id;
     private String description;
