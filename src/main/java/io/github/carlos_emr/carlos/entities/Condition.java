@@ -29,8 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
-// Class Condition
-//
+/**
+ * Extension of {@link ClinicalFactor} representing a medical condition documented
+ * in a billing or WCB claim context.
+ *
+ * @since 2001-01-01
+ */
 public class Condition
         extends ClinicalFactor {
     // Fields
