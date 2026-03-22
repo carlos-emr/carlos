@@ -34,11 +34,23 @@ import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.PMmodule.service.OscarSecurityManager;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of {@link OscarSecurityManager} for managing security roles
+ * within the CARLOS EMR Program Management module.
+ *
+ * @see OscarSecurityManager
+ * @since 2005
+ */
 @Transactional
 public class OscarSecurityManagerImpl implements OscarSecurityManager {
 
     private SecUserRoleDao dao;
 
+    /**
+     * Sets the security user role data access object.
+     *
+     * @param dao SecUserRoleDao the user role DAO to inject
+     */
     public void setSecUserRoleDao(SecUserRoleDao dao) {
         this.dao = dao;
     }

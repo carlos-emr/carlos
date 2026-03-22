@@ -79,6 +79,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 @Path("/recordUX/")
 @Component("recordUxService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for patient record user experience and navigation operations.
+ *
+ * @since 2012-08-13
+ */
 public class RecordUxService extends AbstractServiceImpl {
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper objectMapper = new ObjectMapper();

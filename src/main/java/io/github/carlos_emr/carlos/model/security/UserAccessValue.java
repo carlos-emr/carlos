@@ -27,6 +27,12 @@ package io.github.carlos_emr.carlos.model.security;
 
 import java.io.Serializable;
 
+/**
+ * Value object representing a user's access permissions, combining provider identity
+ * with organizational codes, function codes, and access levels for security evaluation.
+ *
+ * @since 2005-01-01
+ */
 public class UserAccessValue implements Serializable {
 
     String providerNo;

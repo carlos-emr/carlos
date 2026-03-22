@@ -40,6 +40,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Path("/reportByTemplate")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for template-based clinical report generation.
+ *
+ * @since 2012-08-13
+ */
 public class ReportByTemplateService extends AbstractServiceImpl {
     @Autowired
     private SecurityInfoManager securityInfoManager;

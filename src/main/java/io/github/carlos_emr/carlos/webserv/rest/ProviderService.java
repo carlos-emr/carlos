@@ -83,6 +83,11 @@ import org.springframework.stereotype.Component;
 @Path("/providerService/")
 @Produces("application/xml")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for healthcare provider information and preference operations.
+ *
+ * @since 2012-08-13
+ */
 public class ProviderService extends AbstractServiceImpl {
 
     private static final Logger logger = MiscUtils.getLogger();

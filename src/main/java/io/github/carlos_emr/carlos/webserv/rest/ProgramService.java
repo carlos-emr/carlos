@@ -55,6 +55,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Path("/program")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for program management and admission operations.
+ *
+ * @since 2012-08-13
+ */
 public class ProgramService extends AbstractServiceImpl {
 
 

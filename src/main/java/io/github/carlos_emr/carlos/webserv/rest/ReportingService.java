@@ -70,6 +70,11 @@ import org.springframework.stereotype.Component;
 @Path("/reporting/")
 @Component
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for clinical and administrative reporting operations.
+ *
+ * @since 2012-08-13
+ */
 public class ReportingService extends AbstractServiceImpl {
     private static Logger logger = MiscUtils.getLogger();
 
