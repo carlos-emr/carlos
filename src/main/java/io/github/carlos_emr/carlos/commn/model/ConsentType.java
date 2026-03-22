@@ -36,6 +36,20 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Represents a consent type definition in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code consentType} table and defines the categories of consent
+ * that patients can be asked to provide or withdraw. Each consent type has a name,
+ * type classification, description, and optional remote-enabled flag for cross-facility
+ * consent management.</p>
+ *
+ * <p>The {@link #PROVIDER_CONSENT_FILTER} constant identifies the consent type
+ * used for provider-level consent filtering.</p>
+ *
+ * @see Consent
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "consentType")
 public class ConsentType extends AbstractModel<Integer> {

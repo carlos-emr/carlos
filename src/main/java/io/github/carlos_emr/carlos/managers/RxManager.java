@@ -42,6 +42,19 @@ import java.util.List;
 import java.util.Set;
 
 
+/**
+ * Service interface for managing prescription drug records and favorites in the
+ * CARLOS EMR system.
+ *
+ * <p>Provides operations for retrieving patient drug lists by status, managing
+ * prescription favorites, saving and renewing prescriptions, and querying
+ * drug interaction and allergy information.</p>
+ *
+ * @see RxManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Drug
+ * @see io.github.carlos_emr.carlos.commn.model.Prescription
+ * @since 2026-03-17
+ */
 public interface RxManager {
 
     //public static class PrescriptionDrugs{};

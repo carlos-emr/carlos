@@ -31,6 +31,13 @@
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 
+/**
+ * Simple bean representing a measurement group name. Implements value-based equality
+ * using the group name for deduplication in collections.
+ *
+ * @see RptGroupNameBeanHandler
+ * @since 2001-01-01
+ */
 public class RptGroupNameBean {
 
     String groupName;

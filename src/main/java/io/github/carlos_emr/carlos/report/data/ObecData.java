@@ -49,7 +49,12 @@ import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * This classes main function ObecGenerate collects a group of patients with health insurance number for OHIP validation in the last specified date
+ * Generates OBEC (Ontario Billing Eligibility Check) files for OHIP health insurance
+ * number validation. Collects patient HIN and version codes from appointments within
+ * a date range and writes them in OBEC01 fixed-width format to a file that is then
+ * copied to the EDT outbox for submission.
+ *
+ * @since 2001-01-01
  */
 public class ObecData {
     private static Logger logger = MiscUtils.getLogger();

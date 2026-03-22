@@ -50,6 +50,11 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Handler that retrieves patient measurement data records from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctMeasurementsDataBeanHandler {
 
     Vector<EctMeasurementsDataBean> measurementsDataVector = new Vector<EctMeasurementsDataBean>();

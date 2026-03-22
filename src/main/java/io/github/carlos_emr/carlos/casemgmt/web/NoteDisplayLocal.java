@@ -43,6 +43,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 
+/**
+ * Local implementation of {@link NoteDisplay} that wraps a {@link CaseManagementNote}
+ * and provides display-ready accessors for the case management UI. Lazily loads
+ * linked issues and note links from their respective DAOs.
+ *
+ * @since 2026-03-17
+ */
 public class NoteDisplayLocal implements NoteDisplay {
     private CaseManagementIssueNotesDao caseManagementIssueNotesDao = (CaseManagementIssueNotesDao) SpringUtils.getBean(CaseManagementIssueNotesDao.class);
 

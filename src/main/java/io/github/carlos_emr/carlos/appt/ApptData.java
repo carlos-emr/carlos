@@ -27,6 +27,15 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * Data transfer object representing appointment information used in the presentation layer.
+ *
+ * <p>Holds all fields of an appointment record as strings, including date, time, patient,
+ * provider, billing, status, and reason information. Provides convenience methods for
+ * parsing date and time strings into {@link java.util.Date} objects.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ApptData {
     String appointment_no;
     String provider_no;
@@ -215,14 +224,32 @@ public class ApptData {
     }
 
 
+    /**
+     * Parses the appointment date string into a {@link Date} object using {@code yyyy-MM-dd} format.
+     *
+     * @return Date the parsed appointment date
+     * @throws ParseException if the date string is not in the expected format
+     */
     public Date getDateAppointmentDate() throws ParseException {
         return stringToDateOrTime(this.appointment_date, true);
     }
 
+    /**
+     * Parses the start time string into a {@link Date} object using {@code HH:mm:ss} format.
+     *
+     * @return Date the parsed start time
+     * @throws ParseException if the time string is not in the expected format
+     */
     public Date getDateStartTime() throws ParseException {
         return stringToDateOrTime(this.start_time, false);
     }
 
+    /**
+     * Parses the end time string into a {@link Date} object using {@code HH:mm:ss} format.
+     *
+     * @return Date the parsed end time
+     * @throws ParseException if the time string is not in the expected format
+     */
     public Date getDateEndTime() throws ParseException {
         return stringToDateOrTime(this.end_time, false);
     }

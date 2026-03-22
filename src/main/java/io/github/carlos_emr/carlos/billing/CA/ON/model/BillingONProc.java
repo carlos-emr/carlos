@@ -43,6 +43,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an Ontario billing procedure record.
+ * Maps to the {@code billing_on_proc} table, storing billing procedure details
+ * associated with billing submissions in the Ontario OHIP system.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_on_proc")
 public class BillingONProc extends AbstractModel<Integer> {

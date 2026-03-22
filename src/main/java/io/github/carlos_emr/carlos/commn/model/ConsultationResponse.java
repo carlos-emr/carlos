@@ -44,7 +44,15 @@ import jakarta.persistence.TemporalType;
 import java.util.Date;
 
 /**
- * @author Ronnie Cheng
+ * Represents a consultation response in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code consultationResponse} table and tracks the specialist's
+ * response to a {@link ConsultationRequest}. Contains the response date, clinical
+ * findings, follow-up instructions, and associated documentation from the
+ * specialist consultation.</p>
+ *
+ * @see ConsultationRequest
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "consultationResponse")

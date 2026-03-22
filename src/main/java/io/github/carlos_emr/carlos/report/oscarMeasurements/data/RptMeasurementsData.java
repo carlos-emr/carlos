@@ -38,7 +38,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 
 /**
- * This classes main function ConsultReportGenerate collects a group of patients with consults in the last specified date
+ * Data provider for measurement-based reports. Queries the measurement table to count
+ * and retrieve distinct patients who have had measurements recorded within a given
+ * date range. Used by CDM (Chronic Disease Management) reporting.
+ *
+ * @since 2001-01-01
  */
 public class RptMeasurementsData {
 

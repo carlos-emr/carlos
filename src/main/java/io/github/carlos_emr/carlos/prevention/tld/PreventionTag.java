@@ -46,11 +46,23 @@ import io.github.carlos_emr.carlos.prevention.PreventionData;
 
 
 /**
- * @author Jay Gallagher
+ * JSP custom tag that renders prevention warning indicators for a patient.
+ *
+ * <p>Evaluates the Drools prevention rules for the specified demographic number
+ * and wraps the tag body in a {@code <span>} element. If warnings exist, the span
+ * is styled in red with a title attribute containing the warning messages.</p>
+ *
+ * <p>Usage in JSP: {@code <prevention:warnings demographicNo="${demo.demographicNo}">...</prevention:warnings>}</p>
+ *
+ * @since 2001-2002
+ * @see Prevention
+ * @see PreventionDS
+ * @see PreventionData
  */
 public class PreventionTag extends TagSupport {
 
 
+    /** Default constructor, initializes warning count to zero. */
     public PreventionTag() {
         numWarnings = 0;
     }

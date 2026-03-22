@@ -32,6 +32,16 @@ import jakarta.persistence.Transient;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Hospital Report Manager document received from Ontario MD.
+ *
+ * <p>Stores metadata about the report including type, status, hash values for duplicate
+ * detection, source facility, patient demographics, recipient provider information,
+ * and parent-child relationships for versioned reports. Eagerly loads associated
+ * demographics, providers, and sub-classes.</p>
+ *
+ * @since 2008-11-05
+ */
 @Entity
 public class HRMDocument extends AbstractModel<Integer> {
 

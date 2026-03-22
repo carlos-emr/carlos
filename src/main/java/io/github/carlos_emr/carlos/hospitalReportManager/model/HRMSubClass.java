@@ -24,6 +24,14 @@ import jakarta.persistence.ManyToOne;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an HRM sub-class mapping configuration that maps
+ * report class names, sub-class names, and mnemonics to categories for a
+ * given sending facility.
+ *
+ * @see HRMCategory
+ * @since 2008-11-05
+ */
 @Entity
 public class HRMSubClass extends AbstractModel<Integer> {
     @Id

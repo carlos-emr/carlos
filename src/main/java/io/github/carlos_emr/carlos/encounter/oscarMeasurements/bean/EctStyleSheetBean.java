@@ -31,6 +31,11 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 
 
+/**
+ * Bean representing a measurement display style sheet entry.
+ *
+ * @since 2001-01-01
+ */
 public class EctStyleSheetBean {
 
     String styleSheetName;

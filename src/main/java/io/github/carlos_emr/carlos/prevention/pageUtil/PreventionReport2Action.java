@@ -187,15 +187,30 @@ public class PreventionReport2Action extends ActionSupport {
         return prevention;
     }
 
+    /**
+     * Sets the prevention type name for the report.
+     *
+     * @param prevention String the prevention type
+     */
     @StrutsParameter
     public void setPrevention(String prevention) {
         this.prevention = prevention;
     }
 
+    /**
+     * Returns the as-of date for report calculation.
+     *
+     * @return String the date in "yyyy-MM-dd" format
+     */
     public String getAsofDate() {
         return asofDate;
     }
 
+    /**
+     * Sets the as-of date for report calculation.
+     *
+     * @param asofDate String the date in "yyyy-MM-dd" format
+     */
     @StrutsParameter
     public void setAsofDate(String asofDate) {
         this.asofDate = asofDate;

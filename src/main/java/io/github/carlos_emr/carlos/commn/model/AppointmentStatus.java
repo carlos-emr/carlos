@@ -40,6 +40,19 @@ import jakarta.persistence.Table;
 import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
 
 
+/**
+ * Represents a configurable appointment status in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code appointment_status} table and defines the possible states
+ * an appointment can be in, along with their display properties. Each status has a
+ * code letter, human-readable description, display color, and optional icon.</p>
+ *
+ * <p>Standard statuses include "H" (Here/Arrived) and "C" (Cancelled), though
+ * clinics can configure additional custom statuses.</p>
+ *
+ * @see Appointment
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "appointment_status")
 public class AppointmentStatus extends AbstractModel<Integer> {

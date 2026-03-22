@@ -29,7 +29,11 @@
 package io.github.carlos_emr.carlos.util;
 
 /**
- * Facility class for appending strings.
+ * Facility class for appending strings with automatic separator insertion between elements.
+ * Trims input strings and only appends non-empty values. Commonly used by {@link QueryAppender}
+ * for JPQL query construction.
+ *
+ * @since 2001-01-01
  */
 public class Appender {
 

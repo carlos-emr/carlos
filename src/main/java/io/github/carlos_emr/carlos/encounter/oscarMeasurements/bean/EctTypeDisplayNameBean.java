@@ -33,6 +33,11 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 import java.io.Serializable;
 
 
+/**
+ * Serializable bean mapping a measurement type code to its display name.
+ *
+ * @since 2001-01-01
+ */
 public class EctTypeDisplayNameBean implements Serializable {
 
     String typeDisplayName;

@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 
+/**
+ * Processes laboratory results into measurement records, mapping lab observation
+ * values to measurement types using LOINC code mappings.
+ *
+ * @since 2001-01-01
+ */
 public class LabMeasurements {
     private Measurements measure;
     private List<MeasurementsExt> exts;

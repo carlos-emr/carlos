@@ -36,18 +36,46 @@ import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.dstu3.model.ContactPoint.ContactPointSystem;
 import org.hl7.fhir.dstu3.model.ContactPoint.ContactPointUse;
 
+/**
+ * FHIR resource mapping for healthcare practitioners.
+ *
+ * <p>Maps between CARLOS EMR {@link Provider} entities and FHIR DSTU3 Practitioner resources.
+ * Handles practitioner name, identifiers (CPSO, CNO, OCP, CMO license types),
+ * qualifications, and telecom (work phone, other phone, email).</p>
+ *
+ * <p>Subclassed by {@link PerformingPractitioner} and {@link SubmittingPractitioner}
+ * for role-specific behavior.</p>
+ *
+ * @since 2026-03-17
+ */
 public class Practitioner extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.Practitioner, Provider> {
 
     public enum LicenseType {CPSO, CNORNP, CNORN, CNORPN, OCP, DEFAULT, CMO}
 
+    /**
+     * Constructs a Practitioner from a CARLOS EMR Provider.
+     *
+     * @param provider the source Provider entity
+     */
     public Practitioner(Provider provider) {
         super(new org.hl7.fhir.dstu3.model.Practitioner(), provider);
     }
 
+    /**
+     * Constructs a Practitioner from a Provider with configuration for attribute filtering.
+     *
+     * @param provider the source Provider entity
+     * @param configurationManager the FHIR configuration manager
+     */
     public Practitioner(Provider provider, OscarFhirConfigurationManager configurationManager) {
         super(new org.hl7.fhir.dstu3.model.Practitioner(), provider, configurationManager);
     }
 
+    /**
+     * Constructs a Practitioner from an inbound FHIR Practitioner resource.
+     *
+     * @param practitioner the source FHIR Practitioner resource
+     */
     public Practitioner(org.hl7.fhir.dstu3.model.Practitioner practitioner) {
         super(new Provider(), practitioner);
     }

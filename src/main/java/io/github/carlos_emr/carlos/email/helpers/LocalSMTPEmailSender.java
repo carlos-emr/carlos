@@ -14,14 +14,46 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * SMTP email sender specialized for local (localhost) mail server delivery.
+ *
+ * <p>Extends {@link SMTPEmailSender} with a custom TLS mail sender configuration that
+ * restricts the SMTP host to localhost variants only (localhost, 127.0.0.1, ::1) for
+ * security. Disables SMTP authentication and STARTTLS since communication occurs
+ * on the local machine.</p>
+ *
+ * @see SMTPEmailSender
+ * @see EmailConfig
+ * @since 2026-01-24
+ */
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
-    public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 
-                                String[] recipients, String subject, String body, 
+    /**
+     * Constructs a local SMTP email sender with the specified parameters.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param emailConfig EmailConfig the email configuration with local SMTP settings
+     * @param recipients String[] array of recipient email addresses
+     * @param subject String the email subject line
+     * @param body String the email body content
+     * @param attachments List of EmailAttachment objects to include, or null if none
+     */
+    public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig,
+                                String[] recipients, String subject, String body,
                                 List<EmailAttachment> attachments) {
         super(loggedInInfo, emailConfig, recipients, subject, body, attachments);
     }
 
+    /**
+     * Creates a JavaMailSender configured for local SMTP delivery without TLS or authentication.
+     *
+     * <p>Validates that the configured host is a localhost variant before proceeding.
+     * Throws {@link EmailSendingException} if the host is not a recognized localhost address.</p>
+     *
+     * @param emailConfig EmailConfig containing the local SMTP server configuration
+     * @return JavaMailSender configured for local delivery
+     * @throws EmailSendingException if the host is not localhost or configuration is invalid
+     */
     @Override
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();

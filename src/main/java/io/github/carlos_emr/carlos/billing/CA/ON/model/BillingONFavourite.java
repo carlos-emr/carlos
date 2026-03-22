@@ -45,6 +45,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an Ontario billing favourite (saved billing template).
+ * Maps to the {@code billing_on_favourite} table, storing reusable billing templates
+ * for providers to quickly create common billing submissions.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_on_favourite")
 public class BillingONFavourite extends AbstractModel<Integer> implements Serializable {

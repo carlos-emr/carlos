@@ -39,6 +39,11 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler that retrieves measurement style sheet entries from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctStyleSheetBeanHandler {
 
     Vector<EctStyleSheetBean> styleSheetNameVector = new Vector<EctStyleSheetBean>();

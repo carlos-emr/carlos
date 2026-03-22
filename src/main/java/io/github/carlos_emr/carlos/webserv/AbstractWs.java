@@ -40,6 +40,15 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
+/**
+ * Abstract base class for SOAP web service endpoints in the CARLOS EMR inter-EMR communication layer.
+ *
+ * <p>Provides common functionality for accessing the HTTP servlet request from the
+ * JAX-WS message context and retrieving the authenticated user's security credentials,
+ * provider information, and logged-in session data.
+ *
+ * @since 2012-08-13
+ */
 public abstract class AbstractWs {
     protected static final int GZIP_THRESHOLD = 0;
 

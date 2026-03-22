@@ -41,6 +41,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a third-party billing address in the Ontario billing system.
+ * Maps to the {@code billing_on_3rdPartyAddress} table, storing address details
+ * for non-OHIP billing recipients such as insurance companies or employers.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_on_3rdPartyAddress")
 public class Billing3rdPartyAddress extends AbstractModel<Integer> {

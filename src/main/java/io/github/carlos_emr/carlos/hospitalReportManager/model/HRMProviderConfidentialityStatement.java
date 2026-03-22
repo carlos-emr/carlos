@@ -18,6 +18,12 @@ import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a provider's confidentiality statement that is
+ * appended to printed HRM reports. Keyed by provider number.
+ *
+ * @since 2008-11-05
+ */
 @Entity
 public class HRMProviderConfidentialityStatement extends AbstractModel<String> {
 

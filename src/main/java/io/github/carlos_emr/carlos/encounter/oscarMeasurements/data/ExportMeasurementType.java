@@ -54,6 +54,11 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidatio
  *
  * @author jay
  */
+/**
+ * Exports measurement type definitions to XML format for data exchange.
+ *
+ * @since 2001-01-01
+ */
 public class ExportMeasurementType {
 
     /**

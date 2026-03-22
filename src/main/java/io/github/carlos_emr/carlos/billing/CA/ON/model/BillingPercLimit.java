@@ -42,7 +42,11 @@ import jakarta.persistence.TemporalType;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 /**
- * @author rjonasz
+ * JPA entity representing a billing percentage limit in the Ontario billing system.
+ * Maps to the {@code billingperclimit} table, defining time-based fee percentage
+ * limits for specific service codes, with effective dates controlling when limits apply.
+ *
+ * @since 2026-03-17
  */
 @Entity
 @Table(name = "billingperclimit")

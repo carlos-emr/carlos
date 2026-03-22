@@ -28,6 +28,12 @@
  */
 package io.github.carlos_emr.carlos.hospitalReportManager.v2018;
 
+/**
+ * Simple value object holding DataTables column metadata (index and data attribute name)
+ * for mapping DataTables ordering parameters to HRM document query columns.
+ *
+ * @since 2018-01-01
+ */
 class ColumnInfo {
     private int index;
     private String data;

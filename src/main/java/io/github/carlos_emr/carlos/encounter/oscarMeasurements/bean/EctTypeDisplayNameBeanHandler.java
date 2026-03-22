@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler that retrieves measurement type display name mappings from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctTypeDisplayNameBeanHandler {
 
     Vector<EctTypeDisplayNameBean> typeDisplayNameVector = new Vector<EctTypeDisplayNameBean>();

@@ -29,6 +29,17 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.*;
 
+/**
+ * Represents a configurable appointment type template in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code appointmentType} table and defines reusable appointment
+ * templates with preset values for name, notes, reason, location, resources, and
+ * default duration. These templates streamline appointment booking by pre-filling
+ * common configurations.</p>
+ *
+ * @see Appointment
+ * @since 2012-01-11
+ */
 @Entity
 @Table(name = "appointmentType")
 public class AppointmentType extends AbstractModel<Integer> {

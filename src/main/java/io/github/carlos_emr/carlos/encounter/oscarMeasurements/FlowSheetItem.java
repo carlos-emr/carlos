@@ -100,6 +100,12 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour
  * @see KieBase
  * @since 2006-02-08 (upstream)
  */
+/**
+ * Represents a single item in a clinical flowsheet, containing measurement type,
+ * display properties, and decision support rules.
+ *
+ * @since 2001-01-01
+ */
 public class FlowSheetItem {
 
     /** Raw map of all XML attribute key-value pairs from the {@code <item>} element. */

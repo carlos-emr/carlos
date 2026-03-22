@@ -44,8 +44,15 @@ import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgr
 
 
 /**
- * Class ApptStatusData : set appt status and get the icon name and link
- * 2003-01-11
+ * Manages appointment status display properties including icons, colors, titles, and
+ * status transition logic.
+ *
+ * <p>Resolves the visual representation (icon image, background color, description) for
+ * a given appointment status code. Supports both hardcoded status arrays and dynamic
+ * database-driven status configurations when {@code ENABLE_EDIT_APPT_STATUS} is enabled.
+ * Also provides methods for signing, verifying, billing, and unbilling status transitions.</p>
+ *
+ * @since 2026-03-17
  */
 public final class ApptStatusData {
 
@@ -86,10 +93,20 @@ public final class ApptStatusData {
     String[] aBgColor = {"#FDFEC7", "#FDFEC7", "#00ee00", "#FFBBFF", "#FFFF33", "#cccccc", "#999999", "#3ea4e1", "#FDFEC7", "#FDFEC7", "#00ee00", "#FFBBFF", "#FFFF33", "#cccccc", "#999999", "#3ea4e1", "#FDFEC7", "#FDFEC7", "#00ee00", "#FFBBFF", "#FFFF33", "#cccccc", "#999999", "#3ea4e1"};
     //"S",          "V","",          "", "signed.gif", "verified.gif", "Signed", "Verified",   "#FFBBFF", "#FFBBFF",
 
+    /**
+     * Sets the appointment status code to resolve display properties for.
+     *
+     * @param status String the appointment status code (e.g., "t", "T", "H", "P")
+     */
     public void setApptStatus(String status) {
         apptStatus = status;
     }
 
+    /**
+     * Returns the icon image filename for the current appointment status.
+     *
+     * @return String the icon image filename (e.g., "todo.gif")
+     */
     public String getImageName() {
         if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
             return getStr("icon");
@@ -97,6 +114,11 @@ public final class ApptStatusData {
             return getStr(aStatus, aImageName);
     }
 
+    /**
+     * Returns the next status code in the appointment workflow transition.
+     *
+     * @return String the next status code, or an empty string if at the end of the workflow
+     */
     public String getNextStatus() {
         if ("h".equals(apptStatus)) {
             return "H";
@@ -106,6 +128,11 @@ public final class ApptStatusData {
             return getStr(aStatus, aNextStatus);
     }
 
+    /**
+     * Returns the resource bundle key or description title for the current status.
+     *
+     * @return String the title resource key or description
+     */
     public String getTitle() {
         if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
             return getStr("desc");
@@ -114,9 +141,10 @@ public final class ApptStatusData {
     }
 
     /**
-     * Converts the title which is the reference to the resource file to the actual value for this locale
+     * Converts the title resource key to the localized display string for the given locale.
      *
-     * @return
+     * @param locale Locale the locale to resolve the resource bundle string for
+     * @return String the localized title string, or an empty string if not found
      */
     public String getTitleString(Locale locale) {
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
@@ -135,6 +163,11 @@ public final class ApptStatusData {
         return value;
     }
 
+    /**
+     * Returns the background color hex code for the current appointment status.
+     *
+     * @return String the background color (e.g., "#FDFEC7")
+     */
     public String getBgColor() {
         if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
             return getStr("color");
@@ -143,21 +176,19 @@ public final class ApptStatusData {
     }
 
     /**
-     * Pulls in the short letters which represent the appointment status.
+     * Returns the short letter abbreviation representing the appointment status.
      *
-     * @Author Trimara Corp.
-     * @Return Short letters or null
-     **/
+     * @return String the short letters, or {@code null} if not configured
+     */
     public String getShortLetters() {
         return getStr("short_letters");
     }
 
     /**
-     * Pulls in the colour for the short letters of the appointment.
+     * Returns the hex color code for the short letter display of the appointment status.
      *
-     * @Author Trimara Corp.
-     * @Return An integer representing the hex code for the colour. Null if there is no colour.
-     **/
+     * @return String the hex color string (e.g., "#FF0000"), or {@code null} if not configured
+     */
     public String getShortLetterColour() {
         return getStr("short_letter_colour");
     }
@@ -174,14 +205,30 @@ public final class ApptStatusData {
         return rstr;
     }
 
+    /**
+     * Returns the status code with the "Signed" suffix appended.
+     *
+     * @return String the signed status code (e.g., "tS")
+     */
     public String signStatus() {
         return appendStatus(apptStatus, "S");
     }
 
+    /**
+     * Returns the status code with the "Verified" suffix appended.
+     *
+     * @return String the verified status code (e.g., "tV")
+     */
     public String verifyStatus() {
         return appendStatus(apptStatus, "V");
     }
 
+    /**
+     * Returns the billed version of the given status code.
+     *
+     * @param fstatus String the current status code
+     * @return String the billed status code (e.g., "B" or "BS")
+     */
     public String billStatus(String fstatus) {
         return preStatus(fstatus, "B");
     }

@@ -39,6 +39,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Utility class for checking whether clinical measurement data entries meet
+ * specified guidelines. Supports numeric value comparisons, blood pressure
+ * (systolic/diastolic) comparisons, and yes/no question matching.
+ *
+ * @since 2001-01-01
+ */
 public class RptCheckGuideline {
 
     public RptCheckGuideline() {

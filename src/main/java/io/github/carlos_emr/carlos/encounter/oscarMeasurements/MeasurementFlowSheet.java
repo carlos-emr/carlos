@@ -143,6 +143,12 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour
  * @see Recommendation
  * @see MeasurementTemplateFlowSheetConfig
  */
+/**
+ * Represents a clinical measurement flowsheet that organizes measurement types
+ * into a structured view with headings, recommendations, and color-coded targets.
+ *
+ * @since 2001-01-01
+ */
 public class MeasurementFlowSheet {
 
     private static Logger log = MiscUtils.getLogger();

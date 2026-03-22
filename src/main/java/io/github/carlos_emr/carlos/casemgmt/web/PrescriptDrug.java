@@ -29,6 +29,13 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import java.util.Date;
 
+/**
+ * Value object representing a prescription drug entry for display in the case management UI.
+ * Holds drug identification, prescription dates, brand name, GCN sequence number,
+ * regional identifier, and flags for long-term and non-authoritative prescriptions.
+ *
+ * @since 2026-03-17
+ */
 public class PrescriptDrug {
     private Integer localDrugId = null;
     private Date date_prescribed;

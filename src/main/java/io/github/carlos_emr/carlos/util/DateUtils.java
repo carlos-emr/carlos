@@ -883,6 +883,13 @@ public final class DateUtils {
         return (calculateDayDifference(date1, toCalendar(date2)));
     }
 
+    /**
+     * Calculates day difference (date2 - date1). Returns null if either is null.
+     *
+     * @param date1 Date the first date
+     * @param date2 Calendar the second date
+     * @return Integer the day difference, or null
+     */
     public static Integer calculateDayDifference(Date date1, Calendar date2) {
         return (calculateDayDifference(toCalendar(date1), date2));
     }
@@ -957,6 +964,12 @@ public final class DateUtils {
         return (cal);
     }
 
+    /**
+     * Null-safe conversion of a Date to a GregorianCalendar.
+     *
+     * @param date Date the date to convert (may be null)
+     * @return GregorianCalendar the calendar, or null if input is null
+     */
     public static GregorianCalendar toCalendar(Date date) {
         if (date == null) return (null);
 

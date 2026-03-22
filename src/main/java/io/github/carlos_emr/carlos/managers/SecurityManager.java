@@ -44,6 +44,18 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Service for managing provider security credentials and authentication in the
+ * CARLOS EMR system.
+ *
+ * <p>Handles provider password management, PIN validation, security record
+ * retrieval, and credential archiving. Supports both BCrypt password hashing
+ * and legacy encryption patterns during the migration period.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.model.Security
+ * @see io.github.carlos_emr.carlos.commn.dao.SecurityDao
+ * @since 2026-03-17
+ */
 @Service
 public class SecurityManager {
 

@@ -1313,7 +1313,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
-    //How does cpp paste into consult request property
+    /**
+     * Displays the consultation request paste format preference form (single line vs multi line).
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewConsultPasteFmt() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1345,6 +1349,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    /**
+     * Saves the provider's consultation request paste format preference.
+     *
+     * @return String {@code "gen"} to re-display with success status
+     */
     public String saveConsultPasteFmt() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1377,8 +1386,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
-    // Constructs a list of LabelValueBeans, to be used as the dropdown list
-    // when viewing a HCType preference
+    /**
+     * Constructs a list of Canadian provinces/territories and US states for health card type dropdown.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; province/state options with display labels and code values
+     */
     public ArrayList<LabelValueBean> constructProvinceList() {
 
         ArrayList<LabelValueBean> provinces = new ArrayList<LabelValueBean>();
@@ -1458,6 +1470,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Displays the favourite eForm group preference form with available groups.
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewFavouriteEformGroup() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1493,6 +1510,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    /**
+     * Saves the provider's favourite eForm group preference, or deletes it if "None" is selected.
+     *
+     * @return String {@code "gen"} to re-display with success status
+     */
     public String saveFavouriteEformGroup() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1528,6 +1550,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    /**
+     * Displays the CPP single-line display mode checkbox preference form.
+     *
+     * @return String {@code "genCppSingleLine"} to forward to the CPP single line configuration JSP
+     */
     public String viewCppSingleLine() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1564,6 +1591,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves the provider's CPP single-line display mode preference.
+     *
+     * @return String {@code "genCppSingleLine"} to re-display with success status
+     */
     public String saveUseCppSingleLine() {
         String checkboxValue = request.getParameter("cppSingleLineProperty.checked");
 

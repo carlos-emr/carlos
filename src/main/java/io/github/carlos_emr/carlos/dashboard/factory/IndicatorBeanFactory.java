@@ -41,10 +41,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Builds IndicatorBeans with executed query results
- * Also returns a IndicatorBeans grouped by Indicator sub-category by Indicator category
+ * Factory for constructing {@link IndicatorBean} objects from parsed {@link IndicatorTemplateXML}.
+ *
+ * <p>Builds the indicator query by applying parameters and ranges, executes it via
+ * {@link IndicatorQueryHandler}, and populates the resulting bean with graph plot data
+ * in multiple formats (JSON, string arrays) for client-side rendering.</p>
+ *
+ * @since 2026-03-17
  */
-
 public class IndicatorBeanFactory {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -56,6 +60,12 @@ public class IndicatorBeanFactory {
     private List<RangeInterface> ranges;
     private String indicatorQuery;
 
+    /**
+     * Constructs the factory and immediately builds the indicator bean by parsing
+     * the template XML, executing the query, and populating graph data.
+     *
+     * @param indicatorTemplateXML IndicatorTemplateXML the parsed indicator template
+     */
     public IndicatorBeanFactory(IndicatorTemplateXML indicatorTemplateXML) {
 
         logger.info("Thread " + Thread.currentThread().getName() + "[" + Thread.currentThread().getId()
@@ -70,6 +80,11 @@ public class IndicatorBeanFactory {
         setIndicatorBean(new IndicatorBean());
     }
 
+    /**
+     * Returns the parsed indicator template XML.
+     *
+     * @return IndicatorTemplateXML the parsed template
+     */
     public IndicatorTemplateXML getIndicatorTemplateXML() {
         return indicatorTemplateXML;
     }
@@ -78,14 +93,29 @@ public class IndicatorBeanFactory {
         this.indicatorTemplateXML = indicatorTemplateXML;
     }
 
+    /**
+     * Returns the fully constructed indicator display bean with query results and graph data.
+     *
+     * @return IndicatorBean the constructed indicator bean
+     */
     public IndicatorBean getIndicatorBean() {
         return indicatorBean;
     }
 
+    /**
+     * Returns the query handler used for executing indicator queries.
+     *
+     * @return IndicatorQueryHandler the indicator query handler
+     */
     public IndicatorQueryHandler getIndicatorQueryHandler() {
         return indicatorQueryHandler;
     }
 
+    /**
+     * Returns the final processed indicator query string with parameters and ranges applied.
+     *
+     * @return String the processed SQL query string
+     */
     public String getIndicatorQuery() {
         return indicatorQuery;
     }

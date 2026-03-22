@@ -37,7 +37,11 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Yet another conversion utility class for bridging JPA entity to legacy schema mismatch.
+ * Type conversion utility class for bridging JPA entity types and legacy schema string
+ * representations. Provides null-safe parsing and formatting for dates, timestamps, integers,
+ * longs, doubles, booleans, and string conversions commonly needed in the CARLOS EMR data layer.
+ *
+ * @since 2001-01-01
  */
 public class ConversionUtils {
 
@@ -59,6 +63,12 @@ public class ConversionUtils {
     private ConversionUtils() {
     }
 
+    /**
+     * Converts a list of string values to a list of integers.
+     *
+     * @param list List of String values to convert
+     * @return List of Integer parsed values
+     */
     public static List<Integer> toIntList(List<String> list) {
         List<Integer> result = new ArrayList<Integer>();
         for (String str : list) {
@@ -77,10 +87,22 @@ public class ConversionUtils {
         return fromDateString(timeString, DEFAULT_TIME_PATTERN);
     }
 
+    /**
+     * Converts a time string in {@code HH:mm} format to a Date.
+     *
+     * @param timeString String the time string without seconds
+     * @return Date the parsed date, or null if parsing fails
+     */
     public static Date fromTimeStringNoSeconds(String timeString) {
         return fromDateString(timeString, "HH:mm");
     }
 
+    /**
+     * Formats a Date to a time string in {@code HH:mm} format (without seconds).
+     *
+     * @param timeString Date the date containing the time to format
+     * @return String the formatted time string
+     */
     public static String toTimeStringNoSeconds(Date timeString) {
         return toDateString(timeString, "HH:mm");
     }
@@ -95,10 +117,22 @@ public class ConversionUtils {
         return fromDateString(dateString, DEFAULT_DATE_PATTERN);
     }
 
+    /**
+     * Parses a timestamp string in {@code yyyy-MM-dd HH:mm:ss} format to a Date.
+     *
+     * @param dateString String the timestamp string
+     * @return Date the parsed date, or null if parsing fails
+     */
     public static Date fromTimestampString(String dateString) {
         return fromDateString(dateString, DEFAULT_TS_PATTERN);
     }
 
+    /**
+     * Formats a Date to a timestamp string in {@code yyyy-MM-dd HH:mm:ss} format.
+     *
+     * @param timestamp Date the date to format
+     * @return String the formatted timestamp string
+     */
     public static String toTimestampString(Date timestamp) {
         return toDateString(timestamp, DEFAULT_TS_PATTERN);
     }

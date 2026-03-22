@@ -69,7 +69,10 @@ import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 /**
- * @author wrighd
+ * HL7 message handler for GDML (Gamma-Dynacare Medical Laboratories) lab results.
+ * Parses ORU_R01 v2.3 messages with GDML-specific segment handling and result formatting.
+ *
+ * @since 2007-01-18
  */
 public class GDMLHandler implements MessageHandler {
 

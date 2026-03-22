@@ -32,6 +32,12 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.data;
 
 import java.util.Date;
 
+/**
+ * Data access class for clinical measurement records. Provides methods to save,
+ * retrieve, and query patient measurement data.
+ *
+ * @since 2001-01-01
+ */
 public class Measurements {
     private Long id;
     private String type;

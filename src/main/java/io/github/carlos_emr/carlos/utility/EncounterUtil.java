@@ -26,6 +26,14 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+/**
+ * Utility class for clinical encounter type management.
+ *
+ * <p>Defines the supported encounter types (face-to-face, telephone, without client, email)
+ * and provides conversion between the enum values and legacy database string representations.
+ *
+ * @since 2026-03-17
+ */
 public class EncounterUtil {
     public enum EncounterType {
         FACE_TO_FACE_WITH_CLIENT("face to face encounter with client"), TELEPHONE_WITH_CLIENT("telephone encounter with client"), ENCOUNTER_WITH_OUT_CLIENT("encounter without client"), EMAIL_WITH_CLIENT("email encounter with client");
@@ -41,6 +49,12 @@ public class EncounterUtil {
         }
     }
 
+    /**
+     * Returns the {@link EncounterType} matching the given legacy database value.
+     *
+     * @param oldDbValue String the legacy database string (e.g., "face to face encounter with client")
+     * @return EncounterType the matching type, or {@code null} if no match is found
+     */
     public static EncounterType getEncounterTypeFromOldDbValue(String oldDbValue) {
         for (EncounterType encounterType : EncounterType.values())
             if (encounterType.getOldDbValue().equals(oldDbValue)) return (encounterType);

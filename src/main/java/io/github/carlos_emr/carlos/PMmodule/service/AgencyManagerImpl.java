@@ -34,21 +34,36 @@ import io.github.carlos_emr.carlos.PMmodule.dao.AgencyDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of {@link AgencyManager} for managing agency configuration
+ * within the CARLOS EMR Program Management module.
+ *
+ * @see AgencyManager
+ * @see Agency
+ * @since 2005
+ */
 @Transactional
 public class AgencyManagerImpl implements AgencyManager {
 
     private AgencyDao dao;
 
+    /**
+     * Sets the agency data access object.
+     *
+     * @param dao AgencyDao the agency DAO to inject
+     */
     public void setAgencyDao(AgencyDao dao) {
         this.dao = dao;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Agency getLocalAgency() {
         Agency agency = dao.getLocalAgency();
         return agency;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void saveAgency(Agency agency) {
         dao.saveAgency(agency);

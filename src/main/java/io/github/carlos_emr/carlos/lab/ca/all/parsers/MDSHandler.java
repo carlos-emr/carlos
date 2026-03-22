@@ -61,7 +61,11 @@ import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 /**
- * @author wrighd
+ * HL7 message handler for MDS (Medical Diagnostic Services) lab results.
+ * Uses the HAPI {@link Terser} for version-agnostic HL7 message parsing,
+ * supporting both v2.3 and v2.5 ORU_R01 messages from MDS laboratories.
+ *
+ * @since 2007-01-18
  */
 public class MDSHandler implements MessageHandler {
 

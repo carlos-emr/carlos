@@ -43,6 +43,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.util.List;
 
+/**
+ * Struts2 action for displaying invoice logo images in the Ontario billing module.
+ * Retrieves the configured invoice letterhead logo document and serves it as an
+ * inline image with the appropriate MIME content type.
+ *
+ * @since 2026-03-17
+ */
 public class DisplayInvoiceLogo2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
@@ -128,11 +135,24 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Extracts the file extension from a filename.
+     *
+     * @param f String the filename
+     * @return String the file extension (without the dot)
+     */
     public String extension(String f) {
         int dot = f.lastIndexOf(".");
         return f.substring(dot + 1);
     }
 
+    /**
+     * Resolves the absolute filesystem path to the invoice logo image.
+     * Looks up the document by the configured logo document type property,
+     * then constructs the full path using the document directory.
+     *
+     * @return String the absolute path to the logo image, or empty string if not found
+     */
     public static String getLogoImgAbsPath() {
         String fileName = "";
         String logoDocType = CarlosProperties.getInstance().getProperty("invoice_head_logo_doctype");

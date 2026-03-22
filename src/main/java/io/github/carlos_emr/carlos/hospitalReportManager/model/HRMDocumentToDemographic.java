@@ -23,6 +23,12 @@ import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing the association between an HRM document and a patient
+ * demographic record, including the timestamp when the association was created.
+ *
+ * @since 2008-11-05
+ */
 @Entity
 public class HRMDocumentToDemographic extends AbstractModel<Integer> {
 

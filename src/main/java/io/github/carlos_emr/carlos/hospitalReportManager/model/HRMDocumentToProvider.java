@@ -23,6 +23,14 @@ import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing the association between an HRM document and a healthcare
+ * provider, tracking sign-off status, sign-off timestamp, and viewed status.
+ *
+ * <p>A provider number of "-1" indicates an unclaimed/unmatched document.</p>
+ *
+ * @since 2008-11-05
+ */
 @Entity
 public class HRMDocumentToProvider extends AbstractModel<Integer> {
 

@@ -44,6 +44,15 @@ import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * JSP custom tag that loads interface customization JavaScript for the encounter module.
+ *
+ * <p>Supports loading custom JavaScript files based on the configured {@code cme_js} property
+ * or provider-specific CPP (Cumulative Patient Profile) preferences. When preferences are
+ * enabled, generates inline JavaScript to configure the e-chart layout dynamically.
+ *
+ * @since 2026-03-17
+ */
 public class CustomInterfaceTag extends TagSupport {
 
     Logger logger = MiscUtils.getLogger();

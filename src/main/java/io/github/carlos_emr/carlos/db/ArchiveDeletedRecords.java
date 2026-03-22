@@ -41,24 +41,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * This class is used to archive deleted or updated rows that won't be used again.
- * <p>
- * <p>
- * CREATE TABLE `table_modification` (
- * `id` int(10) NOT NULL auto_increment primary key,
- * `demographic_no` int(10) NOT NULL default '0',
- * `provider_no` varchar(6) NOT NULL default '',
- * `modification_date` datetime default NULL,
- * `modification_type` varchar(20) default NULL,
- * `table_name` varchar(255) default NULL,
- * `row_id` varchar(20) default NULL,
- * `resultSet` text,
- * KEY `table_modification_demographic_no` (`demographic_no`),
- * KEY `table_modification_provider_no` (`provider_no`),
- * KEY `table_modification_modification_type` (`modification_type`(10))
- * );
+ * Archives deleted or updated database rows into the {@code table_modification} table
+ * for audit trail and recovery purposes.
  *
- * @author Jay Gallagher
+ * <p>Before records are permanently deleted from the database, this class serializes
+ * the row data to XML format and stores it in the modification archive. This supports
+ * healthcare data retention requirements and provides a recovery mechanism for
+ * accidentally deleted records.</p>
+ *
+ * <p>The archive stores the modification type (delete or update), the source table name,
+ * the provider who performed the action, and the full row data as XML.</p>
+ *
+ * @since 2001-01-01
+ * @see io.github.carlos_emr.carlos.commn.model.TableModification
  */
 public class ArchiveDeletedRecords {
     static String DELETE = "delete";
@@ -78,6 +73,17 @@ public class ArchiveDeletedRecords {
         return xmlStr;
     }
 
+    /**
+     * Archives a list of records that are about to be deleted from the specified table.
+     *
+     * <p>Each record is serialized to XML and stored in the modification archive table
+     * with a "delete" modification type.</p>
+     *
+     * @param records List of ProviderLabRoutingModel records to archive before deletion
+     * @param provNo String the provider number performing the deletion
+     * @param table String the source database table name
+     * @return int always returns 0
+     */
     public int recordRowsToBeDeleted(List<ProviderLabRoutingModel> records, String provNo, String table) {
         try {
             for (ProviderLabRoutingModel record : records) {

@@ -46,6 +46,13 @@ import ca.uhn.hl7v2.model.v26.message.REF_I12;
 import ca.uhn.hl7v2.model.v26.segment.MSH;
 import ca.uhn.hl7v2.model.v26.segment.PID;
 
+/**
+ * HL7 message handler for inter-EMR (OSCAR-to-OSCAR) HL7 v2.6 messages.
+ * Delegates to version-specific chained message adapters for ORU_R01 (lab results)
+ * and REF_I12 (referral) message types exchanged between EMR installations.
+ *
+ * @since 2007-01-18
+ */
 public final class OscarToOscarHl7V2Handler implements MessageHandler {
     private static Logger logger = MiscUtils.getLogger();
 

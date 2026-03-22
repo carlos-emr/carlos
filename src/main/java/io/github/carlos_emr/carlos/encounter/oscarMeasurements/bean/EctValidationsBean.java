@@ -36,6 +36,11 @@ import jakarta.xml.bind.annotation.XmlElement;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 
 @XmlAccessorType(XmlAccessType.NONE)
+/**
+ * Bean representing validation rules for a measurement type including min/max ranges.
+ *
+ * @since 2001-01-01
+ */
 public class EctValidationsBean {
 
     int id;

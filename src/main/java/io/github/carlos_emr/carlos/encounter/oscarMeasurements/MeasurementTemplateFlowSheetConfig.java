@@ -128,6 +128,13 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour
  * @see DSCondition
  * @since 2001-01-01
  */
+/**
+ * Configuration manager for measurement flowsheet templates. Loads and manages
+ * flowsheet definitions from XML configuration files. Implements InitializingBean
+ * for post-construction initialization.
+ *
+ * @since 2001-01-01
+ */
 public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
 
     private static Logger log = MiscUtils.getLogger();

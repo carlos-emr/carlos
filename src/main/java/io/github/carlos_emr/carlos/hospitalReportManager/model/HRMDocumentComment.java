@@ -22,6 +22,12 @@ import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a comment attached to an HRM document by a provider.
+ * Supports soft-delete via the {@code deleted} flag.
+ *
+ * @since 2012-04-04
+ */
 @Entity
 public class HRMDocumentComment extends AbstractModel<Integer> {
 

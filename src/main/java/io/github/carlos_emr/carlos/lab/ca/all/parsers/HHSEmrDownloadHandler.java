@@ -53,7 +53,11 @@ import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 /**
- * @author wrighd
+ * HL7 message handler for Hamilton Health Sciences (HHS) EMR download lab results.
+ * Extends {@link DefaultGenericHandler} with HHS-specific parsing for ORU_R01 messages
+ * received via the HHS EMR data exchange system.
+ *
+ * @since 2007-01-18
  */
 public class HHSEmrDownloadHandler extends DefaultGenericHandler implements MessageHandler {
 

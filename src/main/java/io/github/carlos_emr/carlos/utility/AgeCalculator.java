@@ -32,8 +32,22 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.Calendar;
 
+/**
+ * Utility class for calculating a patient's age from their date of birth.
+ *
+ * <p>Uses the Java Time API ({@link java.time.Period}) for accurate age calculation
+ * that accounts for leap years and varying month lengths.
+ *
+ * @since 2026-03-17
+ */
 public class AgeCalculator {
 
+    /**
+     * Calculates the age in years, months, and days from the given birth date to today.
+     *
+     * @param birthDate Calendar the patient's date of birth
+     * @return Age an object containing the calculated years, months, and days
+     */
     public static Age calculateAge(Calendar birthDate) {
         LocalDate birthdate = LocalDate.of(
                 birthDate.get(Calendar.YEAR),

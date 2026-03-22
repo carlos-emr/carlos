@@ -23,6 +23,13 @@ import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a sub-class entry for an HRM document, typically derived
+ * from OBR content in Diagnostic Imaging or Cardio Respiratory reports. Tracks the
+ * sub-class name, mnemonic, description, date/time, sending facility, and active status.
+ *
+ * @since 2008-11-05
+ */
 @Entity
 public class HRMDocumentSubClass extends AbstractModel<Integer> {
 

@@ -32,8 +32,29 @@ package io.github.carlos_emr.carlos.PMmodule.service;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 
+/**
+ * Service interface for managing agency information within the CARLOS EMR Program Management module.
+ *
+ * <p>Provides operations for retrieving and persisting the local agency configuration.
+ * An agency represents the healthcare organization operating the EMR instance.</p>
+ *
+ * @see AgencyManagerImpl
+ * @see Agency
+ * @since 2005
+ */
 public interface AgencyManager {
+
+    /**
+     * Retrieves the local agency record for the current EMR installation.
+     *
+     * @return Agency the local agency configuration
+     */
     Agency getLocalAgency();
 
+    /**
+     * Persists an agency record to the database.
+     *
+     * @param agency Agency the agency record to save
+     */
     void saveAgency(Agency agency);
 }

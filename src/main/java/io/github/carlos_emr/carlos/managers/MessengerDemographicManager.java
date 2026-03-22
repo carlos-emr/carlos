@@ -38,6 +38,17 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing the association between internal messages
+ * and patient demographics in the CARLOS EMR messaging system.
+ *
+ * <p>Allows attaching and retrieving patient demographics linked to messages,
+ * enabling clinicians to associate clinical context with their communications.</p>
+ *
+ * @see MessengerDemographicManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.MsgDemoMap
+ * @since 2026-03-17
+ */
 public interface MessengerDemographicManager {
 
     /**

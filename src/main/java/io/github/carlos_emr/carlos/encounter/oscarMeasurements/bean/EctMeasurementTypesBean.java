@@ -36,6 +36,11 @@ import jakarta.xml.bind.annotation.XmlElement;
 import java.util.Vector;
 
 @XmlAccessorType(XmlAccessType.NONE)
+/**
+ * Bean representing measurement type metadata including type name, display name, and instructions.
+ *
+ * @since 2001-01-01
+ */
 public class EctMeasurementTypesBean {
 
     int id;

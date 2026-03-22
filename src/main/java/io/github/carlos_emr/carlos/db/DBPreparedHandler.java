@@ -40,7 +40,14 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
- * deprecated Use JPA instead, no new code should be written against this class.
+ * Legacy prepared statement handler providing parameterized SQL query execution
+ * with support for stored procedures, paged results, and multiple parameter types.
+ *
+ * <p>All methods are synchronized to ensure thread safety when sharing a single instance.
+ * Supports String, int, Date, and {@link DBPreparedHandlerParam} parameter types.</p>
+ *
+ * @since 2001-01-01
+ * @deprecated Use JPA instead. No new code should be written against this class.
  */
 @Deprecated
 public final class DBPreparedHandler {

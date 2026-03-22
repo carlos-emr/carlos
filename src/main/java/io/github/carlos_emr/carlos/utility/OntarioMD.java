@@ -69,11 +69,24 @@ public class OntarioMD {
         return CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }
 
+    /**
+     * Returns the configured OntarioMD incoming requestor identifier.
+     *
+     * @return String the incoming requestor value
+     */
     static public String getIncomingRequestor() {
         return CarlosProperties.getInstance().getProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }
 
-    //HACKED SOAP CALL.  THIS SHOULD BE REPLACED BUT IT'S SO SIMPLE
+    /**
+     * Authenticates with the OntarioMD web service and retrieves a session token.
+     *
+     * @param username           String the OntarioMD username
+     * @param password           String the OntarioMD password
+     * @param incomingRequestor  String the requesting system identifier
+     * @return Hashtable containing "returnCode", "ptLoginToken", and "jsessionID"
+     * @throws Exception if the SOAP call fails
+     */
     public Hashtable loginToOntarioMD(String username, String password, String incomingRequestor) throws Exception {
         //public ArrayList soapHttpCall(int siteCode, String userId, String passwd,		String xml) throws Exception
         Hashtable h = null;
@@ -153,6 +166,11 @@ public class OntarioMD {
         return ret;
     }
 
+    /**
+     * Returns an ordered map of disease community keywords and their display names.
+     *
+     * @return OrderedMap disease keyword keys mapped to display name values
+     */
     public OrderedMap getDiseaseList() {
         OrderedMap map = new LinkedMap();
      /*

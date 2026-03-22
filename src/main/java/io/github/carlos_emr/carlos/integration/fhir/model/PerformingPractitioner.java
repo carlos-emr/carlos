@@ -34,13 +34,22 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ActorTyp
 
 
 /**
- * The clinic practitioner whom performs a procedure with a patient.
- * Example: this is the practitioner that administers a vaccine treatment.
- * <p>
- * ConfigurationManager is required.
+ * The clinic practitioner who performs a procedure with a patient.
+ *
+ * <p>For example, the practitioner who administers a vaccine treatment. The resource ID
+ * is prefixed with "P" to distinguish performing practitioners from other practitioner types.
+ * ConfigurationManager is required.</p>
+ *
+ * @since 2026-03-17
  */
 public class PerformingPractitioner extends Practitioner {
 
+    /**
+     * Constructs a PerformingPractitioner from a Provider with configuration.
+     *
+     * @param provider the source Provider entity
+     * @param configurationManager the FHIR configuration manager
+     */
     public PerformingPractitioner(Provider provider, OscarFhirConfigurationManager configurationManager) {
         super(provider, configurationManager);
         setActor(ActorType.performing);

@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler that retrieves measurement group names from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctGroupNameBeanHandler {
 
     Vector<EctGroupNameBean> groupNameVector = new Vector<EctGroupNameBean>();

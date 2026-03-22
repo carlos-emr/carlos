@@ -33,6 +33,16 @@ import io.github.carlos_emr.carlos.integration.fhir.exception.MandatoryAttribute
 import io.github.carlos_emr.carlos.integration.fhir.manager.OscarFhirConfigurationManager;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ActorType;
 
+/**
+ * The clinic practitioner who is responsible for the patient and the submission of
+ * the patient's record into an external registry.
+ *
+ * <p>For example, the practitioner who has an Ontario OneID account and is participating
+ * with sending patient data to an external registry. The resource ID is prefixed with "S"
+ * to distinguish submitting practitioners. ConfigurationManager is required.</p>
+ *
+ * @since 2026-03-17
+ */
 public class SubmittingPractitioner extends Practitioner {
 
     /**

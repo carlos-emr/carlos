@@ -51,6 +51,12 @@ import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
+/**
+ * HL7 message handler for True North laboratory results. Parses ORU_R01 v2.3 messages
+ * from the True North lab information system.
+ *
+ * @since 2007-01-18
+ */
 public class TRUENORTHHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
     ORU_R01 msg = null;

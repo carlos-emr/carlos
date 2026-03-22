@@ -32,6 +32,13 @@ import java.io.Serializable;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
 
+/**
+ * Serializable form bean representing a checkbox-enabled issue definition entry
+ * for issue selection in the case management UI. Wraps an {@link Issue} with a
+ * checked state and a community/non-community classification flag.
+ *
+ * @since 2026-03-17
+ */
 public class CheckIssueBoxBean implements Serializable {
     private boolean isChecked = false;
     private Issue issue = new Issue();

@@ -40,19 +40,56 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * JSP custom tag that renders a patient's name, age, and sex as formatted text.
+ *
+ * <p>Outputs a string in the format "LastName, FirstName Sex Age" for the specified
+ * demographic number. Used in JSP pages to display patient identification inline
+ * without requiring scriptlet code.</p>
+ *
+ * <p><b>Tag Usage:</b></p>
+ * <pre>{@code
+ * <demographic:nameAge demographicNo="12345"/>
+ * }</pre>
+ *
+ * @see io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString
+ * @since 2026-03-17
+ */
 public class DemographicNameAgeTag extends TagSupport {
 
+    /**
+     * Constructs a new DemographicNameAgeTag instance.
+     */
     public DemographicNameAgeTag() {
     }
 
+    /**
+     * Sets the demographic number for the patient to display.
+     *
+     * @param demoNo1 String the patient demographic number
+     */
     public void setDemographicNo(String demoNo1) {
         demoNo = demoNo1;
     }
 
+    /**
+     * Returns the demographic number set for this tag.
+     *
+     * @return String the patient demographic number
+     */
     public String getDemographicNo() {
         return demoNo;
     }
 
+    /**
+     * Renders the patient's name, age, and sex string to the JSP output.
+     *
+     * <p>Looks up the demographic data using the current session's LoggedInInfo
+     * and writes the formatted string directly to the page output.</p>
+     *
+     * @return int SKIP_BODY to skip any tag body content
+     * @throws JspException if a JSP processing error occurs
+     */
     public int doStartTag() throws JspException {
         DemographicNameAgeString demoNameAge = DemographicNameAgeString.getInstance();
         Integer intDemoNo = ConversionUtils.fromIntString(demoNo);
@@ -70,6 +107,12 @@ public class DemographicNameAgeTag extends TagSupport {
         return (SKIP_BODY);
     }
 
+    /**
+     * Completes tag processing and continues page evaluation.
+     *
+     * @return int EVAL_PAGE to continue processing the rest of the JSP page
+     * @throws JspException if a JSP processing error occurs
+     */
     public int doEndTag() throws JspException {
         return EVAL_PAGE;
     }

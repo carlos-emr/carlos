@@ -35,6 +35,11 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Bean holding measurement data values for a patient including type, value, date, and comments.
+ *
+ * @since 2001-01-01
+ */
 public class EctMeasurementsDataBean {
 
     int id = 0;

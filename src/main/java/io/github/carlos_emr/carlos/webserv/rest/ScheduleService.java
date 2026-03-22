@@ -438,6 +438,14 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves all appointments for a provider in a specific month.
+     *
+     * @param year Integer the four-digit year
+     * @param month Integer the month (1-12)
+     * @param providerNo String the provider number
+     * @return SchedulingResponse containing the month's appointments
+     */
     @GET
     @Path("/fetchMonthly/{providerNo}/{year}/{month}")
     @Produces("application/json")
@@ -484,6 +492,11 @@ public class ScheduleService extends AbstractServiceImpl {
 	}
 */
 
+    /**
+     * Retrieves all configured appointment types.
+     *
+     * @return SchedulingResponse containing the list of appointment types
+     */
     @GET
     @Path("/types")
     @Produces("application/json")
@@ -499,6 +512,11 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves all schedule template codes (appointment slot type definitions).
+     *
+     * @return List of ScheduleTemplateCodeTo transfer objects
+     */
     @GET
     @Path("/codes")
     @Produces("application/json")
@@ -514,6 +532,11 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Retrieves all configured appointment reasons.
+     *
+     * @return SchedulingResponse containing the list of appointment reasons
+     */
     @GET
     @Path("/reasons")
     @Produces("application/json")
@@ -530,6 +553,15 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Lists appointments with extended demographic details for a date range and set of providers.
+     *
+     * @param sDateStr String start date in ISO 8601 format (yyyy-MM-dd)
+     * @param eDateStr String end date in ISO 8601 format (yyyy-MM-dd)
+     * @param providers String comma-separated list of provider numbers
+     * @return AppointmentExtResponse containing extended appointment data
+     * @throws WebApplicationException if parameters are missing or malformed
+     */
     @GET
     @Path("/fetchDays/{sDate}/{eDate}/{providers}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -636,15 +668,18 @@ public class ScheduleService extends AbstractServiceImpl {
         }
     }
 
+    /**
+     * Lists a specific provider's appointments within a date range.
+     *
+     * @param providerNo String the provider number
+     * @param sDateStr String start date in ISO 8601 format (yyyy-MM-dd)
+     * @param eDateStr String end date in ISO 8601 format (yyyy-MM-dd)
+     * @return ProviderPeriodAppsResponse containing the provider's appointments
+     * @throws WebApplicationException if parameters are missing or malformed
+     */
     @GET
     @Path("/fetchProviderAppts/{providerNo}/{sDate}/{eDate}")
     @Produces("application/json")
-    /**
-     * @param providerNo
-     * @param sDate has format "yyyy-MM-dd"
-     * @param eDate has format "yyyy-MM-dd"
-     * @return
-     */
     public ProviderPeriodAppsResponse listProviderApptsForPeriod(@PathParam("providerNo") String providerNo, @PathParam("sDate") String sDateStr, @PathParam("eDate") String eDateStr) {
         if (providerNo == null || providerNo.length() == 0 || sDateStr == null || eDateStr == null)
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Required path parameter is miossing").build());
@@ -677,6 +712,13 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Saves or updates a search configuration, creating a new version and deactivating the old one.
+     *
+     * @param id Integer the ID of the existing search configuration to update
+     * @param searchConfigTo SearchConfigTo1 the updated search configuration data
+     * @return Response containing the new search configuration ID
+     */
     @POST
     @Path("/searchConfig/{id}")
     @Produces("application/json")

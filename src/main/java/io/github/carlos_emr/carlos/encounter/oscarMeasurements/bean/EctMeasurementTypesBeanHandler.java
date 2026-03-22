@@ -49,6 +49,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Handler that retrieves measurement type definitions from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctMeasurementTypesBeanHandler {
 
     Vector measurementTypeVector = new Vector();

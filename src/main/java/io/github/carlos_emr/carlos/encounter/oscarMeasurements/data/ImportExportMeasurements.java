@@ -42,6 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handles import and export of measurement type definitions and configurations in XML format.
+ *
+ * @since 2001-01-01
+ */
 public class ImportExportMeasurements {
 
     private static MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);

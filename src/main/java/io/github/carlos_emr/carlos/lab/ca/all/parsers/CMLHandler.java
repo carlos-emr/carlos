@@ -70,8 +70,11 @@ import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 
 /**
+ * HL7 message handler for CML (Canadian Medical Laboratories) lab results.
+ * Parses ORU_R01 v2.3 messages with CML-specific formatting for patient data,
+ * observation results, and report statuses.
  *
- * @author wrighd
+ * @since 2007-01-18
  */
 public class CMLHandler implements MessageHandler {
 

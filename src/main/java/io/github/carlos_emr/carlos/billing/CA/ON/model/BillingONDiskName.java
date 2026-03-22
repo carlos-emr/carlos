@@ -43,6 +43,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an Ontario billing disk name (submission batch) record.
+ * Maps to the {@code billing_on_diskname} table, tracking billing submission batches
+ * including creation date, group number, month/year codes, and batch status.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_on_diskname")
 public class BillingONDiskName extends AbstractModel<Integer> {

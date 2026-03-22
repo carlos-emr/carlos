@@ -42,6 +42,16 @@ import java.util.Base64;
 import java.util.Objects;
 
 
+/**
+ * Cryptographic utility class providing encryption, decryption, hashing, and password
+ * verification for the CARLOS EMR system.
+ *
+ * <p>Supports AES/GCM/NoPadding encryption with a configurable secret key, legacy SHA-1
+ * hashing (deprecated), and modern BCrypt-based password hashing via {@link PasswordHashHelper}.
+ * The encryption key is loaded from {@code CarlosProperties} during class initialization.
+ *
+ * @since 2026-03-17
+ */
 public final class EncryptionUtils {
     private static final QueueCacheValueCloner<byte[]> byteArrayCloner = new QueueCacheValueCloner<byte[]>() {
         public byte[] cloneBean(byte[] original) {

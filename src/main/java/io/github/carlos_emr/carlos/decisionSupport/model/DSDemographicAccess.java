@@ -1256,14 +1256,18 @@ public class DSDemographicAccess {
     }
 
     /**
-     * @param demographicData the demographicData to set
+     * Sets the patient's demographic data.
+     *
+     * @param demographicData Demographic the patient's demographic record
      */
     public void setDemographicData(Demographic demographicData) {
         this.demographicData = demographicData;
     }
 
     /**
-     * @return the prescriptionData
+     * Gets the patient's active prescription data, loading from the database on first access.
+     *
+     * @return List of Prescription objects representing active medications
      */
     public List<Prescription> getPrescriptionData() {
         if (this.prescriptionData == null)
@@ -1272,7 +1276,9 @@ public class DSDemographicAccess {
     }
 
     /**
-     * @param prescriptionData the prescriptionData to set
+     * Sets the patient's prescription data.
+     *
+     * @param prescriptionData List of Prescription objects representing medications
      */
     public void setPrescriptionData(List<Prescription> prescriptionData) {
         this.prescriptionData = prescriptionData;

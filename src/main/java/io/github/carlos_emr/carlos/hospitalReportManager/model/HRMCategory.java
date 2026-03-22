@@ -21,6 +21,12 @@ import jakarta.persistence.Id;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an HRM document category, used to classify hospital
+ * reports by sub-class name/mnemonic and sending facility.
+ *
+ * @since 2008-11-05
+ */
 @Entity
 public class HRMCategory extends AbstractModel<Integer> {
     @Id

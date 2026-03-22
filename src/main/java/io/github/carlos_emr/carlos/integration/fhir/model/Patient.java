@@ -99,16 +99,42 @@ import io.github.carlos_emr.carlos.integration.fhir.utils.FhirUtils;
 } 
 */
 
+/**
+ * FHIR resource mapping for patient demographics.
+ *
+ * <p>Maps between CARLOS EMR {@link Demographic} entities and FHIR DSTU3 Patient resources.
+ * Handles name, gender, birthdate, address, telecom (phone/email), language, health card
+ * number (HCN), and managing organization references. Supports both Ontario-specific
+ * identifiers and general patient data.</p>
+ *
+ * @since 2026-03-17
+ */
 public class Patient extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.Patient, Demographic> {
 
+    /**
+     * Constructs a Patient from a CARLOS EMR Demographic entity.
+     *
+     * @param from the source Demographic
+     */
     public Patient(Demographic from) {
         super(new org.hl7.fhir.dstu3.model.Patient(), from);
     }
 
+    /**
+     * Constructs a Patient from a Demographic with configuration for attribute filtering.
+     *
+     * @param from the source Demographic
+     * @param configurationManager the FHIR configuration manager
+     */
     public Patient(Demographic from, OscarFhirConfigurationManager configurationManager) {
         super(new org.hl7.fhir.dstu3.model.Patient(), from, configurationManager);
     }
 
+    /**
+     * Constructs a Patient from an inbound FHIR Patient resource.
+     *
+     * @param from the source FHIR Patient resource
+     */
     public Patient(org.hl7.fhir.dstu3.model.Patient from) {
         super(new Demographic(), from);
     }
@@ -285,6 +311,11 @@ public class Patient extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.
         addGeneralPractitioner(new Practitioner(careProvider));
     }
 
+    /**
+     * Adds a Practitioner as a general practitioner for this patient.
+     *
+     * @param careProvider the Practitioner FHIR resource to add
+     */
     public void addGeneralPractitioner(Practitioner careProvider) {
         addGeneralPractitioner(careProvider.getFhirResource());
     }
@@ -296,6 +327,11 @@ public class Patient extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.
         addGeneralPractitioner((IBaseResource) organization.getFhirResource());
     }
 
+    /**
+     * Adds a raw FHIR Organization as a general practitioner reference.
+     *
+     * @param organization the FHIR Organization resource to add
+     */
     public void addGeneralPractitioner(org.hl7.fhir.dstu3.model.Organization organization) {
         addGeneralPractitioner((IBaseResource) organization);
     }
@@ -304,10 +340,20 @@ public class Patient extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.
         getFhirResource().addGeneralPractitioner().setResource(resource);
     }
 
+    /**
+     * Adds a general practitioner as a FHIR Reference.
+     *
+     * @param reference the Reference to add
+     */
     public void addGeneralPractitionerReference(Reference reference) {
         getFhirResource().getGeneralPractitioner().add(reference);
     }
 
+    /**
+     * Adds a general practitioner by reference string.
+     *
+     * @param reference the reference link string
+     */
     public void addGeneralPractitionerReference(String reference) {
         getFhirResource().addGeneralPractitioner().setReference(reference);
     }
@@ -328,10 +374,20 @@ public class Patient extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.
         getFhirResource().getManagingOrganization().setResource(organization.getFhirResource());
     }
 
+    /**
+     * Sets the managing organization from a FHIR Reference.
+     *
+     * @param reference the Reference to the managing organization
+     */
     public void setManagingOrganizationReference(Reference reference) {
         setManagingOrganizationReference(reference.getReference());
     }
 
+    /**
+     * Sets the managing organization by reference string.
+     *
+     * @param reference the reference link string (e.g., "#Organization123")
+     */
     public void setManagingOrganizationReference(String reference) {
         getFhirResource().getManagingOrganization().setReference(reference);
     }

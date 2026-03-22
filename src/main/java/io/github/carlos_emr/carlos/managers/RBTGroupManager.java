@@ -40,6 +40,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 
+/**
+ * Service for managing Role-Based Team (RBT) groups in the CARLOS EMR system.
+ *
+ * <p>RBT groups define provider team structures used for message routing,
+ * schedule management, and collaborative care workflows.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.model.RBTGroup
+ * @see io.github.carlos_emr.carlos.commn.dao.RBTGroupDao
+ * @since 2026-03-17
+ */
 @Service
 public class RBTGroupManager {
 

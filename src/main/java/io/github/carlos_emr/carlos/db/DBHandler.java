@@ -41,7 +41,14 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
- * @deprecated Use JPA instead, no new code should be written against this class.
+ * Legacy static database handler providing direct SQL execution via JDBC connections.
+ *
+ * <p>Provides methods for executing raw SQL queries ({@link #GetSQL}) and parameterized
+ * queries ({@link #GetPreSQL}). The raw SQL methods are vulnerable to SQL injection
+ * and log warnings when called.</p>
+ *
+ * @since 2001-01-01
+ * @deprecated Use JPA instead. No new code should be written against this class.
  */
 @Deprecated
 public final class DBHandler {

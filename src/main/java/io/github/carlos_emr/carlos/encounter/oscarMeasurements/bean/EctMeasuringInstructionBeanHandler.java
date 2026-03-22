@@ -33,6 +33,11 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 import java.util.List;
 import java.util.ArrayList;
 
+/**
+ * Handler that retrieves measuring instruction entries from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctMeasuringInstructionBeanHandler {
 
     List<EctMeasuringInstructionBean> measuringInstructionList = new ArrayList<EctMeasuringInstructionBean>();

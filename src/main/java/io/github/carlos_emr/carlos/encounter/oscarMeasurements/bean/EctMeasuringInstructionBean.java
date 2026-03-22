@@ -31,6 +31,11 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 
 
+/**
+ * Bean representing a measuring instruction entry for a measurement type.
+ *
+ * @since 2001-01-01
+ */
 public class EctMeasuringInstructionBean {
 
     String measuringInstrc;

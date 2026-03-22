@@ -33,7 +33,15 @@ package io.github.carlos_emr.carlos.prevention.pageUtil;
 import java.util.Date;
 
 /**
- * @author Jay Gallagher
+ * Data transfer object representing a single patient's prevention compliance status
+ * in a prevention report.
+ *
+ * <p>Contains the patient's demographic number, compliance state (e.g., "Up to date",
+ * "Overdue", "Refused"), display color coding, date of last prevention, and follow-up
+ * tracking fields. Implements {@link Comparable} to sort by rank (severity).</p>
+ *
+ * @since 2001-2002
+ * @see io.github.carlos_emr.carlos.prevention.reports.PreventionReport
  */
 public class PreventionReportDisplay implements Comparable {
 
@@ -52,9 +60,17 @@ public class PreventionReportDisplay implements Comparable {
     public String lastFollupProcedure = null;
     public String nextSuggestedProcedure = null;
 
+    /** Default no-argument constructor. */
     public PreventionReportDisplay() {
     }
 
+    /**
+     * Compares this display item to another by rank for sorting. Lower ranks
+     * (more urgent statuses) appear first.
+     *
+     * @param o Object the other {@code PreventionReportDisplay} to compare to
+     * @return int negative if this rank is lower, 0 if equal, positive if higher
+     */
     public int compareTo(Object o) {
 
         int ret = 0;

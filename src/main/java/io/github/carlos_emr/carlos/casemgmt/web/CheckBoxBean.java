@@ -32,6 +32,13 @@ import java.io.Serializable;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 
+/**
+ * Serializable form bean representing a checkbox-enabled issue entry in the case management
+ * note view. Wraps a {@link CaseManagementIssue} with a checked/unchecked state and
+ * a display-oriented {@link CaseManagementViewAction.IssueDisplay}.
+ *
+ * @since 2026-03-17
+ */
 public class CheckBoxBean implements Serializable {
     private String checked = "off";
     private CaseManagementIssue issue = new CaseManagementIssue();

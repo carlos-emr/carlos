@@ -35,6 +35,16 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 
+/**
+ * Interface defining the display contract for clinical notes in the case management UI.
+ * Provides access to note metadata (dates, provider, program, role, issues), content,
+ * security state (signed, locked, archived), and linked clinical entities.
+ *
+ * <p>Includes static comparators for sorting notes by provider, program, role,
+ * observation date, and display position.</p>
+ *
+ * @since 2026-03-17
+ */
 public interface NoteDisplay {
     public static Comparator<NoteDisplay> noteProviderComparator = new Comparator<NoteDisplay>() {
         public int compare(NoteDisplay note1, NoteDisplay note2) {

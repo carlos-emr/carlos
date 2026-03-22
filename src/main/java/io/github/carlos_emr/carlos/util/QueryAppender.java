@@ -30,7 +30,10 @@ package io.github.carlos_emr.carlos.util;
 
 /**
  * Facility class for appending JPQL queries. This appender encapsulates basic
- * structure of JPQL queries.
+ * structure of JPQL queries including WHERE clause construction with AND/OR operators
+ * and ORDER BY clause management.
+ *
+ * @since 2001-01-01
  */
 public class QueryAppender {
 
@@ -211,6 +214,11 @@ public class QueryAppender {
         return getQuery();
     }
 
+    /**
+     * Adds an ORDER BY clause element to the query.
+     *
+     * @param order String the order expression to add (e.g., "name ASC")
+     */
     public void addOrder(String order) {
         getOrderBuffer().append(order);
     }

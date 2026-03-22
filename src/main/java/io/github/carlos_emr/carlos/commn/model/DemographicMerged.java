@@ -39,6 +39,19 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents a demographic merge record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code demographic_merged} table and tracks when two patient records
+ * have been merged. This occurs when duplicate patient entries are identified and
+ * consolidated. The source demographic number is recorded along with the target
+ * demographic it was merged into.</p>
+ *
+ * <p>Merge records support soft-delete to allow undo operations.</p>
+ *
+ * @see Demographic
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "demographic_merged")
 public class DemographicMerged extends AbstractModel<Integer> {

@@ -40,8 +40,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 /**
- * Our www services are inherently stateless so we want to prevent excessive session object build up. This is caused because
- * the oscar permissions system sets credentials into the session space upon authentication.
+ * Servlet filter that invalidates HTTP sessions after SOAP web service requests complete.
+ *
+ * <p>Web services are inherently stateless, but the CARLOS permissions system sets
+ * credentials into the session space upon authentication. This filter prevents excessive
+ * session object accumulation by invalidating sessions after each non-REST web service call.
+ *
+ * <p>REST, OAuth, and CXF service endpoints are excluded from session invalidation
+ * to preserve session state for the web interface.
+ *
+ * @since 2012-08-13
  */
 // @WebFilter(urlPatterns={"/ws/*"})
 public class WebServiceSessionInvalidatingFilter implements jakarta.servlet.Filter {

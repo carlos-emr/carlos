@@ -44,6 +44,17 @@ import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 
 import java.util.*;
 
+/**
+ * Service for managing provider contact groups in the CARLOS EMR messaging system.
+ *
+ * <p>Provides operations for creating, querying, and managing groups of healthcare
+ * providers used as message recipients. Supports both local and remote provider
+ * group resolution for multi-site messaging.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.model.Groups
+ * @see io.github.carlos_emr.carlos.commn.model.GroupMembers
+ * @since 2026-03-17
+ */
 @Service
 public class MessengerGroupManager {
 

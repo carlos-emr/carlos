@@ -42,6 +42,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Utility class providing authentication and security token operations for SOAP web services.
+ *
+ * <p>Handles credential verification (password or security token), session setup via
+ * {@link LoggedInInfo}, and token generation for stateless web service authentication.
+ *
+ * @since 2012-08-13
+ */
 public final class WsUtils {
     private static ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     private static final Logger logger = MiscUtils.getLogger();
@@ -104,6 +112,15 @@ public final class WsUtils {
         return (securityToken.equals(generateSecurityToken(security)));
     }
 
+    /**
+     * Generates a security token for the given security record.
+     *
+     * <p>The token is derived from the JVM start time combined with a deterministic
+     * hash of the user's password, providing a session-scoped authentication token.
+     *
+     * @param security Security the security record to generate a token for
+     * @return String the generated security token
+     */
     public static String generateSecurityToken(Security security) {
         // we'll add a randomish seed to a deterministic value unique to the user.
         // the randomish seed can be the jvm start time

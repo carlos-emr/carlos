@@ -49,6 +49,19 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Service for managing healthcare provider records and preferences in the
+ * CARLOS EMR system.
+ *
+ * <p>Provides operations for retrieving provider lists, managing provider
+ * settings, quick links, preferences, and provider extension data.
+ * Supports filtering providers by active status and looking up provider
+ * properties for system configuration.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.model.Provider
+ * @see io.github.carlos_emr.carlos.commn.model.ProviderPreference
+ * @since 2026-03-17
+ */
 @Service
 public class ProviderManager2 {
     private static Logger logger = MiscUtils.getLogger();

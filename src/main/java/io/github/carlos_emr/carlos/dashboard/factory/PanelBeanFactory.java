@@ -41,6 +41,13 @@ import io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateHandler;
 import io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateXML;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Factory for constructing {@link PanelBean} objects from a list of {@link IndicatorTemplate}
+ * entities. Parses each template XML, extracts categories, and delegates to
+ * {@link IndicatorPanelBeanFactory} for building sub-category panels within each category.
+ *
+ * @since 2026-03-17
+ */
 public class PanelBeanFactory {
     private static Logger logger = MiscUtils.getLogger();
 
@@ -50,6 +57,12 @@ public class PanelBeanFactory {
     private List<PanelBean> panelBeans;
     private HashSet<String> categories;
 
+    /**
+     * Constructs the factory, parses all indicator templates, extracts categories,
+     * and builds panel beans organized by category.
+     *
+     * @param indicatorTemplates List of IndicatorTemplate the raw indicator template entities
+     */
     public PanelBeanFactory(List<IndicatorTemplate> indicatorTemplates) {
 
         logger.info("Building Dashboard Panels");

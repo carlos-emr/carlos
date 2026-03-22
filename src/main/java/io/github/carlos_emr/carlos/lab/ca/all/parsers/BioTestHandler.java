@@ -59,7 +59,10 @@ import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 /**
- * @author wrighd
+ * HL7 message handler for BioTest laboratory results. Parses ORU_R01 v2.3 messages
+ * from the BioTest lab system with specific segment handling for this vendor.
+ *
+ * @since 2007-01-18
  */
 public class BioTestHandler implements MessageHandler {
 

@@ -49,10 +49,20 @@ public class EFormApConfig {
     @XmlElement(name = "databaseap")
     private List<DatabaseAP> databaseAPs = new ArrayList<>();
 
+    /**
+     * Returns the list of database access point definitions.
+     *
+     * @return List of {@link DatabaseAP} instances parsed from the XML
+     */
     public List<DatabaseAP> getDatabaseAPs() {
         return databaseAPs;
     }
 
+    /**
+     * Sets the list of database access point definitions.
+     *
+     * @param databaseAPs List of {@link DatabaseAP} instances to set
+     */
     public void setDatabaseAPs(List<DatabaseAP> databaseAPs) {
         this.databaseAPs = databaseAPs;
     }

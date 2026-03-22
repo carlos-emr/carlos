@@ -43,6 +43,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an Ontario billing submission header record.
+ * Maps to the {@code billing_on_header} table, containing provider registration
+ * information and group details for billing batch submissions.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_on_header")
 public class BillingONHeader extends AbstractModel<Integer> {

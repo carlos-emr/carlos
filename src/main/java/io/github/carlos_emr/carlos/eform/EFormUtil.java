@@ -628,6 +628,12 @@ public class EFormUtil {
         return null;
     }
 
+    /**
+     * Looks up an eForm template ID by its display name.
+     *
+     * @param name String the form name to search for
+     * @return String the form ID, or null if not found
+     */
     public static String getEFormIdByName(String name) {
 
         logger.debug("EFORM NAME '" + name + "'");
@@ -645,6 +651,11 @@ public class EFormUtil {
         setFormStatus(fid, false);
     }
 
+    /**
+     * Restores a previously deleted eForm template (sets current status to true).
+     *
+     * @param fid String the form ID to restore
+     */
     public static void restoreEForm(String fid) {
         setFormStatus(fid, true);
     }
@@ -754,6 +765,11 @@ public class EFormUtil {
     }
 
     // --------------eform groups---------
+    /**
+     * Returns all eForm groups with their member counts (excluding the marker entry).
+     *
+     * @return ArrayList of HashMap with keys "groupName" and "count"
+     */
     public static ArrayList<HashMap<String, String>> getEFormGroups() {
         String sql;
         sql = "SELECT DISTINCT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
@@ -795,11 +811,23 @@ public class EFormUtil {
         return al;
     }
 
+    /**
+     * Deletes an eForm group and all its membership entries.
+     *
+     * @param name String the group name to delete
+     */
     public static void delEFormGroup(String name) {
         EFormGroupDao dao = SpringUtils.getBean(EFormGroupDao.class);
         dao.deleteByName(name);
     }
 
+    /**
+     * Adds an eForm to a named group. If the group does not exist, it is created
+     * implicitly. A fid of "0" is used as a group marker entry.
+     *
+     * @param groupName String the group name
+     * @param fid String the form ID to add, or "0" for a group marker
+     */
     public static void addEFormToGroup(String groupName, String fid) {
         try {
 
@@ -817,6 +845,12 @@ public class EFormUtil {
         }
     }
 
+    /**
+     * Removes an eForm from a named group.
+     *
+     * @param groupName String the group name
+     * @param fid String the form ID to remove from the group
+     */
     public static void remEFormFromGroup(String groupName, String fid) {
         EFormGroupDao dao = SpringUtils.getBean(EFormGroupDao.class);
         dao.deleteByNameAndFormId(groupName, ConversionUtils.fromIntString(fid));
@@ -1739,6 +1773,13 @@ public class EFormUtil {
     /**
      * Local EFormData Factory
      */
+    /**
+     * Converts an {@link EForm} data object to an {@link EFormData} model entity
+     * suitable for database persistence.
+     *
+     * @param eForm EForm the source eForm data object
+     * @return EFormData the converted model entity
+     */
     public static EFormData toEFormData(EForm eForm) {
         EFormData eFormData = new EFormData();
         eFormData.setFormId(Integer.parseInt(eForm.getFid()));
@@ -1762,6 +1803,12 @@ public class EFormUtil {
      * table and a status of unstable is set.
      * These logs are added in order to track and pre-emptively discourage use of poorly
      * developed eForms that are imported from external sources.
+     */
+    /**
+     * Logs an eForm processing error to the eForm error log table.
+     *
+     * @param formId int the form ID that encountered the error
+     * @param error String the sanitized error message to log
      */
     public static void logError(int formId, String error) {
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.findById(formId);

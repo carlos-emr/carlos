@@ -43,6 +43,19 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
 
+/**
+ * Represents an archived snapshot of a patient demographic record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code demographicArchive} table and stores historical versions of
+ * patient demographic data for audit trail purposes. Each time a demographic record
+ * is modified, a copy of the previous state is preserved in this archive table.</p>
+ *
+ * <p>This supports regulatory compliance requirements for tracking all changes to
+ * patient information over time.</p>
+ *
+ * @see Demographic
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "demographicArchive")
 public class DemographicArchive extends AbstractModel<Long> implements Serializable {

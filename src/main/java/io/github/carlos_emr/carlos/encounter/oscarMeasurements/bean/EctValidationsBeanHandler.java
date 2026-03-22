@@ -40,6 +40,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Handler that retrieves measurement validation rules from the database.
+ *
+ * @since 2001-01-01
+ */
 public class EctValidationsBeanHandler {
 
     Vector validationsVector = new Vector();
