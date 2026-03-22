@@ -9,27 +9,28 @@
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
+<% pageContext.setAttribute("currentUser", session.getAttribute("user")); %>
 
 <fmt:setBundle basename="oscarResources"/>
 
 <c:if test="${page eq 1}">
 <div class="bg-light text-light">
     <row>
-        <input id="topFBtn" type="button" class="btn btn-primary btn-sm ms-1" value="<fmt:message key="oscarMDS.index.btnForward"/>" onclick="submitForward('${sessionScope.user}')">
-        <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="File" onclick="submitFile('${sessionScope.user}')"/>
+        <input id="topFBtn" type="button" class="btn btn-primary btn-sm ms-1" value="<fmt:message key="oscarMDS.index.btnForward"/>" onclick="submitForward('${e:forJavaScript(currentUser)}')">
+        <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="<fmt:message key='oscarMDS.index.btnFile'/>" onclick="submitFile('${e:forJavaScript(currentUser)}')"/>
         <div class="d-flex align-items-center position-relative float-end">
-            <span class="d-inline me-2 py-1 text-dark fw-bold">Documents <span id="totalDocsCountStat" class="badge" style="background-color: #5a9bd3; color: white;">0</span></span>
-            <span class="d-inline me-2 py-1 text-dark fw-bold">Labs <span id="totalLabssCountStat" class="badge" style="background-color: #8cbfda; color: white;">0</span></span>
+            <span class="d-inline me-2 py-1 text-dark fw-bold"><fmt:message key="inboxhub.list.documents"/> <span id="totalDocsCountStat" class="badge" style="background-color: #5a9bd3; color: white;">0</span></span>
+            <span class="d-inline me-2 py-1 text-dark fw-bold"><fmt:message key="inboxhub.list.labs"/> <span id="totalLabssCountStat" class="badge" style="background-color: #8cbfda; color: white;">0</span></span>
             <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
-                <span class="d-inline py-1 text-dark fw-bold">HRMs <span id="totalHRMsCountStat" class="badge" style="background-color: #b3d9eb; color: black;">0</span></span>
+                <span class="d-inline py-1 text-dark fw-bold"><fmt:message key="inboxhub.list.hrms"/> <span id="totalHRMsCountStat" class="badge" style="background-color: #b3d9eb; color: black;">0</span></span>
             </c:if>
-            <div id="loadingLabel" class="loading-label ms-2 me-2 text-dark">Loading Search Results:</div>
+            <div id="loadingLabel" class="loading-label ms-2 me-2 text-dark"><fmt:message key="inboxhub.list.loadingSearchResults"/></div>
             <div class="progress me-2 position-relative" id="loadInboxListProgress" style="width: 15vw; height: 25px; display: none; flex-grow: 1; background-color: #c7c7c7;">
                 <div id="loadInboxListProgressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
                     <span id="inboxListProgressCount" class="count text-white" style="position: absolute; width: 100%; text-align: center; font-weight: 600;">0% Complete</span>
                 </div>
             </div>
-            <button id="stopLoadingInboxList" onclick="stopInboxhubListProgress(0)" class="btn btn-sm btn-danger" style="display: none;">Stop</button>
+            <button id="stopLoadingInboxList" onclick="stopInboxhubListProgress(0)" class="btn btn-sm btn-danger" style="display: none;"><fmt:message key="inboxhub.list.stop"/></button>
         </div>
     </row>
     <row>
@@ -48,7 +49,7 @@
                 <th><fmt:message key="oscarMDS.index.msgRequestingClient"/></th>
                 <th><fmt:message key="oscarMDS.index.msgDiscipline"/></th>
                 <th><fmt:message key="oscarMDS.index.msgReportStatus"/></th>
-                <th>Ack #</th>
+                <th><fmt:message key="inboxhub.list.ackNumber"/></th>
             </tr>
             </thead>
             <tbody id="inboxhubListModeTableBody">
@@ -61,15 +62,16 @@
                         <input type="checkbox" name="flaggedLabs" value="${labResult.segmentID}:${labResult.labType}" ${disabled}>
                     </td>
                     <td>
-                        <c:set var="labRead" value="${labResult.hasRead(sessionScope.user) ? '' : '*'}"/>
-                        <a href="javascript:void(0);" 
+                        <c:set var="labRead" value="*"/>
+                        <c:if test="${labResult.hasRead(currentUser)}"><c:set var="labRead" value=""/></c:if>
+                        <a href="javascript:void(0);"
                         onclick="reportWindow('${e:forJavaScript(labLinks[loopStatus.index])}', window.innerHeight, window.innerWidth); return false;">
                             <e:forHtmlContent value='${labRead}${labResult.patientName}' />
                         </a>
                     </td>
                     <td><c:out value="${labResult.sex}" /></td>
-                    <td><c:out value="${labResult.resultStatus == 'A' ? 'Abnormal' : ''}" /></td>
-                    <td><c:out value="${labResult.label}" /></td>
+                    <td><c:if test="${labResult.resultStatus == 'A'}"><fmt:message key="inboxhub.list.abnormal"/></c:if></td>
+                    <td><c:out value="${labResult.label == 'null' ? '' : labResult.label}" /></td>
                     <td><c:out value="${labResult.dateTime}" /><c:out value="${labResult.document ? ' / ' : ''}" /><c:out value="${labResult.document ?  labResult.lastUpdateDate : ''}"/></td>
                     <td><c:out value="${labResult.requestingClient}" /></td>
                     <td><c:out value="${labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString}" /></td>
@@ -144,7 +146,7 @@
     function stringToDate(str) {
         return new Date(str.includes("/") ? str.split(" / ")[0] : str);
     }
-    
+
     // Data table custom sorting to move empty or null slots on any selected sort to the bottom.
     jQuery.extend(jQuery.fn.dataTableExt.oSort, {
         "non-empty-string-asc": function (str1, str2) {
@@ -209,9 +211,9 @@
     });
 
     function removeReport(reportId) {
-        const el = jQuery("#labdoc_" + reportId);
-        if (el != null) {
-            el.remove();
+        const rowEl = jQuery("#labdoc_" + reportId);
+        if (rowEl.length > 0) {
+            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
         }
     }
 </script>
