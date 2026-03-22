@@ -72,6 +72,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MsgSessionBean
  * @see MsgDisplayMessages2Action
  */
+/**
+ * Struts2 action for refreshing and redisplaying the messenger inbox after operations.
+ *
+ * @since 2001-01-01
+ */
 public class MsgReDisplayMessages2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session and parameters.

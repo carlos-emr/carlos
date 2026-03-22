@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "recordReferralOutcome", propOrder = "arg0")
+/**
+ * JAXB-annotated request object for recording the outcome of a referral.
+ *
+ * @since 2005-01-01
+ */
 public class RecordReferralOutcome {
 
     protected ReferralOutcomeBO arg0;

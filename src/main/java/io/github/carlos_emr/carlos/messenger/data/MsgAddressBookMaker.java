@@ -69,6 +69,11 @@ import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
  * @see Groups
  * @see GroupMembersDao
  */
+/**
+ * Builder for constructing messenger address book entries from provider and contact data sources.
+ *
+ * @since 2001-01-01
+ */
 public class MsgAddressBookMaker {
     private OscarCommLocationsDao oscarCommLocationsDao = SpringUtils.getBean(OscarCommLocationsDao.class);
 

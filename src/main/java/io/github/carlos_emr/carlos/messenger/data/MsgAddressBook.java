@@ -68,6 +68,11 @@ import org.w3c.dom.NodeList;
  * @see MsgProviderData
  */
 @Deprecated
+/**
+ * Data access class for the messenger address book, providing provider and contact lookups for message recipients.
+ *
+ * @since 2001-01-01
+ */
 public class MsgAddressBook {
     /**
      * Static counter used for generating unique IDs in HTML output.

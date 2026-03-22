@@ -34,6 +34,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  * @see io.github.carlos_emr.carlos.ar2005.YesNoNullType
  * @since 2026-01-24
  */
+/**
+ * Implementation of the PregnancyHistory interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class PregnancyHistoryImpl extends XmlComplexContentImpl implements PregnancyHistory
 {
     private static final long serialVersionUID = 1L;

@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "listActiveContactAttempts", propOrder = "arg0")
+/**
+ * JAXB-annotated request object for listing active contact attempts for a wait list client.
+ *
+ * @since 2005-01-01
+ */
 public class ListActiveContactAttempts {
 
     protected ClientQuery arg0;

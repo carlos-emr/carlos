@@ -67,6 +67,11 @@ import org.xml.sax.InputSource;
  * @since 2002
  * @see MsgUtil
  */
+/**
+ * XML communication helper for parsing and generating messenger document transfer XML messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgCommxml {
     /**
      * Creates a new empty XML document.

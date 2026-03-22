@@ -27,6 +27,11 @@
 
 package io.github.carlos_emr.carlos.wl.prepared;
 
+/**
+ * Entity representing a pre-configured tickler template associated with a wait list program for automated follow-up reminders.
+ *
+ * @since 2005-01-01
+ */
 public interface PreparedTickler {
     public String getName();
 

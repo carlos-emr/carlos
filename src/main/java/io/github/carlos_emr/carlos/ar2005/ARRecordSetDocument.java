@@ -15,6 +15,11 @@ import org.apache.xmlbeans.XmlBeans;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Interface for the root XML document wrapper of an Antenatal Record set.
+ *
+ * @since 2005-01-01
+ */
 public interface ARRecordSetDocument extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(ARRecordSetDocument.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("arrecordsetc395doctype");

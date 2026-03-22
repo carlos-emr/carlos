@@ -96,6 +96,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MsgDisplayMessagesBean
  * @see MsgBulkOperationHelper
  */
+/**
+ * Struts2 action for displaying the provider's messenger inbox with message listing and filtering.
+ *
+ * @since 2001-01-01
+ */
 public class MsgDisplayMessages2Action extends ActionSupport {
     /**
      * HTTP request object for accessing parameters and session.

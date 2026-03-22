@@ -46,6 +46,11 @@ package io.github.carlos_emr.carlos.messenger.docxfer.util;
  * @see MsgCommxml
  * @see io.github.carlos_emr.carlos.messenger.util.MsgStringQuote
  */
+/**
+ * Utility class for common messenger operations including message formatting and data extraction.
+ *
+ * @since 2001-01-01
+ */
 public class MsgUtil {
     /**
      * Escapes single quotes and backslashes in a string for safe SQL usage.

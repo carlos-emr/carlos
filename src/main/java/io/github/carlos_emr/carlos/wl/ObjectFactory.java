@@ -42,6 +42,11 @@ import javax.xml.namespace.QName;
  * methods for each of these are provided in this class.
  */
 @XmlRegistry
+/**
+ * JAXB object factory for creating wait list web service request and response objects.
+ *
+ * @since 2005-01-01
+ */
 public class ObjectFactory {
 
     private final static QName _ListVacanciesForWaitListProgramResponse_QNAME = new QName(

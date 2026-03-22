@@ -74,6 +74,11 @@ import java.util.GregorianCalendar;
  * @version 2.0
  * @since 2003
  */
+/**
+ * Struts2 action for writing messenger message content to a patient's encounter notes.
+ *
+ * @since 2001-01-01
+ */
 public class MsgWriteToEncounter2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session and parameters.

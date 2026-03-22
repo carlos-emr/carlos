@@ -54,6 +54,11 @@ import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
  * 
  * @since 2003
  */
+/**
+ * Generates XML-formatted messages for document transfer between providers in the messenger system.
+ *
+ * @since 2001-01-01
+ */
 public class MsgGenerate {
     private static Logger logger = MiscUtils.getLogger();
 

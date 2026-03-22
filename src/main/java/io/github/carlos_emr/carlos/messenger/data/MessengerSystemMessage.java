@@ -53,6 +53,11 @@ import java.util.Date;
  * @see MsgMessageData
  * @see MsgDisplayMessage
  */
+/**
+ * Data access helper for system-wide broadcast messages displayed to all providers in the messaging interface.
+ *
+ * @since 2001-01-01
+ */
 public class MessengerSystemMessage {
 
     /**

@@ -55,6 +55,11 @@ import org.apache.xmlbeans.XmlObject;
  *
  * @since 2026-01-24
  */
+/**
+ * Interface defining the data model for Page 1 of the Antenatal Record (AR) 2005 form.
+ *
+ * @since 2005-01-01
+ */
 public interface AR1 extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(AR1.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("ar15fa5type");

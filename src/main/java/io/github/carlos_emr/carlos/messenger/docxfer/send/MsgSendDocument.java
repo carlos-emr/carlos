@@ -58,6 +58,11 @@ import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
  * @see MsgCommxml
  * @see MsgGenerate
  */
+/**
+ * Handles the sending of document-attached messages between providers in the messenger system.
+ *
+ * @since 2001-01-01
+ */
 public class MsgSendDocument {
     /**
      * Filters an XML document based on selected checkboxes, removing unselected items.

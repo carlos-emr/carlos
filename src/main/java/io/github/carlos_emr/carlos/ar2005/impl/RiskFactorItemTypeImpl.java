@@ -25,6 +25,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  * @see RiskFactorItemType
  * @see XmlComplexContentImpl
  */
+/**
+ * Implementation of the RiskFactorItemType interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class RiskFactorItemTypeImpl extends XmlComplexContentImpl implements RiskFactorItemType
 {
     private static final long serialVersionUID = 1L;

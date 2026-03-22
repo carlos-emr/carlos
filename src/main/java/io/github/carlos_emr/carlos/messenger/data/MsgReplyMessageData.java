@@ -51,6 +51,11 @@ package io.github.carlos_emr.carlos.messenger.data;
  * @since 2002
  */
 @Deprecated
+/**
+ * Data access class for constructing reply messages in the messenger system, populating reply headers and quoted content.
+ *
+ * @since 2001-01-01
+ */
 public class MsgReplyMessageData {
     /**
      * List of local providers within the current facility.

@@ -57,6 +57,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @since 2003
  */
 @Deprecated
+/**
+ * Utility for mapping demographic numbers to patient names in the messenger module.
+ *
+ * @since 2001-01-01
+ */
 public class MsgDemoMap {
 
     /** Data Access Object for message-demographic mapping operations */

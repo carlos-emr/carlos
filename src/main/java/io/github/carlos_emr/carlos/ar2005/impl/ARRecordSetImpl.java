@@ -29,6 +29,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  * @see XmlComplexContentImpl
  * @since 2026-01-24
  */
+/**
+ * Implementation of the ARRecordSet interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class ARRecordSetImpl extends XmlComplexContentImpl implements ARRecordSet
 {
     private static final long serialVersionUID = 1L;

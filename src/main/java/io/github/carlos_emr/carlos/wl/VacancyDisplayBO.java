@@ -64,6 +64,11 @@ import javax.xml.datatype.XMLGregorianCalendar;
 @XmlType(name = "vacancyDisplayBO", propOrder = {"acceptedCount", "active",
         "created", "criteriaSummary", "pendingCount", "rejectedCount",
         "vacancyID", "vacancyTemplateName"})
+/**
+ * Business object containing vacancy display information for the wait list UI.
+ *
+ * @since 2005-01-01
+ */
 public class VacancyDisplayBO {
 
     protected int acceptedCount;

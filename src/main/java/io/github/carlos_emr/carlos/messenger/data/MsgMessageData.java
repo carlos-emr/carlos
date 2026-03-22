@@ -75,6 +75,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @see MessageList
  */
 @Deprecated
+/**
+ * Data access class for messenger message operations including retrieval, storage, and status management of inter-provider messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgMessageData {
 
     /**

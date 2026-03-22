@@ -68,6 +68,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @see MessageListDao
  * @see TagSupport
  */
+/**
+ * JSP custom tag for displaying the count of new unread messenger messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgNewMessagesTag extends TagSupport {
 
     /**

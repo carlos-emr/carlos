@@ -88,6 +88,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MessageList
  * @see MsgCreateMessage2Action
  */
+/**
+ * Struts2 action for sending composed messenger messages to one or more provider recipients.
+ *
+ * @since 2001-01-01
+ */
 public class MsgSendMessage2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session and parameters.

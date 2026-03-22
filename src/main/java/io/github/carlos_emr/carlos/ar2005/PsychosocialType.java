@@ -36,6 +36,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see org.apache.xmlbeans.XmlObject
  * @since 2026-01-18
  */
+/**
+ * Interface for psychosocial assessment data in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface PsychosocialType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(PsychosocialType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("psychosocialtype93f2type");

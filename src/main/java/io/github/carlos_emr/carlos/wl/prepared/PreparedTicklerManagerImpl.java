@@ -37,6 +37,11 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Implementation of PreparedTicklerManager for CRUD operations on prepared tickler templates.
+ *
+ * @since 2005-01-01
+ */
 public class PreparedTicklerManagerImpl implements PreparedTicklerManager {
 
     static Logger log = MiscUtils.getLogger();

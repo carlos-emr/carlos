@@ -72,6 +72,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @since 2003
  */
 @Deprecated
+/**
+ * Data access class for managing messenger groups, providing CRUD operations for provider messaging group configurations.
+ *
+ * @since 2001-01-01
+ */
 public class MsgMessengerGroupData {
 
     /**

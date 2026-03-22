@@ -73,6 +73,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @deprecated This action is deprecated and may be removed in a future release.
  */
 @Deprecated
+/**
+ * Struts2 action for navigating to and displaying a messenger message by its position in the inbox list.
+ *
+ * @since 2001-01-01
+ */
 public class MsgViewMessageByPosition2Action extends ActionSupport {
 
     private String messageID;

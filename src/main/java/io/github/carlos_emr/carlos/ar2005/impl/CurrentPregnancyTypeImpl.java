@@ -31,6 +31,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  * @see io.github.carlos_emr.carlos.ar2005
  * @since 2026-01-24
  */
+/**
+ * Implementation of the CurrentPregnancyType interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class CurrentPregnancyTypeImpl extends XmlComplexContentImpl implements CurrentPregnancyType
 {
     private static final long serialVersionUID = 1L;

@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "clientQuery", propOrder = "clientID")
+/**
+ * JAXB-annotated request object for querying wait list clients by demographic criteria.
+ *
+ * @since 2005-01-01
+ */
 public class ClientQuery {
 
     protected int clientID;

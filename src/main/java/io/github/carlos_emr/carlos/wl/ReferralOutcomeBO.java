@@ -57,6 +57,11 @@ import jakarta.xml.bind.annotation.XmlType;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "referralOutcomeBO", propOrder = {"accepted", "clientID",
         "rejectionReason", "vacancyID"})
+/**
+ * Business object representing the outcome of a wait list referral including acceptance, rejection, or withdrawal.
+ *
+ * @since 2005-01-01
+ */
 public class ReferralOutcomeBO {
 
     protected boolean accepted;

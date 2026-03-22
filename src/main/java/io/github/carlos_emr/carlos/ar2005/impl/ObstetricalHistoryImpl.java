@@ -34,6 +34,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  *
  * @since 2026-01-24
  */
+/**
+ * Implementation of the ObstetricalHistory interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class ObstetricalHistoryImpl extends XmlComplexContentImpl implements ObstetricalHistory
 {
     private static final long serialVersionUID = 1L;

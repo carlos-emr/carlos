@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "getVacancy", propOrder = "arg0")
+/**
+ * JAXB-annotated request object for retrieving a specific vacancy by ID.
+ *
+ * @since 2005-01-01
+ */
 public class GetVacancy {
 
     protected VacancyQuery arg0;

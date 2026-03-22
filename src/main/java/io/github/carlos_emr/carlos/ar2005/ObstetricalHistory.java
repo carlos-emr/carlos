@@ -15,6 +15,11 @@ import org.apache.xmlbeans.XmlBeans;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Interface for obstetrical history data in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface ObstetricalHistory extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(ObstetricalHistory.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("obstetricalhistory22d7type");

@@ -45,6 +45,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see ARRecord
  * @since 2026-01-24
  */
+/**
+ * Interface for prenatal genetic screening results.
+ *
+ * @since 2005-01-01
+ */
 public interface PrenatalGeneticScreeningType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(PrenatalGeneticScreeningType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("prenatalgeneticscreeningtype87f7type");

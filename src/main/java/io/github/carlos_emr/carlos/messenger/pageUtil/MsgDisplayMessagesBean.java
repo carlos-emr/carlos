@@ -90,6 +90,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @see MessageTblDao
  */
 @Deprecated
+/**
+ * Session bean holding the current state of the messenger display including message lists, pagination, and filter settings.
+ *
+ * @since 2001-01-01
+ */
 public class MsgDisplayMessagesBean implements java.io.Serializable {
 
     private static final long serialVersionUID = 1L;

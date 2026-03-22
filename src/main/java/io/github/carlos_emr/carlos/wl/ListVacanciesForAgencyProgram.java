@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "listVacanciesForAgencyProgram", propOrder = "arg0")
+/**
+ * JAXB-annotated request object for listing vacancies in a specific agency program.
+ *
+ * @since 2005-01-01
+ */
 public class ListVacanciesForAgencyProgram {
 
     protected ProgramQuery arg0;

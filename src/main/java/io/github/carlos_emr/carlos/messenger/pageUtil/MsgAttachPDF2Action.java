@@ -79,6 +79,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MsgSessionBean
  * @see Doc2PDF
  */
+/**
+ * Struts2 action for attaching PDF documents to messenger messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgAttachPDF2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session and parameters.

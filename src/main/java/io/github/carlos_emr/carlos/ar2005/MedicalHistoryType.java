@@ -43,6 +43,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see XmlObject
  * @since 2026-01-23
  */
+/**
+ * Interface for medical history data in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface MedicalHistoryType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(MedicalHistoryType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("medicalhistorytype49f4type");

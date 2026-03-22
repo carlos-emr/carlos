@@ -44,6 +44,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see org.apache.xmlbeans.XmlObject
  * @see io.github.carlos_emr.carlos.ar2005
  */
+/**
+ * Interface for recommended immunoprophylaxis data.
+ *
+ * @since 2005-01-01
+ */
 public interface RecommendedImmunoprophylaxisType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(RecommendedImmunoprophylaxisType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("recommendedimmunoprophylaxistype0e82type");

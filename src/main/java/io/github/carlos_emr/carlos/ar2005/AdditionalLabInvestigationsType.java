@@ -37,6 +37,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see CustomLab
  * @see XmlObject
  */
+/**
+ * Interface for additional laboratory investigations data in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface AdditionalLabInvestigationsType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(AdditionalLabInvestigationsType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("additionallabinvestigationstypef776type");

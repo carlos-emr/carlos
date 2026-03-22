@@ -56,6 +56,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "listTopMatchesResponse", propOrder = "_return")
+/**
+ * JAXB-annotated response object containing a list of top matching vacancies.
+ *
+ * @since 2005-01-01
+ */
 public class ListTopMatchesResponse {
 
     @XmlElement(name = "return")

@@ -78,6 +78,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MessengerGroupManager
  * @see MsgAddressBookMaker
  */
+/**
+ * Struts2 action for messenger administration, managing provider group configurations and messenger system settings.
+ *
+ * @since 2001-01-01
+ */
 public class MsgMessengerAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

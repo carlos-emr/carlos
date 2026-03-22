@@ -61,6 +61,11 @@ import jakarta.xml.bind.annotation.XmlType;
 @XmlType(name = "matchBO", propOrder = {"clientID", "clientName",
         "contactAttempts", "daysInWaitList", "daysSinceLastContact",
         "formDataID", "percentageMatch"})
+/**
+ * Business object representing a match between a wait list client and an available vacancy.
+ *
+ * @since 2005-01-01
+ */
 public class MatchBO {
 
     protected int clientID;

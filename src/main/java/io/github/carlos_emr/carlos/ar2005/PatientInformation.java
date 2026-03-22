@@ -41,6 +41,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see org.apache.xmlbeans.XmlObject
  * @since 2026-01-24
  */
+/**
+ * Interface for patient demographic and identification information.
+ *
+ * @since 2005-01-01
+ */
 public interface PatientInformation extends XmlObject
 {
     /**

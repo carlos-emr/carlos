@@ -54,6 +54,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "getVacancyResponse", propOrder = "_return")
+/**
+ * JAXB-annotated response object containing vacancy details.
+ *
+ * @since 2005-01-01
+ */
 public class GetVacancyResponse {
 
     @XmlElement(name = "return")

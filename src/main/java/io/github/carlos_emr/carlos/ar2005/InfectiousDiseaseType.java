@@ -16,6 +16,11 @@ import org.apache.xmlbeans.XmlString;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Interface for infectious disease screening data in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface InfectiousDiseaseType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(InfectiousDiseaseType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("infectiousdiseasetype0462type");

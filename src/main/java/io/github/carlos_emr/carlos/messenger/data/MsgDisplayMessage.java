@@ -53,6 +53,11 @@ package io.github.carlos_emr.carlos.messenger.data;
  * @see MsgMessageData
  * @see MsgProviderData
  */
+/**
+ * Value object holding the display representation of a single message in the messenger inbox list.
+ *
+ * @since 2001-01-01
+ */
 public class MsgDisplayMessage {
 
     /**

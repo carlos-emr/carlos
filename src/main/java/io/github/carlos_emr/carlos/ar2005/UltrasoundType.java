@@ -33,6 +33,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see io.github.carlos_emr.carlos.ar2005
  * @since 2026-01-23
  */
+/**
+ * Interface for ultrasound examination data in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface UltrasoundType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(UltrasoundType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("ultrasoundtype4a74type");

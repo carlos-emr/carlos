@@ -72,6 +72,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MsgSessionBean
  * @see MsgMessageData
  */
+/**
+ * Struts2 action for composing and creating new messenger messages between providers.
+ *
+ * @since 2001-01-01
+ */
 public class MsgCreateMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

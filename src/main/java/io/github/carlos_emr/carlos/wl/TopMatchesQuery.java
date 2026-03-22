@@ -54,6 +54,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "topMatchesQuery", propOrder = {"maximum", "vacancyID"})
+/**
+ * Query parameter object for configuring top vacancy match searches with criteria and limits.
+ *
+ * @since 2005-01-01
+ */
 public class TopMatchesQuery {
 
     protected int maximum;

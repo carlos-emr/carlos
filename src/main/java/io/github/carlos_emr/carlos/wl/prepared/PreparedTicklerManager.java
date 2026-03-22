@@ -32,6 +32,11 @@ package io.github.carlos_emr.carlos.wl.prepared;
 
 import java.util.List;
 
+/**
+ * Interface for managing prepared tickler templates used in wait list workflows.
+ *
+ * @since 2005-01-01
+ */
 public interface PreparedTicklerManager {
     void setPath(String path);
 

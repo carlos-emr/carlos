@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "vacancyQuery", propOrder = "vacancyID")
+/**
+ * JAXB-annotated query object for searching vacancies in the wait list system.
+ *
+ * @since 2005-01-01
+ */
 public class VacancyQuery {
 
     protected int vacancyID;

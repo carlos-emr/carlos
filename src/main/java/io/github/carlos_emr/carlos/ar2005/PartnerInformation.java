@@ -44,6 +44,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see io.github.carlos_emr.carlos.ar2005
  * @since 2026-01-24
  */
+/**
+ * Interface for partner information in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface PartnerInformation extends XmlObject
 {
     /**

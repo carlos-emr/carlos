@@ -32,6 +32,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  * @see io.github.carlos_emr.carlos.ar2005.YesNoNullType
  * @since 2026-01-24
  */
+/**
+ * Implementation of the InfectiousDiseaseType interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class InfectiousDiseaseTypeImpl extends XmlComplexContentImpl implements InfectiousDiseaseType
 {
     private static final long serialVersionUID = 1L;

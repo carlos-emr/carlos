@@ -82,6 +82,11 @@ import java.util.Map;
  * @see MsgDisplayMessage
  * @see OscarMsgType
  */
+/**
+ * Struts2 action for displaying the full content of a single messenger message.
+ *
+ * @since 2001-01-01
+ */
 public class MsgViewMessage2Action extends ActionSupport {
     /**
      * HTTP request object for accessing parameters and session.

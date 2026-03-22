@@ -83,6 +83,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see RemoteAttachmentsDao
  * @see MsgSessionBean
  */
+/**
+ * Struts2 action for proceeding with messenger workflow operations after message review.
+ *
+ * @since 2001-01-01
+ */
 public class MsgProceed2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session and parameters.

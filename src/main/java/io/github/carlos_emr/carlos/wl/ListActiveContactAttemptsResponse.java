@@ -56,6 +56,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "listActiveContactAttemptsResponse", propOrder = "_return")
+/**
+ * JAXB-annotated response object containing a list of active contact attempts.
+ *
+ * @since 2005-01-01
+ */
 public class ListActiveContactAttemptsResponse {
 
     @XmlElement(name = "return")

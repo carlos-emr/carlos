@@ -45,6 +45,11 @@ import org.apache.xmlbeans.XmlObject;
  * @see io.github.carlos_emr.carlos.ar2005
  * @see org.apache.xmlbeans.XmlObject
  */
+/**
+ * Interface for individual subsequent prenatal visit entries.
+ *
+ * @since 2005-01-01
+ */
 public interface SubsequentVisitItemType extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(SubsequentVisitItemType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("subsequentvisititemtypeb4c8type");

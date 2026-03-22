@@ -54,6 +54,11 @@ import java.io.Serializable;
  * @see MsgProviderData
  * @see MsgAddressBook
  */
+/**
+ * Value object representing a contact identifier in the messaging system, pairing a contact type with a unique identifier value.
+ *
+ * @since 2001-01-01
+ */
 public class ContactIdentifier implements Serializable {
 
     /**

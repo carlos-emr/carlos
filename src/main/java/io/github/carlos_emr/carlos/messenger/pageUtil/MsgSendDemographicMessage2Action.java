@@ -71,6 +71,11 @@ import org.apache.struts2.ServletActionContext;
  * @see ProviderData
  * @see MsgCreateMessage2Action
  */
+/**
+ * Struts2 action for sending messenger messages linked to a specific patient demographic.
+ *
+ * @since 2001-01-01
+ */
 public class MsgSendDemographicMessage2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session and parameters.

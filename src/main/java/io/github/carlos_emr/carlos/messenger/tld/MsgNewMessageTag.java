@@ -78,6 +78,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @see MsgNewMessagesTag
  * @see MessagingManager
  */
+/**
+ * JSP custom tag for checking if a provider has new unread messenger messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgNewMessageTag extends TagSupport {
 
     /**

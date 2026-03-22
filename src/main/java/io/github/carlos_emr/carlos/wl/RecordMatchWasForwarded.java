@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "recordMatchWasForwarded", propOrder = "arg0")
+/**
+ * JAXB-annotated request object for recording that a vacancy match was forwarded to a provider.
+ *
+ * @since 2005-01-01
+ */
 public class RecordMatchWasForwarded {
 
     protected MatchParam arg0;

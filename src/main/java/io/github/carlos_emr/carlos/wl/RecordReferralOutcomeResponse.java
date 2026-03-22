@@ -52,6 +52,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "recordReferralOutcomeResponse")
+/**
+ * JAXB-annotated response object confirming a referral outcome was recorded.
+ *
+ * @since 2005-01-01
+ */
 public class RecordReferralOutcomeResponse {
 
 }

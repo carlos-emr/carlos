@@ -84,6 +84,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MsgDemoMap
  * @see MsgDisplayMessagesBean
  */
+/**
+ * Struts2 action for displaying messenger messages associated with a specific patient demographic.
+ *
+ * @since 2001-01-01
+ */
 public class MsgDisplayDemographicMessages2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session and parameters.

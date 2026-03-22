@@ -52,6 +52,11 @@ import org.xml.sax.InputSource;
  * 
  * @since 2003
  */
+/**
+ * XML parsing and generation utility for messenger message data serialization.
+ *
+ * @since 2001-01-01
+ */
 public class Msgxml {
     
     /**

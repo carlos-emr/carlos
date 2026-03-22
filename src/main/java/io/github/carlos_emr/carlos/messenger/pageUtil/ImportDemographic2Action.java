@@ -52,6 +52,11 @@ import org.apache.logging.log4j.Logger;
  * @version 3.0
  * @since 2019
  */
+/**
+ * Struts2 action for importing demographic data from received messenger documents into patient records.
+ *
+ * @since 2001-01-01
+ */
 public class ImportDemographic2Action extends ActionSupport {
     private static final Logger logger = LogManager.getLogger(ImportDemographic2Action.class);
 

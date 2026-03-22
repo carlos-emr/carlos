@@ -56,6 +56,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "listVacanciesForWaitListProgramResponse", propOrder = "_return")
+/**
+ * JAXB-annotated response object containing vacancies for a wait list program.
+ *
+ * @since 2005-01-01
+ */
 public class ListVacanciesForWaitListProgramResponse {
 
     @XmlElement(name = "return")

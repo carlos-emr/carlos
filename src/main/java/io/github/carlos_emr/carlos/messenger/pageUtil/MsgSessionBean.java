@@ -58,6 +58,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @see MsgCreateMessage2Action
  * @see MsgSendMessage2Action
  */
+/**
+ * Session bean holding messenger session state including current provider context and message navigation.
+ *
+ * @since 2001-01-01
+ */
 public class MsgSessionBean implements java.io.Serializable {
 
     private static final long serialVersionUID = 1L;

@@ -58,6 +58,11 @@ import javax.xml.datatype.XMLGregorianCalendar;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchParam", propOrder = {"clientID", "contactDateTime",
         "vacancyID"})
+/**
+ * Parameter object holding match criteria for wait list vacancy matching algorithms.
+ *
+ * @since 2005-01-01
+ */
 public class MatchParam {
 
     protected int clientID;

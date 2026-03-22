@@ -52,6 +52,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "recordContactAttemptResponse")
+/**
+ * JAXB-annotated response object confirming a contact attempt was recorded.
+ *
+ * @since 2005-01-01
+ */
 public class RecordContactAttemptResponse {
 
 }

@@ -46,6 +46,11 @@ package io.github.carlos_emr.carlos.messenger.util;
  * @deprecated Use parameterized queries or PreparedStatements instead for better security
  */
 @Deprecated
+/**
+ * Utility for quoting and formatting message text content for reply messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgStringQuote {
 
     /**

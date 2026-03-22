@@ -40,6 +40,11 @@ import org.apache.xmlbeans.XmlString;
  * @see StringEnumAbstractBase
  * @since 2026-01-24
  */
+/**
+ * Interface for ethnicity information in the antenatal record.
+ *
+ * @since 2005-01-01
+ */
 public interface EthnicValueType extends XmlString
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(EthnicValueType.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("ethnicvaluetype7021type");

@@ -38,6 +38,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  * @see io.github.carlos_emr.carlos.ar2005.YesNoNullType
  * @see org.apache.xmlbeans.impl.values.XmlComplexContentImpl
  */
+/**
+ * Implementation of the PsychosocialType interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class PsychosocialTypeImpl extends XmlComplexContentImpl implements PsychosocialType
 {
     private static final long serialVersionUID = 1L;

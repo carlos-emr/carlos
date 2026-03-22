@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "programQuery", propOrder = "programID")
+/**
+ * JAXB-annotated query object for searching programs in the wait list system.
+ *
+ * @since 2005-01-01
+ */
 public class ProgramQuery {
 
     protected int programID;

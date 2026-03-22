@@ -85,6 +85,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MsgViewPDFAttachment2Action
  * @see MsgAttachPDF2Action
  */
+/**
+ * Struts2 action for rendering PDF content embedded in messenger messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgViewPDF2Action extends ActionSupport {
     /**
      * HTTP request object for accessing session data.

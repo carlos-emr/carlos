@@ -52,6 +52,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "recordMatchWasForwardedResponse")
+/**
+ * JAXB-annotated response object confirming a match forward was recorded.
+ *
+ * @since 2005-01-01
+ */
 public class RecordMatchWasForwardedResponse {
 
 }

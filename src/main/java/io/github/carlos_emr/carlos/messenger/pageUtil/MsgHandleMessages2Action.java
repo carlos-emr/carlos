@@ -89,6 +89,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MessengerDemographicManager
  * @see ContactIdentifier
  */
+/**
+ * Struts2 action for handling batch message operations such as marking messages as read or archiving.
+ *
+ * @since 2001-01-01
+ */
 public class MsgHandleMessages2Action extends ActionSupport {
     /**
      * HTTP request object for accessing parameters and session.

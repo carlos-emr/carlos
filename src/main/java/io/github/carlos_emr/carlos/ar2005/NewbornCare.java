@@ -17,6 +17,11 @@ import org.apache.xmlbeans.XmlBoolean;
 import org.apache.xmlbeans.SchemaType;
 import org.apache.xmlbeans.XmlObject;
 
+/**
+ * Interface for newborn care and assessment data.
+ *
+ * @since 2005-01-01
+ */
 public interface NewbornCare extends XmlObject
 {
     public static final SchemaType type = (SchemaType)XmlBeans.typeSystemForClassLoader(NewbornCare.class.getClassLoader(), "schemaorg_apache_xmlbeans.system.s9C023B7D67311A3187802DA7FD51EA38").resolveHandle("newborncaree4fftype");

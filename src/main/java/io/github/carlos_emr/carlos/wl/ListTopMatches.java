@@ -53,6 +53,11 @@ import jakarta.xml.bind.annotation.XmlType;
  */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "listTopMatches", propOrder = "arg0")
+/**
+ * JAXB-annotated request object for retrieving top matching vacancies for a wait list client.
+ *
+ * @since 2005-01-01
+ */
 public class ListTopMatches {
 
     protected TopMatchesQuery arg0;

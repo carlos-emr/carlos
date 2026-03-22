@@ -60,6 +60,11 @@ import javax.xml.datatype.XMLGregorianCalendar;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "clientWLEntryBO", propOrder = {"attempts", "lastContact",
         "status", "vacancyDisplay", "vacancyID"})
+/**
+ * Business object representing a client's wait list entry with status, dates, and program association.
+ *
+ * @since 2005-01-01
+ */
 public class ClientWLEntryBO {
 
     protected int attempts;

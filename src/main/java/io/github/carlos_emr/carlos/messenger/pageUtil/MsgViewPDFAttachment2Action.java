@@ -80,6 +80,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see MsgViewPDF2Action
  * @see MsgViewAttachment2Action
  */
+/**
+ * Struts2 action for viewing PDF attachments on messenger messages.
+ *
+ * @since 2001-01-01
+ */
 public class MsgViewPDFAttachment2Action extends ActionSupport {
     /**
      * HTTP request object for setting attributes for the view.

@@ -29,6 +29,11 @@ import org.apache.xmlbeans.impl.values.XmlComplexContentImpl;
  * @see org.apache.xmlbeans.impl.values.XmlComplexContentImpl
  * @since 2026-01-23
  */
+/**
+ * Implementation of the SignatureType interface for the Antenatal Record 2005 form data model.
+ *
+ * @since 2005-01-01
+ */
 public class SignatureTypeImpl extends XmlComplexContentImpl implements SignatureType
 {
     private static final long serialVersionUID = 1L;
