@@ -39,14 +39,37 @@ import io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link Hl7Msh} entities.
+ * Provides persistence operations for HL7 MSH (Message Header) segments
+ * in the BC PathNet lab integration. Includes complex queries that construct
+ * {@link PathNetLabResults} value objects from joined HL7 segment data.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7MshDao extends AbstractDaoImpl<Hl7Msh> {
 
+    /**
+     * Constructs a new {@code Hl7MshDao} with the {@link Hl7Msh} entity class.
+     */
     public Hl7MshDao() {
         super(Hl7Msh.class);
     }
 
+    /**
+     * Finds PathNet lab results filtered by patient name, health insurance number, status,
+     * provider number, and lab type. Uses a constructor expression to build
+     * {@link PathNetLabResults} instances directly from query results.
+     *
+     * @param patientName String patient name pattern (supports LIKE wildcards)
+     * @param patientHealthNumber String patient HIN pattern (supports LIKE wildcards)
+     * @param status String provider lab routing status pattern (supports LIKE wildcards)
+     * @param providerNo String provider number pattern (supports LIKE wildcards)
+     * @param labType String the lab type identifier
+     * @return List of {@link PathNetLabResults} matching the criteria
+     */
     public List<PathNetLabResults> findPathnetResultsDataByPatientNameHinStatusAndProvider(String patientName, String patientHealthNumber, String status, String providerNo, String labType) {
 		/*
 		 * Below query use a constructor expression (SELECT new io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, ProviderLabRoutingModel, String))

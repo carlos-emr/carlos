@@ -46,6 +46,11 @@ public class CaseManagementSearchBean {
     private String searchText;
     private String searchEncounterType;
 
+    /**
+     * Constructs a search bean for the specified patient demographic number.
+     *
+     * @param demographicNo String the patient demographic number to search for
+     */
     public CaseManagementSearchBean(String demographicNo) {
         this.demographicNo = demographicNo;
     }

@@ -46,7 +46,20 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Singleton manager that loads and caches clinical report numerator and denominator
+ * definitions from an XML configuration file. Serves as the central registry for
+ * all clinical report components used by the CARLOS EMR reporting framework.
+ *
+ * <p>Report definitions are loaded lazily from {@code ClinicalReports.xml} (or a
+ * user-configured override file) on the first call to {@link #getInstance()}. Each
+ * numerator is stored both as a typed {@link Numerator} object and as a raw
+ * {@link java.util.Hashtable} keyed by type (SQL, DROOLS, DROOLS2-5) to support
+ * deferred instantiation in {@link #getNumeratorById(String)}.</p>
+ *
+ * @see Numerator
+ * @see Denominator
+ * @see ReportEvaluator
+ * @since 2006-06-17
  */
 public class ClinicalReportManager {
 
@@ -67,6 +80,12 @@ public class ClinicalReportManager {
 
     }
 
+    /**
+     * Returns the singleton instance, loading report definitions from the XML
+     * configuration file if they have not yet been loaded.
+     *
+     * @return ClinicalReportManager the singleton instance with loaded reports
+     */
     static public ClinicalReportManager getInstance() {
 
         clinicalReportManager.loadReportsFromFile();
@@ -74,6 +93,11 @@ public class ClinicalReportManager {
         return clinicalReportManager;
     }
 
+    /**
+     * Adds a typed numerator to the numerator list if not already present.
+     *
+     * @param n Numerator the numerator to add
+     */
     public void addNumerator(Numerator n) {
 
         if (!numeratorList.contains(n)) {
@@ -84,6 +108,13 @@ public class ClinicalReportManager {
         //}
     }
 
+    /**
+     * Adds a raw hashtable-based numerator definition to the numerator hash,
+     * keyed by the given identifier for later deferred instantiation.
+     *
+     * @param n Hashtable the raw numerator property map
+     * @param id String the unique identifier to use as the hash key
+     */
     public void addNumerator(Hashtable n, String id) {
 
         //if (!numeratorList.contains(n)){
@@ -94,6 +125,11 @@ public class ClinicalReportManager {
         }
     }
 
+    /**
+     * Adds a denominator to both the denominator list and hash if not already present.
+     *
+     * @param d Denominator the denominator to add
+     */
     public void addDenominator(Denominator d) {
         if (!denominatorList.contains(d)) {
             denominatorList.add(d);
@@ -104,6 +140,11 @@ public class ClinicalReportManager {
     }
 
 
+    /**
+     * Returns the list of all loaded denominator definitions.
+     *
+     * @return List&lt;Denominator&gt; the denominator list
+     */
     public List<Denominator> getDenominatorList() {
         return denominatorList;
     }

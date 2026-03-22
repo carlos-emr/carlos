@@ -53,6 +53,17 @@ import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for adding a new allergy record to a patient's profile.
+ * <p>
+ * Processes allergy details including type, description, severity, onset, life stage,
+ * and start date (with partial date support). For drug allergies, enriches the record
+ * with the drug's regional identifier and ATC code from DrugRef. Optionally archives
+ * a previous allergy record when modifying an existing entry.
+ * Requires {@code _allergy} write privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxAddAllergy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

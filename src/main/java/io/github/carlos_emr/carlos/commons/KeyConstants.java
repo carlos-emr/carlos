@@ -26,6 +26,28 @@
 
 package io.github.carlos_emr.carlos.commons;
 
+/**
+ * Central repository of application-wide constant values used throughout the CARLOS EMR system.
+ *
+ * <p>This class defines constants for session keys, module identifiers, access control levels,
+ * program types, intake statuses, date formats, menu and tab identifiers, function definitions,
+ * and other system-wide configuration values. These constants ensure consistent use of
+ * string literals and numeric identifiers across the application layers.</p>
+ *
+ * <p>Key constant categories include:</p>
+ * <ul>
+ *   <li><strong>Session keys:</strong> Provider number, name, security manager, client ID, module context</li>
+ *   <li><strong>Gender constants:</strong> Male, Female, Transgender identifiers</li>
+ *   <li><strong>Access levels:</strong> View, read, update, write, all permissions</li>
+ *   <li><strong>Module IDs:</strong> Client, case, system, report module identifiers</li>
+ *   <li><strong>Program types:</strong> Service, external, community program classifications</li>
+ *   <li><strong>Intake statuses:</strong> Active, admitted, rejected, discharged lifecycle states</li>
+ *   <li><strong>Menu/tab identifiers:</strong> Navigation menu and tab panel identifiers</li>
+ *   <li><strong>Function definitions:</strong> Security privilege function names for access control</li>
+ * </ul>
+ *
+ * @since 2005-01-01
+ */
 public class KeyConstants {
     public static final String SYSTEM_USER_PROVIDER_NO = "1111";
     public static final String SESSION_KEY_PROVIDERNO = "user";

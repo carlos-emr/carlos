@@ -40,19 +40,40 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 
 /**
- * @author jay
+ * Executes eForm database access point (AP) queries to populate eForm fields
+ * with data from the database. APs are named SQL queries configured in
+ * {@code apconfig.xml} that map database column values into eForm template
+ * placeholders using {@code ${variable}} syntax.
+ *
+ * <p>Supports both plain-text and JSON output modes. In JSON mode, the raw
+ * {@link com.fasterxml.jackson.databind.node.ArrayNode} is returned for
+ * client-side JavaScript processing.</p>
+ *
+ * @see DatabaseAP
+ * @see EFormLoader
+ * @see EFormUtil#getValues(java.util.ArrayList, String)
+ * @since 2006-05-25
  */
 public class APExecute {
 
     /**
-     * Creates a new instance of APExecute
+     * Default constructor.
      */
     public APExecute() {
     }
 
-    
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Executes the named AP query for a given demographic, replacing template
+     * placeholders in the AP output with the values returned by the SQL query.
+     *
+     * @param ap String the AP name as defined in {@code apconfig.xml}
+     * @param demographicNo String the demographic number to bind into the query
+     * @return String the populated output template, or an empty string if the AP
+     *         is not found or the query returns a mismatched number of columns
+     */
     public String execute(String ap, String demographicNo) {
         EFormLoader.getInstance();
         DatabaseAP dap = EFormLoader.getAP(ap);
@@ -84,6 +105,17 @@ public class APExecute {
         return output;
     }
 
+    /**
+     * Executes the named AP query for a given demographic and invoice number,
+     * replacing template placeholders with database values. This overload
+     * additionally binds the {@code invoiceNo} parameter into the SQL query.
+     *
+     * @param ap String the AP name as defined in {@code apconfig.xml}
+     * @param demographicNo String the demographic number to bind into the query
+     * @param invoiceNo Integer the invoice number to bind into the query
+     * @return String the populated output template, or an empty string if the AP
+     *         is not found or the query returns a mismatched number of columns
+     */
     public String execute(String ap, String demographicNo, Integer invoiceNo) {
         EFormLoader.getInstance();
         DatabaseAP dap = EFormLoader.getAP(ap);

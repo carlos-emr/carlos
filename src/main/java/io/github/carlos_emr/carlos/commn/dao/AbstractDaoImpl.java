@@ -338,6 +338,13 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
                     "SingleResult requested but result was not unique : " + results.size()));
     }
 
+    /**
+     * Executes the given count query and returns the result as a Long.
+     *
+     * @param query the JPA count query to execute
+     * @return Long the count result, or {@code null} if no results exist
+     * @throws NonUniqueResultException if more than one result is returned
+     */
     protected Long getCountResult(Query query) {
         query.setMaxResults(1);
 
@@ -353,6 +360,13 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
                     "SingleResult requested but result was not unique : " + results.size()));
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Uses a native SQL {@code COUNT(*)} query against the table name derived
+     * from the entity's {@link jakarta.persistence.Table} annotation, falling back
+     * to the simple class name if no annotation is present.
+     */
     @Override
     public int getCountAll() {
         // new JPA way of doing it, but our hibernate is too old or doesn't support
@@ -384,6 +398,12 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         return getBaseQueryBuf(null, null).toString();
     }
 
+    /**
+     * Gets the base JPQL query with the specified entity alias.
+     *
+     * @param alias String the alias for the entity in the query
+     * @return String the base JPQL query string
+     */
     protected String getBaseQuery(String alias) {
         return getBaseQueryBuf(null, alias).toString();
     }
@@ -409,11 +429,19 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         return buf;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Class<T> getModelClass() {
         return modelClass;
     }
 
+    /**
+     * Creates a JPQL query with the specified entity alias and WHERE clause.
+     *
+     * @param alias       String the entity alias
+     * @param whereClause String the WHERE clause (without the WHERE keyword)
+     * @return Query the constructed JPA query
+     */
     protected Query createQuery(String alias, String whereClause) {
         return createQuery(null, alias, whereClause);
     }
@@ -463,6 +491,13 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         return buf;
     }
 
+    /**
+     * Creates a query string with the specified alias and WHERE clause, using no SELECT clause.
+     *
+     * @param alias       String the entity alias
+     * @param whereClause String the WHERE clause
+     * @return StringBuilder the constructed query string
+     */
     protected StringBuilder createQueryString(String alias, String whereClause) {
         return createQueryString(null, alias, whereClause);
     }

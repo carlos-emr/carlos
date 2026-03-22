@@ -57,7 +57,30 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author apavel
+ * Abstract JPA entity representing a clinical decision support guideline in the CARLOS EMR system.
+ * <p>
+ * DSGuideline is the base class for all clinical decision support guideline implementations.
+ * It is persisted in the {@code dsGuidelines} database table using single-table inheritance
+ * with the {@code engine} column as the discriminator (e.g., "drools" for the Drools-based
+ * implementation). Each guideline contains XML-defined clinical conditions, consequences,
+ * and parameters that are lazily parsed on first access.
+ * </p>
+ * <p>
+ * The guideline lifecycle is:
+ * </p>
+ * <ol>
+ *   <li>XML content is stored in the {@code xml} LOB column at creation time</li>
+ *   <li>On first access to conditions, consequences, or parameters, the XML is parsed
+ *       by {@link DSGuidelineFactory} into structured objects</li>
+ *   <li>The {@link #evaluate(LoggedInInfo, String)} method (implemented by subclasses)
+ *       evaluates the guideline against patient data and returns triggered consequences</li>
+ * </ol>
+ *
+ * @since 2009-07-06
+ * @see DSGuidelineFactory for XML parsing logic
+ * @see io.github.carlos_emr.carlos.decisionSupport.model.impl.drools.DSGuidelineDrools for the Drools implementation
+ * @see DSCondition for condition definitions
+ * @see DSConsequence for consequence definitions
  */
 @Entity
 @Table(name = "dsGuidelines")

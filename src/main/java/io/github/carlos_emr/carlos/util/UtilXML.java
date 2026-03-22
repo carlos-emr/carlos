@@ -486,11 +486,18 @@ public class UtilXML {
         return xml;
     }
 
-    //escapes all xml inside and including a certain tag (Good to use before parsing with jdom)
-    //'tag' parameter must be in the form <mytag>; no attributes;
-    //must be a complete tag
-    //Example:  <param><attr>hello</attr></param>  -->   &lt;param>&lt;attr>hello&lt;/attr>&lt;/param>
-    //-Paul A
+    /**
+     * Escapes all XML content inside and including occurrences of the specified tag.
+     * Useful for preparing content before parsing with a DOM parser.
+     *
+     * <p>The {@code tag} parameter must be in the form {@code <mytag>} with no attributes
+     * and must be a complete tag. Example: {@code <param><attr>hello</attr></param>} becomes
+     * {@code &lt;param>&lt;attr>hello&lt;/attr>&lt;/param>}.</p>
+     *
+     * @param xml String the XML content containing tags to escape
+     * @param tag String the complete tag to match (e.g., {@code <mytag>})
+     * @return String the XML with matching tag contents escaped
+     */
     public static String escapeAllXML(String xml, String tag) {
         String closetag = tag.substring(0, 1) + "/" + tag.substring(1);
         String opentag = tag.substring(0, tag.indexOf(">"));
@@ -512,8 +519,13 @@ public class UtilXML {
         return xml;
     }
 
-    //reverses escapeAllXML()
-    //Paul A
+    /**
+     * Reverses XML entity escaping by converting {@code &amp;}, {@code &lt;}, and {@code &gt;}
+     * back to their character equivalents.
+     *
+     * @param xml String the escaped XML string to unescape
+     * @return String the unescaped string
+     */
     public static String unescapeXML(String xml) {
         xml = xml.replaceAll("&amp;", "&");
         xml = xml.replaceAll("&lt;", "<");

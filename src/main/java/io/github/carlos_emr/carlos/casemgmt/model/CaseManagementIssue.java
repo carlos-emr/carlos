@@ -45,6 +45,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+/**
+ * Persistent entity representing the association between a clinical issue and a patient
+ * demographic within a specific program. Tracks issue characteristics such as acuity,
+ * certainty, severity (major), and resolution status.
+ *
+ * <p>Includes role-based write access checks that evaluate program-level and global
+ * default access rights for the associated issue type.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementIssue extends BaseObject {
 
     private ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
@@ -227,6 +237,14 @@ public class CaseManagementIssue extends BaseObject {
         this.program_id = program_id;
     }
 
+    /**
+     * Determines whether the specified provider has write access to this issue
+     * within the given program context.
+     *
+     * @param providerNo String the healthcare provider number
+     * @param programId int the program identifier
+     * @return boolean true if the provider has write access, false otherwise
+     */
     public boolean isWriteAccess(String providerNo, int programId) {
         Boolean result = calculateWriteAccess(providerNo, programId);
         return (result);

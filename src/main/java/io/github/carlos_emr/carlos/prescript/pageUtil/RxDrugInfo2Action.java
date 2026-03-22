@@ -47,6 +47,16 @@ import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that redirects to external drug information resources.
+ * <p>
+ * Looks up drug information by generic name (GN) or brand name (BN) and redirects
+ * the user to the OSCAR resource search page for detailed drug monograph information.
+ * When a brand name is provided, the generic name is resolved via DrugRef before redirect.
+ * Requires {@code _rx} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxDrugInfo2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

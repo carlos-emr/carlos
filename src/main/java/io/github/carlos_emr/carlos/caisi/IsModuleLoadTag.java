@@ -95,6 +95,14 @@ public class IsModuleLoadTag extends TagSupport {
 
     }
 
+    /**
+     * Sets whether to reverse the inclusion logic.
+     *
+     * <p>When set to "true" or "yes" (case-insensitive), the tag body is included
+     * only when the module is <em>disabled</em>.</p>
+     *
+     * @param reverse String "true" or "yes" to invert the logic, any other value for normal behavior
+     */
     public void setReverse(String reverse) {
         this.reverse = "true".equalsIgnoreCase(reverse) || "yes".equalsIgnoreCase(reverse);
     }

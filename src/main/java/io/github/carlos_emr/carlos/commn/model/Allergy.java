@@ -244,6 +244,11 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
         this.entryDate = entryDate;
     }
 
+    /**
+     * Returns the reaction description for this allergy.
+     *
+     * @return String the reaction text
+     */
     public String getReaction() {
         return reaction;
     }
@@ -394,6 +399,13 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
         this.startDateFormat = startDateFormat;
     }
 
+    /**
+     * Returns the start date formatted according to the configured date format.
+     * Supports partial dates: year-month ({@code yyyy-MM}), year-only ({@code yyyy}),
+     * or full date ({@code yyyy-MM-dd}).
+     *
+     * @return String the formatted start date, or an empty string if start date is null
+     */
     public String getStartDateFormatted() {
         if (this.startDate == null) return new String();
 
@@ -420,6 +432,14 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
     }
 
 
+    /**
+     * Returns a truncated allergy description if it exceeds the specified maximum length.
+     *
+     * @param maxlength int the maximum allowed length before truncation
+     * @param shorted int the threshold below which no truncation occurs
+     * @param added String suffix to append (currently unused in truncation)
+     * @return String the potentially shortened description
+     */
     public String getShortDesc(int maxlength, int shorted, String added) {
         String desc = this.getDescription();
         if ((maxlength > shorted) && (desc.length() > maxlength)) {
@@ -428,6 +448,12 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
         return desc;
     }
 
+    /**
+     * Returns the human-readable description of the life stage code.
+     *
+     * @return String the life stage description (e.g., "Newborn", "Infant", "Child",
+     *         "Adolescent", "Adult", or "Not Set")
+     */
     public String getLifeStageDesc() {
         String s = getLifeStage();
         if ("N".equals(s)) {
@@ -444,10 +470,21 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
         return "Not Set"; //"oscarEncounter.lifestage.opt.notset"; // = Not Set
     }
 
+    /**
+     * Returns the human-readable description of this allergy's onset of reaction code.
+     *
+     * @return String the onset description (e.g., "Immediate", "Gradual", "Slow")
+     */
     public String getOnSetOfReactionDesc() {
         return Allergy.getOnSetOfReactionDesc(this.getOnsetOfReaction());
     }
 
+    /**
+     * Translates an onset of reaction code to its human-readable description.
+     *
+     * @param onsetCode String the onset code ("1"=Immediate, "2"=Gradual, "3"=Slow)
+     * @return String the onset description, or "Unknown" with the code if unrecognized
+     */
     public static String getOnSetOfReactionDesc(String onsetCode) {
         if ("1".equals(onsetCode)) return ("Immediate");
         if ("2".equals(onsetCode)) return ("Gradual");

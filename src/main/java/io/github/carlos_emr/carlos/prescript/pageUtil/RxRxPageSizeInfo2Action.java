@@ -44,6 +44,14 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that loads the provider's prescription page size preference into the session.
+ * <p>
+ * Retrieves the {@code rx_page_size} user property for the logged-in provider and stores
+ * it in the session for use by prescription view JSPs.
+ *
+ * @since 2026-03-17
+ */
 public final class RxRxPageSizeInfo2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

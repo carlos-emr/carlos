@@ -32,6 +32,16 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Form bean for prescription writing that holds all drug and dosage fields submitted
+ * from the prescription entry form.
+ * <p>
+ * Contains properties for drug identification (brand name, generic name, ATC code, DIN),
+ * dosage instructions (take min/max, frequency, duration, quantity, repeats), and
+ * prescribing flags (no substitutions, PRN, long-term, past medication, dispense internal).
+ *
+ * @since 2026-03-17
+ */
 public final class RxWriteScriptForm {
     String action = "";
     int drugId = 0;

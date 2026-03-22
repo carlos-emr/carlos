@@ -47,6 +47,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for deleting a prescription favorite by its ID.
+ * <p>
+ * Requires {@code _rx} update privilege. Removes the specified favorite entry
+ * from the provider's saved prescription templates.
+ *
+ * @since 2026-03-17
+ */
 public final class RxDeleteFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

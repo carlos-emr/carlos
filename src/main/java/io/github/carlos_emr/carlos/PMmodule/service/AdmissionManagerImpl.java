@@ -111,43 +111,53 @@ public class AdmissionManagerImpl implements AdmissionManager {
         return dao.getCurrentAdmissionsByFacility(demographicNo, facilityId);
     }
 
+    /** {@inheritDoc} */
     public List<Admission> getAdmissions() {
         return dao.getAdmissions();
     }
 
+    /** {@inheritDoc} */
     public List<Admission> getAdmissions(Integer demographicNo) {
         return dao.getAdmissions(demographicNo);
     }
 
+    /** {@inheritDoc} */
     public List<Admission> getCurrentAdmissions(Integer demographicNo) {
         return dao.getCurrentAdmissions(demographicNo);
     }
 
 
+    /** {@inheritDoc} */
     public List<Admission> getCurrentServiceProgramAdmission(Integer demographicNo) {
         return dao.getCurrentServiceProgramAdmission(programDao, demographicNo);
     }
 
+    /** {@inheritDoc} */
     public Admission getCurrentExternalProgramAdmission(Integer demographicNo) {
         return dao.getCurrentExternalProgramAdmission(programDao, demographicNo);
     }
 
+    /** {@inheritDoc} */
     public Admission getCurrentCommunityProgramAdmission(Integer demographicNo) {
         return dao.getCurrentCommunityProgramAdmission(programDao, demographicNo);
     }
 
+    /** {@inheritDoc} */
     public List<Admission> getCurrentAdmissionsByProgramId(String programId) {
         return dao.getCurrentAdmissionsByProgramId(Integer.valueOf(programId));
     }
 
+    /** {@inheritDoc} */
     public Admission getAdmission(Long id) {
         return dao.getAdmission(id.intValue());
     }
 
+    /** {@inheritDoc} */
     public Admission getAdmission(Integer id) {
         return dao.getAdmission(id);
     }
 
+    /** {@inheritDoc} */
     public void saveAdmission(Admission admission) {
         dao.saveAdmission(admission);
     }

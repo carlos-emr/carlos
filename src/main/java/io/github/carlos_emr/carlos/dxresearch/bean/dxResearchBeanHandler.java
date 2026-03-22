@@ -37,14 +37,35 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 
+/**
+ * Handler that loads and manages diagnosis research entries for a given patient.
+ *
+ * <p>Queries the {@link DxresearchDAO} across all configured coding systems to retrieve
+ * the patient's diagnosis research records and populates them into a collection of
+ * {@link dxResearchBean} instances for use by the view layer.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchBeanHandler {
 
     Vector<dxResearchBean> dxResearchBeanVector = new Vector<dxResearchBean>();
 
+    /**
+     * Constructs a handler and immediately loads diagnosis research data for the specified patient.
+     *
+     * @param demographicNo String the patient demographic number
+     */
     public dxResearchBeanHandler(String demographicNo) {
         init(demographicNo);
     }
 
+    /**
+     * Initializes the bean collection by querying diagnosis research records across all
+     * configured coding systems for the specified patient.
+     *
+     * @param demographicNo String the patient demographic number
+     * @return boolean {@code true} if initialization succeeded, {@code false} on error
+     */
     public boolean init(String demographicNo) {
 
         boolean verdict = true;
@@ -77,10 +98,22 @@ public class dxResearchBeanHandler {
         return verdict;
     }
 
+    /**
+     * Returns the collection of diagnosis research beans loaded for the patient.
+     *
+     * @return Vector&lt;dxResearchBean&gt; the diagnosis research entries
+     */
     public Vector<dxResearchBean> getDxResearchBeanVector() {
         return dxResearchBeanVector;
     }
 
+    /**
+     * Returns a list of unique diagnosis codes from the loaded research beans.
+     *
+     * <p>Note: Does not currently filter by active status (see TODO).</p>
+     *
+     * @return Vector&lt;String&gt; unique diagnosis codes
+     */
     public Vector<String> getActiveCodeList() { //TODO: NEED TO CHECK STATUS
         Vector<String> v = new Vector<String>();
         for (int i = 0; i < dxResearchBeanVector.size(); i++) {
@@ -92,6 +125,14 @@ public class dxResearchBeanHandler {
         return v;
     }
 
+    /**
+     * Returns a list of unique diagnosis codes prefixed with their coding system type.
+     *
+     * <p>Each entry is formatted as {@code "codingSystem:diagnosisCode"}
+     * (e.g. "icd9:250"). Does not currently filter by active status (see TODO).</p>
+     *
+     * @return Vector&lt;String&gt; unique coding-system-qualified diagnosis codes
+     */
     public Vector<String> getActiveCodeListWithCodingSystem() { //TODO: NEED TO CHECK STATUS
         Vector<String> v = new Vector<String>();
         for (int i = 0; i < dxResearchBeanVector.size(); i++) {

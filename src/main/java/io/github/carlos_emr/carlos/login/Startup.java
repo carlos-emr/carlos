@@ -46,14 +46,33 @@ import java.util.Collections;
 import java.util.Objects;
 
 /**
- * This ContextListener is used to Initialize classes at startup - Initialize the DBConnection Pool.
+ * Servlet context listener that initializes the CARLOS EMR application at startup.
  *
- * @author Jay Gallagher
+ * <p>Performs the following initialization tasks:
+ * <ul>
+ *   <li>Loads application properties from the user's home directory or WEB-INF</li>
+ *   <li>Configures case management screen access and eChart settings</li>
+ *   <li>Generates or loads the encryption secret key for sensitive data</li>
+ *   <li>Initializes default document directory paths based on BASE_DOCUMENT_DIR</li>
+ *   <li>Creates missing directories for document storage, billing, HRM, etc.</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.CarlosProperties
+ * @see io.github.carlos_emr.carlos.utility.EncryptionUtils
+ * @since 2026-03-17
  */
 public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
 	private CarlosProperties p = CarlosProperties.getInstance();
 
+    /**
+     * Initializes the CARLOS EMR application when the servlet context starts.
+     *
+     * <p>Loads properties, configures application settings, generates encryption keys,
+     * and creates required document storage directories.
+     *
+     * @param sc ServletContextEvent the context event providing access to the servlet context
+     */
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");
 
@@ -208,6 +227,11 @@ public class Startup implements ServletContextListener {
         }
     }
 
+    /**
+     * Called when the servlet context is being destroyed. Currently performs no cleanup.
+     *
+     * @param arg0 ServletContextEvent the context destruction event
+     */
     public void contextDestroyed(ServletContextEvent arg0) {
         // nothing to do right now
     }

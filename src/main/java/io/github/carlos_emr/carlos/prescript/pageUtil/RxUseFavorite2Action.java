@@ -51,6 +51,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for applying a saved prescription favorite to the current prescription stash.
+ * <p>
+ * Creates a new prescription from the selected favorite template and adds it to the
+ * session's prescription stash. Supports both legacy form-based and AJAX-based (useFav2)
+ * workflows. Requires {@code _rx} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxUseFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -140,21 +140,44 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
             input = new ByteArrayInputStream(cachedBytes.toByteArray());
         }
 
+        /**
+         * Reads the next byte from the cached request body.
+         *
+         * @return int the next byte of data, or {@code -1} if the end of the stream is reached
+         * @throws IOException if an I/O error occurs
+         */
         @Override
         public int read() throws IOException {
             return input.read();
         }
 
+        /**
+         * Returns whether all cached bytes have been read.
+         *
+         * @return boolean {@code true} if no more bytes are available
+         */
         @Override
         public boolean isFinished() {
             return input.available() == 0;
         }
 
+        /**
+         * Returns whether data is available for reading without blocking.
+         * Always returns {@code true} since the data is cached in memory.
+         *
+         * @return boolean always {@code true}
+         */
         @Override
         public boolean isReady() {
             return true;
         }
 
+        /**
+         * Sets a read listener for async I/O. Not implemented because this
+         * stream is backed by an in-memory byte array and never blocks.
+         *
+         * @param readListener ReadListener the listener to register (ignored)
+         */
         @Override
         public void setReadListener(ReadListener readListener) {
 

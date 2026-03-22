@@ -35,14 +35,38 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler that performs diagnosis code searches against a specified coding system.
+ *
+ * <p>Queries the {@link DxDao} for codes matching the provided keywords within
+ * a coding system (e.g. ICD-9, ICD-10) and builds a list of
+ * {@link dxCodeSearchBean} results. Codes that exactly match a keyword are
+ * flagged with the "checked" indicator.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxCodeSearchBeanHandler {
 
     List<dxCodeSearchBean> dxCodeSearchBeanVector = new ArrayList<dxCodeSearchBean>();
 
+    /**
+     * Constructs a handler and immediately performs a code search.
+     *
+     * @param codeType String the coding system to search (e.g. "icd9", "icd10")
+     * @param keywords String[] the search keywords to match against diagnosis codes
+     */
     public dxCodeSearchBeanHandler(String codeType, String[] keywords) {
         init(codeType, keywords);
     }
 
+    /**
+     * Queries the diagnosis code database for codes matching the given keywords
+     * within the specified coding system. Exact keyword matches are flagged.
+     *
+     * @param codingSystem String the coding system to search within
+     * @param keywords String[] the keywords to match against code values and descriptions
+     * @return boolean always {@code true}
+     */
     public boolean init(String codingSystem, String[] keywords) {
         DxDao dao = SpringUtils.getBean(DxDao.class);
 
@@ -59,6 +83,11 @@ public class dxCodeSearchBeanHandler {
         return true;
     }
 
+    /**
+     * Returns the list of diagnosis code search results.
+     *
+     * @return List&lt;dxCodeSearchBean&gt; the search result beans
+     */
     public List<dxCodeSearchBean> getDxCodeSearchBeanVector() {
         return dxCodeSearchBeanVector;
     }

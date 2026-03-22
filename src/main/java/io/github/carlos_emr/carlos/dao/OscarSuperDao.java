@@ -36,16 +36,46 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 /**
- * Oscar super DAO implementation created to extract database access code from JSP files. This class should be extended by a scope named DAO class, i.e. AppointmentDao. Do not access methods of this class directly - use OscarSuperManager methods instead.
+ * Abstract base DAO that centralizes JDBC query execution for provider-related
+ * database operations originally embedded in JSP files.
+ *
+ * <p>Subclasses (e.g., {@link ProviderDao}) supply a registry of named SQL queries
+ * via {@link #getDbQueries()} and optional {@link RowMapper} instances via
+ * {@link #getRowMappers()}. This class provides two execution methods:
+ * {@link #executeSelectQuery(String, Object[])} for generic {@code Map}-based results,
+ * and {@link #executeRowMappedSelectQuery(String, Object[])} for typed object mapping.</p>
+ *
+ * <p>This class should not be accessed directly from JSP or action classes.
+ * Use {@code OscarSuperManager} methods instead to maintain proper layering.</p>
  *
  * @author Eugene Petruhin
+ * @since 2012-01-18 (OSCAR McMaster heritage)
  */
 public abstract class OscarSuperDao extends JdbcDaoSupport {
 
     protected static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Returns the subclass-specific SQL query registry.
+     *
+     * <p>Each entry is a two-element {@code String} array where index 0 is
+     * the query name (used as a lookup key) and index 1 is the parameterized
+     * SQL statement.</p>
+     *
+     * @return String[][] array of {@code [queryName, sqlStatement]} pairs
+     */
     protected abstract String[][] getDbQueries();
 
+    /**
+     * Returns the subclass-specific row mapper registry.
+     *
+     * <p>Keys correspond to query names from {@link #getDbQueries()}. When a
+     * query is executed via {@link #executeRowMappedSelectQuery(String, Object[])},
+     * the matching {@link RowMapper} transforms each result set row into a
+     * domain object.</p>
+     *
+     * @return Map of query names to their corresponding {@link RowMapper} instances
+     */
     protected abstract Map<String, RowMapper> getRowMappers();
 
     /**

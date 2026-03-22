@@ -48,6 +48,23 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 
+/**
+ * Provides static utility methods for retrieving and displaying prescription drug data
+ * for a given patient demographic.
+ *
+ * <p>This bean serves as a read-only interface for looking up drugs prescribed to a patient,
+ * matching by regional identifier, custom name, brand name, or ATC code. Results are
+ * returned as {@link DrugDisplayData} objects sorted by prescription start date in
+ * descending order (most recent first).</p>
+ *
+ * <p>The inner {@link DrugDisplayData} class is a lightweight value object that aggregates
+ * prescription details including provider name, dates, generic/brand/custom names,
+ * archive status, pickup information, and dispensing details for display purposes.</p>
+ *
+ * @since 2001-01-01
+ * @see io.github.carlos_emr.carlos.commn.dao.DrugDao
+ * @see io.github.carlos_emr.carlos.commn.model.Drug
+ */
 public class StaticScriptBean {
     private static final Logger logger = MiscUtils.getLogger();
     private static DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);

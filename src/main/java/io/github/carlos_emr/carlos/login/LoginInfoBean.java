@@ -149,18 +149,38 @@ public final class LoginInfoBean {
         times = times1;
     }
 
+    /**
+     * Sets the login status (1 = normal, 0 = blocked).
+     *
+     * @param status1 int the status value
+     */
     public void setStatus(int status1) {
         status = status1;
     }
 
+    /**
+     * Gets the start time of the first failed attempt.
+     *
+     * @return GregorianCalendar the start time
+     */
     public GregorianCalendar getStarttime() {
         return (starttime);
     }
 
+    /**
+     * Gets the current failed attempt count.
+     *
+     * @return int the number of failed attempts
+     */
     public int getTimes() {
         return (times);
     }
 
+    /**
+     * Gets the current login status (1 = normal, 0 = blocked).
+     *
+     * @return int the status value
+     */
     public int getStatus() {
         return (status);
     }

@@ -51,17 +51,37 @@ import io.github.carlos_emr.CarlosProperties;
  * from OscarDocument/login.
  * <p>
  * It's easiest to follow a standard naming convention for each element.
+ *
+ * @see io.github.carlos_emr.carlos.utility.PathValidationUtils
+ * @since 2026-03-17
  */
 public class LoginResourceAction extends HttpServlet {
 
     private String images;
 
+    /**
+     * Initializes the servlet by resolving the login images directory from BASE_DOCUMENT_DIR.
+     *
+     * @throws ServletException if the servlet context cannot be initialized
+     */
     public void init() throws ServletException {
         String oscarDocument = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
         // all image files for the login page go into OscarDocuments/login
         this.images = oscarDocument + File.separator + "login";
     }
 
+    /**
+     * Serves image resources for the login page by resolving the requested path info
+     * against the login images directory.
+     *
+     * <p>Validates the requested filename using {@link PathValidationUtils} to prevent
+     * path traversal attacks. Only serves files with an image content type.
+     *
+     * @param request HttpServletRequest the incoming request with path info identifying the image
+     * @param response HttpServletResponse the response to write the image content to
+     * @throws ServletException if a servlet processing error occurs
+     * @throws IOException if an I/O error occurs while serving the image
+     */
     protected void doGet(HttpServletRequest request,
                          HttpServletResponse response) throws ServletException, IOException {
 
@@ -114,6 +134,14 @@ public class LoginResourceAction extends HttpServlet {
         }
     }
 
+    /**
+     * Rejects POST requests; this servlet only handles GET for serving static image resources.
+     *
+     * @param request HttpServletRequest the incoming POST request
+     * @param response HttpServletResponse the response (unused)
+     * @throws ServletException if a servlet processing error occurs
+     * @throws IOException if an I/O error occurs
+     */
     protected final void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         return;
     }

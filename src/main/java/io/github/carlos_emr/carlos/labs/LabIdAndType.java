@@ -28,31 +28,70 @@
  */
 package io.github.carlos_emr.carlos.labs;
 
+/**
+ * Value object that encapsulates a laboratory result identifier and its associated type.
+ *
+ * <p>This class pairs a numeric lab result ID with a string-based lab type classifier,
+ * providing a lightweight container for identifying specific lab results across the
+ * CARLOS EMR system. Lab types typically correspond to different laboratory information
+ * system formats (e.g., HL7, MDS, CML) or processing pipelines.</p>
+ *
+ * @since 2001-01-01
+ */
 public class LabIdAndType {
     private int labId;
     private String labType;
 
+    /**
+     * Constructs an empty LabIdAndType with default values.
+     */
     public LabIdAndType() {
 
     }
 
+    /**
+     * Constructs a LabIdAndType with the specified lab ID and type.
+     *
+     * @param labId int the unique identifier of the laboratory result
+     * @param labType String the type classifier for the lab result (e.g., "HL7", "MDS", "CML")
+     */
     public LabIdAndType(int labId, String labType) {
         setLabId(labId);
         setLabType(labType);
     }
 
+    /**
+     * Returns the unique identifier of the laboratory result.
+     *
+     * @return int the lab result ID
+     */
     public int getLabId() {
         return labId;
     }
 
+    /**
+     * Sets the unique identifier of the laboratory result.
+     *
+     * @param labId int the lab result ID to set
+     */
     public void setLabId(int labId) {
         this.labId = labId;
     }
 
+    /**
+     * Returns the type classifier for the laboratory result.
+     *
+     * @return String the lab type (e.g., "HL7", "MDS", "CML")
+     */
     public String getLabType() {
         return labType;
     }
 
+    /**
+     * Sets the type classifier for the laboratory result.
+     *
+     * @param labType String the lab type to set
+     */
     public void setLabType(String labType) {
         this.labType = labType;
     }

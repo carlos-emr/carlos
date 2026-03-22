@@ -43,11 +43,31 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing Cumulative Patient Profile (CPP) display preferences.
+ *
+ * <p>Handles viewing and saving provider-specific CPP layout preferences, including
+ * the position and visibility of clinical sections such as social history, medical history,
+ * ongoing concerns, and reminders. Delegates to {@link CppPreferencesUIBean} for
+ * serialization and persistence of preferences.</p>
+ *
+ * <p>Routes via the {@code method} request parameter: {@code "save"} persists preferences,
+ * otherwise displays the configuration form.</p>
+ *
+ * @see CppPreferencesUIBean
+ * @since 2026-03-17
+ */
 public class CppPreferences2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
+    /**
+     * Dispatches to {@link #save()} if the {@code method} parameter is {@code "save"},
+     * otherwise forwards to {@link #view()}.
+     *
+     * @return String the Struts2 result name ({@code "form"} or {@code "exit"})
+     */
     @Override
     public String execute() {
         if ("save".equals(request.getParameter("method"))) {
@@ -56,6 +76,11 @@ public class CppPreferences2Action extends ActionSupport {
         return view();
     }
 
+    /**
+     * Loads the current CPP preferences for the logged-in provider and populates the form bean.
+     *
+     * @return String {@code "form"} to display the CPP preferences configuration form
+     */
     public String view() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         CppPreferencesUIBean bean = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
@@ -64,6 +89,14 @@ public class CppPreferences2Action extends ActionSupport {
         return "form";
     }
 
+    /**
+     * Saves CPP preferences from the submitted form parameters and logs the action.
+     *
+     * <p>Deserializes form parameters into the {@link CppPreferencesUIBean}, persists them
+     * to the database, and creates an audit log entry for the save operation.</p>
+     *
+     * @return String {@code "exit"} to close the preferences dialog
+     */
     public String save() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         @SuppressWarnings("unchecked")

@@ -58,7 +58,19 @@ import io.github.carlos_emr.carlos.prescript.data.RxPharmacyData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author Jay Gallagher & Jackson Bi
+ * Struts 2 action for managing pharmacy records and patient-pharmacy associations.
+ * <p>
+ * Provides comprehensive pharmacy management operations including:
+ * <ul>
+ * <li>Adding, editing, and deleting pharmacy records</li>
+ * <li>Linking and unlinking pharmacies to/from patients</li>
+ * <li>Setting preferred pharmacy order for patients</li>
+ * <li>Searching pharmacies by name, address, and city</li>
+ * <li>Retrieving pharmacy details and patient association counts</li>
+ * </ul>
+ * Most methods return JSON responses for AJAX-based UI interactions.
+ *
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

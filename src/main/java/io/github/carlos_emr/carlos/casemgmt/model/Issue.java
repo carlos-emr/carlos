@@ -32,6 +32,16 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Persistent entity representing a clinical issue definition in the case management system.
+ * Issues are categorized by type (e.g., user-defined, ICD-9, ICD-10, SNOMED) and associated
+ * with a specific clinical role. Each issue has a code, description, priority, and sort order.
+ *
+ * <p>Type constants such as {@link #CUSTOM_ISSUE}, {@link #ICD_9}, {@link #ICD_10},
+ * and {@link #SNOMED_CORE} identify the coding system the issue belongs to.</p>
+ *
+ * @since 2026-03-17
+ */
 public class Issue extends BaseObject {
     public static String CUSTOM_ISSUE = "userDefined";
     public static String SYSTEM = "system";
@@ -122,6 +132,11 @@ public class Issue extends BaseObject {
         this.type = type;
     }
 
+    /**
+     * Returns the update date formatted as a "yyyy-MM-dd" string for web display.
+     *
+     * @return String the formatted date string, or null if the update date is null
+     */
     public String getUpdate_date_web() {
         if (update_date == null)
             return null;
@@ -129,6 +144,13 @@ public class Issue extends BaseObject {
             return formatter.format(update_date);
     }
 
+    /**
+     * Parses a "yyyy-MM-dd" date string and sets the update date.
+     * Falls back to the current date if the input is null, and logs an error
+     * if the date string cannot be parsed.
+     *
+     * @param update_date_s String the date string in "yyyy-MM-dd" format
+     */
     public void setUpdate_date_web(String update_date_s) {
         //SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
         //sdf.setLenient(false);

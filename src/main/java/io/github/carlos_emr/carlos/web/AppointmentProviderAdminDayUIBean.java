@@ -34,10 +34,29 @@ import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * UI helper bean for the appointment provider admin day view.
+ *
+ * <p>Provides utility methods used by the daily appointment schedule JSP pages,
+ * including truncating form link names to the provider-configured display length
+ * and retrieving eForms by their identifier.
+ *
+ * @since 2012-08-13
+ */
 public final class AppointmentProviderAdminDayUIBean {
     private static EFormDao eFormDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
     private static ProviderPreferenceDao providerPreferenceDao = (ProviderPreferenceDao) SpringUtils.getBean(ProviderPreferenceDao.class);
 
+    /**
+     * Truncates a form link name to the provider's configured display length.
+     *
+     * <p>If the provider has not configured a preference, the default maximum length is 3 characters.
+     * Names exceeding the limit are truncated and suffixed with a period.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information, used to look up the provider number
+     * @param formName String the full form name to potentially truncate
+     * @return String the original name if within the limit, or a truncated version ending with "."
+     */
     public static String getLengthLimitedLinkName(LoggedInInfo loggedInInfo, String formName) {
         int maxLength = 3;
 
@@ -49,6 +68,12 @@ public final class AppointmentProviderAdminDayUIBean {
         else return (formName.substring(0, maxLength - 1) + ".");
     }
 
+    /**
+     * Retrieves an electronic form by its identifier.
+     *
+     * @param eformId Integer the unique identifier of the eForm
+     * @return EForm the matching electronic form, or {@code null} if not found
+     */
     public static EForm getEForms(Integer eformId) {
         return (eFormDao.find(eformId));
     }

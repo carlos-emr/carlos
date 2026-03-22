@@ -44,6 +44,13 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.*;
 
+/**
+ * Transactional implementation of {@link EctProgramManager} that manages
+ * program assignments, provider-program relationships, and demographic queries
+ * by program. Uses constructor-based dependency injection for DAO access.
+ *
+ * @since 2005-01-01
+ */
 @Transactional
 public class EctProgramManagerImpl implements EctProgramManager {
     private final DemographicDao demographicDao;
@@ -70,6 +77,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
         this.programDao = programDao;
     }
 
+    /** {@inheritDoc} */
     public List<LabelValueBean> getProgramBeans() {
         Iterator<Program> iter = programDao.getAllPrograms().iterator();
         ArrayList<LabelValueBean> pList = new ArrayList<LabelValueBean>();
@@ -82,6 +90,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
         return pList;
     }
 
+    /** {@inheritDoc} */
     public List<LabelValueBean> getProgramBeans(String providerNo, Integer facilityId) {
         if (providerNo == null || "".equalsIgnoreCase(providerNo.trim())) return new ArrayList<LabelValueBean>();
         Iterator<ProgramProvider> iter = programProviderDAOT.getProgramProvidersByProvider(providerNo).iterator();
@@ -103,6 +112,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
         return pList;
     }
 
+    /** {@inheritDoc} */
     public List<LabelValueBean> getProgramBeansByFacilityId(Integer facilityId) {
         if (facilityId <= 0) return new ArrayList<LabelValueBean>();
         Iterator<Program> iter = providerDefaultProgramDao.findProgramsByFacilityId(facilityId).iterator();
@@ -116,6 +126,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
         return pList;
     }
 
+    /** {@inheritDoc} */
     public List<LabelValueBean> getProgramForApptViewBeans(String providerNo, Integer facilityId) {
         if (providerNo == null || "".equalsIgnoreCase(providerNo.trim())) return new ArrayList<LabelValueBean>();
         Iterator<ProgramProvider> iter = programProviderDAOT.getProgramProvidersByProvider(providerNo).iterator();
@@ -133,6 +144,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
         return pList;
     }
 
+    /** {@inheritDoc} */
     public List<LabelValueBean> getDemographicByBedProgramIdBeans(int programId, Date dt, String archiveView) {
         /*default time is Oscar default null time 0001-01-01.*/
         Date defdt = new GregorianCalendar(1, 0, 1).getTime();
@@ -159,6 +171,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
         return demographicList;
     }
 
+    /** {@inheritDoc} */
     public int getDefaultProgramId() {
         String defProgramName = "Annex";
         Program program = programDao.getProgramByName(defProgramName);
@@ -166,6 +179,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
         else return program.getId();
     }
 
+    /** {@inheritDoc} */
     public int getDefaultProgramId(String providerNo) {
         int defProgramId = 0;
         List<ProviderDefaultProgram> rs = providerDefaultProgramDao.getProgramByProviderNo(providerNo);
@@ -175,10 +189,12 @@ public class EctProgramManagerImpl implements EctProgramManager {
 
     }
 
+    /** {@inheritDoc} */
     public void setDefaultProgramId(String providerNo, int programId) {
         providerDefaultProgramDao.setDefaultProgram(providerNo, programId);
     }
 
+    /** {@inheritDoc} */
     public Boolean getProviderSig(String providerNo) {
         List<ProviderDefaultProgram> list = providerDefaultProgramDao.getProgramByProviderNo(providerNo);
         if (list.isEmpty()) {
@@ -194,15 +210,18 @@ public class EctProgramManagerImpl implements EctProgramManager {
 
     }
 
+    /** {@inheritDoc} */
     public void toggleSig(String providerNo) {
         providerDefaultProgramDao.toggleSig(providerNo);
 
     }
 
+    /** {@inheritDoc} */
     public ProgramProviderDAO getProgramProviderDAOT() {
         return programProviderDAOT;
     }
 
+    /** {@inheritDoc} */
     public String[] getProgramInformation(int programId) {
         Program program = programDao.getProgram(programId);
         if (program == null) return new String[0];

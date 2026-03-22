@@ -36,7 +36,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
+/**
+ * Provides access to healthcare provider data combined with clinic information.
+ * Retrieves provider details (name) along with the associated clinic's contact
+ * information (address, phone, fax).
+ *
+ * @since 2001-01-01
+ */
 public class EctProviderData {
+    /**
+     * Inner class representing a healthcare provider with associated clinic details.
+     */
     public class Provider {
         String providerNo;
         String surname;
@@ -99,6 +109,13 @@ public class EctProviderData {
 
     }
 
+    /**
+     * Retrieves provider and clinic data for the given provider number.
+     * Prepends "Dr." to the first name if not already present.
+     *
+     * @param providerNo String the provider number to look up
+     * @return Provider the provider with clinic data, or null if not found
+     */
     public Provider getProvider(String providerNo) {
         Provider provider = null;
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);

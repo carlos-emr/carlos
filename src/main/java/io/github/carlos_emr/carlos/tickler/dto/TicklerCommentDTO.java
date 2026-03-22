@@ -115,50 +115,62 @@ public class TicklerCommentDTO implements Serializable {
         return updateDate != null && referenceDate != null && DateUtils.isSameDay(updateDate, referenceDate);
     }
 
+    /** @return Integer the comment ID */
     public Integer getId() {
         return id;
     }
 
+    /** @param id Integer the comment ID */
     public void setId(Integer id) {
         this.id = id;
     }
 
+    /** @return Integer the parent tickler ID */
     public Integer getTicklerNo() {
         return ticklerNo;
     }
 
+    /** @param ticklerNo Integer the parent tickler ID */
     public void setTicklerNo(Integer ticklerNo) {
         this.ticklerNo = ticklerNo;
     }
 
+    /** @return String the comment message text */
     public String getMessage() {
         return message;
     }
 
+    /** @param message String the comment message text */
     public void setMessage(String message) {
         this.message = message;
     }
 
+    /** @return Date the comment update date */
     public Date getUpdateDate() {
         return updateDate;
     }
 
+    /** @param updateDate Date the comment update date */
     public void setUpdateDate(Date updateDate) {
         this.updateDate = updateDate;
     }
 
+    /** @return String the commenting provider's last name */
     public String getProviderLastName() {
         return providerLastName;
     }
 
+    /** @param providerLastName String the commenting provider's last name */
     public void setProviderLastName(String providerLastName) {
         this.providerLastName = providerLastName;
     }
 
+    /** @return String the commenting provider's first name */
     public String getProviderFirstName() {
         return providerFirstName;
     }
 
+    /** @param providerFirstName String the commenting provider's first name */
     public void setProviderFirstName(String providerFirstName) {
         this.providerFirstName = providerFirstName;
     }

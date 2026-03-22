@@ -31,6 +31,16 @@
 package io.github.carlos_emr.carlos.dxresearch.bean;
 
 
+/**
+ * Serializable bean representing a single diagnosis code search result.
+ *
+ * <p>Holds the description, diagnosis code, coding system type, and whether
+ * the code is an exact match for the search query. Used by
+ * {@link dxCodeSearchBeanHandler} to transport search results from the
+ * DAO layer to the JSP view layer.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxCodeSearchBean implements java.io.Serializable {
 
     String description;
@@ -39,48 +49,104 @@ public class dxCodeSearchBean implements java.io.Serializable {
     String exactMatch;
 
 
+    /**
+     * Default no-argument constructor.
+     */
     public dxCodeSearchBean() {
     }
 
+    /**
+     * Constructs a search result bean with a description and diagnosis code.
+     *
+     * @param description String the human-readable description of the diagnosis code
+     * @param dxSearchCode String the diagnosis code value (e.g. ICD-9, ICD-10)
+     */
     public dxCodeSearchBean(String description,
                             String dxSearchCode) {
         this.description = description;
         this.dxSearchCode = dxSearchCode;
     }
 
+    /**
+     * Returns the human-readable description of the diagnosis code.
+     *
+     * @return String the diagnosis code description
+     */
     public String getDescription() {
         return description;
     }
 
+    /**
+     * Sets the human-readable description of the diagnosis code.
+     *
+     * @param description String the diagnosis code description
+     */
     public void setDescription(String description) {
         this.description = description;
     }
 
 
+    /**
+     * Returns the diagnosis search code value.
+     *
+     * @return String the diagnosis code (e.g. ICD-9 or ICD-10 code)
+     */
     public String getDxSearchCode() {
         return dxSearchCode;
     }
 
+    /**
+     * Sets the diagnosis search code value.
+     *
+     * @param dxSearchCode String the diagnosis code
+     */
     public void setDxSearchCode(String dxSearchCode) {
         this.dxSearchCode = dxSearchCode;
     }
 
+    /**
+     * Returns the coding system type (e.g. "icd9", "icd10").
+     *
+     * @return String the coding system type identifier
+     */
     public String getType() {
         return type;
     }
 
+    /**
+     * Sets the coding system type.
+     *
+     * @param type String the coding system type identifier
+     */
     public void setType(String type) {
         this.type = type;
     }
 
+    /**
+     * Returns the exact match indicator.
+     *
+     * @return String "checked" if this code exactly matches the search query, {@code null} otherwise
+     */
     public String getExactMatch() {
         return exactMatch;
     }
 
+    /**
+     * Sets the exact match indicator.
+     *
+     * @param exactMatch String "checked" to indicate an exact match
+     */
     public void setExactMatch(String exactMatch) {
         this.exactMatch = exactMatch;
     }
 
+    /**
+     * Checks equality by comparing diagnosis code and coding system type
+     * against a {@link dxResearchBean} instance.
+     *
+     * @param o Object the object to compare with
+     * @return boolean {@code true} if the object is a {@link dxResearchBean} with matching code and type
+     */
     public boolean equals(Object o) {
         if (o instanceof dxResearchBean) {
             dxResearchBean bean = (dxResearchBean) o;

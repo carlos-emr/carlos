@@ -37,7 +37,19 @@ package io.github.carlos_emr.carlos.login;
 import java.util.Hashtable;
 
 /**
- * Class LoginList : an application level login list: ip/LoginInfoBean 2003-01-29
+ * Application-scoped singleton registry that maps IP addresses or usernames to their
+ * {@link LoginInfoBean} login attempt tracking entries.
+ *
+ * <p>This class extends {@link Hashtable} to provide a thread-safe, application-wide
+ * registry of failed login attempts. It uses the singleton pattern to ensure a single
+ * shared instance across all login requests.
+ *
+ * <p>Keys are IP addresses (for IP-based blocking) or usernames (for account-based locking),
+ * and values are {@link LoginInfoBean} instances that track attempt counts and block status.
+ *
+ * @see LoginInfoBean for individual attempt tracking
+ * @see LoginCheckLogin for the coordinator that uses this registry
+ * @since 2026-03-17
  */
 public final class LoginList extends Hashtable {
     //only one instance to use
@@ -46,6 +58,11 @@ public final class LoginList extends Hashtable {
     private LoginList() {
     }
 
+    /**
+     * Returns the singleton LoginList instance, creating it if necessary.
+     *
+     * @return LoginList the shared singleton instance
+     */
     public synchronized static LoginList getLoginListInstance() {
         if (loginList == null) {
             loginList = new LoginList();

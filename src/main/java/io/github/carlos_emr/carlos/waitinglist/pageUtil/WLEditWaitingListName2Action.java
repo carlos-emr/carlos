@@ -38,6 +38,24 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Date;
 
+/**
+ * Struts2 action for creating, renaming, and removing waiting list name definitions.
+ *
+ * <p>Handles three operations based on the {@code actionChosen} request parameter:
+ * <ul>
+ *   <li><strong>create</strong> - Creates a new waiting list name via
+ *       {@link WLWaitingListNameUtil#createWaitingListName}</li>
+ *   <li><strong>change</strong> - Renames an existing waiting list name via
+ *       {@link WLWaitingListNameUtil#updateWaitingListName}</li>
+ *   <li><strong>remove</strong> - Soft-deletes a waiting list name via
+ *       {@link WLWaitingListNameUtil#removeFromWaitingListName}</li>
+ * </ul>
+ *
+ * <p>After processing, refreshes the session with updated waiting list names
+ * and returns a message key indicating success or the specific error.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class WLEditWaitingListName2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -45,6 +63,16 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
     private String message = "";
 
+    /**
+     * Executes the waiting list name management action (create, change, or remove).
+     *
+     * <p>Reads the {@code edit} and {@code actionChosen} parameters from the request
+     * to determine which operation to perform. Sets a message key on the request
+     * indicating success or the type of error encountered.</p>
+     *
+     * @return String "continue" on success, "failure" on unrecoverable error
+     * @throws Exception if an unexpected error occurs during processing
+     */
     public String execute()
             throws Exception {
 
@@ -187,10 +215,20 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return "continue";
     }
 
+    /**
+     * Returns the current message key for display.
+     *
+     * @return String the message resource key, or empty string if none set
+     */
     public String getMessage() {
         return message;
     }
 
+    /**
+     * Sets the message resource key for display feedback.
+     *
+     * @param message String the message resource key
+     */
     @StrutsParameter
     public void setMessage(String message) {
         this.message = message;
@@ -201,37 +239,77 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
     private String selectedWL;
     private String selectedWL2;
 
+    /**
+     * Returns the new waiting list name entered by the user.
+     *
+     * @return String the new waiting list name
+     */
     public String getWlNewName() {
         return wlNewName;
     }
 
+    /**
+     * Sets the new waiting list name from form input.
+     *
+     * @param wlNewName String the new waiting list name
+     */
     @StrutsParameter
     public void setWlNewName(String wlNewName) {
         this.wlNewName = wlNewName;
     }
 
+    /**
+     * Returns the changed waiting list name (used as fallback when wlNewName is empty).
+     *
+     * @return String the changed waiting list name
+     */
     public String getWlChangedName() {
         return wlChangedName;
     }
 
+    /**
+     * Sets the changed waiting list name from form input.
+     *
+     * @param wlChangedName String the changed name value
+     */
     @StrutsParameter
     public void setWlChangedName(String wlChangedName) {
         this.wlChangedName = wlChangedName;
     }
 
+    /**
+     * Returns the ID of the waiting list selected for the change operation.
+     *
+     * @return String the selected waiting list ID
+     */
     public String getSelectedWL() {
         return selectedWL;
     }
 
+    /**
+     * Sets the ID of the waiting list selected for the change operation.
+     *
+     * @param selectedWL String the selected waiting list ID
+     */
     @StrutsParameter
     public void setSelectedWL(String selectedWL) {
         this.selectedWL = selectedWL;
     }
 
+    /**
+     * Returns the ID of the waiting list selected for the remove operation.
+     *
+     * @return String the selected waiting list ID for removal
+     */
     public String getSelectedWL2() {
         return selectedWL2;
     }
 
+    /**
+     * Sets the ID of the waiting list selected for the remove operation.
+     *
+     * @param selectedWL2 String the selected waiting list ID for removal
+     */
     @StrutsParameter
     public void setSelectedWL2(String selectedWL2) {
         this.selectedWL2 = selectedWL2;

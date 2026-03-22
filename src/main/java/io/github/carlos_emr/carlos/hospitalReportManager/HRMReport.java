@@ -35,6 +35,19 @@ import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived.OBR
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+/**
+ * Represents a parsed Hospital Report Manager (HRM) report, providing convenient
+ * access to patient demographics, report content, and metadata from the underlying
+ * OMD CDS (Ontario Medical Data - Clinical Document Standard) XML structure.
+ *
+ * <p>Wraps the JAXB-unmarshalled {@link OmdCds} document and exposes commonly needed
+ * fields such as patient name, health card number (HCN), gender, address, phone number,
+ * report content, and sending facility information.</p>
+ *
+ * @see HRMReportParser
+ * @see OmdCds
+ * @since 2008-11-05
+ */
 public class HRMReport {
 
     private OmdCds hrmReport;
@@ -45,11 +58,23 @@ public class HRMReport {
     private Integer hrmDocumentId;
     private Integer hrmParentDocumentId;
 
+    /**
+     * Constructs an HRM report wrapper from a parsed OMD CDS document.
+     *
+     * @param hrmReport OmdCds the JAXB-unmarshalled report document
+     */
     public HRMReport(OmdCds hrmReport) {
         this.hrmReport = hrmReport;
         this.demographics = hrmReport.getPatientRecord().getDemographics();
     }
 
+    /**
+     * Constructs an HRM report wrapper with file location and raw file data.
+     *
+     * @param root OmdCds the JAXB-unmarshalled report document
+     * @param hrmReportFileLocation String the filesystem path to the report XML file
+     * @param fileData String the raw UTF-8 content of the report file
+     */
     public HRMReport(OmdCds root, String hrmReportFileLocation, String fileData) {
         this.fileData = fileData;
         this.fileLocation = hrmReportFileLocation;
@@ -57,37 +82,77 @@ public class HRMReport {
         this.demographics = hrmReport.getPatientRecord().getDemographics();
     }
 
+    /**
+     * Returns the root OMD CDS document containing the full report structure.
+     *
+     * @return OmdCds the JAXB-unmarshalled document root
+     */
     public OmdCds getDocumentRoot() {
         return hrmReport;
     }
 
+    /**
+     * Returns the raw UTF-8 content of the report XML file.
+     *
+     * @return String the file data, or {@code null} if constructed without file data
+     */
     public String getFileData() {
         return fileData;
     }
 
+    /**
+     * Returns the filesystem path to the report XML file.
+     *
+     * @return String the file location path
+     */
     public String getFileLocation() {
         return fileLocation;
     }
 
+    /**
+     * Sets the filesystem path to the report XML file.
+     *
+     * @param fileLocation String the file location path
+     */
     public void setFileLocation(String fileLocation) {
         this.fileLocation = fileLocation;
     }
 
+    /**
+     * Returns the patient's legal name in "LastName, FirstName" format.
+     *
+     * @return String the formatted legal name
+     */
     public String getLegalName() {
         PersonNameStandard name = demographics.getNames();
         return name.getLegalName().getLastName().getPart() + ", " + name.getLegalName().getFirstName().getPart();
     }
 
+    /**
+     * Returns the patient's legal last name.
+     *
+     * @return String the last name
+     */
     public String getLegalLastName() {
         PersonNameStandard name = demographics.getNames();
         return name.getLegalName().getLastName().getPart();
     }
 
+    /**
+     * Returns the patient's legal first name.
+     *
+     * @return String the first name
+     */
     public String getLegalFirstName() {
         PersonNameStandard name = demographics.getNames();
         return name.getLegalName().getFirstName().getPart();
     }
 
+    /**
+     * Returns the patient's date of birth as a list of integer components.
+     *
+     * @return List&lt;Integer&gt; a three-element list containing [year, month, day]
+     */
     public List<Integer> getDateOfBirth() {
         List<Integer> dateOfBirthList = new ArrayList<Integer>();
         XMLGregorianCalendar fullDate = dateFP(demographics.getDateOfBirth());
@@ -98,6 +163,11 @@ public class HRMReport {
         return dateOfBirthList;
     }
 
+    /**
+     * Returns the patient's date of birth formatted as "YYYY-MM-DD".
+     *
+     * @return String the formatted date of birth string
+     */
     public String getDateOfBirthAsString() {
         List<Integer> dob = getDateOfBirth();
         return dob.get(0) + "-" + String.format("%02d", dob.get(1)) + "-" + String.format("%02d", dob.get(2));

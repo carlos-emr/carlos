@@ -311,19 +311,39 @@ public class EditTickler2Action extends ActionSupport {
     private String[] activeText;
     private String[] inactiveText;
 
+    /**
+     * Returns the array of active text suggestion identifiers or new text values.
+     *
+     * @return String[] the active text suggestion values
+     */
     public String[] getActiveText() {
         return activeText;
     }
 
+    /**
+     * Sets the array of active text suggestion identifiers or new text values.
+     *
+     * @param activeText String[] the active text suggestion values
+     */
     @StrutsParameter
     public void setActiveText(String[] activeText) {
         this.activeText = activeText;
     }
 
+    /**
+     * Returns the array of inactive text suggestion identifiers or new text values.
+     *
+     * @return String[] the inactive text suggestion values
+     */
     public String[] getInactiveText() {
         return inactiveText;
     }
 
+    /**
+     * Sets the array of inactive text suggestion identifiers or new text values.
+     *
+     * @param inactiveText String[] the inactive text suggestion values
+     */
     @StrutsParameter
     public void setInactiveText(String[] inactiveText) {
         this.inactiveText = inactiveText;

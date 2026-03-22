@@ -34,6 +34,13 @@ import java.util.Map.Entry;
 
 import jakarta.persistence.Query;
 
+/**
+ * Extension of {@link QueryAppender} that adds named parameter support for JPQL queries.
+ * Allows building parameterized WHERE clauses by associating parameter names and values
+ * with AND/OR conditions, and then binding them to a {@link jakarta.persistence.Query}.
+ *
+ * @since 2001-01-01
+ */
 public class ParamAppender extends QueryAppender {
 
     private Map<String, Object> params = new HashMap<String, Object>();
@@ -46,6 +53,14 @@ public class ParamAppender extends QueryAppender {
         super(baseQuery);
     }
 
+    /**
+     * Appends a clause with a logical OR operator and registers a named parameter.
+     * If the parameter value is null, the clause is not appended.
+     *
+     * @param clause String the WHERE sub-clause containing a named parameter placeholder
+     * @param paramName String the parameter name used in the clause
+     * @param paramValue Object the parameter value, or null to skip this clause
+     */
     public void or(String clause, String paramName, Object paramValue) {
         if (paramValue == null) {
             return;
@@ -54,6 +69,14 @@ public class ParamAppender extends QueryAppender {
         addParam(paramName, paramValue);
     }
 
+    /**
+     * Appends a clause with a logical AND operator and registers a named parameter.
+     * If the parameter value is null, the clause is not appended.
+     *
+     * @param clause String the WHERE sub-clause containing a named parameter placeholder
+     * @param paramName String the parameter name used in the clause
+     * @param paramValue Object the parameter value, or null to skip this clause
+     */
     public void and(String clause, String paramName, Object paramValue) {
         if (paramValue == null) {
             return;
@@ -62,6 +85,13 @@ public class ParamAppender extends QueryAppender {
         addParam(paramName, paramValue);
     }
 
+    /**
+     * Registers a named parameter with its value for later binding.
+     *
+     * @param paramName String the parameter name
+     * @param paramValue Object the parameter value
+     * @return Object the previous value associated with the parameter name, or null
+     */
     public Object addParam(String paramName, Object paramValue) {
         return getParams().put(paramName, paramValue);
     }
@@ -74,6 +104,12 @@ public class ParamAppender extends QueryAppender {
         this.params = params;
     }
 
+    /**
+     * Binds all registered parameters to the given JPA {@link Query}.
+     *
+     * @param query Query the JPA query to bind parameters to
+     * @return Query the same query instance with parameters set
+     */
     public Query setParams(Query query) {
         for (Entry<String, Object> param : getParams().entrySet()) {
             query.setParameter(param.getKey(), param.getValue());

@@ -45,6 +45,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * UI bean that generates provider service report data for the MIS (Management Information System) reporting module.
+ *
+ * <p>Aggregates encounter counts by program and date range, broken down by month,
+ * for all active service-type programs. Produces data rows containing face-to-face
+ * and telephone encounter statistics filtered by the "doctor" role.
+ *
+ * @since 2012-08-13
+ */
 public class ProviderServiceReportUIBean {
 
     private static Logger logger = MiscUtils.getLogger();

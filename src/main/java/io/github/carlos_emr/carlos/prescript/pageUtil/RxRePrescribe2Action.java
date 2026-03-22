@@ -58,6 +58,22 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
+/**
+ * Struts 2 action for re-prescribing, reprinting, and managing prescription renewals.
+ * <p>
+ * Handles multiple prescription renewal workflows:
+ * <ul>
+ * <li>Reprinting existing prescription scripts</li>
+ * <li>Re-prescribing individual or multiple drugs</li>
+ * <li>Bulk re-prescribing all long-term medications</li>
+ * <li>Saving digital signatures on prescriptions</li>
+ * <li>Saving re-prescription drug IDs to the stash</li>
+ * </ul>
+ * Routes to the appropriate method based on the {@code method} request parameter.
+ * Requires {@code _rx} read or write privileges depending on the operation.
+ *
+ * @since 2026-03-17
+ */
 public final class RxRePrescribe2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

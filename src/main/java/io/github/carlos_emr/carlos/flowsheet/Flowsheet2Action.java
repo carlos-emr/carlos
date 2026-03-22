@@ -489,6 +489,14 @@ public class Flowsheet2Action extends ActionSupport {
 
     }
 
+    /**
+     * Retrieves configuration details for a system flowsheet template. Looks up the template
+     * by its name from the request parameter {@code template} and writes a JSON response
+     * containing the recommendation colour, warning colour, and diagnosis triggers.
+     *
+     * @return {@code null}; response is written directly as JSON
+     * @throws IOException if writing to the response fails
+     */
     public String getTemplateDetails() throws IOException {
         String template = request.getParameter("template");
 
@@ -508,6 +516,13 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Adds a measurement type to an existing user-created flowsheet. Reads {@code flowsheetId}
+     * and {@code measurementTypeId} from request parameters. If the flowsheet has no XML content
+     * yet, initializes it with a default structure before adding the measurement.
+     *
+     * @return {@code null}; no response body is written
+     */
     public String addMeasurement() {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementTypeId = request.getParameter("measurementTypeId");
@@ -527,6 +542,13 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Adds a prevention type to an existing user-created flowsheet. Reads {@code flowsheetId}
+     * and {@code preventionType} from request parameters. If the flowsheet has no XML content
+     * yet, initializes it with a default structure before adding the prevention item.
+     *
+     * @return {@code null}; no response body is written
+     */
     public String addPrevention() {
         String flowsheetId = request.getParameter("flowsheetId");
         String preventionType = request.getParameter("preventionType");
@@ -545,6 +567,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves all available measurement validation rules. Writes a JSON response containing
+     * an array of validation objects with id, name, min/max length, min/max value, and
+     * regular expression fields.
+     *
+     * @return {@code null}; response is written directly as JSON
+     * @throws IOException if writing to the response fails
+     */
     public String getValidations() throws IOException {
         List<Validations> validationList = validationsDao.findAll();
 
@@ -570,6 +600,14 @@ public class Flowsheet2Action extends ActionSupport {
 
     }
 
+    /**
+     * Retrieves all available measurement types. Writes a JSON response containing an array
+     * of measurement type objects with id, type code, description, display name, measuring
+     * instruction, and associated validation rule name (if any).
+     *
+     * @return {@code null}; response is written directly as JSON
+     * @throws IOException if writing to the response fails
+     */
     public String getMeasurementTypes() throws IOException {
 
         List<MeasurementType> typeList = measurementTypeDao.findAll();
@@ -598,6 +636,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves all available prevention types from the prevention display configuration.
+     * Writes a JSON response containing an array of prevention type objects with id and
+     * display name fields.
+     *
+     * @return {@code null}; response is written directly as JSON
+     * @throws IOException if writing to the response fails
+     */
     public String getPreventionTypes() throws IOException {
 
         PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
@@ -619,6 +665,15 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Creates a new user-defined flowsheet. Reads configuration from request parameters including
+     * name, template, scope (system/provider/patient), provider/demographic number, diagnosis
+     * code triggers, and colour settings. If a system template is specified, copies its structure
+     * into the new flowsheet. Persists the new flowsheet and reloads the flowsheet configuration cache.
+     *
+     * @return {@code null}; writes a JSON response with success status and the new flowsheet id
+     * @throws IOException if writing to the response fails or the template file cannot be read
+     */
     public String addNewFlowsheet() throws IOException {
 
         String name = request.getParameter("name");
@@ -687,6 +742,13 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Deletes a user-created flowsheet by its id. Removes the record from the database and
+     * reloads the flowsheet configuration cache.
+     *
+     * @return {@code null}; writes a JSON response with success status and the deleted id
+     * @throws IOException if writing to the response fails
+     */
     public String deleteFlowsheet() throws IOException {
         String id = request.getParameter("id");
 

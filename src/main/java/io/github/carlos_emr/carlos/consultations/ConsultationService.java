@@ -40,6 +40,16 @@ import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Service layer for consultation request operations including searching and counting.
+ *
+ * <p>Provides paginated access to consultation requests via {@link ConsultRequestDao},
+ * with audit logging of all data access through {@link LogAction}. This service is
+ * deprecated in favor of newer consultation management patterns.</p>
+ *
+ * @since 2026-03-17
+ * @deprecated Use the updated consultation management APIs instead.
+ */
 @Component
 @Deprecated
 public class ConsultationService {
@@ -48,10 +58,12 @@ public class ConsultationService {
 
 
     /**
-     * Use to get consultation count for pagination display
+     * Returns the total count of consultation requests matching the given query criteria.
+     * Used for calculating pagination display in consultation list views.
      *
-     * @param paginationQuery
-     * @return
+     * @param paginationQuery PaginationQuery the filter criteria for counting consultations
+     * @return int the total number of matching consultation requests
+     * @deprecated Use the updated consultation management APIs instead.
      */
     @Deprecated
     public int getConsultationCount(PaginationQuery paginationQuery) {
@@ -59,10 +71,13 @@ public class ConsultationService {
     }
 
     /**
-     * List consultations
+     * Retrieves a paginated list of consultation requests matching the given query criteria.
+     * Logs the IDs of all returned consultation requests for audit purposes.
      *
-     * @param paginationQuery
-     * @return
+     * @param loggedInInfo LoggedInInfo the authenticated session context for audit logging
+     * @param paginationQuery PaginationQuery the filter and pagination criteria, cast to {@link ConsultationQuery}
+     * @return List&lt;ConsultationRequest&gt; the matching consultation requests, may be empty
+     * @deprecated Use the updated consultation management APIs instead.
      */
     @Deprecated
     public List<ConsultationRequest> listConsultationRequests(LoggedInInfo loggedInInfo, PaginationQuery paginationQuery) {

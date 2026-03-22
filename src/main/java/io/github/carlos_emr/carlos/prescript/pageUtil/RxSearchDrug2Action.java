@@ -53,6 +53,16 @@ import java.util.Hashtable;
 import java.util.Map;
 import java.util.Vector;
 
+/**
+ * Struts 2 action for searching drugs in the DrugRef database.
+ * <p>
+ * Supports multiple search modes: search all categories, brand name only, generic name only,
+ * natural remedies, search by route, and inactive date lookup. Default search returns results
+ * categorized by brand, generic, and AHFS class. AJAX search methods return JSON responses.
+ * Requires {@code _rx} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxSearchDrug2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

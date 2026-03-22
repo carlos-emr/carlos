@@ -189,14 +189,29 @@ public class Prevention {
         return warnings;
     }
 
+    /**
+     * Adds a clinical reminder message.
+     *
+     * @param warn String the reminder message text
+     */
     public void addReminder(String warn) {
         reminder.add(warn);
     }
 
+    /**
+     * Returns the list of all accumulated reminder messages.
+     *
+     * @return ArrayList&lt;String&gt; the reminder messages, never {@code null}
+     */
     public ArrayList<String> getReminder() {
         return reminder;
     }
 
+    /**
+     * Checks whether the patient is male.
+     *
+     * @return boolean {@code true} if sex code is "M"
+     */
     public boolean isMale() {
         boolean retval = false;
         if (sex != null && sex.equals("M")) {
@@ -205,6 +220,11 @@ public class Prevention {
         return retval;
     }
 
+    /**
+     * Checks whether the patient is female.
+     *
+     * @return boolean {@code true} if sex code is "F"
+     */
     public boolean isFemale() {
         boolean retval = false;
         if (sex != null && sex.equals("F")) {
@@ -213,6 +233,12 @@ public class Prevention {
         return retval;
     }
 
+    /**
+     * Adds a prevention item to this profile, grouped by prevention type name.
+     * Multiple items of the same type are stored as a vector.
+     *
+     * @param pItem PreventionItem the prevention/immunization record to add
+     */
     public void addPreventionItem(PreventionItem pItem) {
         if (preventionTypes.containsKey(pItem.name)) {
             Vector v = (Vector) preventionTypes.get(pItem.name);
@@ -224,6 +250,12 @@ public class Prevention {
         }
     }
 
+    /**
+     * Calculates the patient's age in months from the given date of birth to now.
+     *
+     * @param DOB Date the date of birth
+     * @return int the age in months, or 0 if DOB is {@code null}
+     */
     public int getAgeInMonths(Date DOB) {
         if (DOB != null)
             return getNumMonths(DOB, Calendar.getInstance().getTime());

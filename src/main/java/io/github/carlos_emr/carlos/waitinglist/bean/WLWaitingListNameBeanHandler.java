@@ -100,6 +100,11 @@ public class WLWaitingListNameBeanHandler {
         return waitingListNameList;
     }
 
+    /**
+     * Returns the list of waiting list name strings only.
+     *
+     * @return List&lt;String&gt; the waiting list display names
+     */
     public List<String> getWaitingListNames() {
         return waitingListNames;
     }

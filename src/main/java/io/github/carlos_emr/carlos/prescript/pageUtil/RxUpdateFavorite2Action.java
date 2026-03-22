@@ -48,6 +48,16 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for updating an existing prescription favorite's properties.
+ * <p>
+ * Supports both form-based updates and AJAX-based edits (ajaxEditFavorite method).
+ * Updates favorite name, dosage, frequency, duration, quantity, repeats, and flags
+ * (no substitutions, PRN, custom instructions, dispense internal).
+ * Requires {@code _rx} update privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxUpdateFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

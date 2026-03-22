@@ -38,6 +38,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Manages remote attachments associated with a patient demographic.
+ * Retrieves message IDs, senders, and dates for remote attachments,
+ * and provides lookup of the originating location for each message.
+ *
+ * @since 2001-01-01
+ */
 public class EctRemoteAttachments {
 
     String demoNo;
@@ -45,6 +52,9 @@ public class EctRemoteAttachments {
     public ArrayList<String> savedBys;
     public ArrayList<String> dates;
 
+    /**
+     * Default constructor. Initializes all fields to null.
+     */
     public EctRemoteAttachments() {
         demoNo = null;
         messageIds = null;
@@ -52,6 +62,11 @@ public class EctRemoteAttachments {
         dates = null;
     }
 
+    /**
+     * Populates message IDs, saved-by names, and dates for the given demographic.
+     *
+     * @param demo String the demographic number
+     */
     public void estMessageIds(String demo) {
         demoNo = demo;
         messageIds = new ArrayList<String>();
@@ -66,6 +81,12 @@ public class EctRemoteAttachments {
         }
     }
 
+    /**
+     * Retrieves the originating location description and subject for a message.
+     *
+     * @param messId String the message ID to look up
+     * @return ArrayList containing [subject, locationDescription] pairs
+     */
     public ArrayList<String> getFromLocation(String messId) {
         ArrayList<String> retval = new ArrayList<String>();
 

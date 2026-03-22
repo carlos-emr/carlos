@@ -40,9 +40,20 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 
+/**
+ * Data access object for {@link BillingHistory} entities.
+ * Provides persistence operations for BC billing history records,
+ * including lookups joined with payment types and billing masters,
+ * and aggregation of payment totals.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
 
+    /**
+     * Constructs a new {@code BillingHistoryDao} with the {@link BillingHistory} entity class.
+     */
     public BillingHistoryDao() {
         super(BillingHistory.class);
     }
@@ -79,6 +90,14 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
         return query.getResultList();
     }
 
+    /**
+     * Calculates the total amount received from billing history for a given billing master number.
+     * Optionally excludes Internal Adjustment (IA) payment types.
+     *
+     * @param bmn Integer the billing master number
+     * @param ignoreIA boolean if true, excludes IA payment type from the sum
+     * @return Double the total amount received, or 0.0 if no history exists
+     */
     public Double getTotalPaidFromHistory(Integer bmn, boolean ignoreIA) {
         String historyQry = "SELECT SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
         if (ignoreIA) {

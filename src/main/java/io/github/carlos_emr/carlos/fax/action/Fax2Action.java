@@ -549,56 +549,116 @@ public class Fax2Action extends ActionSupport {
         return recipient;
     }
 
+    /**
+     * Sets the fax recipient name from Struts parameter binding.
+     *
+     * @param recipient String the recipient name
+     */
     @StrutsParameter
     public void setRecipient(String recipient) {
         this.recipient = recipient;
     }
 
+    /**
+     * Returns the destination fax number.
+     *
+     * @return String the recipient fax number
+     */
     public String getRecipientFaxNumber() {
         return recipientFaxNumber;
     }
 
+    /**
+     * Sets the destination fax number from Struts parameter binding.
+     *
+     * @param recipientFaxNumber String the recipient fax number
+     */
     @StrutsParameter
     public void setRecipientFaxNumber(String recipientFaxNumber) {
         this.recipientFaxNumber = recipientFaxNumber;
     }
 
+    /**
+     * Returns the letterhead fax number.
+     *
+     * @return String the letterhead fax number for the sender
+     */
     public String getLetterheadFax() {
         return letterheadFax;
     }
 
+    /**
+     * Sets the letterhead fax number from Struts parameter binding.
+     *
+     * @param letterheadFax String the letterhead fax number
+     */
     @StrutsParameter
     public void setLetterheadFax(String letterheadFax) {
         this.letterheadFax = letterheadFax;
     }
 
+    /**
+     * Returns the sender fax number.
+     *
+     * @return String the sender fax number
+     */
     public String getSenderFaxNumber() {
         return senderFaxNumber;
     }
 
+    /**
+     * Sets the sender fax number from Struts parameter binding.
+     *
+     * @param senderFaxNumber String the sender fax number
+     */
     @StrutsParameter
     public void setSenderFaxNumber(String senderFaxNumber) {
         this.senderFaxNumber = senderFaxNumber;
     }
 
+    /**
+     * Returns the cover page comments.
+     *
+     * @return String the comments text for the fax cover page
+     */
     public String getComments() {
         return comments;
     }
 
+    /**
+     * Sets the cover page comments from Struts parameter binding.
+     *
+     * @param comments String the comments text
+     */
     @StrutsParameter
     public void setComments(String comments) {
         this.comments = comments;
     }
 
+    /**
+     * Returns the cover page template identifier.
+     *
+     * @return String the cover page template name
+     */
     public String getCoverpage() {
         return coverpage;
     }
 
+    /**
+     * Sets the cover page template from Struts parameter binding.
+     *
+     * @param coverpage String the cover page template identifier
+     */
     @StrutsParameter
     public void setCoverpage(String coverpage) {
         this.coverpage = coverpage;
     }
 
+    /**
+     * Returns the array of copy-to recipients.
+     *
+     * @return String[] JSON-encoded additional recipients, or null if none
+     */
     public String[] getCopyToRecipients() {
         return copyToRecipients;
     }

@@ -131,15 +131,35 @@ public class DemographicData {
         return "";
     }
 
-    // //
+    /**
+     * Counts the number of demographic records matching the given Health Insurance Number.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param hin String the Health Insurance Number to search for
+     * @return int the count of matching demographic records
+     */
     public int numDemographicsWithHIN(LoggedInInfo loggedInInfo, String hin) {
         return demographicManager.searchByHealthCard(loggedInInfo, hin).size();
     }
 
+    /**
+     * Checks whether a Health Insurance Number is unique in the system.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param hin String the Health Insurance Number to check
+     * @return boolean true if no existing demographic has this HIN
+     */
     public boolean isUniqueHin(LoggedInInfo loggedInInfo, String hin) {
         return numDemographicsWithHIN(loggedInInfo, hin) == 0;
     }
 
+    /**
+     * Retrieves all demographic records matching the given Health Insurance Number.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param hin String the Health Insurance Number to search for
+     * @return ArrayList&lt;Demographic&gt; list of matching demographic records
+     */
     public ArrayList<Demographic> getDemographicWithHIN(LoggedInInfo loggedInInfo, String hin) {
         ArrayList<Demographic> list = new ArrayList<Demographic>();
         List<Demographic> demos = demographicManager.searchByHealthCard(loggedInInfo, hin);
@@ -149,6 +169,15 @@ public class DemographicData {
         return list;
     }
 
+    /**
+     * Retrieves demographics matching last name, first name, and date of birth string.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param lastname String the patient's last name
+     * @param firstname String the patient's first name
+     * @param dob String the date of birth in "yyyy-MM-dd" format, or null
+     * @return ArrayList&lt;Demographic&gt; list of matching demographic records
+     */
     public ArrayList<Demographic> getDemographicWithLastFirstDOB(LoggedInInfo loggedInInfo, String lastname, String firstname, String dob) {
         if (dob != null) {
             Date bDate = UtilDateUtilities.StringToDate(dob, "yyyy-MM-dd");
@@ -162,6 +191,17 @@ public class DemographicData {
         }
     }
 
+    /**
+     * Retrieves demographics matching last name, first name, and individual DOB components.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param lastname String the patient's last name
+     * @param firstname String the patient's first name
+     * @param year_of_birth String four-digit birth year, or null
+     * @param month_of_birth String two-digit birth month, or null
+     * @param date_of_birth String two-digit birth day, or null
+     * @return ArrayList&lt;Demographic&gt; list of matching demographic records
+     */
     public ArrayList<Demographic> getDemographicWithLastFirstDOB(LoggedInInfo loggedInInfo, String lastname, String firstname, String year_of_birth, String month_of_birth, String date_of_birth) {
         ArrayList<Demographic> list = new ArrayList<Demographic>();
         List<Demographic> demos = demographicManager.getDemographicWithLastFirstDOB(loggedInInfo, lastname, firstname, year_of_birth, month_of_birth, date_of_birth);
@@ -172,6 +212,13 @@ public class DemographicData {
         return list;
     }
 
+    /**
+     * Returns a formatted string of "LastName, FirstName Sex Age" for a patient.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo String the patient demographic number
+     * @return String formatted name/age/sex string, or empty string if not found
+     */
     public String getNameAgeString(LoggedInInfo loggedInInfo, String demographicNo) {
         String nameage = "";
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
@@ -186,6 +233,13 @@ public class DemographicData {
         return nameage;
     }
 
+    /**
+     * Returns the patient's last name, first name, sex, and age as a String array.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo Integer the patient demographic number
+     * @return String[] array of [lastName, firstName, sex, age], or null if not found
+     */
     public String[] getNameAgeSexArray(LoggedInInfo loggedInInfo, Integer demographicNo) {
         String[] nameage = null;
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
@@ -200,6 +254,13 @@ public class DemographicData {
         return nameage;
     }
 
+    /**
+     * Returns the patient's sex designation.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo String the patient demographic number
+     * @return String the sex code (e.g., "M" or "F"), or empty string if not found
+     */
     public String getDemographicSex(LoggedInInfo loggedInInfo, String demographicNo) {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         if (demographic != null) {
@@ -208,6 +269,13 @@ public class DemographicData {
         return "";
     }
 
+    /**
+     * Retrieves the Substitute Decision Maker (SDM) for a given patient.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param DemographicNo String the patient demographic number
+     * @return Demographic the SDM's demographic record, or null if none assigned
+     */
     public Demographic getSubstituteDecisionMaker(LoggedInInfo loggedInInfo, String DemographicNo) {
         Demographic demographic = null;
         DemographicRelationship dr = new DemographicRelationship();
@@ -218,6 +286,14 @@ public class DemographicData {
         return demographic;
     }
 
+    /**
+     * Retrieves the custom notes for a patient, stripping XML wrapper tags.
+     *
+     * <p>Removes {@code <unotes>} and {@code </unotes>} wrapper tags from the stored notes.</p>
+     *
+     * @param demographicNo String the patient demographic number
+     * @return String the patient notes with XML wrappers removed, or empty string if none
+     */
     public String getDemographicNotes(String demographicNo) {
         String retval = "";
         DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographicNo));
@@ -231,12 +307,26 @@ public class DemographicData {
         return retval;
     }
 
+    /**
+     * Retrieves a Demographic entity by demographic number.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param DemographicNo String the patient demographic number
+     * @return Demographic the patient record, or null if not found
+     */
     public Demographic getDemographic(LoggedInInfo loggedInInfo, String DemographicNo) {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, DemographicNo);
         return demographic;
     }
 
 
+    /**
+     * Returns the date the patient joined the practice in "yyyy-MM-dd" format.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo String the patient demographic number
+     * @return String the join date formatted as "yyyy-MM-dd", or null if not found
+     */
     public String getDemographicDateJoined(LoggedInInfo loggedInInfo, String demographicNo) {
         Demographic d = demographicManager.getDemographic(loggedInInfo, demographicNo);
         if (d != null) {
@@ -247,11 +337,24 @@ public class DemographicData {
     }
 
 
+    /**
+     * Updates a demographic record in the database.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param dm Demographic the demographic entity to update; must have a non-null demographic number
+     */
     public void setDemographic(LoggedInInfo loggedInInfo, Demographic dm) {
         if (dm.getDemographicNo() == null) return;
         demographicManager.updateDemographic(loggedInInfo, dm);
     }
 
+    /**
+     * Updates the email address for a patient.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo String the patient demographic number
+     * @param email String the new email address
+     */
     public void setDemographicEmail(LoggedInInfo loggedInInfo, String demographicNo, String email) {
         Demographic d = demographicManager.getDemographic(loggedInInfo, demographicNo);
         if (d != null) {
@@ -261,6 +364,12 @@ public class DemographicData {
     }
 
 
+    /**
+     * Calculates the patient's current age as a human-readable string.
+     *
+     * @param d Demographic the patient demographic record
+     * @return String the calculated age, or empty string if birth date components are missing
+     */
     public static String getAge(Demographic d) {
         if (io.github.carlos_emr.carlos.util.StringUtils.empty(d.getYearOfBirth()) || io.github.carlos_emr.carlos.util.StringUtils.empty(d.getMonthOfBirth()) || io.github.carlos_emr.carlos.util.StringUtils.empty(d.getDateOfBirth())) {
             return "";
@@ -268,26 +377,65 @@ public class DemographicData {
         return (String.valueOf(UtilDateUtilities.calcAge(d.getYearOfBirth(), d.getMonthOfBirth(), d.getDateOfBirth())));
     }
 
+    /**
+     * Calculates the patient's age as of a specific date.
+     *
+     * @param d Demographic the patient demographic record
+     * @param asofDate Date the reference date to calculate age at
+     * @return String the calculated age at the specified date
+     */
     public static String getAgeAsOf(Demographic d, Date asofDate) {
         return UtilDateUtilities.calcAgeAtDate(UtilDateUtilities.calcDate(d.getYearOfBirth(), d.getMonthOfBirth(), d.getDateOfBirth()), asofDate);
     }
 
+    /**
+     * Calculates the patient's current age in months.
+     *
+     * @param d Demographic the patient demographic record
+     * @return int the age in months
+     */
     public static int getAgeInMonths(Demographic d) {
         return UtilDateUtilities.getNumMonths(UtilDateUtilities.calcDate(d.getYearOfBirth(), d.getMonthOfBirth(), d.getDateOfBirth()), Calendar.getInstance().getTime());
     }
 
+    /**
+     * Calculates the patient's age in months as of a specific date.
+     *
+     * @param d Demographic the patient demographic record
+     * @param asofDate Date the reference date
+     * @return int the age in months at the specified date
+     */
     public static int getAgeInMonthsAsOf(Demographic d, Date asofDate) {
         return UtilDateUtilities.getNumMonths(UtilDateUtilities.calcDate(d.getYearOfBirth(), d.getMonthOfBirth(), d.getDateOfBirth()), asofDate);
     }
 
+    /**
+     * Calculates the patient's current age in whole years.
+     *
+     * @param d Demographic the patient demographic record
+     * @return int the age in years
+     */
     public static int getAgeInYears(Demographic d) {
         return UtilDateUtilities.getNumYears(UtilDateUtilities.calcDate(d.getYearOfBirth(), d.getMonthOfBirth(), d.getDateOfBirth()), Calendar.getInstance().getTime());
     }
 
+    /**
+     * Calculates the patient's age in whole years as of a specific date.
+     *
+     * @param d Demographic the patient demographic record
+     * @param asofDate Date the reference date
+     * @return int the age in years at the specified date
+     */
     public static int getAgeInYearsAsOf(Demographic d, Date asofDate) {
         return UtilDateUtilities.getNumYears(UtilDateUtilities.calcDate(d.getYearOfBirth(), d.getMonthOfBirth(), d.getDateOfBirth()), asofDate);
     }
 
+    /**
+     * Returns the patient's date of birth as a zero-padded "yyyyMMdd" string.
+     *
+     * @param d Demographic the patient demographic record
+     * @return String the date of birth in "yyyyMMdd" format, or null if components are null
+     */
     public static String getDob(Demographic d) {
         return addZero(d.getYearOfBirth(), 4) + addZero(d.getMonthOfBirth(), 2) + addZero(d.getDateOfBirth(), 2);
     }

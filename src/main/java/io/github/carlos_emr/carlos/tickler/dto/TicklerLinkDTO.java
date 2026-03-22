@@ -71,34 +71,42 @@ public class TicklerLinkDTO implements Serializable {
         this.tableId = tableId;
     }
 
+    /** @return Integer the link ID */
     public Integer getId() {
         return id;
     }
 
+    /** @param id Integer the link ID */
     public void setId(Integer id) {
         this.id = id;
     }
 
+    /** @return Integer the parent tickler ID */
     public Integer getTicklerNo() {
         return ticklerNo;
     }
 
+    /** @param ticklerNo Integer the parent tickler ID */
     public void setTicklerNo(Integer ticklerNo) {
         this.ticklerNo = ticklerNo;
     }
 
+    /** @return String the linked table name (e.g., "HL7", "document", "HRM") */
     public String getTableName() {
         return tableName;
     }
 
+    /** @param tableName String the linked table name */
     public void setTableName(String tableName) {
         this.tableName = tableName;
     }
 
+    /** @return Long the record ID in the linked table */
     public Long getTableId() {
         return tableId;
     }
 
+    /** @param tableId Long the record ID in the linked table */
     public void setTableId(Long tableId) {
         this.tableId = tableId;
     }

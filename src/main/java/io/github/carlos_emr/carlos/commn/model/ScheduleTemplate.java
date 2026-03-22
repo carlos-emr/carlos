@@ -34,6 +34,19 @@ import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
+/**
+ * JPA entity representing a schedule template that defines time slot patterns for a provider's day.
+ *
+ * <p>Maps to the {@code scheduletemplate} table. Each template has a composite primary key
+ * of provider number and template name ({@link ScheduleTemplatePrimaryKey}), a summary
+ * description, and a timecode string that defines the schedule slot pattern for the day.</p>
+ *
+ * <p>The timecode string divides the day into equal-length slots, where each character
+ * represents a {@link ScheduleTemplateCode}. An underscore ({@code _}) indicates an
+ * unused/empty slot. The slot duration is calculated as 1440 minutes / timecode length.</p>
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "scheduletemplate")
 public class ScheduleTemplate extends AbstractModel<ScheduleTemplatePrimaryKey> {

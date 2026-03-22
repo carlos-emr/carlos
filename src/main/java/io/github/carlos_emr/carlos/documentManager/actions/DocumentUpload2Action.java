@@ -60,6 +60,29 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for handling document file uploads in the CARLOS EMR document management system.
+ *
+ * <p>Supports two upload destinations:
+ * <ul>
+ *   <li><strong>Incoming Documents</strong> ({@code destination=incomingDocs}): PDF-only uploads
+ *       routed to the incoming document queue for triage and filing.</li>
+ *   <li><strong>Standard Document Store</strong> (default): General document uploads that are
+ *       persisted as EDoc records, optionally routed to provider inboxes and document queues.</li>
+ * </ul>
+ *
+ * <p>Also provides methods to persist user preferences for upload destination and incoming
+ * document folder selection.
+ *
+ * <p>Security: Requires {@code _edoc} write privilege. Uploaded files are validated via
+ * {@link PathValidationUtils} to prevent path traversal attacks. Filenames are sanitized
+ * before storage.
+ *
+ * @see AddEditDocument2Action
+ * @see EDocUtil
+ * @see PathValidationUtils
+ * @since 2008-09-10
+ */
 public class DocumentUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -70,10 +93,25 @@ public class DocumentUpload2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Main Struts2 entry point. Delegates to {@link #executeUpload()}.
+     *
+     * @return String null (response is written directly as JSON)
+     * @throws Exception if document upload processing fails
+     */
     public String execute() throws Exception {
         return executeUpload();
     }
 
+    /**
+     * Processes a document file upload. Routes to incoming document handling or standard
+     * document store based on the "destination" request parameter. Responds with a JSON
+     * array containing upload result metadata (name, size) or error information.
+     *
+     * @return String null (response is written directly as JSON)
+     * @throws Exception if file write or document persistence fails
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String executeUpload() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");

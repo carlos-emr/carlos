@@ -44,11 +44,23 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @deprecated convert to proper JPA Hibernate
+ * Legacy patient data access class that uses direct JDBC queries to retrieve
+ * patient demographic information and eChart data. Contains inner classes
+ * {@link Patient} and {@link Patient.eChart} for patient and chart representations.
+ *
+ * @deprecated Convert to proper JPA/Hibernate data access patterns.
+ * @since 2001-01-01
  */
 @Deprecated
 public class EctPatientData {
 
+    /**
+     * Retrieves the provider number assigned to a patient.
+     *
+     * @param loggedInInfo LoggedInInfo the current session information for audit logging
+     * @param demographicNo String the demographic (patient) number
+     * @return String the provider number, or empty string if not found
+     */
     public static String getProviderNo(LoggedInInfo loggedInInfo, String demographicNo) {
         String ret = "";
         ResultSet rs = null;
@@ -76,6 +88,13 @@ public class EctPatientData {
         return ret;
     }
 
+    /**
+     * Retrieves full patient data including demographics and contact information.
+     *
+     * @param loggedInInfo LoggedInInfo the current session information for audit logging
+     * @param demographicNo String the demographic (patient) number
+     * @return Patient the patient data, or null if not found
+     */
     public Patient getPatient(LoggedInInfo loggedInInfo, String demographicNo) {
 
         Patient p = null;
@@ -107,6 +126,9 @@ public class EctPatientData {
         return p;
     }
 
+    /**
+     * Inner class representing a patient with demographic and contact information.
+     */
     public class Patient {
         int demographicNo;
         String surname;

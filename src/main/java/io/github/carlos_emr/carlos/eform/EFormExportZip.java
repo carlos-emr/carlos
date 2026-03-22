@@ -52,11 +52,30 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Utility class for exporting eForms as ZIP archives.
+ * Handles export and import of eForms as ZIP archives. Supports packaging
+ * eForm HTML, associated images, and metadata properties into a portable
+ * ZIP format, as well as importing ZIP archives back into the database.
+ *
+ * <p>Each exported eForm is stored in its own directory within the ZIP,
+ * containing an {@code eform.properties} file, the HTML form file, and
+ * any referenced images found via {@code ${oscar_image_path}} markers.</p>
+ *
+ * @see EFormUtil#saveEForm(io.github.carlos_emr.carlos.eform.data.EForm)
+ * @since 2006-05-25
  */
 public class EFormExportZip {
     private static final Logger _log = MiscUtils.getLogger();
 
+    /**
+     * Exports a list of eForms into a ZIP archive written to the given output stream.
+     * Each eForm is placed in its own directory containing the properties file,
+     * HTML content, and any referenced images from the eForm image directory.
+     *
+     * @param eForms List of {@link EForm} instances to export
+     * @param os OutputStream to write the ZIP archive to
+     * @throws IOException if an I/O error occurs during writing
+     * @throws Exception if an eForm has no name or an image cannot be located
+     */
     public void exportForms(List<EForm> eForms, OutputStream os) throws IOException, Exception {
         ZipOutputStream zos = new ZipOutputStream(os);
         zos.setLevel(9);
@@ -134,6 +153,15 @@ public class EFormExportZip {
     }
 
 
+    /**
+     * Retrieves an image file from the configured eForm image directory.
+     * Validates that the resolved file resides within the image directory
+     * to prevent path traversal.
+     *
+     * @param imageFileName String the image filename to resolve
+     * @return File the validated image file
+     * @throws Exception if the directory does not exist or the file path is invalid
+     */
     public File getImageFile(String imageFileName) throws Exception {
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
 
@@ -171,6 +199,16 @@ public class EFormExportZip {
         }
     }
 
+    /**
+     * Imports eForms from a ZIP archive input stream. Extracts eForm properties,
+     * HTML files, and images. Skips forms that already exist in the database or
+     * have missing names/filenames. Images are saved to the eForm image directory.
+     *
+     * @param importInputStream InputStream containing the ZIP archive data
+     * @return List of String error messages encountered during import (empty if none)
+     * @throws IOException if an I/O error occurs during extraction
+     * @throws Exception if the temporary extraction directory cannot be created
+     */
     public List<String> importForm(InputStream importInputStream) throws IOException, Exception {
         ArrayList<String> errors = new ArrayList<String>();
         _log.info("Importing eforms");
@@ -287,6 +325,15 @@ public class EFormExportZip {
         directory.delete();
     }
 
+    /**
+     * Creates an {@link EForm} instance from a properties file extracted from
+     * a ZIP archive. Maps property keys such as {@code form.name},
+     * {@code form.details}, and {@code form.htmlFilename} to EForm fields.
+     *
+     * @param properties Properties the eForm metadata from {@code eform.properties}
+     * @return EForm a new EForm populated with the property values
+     * @throws Exception if the required {@code form.name} property is missing
+     */
     public EForm createEFormFromProperties(Properties properties) throws Exception {
         EForm eForm = new EForm();
         eForm.setFormName(properties.getProperty("form.name"));

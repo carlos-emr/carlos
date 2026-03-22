@@ -41,41 +41,150 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.match.client.ClientData;
 import io.github.carlos_emr.carlos.match.vacancy.VacancyData;
 
+/**
+ * Data access interface for waitlist management operations within the
+ * Program Management module.
+ *
+ * <p>Provides methods for matching clients to vacancies, querying vacancy
+ * display data, loading client intake data from eforms, and retrieving
+ * vacancy criteria data for the waitlist matching engine.</p>
+ *
+ * @since 2001-09-17
+ * @see WaitlistDaoImpl
+ * @see VacancyDisplayBO
+ * @see MatchBO
+ */
 public interface WaitlistDao {
 
+    /**
+     * Retrieves client matches for a vacancy, ordered by match percentage descending.
+     *
+     * @param vacancyId int the vacancy ID
+     * @return List&lt;MatchBO&gt; client match records with demographic and waitlist data
+     */
     public List<MatchBO> getClientMatches(int vacancyId);
 
+    /**
+     * Retrieves client matches for a vacancy that meet a minimum match percentage.
+     *
+     * @param vacancyId int the vacancy ID
+     * @param percentage double the minimum match percentage threshold
+     * @return List&lt;MatchBO&gt; filtered client match records
+     */
     public List<MatchBO> getClientMatchesWithMinPercentage(int vacancyId, double percentage);
 
+    /**
+     * Searches for eform data records matching the specified criteria.
+     *
+     * <p>Supports single-value, range, and multi-value criteria types.
+     * Returns the most recent eform per demographic when duplicates exist.</p>
+     *
+     * @param crits CriteriasBO the search criteria collection
+     * @return Collection&lt;EFormData&gt; matching eform data records
+     */
     public Collection<EFormData> searchForMatchingEforms(CriteriasBO crits);
 
+    /**
+     * Lists active vacancy display records for a specific waitlist program.
+     *
+     * @param programID int the waitlist program ID
+     * @return List&lt;VacancyDisplayBO&gt; vacancy display data
+     */
     public List<VacancyDisplayBO> listDisplayVacanciesForWaitListProgram(int programID);
 
+    /**
+     * Lists active vacancy display records for all waitlist programs.
+     *
+     * @return List&lt;VacancyDisplayBO&gt; vacancy display data ordered by vacancy ID
+     */
     public List<VacancyDisplayBO> listDisplayVacanciesForAllWaitListPrograms();
 
+    /**
+     * Retrieves active vacancy display records for an agency program.
+     *
+     * @param programID int the agency program ID
+     * @return List&lt;VacancyDisplayBO&gt; vacancy display data for the program
+     */
     public List<VacancyDisplayBO> getDisplayVacanciesForAgencyProgram(int programID);
 
+    /**
+     * Retrieves display data for a single vacancy, including match statistics.
+     *
+     * @param vacancyID int the vacancy ID
+     * @return VacancyDisplayBO the vacancy display data, or {@code null} if not found
+     */
     public VacancyDisplayBO getDisplayVacancy(int vacancyID);
 
+    /**
+     * Loads match statistics (accepted, rejected, pending counts) into a vacancy display object.
+     *
+     * @param bo VacancyDisplayBO the display object to populate with statistics
+     */
     public void loadStats(VacancyDisplayBO bo);
 
+    /**
+     * Retrieves the waitlist program ID associated with a vacancy.
+     *
+     * @param vacancyId int the vacancy ID
+     * @return Integer the program ID, or {@code null} if the vacancy is not found
+     */
     public Integer getProgramIdByVacancyId(int vacancyId);
 
+    /**
+     * Lists the count of active vacancies grouped by waitlist program.
+     *
+     * @return List&lt;VacancyDisplayBO&gt; vacancy counts per program
+     */
     public List<VacancyDisplayBO> listNoOfVacanciesForWaitListProgram();
 
+    /**
+     * Lists all active vacancies with their template names, ordered by vacancy name.
+     *
+     * @return List&lt;VacancyDisplayBO&gt; active vacancies
+     */
     public List<VacancyDisplayBO> listVacanciesForWaitListProgram();
 
+    /**
+     * Retrieves intake eform data for all clients without referrals,
+     * mapped to criteria fields for waitlist matching.
+     *
+     * @return List&lt;ClientData&gt; client data records with mapped criteria values
+     */
     public List<ClientData> getAllClientsData();
 
+    /**
+     * Retrieves intake eform data for clients referred to a specific waitlist program,
+     * mapped to criteria fields for waitlist matching.
+     *
+     * @param wlProgramId int the waitlist program ID
+     * @return List&lt;ClientData&gt; client data records with mapped criteria values
+     */
     public List<ClientData> getAllClientsDataByProgramId(int wlProgramId);
 
+    /**
+     * Retrieves intake eform data for a specific client, mapped to criteria fields.
+     *
+     * @param clientId int the demographic ID of the client
+     * @return ClientData the client data with mapped criteria values
+     */
     public ClientData getClientData(int clientId);
 
-    // private static final String field_type_one = "select_one";
-    // private static final String field_type_number = "number";
-
+    /**
+     * Loads vacancy criteria data for a specific vacancy, including field types,
+     * values, ranges, and multi-select options.
+     *
+     * @param vacancyId int the vacancy ID
+     * @return VacancyData the vacancy criteria data
+     */
     public VacancyData loadVacancyData(final int vacancyId);
 
+    /**
+     * Loads vacancy criteria data for a specific vacancy within a waitlist program.
+     *
+     * @param vacancyId int the vacancy ID
+     * @param wlProgramId int the waitlist program ID
+     * @return VacancyData the vacancy criteria data
+     */
     public VacancyData loadVacancyData(final int vacancyId, final int wlProgramId);
 
 }

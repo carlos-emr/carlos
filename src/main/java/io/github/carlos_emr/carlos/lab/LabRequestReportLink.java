@@ -103,6 +103,12 @@ public class LabRequestReportLink {
         return link;
     }
 
+    /**
+     * Retrieves the request date for a given link record, formatted as "yyyy-MM-dd HH:mm:ss".
+     *
+     * @param id String the primary key of the link record
+     * @return String the formatted request date, or {@code null} representation if not found
+     */
     public static String getRequestDate(String id) {
         Date requestDate = null;
         io.github.carlos_emr.carlos.commn.model.LabRequestReportLink l = dao.find(Integer.parseInt(id));
@@ -113,11 +119,25 @@ public class LabRequestReportLink {
         return UtilDateUtilities.DateToString(requestDate, "yyyy-MM-dd HH:mm:ss");
     }
 
+    /**
+     * Retrieves the link record ID for a given report.
+     *
+     * @param reportTable String the name of the report table
+     * @param reportId Long the report record identifier
+     * @return Long the link record ID, or {@code null} if no link exists
+     */
     public static Long getIdByReport(String reportTable, Long reportId) {
         HashMap<String, Object> link = getLinkByReport(reportTable, reportId);
         return (Long) link.get("id");
     }
 
+    /**
+     * Retrieves the request table ID associated with a given report.
+     *
+     * @param reportTable String the name of the report table
+     * @param reportId Long the report record identifier
+     * @return Long the request ID, or {@code null} if no link exists or the request ID is zero
+     */
     public static Long getRequestTableIdByReport(String reportTable, Long reportId) {
         HashMap<String, Object> link = getLinkByReport(reportTable, reportId);
         Long requestId = (Long) link.get("request_id");
@@ -125,6 +145,16 @@ public class LabRequestReportLink {
         return requestId;
     }
 
+    /**
+     * Creates a new request-report link and persists the request date into the
+     * measurements extension table if a corresponding measurement exists.
+     *
+     * @param requestTable String the name of the request table
+     * @param requestId Long the request record identifier
+     * @param requestDate String the request date in "yyyy-MM-dd HH:mm:ss" format
+     * @param reportTable String the name of the report table
+     * @param reportId Long the report record identifier
+     */
     public static void save(String requestTable, Long requestId, String requestDate, String reportTable, Long reportId) {
         if (StringUtils.empty(reportTable) || reportId == null) return;
         if (StringUtils.empty(requestDate)) requestDate = null;
@@ -145,12 +175,27 @@ public class LabRequestReportLink {
         }
     }
 
+    /**
+     * Deletes all request-report links for the given report.
+     *
+     * @param reportTable String the name of the report table
+     * @param reportId Long the report record identifier
+     */
     public static void delete(String reportTable, Long reportId) {
         for (io.github.carlos_emr.carlos.commn.model.LabRequestReportLink link : dao.findByReportTableAndReportId(reportTable, reportId.intValue())) {
             dao.remove(link.getId());
         }
     }
 
+    /**
+     * Updates an existing request-report link with new request details and synchronizes
+     * the request date in the measurements extension table if applicable.
+     *
+     * @param id Long the link record identifier
+     * @param requestTable String the name of the request table
+     * @param requestId Long the request record identifier
+     * @param requestDate String the request date in "yyyy-MM-dd HH:mm:ss" format
+     */
     public static void update(Long id, String requestTable, Long requestId, String requestDate) {
         if (id == null) return;
 

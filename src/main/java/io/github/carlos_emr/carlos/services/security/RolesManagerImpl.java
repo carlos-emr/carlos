@@ -42,40 +42,65 @@ import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+/**
+ * Transactional implementation of the {@link RolesManager} interface that
+ * manages security roles and object-level privilege assignments.
+ *
+ * <p>Delegates to {@link SecroleDao} for role persistence and
+ * {@link SecobjprivilegeDao} for privilege assignment operations.
+ * All operations run within a Spring-managed transaction.</p>
+ *
+ * @see RolesManager
+ * @see io.github.carlos_emr.carlos.daos.security.SecroleDao
+ * @see io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao
+ * @since 2026-03-17
+ */
 @Transactional
 public class RolesManagerImpl implements RolesManager {
 
     private SecroleDao secroleDao;
     private SecobjprivilegeDao secobjprivilegeDao;
 
+    /**
+     * Sets the security role DAO via Spring dependency injection.
+     *
+     * @param dao SecroleDao the role data access object
+     */
     public void setSecroleDao(SecroleDao dao) {
         this.secroleDao = dao;
     }
 
+    /** {@inheritDoc} */
     public List<Secrole> getRoles() {
         return secroleDao.getRoles();
     }
 
+    /** {@inheritDoc} */
     public Secrole getRole(String id) {
         return secroleDao.getRole(Integer.parseInt(id));
     }
 
+    /** {@inheritDoc} */
     public Secrole getRole(int id) {
         return secroleDao.getRole(id);
     }
 
+    /** {@inheritDoc} */
     public Secrole getRoleByRolename(String roleName) {
         return secroleDao.getRoleByName(roleName);
     }
 
+    /** {@inheritDoc} */
     public void save(Secrole secrole) {
         secroleDao.save(secrole);
     }
 
+    /** {@inheritDoc} */
     public void saveFunction(Secobjprivilege secobjprivilege) {
         secobjprivilegeDao.save(secobjprivilege);
     }
 
+    /** {@inheritDoc} */
     public void saveFunctions(Secrole secrole, List newLst, String roleName) {
         if (secrole != null) secroleDao.save(secrole);
         List existLst = secobjprivilegeDao.getFunctions(roleName);
@@ -100,6 +125,14 @@ public class RolesManagerImpl implements RolesManager {
         secobjprivilegeDao.saveAll(newLst);
     }
 
+    /**
+     * Compares two privilege entries for equality based on object name,
+     * privilege code, and role/user group.
+     *
+     * @param sur1 Secobjprivilege the first privilege entry
+     * @param sur2 Secobjprivilege the second privilege entry
+     * @return boolean true if both entries represent the same privilege assignment
+     */
     public boolean compare(Secobjprivilege sur1, Secobjprivilege sur2) {
         boolean isSame = false;
         if (sur1.getObjectname_code().equals(sur2.getObjectname_code()) &&
@@ -109,18 +142,26 @@ public class RolesManagerImpl implements RolesManager {
         return isSame;
     }
 
+    /** {@inheritDoc} */
     public List getFunctions(String roleName) {
         return secobjprivilegeDao.getFunctions(roleName);
     }
 
+    /** {@inheritDoc} */
     public String getFunctionDesc(String function_code) {
         return secobjprivilegeDao.getFunctionDesc(function_code);
     }
 
+    /** {@inheritDoc} */
     public String getAccessDesc(String accessType_code) {
         return secobjprivilegeDao.getAccessDesc(accessType_code);
     }
 
+    /**
+     * Sets the object privilege DAO via Spring dependency injection.
+     *
+     * @param secobjprivilegeDao SecobjprivilegeDao the privilege data access object
+     */
     public void setSecobjprivilegeDao(SecobjprivilegeDao secobjprivilegeDao) {
         this.secobjprivilegeDao = secobjprivilegeDao;
     }

@@ -45,6 +45,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for updating the provider's prescription drug interaction warning level preference.
+ *
+ * <p>Persists the {@code rxInteractionWarningLevel} user property, which controls the severity
+ * threshold at which drug interaction alerts are shown during prescription entry. The warning
+ * level value is supplied via the {@code value} request parameter.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ProviderRxInteractionWarningLevel2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

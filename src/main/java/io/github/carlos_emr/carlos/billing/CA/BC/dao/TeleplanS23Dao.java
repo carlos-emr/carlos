@@ -38,13 +38,32 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link TeleplanS23} entities.
+ * Provides persistence operations for Teleplan S23 (remittance adjustment summary) records
+ * in the BC MSP billing system.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class TeleplanS23Dao extends AbstractDaoImpl<TeleplanS23> {
 
+    /**
+     * Constructs a new {@code TeleplanS23Dao} with the {@link TeleplanS23} entity class.
+     */
     public TeleplanS23Dao() {
         super(TeleplanS23.class);
     }
 
+    /**
+     * Searches S23 records by parent S21 ID, excluding a specified type, and filtering by AJI code.
+     * Results are ordered by ID.
+     *
+     * @param s21Id Integer the parent S21 record ID
+     * @param type String the S23 type to exclude from results
+     * @param aji String the AJI (adjustment indicator) pattern (supports LIKE wildcards)
+     * @return List of matching {@link TeleplanS23} records
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanS23> search_taS23(Integer s21Id, String type, String aji) {
         Query q = entityManager.createQuery("select t from TeleplanS23 t where t.s21Id=?1 and t.s23Type<>?2 and t.aji like ?3 order by t.id");

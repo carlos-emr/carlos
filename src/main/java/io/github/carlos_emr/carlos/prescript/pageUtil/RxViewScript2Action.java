@@ -46,6 +46,15 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for saving and viewing a finalized prescription script.
+ * <p>
+ * Saves all prescriptions from the session stash as a single script, then redirects
+ * to the script view page. Each prescription in the stash is saved with the generated
+ * script ID. Requires {@code _rx} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxViewScript2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
