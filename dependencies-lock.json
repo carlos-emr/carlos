@@ -302,7 +302,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:UV+Mfq1Qz+xkGu2cgUL0f9N9PVkjBijDwhghzRaItamQ9pVlmEpNAwqnFOuFY55m3Oi6YdzBoQk2KYXrzNvMtQ=="
+    "integrity" : "sha512:fiXBLMWhIZZiGGp6MBg3zZU1wOAYiM/TU/gU17e9YdHePhNIPM0F0dimSeMUTM8CMN4khJyM809pvRJAaUuY/Q=="
   }, {
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",

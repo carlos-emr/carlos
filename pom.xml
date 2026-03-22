@@ -101,6 +101,10 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
+        <!-- JitPack removed: ultrabuk-htmltopdf-java is now in local_repo,
+             repacked with only the Ubuntu Noble amd64 native (17MB vs 315MB).
+             This eliminates JitPack's tendency to shadow Maven Central artifacts
+             under alternate groupIds, which caused dependency-lock failures in CI. -->
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
