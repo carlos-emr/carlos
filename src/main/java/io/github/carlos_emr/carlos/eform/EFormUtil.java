@@ -674,9 +674,8 @@ public class EFormUtil {
     public static void addEFormToGroup(String groupName, String fid) {
         try {
 
-            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=" + fid
-                    + " AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name='" + groupName + "'";
-            ResultSet rs = DBHandler.GetSQL(sql1);
+            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=? AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name=?";
+            ResultSet rs = DBHandler.GetPreSQL(sql1, fid, groupName);
             if (!rs.next()) {
                 EFormGroup eg = new EFormGroup();
                 eg.setFormId(Integer.parseInt(fid));
@@ -695,15 +694,17 @@ public class EFormUtil {
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted, String group, String userRoles) {
         // sends back a list of forms that were uploaded (those that can be added to the patient)
+        String safeSortBy = validateEformSortColumn(sortBy);
+
         String sql = "";
         if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=0 AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = buildEformGroupQuery("eform.status=0", safeSortBy);
         } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = buildEformGroupQuery("eform.status=1", safeSortBy);
         } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform AND eform.fid=eform_groups.fid AND eform_groups.group_name='" + group + "' ORDER BY " + sortBy;
+            sql = buildEformGroupQuery(null, safeSortBy);
         }
-        ResultSet rs = getSQL(sql);
+        ResultSet rs = getSQLWithParam(sql, group);
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
             while (rs.next()) {
@@ -773,15 +774,17 @@ public class EFormUtil {
     @Deprecated
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(String sortBy, String deleted, String demographic_no, String groupName, String userRoles) {
         // sends back a list of forms added to the patient
+        String safeSortBy = validateEformSortColumn(sortBy);
+
         String sql = "";
         if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=0 AND eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = buildPatientEformGroupQuery("eform_data.status=0", safeSortBy);
         } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=1 AND eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = buildPatientEformGroupQuery("eform_data.status=1", safeSortBy);
         } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=" + demographic_no + " AND eform_data.fid=eform_groups.fid AND eform_groups.group_name='" + groupName + "' ORDER BY " + sortBy;
+            sql = buildPatientEformGroupQuery(null, safeSortBy);
         }
-        ResultSet rs = getSQL(sql);
+        ResultSet rs = getSQLWithParam(sql, demographic_no, groupName);
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
             while (rs.next()) {
@@ -1283,6 +1286,87 @@ public class EFormUtil {
             logger.error("Error", sqe);
         }
         return (rs);
+    }
+
+    /**
+     * Executes a parameterized SQL query with the given parameters.
+     *
+     * @param sql the SQL query string with ? placeholders
+     * @param params the parameter values to bind
+     * @return ResultSet the query results, or null if an error occurs
+     */
+    private static ResultSet getSQLWithParam(String sql, Object... params) {
+        ResultSet rs = null;
+        try {
+            rs = DBHandler.GetPreSQL(sql, params);
+        } catch (SQLException sqe) {
+            logger.error("Error", sqe);
+        }
+        return rs;
+    }
+
+    private static final java.util.Set<String> VALID_EFORM_SORT_COLUMNS = new java.util.HashSet<>(java.util.Arrays.asList(
+        "form_name", "form_date", "form_time", "subject", "fid", "file_name", "status"));
+
+    /**
+     * Validates that the given sort column is in the whitelist of allowed eform sort columns.
+     * Returns the default sort column ("form_name") if the input is not valid.
+     *
+     * @param sortBy the requested sort column name
+     * @return String a validated sort column name safe for use in ORDER BY clauses
+     */
+    static String validateEformSortColumn(String sortBy) {
+        if (VALID_EFORM_SORT_COLUMNS.contains(sortBy)) {
+            return sortBy;
+        }
+        return "form_name";
+    }
+
+    // Pre-built parameterized query templates for eform group listing.
+    // The sort column placeholder {SORT} is replaced at runtime with a whitelisted column name
+    // validated by validateEformSortColumn(). This is safe because the replacement value
+    // is guaranteed to be one of the literals in VALID_EFORM_SORT_COLUMNS.
+    private static final String EFORM_GROUP_QUERY_STATUS =
+        "SELECT * FROM eform, eform_groups WHERE {STATUS} AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY {SORT}";
+    private static final String EFORM_GROUP_QUERY_ALL =
+        "SELECT * FROM eform, eform_groups WHERE eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY {SORT}";
+    private static final String PATIENT_EFORM_GROUP_QUERY_STATUS =
+        "SELECT * FROM eform_data, eform_groups WHERE {STATUS} AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY {SORT}";
+    private static final String PATIENT_EFORM_GROUP_QUERY_ALL =
+        "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY {SORT}";
+
+    /**
+     * Builds a parameterized SQL query for listing eforms in a group.
+     * The group_name uses a ? placeholder for parameterized binding.
+     *
+     * @param statusCondition an optional status filter (e.g. "eform.status=1"), or null for no filter
+     * @param safeSortBy a validated sort column (must be pre-validated via validateEformSortColumn)
+     * @return String the SQL query with ? placeholder for group_name
+     */
+    static String buildEformGroupQuery(String statusCondition, String safeSortBy) {
+        String template = (statusCondition != null) ? EFORM_GROUP_QUERY_STATUS : EFORM_GROUP_QUERY_ALL;
+        String result = template.replace("{SORT}", safeSortBy);
+        if (statusCondition != null) {
+            result = result.replace("{STATUS}", statusCondition);
+        }
+        return result;
+    }
+
+    /**
+     * Builds a parameterized SQL query for listing patient eform data in a group.
+     * Uses ? placeholders for demographic_no and group_name (in that order).
+     *
+     * @param statusCondition an optional status filter (e.g. "eform_data.status=1"), or null for no filter
+     * @param safeSortBy a validated sort column (must be pre-validated via validateEformSortColumn)
+     * @return String the SQL query with ? placeholders for demographic_no and group_name
+     */
+    static String buildPatientEformGroupQuery(String statusCondition, String safeSortBy) {
+        String template = (statusCondition != null) ? PATIENT_EFORM_GROUP_QUERY_STATUS : PATIENT_EFORM_GROUP_QUERY_ALL;
+        String result = template.replace("{SORT}", safeSortBy);
+        if (statusCondition != null) {
+            result = result.replace("{STATUS}", statusCondition);
+        }
+        return result;
     }
 
     private static void setFormStatus(String fid, boolean status) {

@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
 import java.sql.ResultSet;
+import java.util.Arrays;
 import java.util.Hashtable;
 
 import io.github.carlos_emr.Misc;
@@ -100,7 +101,12 @@ public class SQLNumerator implements Numerator {
 
         try {
 
-            ResultSet rs = DBHandler.GetSQL(sql.replaceAll("\\$\\{" + processString + "\\}", demographicNo));
+            String placeholder = "${" + processString + "}";
+            String parameterizedSql = sql.replace(placeholder, "?");
+            int paramCount = (sql.length() - sql.replace(placeholder, "").length()) / placeholder.length();
+            Object[] params = new Object[paramCount];
+            Arrays.fill(params, demographicNo);
+            ResultSet rs = DBHandler.GetPreSQL(parameterizedSql, params);
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
             while (rs.next()) {
                 int count = rs.getInt(identifier);
@@ -128,7 +134,12 @@ public class SQLNumerator implements Numerator {
         outputValues = null;
         try {
 
-            ResultSet rs = DBHandler.GetSQL(sql.replaceAll("\\$\\{" + processString + "\\}", demographicNo));
+            String placeholder = "${" + processString + "}";
+            String parameterizedSql = sql.replace(placeholder, "?");
+            int paramCount = (sql.length() - sql.replace(placeholder, "").length()) / placeholder.length();
+            Object[] params = new Object[paramCount];
+            Arrays.fill(params, demographicNo);
+            ResultSet rs = DBHandler.GetPreSQL(parameterizedSql, params);
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
             if (rs.next()) {
                 evalTrue = true;

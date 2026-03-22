@@ -1,0 +1,27 @@
+/*
+ * Inter Variable Font — self-hosted for performance and offline use.
+ * Inter is designed for computer screens with a tall x-height for readability
+ * at small sizes, and features tabular number support for data alignment.
+ *
+ * License: SIL Open Font License 1.1 (see font/Inter/LICENSE.txt)
+ * Source: https://github.com/rsms/inter
+ * Version: 4.1
+ *
+ * @since 2026-03-21
+ */
+
+@font-face {
+    font-family: 'Inter';
+    src: url('font/Inter/InterVariable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('font/Inter/InterVariable-Italic.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: italic;
+    font-display: swap;
+}

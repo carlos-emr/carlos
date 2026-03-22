@@ -1199,7 +1199,7 @@ public class MSPReconcile {
                         }
                     }
 
-                    ResultSet rsDemo = DBHandler.GetSQL("select phone, phone2 from demographic where demographic_no = " + b.demoNo);
+                    ResultSet rsDemo = DBHandler.GetPreSQL("select phone, phone2 from demographic where demographic_no = ?", b.demoNo);
                     if (rsDemo.next()) {
                         b.demoPhone = rsDemo.getString("phone");
                         b.demoPhone2 = rsDemo.getString("phone2");
@@ -1750,13 +1750,13 @@ public class MSPReconcile {
      */
     public ResultSet getMSPRemittanceQuery(String payeeNo, String s21Id) {
         MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.getMSPRemittanceQuery(payeeNo, s21Id)");
-        String qry = "SELECT billing_code, provider.first_name, provider.last_name, t_practitionerno, t_s00type, billingmaster.service_date as 't_servicedate', t_payment," + "t_datacenter, billing.demographic_name, billing.demographic_no, teleplanS00.t_paidamt, t_exp1, t_exp2, t_exp3, t_exp4, t_exp5, t_exp6, t_dataseq " + " from teleplanS00, billing, billingmaster, provider " + " where teleplanS00.t_officeno = billingmaster.billingmaster_no " + " and teleplanS00.s21_id = " + s21Id
-                + " and billingmaster.billing_no = billing.billing_no " + " and provider.ohip_no= teleplanS00.t_practitionerno " + " and teleplanS00.t_practitionerno NOT LIKE '' and teleplanS00.t_payeeno LIKE '" + payeeNo + "' order by provider.first_name, t_servicedate, billing.demographic_name";
+        String qry = "SELECT billing_code, provider.first_name, provider.last_name, t_practitionerno, t_s00type, billingmaster.service_date as 't_servicedate', t_payment," + "t_datacenter, billing.demographic_name, billing.demographic_no, teleplanS00.t_paidamt, t_exp1, t_exp2, t_exp3, t_exp4, t_exp5, t_exp6, t_dataseq " + " from teleplanS00, billing, billingmaster, provider " + " where teleplanS00.t_officeno = billingmaster.billingmaster_no " + " and teleplanS00.s21_id = ?"
+                + " and billingmaster.billing_no = billing.billing_no " + " and provider.ohip_no= teleplanS00.t_practitionerno " + " and teleplanS00.t_practitionerno NOT LIKE '' and teleplanS00.t_payeeno LIKE ? order by provider.first_name, t_servicedate, billing.demographic_name";
 
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetSQL(qry);
+            rs = DBHandler.GetPreSQL(qry, s21Id, payeeNo);
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
@@ -1773,24 +1773,26 @@ public class MSPReconcile {
     public ResultSet getAdjustmentsMSPRemittanceQuery(String payeeNo, String s21Id) {
         MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.getAdjustmentsMSPRemittanceQuery(payeeNo, s21Id)");
 
-        String qry = "SELECT b.billing_no, bm.billingmaster_no, bm.billing_code, p.first_name, p.last_name, ts00.t_practitionerno, ts00.t_s00type, ts00.t_msprcddate, bm.service_date, ts00.t_payment, ts00.t_datacenter, b.demographic_name, b.demographic_no, \n" +
-                "IF(t_paidamt/100>bm.bill_amount, \"+\", IF(t_paidamt/100<bm.bill_amount, \"-\", \"\")) as differential, ts00.t_paidamt, bm.bill_amount, \n" +
-                "ts00.t_exp1, ts00.t_exp2, ts00.t_exp3, ts00.t_exp4, ts00.t_exp5, ts00.t_exp6, ts00.t_dataseq, \n" +
-                "t_ajc1, t_aja1, t_ajc2, t_aja2, t_ajc3, t_aja3, t_ajc4, t_aja4, t_ajc5, t_aja5, t_ajc6, t_aja6, t_ajc7, t_aja7\n" +
-                "\n" +
-                "from teleplanS00 ts00\n" +
-                "join billingmaster bm on ts00.t_officeno = bm.billingmaster_no\n" +
-                "join billing b on bm.billing_no = b.billing_no\n" +
-                "join provider p on p.ohip_no= ts00.t_practitionerno\n" +
-                "where ts00.s21_id = " + s21Id + "\n" +
-                "and ts00.t_practitionerno != '' \n" +
-                "and ts00.t_payeeno = '" + payeeNo + "'\n" +
-                "order by p.first_name, bm.service_date, b.demographic_name;";
+        String qry = "SELECT b.billing_no, bm.billingmaster_no, bm.billing_code, p.first_name, p.last_name, "
+                + "ts00.t_practitionerno, ts00.t_s00type, ts00.t_msprcddate, bm.service_date, ts00.t_payment, "
+                + "ts00.t_datacenter, b.demographic_name, b.demographic_no, "
+                + "IF(t_paidamt/100>bm.bill_amount, \"+\", IF(t_paidamt/100<bm.bill_amount, \"-\", \"\")) as differential, "
+                + "ts00.t_paidamt, bm.bill_amount, "
+                + "ts00.t_exp1, ts00.t_exp2, ts00.t_exp3, ts00.t_exp4, ts00.t_exp5, ts00.t_exp6, ts00.t_dataseq, "
+                + "t_ajc1, t_aja1, t_ajc2, t_aja2, t_ajc3, t_aja3, t_ajc4, t_aja4, t_ajc5, t_aja5, t_ajc6, t_aja6, t_ajc7, t_aja7 "
+                + "from teleplanS00 ts00 "
+                + "join billingmaster bm on ts00.t_officeno = bm.billingmaster_no "
+                + "join billing b on bm.billing_no = b.billing_no "
+                + "join provider p on p.ohip_no= ts00.t_practitionerno "
+                + "where ts00.s21_id = ? "
+                + "and ts00.t_practitionerno != '' "
+                + "and ts00.t_payeeno = ? "
+                + "order by p.first_name, bm.service_date, b.demographic_name";
 
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetSQL(qry);
+            rs = DBHandler.GetPreSQL(qry, s21Id, payeeNo);
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
@@ -1808,19 +1810,13 @@ public class MSPReconcile {
     public boolean hasMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo) {
         MiscUtils.getLogger().debug(new java.util.Date() + ":MSPReconcile.hasMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo)");
 
-        String qry = "SELECT tsl.id \n" +
-                "FROM teleplan_submission_link tsl \n" +
-                "JOIN billingmaster bm on bm.billingmaster_no = tsl.billingmaster_no\n" +
-                "JOIN billactivity ba on ba.id = tsl.bill_activity_id\n" +
-                "WHERE tsl.billingmaster_no = " + billingmasterNo + "\n" +
-                "AND bm.datacenter = '" + dataCenterNo + "'\n" +
-                "AND ba.sentdate like '" + receivedDate + "';";
+        String qry = "SELECT tsl.id FROM teleplan_submission_link tsl JOIN billingmaster bm on bm.billingmaster_no = tsl.billingmaster_no JOIN billactivity ba on ba.id = tsl.bill_activity_id WHERE tsl.billingmaster_no = ? AND bm.datacenter = ? AND ba.sentdate like ?";
 
         ResultSet rs = null;
         boolean hasResults = false;
         try {
 
-            rs = DBHandler.GetSQL(qry);
+            rs = DBHandler.GetPreSQL(qry, billingmasterNo, dataCenterNo, receivedDate);
             hasResults = rs.next();
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);

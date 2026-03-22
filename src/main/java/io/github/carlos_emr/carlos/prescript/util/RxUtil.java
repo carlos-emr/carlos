@@ -610,8 +610,8 @@ public class RxUtil {
                 } else {
                     p("word amount");
                     for (String word : zeroToTen) {
-                        String r1 = "\\s" + word + "\\s*" + frequency;
-                        String r2 = "^" + word + "\\s*" + frequency; //start at the begin of instructions
+                        String r1 = "\\s" + word + "\\s*" + Pattern.quote(frequency);
+                        String r2 = "^" + word + "\\s*" + Pattern.quote(frequency); //start at the begin of instructions
                         Pattern p5 = Pattern.compile(r1);
                         Matcher m5 = p5.matcher(instructions);
                         p("pattern word =" + r1);
