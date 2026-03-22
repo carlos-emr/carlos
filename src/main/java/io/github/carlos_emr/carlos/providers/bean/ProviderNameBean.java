@@ -31,6 +31,12 @@
 package io.github.carlos_emr.carlos.providers.bean;
 
 
+/**
+ * Simple bean holding a provider name and number pair for use in dropdown lists
+ * and selection controls.
+ *
+ * @since 2001-01-01
+ */
 public class ProviderNameBean {
 
     String providerName;

@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.commn.model.MyGroup;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler for loading and managing a collection of {@link ProviderNameBean} objects,
+ * providing lookup and population of provider name lists from the database.
+ *
+ * @since 2001-01-01
+ */
 public class ProviderNameBeanHandler {
 
     Vector<ProviderNameBean> providerNameVector = new Vector<ProviderNameBean>();

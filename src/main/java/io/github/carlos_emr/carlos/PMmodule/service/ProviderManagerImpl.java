@@ -44,6 +44,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Transactional implementation of {@link ProviderManager} for managing healthcare providers
+ * within the CARLOS EMR Program Management module.
+ *
+ * <p>Delegates to provider, agency, program provider, and security user role DAOs for
+ * data access operations.</p>
+ *
+ * @see ProviderManager
+ * @see Provider
+ * @since 2005
+ */
 @Transactional
 public class ProviderManagerImpl implements ProviderManager {
     private ProviderDao providerDao;
@@ -51,6 +62,7 @@ public class ProviderManagerImpl implements ProviderManager {
     private ProgramProviderDAO programProviderDAO;
     private SecUserRoleDao secUserRoleDao;
 
+    /** {@inheritDoc} */
     public void setProviderDao(ProviderDao providerDao) {
         this.providerDao = providerDao;
     }
