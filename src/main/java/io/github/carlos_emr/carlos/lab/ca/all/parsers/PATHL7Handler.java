@@ -65,7 +65,11 @@ import java.util.*;
 
 
 /**
- * @author wrighd
+ * HL7 message handler for PATHL7 (Excelleris/PathNET) lab results. Parses ORU_R01 v2.3
+ * messages from Excelleris and PathNET lab systems, with support for embedded PDF documents,
+ * legacy OBX result extraction, and observation date handling specific to this format.
+ *
+ * @since 2007-01-18
  */
 public class PATHL7Handler implements MessageHandler {
 

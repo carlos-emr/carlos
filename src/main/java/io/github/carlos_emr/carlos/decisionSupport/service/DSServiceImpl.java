@@ -40,9 +40,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Default Decision Support Service implementation.
- * Provides core decision support functionality using local database guidelines.
- * External guideline fetching has been disabled.
+ * Default decision support service implementation for the CARLOS EMR system.
+ * <p>
+ * Provides core decision support functionality using guidelines stored in the local
+ * database. External guideline fetching has been disabled; all guidelines are managed
+ * locally through the administration interface.
+ * </p>
+ *
+ * @since 2009-07-06
+ * @see DSService for the abstract base class
+ * @see DSGuideline for guideline evaluation logic
  */
 public class DSServiceImpl extends DSService {
     private static final Logger logger = MiscUtils.getLogger();

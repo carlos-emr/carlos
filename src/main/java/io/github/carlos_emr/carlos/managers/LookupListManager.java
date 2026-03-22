@@ -40,6 +40,17 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Service for managing configurable lookup lists in the CARLOS EMR system.
+ *
+ * <p>Lookup lists provide dynamic drop-down options used throughout the EMR
+ * for standardized data entry fields such as appointment reasons, referral
+ * types, and other configurable clinical categories.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.model.LookupList
+ * @see io.github.carlos_emr.carlos.commn.model.LookupListItem
+ * @since 2026-03-17
+ */
 @Service
 public class LookupListManager {
 

@@ -64,6 +64,8 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
  * <p>
  * Future intentions of this class is for it to auto populate specific data
  * according to its environment. For instance grabbing data from the CarlosProperties settings.
+ *
+ * @since 2026-03-17
  */
 public class Sender {
 
@@ -77,10 +79,20 @@ public class Sender {
     private org.hl7.fhir.dstu3.model.Organization organization;
     private Clinic clinic;
 
+    /**
+     * Constructs an empty Sender with a default MessageSourceComponent.
+     */
     public Sender() {
         setMessageSourceComponent(new MessageSourceComponent());
     }
 
+    /**
+     * Constructs a Sender with vendor details but no endpoint.
+     *
+     * @param vendorName the EMR vendor name
+     * @param softwareName the software product name
+     * @param versionSignature the software version string
+     */
     public Sender(String vendorName, String softwareName, String versionSignature) {
         setMessageSourceComponent(new MessageSourceComponent());
         setVendorName(vendorName);
@@ -88,6 +100,14 @@ public class Sender {
         setVersionSignature(versionSignature);
     }
 
+    /**
+     * Constructs a Sender with vendor details and endpoint URL.
+     *
+     * @param vendorName the EMR vendor name
+     * @param softwareName the software product name
+     * @param versionSignature the software version string
+     * @param endpoint the sender's web service endpoint URL
+     */
     public Sender(String vendorName, String softwareName, String versionSignature, String endpoint) {
         setMessageSourceComponent(new MessageSourceComponent());
         setVendorName(vendorName);
@@ -96,6 +116,11 @@ public class Sender {
         setEndpoint(endpoint);
     }
 
+    /**
+     * Returns the FHIR MessageSourceComponent configured with this sender's details.
+     *
+     * @return MessageSourceComponent the sender's message source component
+     */
     public MessageSourceComponent getMessageSourceComponent() {
         return messageSourceComponent;
     }

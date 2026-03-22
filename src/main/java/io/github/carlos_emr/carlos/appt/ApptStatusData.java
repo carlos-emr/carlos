@@ -233,14 +233,30 @@ public final class ApptStatusData {
         return preStatus(fstatus, "B");
     }
 
+    /**
+     * Returns the unbilled (picked) version of the given status code.
+     *
+     * @param fstatus String the current status code
+     * @return String the unbilled status code (e.g., "P" or "PS")
+     */
     public String unbillStatus(String fstatus) {
         return preStatus(fstatus, "P");
     }
 
+    /**
+     * Returns all possible appointment status codes.
+     *
+     * @return String[] the array of status codes
+     */
     public String[] getAllStatus() {
         return this.aStatus;
     }
 
+    /**
+     * Returns all appointment status title resource keys.
+     *
+     * @return String[] the array of title resource keys
+     */
     public String[] getAllTitle() {
         return this.aTitle;
     }

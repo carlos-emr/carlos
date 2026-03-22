@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for displaying the archived notes view in the case management module.
+ * Retrieves and prepares archived clinical notes for display in the archive viewer.
+ *
+ * @since 2026-03-17
+ */
 public class ArchiveView2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

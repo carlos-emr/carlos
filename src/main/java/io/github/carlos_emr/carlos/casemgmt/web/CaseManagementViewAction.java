@@ -54,8 +54,15 @@ import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
 import java.util.*;
 
-/*
- * Updated by Eugene Petruhin on 21 jan 2009 while fixing missing "New Note" link
+/**
+ * Utility class for the case management note view that provides helper methods for
+ * building issue display lists, managing note filtering by program and role,
+ * and formatting clinical data for the encounter UI.
+ *
+ * <p>Contains the inner class {@link IssueDisplay} for rendering issue information
+ * with write-access checks and display formatting.</p>
+ *
+ * @since 2026-03-17
  */
 public class CaseManagementViewAction {
 

@@ -37,6 +37,14 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler that loads all distinct measurement group names from the database into
+ * a deduplicated collection of {@link RptGroupNameBean} objects for use in CDM
+ * report selection UIs.
+ *
+ * @see RptGroupNameBean
+ * @since 2001-01-01
+ */
 public class RptGroupNameBeanHandler {
 
     List<RptGroupNameBean> groupNameVector = new ArrayList<RptGroupNameBean>();

@@ -67,6 +67,13 @@ public class PreventionTag extends TagSupport {
         numWarnings = 0;
     }
 
+    /**
+     * Evaluates prevention rules and outputs the opening {@code <span>} tag.
+     * If warnings are present, the span is styled red with warning text in the title attribute.
+     *
+     * @return int {@code EVAL_BODY_INCLUDE} to process the tag body
+     * @throws JspException if an error occurs during tag processing
+     */
     public int doStartTag() throws JspException {
         Prevention p = PreventionData.getPrevention(LoggedInInfo.getLoggedInInfoFromSession(super.pageContext.getSession()), Integer.valueOf(demographicNo));
         try {
@@ -100,6 +107,11 @@ public class PreventionTag extends TagSupport {
     }
 
 
+    /**
+     * Sets the demographic number for which to evaluate prevention warnings.
+     *
+     * @param demographicNo String the patient's demographic number
+     */
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }

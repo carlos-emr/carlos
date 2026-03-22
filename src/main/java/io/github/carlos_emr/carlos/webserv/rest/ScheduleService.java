@@ -778,6 +778,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return Response.ok(forNewId).build();
     }
 
+    /**
+     * Retrieves a search configuration by its ID.
+     *
+     * @param id Integer the search configuration ID
+     * @return SearchConfigTo1 the search configuration, or null on error
+     */
     @GET
     @Path("/searchConfig/{id}")
     @Produces("application/json")
@@ -801,6 +807,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Retrieves the search configuration associated with a specific provider.
+     *
+     * @param id String the provider number
+     * @return SearchConfigTo1 the provider's search configuration, or a minimal object with just the ID
+     */
     @GET
     @Path("/searchConfig/byProvider/{id}")
     @Produces("application/json")

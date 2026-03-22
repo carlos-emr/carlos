@@ -128,6 +128,11 @@ public class PanelBeanFactory {
         this.indicatorTemplateHandler = indicatorTemplateHandler;
     }
 
+    /**
+     * Returns the constructed list of panel beans, one per indicator category.
+     *
+     * @return List of PanelBean the dashboard panels organized by category
+     */
     public List<PanelBean> getPanelBeans() {
         return panelBeans;
     }

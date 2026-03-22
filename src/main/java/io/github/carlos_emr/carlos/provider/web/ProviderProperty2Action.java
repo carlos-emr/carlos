@@ -1634,6 +1634,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genCppSingleLine";
     }
 
+    /**
+     * Displays the eDocument browser in document report checkbox preference form.
+     *
+     * @return String {@code "genEDocBrowserInDocumentReport"} to forward to the configuration JSP
+     */
     public String viewEDocBrowserInDocumentReport() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1669,6 +1674,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves the provider's eDocument browser in document report preference.
+     *
+     * @return String {@code "genEDocBrowserInDocumentReport"} to re-display with success status
+     */
     public String saveEDocBrowserInDocumentReport() {
         String checkboxValue = request.getParameter("eDocBrowserInDocumentReportProperty.checked");
 
@@ -1706,6 +1716,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInDocumentReport";
     }
 
+    /**
+     * Displays the eDocument browser in master file checkbox preference form.
+     *
+     * @return String {@code "genEDocBrowserInMasterFile"} to forward to the configuration JSP
+     */
     public String viewEDocBrowserInMasterFile() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

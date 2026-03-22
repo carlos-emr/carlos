@@ -99,6 +99,13 @@ public class HRM2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private HRMDocumentToDemographicDao hrmDocumentToDemographicDao = SpringUtils.getBean(HRMDocumentToDemographicDao.class);
 
+    /**
+     * Returns the provider's confidentiality statement as a JSON response.
+     *
+     * @return String {@code null} (response written directly to output stream)
+     * @throws Exception if an I/O error occurs writing the response
+     * @throws SecurityException if the provider lacks {@code _hrm} read privilege
+     */
     public String getConfidentialityStatement() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -120,6 +127,13 @@ public class HRM2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Saves or updates the provider's confidentiality statement from the "value" request parameter.
+     *
+     * @return String {@code null} (no Struts result dispatched)
+     * @throws Exception if an I/O error occurs
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String saveConfidentialityStatement() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -145,6 +159,13 @@ public class HRM2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Searches HRM categories by name or mnemonic prefix and returns results as JSON.
+     *
+     * @return String {@code null} (response written directly to output stream)
+     * @throws Exception if an I/O error occurs writing the response
+     * @throws SecurityException if the provider lacks {@code _hrm} read privilege
+     */
     public String searchCategory() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {

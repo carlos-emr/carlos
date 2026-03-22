@@ -37,20 +37,36 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-/*
- * Author: Dennis Warren
- * Company: Colcamex Resources
- * Date: November 2014
- * For: UBC Pharmacy Clinic and McMaster Department of Family Medicine
+/**
+ * Utility class for JSON serialization and deserialization using Jackson.
+ *
+ * <p>Provides convenience methods for converting between POJOs and JSON strings/nodes,
+ * including collection handling and field filtering. Uses a shared {@link ObjectMapper}
+ * instance for performance.
+ *
+ * @since 2026-03-17
  */
 public class JsonUtil {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Converts a list of POJOs to a JSON array string.
+     *
+     * @param pojoList List&lt;?&gt; the list of objects to serialize
+     * @return String the JSON array representation
+     */
     public static final String pojoCollectionToJson(final List<?> pojoList) {
         return pojoCollectionToJson(pojoList, null);
     }
 
+    /**
+     * Converts a list of POJOs to a JSON array string, excluding specified fields.
+     *
+     * @param pojoList      List&lt;?&gt; the list of objects to serialize
+     * @param ignoreMethods String[] field names to exclude from the output
+     * @return String the JSON array representation
+     */
     public static final String pojoCollectionToJson(final List<?> pojoList, String[] ignoreMethods) {
         try {
             ArrayNode arrayNode = objectMapper.createArrayNode();
@@ -69,10 +85,23 @@ public class JsonUtil {
         }
     }
 
+    /**
+     * Converts a POJO to a Jackson {@link ObjectNode}.
+     *
+     * @param pojo Object the object to convert
+     * @return ObjectNode the JSON object representation
+     */
     public static final ObjectNode pojoToJson(final Object pojo) {
         return pojoToJson(pojo, null);
     }
 
+    /**
+     * Converts a POJO to a Jackson {@link ObjectNode}, excluding specified fields.
+     *
+     * @param pojo          Object the object to convert
+     * @param ignoreMethods String[] field names to exclude
+     * @return ObjectNode the JSON object representation
+     */
     public static final ObjectNode pojoToJson(final Object pojo, final String[] ignoreMethods) {
         ObjectNode objectNode = objectMapper.valueToTree(pojo);
 

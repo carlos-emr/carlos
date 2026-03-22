@@ -41,6 +41,18 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of {@link ClientRestrictionManager} for managing client
+ * service restrictions within the CARLOS EMR Program Management module.
+ *
+ * <p>Enforces service restriction policies by querying the restriction DAO and filtering
+ * results based on date ranges. Restrictions are date-bounded records that prevent
+ * clients from being admitted to specific programs.</p>
+ *
+ * @see ClientRestrictionManager
+ * @see ProgramClientRestriction
+ * @since 2005
+ */
 @Transactional
 public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
 

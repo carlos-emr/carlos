@@ -46,7 +46,19 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
+ * Abstract base class for all clinical form record handlers in the CARLOS EMR form subsystem.
  *
+ * <p>Provides the template pattern for loading, saving, and navigating clinical forms.
+ * Subclasses implement form-specific logic for various medical forms (Rourke growth charts,
+ * BCAR antenatal records, lab requisitions, etc.) while inheriting common demographic
+ * data loading and date formatting capabilities.</p>
+ *
+ * <p>Each concrete subclass corresponds to a specific medical form type and is instantiated
+ * by {@link FrmRecordFactory} based on the form name.</p>
+ *
+ * @see FrmRecordFactory
+ * @see FrmRecordHelp
+ * @since 2026-03-17
  */
 public abstract class FrmRecord {
 
@@ -60,8 +72,24 @@ public abstract class FrmRecord {
     protected java.util.Date date;
     protected String dateFormat;
 
+    /**
+     * Retrieves the form record data for a specific patient and form instance.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param demographicNo int the patient's demographic number
+     * @param existingID int the existing form record ID, or 0 for a new form
+     * @return Properties containing the form field name-value pairs
+     * @throws SQLException if a database access error occurs
+     */
     public abstract Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID) throws SQLException;
 
+    /**
+     * Saves the form record data to the database.
+     *
+     * @param props Properties containing the form field name-value pairs to persist
+     * @return int the generated form record ID for new records
+     * @throws SQLException if a database access error occurs
+     */
     public abstract int saveFormRecord(Properties props) throws SQLException;
 
     public abstract String findActionValue(String submit) throws SQLException;

@@ -101,6 +101,14 @@ public final class DBHandler {
 		}
 	}
 
+	/**
+	 * Executes a parameterized SQL query using prepared statements for safe parameter binding.
+	 *
+	 * @param sql String the SQL query with '?' placeholders for parameters
+	 * @param params Object[] the parameter values to bind to the query
+	 * @return ResultSet the query results
+	 * @throws SQLException if a database access error occurs
+	 */
 	public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
 		PreparedStatement ps = DbConnectionFilter
 			.getThreadLocalDbConnection()
