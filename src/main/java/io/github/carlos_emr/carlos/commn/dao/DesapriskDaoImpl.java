@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.Desaprisk;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DesapriskDao} for annual review data access.
+ *
+ * @since 2001
+ */
+
 public class DesapriskDaoImpl extends AbstractDaoImpl<Desaprisk> implements DesapriskDao {
 
     public DesapriskDaoImpl() {
         super(Desaprisk.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Desaprisk search(Integer formNo, Integer demographicNo) {

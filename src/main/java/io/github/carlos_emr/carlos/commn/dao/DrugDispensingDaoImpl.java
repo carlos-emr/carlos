@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.DrugDispensing;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DrugDispensingDao} for drug and prescription data access.
+ *
+ * @since 2001
+ */
+
 public class DrugDispensingDaoImpl extends AbstractDaoImpl<DrugDispensing> implements DrugDispensingDao {
 
     public DrugDispensingDaoImpl() {
         super(DrugDispensing.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DrugDispensing> findByDrugId(Integer drugId) {

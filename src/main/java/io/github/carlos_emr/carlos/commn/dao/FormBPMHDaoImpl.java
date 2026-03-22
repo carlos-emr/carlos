@@ -34,6 +34,12 @@ import io.github.carlos_emr.carlos.commn.model.FormBPMH;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FormBPMHDao} for medical form data access.
+ *
+ * @since 2001
+ */
+
 public class FormBPMHDaoImpl extends AbstractDaoImpl<FormBPMH> implements FormBPMHDao {
 
     public FormBPMHDaoImpl() {

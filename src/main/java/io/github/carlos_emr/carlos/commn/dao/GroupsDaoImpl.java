@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.Groups;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link GroupsDao} for group data access.
+ *
+ * @since 2001
+ */
+
 public class GroupsDaoImpl extends AbstractDaoImpl<Groups> implements GroupsDao {
 
     public GroupsDaoImpl() {
@@ -47,6 +53,8 @@ public class GroupsDaoImpl extends AbstractDaoImpl<Groups> implements GroupsDao 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Groups> findByParentId(int groupId) {
         Query query = createQuery("g", "g.parentId = ?1");

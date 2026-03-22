@@ -37,6 +37,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
+/**
+ * DAO interface for document management operations.
+ *
+ * @since 2001
+ */
+
 public interface DocumentMergeDemographicDAO extends DocumentDao {
     List<Object[]> findDocuments(String module, String moduleid, String docType, boolean includePublic, boolean includeDeleted, boolean includeActive, EDocSort sort, Date since);
 

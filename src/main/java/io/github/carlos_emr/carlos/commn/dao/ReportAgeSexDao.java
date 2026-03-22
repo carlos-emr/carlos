@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportAgeSex;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportAgeSexDao extends AbstractDao<ReportAgeSex> {
     List<ReportAgeSex> findBeforeReportDate(Date reportDate);
 

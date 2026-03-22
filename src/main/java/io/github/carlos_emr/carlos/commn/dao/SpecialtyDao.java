@@ -33,5 +33,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Specialty;
 
+/**
+ * DAO interface for medical specialty operations.
+ *
+ * @since 2001
+ */
+
 public interface SpecialtyDao extends AbstractDao<Specialty> {
 }

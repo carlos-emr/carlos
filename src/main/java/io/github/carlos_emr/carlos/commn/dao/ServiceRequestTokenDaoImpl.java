@@ -39,17 +39,27 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link ServiceRequestTokenDao} for service data access.
+ *
+ * @since 2001
+ */
+
 public class ServiceRequestTokenDaoImpl extends AbstractDaoImpl<ServiceRequestToken> implements ServiceRequestTokenDao {
 
     public ServiceRequestTokenDaoImpl() {
         super(ServiceRequestToken.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ServiceRequestToken> findAll() {
         Query query = this.entityManager.createQuery("SELECT x FROM ServiceRequestToken x", ServiceRequestToken.class);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ServiceRequestToken findByTokenId(String token) {

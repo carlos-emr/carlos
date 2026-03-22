@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.WorkFlow;
 
+/**
+ * DAO interface for workflow operations.
+ *
+ * @since 2001
+ */
+
 public interface WorkFlowDao extends AbstractDao<WorkFlow> {
     List<WorkFlow> findByWorkflowType(String type);
 

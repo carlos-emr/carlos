@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicSets;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicSetsDao extends AbstractDao<DemographicSets> {
 
     public List<DemographicSets> findBySetName(String setName);

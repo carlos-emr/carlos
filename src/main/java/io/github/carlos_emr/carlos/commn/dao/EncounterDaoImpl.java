@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.Encounter;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EncounterDao} for clinical encounter data access.
+ *
+ * @since 2001
+ */
+
 public class EncounterDaoImpl extends AbstractDaoImpl<Encounter> implements EncounterDao {
 
     public EncounterDaoImpl() {

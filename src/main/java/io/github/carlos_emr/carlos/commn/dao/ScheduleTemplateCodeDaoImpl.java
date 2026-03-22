@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ScheduleTemplateCodeDao} for scheduling data access.
+ *
+ * @since 2001
+ */
+
 public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplateCode> implements ScheduleTemplateCodeDao {
 
     public ScheduleTemplateCodeDaoImpl() {
@@ -45,11 +51,15 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<ScheduleTemplateCode> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ScheduleTemplateCode getByCode(char code) {
@@ -65,6 +75,8 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ScheduleTemplateCode> findTemplateCodes() {
         Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.bookinglimit > 0 and s.duration <>''");
@@ -74,6 +86,8 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ScheduleTemplateCode findByCode(String code) {

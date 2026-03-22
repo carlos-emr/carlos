@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PreventionExtDao} for prevention and immunization data access.
+ *
+ * @since 2001
+ */
+
 public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> implements PreventionExtDao {
 
     public PreventionExtDaoImpl() {
         super(PreventionExt.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PreventionExt> findByPreventionId(Integer preventionId) {
@@ -56,6 +64,8 @@ public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> impleme
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PreventionExt> findByKeyAndValue(String key, String value) {
@@ -69,6 +79,8 @@ public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> impleme
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<PreventionExt> findByPreventionIdAndKey(Integer preventionId, String key) {
         Query query = entityManager.createQuery("select x from PreventionExt x where preventionId=?1 and keyval=?2");
@@ -80,6 +92,8 @@ public class PreventionExtDaoImpl extends AbstractDaoImpl<PreventionExt> impleme
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public HashMap<String, String> getPreventionExt(Integer preventionId) {

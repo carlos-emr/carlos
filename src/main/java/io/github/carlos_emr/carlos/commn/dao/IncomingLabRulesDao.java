@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
 
+/**
+ * DAO interface for incoming lab rules operations.
+ *
+ * @since 2001
+ */
+
 public interface IncomingLabRulesDao extends AbstractDao<IncomingLabRules> {
     List<IncomingLabRules> findCurrentByProviderNoAndFrwdProvider(String providerNo, String frwdProvider);
 

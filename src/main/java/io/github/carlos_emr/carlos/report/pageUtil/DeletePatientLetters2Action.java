@@ -47,6 +47,12 @@ import io.github.carlos_emr.carlos.report.data.ManageLetters;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that archives (soft-deletes) a patient letter template.
+ * Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class DeletePatientLetters2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

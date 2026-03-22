@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.ORNCkdScreeningReportLog;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ORNCkdScreeningReportLogDao} for Ontario Renal Network reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ORNCkdScreeningReportLogDaoImpl extends AbstractDaoImpl<ORNCkdScreeningReportLog> implements ORNCkdScreeningReportLogDao {
 
     public ORNCkdScreeningReportLogDaoImpl() {
         super(ORNCkdScreeningReportLog.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ORNCkdScreeningReportLog> getAllReports() {

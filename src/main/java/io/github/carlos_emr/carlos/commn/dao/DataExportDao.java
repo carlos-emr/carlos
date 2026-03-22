@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DataExport;
 
+/**
+ * DAO interface for data export operations.
+ *
+ * @since 2001
+ */
+
 public interface DataExportDao extends AbstractDao<DataExport> {
 
     public static final String ROURKE = "Rourke";

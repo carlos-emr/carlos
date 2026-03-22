@@ -48,6 +48,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link BillingServiceDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> implements BillingServiceDao {
     static public final String BC = "BC";
 

@@ -67,6 +67,13 @@ import org.openpdf.text.Paragraph;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that generates a CSV spreadsheet of patient demographics from
+ * a demographic report query. Streams the CSV file for download.
+ * Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class GeneratePatientSpreadSheetList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

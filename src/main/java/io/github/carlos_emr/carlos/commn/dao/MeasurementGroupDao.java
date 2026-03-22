@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
 
+/**
+ * DAO interface for clinical measurement operations.
+ *
+ * @since 2001
+ */
+
 public interface MeasurementGroupDao extends AbstractDao<MeasurementGroup> {
     List<MeasurementGroup> findAll();
 

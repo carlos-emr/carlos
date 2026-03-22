@@ -38,6 +38,12 @@ import java.util.Locale;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONRepo;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingONRepoDao extends AbstractDao<BillingONRepo> {
     void createBillingONItemEntry(BillingONItem bItem, Locale locale);
 

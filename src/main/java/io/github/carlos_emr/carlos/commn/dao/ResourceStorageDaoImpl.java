@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ResourceStorageDao} for resource storage data access.
+ *
+ * @since 2001
+ */
+
 public class ResourceStorageDaoImpl extends AbstractDaoImpl<ResourceStorage> implements ResourceStorageDao {
 
     public ResourceStorageDaoImpl() {
         super(ResourceStorage.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ResourceStorage findActive(String resourceType) {
@@ -54,6 +62,8 @@ public class ResourceStorageDaoImpl extends AbstractDaoImpl<ResourceStorage> imp
         return getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ResourceStorage> findActiveAll(String resourceType) {
         String sqlCommand = "FROM " + modelClass.getSimpleName() + " r WHERE r.resourceType = ?1 AND r.active = true";
@@ -62,6 +72,8 @@ public class ResourceStorageDaoImpl extends AbstractDaoImpl<ResourceStorage> imp
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ResourceStorage> findAll(String resourceType) {
         String sqlCommand = "FROM " + modelClass.getSimpleName() + " r WHERE r.resourceType = ?1";
@@ -69,6 +81,8 @@ public class ResourceStorageDaoImpl extends AbstractDaoImpl<ResourceStorage> imp
         query.setParameter(1, resourceType);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ResourceStorage> findByUUID(String uuid) {

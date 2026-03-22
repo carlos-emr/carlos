@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.DocumentDescriptionTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DocumentDescriptionTemplateDao} for document management data access.
+ *
+ * @since 2001
+ */
+
 public class DocumentDescriptionTemplateDaoImpl extends AbstractDaoImpl<DocumentDescriptionTemplate> implements DocumentDescriptionTemplateDao {
 
     public DocumentDescriptionTemplateDaoImpl() {

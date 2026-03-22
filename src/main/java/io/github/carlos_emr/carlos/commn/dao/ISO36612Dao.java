@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ISO36612;
 
+/**
+ * DAO interface for ISO standard operations.
+ *
+ * @since 2001
+ */
+
 public interface ISO36612Dao extends AbstractDao<ISO36612> {
     ISO36612 findByCode(String code);
 

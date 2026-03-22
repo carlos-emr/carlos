@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.LabRequestReportLink;
 
+/**
+ * DAO interface for laboratory operations.
+ *
+ * @since 2001
+ */
+
 public interface LabRequestReportLinkDao extends AbstractDao<LabRequestReportLink> {
     List<LabRequestReportLink> findByReportTableAndReportId(String reportTable, int reportId);
 

@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EFormDao} for electronic form data access.
+ *
+ * @since 2001
+ */
+
 public class EFormDaoImpl extends AbstractDaoImpl<EForm> implements EFormDao {
 
     public EFormDaoImpl() {
         super(EForm.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public EForm findByName(String name) {
@@ -58,6 +66,8 @@ public class EFormDaoImpl extends AbstractDaoImpl<EForm> implements EFormDao {
             return results.get(0);
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EForm> findByNameSimilar(String name) {
@@ -73,6 +83,8 @@ public class EFormDaoImpl extends AbstractDaoImpl<EForm> implements EFormDao {
         List<EForm> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public EForm findById(Integer formId) {

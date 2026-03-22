@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PageMonitor;
 
+/**
+ * DAO interface for page monitoring operations.
+ *
+ * @since 2001
+ */
+
 public interface PageMonitorDao extends AbstractDao<PageMonitor> {
     List<PageMonitor> findByPage(String pageName, String pageId);
 

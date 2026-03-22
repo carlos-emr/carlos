@@ -41,6 +41,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link BillingONItemDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingONItemDaoImpl extends AbstractDaoImpl<BillingONItem> implements BillingONItemDao {
 
     public BillingONItemDaoImpl() {

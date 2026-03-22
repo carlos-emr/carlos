@@ -35,6 +35,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicCustArchive;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicCustArchiveDao extends AbstractDao<DemographicCustArchive> {
 
     public Integer archiveDemographicCust(DemographicCust dc);

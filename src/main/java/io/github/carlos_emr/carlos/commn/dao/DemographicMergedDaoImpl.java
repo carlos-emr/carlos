@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicMergedDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicMergedDaoImpl extends AbstractDaoImpl<DemographicMerged> implements DemographicMergedDao {
 
     public DemographicMergedDaoImpl() {
         super(DemographicMerged.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicMerged> findCurrentByMergedTo(int demographicNo) {
@@ -56,6 +64,8 @@ public class DemographicMergedDaoImpl extends AbstractDaoImpl<DemographicMerged>
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicMerged> findCurrentByDemographicNo(int demographicNo) {
         Query q = entityManager.createQuery("select d from DemographicMerged d where d.demographicNo=?1 and d.deleted=0");
@@ -67,6 +77,8 @@ public class DemographicMergedDaoImpl extends AbstractDaoImpl<DemographicMerged>
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicMerged> findByDemographicNo(int demographicNo) {
         Query q = entityManager.createQuery("select d from DemographicMerged d where d.demographicNo=?1");
@@ -77,6 +89,8 @@ public class DemographicMergedDaoImpl extends AbstractDaoImpl<DemographicMerged>
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @SuppressWarnings("unchecked")

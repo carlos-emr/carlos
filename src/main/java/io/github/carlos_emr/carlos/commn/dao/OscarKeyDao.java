@@ -34,5 +34,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OscarKey;
 
+/**
+ * DAO interface for core operations.
+ *
+ * @since 2001
+ */
+
 public interface OscarKeyDao extends AbstractDao<OscarKey> {
 }

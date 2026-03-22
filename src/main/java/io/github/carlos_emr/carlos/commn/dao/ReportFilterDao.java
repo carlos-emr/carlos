@@ -33,5 +33,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ReportFilter;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportFilterDao extends AbstractDao<ReportFilter> {
 }

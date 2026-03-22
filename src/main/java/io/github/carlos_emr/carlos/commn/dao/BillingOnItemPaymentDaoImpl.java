@@ -39,10 +39,18 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingOnItemPaymentDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPayment> implements BillingOnItemPaymentDao {
     public BillingOnItemPaymentDaoImpl() {
         super(BillingOnItemPayment.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BillingOnItemPayment findByPaymentIdAndItemId(int paymentId, int itemId) {
@@ -52,6 +60,8 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
         return getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<BillingOnItemPayment> getAllByItemId(int itemId) {
@@ -60,6 +70,8 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<BillingOnItemPayment> getItemsByPaymentId(int paymentId) {
@@ -67,6 +79,8 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
         query.setParameter(1, paymentId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BigDecimal getAmountPaidByItemId(int itemId) {
@@ -85,6 +99,8 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
         return paid;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingOnItemPayment> getItemPaymentByInvoiceNoItemId(Integer ch1_id, Integer item_id) {
         String sql = "select bPay from BillingOnItemPayment bPay where bPay.ch1Id= ?1 and bPay.billingOnItemId = ?2 ";
@@ -98,6 +114,8 @@ public class BillingOnItemPaymentDaoImpl extends AbstractDaoImpl<BillingOnItemPa
         return results;
     }
 
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingOnItemPayment> findByBillingNo(int billingNo) {

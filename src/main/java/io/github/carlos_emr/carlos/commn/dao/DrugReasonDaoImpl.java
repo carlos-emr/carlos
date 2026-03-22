@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DrugReasonDao} for drug and prescription data access.
+ *
+ * @since 2001
+ */
+
 public class DrugReasonDaoImpl extends AbstractDaoImpl<DrugReason> implements DrugReasonDao {
 
     public DrugReasonDaoImpl() {

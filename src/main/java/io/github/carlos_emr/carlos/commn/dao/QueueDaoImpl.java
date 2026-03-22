@@ -44,10 +44,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link QueueDao} for queue data access.
+ *
+ * @since 2001
+ */
+
 public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
     public QueueDaoImpl() {
         super(Queue.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public HashMap getHashMapOfQueues() {
@@ -61,6 +69,8 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
         }
         return hm;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hashtable> getQueues() {
@@ -78,6 +88,8 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
         return r;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getLastId() {
         String r = "";
@@ -91,6 +103,8 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
 
         return r;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getQueueName(int id) {
@@ -106,6 +120,8 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
         return "";
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getQueueid(String name) {
         String q = "select q from Queue q where q.name=" + name;
@@ -118,6 +134,8 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
         }
         return "";
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean addNewQueue(String qn) {

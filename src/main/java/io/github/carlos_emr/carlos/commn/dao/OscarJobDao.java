@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 
+/**
+ * DAO interface for core operations.
+ *
+ * @since 2001
+ */
+
 public interface OscarJobDao extends AbstractDao<OscarJob> {
     List<OscarJob> findByType(OscarJobType oscarJobType);
 

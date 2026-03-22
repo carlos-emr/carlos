@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.LogLetters;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link LogLettersDao} for logging data access.
+ *
+ * @since 2001
+ */
+
 public class LogLettersDaoImpl extends AbstractDaoImpl<LogLetters> implements LogLettersDao {
 
     public LogLettersDaoImpl() {

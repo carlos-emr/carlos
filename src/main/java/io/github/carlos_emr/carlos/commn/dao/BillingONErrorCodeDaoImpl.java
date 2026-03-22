@@ -35,6 +35,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingONErrorCodeDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingONErrorCodeDaoImpl extends AbstractDaoImpl<BillingONErrorCode> implements BillingONErrorCodeDao {
 
     public BillingONErrorCodeDaoImpl() {

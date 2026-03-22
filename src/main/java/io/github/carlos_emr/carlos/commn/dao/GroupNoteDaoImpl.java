@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link GroupNoteDao} for group data access.
+ *
+ * @since 2001
+ */
+
 public class GroupNoteDaoImpl extends AbstractDaoImpl<GroupNoteLink> implements GroupNoteDao {
 
     public GroupNoteDaoImpl() {
         super(GroupNoteLink.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<GroupNoteLink> findLinksByDemographic(Integer demographicNo) {
@@ -58,6 +66,8 @@ public class GroupNoteDaoImpl extends AbstractDaoImpl<GroupNoteLink> implements 
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<GroupNoteLink> findLinksByDemographicSince(Integer demographicNo, Date lastDateUpdated) {
@@ -73,6 +83,8 @@ public class GroupNoteDaoImpl extends AbstractDaoImpl<GroupNoteLink> implements 
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<GroupNoteLink> findLinksByNoteId(Integer noteId) {
 
@@ -86,6 +98,8 @@ public class GroupNoteDaoImpl extends AbstractDaoImpl<GroupNoteLink> implements 
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getNumberOfLinksByNoteId(Integer noteId) {

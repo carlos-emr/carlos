@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 
+/**
+ * DAO interface for diagnostic code operations.
+ *
+ * @since 2001
+ */
+
 public interface DiagnosticCodeDao extends AbstractCodeSystemDao<DiagnosticCode> {
     List<DiagnosticCode> findByDiagnosticCode(String diagnosticCode);
 

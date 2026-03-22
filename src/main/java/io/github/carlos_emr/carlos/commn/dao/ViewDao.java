@@ -35,6 +35,12 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.View;
 
+/**
+ * DAO interface for view operations.
+ *
+ * @since 2001
+ */
+
 public interface ViewDao extends AbstractDao<View> {
     Map<String, View> getView(String view, String role);
 

@@ -81,6 +81,12 @@ public final class CalendarScheduleCodePairTransfer {
         return (result);
     }
 
+    /**
+     * Converts a map of time slots to codes into an array of transfer objects.
+     *
+     * @param map Map mapping Calendar times to Character schedule codes
+     * @return CalendarScheduleCodePairTransfer[] array of transfer objects
+     */
     public static CalendarScheduleCodePairTransfer[] toTransfer(Map<? extends Calendar, Character> map) {
         ArrayList<CalendarScheduleCodePairTransfer> result = new ArrayList<CalendarScheduleCodePairTransfer>();
         for (Entry<? extends Calendar, Character> entry : map.entrySet()) {

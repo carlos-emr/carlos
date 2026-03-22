@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicMergedDao extends AbstractDao<DemographicMerged> {
 
     public List<DemographicMerged> findCurrentByMergedTo(int demographicNo);

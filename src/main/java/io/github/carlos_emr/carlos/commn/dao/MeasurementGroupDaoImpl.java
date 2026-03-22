@@ -41,17 +41,27 @@ import io.github.carlos_emr.CarlosProperties;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MeasurementGroupDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementGroupDaoImpl extends AbstractDaoImpl<MeasurementGroup> implements MeasurementGroupDao {
 
     public MeasurementGroupDaoImpl() {
         super(MeasurementGroup.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementGroup> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementGroup> findByNameAndTypeDisplayName(String name, String typeDisplayName) {
@@ -67,6 +77,8 @@ public class MeasurementGroupDaoImpl extends AbstractDaoImpl<MeasurementGroup> i
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementGroup> findByTypeDisplayName(String typeDisplayName) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.typeDisplayName=?1";
@@ -79,6 +91,8 @@ public class MeasurementGroupDaoImpl extends AbstractDaoImpl<MeasurementGroup> i
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementGroup> findByName(String name) {
@@ -96,6 +110,8 @@ public class MeasurementGroupDaoImpl extends AbstractDaoImpl<MeasurementGroup> i
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object> findUniqueTypeDisplayNamesByGroupName(String groupName) {

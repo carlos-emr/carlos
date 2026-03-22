@@ -48,11 +48,19 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MeasurementDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements MeasurementDao {
 
     public MeasurementDaoImpl() {
         super(Measurement.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date updatedAfterThisDate) {
@@ -87,6 +95,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     // for integrator
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findDemographicIdsUpdatedAfterDate(Date updatedAfterThisDate) {
 
@@ -100,6 +110,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findMatching(Measurement measurement) {
@@ -119,6 +131,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findByDemographicNo(Integer demographicNo) {
         String sqlCommand = "select x from Measurement x where x.demographicId = ?1";
@@ -130,6 +144,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByDemographicNoAndType(Integer demographicNo, String type) {
@@ -144,6 +160,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Measurement findLatestByDemographicNoAndType(int demographicNo, String type) {
         List<Measurement> ms = findByDemographicNoAndType(demographicNo, type);
@@ -153,6 +171,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return ms.get(ms.size() - 1);
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByAppointmentNo(Integer appointmentNo) {
@@ -166,6 +186,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findByAppointmentNo2(Integer appointmentNo) {
         String sqlCommand = "select x from Measurement x where x.appointmentNo = ?1 ORDER BY x.type, x.dateObserved ASC";
@@ -174,6 +196,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         List<Measurement> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByAppointmentNoAndType(Integer appointmentNo, String type) {
@@ -188,6 +212,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Measurement findLatestByAppointmentNoAndType(int appointmentNo, String type) {
         List<Measurement> ms = findByAppointmentNoAndType(appointmentNo, type);
@@ -197,6 +223,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return ms.get(ms.size() - 1);
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByDemographicIdObservedDate(Integer demographicId, Date startDate, Date endDate) {
@@ -210,6 +238,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByDemographicId(Integer demographicId) {
@@ -373,6 +403,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public HashMap<String, Measurement> getMeasurements(Integer demographicNo, String[] types) {
         HashMap<String, Measurement> map = new HashMap<String, Measurement>();
@@ -392,6 +424,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         }
         return map;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Set<Integer> getAppointmentNosByDemographicNoAndType(int demographicNo, String type, Date startDate,
@@ -413,6 +447,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results.keySet();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public HashMap<String, Measurement> getMeasurementsPriorToDate(Integer demographicNo, Date d) {
         String queryStr = "select m From Measurement m WHERE m.demographicId = ?1 AND m.dateObserved <= ?2";
@@ -430,6 +466,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return map;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Date> getDatesForMeasurements(Integer demographicNo, String[] types) {
@@ -473,6 +511,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(Integer demoNo,
                                                                                         String loincCode) {
@@ -490,6 +530,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object> findLabNumbers(Integer demoNo, String identCode) {
         String sql = "SELECT DISTINCT e2.val FROM Measurement m, MeasurementsExt e1, MeasurementsExt e2 "
@@ -500,6 +542,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(2, demoNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object> findLabNumbersOrderByObserved(Integer demoNo, String identCode) {
@@ -513,6 +557,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Measurement findLastEntered(Integer demo, String type) {
         Query query = createQuery("ms", "ms.demographicId = ?1 AND ms.type = ?2 ORDER BY ms.createDate DESC");
@@ -520,6 +566,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(2, type);
         return getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementType> findMeasurementsTypes(Integer demoNo) {
@@ -529,6 +577,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMeasurementsAndProviders(Integer measurementId) {
         String sql = "SELECT m, mt, p FROM Measurement m, MeasurementType mt, Provider p WHERE m.providerNo = p.ProviderNo AND m.id = ?1 AND m.type = mt.type";
@@ -536,6 +586,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(1, measurementId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findMeasurementsAndProvidersByType(String type, Integer demographicNo) {
@@ -545,6 +597,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(2, demographicNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Object[] findMeasurementsAndProvidersByDemoAndType(Integer demographicNo, String type) {
@@ -561,6 +615,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return result.get(0);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findByValue(String key, String value) {
         Query q = entityManager.createQuery("SELECT m FROM Measurement m, MeasurementsExt e "
@@ -569,6 +625,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         q.setParameter(2, value);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object> findObservationDatesByDemographicNoTypeAndMeasuringInstruction(Integer demo, String type,
@@ -582,6 +640,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Date> findByDemographicNoTypeAndMeasuringInstruction(Integer demo, String type, String mInstrc) {
         String sql = "SELECT m.dateObserved FROM Measurement m " + "WHERE m.demographicId = ?1"
@@ -592,6 +652,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(3, mInstrc);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Measurement findByDemographicNoTypeAndDate(Integer demo, String type, java.util.Date date) {
@@ -604,6 +666,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(3, date);
         return getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByDemoNoTypeDateAndMeasuringInstruction(Integer demoNo, Date from, Date to,
@@ -618,6 +682,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findLastEntered(Date from, Date to, String measurementType, String mInstrc) {
         Query query = createQuery("SELECT m.demographicId, max(m.createDate)", "m",
@@ -628,6 +694,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(4, mInstrc);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByDemographicNoTypeAndDate(Integer demographicNo, Date createDate,
@@ -644,6 +712,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @NativeSql("measurements")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findByDemoNoDateTypeMeasuringInstrAndDataField(Integer demographicNo, Date dateEntered,
                                                                          String measurementType, String mInstrc, String upper, String lower) {
@@ -660,6 +730,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findLastEntered(Date from, Date to, String measurementType) {
         Query query = createQuery("SELECT m.demographicId, MAX(m.createDate)", "m",
@@ -669,6 +741,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(3, measurementType);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByDemoNoDateAndType(Integer demoNo, Date createDate, String type) {
@@ -680,6 +754,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @NativeSql("measurements")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findByDemoNoDateTypeAndDataField(Integer demographicNo, Date dateEntered, String type,
                                                            String upper, String lower) {
@@ -695,12 +771,16 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findTypesAndMeasuringInstructionByDemographicId(Integer demoNo) {
         Query query = createQuery("SELECT DISTINCT m.type, m.measuringInstruction", "m", "m.demographicId = ?1");
         query.setParameter(1, demoNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findByCreateDate(Date from, Date to) {
@@ -710,6 +790,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         query.setParameter(2, to);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByType(Integer demographicId, String type) {
@@ -724,6 +806,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByType(Integer demographicId, String type, Date after) {
@@ -740,6 +824,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findByType(Integer demographicId, List<String> types) {
         String sqlCommand = "select x from Measurement x where x.demographicId = ?1 and x.type IN (?2) order by x.dateObserved desc";
@@ -753,6 +839,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByType(Integer demographicId, List<String> types, Date after) {
@@ -769,6 +857,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findByType(String type) {
         String sqlCommand = "select x from Measurement x where x.type = ?1 order by x.demographicId, x.dateObserved desc";
@@ -781,6 +871,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByType(List<String> types) {
@@ -795,6 +887,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findDemographicIdsByType(List<String> types) {
         String sqlCommand = "select distinct x.demographicId from Measurement x where x.type in (?1)";
@@ -807,6 +901,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByTypeBefore(Integer demographicId, String type, Date date) {
@@ -822,6 +918,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Measurement> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,
@@ -841,6 +939,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findByDemographicLastUpdateAfterDate(Integer demographicId,
                                                                   Date updatedAfterThisDateExclusive) {
@@ -857,6 +957,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @NativeSql("measurements")
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findLatestByDemographicObservedAfterDate(Integer demographicId,
                                                                       Date observedAfterDateExclusive) {
@@ -870,6 +972,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @NativeSql("measurements")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findNewMeasurementsSinceDemoKey(String keyName) {
 
@@ -881,6 +985,8 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Measurement> findMeasurementByTypeAndDate(Integer demoNo, String type, Date start, Date end) {
         String sqlCommand = "select x from Measurement x where  x.demographicId = ?1 and  x.type = ?2 and x.dateObserved >= ?3 and x.dateObserved <= ?4 order by x.dateObserved DESC";

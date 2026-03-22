@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CustomFilterDao} for custom filter data access.
+ *
+ * @since 2001
+ */
+
 public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implements CustomFilterDao {
 
     public CustomFilterDaoImpl() {
         super(CustomFilter.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public CustomFilter findByName(String name) {
@@ -54,6 +62,8 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public CustomFilter findByNameAndProviderNo(String name, String providerNo) {
@@ -66,6 +76,8 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<CustomFilter> getCustomFilters() {
         Query query = entityManager.createQuery("select c FROM CustomFilter c");
@@ -75,6 +87,8 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CustomFilter> findByProviderNo(String providerNo) {
@@ -87,6 +101,8 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<CustomFilter> getCustomFilterWithShortCut(String providerNo) {
         Query query = entityManager
@@ -98,6 +114,8 @@ public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implement
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void deleteCustomFilter(String name) {

@@ -37,6 +37,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+/**
+ * JPA implementation of {@link InboxResultsDao} for inbox data access.
+ *
+ * @since 2001
+ */
+
 public class InboxResultsDaoImpl implements InboxResultsDao {
 
     Logger logger = MiscUtils.getLogger();

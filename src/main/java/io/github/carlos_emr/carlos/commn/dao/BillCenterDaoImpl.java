@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.BillCenter;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link BillCenterDao} for billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillCenterDaoImpl extends AbstractDaoImpl<BillCenter> implements BillCenterDao {
 
     public BillCenterDaoImpl() {

@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlBillingServiceDao {
     public static final String DEFAULT_STATUS = "A";
 

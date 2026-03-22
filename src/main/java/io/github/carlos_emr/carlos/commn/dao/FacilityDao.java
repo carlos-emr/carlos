@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Facility;
 
+/**
+ * DAO interface for facility operations.
+ *
+ * @since 2001
+ */
+
 public interface FacilityDao extends AbstractDao<Facility> {
     List<Facility> findAll(Boolean active);
 }

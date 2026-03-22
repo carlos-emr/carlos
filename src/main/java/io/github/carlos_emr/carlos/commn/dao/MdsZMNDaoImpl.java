@@ -41,11 +41,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MdsZMNDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsZMNDaoImpl extends AbstractDaoImpl<MdsZMN> implements MdsZMNDao {
 
     public MdsZMNDaoImpl() {
         super(MdsZMN.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public MdsZMN findBySegmentIdAndReportName(Integer id, String reportName) {
@@ -55,6 +63,8 @@ public class MdsZMNDaoImpl extends AbstractDaoImpl<MdsZMN> implements MdsZMNDao 
         return getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public MdsZMN findBySegmentIdAndResultMnemonic(Integer id, String rm) {
         Query query = createQuery("z", "z.id = ?1 and z.resultMnemonic = ?2");
@@ -62,6 +72,8 @@ public class MdsZMNDaoImpl extends AbstractDaoImpl<MdsZMN> implements MdsZMNDao 
         query.setParameter(2, rm);
         return getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> findResultCodes(Integer id, String reportSequence) {

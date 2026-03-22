@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlSpecialInstructions;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlSpecialInstructionsDao extends AbstractDao<CtlSpecialInstructions> {
     List<CtlSpecialInstructions> findAll();
     List<String> findDescriptionsMatching(String descQuery);

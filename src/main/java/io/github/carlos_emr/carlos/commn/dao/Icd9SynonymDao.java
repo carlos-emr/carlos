@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Icd9Synonym;
 
+/**
+ * DAO interface for ICD diagnostic code operations.
+ *
+ * @since 2001
+ */
+
 public interface Icd9SynonymDao extends AbstractDao<Icd9Synonym> {
     Icd9Synonym findPatientFriendlyTranslationFor(String dxCode);
 }

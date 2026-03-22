@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DrugDispensing;
 
+/**
+ * DAO interface for drug and prescription operations.
+ *
+ * @since 2001
+ */
+
 public interface DrugDispensingDao extends AbstractDao<DrugDispensing> {
 
     public List<DrugDispensing> findByDrugId(Integer drugId);

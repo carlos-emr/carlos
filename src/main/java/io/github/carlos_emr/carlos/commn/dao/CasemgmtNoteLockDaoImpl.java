@@ -38,10 +38,18 @@ import jakarta.persistence.Query;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link CasemgmtNoteLockDao} for case management data access.
+ *
+ * @since 2001
+ */
+
 public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> implements CasemgmtNoteLockDao {
     public CasemgmtNoteLockDaoImpl() {
         super(CasemgmtNoteLock.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public CasemgmtNoteLock findByNoteDemo(Integer demographicNo, Long note_id) {
@@ -52,6 +60,8 @@ public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> i
 
         return getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void remove(String providerNo, Integer demographicNo, Long note_id) {
@@ -68,6 +78,8 @@ public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> i
             remove(casemgmtNoteLock);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CasemgmtNoteLock> findBySession(String sessionId) {

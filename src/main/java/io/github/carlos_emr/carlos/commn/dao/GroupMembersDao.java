@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 
 import java.util.List;
 
+/**
+ * DAO interface for group operations.
+ *
+ * @since 2001
+ */
+
 public interface GroupMembersDao extends AbstractDao<GroupMembers> {
 
     public List<GroupMembers> findRemoteByGroupId(int groupId);

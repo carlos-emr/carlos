@@ -42,6 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PropertyDao} for system property data access.
+ *
+ * @since 2001
+ */
+
 public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements PropertyDao {
 
     public PropertyDaoImpl() {
@@ -76,6 +82,8 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
 	public List<Property> findGlobalByName(Property.PROPERTY_KEY propertyName) {
 		return findGlobalByName(propertyName.name());
@@ -97,12 +105,16 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Property> findByProvider(String providerNo) {
         Query query = createQuery("p", "p.providerNo = ?1");
         query.setParameter(1, providerNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Property checkByName(String name) {
@@ -119,6 +131,8 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getValueByNameAndDefault(String name, String defaultValue) {
         Property result = checkByName(name);
@@ -129,6 +143,8 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Property> findByNameAndValue(String name, String value) {
         String sqlCommand = "select x from Property x where x.name=?1 and x.value=?2";
@@ -138,6 +154,8 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void removeByName(String name) {
         String sqlCommand = "delete from " + modelClass.getSimpleName() + " where name=?1";
@@ -146,17 +164,23 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
         query.executeUpdate();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Boolean isActiveBooleanProperty(Property.PROPERTY_KEY name) {
         return isActiveBooleanProperty(name.name());
     }
 
     @Deprecated
+    /** {@inheritDoc} */
+
     @Override
     public Boolean isActiveBooleanProperty(String name) {
         List<Property> properties = findByName(name);
         return !properties.isEmpty() && "true".equals(properties.get(0).getValue());
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Boolean isActiveBooleanProperty(Property.PROPERTY_KEY name, String providerNo) {

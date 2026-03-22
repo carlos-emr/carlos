@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineProviderMapp
 
 import java.util.List;
 
+/**
+ * DAO interface for decision support operations.
+ *
+ * @since 2001
+ */
+
 public interface DSGuidelineProviderMappingDao extends AbstractDao<DSGuidelineProviderMapping> {
     List<DSGuidelineProviderMapping> getMappingsByProvider(String providerNo);
 

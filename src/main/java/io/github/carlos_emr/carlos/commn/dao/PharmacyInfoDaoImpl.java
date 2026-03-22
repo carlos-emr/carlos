@@ -43,11 +43,19 @@ import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PharmacyInfoDao} for pharmacy data access.
+ *
+ * @since 2001
+ */
+
 public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implements PharmacyInfoDao {
 
     public PharmacyInfoDaoImpl() {
         super(PharmacyInfo.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     synchronized public void addPharmacy(String name, String address, String city, String province, String postalCode, String phone1, String phone2, String fax, String email, String serviceLocationIdentifier, String notes) {
@@ -69,6 +77,8 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         persist(pharmacyInfo);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void updatePharmacy(Integer ID, String name, String address, String city, String province, String postalCode, String phone1, String phone2, String fax, String email, String serviceLocationIdentifier, String notes) {
         PharmacyInfo pharmacyInfo = new PharmacyInfo();
@@ -89,6 +99,8 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         merge(pharmacyInfo);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void deletePharmacy(Integer ID) {
         String sql = "update PharmacyInfo set status = ?1 where id = ?2";
@@ -97,6 +109,8 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         query.setParameter(2, ID);
         query.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @SuppressWarnings("unchecked")
@@ -108,10 +122,14 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public PharmacyInfo getPharmacy(Integer ID) {
         return find(ID);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public PharmacyInfo getPharmacyByRecordID(Integer recordID) {
@@ -125,6 +143,8 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @SuppressWarnings("unchecked")
@@ -140,6 +160,8 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
         return pharmacyList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city) {
@@ -153,6 +175,8 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @SuppressWarnings("unchecked")

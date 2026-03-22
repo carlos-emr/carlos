@@ -71,10 +71,14 @@ public class Icd9DaoImpl extends AbstractCodeSystemDaoImpl<Icd9> implements Icd9
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Icd9> searchCode(String term) {
         return getIcd9(term);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Icd9 findByCode(String code) {
@@ -83,6 +87,8 @@ public class Icd9DaoImpl extends AbstractCodeSystemDaoImpl<Icd9> implements Icd9
             return null;
         return results.get(0);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem) {

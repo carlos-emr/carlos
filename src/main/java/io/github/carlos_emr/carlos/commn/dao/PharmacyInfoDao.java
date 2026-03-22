@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 
+/**
+ * DAO interface for pharmacy operations.
+ *
+ * @since 2001
+ */
+
 public interface PharmacyInfoDao extends AbstractDao<PharmacyInfo> {
 
 

@@ -52,6 +52,12 @@ import io.github.carlos_emr.OscarDocumentCreator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that generates a daily lab requisition sheet report.
+ * Loads appointment and lab data for printing. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class printLabDaySheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

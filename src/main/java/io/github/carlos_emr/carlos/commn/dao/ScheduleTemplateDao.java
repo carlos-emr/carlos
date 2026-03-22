@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplate;
 
+/**
+ * DAO interface for scheduling operations.
+ *
+ * @since 2001
+ */
+
 public interface ScheduleTemplateDao extends AbstractDao<ScheduleTemplate> {
     List<ScheduleTemplate> findBySummary(String summary);
 

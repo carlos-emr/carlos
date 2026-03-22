@@ -30,12 +30,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 @Transactional
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ProviderLabRoutingDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutingModel>
         implements ProviderLabRoutingDao {
+
+    /**
+     * LAB_TYPE for data access operations.
+     *
+     * @since 2001
+     */
 
     public enum LAB_TYPE {
         DOC, HL7
     }
+
+    /**
+     * STATUS for data access operations.
+     *
+     * @since 2001
+     */
 
     public enum STATUS {
         X, N, A, D
@@ -45,6 +63,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     public ProviderLabRoutingDaoImpl() {
         super(ProviderLabRoutingModel.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderLabRoutingModel> findByLabNoAndLabTypeAndProviderNo(int labNo, String labType,
@@ -58,6 +78,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderLabRoutingModel> getProviderLabRoutingDocuments(Integer labNo) {
         Query q = entityManager.createQuery(
@@ -66,6 +88,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         q.setParameter(2, "DOC");
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderLabRoutingModel> getProviderLabRoutingForLabProviderType(Integer labNo, String providerNo,
@@ -78,6 +102,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderLabRoutingModel> getProviderLabRoutingForLabAndType(Integer labNo, String labType) {
         Query q = entityManager.createQuery(
@@ -88,6 +114,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderLabRoutingModel> findAllLabRoutingByIdandType(Integer labNo, String labType) {
         Query q = entityManager.createQuery(
@@ -96,6 +124,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         q.setParameter(2, labType);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void updateStatus(Integer labNo, String labType) {
@@ -107,6 +137,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         query.executeUpdate();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ProviderLabRoutingModel findByLabNo(int labNo) {
         Query query = entityManager.createQuery("select x from " + modelClass.getName() + " x where x.labNo=?1");
@@ -116,6 +148,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     }
 
     // this is written for the clean()method to fix OSCAREMR-6161.
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderLabRoutingModel> findByLabNoIncludingPotentialDuplicates(int labNo) {
         Query query = entityManager.createQuery("select x from " + modelClass.getName() + " x where x.labNo=?1");
@@ -123,6 +157,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ProviderLabRoutingModel findByLabNoAndLabType(int labNo, String labType) {
@@ -151,6 +187,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderLabRoutingModel> findByStatusANDLabNoType(Integer labNo, String labType, String status) {
         Query query = createQuery("r", "r.labNo = ?1 and r.labType = ?2 and r.status = ?3");
@@ -160,6 +198,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderLabRoutingModel> findByProviderNo(String providerNo, String status) {
         Query query = createQuery("p", "p.providerNo = ?1 AND p.status = ?2");
@@ -167,6 +207,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         query.setParameter(2, status);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderLabRoutingModel> findByLabNoTypeAndStatus(int labId, String labType, String status) {
@@ -177,6 +219,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findLastRoutingIdGroupedByProviderAndCreatedByDocCreator(String docCreator) {
         Query query = entityManager.createQuery("SELECT max(r.id) FROM ProviderLabRoutingModel r, Document d "+
@@ -185,6 +229,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         query.setParameter(1, docCreator);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findProviderAndLabRoutingById(Integer id) {
@@ -195,6 +241,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     }
 
     @NativeSql({"providerLabRouting", "mdsMSH", "mdsPID", "mdsPV1", "mdsZFR", "mdsOBR", "mdsZRG"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMdsResultResultDataByManyThings(String status, String providerNo, String patientLastName,
                                                               String patientFirstName, String patientHealthNumber) {
@@ -238,6 +286,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     }
 
     @NativeSql({"providerLabRouting", "mdsMSH", "mdsPID", "mdsPV1", "mdsZFR", "mdsOBR", "mdsZRG"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMdsResultResultDataByDemographicNoAndLabNo(Integer demographicNo, Integer labNo) {
 
@@ -267,6 +317,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     }
 
     @NativeSql({"providerLabRouting", "mdsMSH", "mdsPID", "mdsPV1", "mdsZFR", "mdsOBR", "mdsZRG"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMdsResultResultDataByDemoId(String demographicNo) {
         String sql = "SELECT mdsMSH.segmentID, mdsMSH.messageConID AS accessionNum, mdsPID.patientName, mdsPID.healthNumber, "
@@ -288,6 +340,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
         query.setParameter(1, demographicNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findProviderAndLabRoutingByIdAndLabType(Integer id, String labType) {

@@ -48,6 +48,12 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link RaDetailDao} for remittance advice data access.
+ *
+ * @since 2001
+ */
+
 public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDetailDao {
 
     //These error codes are used when an RA is "settled" in the sense that invoices submitted to OHIP that are "fully done" are marked "settled".
@@ -70,6 +76,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         super(RaDetail.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> findByBillingNo(Integer billingNo) {
         Query query = entityManager.createQuery("SELECT rad from RaDetail rad WHERE rad.billingNo = ?1 order by rad.raHeaderNo desc, rad.id ");
@@ -83,6 +91,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> findByRaHeaderNo(Integer raHeaderNo) {
         Query query = entityManager.createQuery("SELECT rad from RaDetail rad WHERE rad.raHeaderNo = ?1");
@@ -95,6 +105,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         return results;
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> findUniqueBillingNoByRaHeaderNoAndProviderAndNotErrorCode(Integer raHeaderNo, String providerOhipNo, String codes) {
@@ -115,6 +127,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> getRaDetailByDate(Date startDate, Date endDate, Locale locale) {
         Query query = entityManager.createQuery("SELECT rad from RaHeader rah, RaDetail rad WHERE rah.paymentDate >= ?1 and rah.paymentDate < ?2 and rah.id = rad.raHeaderNo order by rad.raHeaderNo, rad.billingNo, rad.serviceCode");
@@ -128,6 +142,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RaDetail> getRaDetailByDate(Provider p, Date startDate, Date endDate, Locale locale) {
@@ -144,6 +160,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> getRaDetailByClaimNo(String claimNo) {
 
@@ -155,6 +173,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
         return raDetails;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RaDetail> search_raerror35(Integer raHeaderNo, String error1, String error2, String providerOhipNo) {
@@ -173,6 +193,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> search_ranoerror35(Integer raHeaderNo, String error1, String error2, String providerOhipNo) {
         Query query = entityManager.createQuery("select distinct rad.billingNo from RaDetail rad where rad.raHeaderNo=?1 and (rad.errorCode='' or rad.errorCode=?2 or rad.errorCode=?3 or rad.errorCode in ?4 or (rad.serviceCode='Q200A' and rad.errorCode='I9')) and rad.providerOhipNo like ?5");
@@ -189,6 +211,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> search_raob(Integer raHeaderNo) {
         String[] arServiceCodes = {"P006A", "P020A", "P022A", "P028A", "P023A", "P007A", "P009A", "P011A", "P008B", "P018B", "E502A", "C989A", "E409A", "E410A", "E411A", "H001A"};
@@ -203,6 +227,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> search_racolposcopy(Integer raHeaderNo) {
@@ -219,6 +245,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> search_raprovider(Integer raHeaderNo) {
         Query query = entityManager.createQuery("select r, p from RaDetail r, Provider p where p.OhipNo=r.providerOhipNo and r.raHeaderNo=?1 group by r.providerOhipNo");
@@ -230,6 +258,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RaDetail> search_rasummary_dt(Integer raHeaderNo, String providerOhipNo) {
@@ -243,6 +273,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> search_ranoerrorQ(Integer raHeaderNo, String providerOhipNo) {
@@ -260,6 +292,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getBillingExplanatoryList(Integer billingNo) {
 
@@ -272,6 +306,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         return errors;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> findByBillingNoServiceDateAndProviderNo(Integer billingNo, String serviceDate, String providerNo) {
         Query query = createQuery("r", "r.billingNo = ?1 AND r.serviceDate = ?2 and r.providerOhipNo = ?3");
@@ -282,6 +318,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> findByBillingNoAndErrorCode(Integer billingNo, String errorCode) {
         Query query = createQuery("r", "r.billingNo = ?1 AND r.errorCode = ?2");
@@ -289,6 +327,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         query.setParameter(2, errorCode);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> findDistinctIdOhipWithError(Integer raHeaderNo, String providerOhipNo, List<String> codes) {
@@ -304,6 +344,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> findByHeaderAndBillingNos(Integer raHeaderNo, Integer billingNo) {
         Query query = createQuery("r", "r.raHeaderNo = ?1 AND r.billingNo = ?2");
@@ -312,6 +354,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaDetail> findByRaHeaderNoAndServiceCodes(Integer raHeaderNo, List<String> serviceCodes) {
         Query query = createQuery("r", "r.raHeaderNo = ?1 AND r.serviceCode in ?2");
@@ -319,6 +363,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
         query.setParameter(2, serviceCodes);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RaDetail> findByRaHeaderNoAndProviderOhipNo(Integer raHeaderNo, String providerOhipNo) {

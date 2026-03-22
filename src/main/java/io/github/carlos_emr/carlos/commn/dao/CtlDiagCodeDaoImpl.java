@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlDiagCodeDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlDiagCodeDaoImpl extends AbstractDaoImpl<CtlDiagCode> implements CtlDiagCodeDao {
 
     public CtlDiagCodeDaoImpl() {

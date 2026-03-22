@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 
+/**
+ * DAO interface for diagnosis operations.
+ *
+ * @since 2001
+ */
+
 public interface DxDao extends AbstractDao<DxAssociation> {
 
     List<DxAssociation> findAllAssociations();

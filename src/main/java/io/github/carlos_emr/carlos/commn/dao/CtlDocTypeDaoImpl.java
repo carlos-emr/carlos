@@ -42,6 +42,12 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlDocTypeDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlDocTypeDaoImpl extends AbstractDaoImpl<CtlDocType> implements CtlDocTypeDao {
 
     public CtlDocTypeDaoImpl() {

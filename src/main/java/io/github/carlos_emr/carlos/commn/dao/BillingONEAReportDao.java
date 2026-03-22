@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingONEAReportDao extends AbstractDao<BillingONEAReport> {
     List<BillingONEAReport> findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDate(String providerOhipNo, String groupNo, String specialty, Date processDate);
 

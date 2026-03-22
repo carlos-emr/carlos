@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link OscarJobDao} for core data access.
+ *
+ * @since 2001
+ */
+
 public class OscarJobDaoImpl extends AbstractDaoImpl<OscarJob> implements OscarJobDao {
 
     public OscarJobDaoImpl() {
@@ -46,6 +52,8 @@ public class OscarJobDaoImpl extends AbstractDaoImpl<OscarJob> implements OscarJ
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<OscarJob> findByType(OscarJobType oscarJobType) {
         Query query = entityManager.createQuery("FROM OscarJob d WHERE d.oscarJobType = ?1");
@@ -53,6 +61,8 @@ public class OscarJobDaoImpl extends AbstractDaoImpl<OscarJob> implements OscarJ
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<OscarJob> getJobByName(String name) {

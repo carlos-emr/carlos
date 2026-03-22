@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.SecObjectName;
 import org.springframework.stereotype.Repository;
 
 @Repository(value = "secObjectNameDaoJpa")
+/**
+ * JPA implementation of {@link SecObjectNameDao} for security data access.
+ *
+ * @since 2001
+ */
+
 public class SecObjectNameDaoImpl extends AbstractDaoImpl<SecObjectName> implements SecObjectNameDao {
 
     public SecObjectNameDaoImpl() {
         super(SecObjectName.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SecObjectName> findAll() {
@@ -53,6 +61,8 @@ public class SecObjectNameDaoImpl extends AbstractDaoImpl<SecObjectName> impleme
         List<SecObjectName> result = query.getResultList();
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> findDistinctObjectNames() {

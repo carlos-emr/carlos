@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
 
+/**
+ * DAO interface for decision support operations.
+ *
+ * @since 2001
+ */
+
 public interface DSGuidelineDao extends AbstractDao<DSGuideline> {
     DSGuideline findByUUID(String uuid);
 

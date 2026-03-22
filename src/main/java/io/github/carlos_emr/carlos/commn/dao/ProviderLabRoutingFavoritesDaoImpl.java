@@ -41,6 +41,12 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderLabRoutingFavoritesDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderLabRoutingFavoritesDaoImpl extends AbstractDaoImpl<ProviderLabRoutingFavorite> implements ProviderLabRoutingFavoritesDao {
 
     public ProviderLabRoutingFavoritesDaoImpl() {
@@ -48,6 +54,8 @@ public class ProviderLabRoutingFavoritesDaoImpl extends AbstractDaoImpl<Provider
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderLabRoutingFavorite> findFavorites(String provider_no) {
         String sql = "select fav from ProviderLabRoutingFavorite fav where fav.provider_no = ?1";

@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
 
+/**
+ * DAO interface for message operations.
+ *
+ * @since 2001
+ */
+
 public interface MsgDemoMapDao extends AbstractDao<MsgDemoMap> {
 
     public List<MsgDemoMap> findByDemographicNo(Integer demographicNo);

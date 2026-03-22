@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
 
+/**
+ * DAO interface for fax operations.
+ *
+ * @since 2001
+ */
+
 public interface FaxClientLogDao extends AbstractDao<FaxClientLog> {
 
     public FaxClientLog findClientLogbyFaxId(int faxId);

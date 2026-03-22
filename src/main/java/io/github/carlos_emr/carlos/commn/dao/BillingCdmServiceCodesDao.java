@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.BillingCdmServiceCodes;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingCdmServiceCodesDao extends AbstractDao<BillingCdmServiceCodes> {
     List<BillingCdmServiceCodes> findAll();
 }

@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.View;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ViewDao} for view data access.
+ *
+ * @since 2001
+ */
+
 public class ViewDaoImpl extends AbstractDaoImpl<View> implements ViewDao {
 
     public ViewDaoImpl() {
         super(View.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Map<String, View> getView(String view, String role) {
@@ -53,6 +61,8 @@ public class ViewDaoImpl extends AbstractDaoImpl<View> implements ViewDao {
         query.setParameter(2, role);
         return getView(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Map<String, View> getView(String view, String role, String providerNo) {
@@ -72,6 +82,8 @@ public class ViewDaoImpl extends AbstractDaoImpl<View> implements ViewDao {
         return map;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void saveView(View v) {
         if (v != null && v.getId() != null && v.getId() > 0) {
@@ -80,6 +92,8 @@ public class ViewDaoImpl extends AbstractDaoImpl<View> implements ViewDao {
             persist(v);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void delete(View v) {

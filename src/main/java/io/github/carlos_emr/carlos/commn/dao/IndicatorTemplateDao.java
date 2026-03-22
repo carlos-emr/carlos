@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 
+/**
+ * DAO interface for indicator template operations.
+ *
+ * @since 2001
+ */
+
 public interface IndicatorTemplateDao extends AbstractDao<IndicatorTemplate> {
 
     public List<IndicatorTemplate> getActiveIndicatorTemplates();

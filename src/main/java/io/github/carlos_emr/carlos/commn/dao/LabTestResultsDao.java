@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.LabTestResults;
 
 import java.util.List;
 
+/**
+ * DAO interface for laboratory operations.
+ *
+ * @since 2001
+ */
+
 public interface LabTestResultsDao extends AbstractDao<LabTestResults> {
 
     List<LabTestResults> findByTitleAndLabInfoId(Integer labId);

@@ -42,11 +42,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ReportByExamplesDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportByExamplesDaoImpl extends AbstractDaoImpl<ReportByExamples> implements ReportByExamplesDao {
 
     public ReportByExamplesDaoImpl() {
         super(ReportByExamples.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findReportsAndProviders() {
@@ -54,6 +62,8 @@ public class ReportByExamplesDaoImpl extends AbstractDaoImpl<ReportByExamples> i
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findReportsAndProviders(Date startDate, Date endDate) {

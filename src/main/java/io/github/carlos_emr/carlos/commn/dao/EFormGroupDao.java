@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EFormGroup;
 
+/**
+ * DAO interface for electronic form operations.
+ *
+ * @since 2001
+ */
+
 public interface EFormGroupDao extends AbstractDao<EFormGroup> {
 
     public int deleteByNameAndFormId(String groupName, Integer formId);

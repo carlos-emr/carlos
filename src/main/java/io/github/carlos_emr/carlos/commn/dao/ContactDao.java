@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Contact;
 
+/**
+ * DAO interface for contact operations.
+ *
+ * @since 2001
+ */
+
 public interface ContactDao extends AbstractDao<Contact> {
     public List<Contact> search(String searchMode, String orderBy, String keyword);
 }

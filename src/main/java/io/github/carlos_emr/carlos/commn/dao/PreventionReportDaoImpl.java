@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PreventionReportDao} for prevention and immunization data access.
+ *
+ * @since 2001
+ */
+
 public class PreventionReportDaoImpl extends AbstractDaoImpl<PreventionReport> implements PreventionReportDao {
 
     public PreventionReportDaoImpl() {
         super(PreventionReport.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PreventionReport> getPreventionReports() {

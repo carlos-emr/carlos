@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Relationships;
 
+/**
+ * DAO interface for relationship operations.
+ *
+ * @since 2001
+ */
+
 public interface RelationshipsDao extends AbstractDao<Relationships> {
     Relationships findActive(Integer id);
 

@@ -37,12 +37,20 @@ import io.github.carlos_emr.carlos.commn.model.DemographicCustArchive;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicCustArchiveDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicCustArchiveDaoImpl extends AbstractDaoImpl<DemographicCustArchive>
         implements DemographicCustArchiveDao {
 
     public DemographicCustArchiveDaoImpl() {
         super(DemographicCustArchive.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer archiveDemographicCust(DemographicCust dc) {

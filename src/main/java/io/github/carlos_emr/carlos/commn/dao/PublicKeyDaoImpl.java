@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.PublicKey;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PublicKeyDao} for public key data access.
+ *
+ * @since 2001
+ */
+
 public class PublicKeyDaoImpl extends AbstractDaoImpl<PublicKey> implements PublicKeyDao {
 
     public PublicKeyDaoImpl() {
         super(PublicKey.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PublicKey> findAll() {

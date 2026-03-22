@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderExtDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderExtDaoImpl extends AbstractDaoImpl<ProviderExt> implements ProviderExtDao {
 
     public ProviderExtDaoImpl() {

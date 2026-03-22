@@ -39,11 +39,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link CtlBillingServiceSexRulesDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlBillingServiceSexRulesDaoImpl extends AbstractDaoImpl<CtlBillingServiceSexRules> implements CtlBillingServiceSexRulesDao {
 
     public CtlBillingServiceSexRulesDaoImpl() {
         super(CtlBillingServiceSexRules.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CtlBillingServiceSexRules> findByServiceCode(String serviceCode) {

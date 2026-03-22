@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.JointAdmission;
 
+/**
+ * DAO interface for joint admission operations.
+ *
+ * @since 2001
+ */
+
 public interface JointAdmissionDao extends AbstractDao<JointAdmission> {
     List<JointAdmission> getSpouseAndDependents(Integer clientId);
 

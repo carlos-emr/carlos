@@ -51,6 +51,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Struts 2 action that initializes the Frequency of Relevant Tests CDM report.
+ * Loads measurement groups, types, and patient data for the report configuration
+ * page. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

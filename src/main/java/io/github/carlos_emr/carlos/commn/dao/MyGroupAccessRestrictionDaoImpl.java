@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MyGroupAccessRestrictionDao} for provider group data access.
+ *
+ * @since 2001
+ */
+
 public class MyGroupAccessRestrictionDaoImpl extends AbstractDaoImpl<MyGroupAccessRestriction> implements MyGroupAccessRestrictionDao {
 
     public MyGroupAccessRestrictionDaoImpl() {
         super(MyGroupAccessRestriction.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MyGroupAccessRestriction> findByGroupId(String myGroupNo) {
@@ -55,6 +63,8 @@ public class MyGroupAccessRestrictionDaoImpl extends AbstractDaoImpl<MyGroupAcce
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MyGroupAccessRestriction> findByProviderNo(String providerNo) {
         Query query = entityManager.createQuery("select x from MyGroupAccessRestriction x where x.providerNo=?1");
@@ -65,6 +75,8 @@ public class MyGroupAccessRestrictionDaoImpl extends AbstractDaoImpl<MyGroupAcce
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public MyGroupAccessRestriction findByGroupNoAndProvider(String myGroupNo, String providerNo) {

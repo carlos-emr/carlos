@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.LookupList;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link LookupListDao} for lookup list data access.
+ *
+ * @since 2001
+ */
+
 public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements LookupListDao {
 
     public LookupListDaoImpl() {
         super(LookupList.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<LookupList> findAllActive() {
@@ -55,6 +63,8 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public LookupList findByName(String name) {

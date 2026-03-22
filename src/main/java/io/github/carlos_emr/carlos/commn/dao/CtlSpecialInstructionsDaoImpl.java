@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.CtlSpecialInstructions;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlSpecialInstructionsDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlSpecialInstructionsDaoImpl extends AbstractDaoImpl<CtlSpecialInstructions> implements CtlSpecialInstructionsDao {
 
     public CtlSpecialInstructionsDaoImpl() {
         super(CtlSpecialInstructions.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CtlSpecialInstructions> findAll() {

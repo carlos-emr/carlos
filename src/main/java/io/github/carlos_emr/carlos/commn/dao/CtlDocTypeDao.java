@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocType;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlDocTypeDao extends AbstractDao<CtlDocType> {
     void changeDocType(String docType, String module, String status);
 

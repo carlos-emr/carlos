@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.ProviderArchive;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderArchiveDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderArchiveDaoImpl extends AbstractDaoImpl<ProviderArchive> implements ProviderArchiveDao {
 
     public ProviderArchiveDaoImpl() {

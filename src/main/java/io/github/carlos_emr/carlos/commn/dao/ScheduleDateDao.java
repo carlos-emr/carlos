@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 
+/**
+ * DAO interface for scheduling operations.
+ *
+ * @since 2001
+ */
+
 public interface ScheduleDateDao extends AbstractDao<ScheduleDate> {
     ScheduleDate findByProviderNoAndDate(String providerNo, Date date);
 

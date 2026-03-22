@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Form;
 
+/**
+ * DAO interface for medical form operations.
+ *
+ * @since 2001
+ */
+
 public interface FormDao extends AbstractDao<Form> {
     List<Form> findByDemographicNo(Integer demographicNo);
 

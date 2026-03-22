@@ -22,6 +22,12 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
+/**
+ * DAO interface for inbox operations.
+ *
+ * @since 2001
+ */
+
 public interface InboxResultsDao {
 
     public ArrayList populateHL7ResultsData(String demographicNo, String consultationId, boolean attached);

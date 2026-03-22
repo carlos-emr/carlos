@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlFrequency;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlFrequencyDao extends AbstractDao<CtlFrequency> {
     List<CtlFrequency> findAll();
 }

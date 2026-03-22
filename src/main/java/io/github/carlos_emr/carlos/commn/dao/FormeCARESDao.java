@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.FormeCARES;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * DAO interface for medical form operations.
+ *
+ * @since 2001
+ */
+
 public interface FormeCARESDao extends AbstractDao<FormeCARES> {
     List<FormeCARES> findAllByFormCreatedDateDemographicNo(Date createDate, int demographicNo);
 

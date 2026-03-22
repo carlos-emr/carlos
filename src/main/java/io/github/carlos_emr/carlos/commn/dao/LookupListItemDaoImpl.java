@@ -39,16 +39,26 @@ import org.springframework.stereotype.Repository;
 import jakarta.persistence.Query;
 
 @Repository
+/**
+ * JPA implementation of {@link LookupListItemDao} for lookup list data access.
+ *
+ * @since 2001
+ */
+
 public class LookupListItemDaoImpl extends AbstractDaoImpl<LookupListItem> implements LookupListItemDao {
 
     public LookupListItemDaoImpl() {
         super(LookupListItem.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<LookupListItem> findActiveByLookupListId(int lookupListId) {
         return findByLookupListId(lookupListId, Boolean.TRUE);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<LookupListItem> findByLookupListId(int lookupListId, boolean active) {
@@ -63,6 +73,8 @@ public class LookupListItemDaoImpl extends AbstractDaoImpl<LookupListItem> imple
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public LookupListItem findByLookupListIdAndValue(int lookupListId, String value) {

@@ -49,6 +49,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
+/**
+ * JPA implementation of {@link DocumentResultsDao} for document management data access.
+ *
+ * @since 2001
+ */
+
 public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements DocumentResultsDao {
 
     Logger logger = MiscUtils.getLogger();

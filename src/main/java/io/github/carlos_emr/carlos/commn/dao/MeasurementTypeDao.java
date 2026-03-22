@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 
+/**
+ * DAO interface for clinical measurement operations.
+ *
+ * @since 2001
+ */
+
 public interface MeasurementTypeDao extends AbstractDao<MeasurementType> {
     List<MeasurementType> findAll();
 

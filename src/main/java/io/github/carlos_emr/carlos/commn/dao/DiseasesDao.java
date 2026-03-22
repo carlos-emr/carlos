@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Diseases;
 
+/**
+ * DAO interface for disease operations.
+ *
+ * @since 2001
+ */
+
 public interface DiseasesDao extends AbstractDao<Diseases> {
     List<Diseases> findByDemographicNo(int demographicNo);
 

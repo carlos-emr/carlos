@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MeasurementsExtDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> implements MeasurementsExtDao {
 
     public MeasurementsExtDaoImpl() {
         super(MeasurementsExt.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementsExt> getMeasurementsExtByMeasurementId(Integer measurementId) {
@@ -58,6 +66,8 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public HashMap<String, MeasurementsExt> getMeasurementsExtMapByMeasurementId(Integer measurementId) {
         HashMap<String, MeasurementsExt> measurementsExtHashMap = new HashMap<String, MeasurementsExt>();
@@ -70,6 +80,8 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
         return measurementsExtHashMap;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementsExt> getMeasurementsExtListByMeasurementIdList(List<Integer> measurementIdList) {
         String queryStr = "select m FROM MeasurementsExt m WHERE m.measurementId IN (?1) order by m.measurementId";
@@ -77,6 +89,8 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
         q.setParameter(1, measurementIdList);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public MeasurementsExt getMeasurementsExtByMeasurementIdAndKeyVal(Integer measurementId, String keyVal) {
@@ -94,6 +108,8 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
         return rs.get(0);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer getMeasurementIdByKeyValue(String key, String value) {
         String queryStr = "select m FROM MeasurementsExt m WHERE m.keyVal=?1 AND m.val=?2";
@@ -108,6 +124,8 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementsExt> findByKeyValue(String key, String value) {
         String queryStr = "select m FROM MeasurementsExt m WHERE m.keyVal=?1 AND m.val=?2";
@@ -120,6 +138,8 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer getMeasurementIdByLabNoAndTestName(String labNo, String testName) {
@@ -164,6 +184,8 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> findUnmappedMeasuremntIds(List<String> excludeList) {

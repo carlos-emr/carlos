@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
 
+/**
+ * DAO interface for drug and prescription operations.
+ *
+ * @since 2001
+ */
+
 public interface DrugMergedDemographicDao extends DrugDao {
     List<Drug> findByDemographicId(Integer demographicId);
 

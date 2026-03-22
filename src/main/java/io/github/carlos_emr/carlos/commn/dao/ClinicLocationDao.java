@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 
+/**
+ * DAO interface for clinic operations.
+ *
+ * @since 2001
+ */
+
 public interface ClinicLocationDao extends AbstractDao<ClinicLocation> {
     List<ClinicLocation> findAll();
 

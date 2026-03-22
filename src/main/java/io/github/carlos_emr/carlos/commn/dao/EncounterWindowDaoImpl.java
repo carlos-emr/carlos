@@ -37,11 +37,19 @@ import io.github.carlos_emr.carlos.commn.model.EncounterWindow;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EncounterWindowDao} for clinical encounter data access.
+ *
+ * @since 2001
+ */
+
 public class EncounterWindowDaoImpl extends AbstractDaoImpl<EncounterWindow> implements EncounterWindowDao {
 
     public EncounterWindowDaoImpl() {
         super(EncounterWindow.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public EncounterWindow findByProvider(String providerNo) {

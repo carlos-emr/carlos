@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.ProviderBillCenter;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderBillCenterDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderBillCenterDaoImpl extends AbstractDaoImpl<ProviderBillCenter> implements ProviderBillCenterDao {
 
     public ProviderBillCenterDaoImpl() {

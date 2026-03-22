@@ -45,6 +45,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ConsultResponseDao} for consultation and referral data access.
+ *
+ * @since 2001
+ */
+
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
     private Logger logger = MiscUtils.getLogger();
 

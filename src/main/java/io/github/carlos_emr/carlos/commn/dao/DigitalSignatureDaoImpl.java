@@ -34,6 +34,12 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DigitalSignatureDao} for digital signature data access.
+ *
+ * @since 2001
+ */
+
 public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> implements DigitalSignatureDao {
 
     public DigitalSignatureDaoImpl() {

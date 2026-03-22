@@ -52,11 +52,19 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
 @Repository
+/**
+ * JPA implementation of {@link DocumentDao} for document management data access.
+ *
+ * @since 2001
+ */
+
 public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements DocumentDao {
 
     public DocumentDaoImpl() {
         super(Document.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> getCtlDocsAndDocsByDemoId(Integer demoId, Module moduleName, DocumentType docType) {
@@ -68,6 +76,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Document> findActiveByDocumentNo(Integer demoId) {
         String sql = "SELECT d FROM Document d where d.documentNo = ?1";
@@ -75,6 +85,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setParameter(1, demoId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findCtlDocsAndDocsByModuleDocTypeAndModuleId(Module module, DocumentType docType,
@@ -86,6 +98,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findCtlDocsAndDocsByModuleAndModuleId(Module module, Integer moduleId) {
         Query query = entityManager.createQuery("SELECT c, d FROM CtlDocument c, Document d WHERE d.status = c.status AND d.status != 'D' AND c.id.documentNo = d.documentNo AND c.id.module = ?1 AND c.id.moduleId = ?2");
@@ -93,6 +107,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setParameter(2, moduleId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findDocsAndConsultDocsByConsultId(Integer consultationId) {
@@ -102,6 +118,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findDocsAndEFormDocsByFdid(Integer fdid) {
         Query query = entityManager.createQuery("SELECT d, cd FROM Document d, EFormDocs cd WHERE d.documentNo = cd.documentNo AND cd.fdid = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL");
@@ -110,6 +128,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findDocsAndConsultResponseDocsByConsultId(Integer consultationId) {
         Query query = entityManager.createQuery("SELECT d, crd FROM Document d, ConsultResponseDoc crd WHERE d.documentNo = crd.documentNo AND crd.responseId = ?1 AND crd.docType = 'D' AND crd.deleted IS NULL");
@@ -117,12 +137,16 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findCtlDocsAndDocsByDocNo(Integer documentNo) {
         Query query = entityManager.createQuery("SELECT d, c FROM Document d, CtlDocument c WHERE c.id.documentNo = d.documentNo AND c.id.documentNo = ?1 ORDER BY d.observationdate DESC, d.updatedatetime DESC");
         query.setParameter(1, documentNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findCtlDocsAndDocsByModuleCreatorResponsibleAndDates(Module module, String providerNo,
@@ -140,6 +164,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findConstultDocsDocsAndProvidersByModule(Module module, Integer moduleId) {
         Query query = entityManager.createQuery("SELECT d, p, c FROM Document d, Provider p, CtlDocument c WHERE d.doccreator = p.ProviderNo AND d.id = c.id.documentNo AND c.id.module = ?1 AND c.id.moduleId = ?2");
@@ -147,6 +173,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setParameter(2, moduleId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer findMaxDocNo() {
@@ -163,6 +191,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return (Integer) r;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Document getDocument(String documentNo) {
         Integer id = null;
@@ -176,6 +206,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public Demographic getDemoFromDocNo(String docNo) {// return null if no demographic linked to this document
         Demographic d = null;
@@ -199,6 +231,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return d;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getNumberOfDocumentsAttachedToAProviderDemographics(String providerNo, Date startDate, Date endDate) {
         Query query = entityManager.createNativeQuery(
@@ -211,6 +245,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
             return 0;
         return result.intValue();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void subtractPages(String documentNo, Integer i) {
@@ -349,6 +385,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Document> findByDemographicUpdateDate(Integer demographicId, Date updatedAfterThisDateInclusive) {
         String sql = "select d from "
@@ -370,6 +408,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Document> findByDemographicUpdateAfterDate(Integer demographicId, Date updatedAfterThisDate) {
         String sql = "select d from "
@@ -412,6 +452,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     // for integrator
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findDemographicIdsSince(Date since) {
 
@@ -434,6 +476,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Document> findByDoctype(String docType) {
         Query query = entityManager
@@ -441,6 +485,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setParameter(1, docType);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Document> findByDoctypeAndProviderNo(String docType, String provider_no, Integer isPublic) {
@@ -453,6 +499,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return query.getResultList();
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Document> findByDemographicAndDoctype(int demographicId, DocumentType documentType) {
@@ -487,6 +535,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         query.setMaxResults(20);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Document findByDemographicAndFilename(int demographicId, String fileName) {

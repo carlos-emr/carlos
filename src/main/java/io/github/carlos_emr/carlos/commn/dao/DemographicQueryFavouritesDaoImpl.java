@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.DemographicQueryFavourite;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicQueryFavouritesDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicQueryFavouritesDaoImpl extends AbstractDaoImpl<DemographicQueryFavourite> implements DemographicQueryFavouritesDao {
 
     public DemographicQueryFavouritesDaoImpl() {
         super(DemographicQueryFavourite.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicQueryFavourite> findByArchived(String archived) {

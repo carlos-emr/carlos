@@ -41,6 +41,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link DiagnosticCodeDao} for diagnostic code data access.
+ *
+ * @since 2001
+ */
+
 public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> implements DiagnosticCodeDao {
 
     public DiagnosticCodeDaoImpl() {
@@ -145,6 +151,8 @@ public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> imple
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public DiagnosticCode findByCode(String code) {
         List<DiagnosticCode> diagnosticCodeList = getByDxCode(code);
@@ -153,6 +161,8 @@ public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> imple
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem) {

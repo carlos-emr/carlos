@@ -48,6 +48,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action that loads the current provider's saved Report By Example
+ * favourite queries. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptByExamplesFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

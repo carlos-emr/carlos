@@ -34,6 +34,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.DesAnnualReviewPlan;
 
+/**
+ * DAO interface for annual review operations.
+ *
+ * @since 2001
+ */
+
 public interface DesAnnualReviewPlanDao extends AbstractDao<DesAnnualReviewPlan> {
     DesAnnualReviewPlan search(Integer formNo, Integer demographicNo);
 }

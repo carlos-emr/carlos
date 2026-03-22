@@ -51,6 +51,12 @@ import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that loads the list of available report templates for
+ * the template management page. Requires {@code _admin} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class ManageTemplates2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

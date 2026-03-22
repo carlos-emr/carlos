@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ClientLink;
 
+/**
+ * DAO interface for client operations.
+ *
+ * @since 2001
+ */
+
 public interface ClientLinkDao extends AbstractDao<ClientLink> {
     List<ClientLink> findByFacilityIdClientIdType(Integer facilityId, Integer clientId, Boolean currentlyLinked, ClientLink.Type type);
 }

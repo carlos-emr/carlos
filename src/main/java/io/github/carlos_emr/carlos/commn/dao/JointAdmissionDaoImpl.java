@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.JointAdmission;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link JointAdmissionDao} for joint admission data access.
+ *
+ * @since 2001
+ */
+
 public class JointAdmissionDaoImpl extends AbstractDaoImpl<JointAdmission> implements JointAdmissionDao {
 
     public JointAdmissionDaoImpl() {

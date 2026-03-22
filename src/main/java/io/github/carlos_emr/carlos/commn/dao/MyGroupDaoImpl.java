@@ -41,17 +41,27 @@ import jakarta.persistence.Query;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link MyGroupDao} for provider group data access.
+ *
+ * @since 2001
+ */
+
 public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupDao {
 
     public MyGroupDaoImpl() {
         super(MyGroup.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MyGroup> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> getGroupDoctors(String groupNo) {
@@ -69,6 +79,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getGroups() {
         Query query = entityManager.createQuery("SELECT distinct g.id.myGroupNo FROM MyGroup g");
@@ -78,6 +90,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
 
         return dList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MyGroup> getGroupByGroupNo(String groupNo) {
@@ -90,6 +104,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
         return dList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void deleteGroupMember(String myGroupNo, String providerNo) {
         MyGroupPrimaryKey key = new MyGroupPrimaryKey();
@@ -97,6 +113,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
         key.setProviderNo(providerNo);
         remove(key);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MyGroup> getProviderGroups(String providerNo) {
@@ -108,6 +126,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
 
         return dList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getDefaultBillingForm(String myGroupNo) {
@@ -125,6 +145,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
         return billingForm;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Provider> search_groupprovider(String groupNo) {
 
@@ -137,6 +159,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
         return dList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MyGroup> search_mygroup(String groupNo) {
         Query query = entityManager.createQuery("SELECT g FROM MyGroup g WHERE g.id.myGroupNo like ?1 group by g.id.myGroupNo order by g.id.myGroupNo");
@@ -148,6 +172,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
         return dList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MyGroup> searchmygroupno() {
         Query query = entityManager.createQuery("SELECT g FROM MyGroup g group by g.id.myGroupNo order by g.id.myGroupNo");
@@ -157,6 +183,8 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
 
         return dList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MyGroup> search_providersgroup(String lastName, String firstName) {

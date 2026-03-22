@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ReportTableFieldCaptionDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportTableFieldCaptionDaoImpl extends AbstractDaoImpl<ReportTableFieldCaption> implements ReportTableFieldCaptionDao {
 
     public ReportTableFieldCaptionDaoImpl() {
         super(ReportTableFieldCaption.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportTableFieldCaption> findByTableNameAndName(String tableName, String name) {

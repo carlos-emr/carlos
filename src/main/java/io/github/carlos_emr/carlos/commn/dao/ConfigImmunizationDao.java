@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConfigImmunization;
 
+/**
+ * DAO interface for configuration operations.
+ *
+ * @since 2001
+ */
+
 public interface ConfigImmunizationDao extends AbstractDao<ConfigImmunization> {
     List<ConfigImmunization> findAll();
 

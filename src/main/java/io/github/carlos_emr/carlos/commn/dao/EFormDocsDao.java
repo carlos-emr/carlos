@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 
+/**
+ * DAO interface for electronic form operations.
+ *
+ * @since 2001
+ */
+
 public interface EFormDocsDao extends AbstractDao<EFormDocs> {
     List<EFormDocs> findByFdidIdDocNoDocType(Integer fdid, Integer documentNo, String docType);
 

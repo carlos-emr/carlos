@@ -37,11 +37,19 @@ import io.github.carlos_emr.carlos.commn.model.FunctionalCentre;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FunctionalCentreDao} for functional centre data access.
+ *
+ * @since 2001
+ */
+
 public class FunctionalCentreDaoImpl extends AbstractDaoImpl<FunctionalCentre> implements FunctionalCentreDao {
 
     public FunctionalCentreDaoImpl() {
         super(FunctionalCentre.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<FunctionalCentre> findAll() {
@@ -52,6 +60,8 @@ public class FunctionalCentreDaoImpl extends AbstractDaoImpl<FunctionalCentre> i
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<FunctionalCentre> findInUseByFacility(Integer facilityId) {

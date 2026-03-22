@@ -87,6 +87,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         super(BillingONCHeader1.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> getBillCheader1ByDemographicNo(int demographic_no) {
         Query query = entityManager
@@ -94,6 +96,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         query.setParameter(1, demographic_no);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getNumberOfDemographicsWithInvoicesForProvider(String providerNo, Date startDate, Date endDate,
@@ -112,12 +116,16 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return bint.intValue();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void createBills(List<BillingONCHeader1> lBills) {
         for (BillingONCHeader1 b : lBills) {
             this.persist(b);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String createBill(String provider, Integer demographic, String code, String clinicRefCode, Date serviceDate,
@@ -139,6 +147,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return total;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String createBill(String provider, Integer demographic, String code, String dxCode, String clinicRefCode,
@@ -162,6 +172,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return total;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String createBills(String provider, List<String> demographic_nos, List<String> codes, List<String> dxcodes,
@@ -316,6 +328,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return total.toString();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public boolean billedBetweenTheseDays(String serviceCode, Integer demographicNo, Date startDate, Date endDate) {
         boolean hasBeenBilled = false;
@@ -337,6 +351,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return hasBeenBilled;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getDaysSinceBilled(String serviceCode, Integer demographicNo) {
@@ -365,6 +381,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return numDays;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getDaysSincePaid(String serviceCode, Integer demographic_no) {
         String sql = "select b from BillingONCHeader1 h1, BillingONItem b where b.ch1Id = h1.id and b.serviceCode = ?1 and"
@@ -392,6 +410,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return numDays;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> getInvoices(Integer demographicNo, Integer limit) {
         String sql = "select h1 from BillingONCHeader1 h1 where " +
@@ -404,6 +424,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> getInvoices(Integer demographicNo) {
         String sql = "select h1 from BillingONCHeader1 h1 where " +
@@ -414,6 +436,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONCHeader1> getInvoicesByIds(List<Integer> ids) {
@@ -427,6 +451,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Map<String, Object>> getInvoicesMeta(Integer demographicNo) {
@@ -450,6 +476,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     //     this.gstControlDao = gstControlDao;
     // }
 
+    /** {@inheritDoc} */
+
     @Override
     public BillingONItem findBillingONItemByServiceCode(BillingONCHeader1 ch1, String serviceCode) {
         String sql = "select b1 from BillingONItem b1 where b1.ch1Id = ?1 and b1.serviceCode = ?2";
@@ -471,6 +499,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return b;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> get3rdPartyInvoiceByProvider(Provider p, Date start, Date end, Locale locale) {
         String sql = "select distinct bCh1 from BillingONPayment bPay, BillingONCHeader1 bCh1 where bPay.billingNo=bCh1.id and bCh1.providerNo=?1 and bPay.paymentdate >= ?2 and bPay.paymentdate <= ?3 order by bCh1.id";
@@ -484,6 +514,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> get3rdPartyInvoiceByDate(Date start, Date end, Locale locale) {
         String sql = "select distinct bCh1 from BillingONPayment bPay, BillingONCHeader1 bCh1 where bPay.billingNo=bCh1.id and bPay.paymentdate >= ?1 and bPay.paymentdate <= ?2 order by bCh1.id";
@@ -495,6 +527,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BillingONCHeader1 getLastOHIPBillingDateForServiceCode(Integer demographicNo, String serviceCode) {
@@ -511,6 +545,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> findByAppointmentNo(Integer appointmentNo) {
         String sql = "select h1 from BillingONCHeader1 h1 where h1.appointmentNo=?1";
@@ -520,6 +556,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> countBillingVisitsByProvider(String providerNo, Date dateBegin, Date dateEnd) {
@@ -537,6 +575,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> countBillingVisitsByCreator(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, count(b) FROM BillingONCHeader1 b "
@@ -553,6 +593,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Long> count_larrykain_clinic(String facilityNum, Date startDate, Date endDate) {
         Query q = entityManager.createQuery(
@@ -564,6 +606,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Long> count_larrykain_hospital(String facilityNum1, String facilityNum2, String facilityNum3,
@@ -581,6 +625,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Long> count_larrykain_other(String facilityNum1, String facilityNum2, String facilityNum3,
                                             String facilityNum4, String facilityNum5, Date startDate, Date endDate) {
@@ -597,6 +643,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONCHeader1> findBillingsByManyThings(String status, String providerNo, Date startDate,
@@ -632,6 +680,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> findByProviderStatusAndDateRange(String providerNo, List<String> statuses, DateRange dateRange) {
         int counter = 1;
@@ -664,6 +714,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findBillingsAndDemographicsById(Integer id) {
         String sql = "SELECT b, d FROM BillingONCHeader1 b, Demographic d WHERE b.id = ?1 AND b.demographicNo = d.DemographicNo";
@@ -671,6 +723,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         query.setParameter(1, id);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONCHeader1> findByMagic(List<String> payPrograms, String statusType, String providerNo,
@@ -709,6 +763,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> getBillingItemByDxCode(Integer demographicNo, String dxCode) {
         String queryStr = "select h FROM BillingONItem b, BillingONCHeader1 h WHERE h.id = b.ch1Id and h.demographicNo=?1 and (b.dx =?2 or b.dx1 = ?2 or b.dx2=?2)";
@@ -722,6 +778,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findByMagic2(List<String> payPrograms, String statusType, String providerNo, Date startDate,
                                        Date endDate, Integer demoNo, List<String> serviceCodes, String dx, String visitType, String visitLocation,
@@ -729,6 +787,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return findByMagic2(payPrograms, statusType, providerNo, startDate, endDate, demoNo, serviceCodes, dx,
                 visitType, visitLocation, paymentStartDate, paymentEndDate, null);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findByMagic2(List<String> payPrograms, String statusType, String providerNo, Date startDate,
@@ -804,6 +864,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONCHeader1> findByDemoNo(Integer demoNo, int iOffSet, int pageSize) {
         String sql = "FROM BillingONCHeader1 b WHERE b.demographicNo = ?1 " +
@@ -815,6 +877,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         query.setMaxResults(pageSize);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONCHeader1> findByDemoNoAndDates(Integer demoNo, DateRange dateRange, int iOffSet,
@@ -833,6 +897,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findBillingsAndDemographicsByDemoIdAndDates(Integer demoNo, String payProgram, Date fromDate,
                                                                       Date toDate) {
@@ -849,6 +915,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findDemographicsAndBillingsByDxAndServiceDates(List<String> dxCodes, Date from, Date to) {
         String sql = "SELECT d, bc, bi FROM Demographic d, BillingONCHeader1 bc, BillingONItem bi WHERE bc.demographicNo = d.DemographicNo AND bc.id = bi.ch1Id AND bi.dx in (?1) AND bi.serviceDate >= ?2 and bi.serviceDate <= ?3 GROUP BY d.demographicNo, bi.dx ORDER BY d.demographicNo, bi.serviceDate";
@@ -858,6 +926,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         query.setParameter(3, to);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONCHeader1> findBillingsByDemoNoCh1HeaderServiceCodeAndDate(Integer demoNo,
@@ -881,6 +951,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String[]> findBillingData(String conditions) {
         if (conditions == null)
@@ -899,6 +971,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONCHeader1> findAllByPayProgram(String payProgram, int startIndex, int limit) {

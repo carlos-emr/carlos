@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link BatchEligibilityDao} for batch processing data access.
+ *
+ * @since 2001
+ */
+
 public class BatchEligibilityDaoImpl extends AbstractDaoImpl<BatchEligibility> implements BatchEligibilityDao {
 
     public BatchEligibilityDaoImpl() {

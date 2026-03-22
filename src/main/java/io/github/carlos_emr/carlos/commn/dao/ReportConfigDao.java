@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportConfig;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportConfigDao extends AbstractDao<ReportConfig> {
     List<ReportConfig> findByReportIdAndNameAndCaptionAndTableNameAndSave(int reportId, String name, String caption, String tableName, String save);
 

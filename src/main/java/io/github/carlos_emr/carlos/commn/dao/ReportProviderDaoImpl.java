@@ -38,17 +38,27 @@ import io.github.carlos_emr.carlos.commn.model.ReportProvider;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ReportProviderDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportProviderDaoImpl extends AbstractDaoImpl<ReportProvider> implements ReportProviderDao {
 
     public ReportProviderDaoImpl() {
         super(ReportProvider.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ReportProvider> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportProvider> findByAction(String action) {
@@ -59,6 +69,8 @@ public class ReportProviderDaoImpl extends AbstractDaoImpl<ReportProvider> imple
         List<ReportProvider> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportProvider> findByProviderNoTeamAndAction(String providerNo, String team, String action) {
@@ -72,6 +84,8 @@ public class ReportProviderDaoImpl extends AbstractDaoImpl<ReportProvider> imple
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> search_reportprovider(String action) {
         String sql = "select r, p from ReportProvider r, Provider p where r.providerNo=p.ProviderNo and r.status<>'D' and r.action=?1 order by r.team";
@@ -81,6 +95,8 @@ public class ReportProviderDaoImpl extends AbstractDaoImpl<ReportProvider> imple
         List<Object[]> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> search_reportprovider(String action, String providerNo) {

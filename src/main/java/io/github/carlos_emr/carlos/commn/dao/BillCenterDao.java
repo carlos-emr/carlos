@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.BillCenter;
 
+/**
+ * DAO interface for billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillCenterDao extends AbstractDao<BillCenter> {
     List<BillCenter> findAll();
 

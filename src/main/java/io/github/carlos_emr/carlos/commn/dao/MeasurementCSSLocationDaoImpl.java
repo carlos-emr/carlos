@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MeasurementCSSLocationDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementCSSLocationDaoImpl extends AbstractDaoImpl<MeasurementCSSLocation> implements MeasurementCSSLocationDao {
 
     public MeasurementCSSLocationDaoImpl() {
@@ -46,11 +52,15 @@ public class MeasurementCSSLocationDaoImpl extends AbstractDaoImpl<MeasurementCS
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementCSSLocation> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementCSSLocation> findByLocation(String location) {

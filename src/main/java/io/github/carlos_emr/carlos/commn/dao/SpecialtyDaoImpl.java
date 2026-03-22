@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.Specialty;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SpecialtyDao} for medical specialty data access.
+ *
+ * @since 2001
+ */
+
 public class SpecialtyDaoImpl extends AbstractDaoImpl<Specialty> implements SpecialtyDao {
 
     public SpecialtyDaoImpl() {

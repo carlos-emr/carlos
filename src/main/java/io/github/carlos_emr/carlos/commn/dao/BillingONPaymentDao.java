@@ -39,6 +39,12 @@ import java.util.Locale;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingONPaymentDao extends AbstractDao<BillingONPayment> {
     void setBillingONExtDao(BillingONExtDao billingONExtDao);
 

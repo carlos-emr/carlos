@@ -55,10 +55,14 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
         super(ProviderInboxItem.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public boolean removeLinkFromDocument(String docType, Integer docId, String providerNo) {
         return CommonLabResultData.updateReportStatus(docId, providerNo, 'X', null, "DOC");
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderInboxItem> getProvidersWithRoutingForDocument(String docType, Integer docId) {
@@ -72,6 +76,8 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean hasProviderBeenLinkedWithDocument(String docType, Integer docId, String providerNo) {
@@ -87,6 +93,8 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
         return (results.size() > 0);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int howManyDocumentsLinkedWithAProvider(String providerNo) {
         Query query = entityManager.createQuery("select p from ProviderInboxItem p where p.providerNo=?1");
@@ -97,6 +105,8 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
 
         return results.size();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderInboxItem> findDocumentsLinkedWithProvider(String docType, Integer docId, String providerNo) {
@@ -123,6 +133,8 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
      */
     // TODO Replace labType parameter with an enum
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public void addToProviderInbox(String providerNo, Integer labNo, String labType) {
         ArrayList<String> listofAdditionalProviders = new ArrayList<String>();

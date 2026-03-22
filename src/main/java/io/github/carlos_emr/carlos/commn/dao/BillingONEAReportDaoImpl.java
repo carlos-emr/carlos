@@ -42,11 +42,19 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link BillingONEAReportDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport> implements BillingONEAReportDao {
 
     public BillingONEAReportDaoImpl() {
         super(BillingONEAReport.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONEAReport> findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDate(String providerOhipNo, String groupNo, String specialty, Date processDate) {
@@ -60,6 +68,8 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
         List<BillingONEAReport> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONEAReport> findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(String providerOhipNo, String groupNo, String specialty, Date processDate, Integer billingNo) {
@@ -75,6 +85,8 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONEAReport> findByBillingNo(Integer billingNo) {
         String sql = "select b from BillingONEAReport b where b.billingNo=:billingNo order by b.processDate DESC";
@@ -86,6 +98,8 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> getBillingErrorList(Integer billingNo) {
@@ -114,6 +128,8 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
         return errors;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONEAReport> findByMagic(String ohipNo, String billingGroupNo, String specialtyCode, Date fromDate, Date toDate, String reportName) {
         ParamAppender appender = getAppender("b");
@@ -133,6 +149,8 @@ public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport>
         appender.setParams(query);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONEAReport> findByMagic(List<BillingProviderData> list, Date fromDate, Date toDate, String reportName) {

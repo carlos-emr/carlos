@@ -36,6 +36,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.MdsPID;
 
 @Repository
+/**
+ * JPA implementation of {@link MdsPIDDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsPIDDaoImpl extends AbstractDaoImpl<MdsPID> implements MdsPIDDao {
 
     public MdsPIDDaoImpl() {

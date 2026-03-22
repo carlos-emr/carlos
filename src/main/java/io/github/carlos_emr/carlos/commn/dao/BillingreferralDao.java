@@ -29,6 +29,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Billingreferral;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingreferralDao extends AbstractDao<Billingreferral> {
     public Billingreferral getByReferralNo(String referral_no);
 

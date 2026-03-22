@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 
+/**
+ * DAO interface for tickler (task reminder) operations.
+ *
+ * @since 2001
+ */
+
 public interface TicklerDao extends AbstractDao<Tickler> {
 
     /**

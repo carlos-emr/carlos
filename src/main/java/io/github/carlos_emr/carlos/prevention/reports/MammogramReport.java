@@ -75,6 +75,7 @@ public class MammogramReport implements PreventionReport {
     public MammogramReport() {
     }
 
+    /** {@inheritDoc} */
     public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
         double done = 0, doneWithGrace = 0;

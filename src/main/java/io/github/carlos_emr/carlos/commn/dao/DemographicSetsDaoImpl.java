@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.DemographicSets;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicSetsDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicSetsDaoImpl extends AbstractDaoImpl<DemographicSets> implements DemographicSetsDao {
 
     public DemographicSetsDaoImpl() {
         super(DemographicSets.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicSets> findBySetName(String setName) {
@@ -58,6 +66,8 @@ public class DemographicSetsDaoImpl extends AbstractDaoImpl<DemographicSets> imp
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicSets> findBySetNames(Collection<String> setNameList) {
         String sql = "select x from DemographicSets x where x.archive != ?1 and x.name in (?2)";
@@ -68,6 +78,8 @@ public class DemographicSetsDaoImpl extends AbstractDaoImpl<DemographicSets> imp
         List<DemographicSets> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicSets> findBySetNameAndEligibility(String setName, String eligibility) {
@@ -80,6 +92,8 @@ public class DemographicSetsDaoImpl extends AbstractDaoImpl<DemographicSets> imp
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findSetNamesByDemographicNo(Integer demographicNo) {
         String sql = "select distinct(x.name) from DemographicSets x where x.archive = ?1 and x.demographicNo=?2";
@@ -91,6 +105,8 @@ public class DemographicSetsDaoImpl extends AbstractDaoImpl<DemographicSets> imp
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findSetNames() {
         String sql = "select distinct(x.name) from DemographicSets x";
@@ -99,6 +115,8 @@ public class DemographicSetsDaoImpl extends AbstractDaoImpl<DemographicSets> imp
         List<String> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicSets> findBySetNameAndDemographicNo(String setName, int demographicNo) {

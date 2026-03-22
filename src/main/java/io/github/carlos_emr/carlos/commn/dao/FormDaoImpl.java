@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.Form;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FormDao} for medical form data access.
+ *
+ * @since 2001
+ */
+
 public class FormDaoImpl extends AbstractDaoImpl<Form> implements FormDao {
 
     public FormDaoImpl() {

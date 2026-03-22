@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Groups;
 
+/**
+ * DAO interface for group operations.
+ *
+ * @since 2001
+ */
+
 public interface GroupsDao extends AbstractDao<Groups> {
 
     public List<Groups> findByParentId(int groupId);

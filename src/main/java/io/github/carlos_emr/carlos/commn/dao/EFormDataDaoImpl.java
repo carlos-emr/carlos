@@ -46,6 +46,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EFormDataDao} for electronic form data access.
+ *
+ * @since 2001
+ */
+
 public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFormDataDao {
     
     private static final Logger logger = MiscUtils.getLogger();
@@ -54,6 +60,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         super(EFormData.class);
     }
 
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findByDemographicId(Integer demographicId) {
@@ -66,6 +74,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findByDemographicIdSinceLastDate(Integer demographicId, Date lastDate) {
@@ -86,6 +96,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     // for integrator
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findDemographicIdSinceLastDate(Date lastDate) {
         Calendar cal1 = Calendar.getInstance();
@@ -103,6 +115,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public EFormData findByFormDataId(Integer formDataId) {
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x where x.id=?1");
@@ -110,6 +124,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return this.getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findByDemographicIdCurrent(Integer demographicId, Boolean current) {
@@ -127,6 +143,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return findByDemographicIdCurrent(demographicId, current, startIndex, numToReturn, null);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<EFormData> findByDemographicIdCurrentAttachedToConsult(String consultationId) {
         String sql = "SELECT * FROM eform_data e JOIN consultdocs cd ON e.fdid = cd.document_no WHERE e.patient_independent = false AND cd.requestId = ?1 "
@@ -137,6 +155,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findByDemographicIdCurrentAttachedToEForm(String fdid) {
@@ -153,6 +173,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findByDemographicIdCurrent(Integer demographicId, Boolean current, int startIndex,
@@ -233,6 +255,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<EFormData> findPatientIndependent(Boolean current) {
         StringBuilder sb = new StringBuilder();
@@ -259,6 +283,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<EFormData> findByFormId(Integer formId) {
 
@@ -272,6 +298,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findDemographicNosByFormId(Integer formId) {
 
@@ -284,6 +312,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> findAllFdidByFormId(Integer formId) {
@@ -299,6 +329,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     // for EFormReportTool
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMetaFieldsByFormId(Integer formId) {
 
@@ -313,6 +345,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findAllCurrentFdidByFormId(Integer formId) {
 
@@ -325,6 +359,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findByFormIdProviderNo(List<String> providerNo, Integer formId) {
@@ -357,6 +393,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     /**
      * Retrieves a list of EFormData by demographic ID and form ID.
@@ -371,6 +409,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         query.setParameter(2, fid);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findByFidsAndDates(TreeSet<Integer> fids, Date dateStart, Date dateEnd) {
@@ -389,6 +429,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<EFormData> findByFdids(List<Integer> ids) {
         if (ids.size() == 0)
@@ -403,6 +445,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean isLatestShowLatestFormOnlyPatientForm(Integer fdid) {
@@ -446,6 +490,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return true;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<EFormData> getFormsSameFidSamePatient(Integer fdid) {
         EFormData eformData = this.find(fdid);
@@ -464,6 +510,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     // for integrator
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findemographicIdSinceLastDate(Date lastDate) {
         Calendar cal1 = Calendar.getInstance();
@@ -480,6 +528,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormData> findInGroups(Boolean status, int demographicNo, String groupName, String sortBy, int offset,
@@ -524,6 +574,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer getLatestFdid(Integer fid, Integer demographicNo) {
         Query query = entityManager.createQuery("select max(x.id) from " + modelClass.getSimpleName()
@@ -565,6 +617,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getProvidersForEforms(Collection<Integer> fdidList) {
 
@@ -576,6 +630,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Date getLatestFormDateAndTimeForEforms(Collection<Integer> fdidList) {

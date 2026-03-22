@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 
+/**
+ * DAO interface for consultation and referral operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
 
     public static final int DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT = 100;

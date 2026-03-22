@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 
+/**
+ * DAO interface for prevention and immunization operations.
+ *
+ * @since 2001
+ */
+
 public interface PreventionReportDao extends AbstractDao<PreventionReport> {
 
     List<PreventionReport> getPreventionReports();

@@ -38,11 +38,19 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 
+/**
+ * JPA implementation of {@link PreventionDao} for prevention and immunization data access.
+ *
+ * @since 2001
+ */
+
 public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements PreventionDao {
 
     public PreventionDaoImpl() {
         super(Prevention.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Prevention> findByDemographicId(Integer demographicId) {
@@ -71,6 +79,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Prevention> findByDemographicIdAfterDatetime(Integer demographicId, Date dateTime) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where demographicId=?1 and lastUpdateDate>=?2 and deleted='0'";
@@ -84,6 +94,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Prevention> findByDemographicIdAfterDatetimeExclusive(Integer demographicId, Date dateTime) {
@@ -115,6 +127,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Prevention> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1 and x.providerNo=?2 and x.lastUpdateDate>?3 order by x.lastUpdateDate";
@@ -130,6 +144,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Prevention> findNotDeletedByDemographicIdAfterDatetime(Integer demographicId, Date dateTime) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where demographicId=?1 and lastUpdateDate> ?2";
@@ -144,6 +160,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findNonDeletedIdsByDemographic(Integer demographicId) {
         String sqlCommand = "select x.id from " + modelClass.getSimpleName() + " x where demographicId=?1 and deleted='0'";
@@ -156,6 +174,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Prevention> findNotDeletedByDemographicId(Integer demographicId) {
@@ -171,6 +191,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Prevention> findByTypeAndDate(String preventionType, Date startDate, Date endDate) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where preventionType=?1 and preventionDate>=?2 and preventionDate<=?3 and deleted='0' and refused='0' order by preventionDate";
@@ -185,6 +207,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     /**
@@ -203,12 +227,16 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Prevention> findActiveByDemoId(Integer demoId) {
         Query query = createQuery("p", "p.demographicId = ?1 and p.deleted <> '1' ORDER BY p.preventionType, p.preventionDate");
         query.setParameter(1, demoId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Prevention> findUniqueByDemographicId(Integer demographicId) {
@@ -221,6 +249,8 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     }
 
     @NativeSql("preventions")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findNewPreventionsSinceDemoKey(String keyName) {
 

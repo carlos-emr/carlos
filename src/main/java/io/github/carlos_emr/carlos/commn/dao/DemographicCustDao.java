@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicCustDao extends AbstractDao<DemographicCust> {
 
     public List<DemographicCust> findMultipleMidwife(Collection<Integer> demographicNos, String oldMidwife);

@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.Icd10;
 
 import java.util.List;
 
+/**
+ * DAO interface for ICD diagnostic code operations.
+ *
+ * @since 2001
+ */
+
 public interface Icd10Dao extends AbstractCodeSystemDao<Icd10> {
     List<Icd10> searchCode(String term);
     Icd10 findByCode(String code);

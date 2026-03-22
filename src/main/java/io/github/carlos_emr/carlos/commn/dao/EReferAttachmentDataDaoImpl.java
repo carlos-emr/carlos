@@ -20,6 +20,12 @@ import jakarta.persistence.Query;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link EReferAttachmentDataDao} for electronic referral data access.
+ *
+ * @since 2001
+ */
+
 public class EReferAttachmentDataDaoImpl extends AbstractDaoImpl<EReferAttachmentData> implements EReferAttachmentDataDao {
     public EReferAttachmentDataDaoImpl() {
         super(EReferAttachmentData.class);

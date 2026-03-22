@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.UserDSMessagePrefs;
 
+/**
+ * DAO interface for user operations.
+ *
+ * @since 2001
+ */
+
 public interface UserDSMessagePrefsDao extends AbstractDao<UserDSMessagePrefs> {
     void saveProp(UserDSMessagePrefs prop);
 

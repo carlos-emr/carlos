@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CVCMedicationLotNumberDao} for Canadian Vaccine Catalogue (CVC) data access.
+ *
+ * @since 2001
+ */
+
 public class CVCMedicationLotNumberDaoImpl extends AbstractDaoImpl<CVCMedicationLotNumber>
         implements CVCMedicationLotNumberDao {
 
@@ -46,11 +52,15 @@ public class CVCMedicationLotNumberDaoImpl extends AbstractDaoImpl<CVCMedication
         super(CVCMedicationLotNumber.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void removeAll() {
         Query query = entityManager.createQuery("DELETE FROM CVCMedicationLotNumber");
         query.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public CVCMedicationLotNumber findByLotNumber(String lotNumber) {
@@ -61,6 +71,8 @@ public class CVCMedicationLotNumberDaoImpl extends AbstractDaoImpl<CVCMedication
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CVCMedicationLotNumber> query(String term) {

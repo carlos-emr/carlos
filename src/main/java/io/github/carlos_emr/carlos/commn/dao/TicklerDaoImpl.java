@@ -52,6 +52,12 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link TicklerDao} for tickler (task reminder) data access.
+ *
+ * @since 2001
+ */
+
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
 
     /**
@@ -83,12 +89,16 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         super(Tickler.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Tickler find(Integer id) {
         Tickler tickler = super.find(id);
         tickler.getUpdates().size();
         return tickler;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Tickler> findActiveByMessageForPatients(List<Integer> demographicNos, String remString) {
@@ -108,6 +118,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Tickler> findActiveByDemographicNoAndMessage(Integer demoNo, String message) {
 
@@ -121,6 +133,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Tickler> findActiveByDemographicNo(Integer demoNo) {
 
@@ -133,6 +147,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Tickler> findByTicklerNoDemo(Integer ticklerNo, Integer demoNo) {
 
@@ -146,6 +162,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Tickler> findByTicklerNoAssignedTo(Integer ticklerNo, String assignedTo, Integer demoNo) {
 
@@ -177,6 +195,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Tickler> search_tickler_bydemo(Integer demographicNo, String status, Date beginDate, Date endDate) {
         Query query = entityManager.createQuery("SELECT t FROM Tickler t WHERE t.demographicNo = ?1 and t.status = ?2 and t.serviceDate >= ?3 and t.serviceDate <= ?4 order by t.serviceDate desc");
@@ -191,6 +211,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Tickler> search_tickler(Integer demographicNo, Date endDate) {
         Query query = entityManager.createQuery("SELECT t FROM Tickler t WHERE t.demographicNo = ?1 and t.status = 'A' and t.serviceDate <= ?2 order by t.serviceDate desc");
@@ -219,6 +241,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getActiveTicklerCount(String providerNo) {
         Query query = entityManager.createQuery("select count(t) FROM Tickler t where t.status = 'A' and t.serviceDate <= ?1 and (t.taskAssignedTo  = ?2 or t.taskAssignedTo='All Providers')");
@@ -229,6 +253,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
         return result.intValue();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getActiveTicklerByDemoCount(Integer demographicNo) {
@@ -242,6 +268,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit) {
         String sql = "select t";
@@ -272,6 +300,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         return getTicklers(filter, 0, TicklerDao.MAX_LIST_RETURN_SIZE);
     }
 
+
+    /** {@inheritDoc} */
 
     @Override
     public int getNumTicklers(CustomFilter filter) {

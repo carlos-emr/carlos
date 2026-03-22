@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link IndicatorTemplateDao} for indicator template data access.
+ *
+ * @since 2001
+ */
+
 public class IndicatorTemplateDaoImpl extends AbstractDaoImpl<IndicatorTemplate> implements IndicatorTemplateDao {
 
     public IndicatorTemplateDaoImpl() {
         super(IndicatorTemplate.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<IndicatorTemplate> getActiveIndicatorTemplates() {
@@ -50,6 +58,8 @@ public class IndicatorTemplateDaoImpl extends AbstractDaoImpl<IndicatorTemplate>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<IndicatorTemplate> getIndicatorTemplatesByStatus(boolean status) {
         Query query = entityManager.createQuery("SELECT x FROM IndicatorTemplate x WHERE x.active = ?1");
@@ -71,6 +81,8 @@ public class IndicatorTemplateDaoImpl extends AbstractDaoImpl<IndicatorTemplate>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<IndicatorTemplate> getNotSharedIndicatorTemplates() {
         Query query = entityManager.createQuery("SELECT x FROM IndicatorTemplate x where x.shared = ?1");

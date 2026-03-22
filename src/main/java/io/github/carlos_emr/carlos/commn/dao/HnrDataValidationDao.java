@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.HnrDataValidation;
 
+/**
+ * DAO interface for HNR data validation operations.
+ *
+ * @since 2001
+ */
+
 public interface HnrDataValidationDao extends AbstractDao<HnrDataValidation> {
     HnrDataValidation findMostCurrentByFacilityIdClientIdType(Integer facilityId, Integer clientId, HnrDataValidation.Type type);
 }

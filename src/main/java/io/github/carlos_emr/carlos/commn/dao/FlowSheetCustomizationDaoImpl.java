@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FlowSheetCustomizationDao} for clinical flowsheet data access.
+ *
+ * @since 2001
+ */
+
 public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCustomization> implements FlowSheetCustomizationDao {
 
     // Static JPQL for findHigherLevelCustomization
@@ -75,10 +81,14 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public FlowSheetCustomization getFlowSheetCustomization(Integer id) {
         return this.find(id);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<FlowSheetCustomization> getFlowSheetCustomizations(String flowsheet, String provider, Integer demographic) {
@@ -98,6 +108,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<FlowSheetCustomization> getFlowSheetCustomizations(String flowsheet, String provider) {
         // Include both clinic-level (providerNo='') and provider-level customizations
@@ -110,6 +122,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<FlowSheetCustomization> getFlowSheetCustomizations(String flowsheet) {
         Query query = entityManager.createQuery("SELECT fd FROM FlowSheetCustomization fd WHERE fd.flowsheet=?1 and fd.archived=false and fd.providerNo = ''  and fd.demographicNo = 0");
@@ -120,6 +134,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<FlowSheetCustomization> getClinicLevelCustomizations(String flowsheet) {
         // Clinic level: providerNo='' AND demographicNo='0'
@@ -127,6 +143,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
             "AND fd.providerNo='' AND fd.demographicNo='0'",
             q -> { });
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<FlowSheetCustomization> getProviderLevelCustomizations(String flowsheet, String providerNo) {
@@ -136,6 +154,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
             q -> q.setParameter(2, providerNo));
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<FlowSheetCustomization> getPatientLevelCustomizations(String flowsheet, String demographicNo) {
         // Patient level: specific demographicNo (not "0")
@@ -143,6 +163,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
             "AND fd.demographicNo=?2",
             q -> q.setParameter(2, demographicNo));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public FlowSheetCustomization findHigherLevelCustomization(

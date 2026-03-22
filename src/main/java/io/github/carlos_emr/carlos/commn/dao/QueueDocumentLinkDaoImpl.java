@@ -51,6 +51,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         super(QueueDocumentLink.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<QueueDocumentLink> getQueueDocLinks() {
         Query query = entityManager.createQuery("SELECT q from QueueDocumentLink q");
@@ -59,6 +61,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         List<QueueDocumentLink> queues = query.getResultList();
         return queues;
     }
+    /** {@inheritDoc} */
+
     @Override
     /**
      * Retrieves a list of active QueueDocumentLink objects from the database.
@@ -73,6 +77,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         return queues;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<QueueDocumentLink> getQueueFromDocument(Integer docId) {
         Query query = entityManager.createQuery("SELECT q from QueueDocumentLink q where q.docId=?1");
@@ -83,6 +89,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
 
         return queues;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<QueueDocumentLink> getDocumentFromQueue(Integer qId) {
@@ -95,6 +103,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         return queues;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public boolean hasQueueBeenLinkedWithDocument(Integer dId, Integer qId) {
         Query query = entityManager.createQuery("SELECT q from QueueDocumentLink q where q.docId=?1 and q.queueId=?2");
@@ -105,6 +115,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
 
         return (queues.size() > 0);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean setStatusInactive(Integer docId) {
@@ -126,6 +138,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         //if status is I, do nothing
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void addActiveQueueDocumentLink(Integer qId, Integer dId) {
         try {
@@ -140,6 +154,8 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
             MiscUtils.getLogger().error("Error", e);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void addToQueueDocumentLink(Integer qId, Integer dId) {

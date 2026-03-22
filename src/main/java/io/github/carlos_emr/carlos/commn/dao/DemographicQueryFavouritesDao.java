@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicQueryFavourite;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicQueryFavouritesDao extends AbstractDao<DemographicQueryFavourite> {
     List<DemographicQueryFavourite> findByArchived(String archived);
 }

@@ -35,6 +35,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 
+/**
+ * DAO interface for favorites operations.
+ *
+ * @since 2001
+ */
+
 public interface FavoriteDao extends AbstractDao<Favorite> {
     List<Favorite> findByProviderNo(String providerNo);
     Favorite findByEverything(String providerNo, String favoriteName, String bn, String gcn_SEQNO, String customName, float takeMin, float takeMax, String frequencyCode, String duration, String durationUnit, String quantity, int repeat, boolean nosubsInt, boolean prnInt, String parsedSpecial, String gn, String unitName, boolean customInstr);

@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FunctionalCentre;
 
+/**
+ * DAO interface for functional centre operations.
+ *
+ * @since 2001
+ */
+
 public interface FunctionalCentreDao extends AbstractDao<FunctionalCentre> {
     List<FunctionalCentre> findAll();
 

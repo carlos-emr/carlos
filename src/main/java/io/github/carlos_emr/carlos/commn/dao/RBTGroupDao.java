@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.RBTGroup;
 
+/**
+ * DAO interface for resource-based template group operations.
+ *
+ * @since 2001
+ */
+
 public interface RBTGroupDao extends AbstractDao<RBTGroup> {
 
     public int deleteByNameAndTemplateId(String groupName, Integer templateId);

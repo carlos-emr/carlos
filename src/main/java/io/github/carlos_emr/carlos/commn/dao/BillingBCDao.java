@@ -27,6 +27,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingBCDao extends BillingDao {
     List<Object[]> findBillingServices(String billRegion, String serviceGroup, String serviceType);
 

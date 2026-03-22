@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.DesAnnualReviewPlan;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DesAnnualReviewPlanDao} for annual review data access.
+ *
+ * @since 2001
+ */
+
 public class DesAnnualReviewPlanDaoImpl extends AbstractDaoImpl<DesAnnualReviewPlan> implements DesAnnualReviewPlanDao {
 
     public DesAnnualReviewPlanDaoImpl() {
         super(DesAnnualReviewPlan.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public DesAnnualReviewPlan search(Integer formNo, Integer demographicNo) {

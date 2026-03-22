@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PrescriptionDao} for prescription data access.
+ *
+ * @since 2001
+ */
+
 public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implements PrescriptionDao {
 
     public PrescriptionDaoImpl() {
         super(Prescription.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Prescription> findByDemographicId(Integer demographicId) {
@@ -59,6 +67,8 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Prescription> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date afterThisDate) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1 and x.lastUpdateDate>=?2";
@@ -72,6 +82,8 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Prescription> findByDemographicIdUpdatedAfterDateExclusive(Integer demographicId, Date afterThisDate) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.demographicId=?1 and x.lastUpdateDate>?2";
@@ -84,6 +96,8 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
         List<Prescription> results = query.getResultList();
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int updatePrescriptionsByScriptNo(Integer scriptNo, String comment) {

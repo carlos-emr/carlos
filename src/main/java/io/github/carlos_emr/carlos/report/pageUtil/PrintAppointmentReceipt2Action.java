@@ -62,6 +62,13 @@ import io.github.carlos_emr.OscarDocumentCreator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that generates and prints appointment receipts using JasperReports.
+ * Loads appointment data including patient demographics, provider, and schedule
+ * details. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class PrintAppointmentReceipt2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

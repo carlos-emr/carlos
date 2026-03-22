@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ServiceSpecialistsDao} for service data access.
+ *
+ * @since 2001
+ */
+
 public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialists> implements ServiceSpecialistsDao {
 
     public ServiceSpecialistsDaoImpl() {
         super(ServiceSpecialists.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ServiceSpecialists> findByServiceId(int serviceId) {
@@ -57,6 +65,8 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findSpecialists(Integer servId) {
         String sql = "SELECT ser, pro FROM ServiceSpecialists ser, " + ProfessionalSpecialist.class.getSimpleName() + " pro WHERE pro.id = ser.id.specId and ser.id.serviceId = ?1 ORDER BY pro.lastName";

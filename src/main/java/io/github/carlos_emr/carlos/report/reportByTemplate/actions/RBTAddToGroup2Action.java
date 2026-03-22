@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that adds a report template to a group.
+ * Requires {@code _admin} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RBTAddToGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

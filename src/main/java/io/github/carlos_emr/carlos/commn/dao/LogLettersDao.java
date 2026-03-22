@@ -34,5 +34,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.LogLetters;
 
+/**
+ * DAO interface for logging operations.
+ *
+ * @since 2001
+ */
+
 public interface LogLettersDao extends AbstractDao<LogLetters> {
 }

@@ -38,6 +38,12 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 @Component
+/**
+ * DAO interface for waiting list operations.
+ *
+ * @since 2001
+ */
+
 public interface WaitingListNameDao extends AbstractDao<WaitingListName> {
     long countActiveWatingListNames();
 

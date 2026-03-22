@@ -40,11 +40,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ProviderSiteDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderSiteDaoImpl extends AbstractDaoImpl<ProviderSite> implements ProviderSiteDao {
 
     public ProviderSiteDaoImpl() {
         super(ProviderSite.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderSite> findByProviderNo(String providerNo) {
@@ -55,6 +63,8 @@ public class ProviderSiteDaoImpl extends AbstractDaoImpl<ProviderSite> implement
         List<ProviderSite> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Provider> findActiveProvidersWithSites(String provider_no) {
@@ -71,6 +81,8 @@ public class ProviderSiteDaoImpl extends AbstractDaoImpl<ProviderSite> implement
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findByProviderNoBySiteName(String siteName) {
         String sql = "select x.id.providerNo from ProviderSite x, Site s where x.id.siteId=s.siteId and s.name=?1";
@@ -81,6 +93,8 @@ public class ProviderSiteDaoImpl extends AbstractDaoImpl<ProviderSite> implement
         List<String> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderSite> findBySiteId(Integer siteId) {

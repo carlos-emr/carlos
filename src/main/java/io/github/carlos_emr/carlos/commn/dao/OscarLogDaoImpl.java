@@ -44,11 +44,19 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link OscarLogDao} for core data access.
+ *
+ * @since 2001
+ */
+
 public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarLogDao {
 
     public OscarLogDaoImpl() {
         super(OscarLog.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<OscarLog> findByDemographicId(Integer demographicId) {
@@ -64,6 +72,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<OscarLog> findByProviderNo(String providerNo) {
 
@@ -77,6 +87,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean hasRead(String providerNo, String content, String contentId) {
@@ -95,6 +107,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return true;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<OscarLog> findByActionAndData(String action, String data) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.action = ?1 and x.data = ?2 order by x.created DESC";
@@ -107,6 +121,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<OscarLog> findByAction(String action, int start, int length, String orderBy, String orderByDirection) {
@@ -133,6 +149,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<OscarLog> findByActionContentAndDemographicId(String action, String content, Integer demographicId) {
 
@@ -149,6 +167,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getDemographicIdsOpenedSinceTime(Date value) {
         String sqlCommand = "select distinct demographicId from " + modelClass.getSimpleName() + " where dateTime >= ?1";
@@ -162,6 +182,8 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
@@ -241,10 +263,14 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void remove(AbstractModel<?> o) {
         throw new SecurityException("Cannot remove audit log entries!");
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean remove(Object id) {

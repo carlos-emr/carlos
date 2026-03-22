@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MeasurementMapDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> implements MeasurementMapDao {
 
     public MeasurementMapDaoImpl() {
         super(MeasurementMap.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void addMeasurementMap(MeasurementMap measurementMap) {
@@ -53,6 +61,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
         else
             merge(measurementMap);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementMap> getAllMaps() {
@@ -64,6 +74,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementMap> getMapsByIdent(String identCode) {
@@ -77,10 +89,14 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementMap> findByLoincCode(String loincCode) {
         return getMapsByLoinc(loincCode);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementMap> getMapsByLoinc(String loinc) {
@@ -94,6 +110,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementMap> findByLoincCodeAndLabType(String loincCode, String labType) {
         String queryStr = "select m FROM MeasurementMap m WHERE m.loincCode=?1 and m.labType=?2";
@@ -106,6 +124,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public MeasurementMap findByLonicCodeLabTypeAndMeasurementName(String loincCode, String labType,
@@ -123,6 +143,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findDistinctLabTypes() {
         String queryStr = "select distinct(m.labType) FROM MeasurementMap m";
@@ -134,6 +156,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findDistinctLoincCodes() {
         String queryStr = "select distinct(m.loincCode) FROM MeasurementMap m";
@@ -144,6 +168,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> findDistinctLoincCodesByLabType(MeasurementMap.LAB_TYPE lab_type) {
@@ -175,6 +201,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementMap> findMeasurementsByName(String searchString) {
         String sql = "SELECT DISTINCT b FROM MeasurementMap b WHERE b.name LIKE ?1 ORDER BY b.name";
@@ -183,6 +211,8 @@ public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> imple
 
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementMap> searchMeasurementsByName(String searchString) {

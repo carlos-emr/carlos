@@ -31,6 +31,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingDao extends AbstractDao<Billing> {
     List<Billing> findActive(int billingNo);
 

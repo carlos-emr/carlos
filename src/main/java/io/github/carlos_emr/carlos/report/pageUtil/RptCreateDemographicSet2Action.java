@@ -44,6 +44,12 @@ import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that creates a new demographic set from a demographic report
+ * query result. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptCreateDemographicSet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

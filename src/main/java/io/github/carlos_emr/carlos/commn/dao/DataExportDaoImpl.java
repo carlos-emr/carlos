@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.DataExport;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DataExportDao} for data export data access.
+ *
+ * @since 2001
+ */
+
 public class DataExportDaoImpl extends AbstractDaoImpl<DataExport> implements DataExportDao {
 
     public DataExportDaoImpl() {

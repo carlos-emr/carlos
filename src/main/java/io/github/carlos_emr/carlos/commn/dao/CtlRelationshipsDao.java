@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlRelationships;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlRelationshipsDao extends AbstractDao<CtlRelationships> {
     List<CtlRelationships> findAllActive();
 

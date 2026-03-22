@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.SystemMessage;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SystemMessageDao} for system data access.
+ *
+ * @since 2001
+ */
+
 public class SystemMessageDaoImpl extends AbstractDaoImpl<SystemMessage> implements SystemMessageDao {
 
     public SystemMessageDaoImpl() {
         super(SystemMessage.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SystemMessage> findAll() {

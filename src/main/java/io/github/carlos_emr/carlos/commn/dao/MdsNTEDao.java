@@ -34,5 +34,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.MdsNTE;
 
+/**
+ * DAO interface for MDS HL7 segment operations.
+ *
+ * @since 2001
+ */
+
 public interface MdsNTEDao extends AbstractDao<MdsNTE> {
 }

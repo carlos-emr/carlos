@@ -47,6 +47,12 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingOnTransactionDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransaction> implements BillingOnTransactionDao {
 
     public BillingOnTransactionDaoImpl() {

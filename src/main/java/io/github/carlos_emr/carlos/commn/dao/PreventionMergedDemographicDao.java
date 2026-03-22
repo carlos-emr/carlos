@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 
+/**
+ * DAO interface for prevention and immunization operations.
+ *
+ * @since 2001
+ */
+
 public interface PreventionMergedDemographicDao {
     List<Prevention> findByDemographicId(Integer demographicId);
 

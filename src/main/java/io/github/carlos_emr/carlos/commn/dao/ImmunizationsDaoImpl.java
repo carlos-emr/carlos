@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.Immunizations;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ImmunizationsDao} for immunization data access.
+ *
+ * @since 2001
+ */
+
 public class ImmunizationsDaoImpl extends AbstractDaoImpl<Immunizations> implements ImmunizationsDao {
 
     public ImmunizationsDaoImpl() {

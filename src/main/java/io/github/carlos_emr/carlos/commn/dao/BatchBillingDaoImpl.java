@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link BatchBillingDao} for batch processing data access.
+ *
+ * @since 2001
+ */
+
 public class BatchBillingDaoImpl extends AbstractDaoImpl<BatchBilling> implements BatchBillingDAO {
 
     public BatchBillingDaoImpl() {

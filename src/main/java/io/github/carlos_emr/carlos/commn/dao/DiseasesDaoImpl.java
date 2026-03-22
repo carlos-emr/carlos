@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.Diseases;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DiseasesDao} for disease data access.
+ *
+ * @since 2001
+ */
+
 public class DiseasesDaoImpl extends AbstractDaoImpl<Diseases> implements DiseasesDao {
 
     public DiseasesDaoImpl() {
         super(Diseases.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Diseases> findByDemographicNo(int demographicNo) {
@@ -53,6 +61,8 @@ public class DiseasesDaoImpl extends AbstractDaoImpl<Diseases> implements Diseas
         List<Diseases> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Diseases> findByIcd9(String icd9) {

@@ -52,6 +52,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 
+/**
+ * Struts 2 action that loads and displays the list of active patient letter
+ * templates for management (upload, delete, generate). Requires {@code _report}
+ * read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class ManagePatientLetters2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

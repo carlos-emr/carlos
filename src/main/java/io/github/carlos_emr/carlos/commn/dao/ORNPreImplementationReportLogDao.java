@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ORNPreImplementationReportLog;
 
+/**
+ * JPA implementation of {@link ORNPreImplementationReportLogDao} for Ontario Renal Network reporting data access.
+ *
+ * @since 2001
+ */
+
 public interface ORNPreImplementationReportLogDao extends AbstractDao<ORNPreImplementationReportLog> {
     List<ORNPreImplementationReportLog> getAllReports();
 }

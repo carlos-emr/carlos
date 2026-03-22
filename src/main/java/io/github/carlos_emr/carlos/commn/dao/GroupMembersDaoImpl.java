@@ -41,6 +41,12 @@ import java.util.Collections;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link GroupMembersDao} for group data access.
+ *
+ * @since 2001
+ */
+
 public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implements GroupMembersDao {
 
     public GroupMembersDaoImpl() {
@@ -82,6 +88,8 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<GroupMembers> findByGroupId(int groupId) {
         Query q = entityManager.createQuery("SELECT x FROM GroupMembers x WHERE x.groupId=?1");
@@ -94,6 +102,8 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMembersByGroupId(int groupId) {
         String sql = "SELECT g, p FROM GroupMembers g, Provider p WHERE g.providerNo = p.ProviderNo AND g.groupId = ?1 ORDER BY p.LastName, p.FirstName";
@@ -101,6 +111,8 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
         query.setParameter(1, groupId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<GroupMembers> findByProviderNumberAndFacilityId(String providerNo, Integer facilityId) {
@@ -119,6 +131,8 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<GroupMembers> findGroupMember(String providerNo, int groupId) {
         Query query = entityManager.createQuery("SELECT x FROM GroupMembers x WHERE x.providerNo LIKE ?1 AND x.groupId = ?2");
@@ -131,6 +145,8 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
         }
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<GroupMembers> findByFacilityId(Integer facilityId) {
@@ -146,6 +162,8 @@ public class GroupMembersDaoImpl extends AbstractDaoImpl<GroupMembers> implement
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public GroupMembers findByIdentity(ContactIdentifier contactIdentifier) {

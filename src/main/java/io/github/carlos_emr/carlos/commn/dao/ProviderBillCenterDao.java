@@ -34,5 +34,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ProviderBillCenter;
 
+/**
+ * DAO interface for healthcare provider operations.
+ *
+ * @since 2001
+ */
+
 public interface ProviderBillCenterDao extends AbstractDao<ProviderBillCenter> {
 }

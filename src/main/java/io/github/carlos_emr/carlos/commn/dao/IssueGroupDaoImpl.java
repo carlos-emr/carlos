@@ -37,11 +37,19 @@ import io.github.carlos_emr.carlos.commn.model.IssueGroup;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link IssueGroupDao} for clinical issue data access.
+ *
+ * @since 2001
+ */
+
 public class IssueGroupDaoImpl extends AbstractDaoImpl<IssueGroup> implements IssueGroupDao {
 
     public IssueGroupDaoImpl() {
         super(IssueGroup.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<IssueGroup> findAll() {

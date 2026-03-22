@@ -43,6 +43,12 @@ import io.github.carlos_emr.carlos.commn.model.Validations;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ValidationsDao} for validation data access.
+ *
+ * @since 2001
+ */
+
 public class ValidationsDaoImpl extends AbstractDaoImpl<Validations> implements ValidationsDao {
 
     public ValidationsDaoImpl() {

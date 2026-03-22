@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CSSStylesDao} for CSS styles for clinical displays data access.
+ *
+ * @since 2001
+ */
+
 public class CSSStylesDaoImpl extends AbstractDaoImpl<CssStyle> implements CSSStylesDAO {
 
     public CSSStylesDaoImpl() {

@@ -48,6 +48,13 @@ import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for editing demographic sets. Handles adding patients to a set
+ * or removing/marking patients as ineligible within a named demographic set.
+ * Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class DemographicSetEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

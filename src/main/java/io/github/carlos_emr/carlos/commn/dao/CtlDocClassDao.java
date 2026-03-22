@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocClass;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlDocClassDao extends AbstractDao<CtlDocClass> {
     List<String> findUniqueReportClasses();
 

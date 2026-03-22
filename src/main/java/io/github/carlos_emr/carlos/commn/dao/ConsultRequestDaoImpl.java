@@ -47,11 +47,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ConsultRequestDao} for consultation and referral data access.
+ *
+ * @since 2001
+ */
+
 public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultRequestDao {
 
     public ConsultRequestDaoImpl() {
         super(ConsultationRequest.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getConsultationCount(PaginationQuery paginationQuery) {
@@ -65,6 +73,8 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
 
     @SuppressWarnings("unchecked")
     @Deprecated
+    /** {@inheritDoc} */
+
     @Override
     public List<ConsultationRequest> listConsultationRequests(ConsultationQuery consultationQuery) {
         QueryWithParams queryWithParams = generateQueryWithParams(consultationQuery, false);
@@ -179,6 +189,8 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return queryWithParams;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getConsultationCount2(ConsultationRequestSearchFilter filter) {
         QueryWithParams queryWithParams = buildSearchQuery(filter, true);
@@ -189,6 +201,8 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
 
         return count.intValue();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> search(ConsultationRequestSearchFilter filter) {

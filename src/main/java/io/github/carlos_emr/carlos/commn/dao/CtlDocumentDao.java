@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
 
     public CtlDocument getCtrlDocument(Integer docId);

@@ -42,11 +42,19 @@ import io.github.carlos_emr.carlos.prescription.dispensary.LotBean;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DrugProductDao} for drug and prescription data access.
+ *
+ * @since 2001
+ */
+
 public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements DrugProductDao {
 
     public DrugProductDaoImpl() {
         super(DrugProduct.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DrugProduct> findAvailable() {
@@ -56,6 +64,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         List<DrugProduct> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DrugProduct> findAvailableByCode(String code) {
@@ -68,6 +78,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findAllAvailableUnique() {
         Query query = entityManager.createQuery(
@@ -78,6 +90,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findAllUnique() {
         Query query = entityManager.createQuery("SELECT distinct x.code, x.name FROM DrugProduct x order by x.name");
@@ -87,6 +101,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findUniqueDrugProductNames() {
         Query query = entityManager.createQuery("SELECT distinct x.name FROM DrugProduct x");
@@ -95,6 +111,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         List<String> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getAvailableCount(String lotNumber, Date expiryDate, int amount) {
@@ -109,6 +127,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return count.intValue();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DrugProduct> getAvailableDrugProducts(String lotNumber, Date expiryDate, int amount) {
         Query query = entityManager.createQuery(
@@ -122,6 +142,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<LotBean> findDistinctLotsAvailableByCode(String code) {
@@ -139,6 +161,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public DrugProduct findByCodeAndLotNumber(String code, String lotNumber) {
         Query query = entityManager.createQuery("SELECT x FROM DrugProduct x where x.code=?1 and x.lotNumber = ?2");
@@ -148,6 +172,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return this.getSingleResultOrNull(query);
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DrugProduct> findByDispensingId(Integer id) {
@@ -159,6 +185,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return results;
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DrugProduct> findByName(int offset, int limit, String name) {
@@ -172,6 +200,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DrugProduct> findAll(int offset, int limit) {
         Query query = entityManager.createQuery("SELECT x FROM DrugProduct x");
@@ -182,6 +212,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return results;
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DrugProduct> findByNameAndLot(int offset, int limit, String name, String lotNumber, Integer location,
@@ -227,6 +259,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer findByNameAndLotCount(String name, String lotNumber, Integer location, boolean availableOnly) {
 
@@ -268,6 +302,8 @@ public class DrugProductDaoImpl extends AbstractDaoImpl<DrugProduct> implements 
         return result;
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> findUniqueDrugProductLotsByName(String productName) {

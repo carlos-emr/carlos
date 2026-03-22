@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CaisiAccessType;
 
+/**
+ * DAO interface for CAISI community integration operations.
+ *
+ * @since 2001
+ */
+
 public interface CaisiAccessTypeDao extends AbstractDao<CaisiAccessType> {
     List<CaisiAccessType> findAll();
 

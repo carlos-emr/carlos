@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FormLabReq07;
 
+/**
+ * DAO interface for medical form operations.
+ *
+ * @since 2001
+ */
+
 public interface FormLabReq07Dao extends AbstractDao<FormLabReq07> {
     List<FormLabReq07> findCreatinine();
 

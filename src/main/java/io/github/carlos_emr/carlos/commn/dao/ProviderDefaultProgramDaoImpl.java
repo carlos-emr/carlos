@@ -43,12 +43,20 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderDefaultProgramDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefaultProgram>
         implements ProviderDefaultProgramDao {
 
     public ProviderDefaultProgramDaoImpl() {
         super(ProviderDefaultProgram.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderDefaultProgram> getProgramByProviderNo(String providerNo) {
@@ -59,6 +67,8 @@ public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefau
         List<ProviderDefaultProgram> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void setDefaultProgram(String providerNo, int programId) {
@@ -77,11 +87,15 @@ public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefau
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderDefaultProgram> getProviderSig(String providerNo) {
         List<ProviderDefaultProgram> rs = getProgramByProviderNo(providerNo);
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void saveProviderDefaultProgram(ProviderDefaultProgram pdp) {
@@ -92,6 +106,8 @@ public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefau
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void toggleSig(String providerNo) {
         List<ProviderDefaultProgram> rs = this.getProgramByProviderNo(providerNo);
@@ -100,6 +116,8 @@ public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefau
             merge(pdp);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Program> findProgramsByProvider(String providerNo) {
@@ -112,6 +130,8 @@ public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefau
         return results;
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Program> findProgramsByFacilityId(Integer facilityId) {

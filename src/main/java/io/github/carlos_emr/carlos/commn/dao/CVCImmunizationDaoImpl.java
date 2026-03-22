@@ -40,17 +40,27 @@ import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CVCImmunizationDao} for Canadian Vaccine Catalogue (CVC) data access.
+ *
+ * @since 2001
+ */
+
 public class CVCImmunizationDaoImpl extends AbstractDaoImpl<CVCImmunization> implements CVCImmunizationDao {
 
     public CVCImmunizationDaoImpl() {
         super(CVCImmunization.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void removeAll() {
         Query query = entityManager.createQuery("DELETE FROM CVCImmunization");
         query.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CVCImmunization> findAllGeneric() {
@@ -60,6 +70,8 @@ public class CVCImmunizationDaoImpl extends AbstractDaoImpl<CVCImmunization> imp
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<CVCImmunization> findByParent(String conceptCodeId) {
         Query query = entityManager
@@ -68,6 +80,8 @@ public class CVCImmunizationDaoImpl extends AbstractDaoImpl<CVCImmunization> imp
         List<CVCImmunization> result = query.getResultList();
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public CVCImmunization findBySnomedConceptId(String conceptCodeId) {
@@ -81,6 +95,8 @@ public class CVCImmunizationDaoImpl extends AbstractDaoImpl<CVCImmunization> imp
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CVCImmunization> query(String term, boolean includeGenerics, boolean includeBrands) {

@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.OscarKey;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link OscarKeyDao} for core data access.
+ *
+ * @since 2001
+ */
+
 public class OscarKeyDaoImpl extends AbstractDaoImpl<OscarKey> implements OscarKeyDao {
 
     public OscarKeyDaoImpl() {

@@ -34,6 +34,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.MdsZMC;
 
+/**
+ * DAO interface for MDS HL7 segment operations.
+ *
+ * @since 2001
+ */
+
 public interface MdsZMCDao extends AbstractDao<MdsZMC> {
     MdsZMC findByIdAndSetId(Integer id, String setId);
 }

@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PublicKey;
 
+/**
+ * DAO interface for public key operations.
+ *
+ * @since 2001
+ */
+
 public interface PublicKeyDao extends AbstractDao<PublicKey> {
     List<PublicKey> findAll();
 }

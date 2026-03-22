@@ -40,11 +40,19 @@ import jakarta.persistence.Query;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ServiceClientDao} for service data access.
+ *
+ * @since 2001
+ */
+
 public class ServiceClientDaoImpl extends AbstractDaoImpl<ServiceClient> implements ServiceClientDao {
 
     public ServiceClientDaoImpl() {
         super(ServiceClient.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @SuppressWarnings("unchecked")
@@ -53,6 +61,8 @@ public class ServiceClientDaoImpl extends AbstractDaoImpl<ServiceClient> impleme
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ServiceClient findByName(String name) {
         Query query = entityManager.createQuery("SELECT x FROM ServiceClient x WHERE x.name=?1");
@@ -60,12 +70,16 @@ public class ServiceClientDaoImpl extends AbstractDaoImpl<ServiceClient> impleme
         return this.getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ServiceClient findByKey(String key) {
         Query query = entityManager.createQuery("SELECT x FROM ServiceClient x WHERE x.key=?1");
         query.setParameter(1, key);
         return this.getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ServiceClient find(Integer id) {

@@ -41,11 +41,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MessageListDao} for messaging data access.
+ *
+ * @since 2001
+ */
+
 public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements MessageListDao {
 
     public MessageListDaoImpl() {
         super(MessageList.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MessageList> findByProviderNoAndMessageNo(String providerNo, Long messageNo) {
@@ -99,12 +107,16 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MessageList> findByMessage(Long messageNo) {
         Query query = createQuery("ml", "ml.message = ?1");
         query.setParameter(1, messageNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MessageList> findByProviderAndStatus(String providerNo, String status) {
@@ -114,12 +126,16 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MessageList> findUnreadByProvider(String providerNo) {
         Query query = createQuery("ml", "ml.providerNo = ?1 and ml.status ='new'");
         query.setParameter(1, providerNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int findUnreadByProviderAndAttachedCount(String providerNo) {
@@ -130,6 +146,8 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
         return getCountResult(query).intValue();
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MessageList> search(String providerNo, String status, int start, int max) {
@@ -161,6 +179,8 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer searchAndReturnTotal(String providerNo, String status) {
 
@@ -187,6 +207,8 @@ public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements 
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer messagesTotal(int type, String providerNo, Integer remoteLocation, String searchFilter) {

@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Validations;
 
+/**
+ * DAO interface for validation operations.
+ *
+ * @since 2001
+ */
+
 public interface ValidationsDao extends AbstractDao<Validations> {
 
     public List<Validations> findAll();

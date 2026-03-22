@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.Institution;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link InstitutionDao} for institution data access.
+ *
+ * @since 2001
+ */
+
 public class InstitutionDaoImpl extends AbstractDaoImpl<Institution> implements InstitutionDao {
 
     public InstitutionDaoImpl() {

@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.BillingCdmServiceCodes;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingCdmServiceCodesDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingCdmServiceCodesDaoImpl extends AbstractDaoImpl<BillingCdmServiceCodes> implements BillingCdmServiceCodesDao {
 
     public BillingCdmServiceCodesDaoImpl() {

@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MeasurementsDeletedDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementsDeletedDaoImpl extends AbstractDaoImpl<MeasurementsDeleted> implements MeasurementsDeletedDao {
 
     public MeasurementsDeletedDaoImpl() {
         super(MeasurementsDeleted.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementsDeleted> findDeletedAfterDatetime(Date dateTime) {

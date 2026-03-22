@@ -36,15 +36,50 @@ import java.util.List;
 import io.github.carlos_emr.carlos.model.DefaultIssue;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for managing default clinical issues used in case management.
+ *
+ * <p>Provides CRUD operations for {@link DefaultIssue} entities, which represent
+ * predefined clinical issue types that can be assigned to patient encounters.</p>
+ *
+ * @since 2005-01-01
+ * @see DefaultIssue
+ */
 public interface DefaultIssueDao extends AbstractDao<DefaultIssue> {
 
+    /**
+     * Finds a default issue by its unique identifier.
+     *
+     * @param id Integer the default issue ID
+     * @return DefaultIssue the matching issue, or null if not found
+     */
     public DefaultIssue findDefaultIssue(Integer id);
 
+    /**
+     * Returns the most recently created default issue.
+     *
+     * @return DefaultIssue the latest default issue
+     */
     public DefaultIssue getLastestDefaultIssue();
 
+    /**
+     * Retrieves all default issues.
+     *
+     * @return List of all DefaultIssue entities
+     */
     public List<DefaultIssue> findAll();
 
+    /**
+     * Persists a new or updated default issue.
+     *
+     * @param issue DefaultIssue the issue to save
+     */
     public void saveDefaultIssue(DefaultIssue issue);
 
+    /**
+     * Returns all default issue IDs as an array of strings.
+     *
+     * @return String[] array of all default issue ID values
+     */
     public String[] findAllDefaultIssueIds();
 }

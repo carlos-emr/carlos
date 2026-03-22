@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CountryCode;
 
+/**
+ * DAO interface for country code operations.
+ *
+ * @since 2001
+ */
+
 public interface CountryCodeDao extends AbstractDao<CountryCode> {
     List<CountryCode> findAll();
 

@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
 
+/**
+ * Generator for HL7 v2 ADT A04 (Register a Patient) messages, constructing
+ * the message from CARLOS EMR demographic data for hospital ADT integration.
+ *
+ * @since 2012-07-12
+ */
 public class HL7A04Generator {
 
     Logger logger = MiscUtils.getLogger();

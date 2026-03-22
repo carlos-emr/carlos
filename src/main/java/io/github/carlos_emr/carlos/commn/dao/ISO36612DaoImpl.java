@@ -45,6 +45,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ISO36612Dao} for ISO standard data access.
+ *
+ * @since 2001
+ */
+
 public class ISO36612DaoImpl extends AbstractDaoImpl<ISO36612> implements ISO36612Dao {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 

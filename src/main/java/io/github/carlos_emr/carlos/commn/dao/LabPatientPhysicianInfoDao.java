@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 
+/**
+ * DAO interface for laboratory operations.
+ *
+ * @since 2001
+ */
+
 public interface LabPatientPhysicianInfoDao extends AbstractDao<LabPatientPhysicianInfo> {
     List<Object[]> findRoutings(Integer demographicNo, String labType);
 

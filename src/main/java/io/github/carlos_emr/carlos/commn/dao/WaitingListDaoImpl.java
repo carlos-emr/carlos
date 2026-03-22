@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link WaitingListDao} for waiting list data access.
+ *
+ * @since 2001
+ */
+
 public class WaitingListDaoImpl extends AbstractDaoImpl<WaitingList> implements WaitingListDao {
 
     public WaitingListDaoImpl() {

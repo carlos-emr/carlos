@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Flowsheet;
 
+/**
+ * DAO interface for clinical flowsheet operations.
+ *
+ * @since 2001
+ */
+
 public interface FlowsheetDao extends AbstractDao<Flowsheet> {
     List<Flowsheet> findAll();
 

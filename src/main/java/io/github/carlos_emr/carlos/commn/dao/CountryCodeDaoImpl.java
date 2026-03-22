@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.CountryCode;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CountryCodeDao} for country code data access.
+ *
+ * @since 2001
+ */
+
 public class CountryCodeDaoImpl extends AbstractDaoImpl<CountryCode> implements CountryCodeDao {
 
     public CountryCodeDaoImpl() {

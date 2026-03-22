@@ -42,11 +42,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicPharmacyDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharmacy> implements DemographicPharmacyDao {
 
     public DemographicPharmacyDaoImpl() {
         super(DemographicPharmacy.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public DemographicPharmacy addPharmacyToDemographic(Integer pharmacyId, Integer demographicNo,
@@ -113,6 +121,8 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void unlinkPharmacy(Integer pharmacyId, Integer demographicNo) {
 
@@ -150,6 +160,8 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicPharmacy> findByDemographicId(Integer demographicNo) {
         String sql = "select x from DemographicPharmacy x where x.status=?1 and x.demographicNo=?2 order by x.preferredOrder";
@@ -162,6 +174,8 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicPharmacy> findAllByDemographicId(Integer demographicNo) {
         Query query = createQuery("dp", "dp.demographicNo = ?1 AND dp.status = '1'");
@@ -170,6 +184,8 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicPharmacy> findAllByPharmacyId(Integer pharmacyId) {
 
@@ -180,6 +196,8 @@ public class DemographicPharmacyDaoImpl extends AbstractDaoImpl<DemographicPharm
         return query.getResultList();
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Long getTotalDemographicsPreferedToPharmacyByPharmacyId(Integer pharmacyId) {

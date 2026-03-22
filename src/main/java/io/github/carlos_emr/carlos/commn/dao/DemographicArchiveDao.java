@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicArchiveDao extends AbstractDao<DemographicArchive> {
 
     public List<DemographicArchive> findByDemographicNo(Integer demographicNo);

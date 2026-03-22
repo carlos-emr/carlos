@@ -46,6 +46,12 @@ import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PatientLabRoutingDao} for patient data access.
+ *
+ * @since 2001
+ */
+
 public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting> implements PatientLabRoutingDao {
 
 
@@ -83,6 +89,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<PatientLabRouting> findDocByDemographic(Integer docNum) {
 
@@ -95,6 +103,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public PatientLabRouting findByLabNo(int labNo) {
         String query = "select x from " + this.modelClass.getName() + " x where x.labNo=?1";
@@ -104,6 +114,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<PatientLabRouting> findByLabNoAndLabType(int labNo, String labType) {
 
@@ -229,6 +241,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findMdsRoutings(Integer demoNo, String testName, String labType) {
         String sql = "SELECT x, m, p FROM MdsOBX x, MdsMSH m, PatientLabRouting p WHERE p.labType = ?1 AND p.demographicNo = ?2 AND x.observationIdentifier like ?3 AND x.id = m.id AND m.id = p.labNo ORDER BY m.dateTime";
@@ -241,6 +255,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findHl7InfoForRoutingsAndTests(Integer demoNo, String labType, String testName) {
         String sql = "SELECT p, m, pi, r, x, c FROM PatientLabRouting p, Hl7Msh m, Hl7Pid pi, Hl7Obr r, Hl7Obx x, Hl7Orc c WHERE p.labType = ?1 AND p.demographicNo = ?2 AND x.observationIdentifier like ?3 AND p.labNo = m.messageId AND pi.messageId = m.messageId AND r.pidId = pi.id AND c.pidId = pi.id AND r.id = x.id ORDER BY r.oberservationDateTime";
@@ -252,6 +268,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findRoutingsAndConsultDocsByRequestId(Integer reqId, String docType) {
         Query query = entityManager.createQuery("SELECT p, c FROM PatientLabRouting p, ConsultDocs c WHERE p.id = c.documentNo AND c.requestId = ?1 AND c.docType = ?2 AND c.deleted IS NULL");
@@ -261,6 +279,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findResultsByDemographicAndLabType(Integer demographicNo, String labType) {
         String sql = "SELECT p, msh, zrg FROM PatientLabRouting p, " + MdsMSH.class.getName() + " msh, " + MdsZRG.class.getName() + " zrg WHERE p.labNo = msh.id AND p.labNo = zrg.id AND p.labType = ?1 AND p.demographicNo = ?2";
@@ -270,6 +290,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findRoutingAndPhysicianInfoByTypeAndDemoNo(String labType, Integer demographicNo) {
         Query query = entityManager.createQuery("SELECT p, l FROM PatientLabRouting p, LabPatientPhysicianInfo l WHERE p.labType = ?1 AND p.labNo = l.id AND p.demographicNo = ?2");
@@ -277,6 +299,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         query.setParameter(2, demographicNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findRoutingsAndMdsMshByDemoNo(Integer demographicNo) {
@@ -286,6 +310,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<PatientLabRouting> findLabNosByDemographic(Integer demographicNo, String[] labTypes) {
 
@@ -304,6 +330,8 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findDemographicIdsSince(Date date) {
         String query = "select x.demographicNo from " + this.modelClass.getName() + " x where x.dateModified > ?1";

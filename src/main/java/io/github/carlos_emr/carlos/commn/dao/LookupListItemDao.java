@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 
+/**
+ * DAO interface for lookup list operations.
+ *
+ * @since 2001
+ */
+
 public interface LookupListItemDao extends AbstractDao<LookupListItem> {
 
     public List<LookupListItem> findActiveByLookupListId(int lookupListId);

@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 
+/**
+ * DAO interface for remittance advice operations.
+ *
+ * @since 2001
+ */
+
 public interface RaHeaderDao extends AbstractDao<RaHeader> {
     List<RaHeader> findCurrentByFilenamePaymentDate(String filename, String paymentDate);
 

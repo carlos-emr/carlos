@@ -33,5 +33,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingONErrorCodeDao extends AbstractDao<BillingONErrorCode> {
 }

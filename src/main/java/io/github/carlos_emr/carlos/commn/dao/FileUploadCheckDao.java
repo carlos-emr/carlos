@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FileUploadCheck;
 
+/**
+ * DAO interface for file upload operations.
+ *
+ * @since 2001
+ */
+
 public interface FileUploadCheckDao extends AbstractDao<FileUploadCheck> {
     List<FileUploadCheck> findByMd5Sum(String md5sum);
 }

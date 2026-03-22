@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.CVCMedication;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CVCMedicationDao} for Canadian Vaccine Catalogue (CVC) data access.
+ *
+ * @since 2001
+ */
+
 public class CVCMedicationDaoImpl extends AbstractDaoImpl<CVCMedication> implements CVCMedicationDao {
 
     public CVCMedicationDaoImpl() {
@@ -46,6 +52,8 @@ public class CVCMedicationDaoImpl extends AbstractDaoImpl<CVCMedication> impleme
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<CVCMedication> findByDIN(String din) {
         Query query = entityManager.createQuery("SELECT x FROM CVCMedication x WHERE x.din = :din");
@@ -55,6 +63,8 @@ public class CVCMedicationDaoImpl extends AbstractDaoImpl<CVCMedication> impleme
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public CVCMedication findBySNOMED(String conceptId) {
         Query query = entityManager.createQuery("SELECT x FROM CVCMedication x WHERE x.snomedCode = :code");
@@ -66,6 +76,8 @@ public class CVCMedicationDaoImpl extends AbstractDaoImpl<CVCMedication> impleme
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void removeAll() {

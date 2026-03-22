@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 
 import java.util.*;
 
+/**
+ * DAO interface for system operations.
+ *
+ * @since 2001
+ */
+
 public interface SystemPreferencesDao extends AbstractDao<SystemPreferences> {
 
     <T extends Enum<T>> SystemPreferences findPreferenceByName(Enum<T> name);

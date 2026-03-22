@@ -34,6 +34,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
 
+/**
+ * DAO interface for batch processing operations.
+ *
+ * @since 2001
+ */
+
 public interface BatchEligibilityDao extends AbstractDao<BatchEligibility> {
 
 }

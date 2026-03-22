@@ -40,11 +40,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MdsZRGDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsZRGDaoImpl extends AbstractDaoImpl<MdsZRG> implements MdsZRGDao {
 
     public MdsZRGDaoImpl() {
         super(MdsZRG.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findById(Integer id) {
@@ -55,6 +63,8 @@ public class MdsZRGDaoImpl extends AbstractDaoImpl<MdsZRG> implements MdsZRGDao 
         query.setParameter("id", id);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object> findReportGroupHeadingsById(Integer id, String reportGroupId) {

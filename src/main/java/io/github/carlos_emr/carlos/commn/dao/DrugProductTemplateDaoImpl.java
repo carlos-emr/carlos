@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.DrugProductTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DrugProductTemplateDao} for drug and prescription data access.
+ *
+ * @since 2001
+ */
+
 public class DrugProductTemplateDaoImpl extends AbstractDaoImpl<DrugProductTemplate> implements DrugProductTemplateDao {
 
     public DrugProductTemplateDaoImpl() {

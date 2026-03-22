@@ -47,11 +47,19 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingONRepoDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingONRepoDaoImpl extends AbstractDaoImpl<BillingONRepo> implements BillingONRepoDao {
 
     public BillingONRepoDaoImpl() {
         super(BillingONRepo.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void createBillingONItemEntry(BillingONItem bItem, Locale locale) {
@@ -83,6 +91,8 @@ public class BillingONRepoDaoImpl extends AbstractDaoImpl<BillingONRepo> impleme
                 + "|" + bItem.getServiceCount()
                 + "|" + bItem.getServiceCode());
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void createBillingONCHeader1Entry(BillingONCHeader1 bCh1, Locale locale) {

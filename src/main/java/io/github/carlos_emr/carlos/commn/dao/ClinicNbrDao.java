@@ -21,6 +21,12 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 
+/**
+ * DAO interface for clinic operations.
+ *
+ * @since 2001
+ */
+
 public interface ClinicNbrDao extends AbstractDao<ClinicNbr> {
 
     ArrayList<ClinicNbr> findAll();

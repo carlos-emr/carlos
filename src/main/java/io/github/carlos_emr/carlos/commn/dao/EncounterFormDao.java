@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 
+/**
+ * DAO interface for clinical encounter operations.
+ *
+ * @since 2001
+ */
+
 public interface EncounterFormDao extends AbstractDao<EncounterForm> {
 
     public List<EncounterForm> findAll();

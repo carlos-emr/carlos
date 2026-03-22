@@ -25,11 +25,19 @@ import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ClinicNbrDao} for clinic data access.
+ *
+ * @since 2001
+ */
+
 public class ClinicNbrDaoImpl extends AbstractDaoImpl<ClinicNbr> implements ClinicNbrDao {
 
     public ClinicNbrDaoImpl() {
         super(ClinicNbr.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ArrayList<ClinicNbr> findAll() {
@@ -39,6 +47,8 @@ public class ClinicNbrDaoImpl extends AbstractDaoImpl<ClinicNbr> implements Clin
         ArrayList<ClinicNbr> results = new ArrayList<ClinicNbr>(query.getResultList());
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer removeEntry(Integer id) {
@@ -51,6 +61,8 @@ public class ClinicNbrDaoImpl extends AbstractDaoImpl<ClinicNbr> implements Clin
             return 0;
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int addEntry(String nbrValue, String nbrString) {

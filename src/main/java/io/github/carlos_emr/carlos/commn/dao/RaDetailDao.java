@@ -38,6 +38,12 @@ import java.util.Locale;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 
+/**
+ * DAO interface for remittance advice operations.
+ *
+ * @since 2001
+ */
+
 public interface RaDetailDao extends AbstractDao<RaDetail> {
     List<RaDetail> findByBillingNo(Integer billingNo);
 

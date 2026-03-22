@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Episode;
 
+/**
+ * DAO interface for episode of care operations.
+ *
+ * @since 2001
+ */
+
 public interface EpisodeDao extends AbstractDao<Episode> {
     List<Episode> findAll(Integer demographicNo);
 

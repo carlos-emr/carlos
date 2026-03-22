@@ -87,6 +87,12 @@ import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 
 import java.util.List;
 
+/**
+ * DAO interface for service operations.
+ *
+ * @since 2001
+ */
+
 public interface ServiceRequestTokenDao extends AbstractDao<ServiceRequestToken> {
     List<ServiceRequestToken> findAll();
 

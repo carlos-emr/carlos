@@ -21,12 +21,30 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 
+/**
+ * DAO interface for healthcare provider operations.
+ *
+ * @since 2001
+ */
+
 public interface ProviderLabRoutingDao extends AbstractDao<ProviderLabRoutingModel> {
     public static final String UNCLAIMED_PROVIDER = "0";
+
+    /**
+     * LAB_TYPE for data access operations.
+     *
+     * @since 2001
+     */
 
     public enum LAB_TYPE {
         DOC, HL7
     }
+
+    /**
+     * STATUS for data access operations.
+     *
+     * @since 2001
+     */
 
     public enum STATUS {
         X, N, A, D

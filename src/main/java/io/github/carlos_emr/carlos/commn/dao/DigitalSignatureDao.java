@@ -32,5 +32,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 
+/**
+ * DAO interface for digital signature operations.
+ *
+ * @since 2001
+ */
+
 public interface DigitalSignatureDao extends AbstractDao<DigitalSignature> {
 }

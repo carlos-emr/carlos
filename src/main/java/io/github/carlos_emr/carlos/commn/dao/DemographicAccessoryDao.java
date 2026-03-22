@@ -34,6 +34,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicAccessory;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicAccessoryDao extends AbstractDao<DemographicAccessory> {
     long findCount(Integer demographicNo);
 }

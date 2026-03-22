@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FaxClientLogDao} for fax data access.
+ *
+ * @since 2001
+ */
+
 public class FaxClientLogDaoImpl extends AbstractDaoImpl<FaxClientLog> implements FaxClientLogDao {
 
     public FaxClientLogDaoImpl() {
         super(FaxClientLog.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public FaxClientLog findClientLogbyFaxId(int faxId) {
@@ -58,6 +66,8 @@ public class FaxClientLogDaoImpl extends AbstractDaoImpl<FaxClientLog> implement
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FaxClientLog> findClientLogbyFaxIds(List<Integer> faxIds) {
         if (faxIds == null || faxIds.size() == 0) {
@@ -71,6 +81,8 @@ public class FaxClientLogDaoImpl extends AbstractDaoImpl<FaxClientLog> implement
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FaxClientLog> findClientLogbyRequestId(int requestId) {
 

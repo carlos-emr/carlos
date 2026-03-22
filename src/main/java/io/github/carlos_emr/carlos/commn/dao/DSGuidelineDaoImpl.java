@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DSGuidelineDao} for decision support data access.
+ *
+ * @since 2001
+ */
+
 public class DSGuidelineDaoImpl extends AbstractDaoImpl<DSGuideline> implements DSGuidelineDao {
 
     public DSGuidelineDaoImpl() {
         super(DSGuideline.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public DSGuideline findByUUID(String uuid) {
@@ -60,6 +68,8 @@ public class DSGuidelineDaoImpl extends AbstractDaoImpl<DSGuideline> implements 
 
         return list.get(0);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DSGuideline> getDSGuidelinesByProvider(String providerNo) {

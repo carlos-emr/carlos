@@ -35,6 +35,12 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 
+/**
+ * DAO interface for case management operations.
+ *
+ * @since 2001
+ */
+
 public interface CaseManagementTmpSaveDao extends AbstractDao<CaseManagementTmpSave> {
     void remove(String providerNo, Integer demographicNo, Integer programId);
 

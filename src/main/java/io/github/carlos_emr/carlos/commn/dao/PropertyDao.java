@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Property;
 
+/**
+ * DAO interface for system property operations.
+ *
+ * @since 2001
+ */
+
 public interface PropertyDao extends AbstractDao<Property> {
     List<Property> findByName(String name);
 

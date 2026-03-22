@@ -37,6 +37,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingONItemDao extends AbstractDao<BillingONItem> {
     List<BillingONItem> getBillingItemByCh1Id(Integer ch1_id);
 

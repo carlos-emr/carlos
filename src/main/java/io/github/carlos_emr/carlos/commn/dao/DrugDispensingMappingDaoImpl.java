@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.DrugDispensingMapping;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DrugDispensingMappingDao} for drug and prescription data access.
+ *
+ * @since 2001
+ */
+
 public class DrugDispensingMappingDaoImpl extends AbstractDaoImpl<DrugDispensingMapping> implements DrugDispensingMappingDao {
 
     public DrugDispensingMappingDaoImpl() {

@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ConsultationRequestDao} for consultation and referral data access.
+ *
+ * @since 2001
+ */
+
 public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultationRequestDao {
 
     public ConsultationRequestDaoImpl() {

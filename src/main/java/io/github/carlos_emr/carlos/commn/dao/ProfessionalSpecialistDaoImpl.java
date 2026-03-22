@@ -42,11 +42,19 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProfessionalSpecialistDao} for professional contact data access.
+ *
+ * @since 2001
+ */
+
 public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalSpecialist> implements ProfessionalSpecialistDao {
 
     public ProfessionalSpecialistDaoImpl() {
         super(ProfessionalSpecialist.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProfessionalSpecialist> findAll() {
@@ -71,6 +79,8 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     /**
      * Retrieves a list of ProfessionalSpecialist entities by their full name.
@@ -90,10 +100,14 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProfessionalSpecialist> findByLastName(String lastName) {
         return findByFullName(lastName, "");
     }
+
+    /** {@inheritDoc} */
 
     @Override
     /**
@@ -113,6 +127,8 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         return null;
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     /**
@@ -138,6 +154,8 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ProfessionalSpecialist getByReferralNo(String referralNo) {
         List<ProfessionalSpecialist> cList = findByReferralNo(referralNo);
@@ -150,10 +168,14 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public boolean hasRemoteCapableProfessionalSpecialists() {
         return (findByEDataUrlNotNull().size() > 0);
     }
+    /** {@inheritDoc} */
+
     @Override
     public List<ProfessionalSpecialist> search(String keyword) {
         String[] temp = keyword.split("\\,\\p{Space}*");
@@ -172,6 +194,8 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         List<ProfessionalSpecialist> contacts = query.getResultList();
         return contacts;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     /**
@@ -221,6 +245,8 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         return cList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     /**
      * Retrieves a list of ProfessionalSpecialist entities by the specified service name.
@@ -235,6 +261,8 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
         return cList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     /**

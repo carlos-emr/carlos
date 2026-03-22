@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress;
 
 import java.util.List;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface Billing3rdPartyAddressDao extends AbstractDao<Billing3rdPartyAddress> {
     List<Billing3rdPartyAddress> findAll();
 

@@ -45,6 +45,13 @@ import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that manages patient eligibility within a demographic set.
+ * Allows marking individual patients as ineligible or deleting them from the set.
+ * Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class DemographicSetEligibility2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 
 import java.util.List;
 
+/**
+ * DAO interface for provider group operations.
+ *
+ * @since 2001
+ */
+
 public interface MyGroupDao extends AbstractDao<MyGroup> {
     List<MyGroup> findAll();
 

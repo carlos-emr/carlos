@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.TicklerComment;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link TicklerCommentDao} for tickler (task reminder) data access.
+ *
+ * @since 2001
+ */
+
 public class TicklerCommentDaoImpl extends AbstractDaoImpl<TicklerComment> implements TicklerCommentDao {
 
     public TicklerCommentDaoImpl() {

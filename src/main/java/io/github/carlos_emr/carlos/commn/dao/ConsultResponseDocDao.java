@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 
+/**
+ * DAO interface for consultation and referral operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsultResponseDocDao extends AbstractDao<ConsultResponseDoc> {
     ConsultResponseDoc findByResponseIdDocNoDocType(Integer responseId, Integer documentNo, String docType);
 

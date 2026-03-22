@@ -61,6 +61,12 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 @Transactional
+/**
+ * JPA implementation of {@link PopulationReportDao} for population reporting data access.
+ *
+ * @since 2001
+ */
+
 public class PopulationReportDaoImpl extends AbstractHibernateDao implements PopulationReportDao {
 
 
@@ -97,12 +103,16 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         return extractCount(results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
         Map<String, Object> params = new HashMap<>();
         params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
         return extractCount(HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, params));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int[] getUsages(int numYears) {
@@ -157,12 +167,16 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         return shelterUsages;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getMortalities(int numYears) {
         Map<String, Object> params = new HashMap<>();
         params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
         return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, params));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
@@ -174,6 +188,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_PREVALENCE, params));
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
         if (icd10Codes == null || icd10Codes.isEmpty()) {
@@ -183,6 +199,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         params.put("codes", icd10Codes);
         return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_INCIDENCE, params));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Map<Integer, Integer> getCaseManagementNoteCountGroupedByIssueGroup(int programId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate) {
@@ -240,6 +258,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Map<Integer, Integer> getCaseManagementNoteCountGroupedByIssueGroup(int programId, Provider provider, EncounterType encounterType, Date startDate, Date endDate) {
         Connection c = null;
@@ -283,6 +303,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
             SqlUtils.closeResources(c, ps, rs);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer getCaseManagementNoteTotalUniqueEncounterCountInIssueGroups(int programId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate) {
@@ -335,6 +357,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer getCaseManagementNoteTotalUniqueEncounterCountInIssueGroups(int programId, Provider provider, EncounterType encounterType, Date startDate, Date endDate) {
         Connection c = null;
@@ -373,6 +397,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
             SqlUtils.closeResources(c, ps, rs);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer getCaseManagementNoteTotalUniqueClientCountInIssueGroups(int programId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate) {
@@ -429,6 +455,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer getCaseManagementNoteTotalUniqueClientCountInIssueGroups(int programId, Provider provider, EncounterType encounterType, Date startDate, Date endDate) {
         Connection c = null;
@@ -483,6 +511,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
             SqlUtils.closeResources(c, ps, rs);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer getCaseManagementNoteCountByIssueGroup(int programId, Integer issueGroupId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate) {

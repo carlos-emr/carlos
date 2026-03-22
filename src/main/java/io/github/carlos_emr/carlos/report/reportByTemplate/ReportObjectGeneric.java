@@ -44,6 +44,13 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  *@apavel (Paul)
  */
 
+/**
+ * Generic implementation of {@link ReportObject} that holds report metadata
+ * including template ID, name, description, SQL query, and parameter/choice
+ * definitions loaded from the report template system.
+ *
+ * @since 2001-01-01
+ */
 public class ReportObjectGeneric implements ReportObject {
     private String templateId = "";
     private String title = "";

@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingOnItemPaymentDao extends AbstractDao<BillingOnItemPayment> {
     BillingOnItemPayment findByPaymentIdAndItemId(int paymentId, int itemId);
 

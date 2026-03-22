@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ScheduleHoliday;
 
+/**
+ * DAO interface for scheduling operations.
+ *
+ * @since 2001
+ */
+
 public interface ScheduleHolidayDao extends AbstractDao<ScheduleHoliday> {
     List<ScheduleHoliday> findAll();
 

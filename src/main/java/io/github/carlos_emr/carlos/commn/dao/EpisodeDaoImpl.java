@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.Episode;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EpisodeDao} for episode of care data access.
+ *
+ * @since 2001
+ */
+
 public class EpisodeDaoImpl extends AbstractDaoImpl<Episode> implements EpisodeDao {
 
     public EpisodeDaoImpl() {

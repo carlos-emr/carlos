@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.FrmLabReqPreSet;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FrmLabReqPreSetDao} for form data access.
+ *
+ * @since 2001
+ */
+
 public class FrmLabReqPreSetDaoImpl extends AbstractDaoImpl<FrmLabReqPreSet> implements FrmLabReqPreSetDao {
 
     public FrmLabReqPreSetDaoImpl() {
         super(FrmLabReqPreSet.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Properties fillPropertiesByLabType(String labType, Properties prop) {

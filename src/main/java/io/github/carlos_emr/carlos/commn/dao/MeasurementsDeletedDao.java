@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 
+/**
+ * DAO interface for clinical measurement operations.
+ *
+ * @since 2001
+ */
+
 public interface MeasurementsDeletedDao extends AbstractDao<MeasurementsDeleted> {
     List<MeasurementsDeleted> findDeletedAfterDatetime(Date dateTime);
 }

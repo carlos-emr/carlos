@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.FacilityMessage;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FacilityMessageDao} for facility data access.
+ *
+ * @since 2001
+ */
+
 public class FacilityMessageDaoImpl extends AbstractDaoImpl<FacilityMessage> implements FacilityMessageDao {
 
     public FacilityMessageDaoImpl() {
@@ -46,6 +52,8 @@ public class FacilityMessageDaoImpl extends AbstractDaoImpl<FacilityMessage> imp
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FacilityMessage> getMessages() {
         String sql = "select fm from FacilityMessage fm order by fm.expiryDate desc";
@@ -55,6 +63,8 @@ public class FacilityMessageDaoImpl extends AbstractDaoImpl<FacilityMessage> imp
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FacilityMessage> getMessagesByFacilityId(Integer facilityId) {
         String sql = "select fm from FacilityMessage fm where fm.facilityId=?1 order by fm.expiryDate desc";
@@ -65,6 +75,8 @@ public class FacilityMessageDaoImpl extends AbstractDaoImpl<FacilityMessage> imp
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FacilityMessage> getMessagesByFacilityIdOrNull(Integer facilityId) {
         String sql = "select fm from FacilityMessage fm where (fm.facilityId=?1 or fm.facilityId IS NULL or fm.facilityId=0) order by fm.expiryDate desc";
@@ -75,6 +87,8 @@ public class FacilityMessageDaoImpl extends AbstractDaoImpl<FacilityMessage> imp
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FacilityMessage> getMessagesByFacilityIdAndProgramId(Integer facilityId, Integer programId) {
         String sql = "select fm from FacilityMessage fm where fm.facilityId=?1 and fm.programId = ?2 order by fm.expiryDate desc";
@@ -86,6 +100,8 @@ public class FacilityMessageDaoImpl extends AbstractDaoImpl<FacilityMessage> imp
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FacilityMessage> getMessagesByFacilityIdOrNullAndProgramIdOrNull(Integer facilityId,
                                                                                  Integer programId) {

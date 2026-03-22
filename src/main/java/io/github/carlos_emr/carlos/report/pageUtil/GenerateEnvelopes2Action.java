@@ -75,6 +75,13 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that generates addressed envelopes for a list of patients
+ * using JasperReports. Merges demographic data (name, address) into an envelope
+ * template and streams the resulting PDF. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class GenerateEnvelopes2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

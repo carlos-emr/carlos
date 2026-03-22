@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.ReportAgeSex;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ReportAgeSexDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implements ReportAgeSexDao {
 
     public ReportAgeSexDaoImpl() {
         super(ReportAgeSex.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportAgeSex> findBeforeReportDate(Date reportDate) {
@@ -57,6 +65,8 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void deleteAllByDate(Date reportDate) {
         String sql = "delete from ReportAgeSex x where x.reportDate <= ?1";
@@ -66,6 +76,8 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
     }
 
     @NativeSql("reportagesex")
+    /** {@inheritDoc} */
+
     @Override
     public void populateAll(String yearOfBirth) {
         String copyQuery =
@@ -76,6 +88,8 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
         query.setParameter(1, yearOfBirth);
         query.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Long count_reportagesex_roster(String roster, String sex, String providerNo, int age, Date dateStarted, Date dateEnded) {
@@ -93,6 +107,8 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Long count_reportagesex_noroster(String roster, String sex, String providerNo, int minAge, int maxAge, Date dateStarted, Date dateEnded) {
         String sql = "select count(x)  from ReportAgeSex x  where (x.status<>'OP' and x.status<>'IN' and x.status<>'DE') " +
@@ -109,6 +125,8 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
         Long results = (Long) query.getSingleResult();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Long count_reportagesex(String roster, String sex, String providerNo, int minAge, int maxAge, Date startDate, Date endDate) {

@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.consultations.ConsultationQuery;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 
+/**
+ * DAO interface for consultation and referral operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsultRequestDao extends AbstractDao<ConsultationRequest> {
 
     public int getConsultationCount(PaginationQuery paginationQuery);

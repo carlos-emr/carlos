@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderPreferenceDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderPreferenceDaoImpl extends AbstractDaoImpl<ProviderPreference> implements ProviderPreferenceDao {
 
     public ProviderPreferenceDaoImpl() {

@@ -40,10 +40,18 @@ import java.util.Date;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link FormeCARESDao} for medical form data access.
+ *
+ * @since 2001
+ */
+
 public class FormeCARESDaoImpl extends AbstractDaoImpl<FormeCARES> implements FormeCARESDao {
     protected FormeCARESDaoImpl() {
         super(FormeCARES.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<FormeCARES> findAllByFormCreatedDateDemographicNo(Date createDate, int demographicNo) {
@@ -58,6 +66,8 @@ public class FormeCARESDaoImpl extends AbstractDaoImpl<FormeCARES> implements Fo
         }
         return formeCARESList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<FormeCARES> findAllIncompleteByDemographicNumber(int demographicNo) {

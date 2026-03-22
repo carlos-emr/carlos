@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.IssueGroup;
 
+/**
+ * DAO interface for clinical issue operations.
+ *
+ * @since 2001
+ */
+
 public interface IssueGroupDao extends AbstractDao<IssueGroup> {
     List<IssueGroup> findAll();
 }

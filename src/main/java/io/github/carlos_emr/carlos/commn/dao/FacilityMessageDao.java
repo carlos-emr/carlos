@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FacilityMessage;
 
+/**
+ * DAO interface for facility operations.
+ *
+ * @since 2001
+ */
+
 public interface FacilityMessageDao extends AbstractDao<FacilityMessage> {
 
     public List<FacilityMessage> getMessages();

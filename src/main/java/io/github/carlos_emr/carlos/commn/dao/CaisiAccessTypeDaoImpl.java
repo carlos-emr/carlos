@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.CaisiAccessType;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CaisiAccessTypeDao} for CAISI community integration data access.
+ *
+ * @since 2001
+ */
+
 public class CaisiAccessTypeDaoImpl extends AbstractDaoImpl<CaisiAccessType> implements CaisiAccessTypeDao {
 
     public CaisiAccessTypeDaoImpl() {

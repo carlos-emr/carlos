@@ -50,6 +50,14 @@ import org.apache.struts2.ModelDriven;
 
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that executes demographic report queries based on form criteria
+ * (age, sex, provider, roster status, etc.) and returns results for display.
+ * Uses {@link ModelDriven} to bind to {@link RptDemographicReport2Form}.
+ * Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptDemographicReport2Action extends ActionSupport implements ModelDriven<RptDemographicReport2Form> {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

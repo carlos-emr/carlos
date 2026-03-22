@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.HashAudit;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link HashAuditDao} for hash audit data access.
+ *
+ * @since 2001
+ */
+
 public class HashAuditDaoImpl extends AbstractDaoImpl<HashAudit> implements HashAuditDao {
 
     public HashAuditDaoImpl() {

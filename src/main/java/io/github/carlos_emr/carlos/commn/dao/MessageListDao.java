@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MessageList;
 
+/**
+ * DAO interface for messaging operations.
+ *
+ * @since 2001
+ */
+
 public interface MessageListDao extends AbstractDao<MessageList> {
 
     public List<MessageList> findByProviderNoAndMessageNo(String providerNo, Long messageNo);

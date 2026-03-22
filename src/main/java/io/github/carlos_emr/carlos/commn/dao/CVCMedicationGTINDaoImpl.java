@@ -39,17 +39,27 @@ import io.github.carlos_emr.carlos.commn.model.CVCMedicationGTIN;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CVCMedicationGTINDao} for Canadian Vaccine Catalogue (CVC) data access.
+ *
+ * @since 2001
+ */
+
 public class CVCMedicationGTINDaoImpl extends AbstractDaoImpl<CVCMedicationGTIN> implements CVCMedicationGTINDao {
 
     public CVCMedicationGTINDaoImpl() {
         super(CVCMedicationGTIN.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void removeAll() {
         Query query = entityManager.createQuery("DELETE FROM CVCMedicationGTIN");
         query.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CVCMedicationGTIN> query(String term) {

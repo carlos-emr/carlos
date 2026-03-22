@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServiceAgeRules;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlBillingServiceAgeRulesDao extends AbstractDao<CtlBillingServiceAgeRules> {
     List<CtlBillingServiceAgeRules> findByServiceCode(String serviceCode);
 }

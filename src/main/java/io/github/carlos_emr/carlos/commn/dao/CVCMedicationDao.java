@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CVCMedication;
 
+/**
+ * DAO interface for Canadian Vaccine Catalogue (CVC) operations.
+ *
+ * @since 2001
+ */
+
 public interface CVCMedicationDao extends AbstractDao<CVCMedication> {
 
     public List<CVCMedication> findByDIN(String din);

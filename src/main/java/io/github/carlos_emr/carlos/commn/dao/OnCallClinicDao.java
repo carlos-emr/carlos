@@ -35,6 +35,12 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.OnCallClinic;
 
+/**
+ * DAO interface for on-call operations.
+ *
+ * @since 2001
+ */
+
 public interface OnCallClinicDao extends AbstractDao<OnCallClinic> {
     OnCallClinic findByDate(Date date);
 }

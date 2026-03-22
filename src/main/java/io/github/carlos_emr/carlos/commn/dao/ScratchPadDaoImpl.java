@@ -38,11 +38,19 @@ import jakarta.persistence.Query;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link ScratchPadDao} for scratch pad data access.
+ *
+ * @since 2001
+ */
+
 public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements ScratchPadDao {
 
     public ScratchPadDaoImpl() {
         super(ScratchPad.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean isScratchFilled(String providerNo) {
@@ -58,6 +66,8 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
         return false;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ScratchPad findByProviderNo(String providerNo) {
         Query query = createQuery("sp", "sp.providerNo = :providerNo AND sp.status=true order by sp.id DESC");
@@ -65,6 +75,8 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
         query.setParameter("providerNo", providerNo);
         return getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScratchPad> findAllDatesByProviderNo(String providerNo) {

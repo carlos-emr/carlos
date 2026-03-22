@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.commn.model.Ichppccode;
 
+/**
+ * DAO interface for ICHPPC classification code operations.
+ *
+ * @since 2001
+ */
+
 public interface IchppccodeDao extends AbstractDao<Ichppccode> {
     List<Ichppccode> findAll();
 

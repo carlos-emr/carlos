@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.PageMonitor;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PageMonitorDao} for page monitoring data access.
+ *
+ * @since 2001
+ */
+
 public class PageMonitorDaoImpl extends AbstractDaoImpl<PageMonitor> implements PageMonitorDao {
 
     public PageMonitorDaoImpl() {
         super(PageMonitor.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PageMonitor> findByPage(String pageName, String pageId) {
@@ -56,6 +64,8 @@ public class PageMonitorDaoImpl extends AbstractDaoImpl<PageMonitor> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<PageMonitor> findByPageName(String pageName) {
         Query query = entityManager.createQuery("SELECT e FROM PageMonitor e WHERE e.pageName=?1 order by e.updateDate desc");
@@ -64,6 +74,8 @@ public class PageMonitorDaoImpl extends AbstractDaoImpl<PageMonitor> implements 
         List<PageMonitor> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void updatePage(String pageName, String pageId) {
@@ -83,6 +95,8 @@ public class PageMonitorDaoImpl extends AbstractDaoImpl<PageMonitor> implements 
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void removePageNameKeepPageIdForProvider(String pageName, String excludePageId, String providerNo) {
         Query query = entityManager.createQuery("SELECT e FROM PageMonitor e WHERE e.pageName=?1 and e.pageId!=?2 and e.providerNo=?3");
@@ -95,6 +109,8 @@ public class PageMonitorDaoImpl extends AbstractDaoImpl<PageMonitor> implements 
             this.remove(result.getId());
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void cancelPageIdForProvider(String pageName, String cancelPageId, String providerNo) {

@@ -70,6 +70,13 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that generates personalized patient letters using JasperReports.
+ * Merges patient demographic data with a selected letter template and streams the
+ * resulting PDF. Logs letter generation for audit. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class GeneratePatientLetters2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

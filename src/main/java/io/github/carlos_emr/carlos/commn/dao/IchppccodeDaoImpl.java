@@ -39,17 +39,27 @@ import io.github.carlos_emr.carlos.commn.model.Ichppccode;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link IchppccodeDao} for ICHPPC classification code data access.
+ *
+ * @since 2001
+ */
+
 public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements IchppccodeDao {
 
     public IchppccodeDaoImpl() {
         super(Ichppccode.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Ichppccode> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Ichppccode> getIchppccodeCode(String term) {
@@ -61,6 +71,8 @@ public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements Ic
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Ichppccode> getIchppccode(String query) {
@@ -74,10 +86,14 @@ public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements Ic
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Ichppccode> searchCode(String term) {
         return getIchppccode(term);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Ichppccode findByCode(String code) {
@@ -87,6 +103,8 @@ public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements Ic
         return results.get(0);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem) {
         Query query = entityManager.createQuery("FROM Ichppccode i WHERE i.id like ?1");
@@ -95,6 +113,8 @@ public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements Ic
 
         return find(codingSystem);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Ichppccode> search_research_code(String code, String code1, String code2, String desc, String desc1, String desc2) {

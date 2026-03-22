@@ -55,6 +55,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
+/**
+ * Struts 2 action that handles uploading new report template XML files.
+ * Requires {@code _admin} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class UploadTemplates2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

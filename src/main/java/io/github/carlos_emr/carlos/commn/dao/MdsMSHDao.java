@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MdsMSH;
 
+/**
+ * DAO interface for MDS HL7 segment operations.
+ *
+ * @since 2001
+ */
+
 public interface MdsMSHDao extends AbstractDao<MdsMSH> {
     List<Object[]> findLabsByAccessionNumAndId(Integer id, String controlId);
 

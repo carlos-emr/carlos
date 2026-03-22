@@ -49,6 +49,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * Struts 2 action that initializes the Patients in Abnormal Range CDM report.
+ * Loads measurement groups, types, guideline data, and patient lists for the
+ * report configuration page. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

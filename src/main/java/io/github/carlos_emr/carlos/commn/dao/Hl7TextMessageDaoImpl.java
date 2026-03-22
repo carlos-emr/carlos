@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link Hl7TextMessageDao} for HL7 message data access.
+ *
+ * @since 2001
+ */
+
 public class Hl7TextMessageDaoImpl extends AbstractDaoImpl<Hl7TextMessage> implements Hl7TextMessageDao {
 
     public Hl7TextMessageDaoImpl() {
         super(Hl7TextMessage.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hl7TextMessage> findByFileUploadCheckId(int id) {
@@ -57,6 +65,8 @@ public class Hl7TextMessageDaoImpl extends AbstractDaoImpl<Hl7TextMessage> imple
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hl7TextMessage> findByIds(List<Integer> ids) {
@@ -70,6 +80,8 @@ public class Hl7TextMessageDaoImpl extends AbstractDaoImpl<Hl7TextMessage> imple
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate) {
         String query = "select m.id from Hl7TextMessage m, PatientLabRouting p WHERE m.id = p.labNo and p.labType='HL7' and p.demographicNo = ?1 and (m.created > ?2 or p.dateModified > ?3) ";
@@ -83,6 +95,8 @@ public class Hl7TextMessageDaoImpl extends AbstractDaoImpl<Hl7TextMessage> imple
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hl7TextMessage> findByDemographicNo(Integer demographicNo, int offset, int limit) {

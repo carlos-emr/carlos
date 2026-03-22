@@ -40,11 +40,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @Transactional
+/**
+ * JPA implementation of {@link SecRoleDao} for security data access.
+ *
+ * @since 2001
+ */
+
 public class SecRoleDaoImpl extends AbstractDaoImpl<SecRole> implements SecRoleDao {
 
     public SecRoleDaoImpl() {
         super(SecRole.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SecRole> findAll() {
@@ -61,6 +69,8 @@ public class SecRoleDaoImpl extends AbstractDaoImpl<SecRole> implements SecRoleD
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findAllNames() {
         StringBuilder sb = new StringBuilder();
@@ -76,6 +86,8 @@ public class SecRoleDaoImpl extends AbstractDaoImpl<SecRole> implements SecRoleD
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public SecRole findByName(String name) {
         Query q = entityManager.createQuery("select x from SecRole x where x.name=?1");
@@ -84,6 +96,8 @@ public class SecRoleDaoImpl extends AbstractDaoImpl<SecRole> implements SecRoleD
 
         return this.getSingleResultOrNull(q);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SecRole> findAllOrderByRole() {

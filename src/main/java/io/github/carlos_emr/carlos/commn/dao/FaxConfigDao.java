@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 
+/**
+ * DAO interface for fax operations.
+ *
+ * @since 2001
+ */
+
 public interface FaxConfigDao extends AbstractDao<FaxConfig> {
     FaxConfig getConfigByNumber(String number);
 

@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 
+/**
+ * DAO interface for HL7 message operations.
+ *
+ * @since 2001
+ */
+
 public interface Hl7TextMessageDao extends AbstractDao<Hl7TextMessage> {
 
     public List<Hl7TextMessage> findByFileUploadCheckId(int id);

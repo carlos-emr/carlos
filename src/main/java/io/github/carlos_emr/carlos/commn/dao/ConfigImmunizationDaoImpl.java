@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.ConfigImmunization;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ConfigImmunizationDao} for configuration data access.
+ *
+ * @since 2001
+ */
+
 public class ConfigImmunizationDaoImpl extends AbstractDaoImpl<ConfigImmunization> implements ConfigImmunizationDao {
 
     public ConfigImmunizationDaoImpl() {

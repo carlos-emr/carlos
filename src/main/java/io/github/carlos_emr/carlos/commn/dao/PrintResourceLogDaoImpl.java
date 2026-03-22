@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.PrintResourceLog;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PrintResourceLogDao} for print resource data access.
+ *
+ * @since 2001
+ */
+
 public class PrintResourceLogDaoImpl extends AbstractDaoImpl<PrintResourceLog> implements PrintResourceLogDao {
 
     public PrintResourceLogDaoImpl() {
         super(PrintResourceLog.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PrintResourceLog> findByResource(String resourceName, String resourceId) {

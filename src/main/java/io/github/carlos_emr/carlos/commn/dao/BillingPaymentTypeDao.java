@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingPaymentTypeDao extends AbstractDao<BillingPaymentType> {
     List<BillingPaymentType> findAll();
 

@@ -42,11 +42,19 @@ import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * JPA implementation of {@link DrugDao} for drug and prescription data access.
+ *
+ * @since 2001
+ */
+
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
     public DrugDaoImpl() {
         super(Drug.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean addNewDrug(Drug d) {
@@ -58,6 +66,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         }
         return true;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Drug> findByPrescriptionId(Integer prescriptionId) {
@@ -73,10 +83,14 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByDemographicId(Integer demographicId) {
         return findByDemographicId(demographicId, null);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Drug> findByDemographicId(Integer demographicId, Boolean archived) {
@@ -94,6 +108,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         List<Drug> results = query.getResultList();
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Drug> findByScriptNo(Integer scriptNo, Boolean archived) {
@@ -163,6 +179,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByDemographicIdOrderByPosition(Integer demographicId, Boolean archived) {
         // build sql string
@@ -180,6 +198,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Drug> findByDemographicIdSimilarDrugOrderByDate(Integer demographicId, String regionalIdentifier,
@@ -204,12 +224,16 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByDemographicIdSimilarDrugOrderByDate(Integer demographicId, String regionalIdentifier,
                                                                 String customName, String brandName) {
         return findByDemographicIdSimilarDrugOrderByDate(demographicId, regionalIdentifier, customName, brandName,
                 null);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Drug> findByDemographicIdSimilarDrugOrderByDate(Integer demographicId, String regionalIdentifier,
@@ -245,6 +269,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     // /////
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> getUniquePrescriptions(String demographic_no) {
 
@@ -282,12 +308,16 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return rt;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> getPrescriptions(String demographic_no) {
         List<Drug> rs = findByDemographicIdOrderByDate(Integer.valueOf(demographic_no), null);
         return rs;
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Drug> getPrescriptions(String demographic_no, boolean all) {
@@ -296,6 +326,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         }
         return getUniquePrescriptions(demographic_no);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int getNumberOfDemographicsWithRxForProvider(String providerNo, Date startDate, Date endDate,
@@ -314,6 +346,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return bint.intValue();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date updatedAfterThisDate) {
         String sqlCommand = "select x from Drug x where x.demographicId=?1 and x.lastUpdateDate>?2";
@@ -329,6 +363,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByAtc(String atc) {
         Query query = entityManager.createQuery("select d from Drug d where d.atc LIKE :atc");
@@ -337,6 +373,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByAtc(List<String> atc) {
         Query query = entityManager.createQuery("select d from Drug d where d.atc in (:atc)");
@@ -345,6 +383,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByDemographicIdAndAtc(int demographicNo, String atc) {
         Query query = createQuery("d",
@@ -355,6 +395,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByDemographicIdAndRegion(int demographicNo, String regionalIdentifier) {
         Query query = createQuery("d",
@@ -365,6 +407,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByDemographicIdAndDrugId(int demographicNo, Integer drugId) {
         Query query = createQuery("d",
@@ -406,6 +450,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int getMaxPosition(int demographicNo) {
         Query query = entityManager.createQuery(
@@ -416,6 +462,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
             return 0;
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Drug findByEverything(String providerNo, int demographicNo, Date rxDate, Date endDate, Date writtenDate,
@@ -486,6 +534,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Drug> findByRegionBrandDemographicAndProvider(String regionalIdentifier, String brandName,
                                                               int demographicNo, String providerNo) {
@@ -542,6 +592,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public Integer findLastNotArchivedId(String brandName, String genericName, int demographicNo) {
         Query query = entityManager.createQuery(
@@ -554,6 +606,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
             return 0;
         return result.get(0);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Drug findByDemographicIdRegionalIdentifierAndAtcCode(String atcCode, String regionalIdentifier,
@@ -568,12 +622,16 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findSpecialInstructions() {
         Query query = entityManager.createQuery(
                 "SELECT DISTINCT d.special_instruction from Drug d where d.special_instruction IS NOT NULL");
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> findDemographicIdsUpdatedAfterDate(Date updatedAfterThisDate) {
@@ -589,6 +647,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @NativeSql("drugs")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> findNewDrugsSinceDemoKey(String keyName) {
 
@@ -597,6 +657,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         query.setParameter(1, keyName);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Drug> findLongTermDrugsByDemographic(Integer demographicId) {

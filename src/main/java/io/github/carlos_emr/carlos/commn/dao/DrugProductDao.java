@@ -37,6 +37,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.DrugProduct;
 import io.github.carlos_emr.carlos.prescription.dispensary.LotBean;
 
+/**
+ * DAO interface for drug and prescription operations.
+ *
+ * @since 2001
+ */
+
 public interface DrugProductDao extends AbstractDao<DrugProduct> {
 
     public List<DrugProduct> findAvailable();

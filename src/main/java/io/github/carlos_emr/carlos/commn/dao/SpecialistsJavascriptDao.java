@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript;
 
+/**
+ * DAO interface for specialist operations.
+ *
+ * @since 2001
+ */
+
 public interface SpecialistsJavascriptDao extends AbstractDao<SpecialistsJavascript> {
     List<SpecialistsJavascript> findBySetId(String setId);
 }

@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.Flowsheet;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FlowsheetDao} for clinical flowsheet data access.
+ *
+ * @since 2001
+ */
+
 public class FlowsheetDaoImpl extends AbstractDaoImpl<Flowsheet> implements FlowsheetDao {
 
     public FlowsheetDaoImpl() {
         super(Flowsheet.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Flowsheet> findAll() {
@@ -55,6 +63,8 @@ public class FlowsheetDaoImpl extends AbstractDaoImpl<Flowsheet> implements Flow
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Flowsheet findByName(String name) {

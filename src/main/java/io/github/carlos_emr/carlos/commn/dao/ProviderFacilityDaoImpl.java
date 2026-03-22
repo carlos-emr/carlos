@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderFacilityDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderFacilityDaoImpl extends AbstractDaoImpl<ProviderFacility> implements ProviderFacilityDao {
 
     public ProviderFacilityDaoImpl() {
         super(ProviderFacility.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderFacility> findByProviderNoAndFacilityId(String providerNo, int facilityId) {

@@ -40,11 +40,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ScheduleDateDao} for scheduling data access.
+ *
+ * @since 2001
+ */
+
 public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implements ScheduleDateDao {
 
     public ScheduleDateDaoImpl() {
         super(ScheduleDate.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ScheduleDate findByProviderNoAndDate(String providerNo, Date date) {
@@ -55,6 +63,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
 
         return (getSingleResultOrNull(query));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScheduleDate> findByProviderPriorityAndDateRange(String providerNo, char priority, Date date, Date date2) {
@@ -69,6 +79,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ScheduleDate> findByProviderAndDateRange(String providerNo, Date date, Date date2) {
         Query query = entityManager.createQuery("select s from ScheduleDate s where s.providerNo=?1 and s.date>=?2 and s.date <=?3");
@@ -81,6 +93,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ScheduleDate> search_scheduledate_c(String providerNo) {
         Query query = entityManager.createQuery("select s from ScheduleDate s where s.priority='c' and s.status = 'A' and s.providerNo=?1");
@@ -90,6 +104,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         List<ScheduleDate> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScheduleDate> search_numgrpscheduledate(String myGroupNo, Date sDate) {
@@ -103,6 +119,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> search_appttimecode(Date sDate, String providerNo) {
         Query query = entityManager.createQuery("SELECT st, sd FROM ScheduleTemplate st, ScheduleDate sd WHERE st.id.name=sd.hour and sd.date=?1 and sd.providerNo=?2 and sd.status='A' and (st.id.providerNo = sd.providerNo or st.id.providerNo='Public')");
@@ -114,6 +132,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         List<Object[]> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScheduleDate> search_scheduledate_teamp(Date date, Date date2, Character status, List<String> providerNos) {
@@ -128,6 +148,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ScheduleDate> search_scheduledate_datep(Date date, Date date2, Character status) {
         Query query = entityManager.createQuery("select s from ScheduleDate s where s.date>=?1 and s.date <=?2 and s.status=?3  order by s.date");
@@ -139,6 +161,8 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
         List<ScheduleDate> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScheduleDate> findByProviderStartDateAndPriority(String providerNo, Date apptDate, String priority) {

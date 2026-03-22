@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DocumentExtraReviewerDao} for document management data access.
+ *
+ * @since 2001
+ */
+
 public class DocumentExtraReviewerDaoImpl extends AbstractDaoImpl<DocumentExtraReviewer> implements DocumentExtraReviewerDao {
 
     public DocumentExtraReviewerDaoImpl() {
         super(DocumentExtraReviewer.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DocumentExtraReviewer> findByDocumentNo(Integer documentNo) {

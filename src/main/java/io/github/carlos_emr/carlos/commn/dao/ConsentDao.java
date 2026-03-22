@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
 
+/**
+ * DAO interface for patient consent operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsentDao extends AbstractDao<Consent> {
 
     public Consent findByDemographicAndConsentTypeId(int demographic_no, int consentTypeId);

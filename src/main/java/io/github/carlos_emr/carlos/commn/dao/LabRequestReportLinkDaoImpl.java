@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.LabRequestReportLink;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link LabRequestReportLinkDao} for laboratory data access.
+ *
+ * @since 2001
+ */
+
 public class LabRequestReportLinkDaoImpl extends AbstractDaoImpl<LabRequestReportLink> implements LabRequestReportLinkDao {
 
     public LabRequestReportLinkDaoImpl() {

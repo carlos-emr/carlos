@@ -39,11 +39,19 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 @Repository
+/**
+ * JPA implementation of {@link RelationshipsDao} for relationship data access.
+ *
+ * @since 2001
+ */
+
 public class RelationshipsDaoImpl extends AbstractDaoImpl<Relationships> implements RelationshipsDao {
 
     public RelationshipsDaoImpl() {
         super(Relationships.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Relationships findActive(Integer id) {
@@ -52,12 +60,16 @@ public class RelationshipsDaoImpl extends AbstractDaoImpl<Relationships> impleme
         return getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Relationships> findByDemographicNumber(Integer demographicNumber) {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " r WHERE r.demographicNo = ?1 AND (r.deleted IS NULL OR r.deleted = false)");
         query.setParameter(1, demographicNumber);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Relationships> findActiveSubDecisionMaker(Integer demographicNumber) {
@@ -66,6 +78,8 @@ public class RelationshipsDaoImpl extends AbstractDaoImpl<Relationships> impleme
         query.setParameter(2, ConversionUtils.toBoolString(Boolean.TRUE));
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Relationships> findActiveByDemographicNumberAndFacility(Integer demographicNumber, Integer facilityId) {

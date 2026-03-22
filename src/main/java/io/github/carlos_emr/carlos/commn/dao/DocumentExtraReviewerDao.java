@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer;
 
+/**
+ * DAO interface for document management operations.
+ *
+ * @since 2001
+ */
+
 public interface DocumentExtraReviewerDao extends AbstractDao<DocumentExtraReviewer> {
     List<DocumentExtraReviewer> findByDocumentNo(Integer documentNo);
 }

@@ -34,5 +34,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 
+/**
+ * DAO interface for recycle bin operations.
+ *
+ * @since 2001
+ */
+
 public interface RecycleBinDao extends AbstractDao<RecycleBin> {
 }

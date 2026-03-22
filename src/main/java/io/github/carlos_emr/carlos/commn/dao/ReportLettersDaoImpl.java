@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.ReportLetters;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ReportLettersDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportLettersDaoImpl extends AbstractDaoImpl<ReportLetters> implements ReportLettersDao {
 
     public ReportLettersDaoImpl() {
         super(ReportLetters.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportLetters> findCurrent() {

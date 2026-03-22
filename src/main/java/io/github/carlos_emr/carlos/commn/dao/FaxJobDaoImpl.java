@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FaxJobDao} for fax data access.
+ *
+ * @since 2001
+ */
+
 public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao {
 
     public FaxJobDaoImpl() {
@@ -48,6 +54,8 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FaxJob> getFaxStatusByDateDemographicProviderStatusTeam(String demographic_no, String provider_no,
                                                                         String status, String team, Date beginDate, Date endDate) {
@@ -122,6 +130,8 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FaxJob> getReadyToSendFaxes(String number) {
         Query query = entityManager.createQuery(
@@ -136,6 +146,8 @@ public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<FaxJob> getInprogressFaxesByJobId() {
         Query query = entityManager.createQuery(

@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SpecialistsJavascriptDao} for specialist data access.
+ *
+ * @since 2001
+ */
+
 public class SpecialistsJavascriptDaoImpl extends AbstractDaoImpl<SpecialistsJavascript> implements SpecialistsJavascriptDao {
 
     public SpecialistsJavascriptDaoImpl() {
         super(SpecialistsJavascript.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SpecialistsJavascript> findBySetId(String setId) {

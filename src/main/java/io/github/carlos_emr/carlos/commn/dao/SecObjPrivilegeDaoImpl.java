@@ -40,11 +40,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link SecObjPrivilegeDao} for security data access.
+ *
+ * @since 2001
+ */
+
 public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> implements SecObjPrivilegeDao {
 
     public SecObjPrivilegeDaoImpl() {
         super(SecObjPrivilege.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SecObjPrivilege> findByRoleUserGroupAndObjectName(String roleUserGroup, String objectName) {
@@ -60,6 +68,8 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<SecObjPrivilege> findByObjectNames(Collection<String> objectNames) {
         String sql = "select s FROM SecObjPrivilege s WHERE s.id.objectName IN (?1) order by s.priority desc";
@@ -73,6 +83,8 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<SecObjPrivilege> findByRoleUserGroup(String roleUserGroup) {
         String sql = "select s FROM SecObjPrivilege s WHERE s.id.roleUserGroup like ?1 order by s.id.roleUserGroup, s.id.objectName";
@@ -84,6 +96,8 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SecObjPrivilege> findByObjectName(String objectName) {
@@ -97,6 +111,8 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int countObjectsByName(String objName) {
         String sql = "SELECT COUNT(*) FROM SecObjPrivilege p WHERE p.id.objectName = ?1";
@@ -108,6 +124,8 @@ public class SecObjPrivilegeDaoImpl extends AbstractDaoImpl<SecObjPrivilege> imp
         }
         return (((Long) resultList.get(0))).intValue();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findByFormNamePrivilegeAndProviderNo(String formName, String privilege, String providerNo) {

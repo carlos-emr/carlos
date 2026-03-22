@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.FileUploadCheck;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FileUploadCheckDao} for file upload data access.
+ *
+ * @since 2001
+ */
+
 public class FileUploadCheckDaoImpl extends AbstractDaoImpl<FileUploadCheck> implements FileUploadCheckDao {
 
     public FileUploadCheckDaoImpl() {

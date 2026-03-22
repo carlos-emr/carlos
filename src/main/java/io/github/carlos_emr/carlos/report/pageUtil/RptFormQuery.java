@@ -43,6 +43,12 @@ import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 /**
  * @author yilee18
  */
+/**
+ * Utility class for building and executing form-based report queries. Constructs
+ * SQL from report configuration data, applies filters, and returns results.
+ *
+ * @since 2001-01-01
+ */
 public class RptFormQuery {
 
     static String CHECK_BOX = "filter_";

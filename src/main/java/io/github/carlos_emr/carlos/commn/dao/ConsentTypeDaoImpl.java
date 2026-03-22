@@ -40,11 +40,19 @@ import java.util.List;
 import java.util.Collections;
 
 @Repository
+/**
+ * JPA implementation of {@link ConsentTypeDao} for patient consent data access.
+ *
+ * @since 2001
+ */
+
 public class ConsentTypeDaoImpl extends AbstractDaoImpl<ConsentType> implements ConsentTypeDao {
 
     protected ConsentTypeDaoImpl() {
         super(ConsentType.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ConsentType findConsentType(String type) {
@@ -57,6 +65,8 @@ public class ConsentTypeDaoImpl extends AbstractDaoImpl<ConsentType> implements 
         return consentType;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ConsentType findConsentTypeForProvider(String type, String providerNo) {
         String sql = "select x from " + modelClass.getSimpleName()
@@ -68,6 +78,8 @@ public class ConsentTypeDaoImpl extends AbstractDaoImpl<ConsentType> implements 
 
         return consentType;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ConsentType> findAllActive() {

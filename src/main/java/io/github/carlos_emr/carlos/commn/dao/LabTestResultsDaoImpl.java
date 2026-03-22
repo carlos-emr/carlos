@@ -41,11 +41,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link LabTestResultsDao} for laboratory data access.
+ *
+ * @since 2001
+ */
+
 public class LabTestResultsDaoImpl extends AbstractDaoImpl<LabTestResults> implements LabTestResultsDao {
 
     public LabTestResultsDaoImpl() {
         super(LabTestResults.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<LabTestResults> findByTitleAndLabInfoId(Integer labId) {
@@ -54,12 +62,16 @@ public class LabTestResultsDaoImpl extends AbstractDaoImpl<LabTestResults> imple
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<LabTestResults> findByLabInfoId(Integer labId) {
         Query query = createQuery("r", "r.labPatientPhysicianInfoId = :labId");
         query.setParameter("labId", labId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<LabTestResults> findByAbnAndLabInfoId(String abn, Integer labId) {
@@ -97,6 +109,8 @@ public class LabTestResultsDaoImpl extends AbstractDaoImpl<LabTestResults> imple
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<LabTestResults> findByAbnAndPhysicianId(String abn, Integer lppii) {
         Query q = createQuery("ltr", "ltr.abn = :abn and ltr.labPatientPhysicianInfoId = :lppii");
@@ -104,6 +118,8 @@ public class LabTestResultsDaoImpl extends AbstractDaoImpl<LabTestResults> imple
         q.setParameter("lppii", lppii);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<LabTestResults> findByLabPatientPhysicialInfoId(Integer labid) {

@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 
+/**
+ * DAO interface for consultation and referral operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsultationServiceDao extends AbstractDao<ConsultationServices> {
     public String REFERRING_DOCTOR = "Referring Doctor";
     public String ACTIVE = "1";

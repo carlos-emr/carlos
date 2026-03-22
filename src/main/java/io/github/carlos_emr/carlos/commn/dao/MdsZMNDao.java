@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MdsZMN;
 
+/**
+ * DAO interface for MDS HL7 segment operations.
+ *
+ * @since 2001
+ */
+
 public interface MdsZMNDao extends AbstractDao<MdsZMN> {
     MdsZMN findBySegmentIdAndReportName(Integer id, String reportName);
 

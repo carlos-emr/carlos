@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link TicklerTextSuggestDao} for tickler (task reminder) data access.
+ *
+ * @since 2001
+ */
+
 public class TicklerTextSuggestDaoImpl extends AbstractDaoImpl<TicklerTextSuggest> implements TicklerTextSuggestDao {
 
     public TicklerTextSuggestDaoImpl() {
         super(TicklerTextSuggest.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<TicklerTextSuggest> getActiveTicklerTextSuggests() {
@@ -54,6 +62,8 @@ public class TicklerTextSuggestDaoImpl extends AbstractDaoImpl<TicklerTextSugges
         List<TicklerTextSuggest> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<TicklerTextSuggest> getInactiveTicklerTextSuggests() {

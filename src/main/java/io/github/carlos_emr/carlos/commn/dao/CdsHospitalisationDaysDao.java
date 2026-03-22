@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CdsHospitalisationDays;
 
+/**
+ * DAO interface for Clinical Decision Support (CDS) operations.
+ *
+ * @since 2001
+ */
+
 public interface CdsHospitalisationDaysDao extends AbstractDao<CdsHospitalisationDays> {
     List<CdsHospitalisationDays> findByClientId(Integer clientId);
 }

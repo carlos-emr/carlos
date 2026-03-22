@@ -39,6 +39,12 @@ import java.util.TreeSet;
 
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 
+/**
+ * DAO interface for electronic form operations.
+ *
+ * @since 2001
+ */
+
 public interface EFormDataDao extends AbstractDao<EFormData> {
 
     public static final String SORT_NAME = "form_name";

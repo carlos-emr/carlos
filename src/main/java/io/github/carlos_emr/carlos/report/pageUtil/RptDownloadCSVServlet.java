@@ -51,6 +51,12 @@ import io.github.carlos_emr.carlos.report.data.RptReportItem;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
+/**
+ * Servlet that streams a CSV file download of clinical report results stored
+ * in the user's session. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptDownloadCSVServlet extends HttpServlet {
 
     private static final Logger _logger = MiscUtils.getLogger();

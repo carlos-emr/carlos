@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.RSchedule;
 
+/**
+ * DAO interface for recurring schedule operations.
+ *
+ * @since 2001
+ */
+
 public interface RScheduleDao extends AbstractDao<RSchedule> {
     List<RSchedule> findByProviderAvailableAndDate(String providerNo, String available, Date sdate);
 

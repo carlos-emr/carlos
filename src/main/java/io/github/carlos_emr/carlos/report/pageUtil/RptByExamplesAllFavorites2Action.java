@@ -42,6 +42,12 @@ import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that loads all saved Report By Example queries across all
+ * providers for the administration view. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptByExamplesAllFavorites2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

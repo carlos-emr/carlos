@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Queue;
 
+/**
+ * DAO interface for queue operations.
+ *
+ * @since 2001
+ */
+
 public interface QueueDao extends AbstractDao<Queue> {
     HashMap getHashMapOfQueues();
 

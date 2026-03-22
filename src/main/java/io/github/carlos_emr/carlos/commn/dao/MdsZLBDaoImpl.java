@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.MdsZLB;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MdsZLBDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsZLBDaoImpl extends AbstractDaoImpl<MdsZLB> implements MdsZLBDao {
 
     public MdsZLBDaoImpl() {

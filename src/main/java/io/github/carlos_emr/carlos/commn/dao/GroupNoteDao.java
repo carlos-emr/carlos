@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 
+/**
+ * DAO interface for group operations.
+ *
+ * @since 2001
+ */
+
 public interface GroupNoteDao extends AbstractDao<GroupNoteLink> {
 
     public List<GroupNoteLink> findLinksByDemographic(Integer demographicNo);

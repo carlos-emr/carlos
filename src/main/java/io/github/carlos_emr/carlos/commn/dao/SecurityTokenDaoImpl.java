@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.SecurityToken;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SecurityTokenDao} for security data access.
+ *
+ * @since 2001
+ */
+
 public class SecurityTokenDaoImpl extends AbstractDaoImpl<SecurityToken> implements SecurityTokenDao {
 
     public SecurityTokenDaoImpl() {
         super(SecurityToken.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public SecurityToken getByTokenAndExpiry(String token, Date expiry) {

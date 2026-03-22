@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportTableFieldCaptionDao extends AbstractDao<ReportTableFieldCaption> {
     List<ReportTableFieldCaption> findByTableNameAndName(String tableName, String name);
 }

@@ -54,6 +54,12 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 @Repository
+/**
+ * JPA implementation of {@link Hl7TextInfoDao} for HL7 message data access.
+ *
+ * @since 2001
+ */
+
 public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements Hl7TextInfoDao {
 
     public Hl7TextInfoDaoImpl() {
@@ -62,6 +68,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
     @SuppressWarnings("unchecked")
     @Deprecated
+    /** {@inheritDoc} */
+
     @Override
     public List<Hl7TextInfo> findAll() {
         Query query = createQuery("x", null);
@@ -83,6 +91,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Hl7TextInfo> findByHealthCardNo(String hin) {
         String sql = "select hl7 from Hl7TextInfo hl7 where hl7.healthNumber = ?1";
@@ -91,6 +101,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         List<Hl7TextInfo> list = query.getResultList();
         return list;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hl7TextInfo> searchByAccessionNumber(String acc) {
@@ -105,6 +117,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hl7TextInfo> searchByAccessionNumber(String acc1, String acc2) {
@@ -121,6 +135,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Hl7TextInfo> searchByAccessionNumberOrderByObrDate(String accessionNumber) {
         String queryString = "SELECT h from Hl7TextInfo h where h.accessionNumber = ?1 ORDER BY h.obrDate DESC";
@@ -131,6 +147,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
     // Calgary labs are associated by Accession number usually. Glucose labs are not, but can be
     // found by filler number
+    /** {@inheritDoc} */
+
     @Override
     public Hl7TextInfo findLatestVersionByAccessionNumberOrFillerNumber(
             String acc, String fillerNumber) {
@@ -144,6 +162,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
         return (getSingleResultOrNull(query));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hl7TextMessageInfo> getMatchingLabs(String hl7msg) {
@@ -162,6 +182,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Hl7TextMessageInfo2> getMatchingLabsByAccessionNo(String accession) {
         if (accession != null) {
@@ -177,6 +199,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Hl7TextInfo> getAllLabsByLabNumberResultStatus() {
         String sql = "SELECT x FROM Hl7TextInfo x";
@@ -188,6 +212,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return labs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void updateResultStatusByLabId(String resultStatus, int labNumber) {
         Query query = entityManager.createQuery("update " + modelClass.getName() + " x set x.resultStatus = ?1 where x.labNumber = ?2");
@@ -195,6 +221,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         query.setParameter(2, labNumber);
         query.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void createUpdateLabelByLabNumber(String label, int lab_no) {
@@ -206,6 +234,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Hl7TextInfo> findByLabId(Integer labNo) {
         Query query = createQuery("h", "h.labNumber = ?1 ORDER BY h.obrDate DESC");
@@ -214,6 +244,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findByLabIdViaMagic(Integer labNo) {
         String sql = "SELECT a, b FROM Hl7TextInfo a, Hl7TextInfo b WHERE a.accessionNumber <> '' AND a.accessionNumber = b.accessionNumber AND b.labNumber = ?1 ORDER BY a.finalResultCount, a.obrDate, a.labNumber";
@@ -223,6 +255,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findByDemographicId(Integer demographicNo) {
         String sql =
@@ -242,6 +276,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Hl7TextInfo> findByLabIdList(List<Integer> labIds) {
 
@@ -258,6 +294,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         }
         return resultList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findLabsViaMagic(String status, String providerNo, String patientFirstName, String patientLastName, String patientHealthNumber) {
@@ -282,6 +320,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch) {
         return findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, null, null);
@@ -289,6 +329,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
     @SuppressWarnings("unchecked")
     @NativeSql({"hl7TextInfo", "providerLabRouting", "ctl_document", "demographic"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch, Date startDate, Date endDate) {
         String sql;
@@ -515,6 +557,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object> findDisciplines(Integer labid) {
         String sql = "SELECT DISTINCT i.discipline FROM " + modelClass.getName() + " i WHERE i.discipline <> '' AND i.labNumber = ?1";
@@ -523,6 +567,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return query.getResultList();
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Hl7TextInfo> findByFillerOrderNumber(String fillerOrderNum) {

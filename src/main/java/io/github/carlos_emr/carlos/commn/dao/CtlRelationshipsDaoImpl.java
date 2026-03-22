@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.CtlRelationships;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlRelationshipsDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlRelationshipsDaoImpl extends AbstractDaoImpl<CtlRelationships> implements CtlRelationshipsDao {
 
     public CtlRelationshipsDaoImpl() {

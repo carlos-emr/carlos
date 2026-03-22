@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicPharmacy;
 
+/**
+ * DAO interface for patient demographic operations.
+ *
+ * @since 2001
+ */
+
 public interface DemographicPharmacyDao extends AbstractDao<DemographicPharmacy> {
 
     public DemographicPharmacy addPharmacyToDemographic(Integer pharmacyId, Integer demographicNo,

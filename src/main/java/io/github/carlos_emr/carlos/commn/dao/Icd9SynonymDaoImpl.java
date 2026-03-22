@@ -43,11 +43,19 @@ import org.springframework.stereotype.Repository;
  * For: UBC Pharmacy Clinic and McMaster Department of Family Medicine
  */
 @Repository
+/**
+ * JPA implementation of {@link Icd9SynonymDao} for ICD diagnostic code data access.
+ *
+ * @since 2001
+ */
+
 public class Icd9SynonymDaoImpl extends AbstractDaoImpl<Icd9Synonym> implements Icd9SynonymDao {
 
     public Icd9SynonymDaoImpl() {
         super(Icd9Synonym.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Icd9Synonym findPatientFriendlyTranslationFor(String dxCode) {

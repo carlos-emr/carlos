@@ -35,6 +35,12 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
+/**
+ * DAO interface for document management operations.
+ *
+ * @since 2001
+ */
+
 public interface DocumentResultsMergedDemographicDao extends DocumentResultsDao {
     ArrayList<LabResultData> populateDocumentResultsDataOfAllProviders(String providerNo, String demographicNo, String status);
 

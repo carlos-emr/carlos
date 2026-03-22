@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Immunizations;
 
+/**
+ * DAO interface for immunization operations.
+ *
+ * @since 2001
+ */
+
 public interface ImmunizationsDao extends AbstractDao<Immunizations> {
     List<Immunizations> findCurrentByDemographicNo(Integer demographicNo);
 }

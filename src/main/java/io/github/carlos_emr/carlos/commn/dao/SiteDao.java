@@ -29,6 +29,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Site;
 
+/**
+ * DAO interface for site operations.
+ *
+ * @since 2001
+ */
+
 public interface SiteDao extends AbstractDao<Site> {
     void save(Site s);
 

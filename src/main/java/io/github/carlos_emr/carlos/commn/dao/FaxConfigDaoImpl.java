@@ -37,6 +37,12 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FaxConfigDao} for fax data access.
+ *
+ * @since 2001
+ */
+
 public class FaxConfigDaoImpl extends AbstractDaoImpl<FaxConfig> implements FaxConfigDao {
 
     public FaxConfigDaoImpl() {

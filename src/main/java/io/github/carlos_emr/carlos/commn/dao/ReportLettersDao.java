@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportLetters;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportLettersDao extends AbstractDao<ReportLetters> {
     List<ReportLetters> findCurrent();
 }

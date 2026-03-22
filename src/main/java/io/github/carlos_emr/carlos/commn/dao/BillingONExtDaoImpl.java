@@ -67,6 +67,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         super(BillingONExt.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONExt> find(String key, String value) {
         Query q = createQuery("q", "q.keyVal = ?1 AND q.value = ?2");
@@ -74,6 +76,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         q.setParameter(2, value);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONExt> findByBillingNoAndKey(Integer billingNo, String key) {
@@ -87,6 +91,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONExt> findByBillingNoAndPaymentIdAndKey(Integer billingNo, Integer paymentId, String key) {
         String sql = "select bExt from BillingONExt bExt where bExt.billingNo=?1 and bExt.paymentId=?2 and bExt.keyVal=?3 order by bExt.id DESC";
@@ -99,6 +105,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getPayMethodDesc(BillingONExt bExt) {
         BillingPaymentTypeDao payMethod = SpringUtils.getBean(BillingPaymentTypeDao.class);
@@ -106,6 +114,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         BillingPaymentType payMethodDesc = payMethod.find(payMethodId);
         return payMethodDesc.getPaymentType();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BigDecimal getPayment(BillingONPayment paymentRecord) {
@@ -138,6 +148,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return amtPaid;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public BigDecimal getRefund(BillingONPayment paymentRecord) {
         String sql = "select bExt from BillingONExt bExt where paymentId=?1 and billingNo=?2 and keyVal=?3";
@@ -168,6 +180,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return amtRefunded;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public BillingONExt getRemitTo(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
@@ -188,6 +202,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             bExt = results.get(0);
         return bExt;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BillingONExt getBillTo(BillingONCHeader1 bCh1) {
@@ -210,6 +226,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return bExt;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public BillingONExt getBillToInactive(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
@@ -230,6 +248,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             bExt = results.get(0);
         return bExt;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BillingONExt getDueDate(BillingONCHeader1 bCh1) {
@@ -254,6 +274,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return bExt;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public BillingONExt getUseBillTo(BillingONCHeader1 bCh1) {
         BillingONExt bExt = null;
@@ -277,6 +299,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return bExt;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONExt> find(Integer billingNo, String key, Date start, Date end) {
         Query q = createQuery("b",
@@ -287,6 +311,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         q.setParameter(4, end);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONExt> findByBillingNoAndPaymentNo(int billingNo, int paymentId) {
@@ -301,12 +327,16 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONExt> getClaimExtItems(int billingNo) {
         Query query = entityManager.createQuery("select ext from BillingONExt ext where ext.billingNo = ?1");
         query.setParameter(1, billingNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<BillingONExt> getBillingExtItems(String billingNo) {
@@ -320,6 +350,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<BillingONExt> getInactiveBillingExtItems(String billingNo) {
         Query query = entityManager
@@ -331,6 +363,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             return null;
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BigDecimal getAccountVal(int billingNo, String key) {
@@ -353,6 +387,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         }
         return val;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public BillingONExt getClaimExtItem(Integer billingNo, Integer demographicNo, String keyVal)
@@ -398,6 +434,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         return res;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void setExtItem(int billingNo, int demographicNo, String keyVal, String value, Date dateTime, char status)
             throws NonUniqueResultException {
@@ -418,6 +456,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
             this.persist(res);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean isNumberKey(String key) {

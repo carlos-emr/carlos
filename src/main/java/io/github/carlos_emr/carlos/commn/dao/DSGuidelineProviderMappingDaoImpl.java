@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineProviderMapp
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DSGuidelineProviderMappingDao} for decision support data access.
+ *
+ * @since 2001
+ */
+
 public class DSGuidelineProviderMappingDaoImpl extends AbstractDaoImpl<DSGuidelineProviderMapping> implements DSGuidelineProviderMappingDao {
 
     public DSGuidelineProviderMappingDaoImpl() {

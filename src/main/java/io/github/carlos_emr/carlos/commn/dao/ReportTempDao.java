@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportTemp;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportTempDao extends AbstractDao<ReportTemp> {
     List<ReportTemp> findAll();
 

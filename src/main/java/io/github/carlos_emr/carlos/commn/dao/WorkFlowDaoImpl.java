@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.WorkFlow;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link WorkFlowDao} for workflow data access.
+ *
+ * @since 2001
+ */
+
 public class WorkFlowDaoImpl extends AbstractDaoImpl<WorkFlow> implements WorkFlowDao {
 
     public WorkFlowDaoImpl() {

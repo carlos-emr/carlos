@@ -34,5 +34,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.TableModification;
 
+/**
+ * DAO interface for table modification tracking operations.
+ *
+ * @since 2001
+ */
+
 public interface TableModificationDao extends AbstractDao<TableModification> {
 }

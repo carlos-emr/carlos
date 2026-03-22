@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlDiagCodeDao extends AbstractDao<CtlDiagCode> {
     List<Object[]> getDiagnostics(String billRegion, String serviceType);
 

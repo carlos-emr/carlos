@@ -42,10 +42,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @Transactional
+/**
+ * JPA implementation of {@link CaseManagementIssueNotesDao} for case management data access.
+ *
+ * @since 2001
+ */
+
 public class CaseManagementIssueNotesDaoImpl implements CaseManagementIssueNotesDao {
 
     @PersistenceContext(unitName = "entityManagerFactory")
     protected EntityManager entityManager = null;
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CaseManagementIssue> getNoteIssues(Integer noteId) {
@@ -58,6 +66,8 @@ public class CaseManagementIssueNotesDaoImpl implements CaseManagementIssueNotes
         List<CaseManagementIssue> results = query.getResultList();
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> getNoteIdsWhichHaveIssues(String[] issueId) {

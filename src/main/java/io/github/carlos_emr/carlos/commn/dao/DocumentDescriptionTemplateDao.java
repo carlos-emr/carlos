@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DocumentDescriptionTemplate;
 
+/**
+ * DAO interface for document management operations.
+ *
+ * @since 2001
+ */
+
 public interface DocumentDescriptionTemplateDao extends AbstractDao<DocumentDescriptionTemplate> {
     List<DocumentDescriptionTemplate> findByDocTypeAndProviderNo(String docType, String providerNo);
 }

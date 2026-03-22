@@ -58,6 +58,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action that executes a "Report By Example" ad-hoc SQL query and
+ * optionally saves it as a favourite. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

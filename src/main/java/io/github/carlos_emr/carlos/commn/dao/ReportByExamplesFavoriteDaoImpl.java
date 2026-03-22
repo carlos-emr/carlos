@@ -39,11 +39,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ReportByExamplesFavoriteDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportByExamplesFavoriteDaoImpl extends AbstractDaoImpl<ReportByExamplesFavorite> implements ReportByExamplesFavoriteDao {
 
     public ReportByExamplesFavoriteDaoImpl() {
         super(ReportByExamplesFavorite.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportByExamplesFavorite> findByQuery(String query) {
@@ -51,6 +59,8 @@ public class ReportByExamplesFavoriteDaoImpl extends AbstractDaoImpl<ReportByExa
         q.setParameter(1, query);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportByExamplesFavorite> findByEverything(String providerNo, String favoriteName, String queryString) {
@@ -60,6 +70,8 @@ public class ReportByExamplesFavoriteDaoImpl extends AbstractDaoImpl<ReportByExa
         query.setParameter(3, queryString);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportByExamplesFavorite> findByProvider(String providerNo) {

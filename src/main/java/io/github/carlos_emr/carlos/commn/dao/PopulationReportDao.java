@@ -37,6 +37,12 @@ import java.util.SortedSet;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.EncounterUtil.EncounterType;
 
+/**
+ * DAO interface for population reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface PopulationReportDao {
     public static final int LOW = 0;
     public static final int MEDIUM = 1;

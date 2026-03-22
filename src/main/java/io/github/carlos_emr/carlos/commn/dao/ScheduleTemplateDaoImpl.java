@@ -41,11 +41,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ScheduleTemplateDao} for scheduling data access.
+ *
+ * @since 2001
+ */
+
 public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> implements ScheduleTemplateDao {
 
     public ScheduleTemplateDaoImpl() {
         super(ScheduleTemplate.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScheduleTemplate> findBySummary(String summary) {
@@ -55,6 +63,8 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
         List<ScheduleTemplate> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findSchedules(Date date_from, Date date_to, String provider_no) {
@@ -66,6 +76,8 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findSchedules(Date dateFrom, List<String> providerIds) {
         String sql = "SELECT st, sd FROM ScheduleTemplate st, ScheduleDate sd WHERE st.id.name = sd.hour AND sd.date >= ?1 AND sd.providerNo in ( ?2 ) AND sd.status = 'A' AND (st.providerNo = sd.providerNo OR st.providerNo = 'Public') ORDER BY sd.date";
@@ -74,6 +86,8 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
         query.setParameter(2, providerIds);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScheduleTemplate> findByProviderNoAndName(String providerNo, String name) {
@@ -85,6 +99,8 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ScheduleTemplate> findByProviderNo(String providerNo) {
         Query query = entityManager.createQuery("SELECT e FROM ScheduleTemplate e WHERE e.id.providerNo=?1 order by e.id.name");
@@ -93,6 +109,8 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
         List<ScheduleTemplate> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @NativeSql({"scheduletemplate", "scheduledate"})
@@ -103,6 +121,8 @@ public class ScheduleTemplateDaoImpl extends AbstractDaoImpl<ScheduleTemplate> i
         query.setParameter(2, providerNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @NativeSql({"scheduletemplate", "scheduledate"})

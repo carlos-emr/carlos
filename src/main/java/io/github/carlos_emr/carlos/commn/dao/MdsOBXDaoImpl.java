@@ -41,6 +41,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
 @Repository
+/**
+ * JPA implementation of {@link MdsOBXDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsOBXDaoImpl extends AbstractDaoImpl<MdsOBX> implements MdsOBXDao {
 
     public MdsOBXDaoImpl() {
@@ -48,6 +54,8 @@ public class MdsOBXDaoImpl extends AbstractDaoImpl<MdsOBX> implements MdsOBXDao 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<MdsOBX> findByIdObrAndCodes(Integer id, String associatedOBR, List<String> codes) {
         ParamAppender pa = getAppender("obx");

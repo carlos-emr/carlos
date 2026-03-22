@@ -42,6 +42,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link UserDSMessagePrefsDao} for user data access.
+ *
+ * @since 2001
+ */
+
 public class UserDSMessagePrefsDaoImpl extends AbstractDaoImpl<UserDSMessagePrefs> implements UserDSMessagePrefsDao {
     private static Logger logger = MiscUtils.getLogger();
 
@@ -49,15 +55,21 @@ public class UserDSMessagePrefsDaoImpl extends AbstractDaoImpl<UserDSMessagePref
         super(UserDSMessagePrefs.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void saveProp(UserDSMessagePrefs prop) {
         this.persist(prop);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void updateProp(UserDSMessagePrefs prop) {
         this.merge(prop);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public UserDSMessagePrefs getMessagePrefsOnType(String prov, String name) {
@@ -71,6 +83,8 @@ public class UserDSMessagePrefsDaoImpl extends AbstractDaoImpl<UserDSMessagePref
             return prop;
         } else return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Hashtable<String, Long> getHashofMessages(String providerNo, String name) {
@@ -90,6 +104,8 @@ public class UserDSMessagePrefsDaoImpl extends AbstractDaoImpl<UserDSMessagePref
         return retHash;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<UserDSMessagePrefs> findMessages(String providerNo, String resourceType, String resourceId, boolean archived) {
         Query query = createQuery("p", "p.providerNo = ?1 AND p.resourceType = ?2 and p.resourceId = ?3 and p.archived = ?4");
@@ -99,6 +115,8 @@ public class UserDSMessagePrefsDaoImpl extends AbstractDaoImpl<UserDSMessagePref
         query.setParameter(4, Boolean.valueOf(archived));
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public UserDSMessagePrefs getDsMessage(String providerNo, String resourceType, String resourceId, boolean archived) {
@@ -117,6 +135,8 @@ public class UserDSMessagePrefsDaoImpl extends AbstractDaoImpl<UserDSMessagePref
         }
         return pref;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<UserDSMessagePrefs> findAllByResourceId(String resourceId) {

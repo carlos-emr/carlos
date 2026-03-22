@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.CdsClientForm;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CdsClientFormDao} for Clinical Decision Support (CDS) data access.
+ *
+ * @since 2001
+ */
+
 public class CdsClientFormDaoImpl extends AbstractDaoImpl<CdsClientForm> implements CdsClientFormDao {
 
     public CdsClientFormDaoImpl() {

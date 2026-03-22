@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.commn.model.SecurityArchive;
 
+/**
+ * DAO interface for security operations.
+ *
+ * @since 2001
+ */
+
 public interface SecurityArchiveDao extends AbstractDao<SecurityArchive> {
     List<SecurityArchive> findBySecurityNo(Integer securityNo);
 

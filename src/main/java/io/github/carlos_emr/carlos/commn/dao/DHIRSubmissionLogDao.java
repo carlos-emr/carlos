@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog;
 
+/**
+ * DAO interface for Digital Health Immunization Repository (DHIR) operations.
+ *
+ * @since 2001
+ */
+
 public interface DHIRSubmissionLogDao extends AbstractDao<DHIRSubmissionLog> {
 
     public List<DHIRSubmissionLog> findAll();

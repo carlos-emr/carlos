@@ -40,16 +40,26 @@ import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link TicklerLinkDao} for tickler (task reminder) data access.
+ *
+ * @since 2001
+ */
+
 public class TicklerLinkDaoImpl extends AbstractDaoImpl<TicklerLink> implements TicklerLinkDao {
 
     public TicklerLinkDaoImpl() {
         super(TicklerLink.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public TicklerLink getTicklerLink(Integer id) {
         return find(id);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<TicklerLink> getLinkByTableId(String tableName, Long tableId) {
@@ -64,6 +74,8 @@ public class TicklerLinkDaoImpl extends AbstractDaoImpl<TicklerLink> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<TicklerLink> getLinkByTickler(Integer ticklerNo) {
         Query query = entityManager.createQuery("SELECT tLink from TicklerLink tLink WHERE tLink.ticklerNo = ?1 order by tLink.id");
@@ -74,10 +86,14 @@ public class TicklerLinkDaoImpl extends AbstractDaoImpl<TicklerLink> implements 
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void save(TicklerLink cLink) {
         persist(cLink);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void update(TicklerLink cLink) {

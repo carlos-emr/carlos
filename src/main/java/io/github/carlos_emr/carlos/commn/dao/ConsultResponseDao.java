@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 
+/**
+ * DAO interface for consultation and referral operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsultResponseDao extends AbstractDao<ConsultationResponse> {
     int getConsultationCount(ConsultationResponseSearchFilter filter);
 

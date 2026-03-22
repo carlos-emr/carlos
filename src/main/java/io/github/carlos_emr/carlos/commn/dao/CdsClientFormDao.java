@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CdsClientForm;
 
+/**
+ * DAO interface for Clinical Decision Support (CDS) operations.
+ *
+ * @since 2001
+ */
+
 public interface CdsClientFormDao extends AbstractDao<CdsClientForm> {
     CdsClientForm findLatestByFacilityClient(Integer facilityId, Integer clientId);
 

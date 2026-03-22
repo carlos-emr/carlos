@@ -51,6 +51,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingONPaymentDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> implements BillingONPaymentDao {
     @Autowired
     private BillingONExtDao billingONExtDao;

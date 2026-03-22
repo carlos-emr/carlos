@@ -33,5 +33,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.HashAudit;
 
+/**
+ * DAO interface for hash audit operations.
+ *
+ * @since 2001
+ */
+
 public interface HashAuditDao extends AbstractDao<HashAudit> {
 }

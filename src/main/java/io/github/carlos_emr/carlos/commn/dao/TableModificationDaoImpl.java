@@ -36,6 +36,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.TableModification;
 
 @Repository
+/**
+ * JPA implementation of {@link TableModificationDao} for table modification tracking data access.
+ *
+ * @since 2001
+ */
+
 public class TableModificationDaoImpl extends AbstractDaoImpl<TableModification> implements TableModificationDao {
 
     public TableModificationDaoImpl() {

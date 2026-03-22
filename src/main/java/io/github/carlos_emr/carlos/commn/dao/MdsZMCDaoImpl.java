@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.MdsZMC;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MdsZMCDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsZMCDaoImpl extends AbstractDaoImpl<MdsZMC> implements MdsZMCDao {
 
     public MdsZMCDaoImpl() {
         super(MdsZMC.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public MdsZMC findByIdAndSetId(Integer id, String setId) {

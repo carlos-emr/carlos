@@ -34,6 +34,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Desaprisk;
 
+/**
+ * DAO interface for annual review operations.
+ *
+ * @since 2001
+ */
+
 public interface DesapriskDao extends AbstractDao<Desaprisk> {
     Desaprisk search(Integer formNo, Integer demographicNo);
 }

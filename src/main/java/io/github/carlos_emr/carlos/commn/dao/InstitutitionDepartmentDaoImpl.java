@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.InstitutionDepartment;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link InstitutitionDepartmentDao} for data access data access.
+ *
+ * @since 2001
+ */
+
 public class InstitutitionDepartmentDaoImpl extends AbstractDaoImpl<InstitutionDepartment> implements InstitutitionDepartmentDao {
 
     public InstitutitionDepartmentDaoImpl() {
         super(InstitutionDepartment.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<InstitutionDepartment> findByInstitutionId(int institutionId) {

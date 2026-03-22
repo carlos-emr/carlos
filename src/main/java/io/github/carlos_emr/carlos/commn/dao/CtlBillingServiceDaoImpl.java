@@ -41,6 +41,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link CtlBillingServiceDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlBillingServiceDaoImpl extends AbstractDaoImpl<CtlBillingService> implements CtlBillingServiceDao {
 
 
@@ -190,6 +196,8 @@ public class CtlBillingServiceDaoImpl extends AbstractDaoImpl<CtlBillingService>
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void remove(Integer id) {
         CtlBillingService entity = entityManager.find(CtlBillingService.class, id);
@@ -197,6 +205,8 @@ public class CtlBillingServiceDaoImpl extends AbstractDaoImpl<CtlBillingService>
             entityManager.remove(entity);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void persist(CtlBillingService ctlBillingService) {

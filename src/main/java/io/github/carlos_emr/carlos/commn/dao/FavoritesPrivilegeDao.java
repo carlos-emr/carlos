@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege;
 
+/**
+ * DAO interface for favorites operations.
+ *
+ * @since 2001
+ */
+
 public interface FavoritesPrivilegeDao extends AbstractDao<FavoritesPrivilege> {
     List<String> getProviders();
 

@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
 
+/**
+ * DAO interface for dashboard operations.
+ *
+ * @since 2001
+ */
+
 public interface DashboardDao extends AbstractDao<Dashboard> {
     List<Dashboard> getActiveDashboards();
 

@@ -40,7 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
+/**
+ * DAO interface for document management operations.
+ *
+ * @since 2001
+ */
+
 public interface DocumentDao extends AbstractDao<Document> {
+
+    /**
+     * Module for data access operations.
+     *
+     * @since 2001
+     */
 
     public enum Module {
         DEMOGRAPHIC;
@@ -49,6 +61,12 @@ public interface DocumentDao extends AbstractDao<Document> {
             return this.name().toLowerCase();
         }
     }
+
+    /**
+     * DocumentType for document management operations.
+     *
+     * @since 2001
+     */
 
     public enum DocumentType {
         CONSULT, LAB, ECONSULT;

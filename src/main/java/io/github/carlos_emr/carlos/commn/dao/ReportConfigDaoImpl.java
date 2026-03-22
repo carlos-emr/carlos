@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.ReportConfig;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ReportConfigDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implements ReportConfigDao {
 
     public ReportConfigDaoImpl() {
         super(ReportConfig.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportConfig> findByReportIdAndNameAndCaptionAndTableNameAndSave(int reportId, String name, String caption, String tableName, String save) {
@@ -59,6 +67,8 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportConfig> findByReportIdAndSaveAndGtOrderNo(int reportId, String save, int orderNo) {

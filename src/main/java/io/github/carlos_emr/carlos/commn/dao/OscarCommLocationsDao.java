@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
 
+/**
+ * DAO interface for core operations.
+ *
+ * @since 2001
+ */
+
 public interface OscarCommLocationsDao extends AbstractDao<OscarCommLocations> {
 
     public List<OscarCommLocations> findByCurrent1(int current1);

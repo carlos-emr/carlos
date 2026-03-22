@@ -39,7 +39,15 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * JPA implementation of {@link DocumentMergeDemographicDAO} for document management data access.
+ *
+ * @since 2001
+ */
+
 public class DocumentMergeDemographicDAOImpl extends DocumentDaoImpl implements DocumentMergeDemographicDAO {
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findDocuments(final String module, String moduleid, final String docType,
@@ -48,6 +56,8 @@ public class DocumentMergeDemographicDAOImpl extends DocumentDaoImpl implements 
         List<Object[]> result = super.findDocuments(module, moduleid, docType, includePublic, includeDeleted,
                 includeActive, sort, null);
         MergedDemographicTemplate<Object[]> template = new MergedDemographicTemplate<Object[]>() {
+            /** {@inheritDoc} */
+
             @Override
             protected List<Object[]> findById(Integer demographic_no) {
                 return DocumentMergeDemographicDAOImpl.super.findDocuments(module, demographic_no.toString(), docType,
@@ -57,10 +67,14 @@ public class DocumentMergeDemographicDAOImpl extends DocumentDaoImpl implements 
         return template.findMerged(ConversionUtils.fromIntString(moduleid), result);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Document> findByDemographicId(String demoNo) {
         List<Document> result = super.findByDemographicId(demoNo);
         MergedDemographicTemplate<Document> template = new MergedDemographicTemplate<Document>() {
+            /** {@inheritDoc} */
+
             @Override
             protected List<Document> findById(Integer demographic_no) {
                 return DocumentMergeDemographicDAOImpl.super.findByDemographicId(demographic_no.toString());

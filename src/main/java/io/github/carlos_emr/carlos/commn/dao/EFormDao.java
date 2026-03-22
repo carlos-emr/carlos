@@ -35,7 +35,19 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EForm;
 
+/**
+ * DAO interface for electronic form operations.
+ *
+ * @since 2001
+ */
+
 public interface EFormDao extends AbstractDao<EForm> {
+
+    /**
+     * EFormSortOrder for electronic form operations.
+     *
+     * @since 2001
+     */
 
     public enum EFormSortOrder {
         DATE, NAME, SUBJECT, FILE_NAME;

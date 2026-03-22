@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.ClientLink;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ClientLinkDao} for client data access.
+ *
+ * @since 2001
+ */
+
 public class ClientLinkDaoImpl extends AbstractDaoImpl<ClientLink> implements ClientLinkDao {
 
     public ClientLinkDaoImpl() {

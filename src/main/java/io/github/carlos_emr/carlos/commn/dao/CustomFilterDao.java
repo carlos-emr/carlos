@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 
+/**
+ * DAO interface for custom filter operations.
+ *
+ * @since 2001
+ */
+
 public interface CustomFilterDao extends AbstractDao<CustomFilter> {
 
     public CustomFilter findByName(String name);

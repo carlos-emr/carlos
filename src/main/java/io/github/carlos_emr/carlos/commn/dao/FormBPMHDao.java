@@ -32,5 +32,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.FormBPMH;
 
+/**
+ * DAO interface for medical form operations.
+ *
+ * @since 2001
+ */
+
 public interface FormBPMHDao extends AbstractDao<FormBPMH> {
 }

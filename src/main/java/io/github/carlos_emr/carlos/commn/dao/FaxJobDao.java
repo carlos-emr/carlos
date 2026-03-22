@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 
+/**
+ * DAO interface for fax operations.
+ *
+ * @since 2001
+ */
+
 public interface FaxJobDao extends AbstractDao<FaxJob> {
 
     public List<FaxJob> getFaxStatusByDateDemographicProviderStatusTeam(String demographic_no, String provider_no,

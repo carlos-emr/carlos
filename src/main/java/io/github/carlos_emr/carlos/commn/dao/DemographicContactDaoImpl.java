@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicContactDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContact> implements DemographicContactDao {
 
     public DemographicContactDaoImpl() {
         super(DemographicContact.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicContact> findByDemographicNo(int demographicNo) {
@@ -57,6 +65,8 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         return dContacts;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicContact> findActiveByDemographicNo(int demographicNo) {
         String sql = "select x from " + this.modelClass.getName()
@@ -67,6 +77,8 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         List<DemographicContact> dContacts = query.getResultList();
         return dContacts;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicContact> findByDemographicNoAndCategory(int demographicNo, String category) {
@@ -80,6 +92,8 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         return dContacts;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicContact> find(int demographicNo, int contactId) {
         String sql = "select x from " + this.modelClass.getName()
@@ -91,6 +105,8 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         List<DemographicContact> dContacts = query.getResultList();
         return dContacts;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicContact> findAllByContactIdAndCategoryAndType(int contactId, String category, int type) {
@@ -105,6 +121,8 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         List<DemographicContact> dContacts = query.getResultList();
         return dContacts;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicContact> findAllByDemographicNoAndCategoryAndType(int demographicNo, String category,
@@ -123,6 +141,8 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         }
         return dContacts;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicContact> findSDMByDemographicNo(int demographicNo) {

@@ -56,6 +56,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         super(Site.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void save(Site s) {
         boolean isUpdate = s.getSiteId() != null && s.getSiteId() > 0;
@@ -105,6 +107,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Site> getAllSites() {
         Query query = this.entityManager.createQuery("select s from Site s order by s.name");
@@ -113,6 +117,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         List<Site> rs = query.getResultList();
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Site> getAllActiveSites() {
@@ -123,6 +129,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Site> getActiveSitesByProviderNo(String provider_no) {
@@ -154,10 +162,14 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Site getById(Integer id) {
         return find(id);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Site getByLocation(String location) {
@@ -172,6 +184,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         else
             return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> getGroupBySiteLocation(String location) {
@@ -189,6 +203,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
 
         return groupList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> getProviderNoBySiteLocation(String location) {
@@ -208,6 +224,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         return pList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getProviderNoBySiteManagerProviderNo(String providerNo) {
 
@@ -223,6 +241,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
 
         return pList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> getGroupBySiteManagerProviderNo(String providerNo) {
@@ -241,6 +261,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         return groupList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Long site_searchmygroupcount(String myGroupNo, String siteName) {
         Query query = entityManager.createNativeQuery("select count(provider_no) from mygroup where mygroup_no=:groupno  and provider_no in (select ps.provider_no from providersite ps inner join site s on ps.site_id = s.site_id where s.name = :sitename)");
@@ -250,6 +272,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         Long result = ((Number) query.getSingleResult()).longValue();
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getSiteNameByAppointmentNo(String appointmentNo) {
@@ -266,6 +290,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         return "";
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getGroupsBySiteProviderNo(String groupNo) {
         List<String> groupList = new ArrayList<String>();
@@ -280,6 +306,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         return groupList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getGroupsForAllSites() {
         List<String> groupList = new ArrayList<String>();
@@ -291,6 +319,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
         groupList = query.getResultList();
         return groupList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Site findByName(String name) {

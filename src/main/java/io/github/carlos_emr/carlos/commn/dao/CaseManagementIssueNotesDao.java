@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 
+/**
+ * DAO interface for case management operations.
+ *
+ * @since 2001
+ */
+
 public interface CaseManagementIssueNotesDao {
 
     public List<CaseManagementIssue> getNoteIssues(Integer noteId);

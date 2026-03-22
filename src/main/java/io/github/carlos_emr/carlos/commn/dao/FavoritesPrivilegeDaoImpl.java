@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FavoritesPrivilegeDao} for favorites data access.
+ *
+ * @since 2001
+ */
+
 public class FavoritesPrivilegeDaoImpl extends AbstractDaoImpl<FavoritesPrivilege> implements FavoritesPrivilegeDao {
 
     public FavoritesPrivilegeDaoImpl() {

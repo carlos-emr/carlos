@@ -42,6 +42,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 
+/**
+ * Utility class for common web operations including session management, request parameter
+ * handling, HTML escaping, and error/info message management.
+ *
+ * <p>Provides helper methods for safely retrieving request parameters, managing
+ * flash messages via session attributes, and performing URL-related operations.
+ *
+ * @since 2026-03-17
+ */
 public final class WebUtils {
     private static Logger logger = MiscUtils.getLogger();
     public static final String ERROR_MESSAGE_SESSION_KEY = WebUtils.class.getName() + ".ERROR_MESSAGE_SESSION_KEY";

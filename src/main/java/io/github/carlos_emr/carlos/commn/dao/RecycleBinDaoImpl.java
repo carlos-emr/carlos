@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link RecycleBinDao} for recycle bin data access.
+ *
+ * @since 2001
+ */
+
 public class RecycleBinDaoImpl extends AbstractDaoImpl<RecycleBin> implements RecycleBinDao {
 
     public RecycleBinDaoImpl() {

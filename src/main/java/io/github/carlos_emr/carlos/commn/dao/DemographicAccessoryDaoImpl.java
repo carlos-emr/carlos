@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.DemographicAccessory;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicAccessoryDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicAccessoryDaoImpl extends AbstractDaoImpl<DemographicAccessory> implements DemographicAccessoryDao {
 
     public DemographicAccessoryDaoImpl() {
         super(DemographicAccessory.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public long findCount(Integer demographicNo) {

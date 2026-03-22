@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 
+/**
+ * DAO interface for resource storage operations.
+ *
+ * @since 2001
+ */
+
 public interface ResourceStorageDao extends AbstractDao<ResourceStorage> {
     public ResourceStorage findActive(String resourceType);
 

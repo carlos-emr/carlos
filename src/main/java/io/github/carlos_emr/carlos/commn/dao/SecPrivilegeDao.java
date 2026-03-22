@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.SecPrivilege;
 
+/**
+ * DAO interface for security operations.
+ *
+ * @since 2001
+ */
+
 public interface SecPrivilegeDao extends AbstractDao<SecPrivilege> {
     List<SecPrivilege> findAll();
 }

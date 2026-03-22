@@ -53,10 +53,14 @@ public class OtherIdDAOImpl extends AbstractDaoImpl<OtherId> implements OtherIdD
         super(OtherId.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public OtherId getOtherId(Integer tableName, Integer tableId, String otherKey) {
         return getOtherId(tableName, String.valueOf(tableId), otherKey);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public OtherId getOtherId(Integer tableName, String tableId, String otherKey) {
@@ -72,6 +76,8 @@ public class OtherIdDAOImpl extends AbstractDaoImpl<OtherId> implements OtherIdD
         return otherIdList.size() > 0 ? otherIdList.get(0) : null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public OtherId searchTable(Integer tableName, String otherKey, String otherValue) {
         Query query = entityManager.createQuery("select o from OtherId o where o.tableName=?1 and o.otherKey=?2 and o.otherId=?3 and o.deleted=?4 order by o.id desc");
@@ -85,6 +91,8 @@ public class OtherIdDAOImpl extends AbstractDaoImpl<OtherId> implements OtherIdD
 
         return otherIdList.size() > 0 ? otherIdList.get(0) : null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void save(OtherId otherId) {

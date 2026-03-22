@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.SnomedCore;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SnomedCoreDao} for SNOMED CT clinical terminology data access.
+ *
+ * @since 2001
+ */
+
 public class SnomedCoreDaoImpl extends AbstractCodeSystemDaoImpl<SnomedCore> implements SnomedCoreDao {
 
     public SnomedCoreDaoImpl() {
         super(SnomedCore.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SnomedCore> getSnomedCoreCode(String snomedCoreCode) {
@@ -56,6 +64,8 @@ public class SnomedCoreDaoImpl extends AbstractCodeSystemDaoImpl<SnomedCore> imp
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SnomedCore> getSnomedCore(String query) {
@@ -69,10 +79,14 @@ public class SnomedCoreDaoImpl extends AbstractCodeSystemDaoImpl<SnomedCore> imp
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<SnomedCore> searchCode(String term) {
         return getSnomedCore(term);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public SnomedCore findByCode(String code) {
@@ -81,6 +95,8 @@ public class SnomedCoreDaoImpl extends AbstractCodeSystemDaoImpl<SnomedCore> imp
             return null;
         return results.get(0);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem) {

@@ -35,6 +35,12 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.commn.model.FrmLabReqPreSet;
 
+/**
+ * DAO interface for form operations.
+ *
+ * @since 2001
+ */
+
 public interface FrmLabReqPreSetDao extends AbstractDao<FrmLabReqPreSet> {
     Properties fillPropertiesByLabType(String labType, Properties prop);
 }

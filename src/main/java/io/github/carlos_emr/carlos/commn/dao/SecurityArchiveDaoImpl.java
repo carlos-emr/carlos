@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.SecurityArchive;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SecurityArchiveDao} for security data access.
+ *
+ * @since 2001
+ */
+
 public class SecurityArchiveDaoImpl extends AbstractDaoImpl<SecurityArchive> implements SecurityArchiveDao {
 
     public SecurityArchiveDaoImpl() {
         super(SecurityArchive.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SecurityArchive> findBySecurityNo(Integer securityNo) {
@@ -59,6 +67,8 @@ public class SecurityArchiveDaoImpl extends AbstractDaoImpl<SecurityArchive> imp
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String> findPreviousPasswordsByProviderNo(String providerNo, int maxResult) {
 
@@ -73,6 +83,8 @@ public class SecurityArchiveDaoImpl extends AbstractDaoImpl<SecurityArchive> imp
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer archiveRecord(Security s) {

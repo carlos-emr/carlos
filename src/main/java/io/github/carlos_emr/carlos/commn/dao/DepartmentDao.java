@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.Department;
 
 import java.util.List;
 
+/**
+ * DAO interface for department operations.
+ *
+ * @since 2001
+ */
+
 public interface DepartmentDao extends AbstractDao<Department> {
     List<Department> findAll();
 }

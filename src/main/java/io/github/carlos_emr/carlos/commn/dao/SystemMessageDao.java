@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.SystemMessage;
 
+/**
+ * DAO interface for system operations.
+ *
+ * @since 2001
+ */
+
 public interface SystemMessageDao extends AbstractDao<SystemMessage> {
     List<SystemMessage> findAll();
 }

@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.Report;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ReportDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportDaoImpl extends AbstractDaoImpl<Report> implements ReportDao {
 
     public ReportDaoImpl() {

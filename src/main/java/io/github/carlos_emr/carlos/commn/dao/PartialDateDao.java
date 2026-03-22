@@ -34,6 +34,12 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 
+/**
+ * DAO interface for partial date operations.
+ *
+ * @since 2001
+ */
+
 public interface PartialDateDao extends AbstractDao<PartialDate> {
     PartialDate getPartialDate(Integer tableName, Integer tableId, Integer fieldName);
 

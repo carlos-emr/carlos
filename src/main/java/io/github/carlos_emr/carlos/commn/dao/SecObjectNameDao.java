@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.SecObjectName;
 
+/**
+ * DAO interface for security operations.
+ *
+ * @since 2001
+ */
+
 public interface SecObjectNameDao extends AbstractDao<SecObjectName> {
     List<SecObjectName> findAll();
 

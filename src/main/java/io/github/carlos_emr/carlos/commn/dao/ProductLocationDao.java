@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ProductLocation;
 
+/**
+ * DAO interface for product location operations.
+ *
+ * @since 2001
+ */
+
 public interface ProductLocationDao extends AbstractDao<ProductLocation> {
 
 }

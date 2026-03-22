@@ -40,11 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.ReportTemp;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ReportTempDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportTempDaoImpl extends AbstractDaoImpl<ReportTemp> implements ReportTempDao {
 
     public ReportTempDaoImpl() {
         super(ReportTemp.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportTemp> findAll() {
@@ -55,6 +63,8 @@ public class ReportTempDaoImpl extends AbstractDaoImpl<ReportTemp> implements Re
         List<ReportTemp> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportTemp> findGreateThanEdb(Date edb, int offset, int limit) {

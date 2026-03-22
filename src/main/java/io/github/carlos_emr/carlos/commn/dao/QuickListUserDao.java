@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.QuickListUser;
 
+/**
+ * DAO interface for quick list operations.
+ *
+ * @since 2001
+ */
+
 public interface QuickListUserDao extends AbstractDao<QuickListUser> {
     List<QuickListUser> findByNameAndProviderNo(String name, String providerNo);
 }

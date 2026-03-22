@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.CtlFrequency;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlFrequencyDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlFrequencyDaoImpl extends AbstractDaoImpl<CtlFrequency> implements CtlFrequencyDao {
 
     public CtlFrequencyDaoImpl() {

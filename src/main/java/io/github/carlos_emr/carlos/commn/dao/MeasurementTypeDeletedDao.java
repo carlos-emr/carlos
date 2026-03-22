@@ -34,5 +34,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementTypeDeleted;
 
+/**
+ * DAO interface for clinical measurement operations.
+ *
+ * @since 2001
+ */
+
 public interface MeasurementTypeDeletedDao extends AbstractDao<MeasurementTypeDeleted> {
 }

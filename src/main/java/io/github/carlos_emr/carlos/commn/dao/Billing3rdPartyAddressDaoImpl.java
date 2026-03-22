@@ -46,6 +46,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link Billing3rdPartyAddressDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPartyAddress> implements Billing3rdPartyAddressDao {
 
     public Billing3rdPartyAddressDaoImpl() {

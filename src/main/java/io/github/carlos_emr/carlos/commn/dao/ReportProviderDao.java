@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportProvider;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportProviderDao extends AbstractDao<ReportProvider> {
     List<ReportProvider> findAll();
 

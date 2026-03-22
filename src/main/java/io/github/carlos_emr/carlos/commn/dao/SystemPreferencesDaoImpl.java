@@ -39,10 +39,18 @@ import java.util.*;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link SystemPreferencesDao} for system data access.
+ *
+ * @since 2001
+ */
+
 public class SystemPreferencesDaoImpl extends AbstractDaoImpl<SystemPreferences> implements SystemPreferencesDao {
     public SystemPreferencesDaoImpl() {
         super(SystemPreferences.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public <T extends Enum<T>> SystemPreferences findPreferenceByName(Enum<T> name) {
@@ -72,6 +80,8 @@ public class SystemPreferencesDaoImpl extends AbstractDaoImpl<SystemPreferences>
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public <E extends Enum<E>> List<SystemPreferences> findPreferencesByNames(Class<E> clazz) {
         List<String> parameters = new ArrayList<>();
@@ -81,6 +91,8 @@ public class SystemPreferencesDaoImpl extends AbstractDaoImpl<SystemPreferences>
 
         return findPreferencesByNames(parameters);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public <E extends Enum<E>> Map<String, Boolean> findByKeysAsMap(Class<E> clazz) {
@@ -127,6 +139,8 @@ public class SystemPreferencesDaoImpl extends AbstractDaoImpl<SystemPreferences>
         return preferenceMap;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public <T extends Enum<T>> boolean isReadBooleanPreference(Enum<T> name) {
         return isReadBooleanPreference(name.name());
@@ -136,6 +150,8 @@ public class SystemPreferencesDaoImpl extends AbstractDaoImpl<SystemPreferences>
         SystemPreferences preference = findPreferenceByName(name);
         return (preference != null && Boolean.parseBoolean(preference.getValue()));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public <T extends Enum<T>> boolean isPreferenceValueEquals(Enum<T> preferenceName, String trueValueStr) {

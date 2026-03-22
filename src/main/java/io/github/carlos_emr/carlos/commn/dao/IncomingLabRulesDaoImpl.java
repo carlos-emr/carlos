@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link IncomingLabRulesDao} for incoming lab rules data access.
+ *
+ * @since 2001
+ */
+
 public class IncomingLabRulesDaoImpl extends AbstractDaoImpl<IncomingLabRules> implements IncomingLabRulesDao {
 
     public IncomingLabRulesDaoImpl() {

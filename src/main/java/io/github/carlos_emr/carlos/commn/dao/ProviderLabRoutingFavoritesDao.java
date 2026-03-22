@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite;
 
 import java.util.List;
 
+/**
+ * DAO interface for healthcare provider operations.
+ *
+ * @since 2001
+ */
+
 public interface ProviderLabRoutingFavoritesDao extends AbstractDao<ProviderLabRoutingFavorite> {
     List<ProviderLabRoutingFavorite> findFavorites(String provider_no);
 }

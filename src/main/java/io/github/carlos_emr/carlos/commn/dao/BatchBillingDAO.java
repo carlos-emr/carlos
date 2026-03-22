@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
 
+/**
+ * DAO interface for batch processing operations.
+ *
+ * @since 2001
+ */
+
 public interface BatchBillingDAO extends AbstractDao<BatchBilling> {
     List<BatchBilling> find(Integer demographicNo, String service_code);
 

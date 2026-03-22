@@ -36,6 +36,12 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 
+/**
+ * DAO interface for user operations.
+ *
+ * @since 2001
+ */
+
 public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     void delete(UserProperty prop);
 

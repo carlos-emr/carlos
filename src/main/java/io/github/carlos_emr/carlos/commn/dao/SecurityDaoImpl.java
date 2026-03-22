@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SecurityDao} for security data access.
+ *
+ * @since 2001
+ */
+
 public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements SecurityDao {
 
     public SecurityDaoImpl() {
         super(Security.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Security> findAllOrderBy(String propertyName) {
@@ -60,6 +68,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         return secList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Security> findByProviderNo(String providerNo) {
         Query query = entityManager.createQuery("select x from Security x where x.providerNo=?1");
@@ -68,6 +78,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         List<Security> secList = query.getResultList();
         return secList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Security> findByLikeProviderNo(String providerNo) {
@@ -78,6 +90,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         return secList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Security> findByUserName(String userName) {
         Query query = entityManager.createQuery("select x from Security x where x.userName=?1");
@@ -86,6 +100,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         List<Security> secList = query.getResultList();
         return secList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Security> findByOneIdKey(String ssoKey) {
@@ -96,10 +112,14 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         return securityList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void updateOneIdKey(Security securityRecord) {
         merge(securityRecord);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Security> findByLikeUserName(String userName) {
@@ -110,6 +130,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         return secList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Security getByProviderNo(String providerNo) {
         List<Security> secList = this.findByProviderNo(providerNo);
@@ -118,12 +140,16 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
         return secList.get(0);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findProviders() {
         String sql = "SELECT s, p FROM Security s, Provider p WHERE p.providerNo = s.providerNo ORDER BY p.lastName";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Security> findByProviderSite(String providerNo) {

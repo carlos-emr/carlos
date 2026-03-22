@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EncounterTemplateDao} for clinical encounter data access.
+ *
+ * @since 2001
+ */
+
 public class EncounterTemplateDaoImpl extends AbstractDaoImpl<EncounterTemplate> implements EncounterTemplateDao {
 
     public EncounterTemplateDaoImpl() {
@@ -45,12 +51,16 @@ public class EncounterTemplateDaoImpl extends AbstractDaoImpl<EncounterTemplate>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<EncounterTemplate> findAll() {
         Query query = entityManager.createQuery("SELECT x FROM " + modelClass.getSimpleName() + " x");
         List<EncounterTemplate> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EncounterTemplate> findByName(String name) {
@@ -62,6 +72,8 @@ public class EncounterTemplateDaoImpl extends AbstractDaoImpl<EncounterTemplate>
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EncounterTemplate> findByName(String name, Integer startIndex, Integer itemsToReturn) {

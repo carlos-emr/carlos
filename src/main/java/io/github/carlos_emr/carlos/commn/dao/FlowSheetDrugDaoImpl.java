@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetDrug;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FlowSheetDrugDao} for clinical flowsheet data access.
+ *
+ * @since 2001
+ */
+
 public class FlowSheetDrugDaoImpl extends AbstractDaoImpl<FlowSheetDrug> implements FlowSheetDrugDao {
 
     public FlowSheetDrugDaoImpl() {

@@ -38,6 +38,12 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.util.ArrayList;
 
+/**
+ * Represents a named parameter with a type and value for report template execution.
+ * Used to pass runtime values to SQL-based report templates.
+ *
+ * @since 2001-01-01
+ */
 public class Parameter {
     public static final String LIST = "list";
     public static final String CHECK = "check";

@@ -42,11 +42,19 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MdsOBRDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsOBRDaoImpl extends AbstractDaoImpl<MdsOBR> implements MdsOBRDao {
 
     public MdsOBRDaoImpl() {
         super(MdsOBR.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findByIdAndResultCodes(Integer id, List<String> resultCodes) {

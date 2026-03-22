@@ -37,6 +37,12 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 
+/**
+ * DAO interface for encounter chart operations.
+ *
+ * @since 2001
+ */
+
 public interface EChartDao extends AbstractDao<EChart> {
     EChart getLatestChart(int demographicNo);
 

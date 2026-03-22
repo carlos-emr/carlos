@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.ContactSpecialty;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ContactSpecialtyDao} for contact data access.
+ *
+ * @since 2001
+ */
+
 public class ContactSpecialtyDaoImpl extends AbstractDaoImpl<ContactSpecialty> implements ContactSpecialtyDao {
 
     protected ContactSpecialtyDaoImpl() {
         super(ContactSpecialty.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ContactSpecialty> findAll() {
@@ -51,6 +59,8 @@ public class ContactSpecialtyDaoImpl extends AbstractDaoImpl<ContactSpecialty> i
         List<ContactSpecialty> contactSpecialtyList = findAll.getResultList();
         return contactSpecialtyList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ContactSpecialty findBySpecialty(String specialtyName) {

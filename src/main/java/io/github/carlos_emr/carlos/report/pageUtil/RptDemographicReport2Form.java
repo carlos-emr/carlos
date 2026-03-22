@@ -36,6 +36,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Form bean for demographic report queries. Holds search criteria including
+ * column selections, age range, roster/patient status, provider, name filters,
+ * and result ordering. Used by {@link RptDemographicReport2Action}.
+ *
+ * @since 2001-01-01
+ */
 public final class RptDemographicReport2Form {
 
     public String[] select;

@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.EncounterWindow;
 
+/**
+ * DAO interface for clinical encounter operations.
+ *
+ * @since 2001
+ */
+
 public interface EncounterWindowDao extends AbstractDao<EncounterWindow> {
     EncounterWindow findByProvider(String providerNo);
 }

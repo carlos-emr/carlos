@@ -45,6 +45,12 @@ import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EFormReportToolDao} for electronic form data access.
+ *
+ * @since 2001
+ */
+
 public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> implements EFormReportToolDao {
 
     public EFormReportToolDaoImpl() {

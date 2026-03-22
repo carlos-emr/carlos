@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 
+/**
+ * DAO interface for electronic form operations.
+ *
+ * @since 2001
+ */
+
 public interface EFormValueDao extends AbstractDao<EFormValue> {
     List<EFormValue> findByDemographicId(Integer demographicId);
 

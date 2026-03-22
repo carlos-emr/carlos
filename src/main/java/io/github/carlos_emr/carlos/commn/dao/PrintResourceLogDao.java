@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PrintResourceLog;
 
+/**
+ * DAO interface for print resource operations.
+ *
+ * @since 2001
+ */
+
 public interface PrintResourceLogDao extends AbstractDao<PrintResourceLog> {
     List<PrintResourceLog> findByResource(String resourceName, String resourceId);
 }

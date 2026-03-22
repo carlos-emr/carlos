@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MeasurementGroupStyleDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementGroupStyleDaoImpl extends AbstractDaoImpl<MeasurementGroupStyle> implements MeasurementGroupStyleDao {
 
     public MeasurementGroupStyleDaoImpl() {
@@ -45,12 +51,16 @@ public class MeasurementGroupStyleDaoImpl extends AbstractDaoImpl<MeasurementGro
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementGroupStyle> findAll() {
         Query query = entityManager.createQuery("SELECT x FROM " + modelClass.getSimpleName() + " x");
         List<MeasurementGroupStyle> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementGroupStyle> findByGroupName(String groupName) {
@@ -64,6 +74,8 @@ public class MeasurementGroupStyleDaoImpl extends AbstractDaoImpl<MeasurementGro
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementGroupStyle> findByCssId(Integer cssId) {
         Query query = createQuery("m", "m.cssId = ?1");

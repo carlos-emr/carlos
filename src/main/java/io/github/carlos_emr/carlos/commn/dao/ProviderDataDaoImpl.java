@@ -42,6 +42,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 @Repository
+/**
+ * JPA implementation of {@link ProviderDataDao} for healthcare provider data access.
+ *
+ * @since 2001
+ */
+
 public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implements ProviderDataDao {
 
     private static final String ACTIVE_WHERE_CLAUSE = " p.status = '1'";
@@ -51,6 +57,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public ProviderData findByOhipNumber(String ohipNumber) {
         Query query;
@@ -68,6 +76,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ProviderData findByProviderNo(String providerNo) {
 
@@ -82,6 +92,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
         if (results.size() > 0) return results.get(0);
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderData> findByProviderNo(String providerNo, String status, int limit, int offset) {
@@ -103,6 +115,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderData> findByProviderName(String searchStr, String status, int limit, int offset) {
@@ -131,6 +145,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderData> findAllOrderByLastName() {
 
@@ -143,6 +159,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderData> findByProviderSite(String providerNo) {
@@ -160,6 +178,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
         return proList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findProviderSecUserRoles(String lastName, String firstName) {
 
@@ -176,6 +196,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
         return proList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderData> findByProviderTeam(String providerNo) {
 
@@ -190,6 +212,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
 
         return proList;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProviderData> findAllBilling(String active) {
@@ -230,6 +254,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderData> findByName(String firstName, String lastName, boolean onlyActive) {
         StringBuilder buf = createQueryString("p", "");
@@ -273,6 +299,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderData> findAll() {
         Query query = entityManager.createQuery("FROM " + modelClass.getName());
@@ -280,12 +308,16 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<ProviderData> findAll(boolean inactive) {
         if (inactive) return findAll();
         Query query = createQuery("p", ACTIVE_WHERE_CLAUSE);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer getLastId() {

@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
 
+/**
+ * DAO interface for security operations.
+ *
+ * @since 2001
+ */
+
 public interface SecurityDao extends AbstractDao<Security> {
     List<Security> findAllOrderBy(String columnName);
 

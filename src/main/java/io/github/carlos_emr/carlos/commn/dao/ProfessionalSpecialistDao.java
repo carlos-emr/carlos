@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 
+/**
+ * DAO interface for professional contact operations.
+ *
+ * @since 2001
+ */
+
 public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpecialist> {
 
     List<ProfessionalSpecialist> findAll();

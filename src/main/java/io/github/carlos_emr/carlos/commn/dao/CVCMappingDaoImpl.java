@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.CVCMapping;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CVCMappingDao} for Canadian Vaccine Catalogue (CVC) data access.
+ *
+ * @since 2001
+ */
+
 public class CVCMappingDaoImpl extends AbstractDaoImpl<CVCMapping> implements CVCMappingDao {
 
     public CVCMappingDaoImpl() {

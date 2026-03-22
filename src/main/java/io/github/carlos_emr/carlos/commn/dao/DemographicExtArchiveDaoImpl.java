@@ -41,12 +41,20 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicExtArchiveDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicExtArchiveDaoImpl extends AbstractDaoImpl<DemographicExtArchive>
         implements DemographicExtArchiveDao {
 
     public DemographicExtArchiveDaoImpl() {
         super(DemographicExtArchive.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicExtArchive> getDemographicExtArchiveByDemoAndKey(Integer demographicNo, String key) {
@@ -60,6 +68,8 @@ public class DemographicExtArchiveDaoImpl extends AbstractDaoImpl<DemographicExt
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public DemographicExtArchive getDemographicExtArchiveByArchiveIdAndKey(Long archiveId, String key) {
         Query query = entityManager.createQuery(
@@ -69,6 +79,8 @@ public class DemographicExtArchiveDaoImpl extends AbstractDaoImpl<DemographicExt
 
         return this.getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicExtArchive> getDemographicExtArchiveByArchiveId(Long archiveId) {
@@ -80,6 +92,8 @@ public class DemographicExtArchiveDaoImpl extends AbstractDaoImpl<DemographicExt
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicExtArchive> getDemographicExtArchiveByDemoReverseCronological(Integer demographicNo) {
         Query query = entityManager.createQuery(
@@ -90,6 +104,8 @@ public class DemographicExtArchiveDaoImpl extends AbstractDaoImpl<DemographicExt
         List<DemographicExtArchive> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer archiveDemographicExt(DemographicExt de) {

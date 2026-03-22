@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 
+/**
+ * DAO interface for prescription operations.
+ *
+ * @since 2001
+ */
+
 public interface PrescriptionDao extends AbstractDao<Prescription> {
 
     public List<Prescription> findByDemographicId(Integer demographicId);

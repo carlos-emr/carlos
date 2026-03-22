@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.DocumentStorage;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DocumentStorageDao} for document management data access.
+ *
+ * @since 2001
+ */
+
 public class DocumentStorageDaoImpl extends AbstractDaoImpl<DocumentStorage> implements DocumentStorageDao {
 
     public DocumentStorageDaoImpl() {

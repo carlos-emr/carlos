@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DrugReason;
 
+/**
+ * DAO interface for drug and prescription operations.
+ *
+ * @since 2001
+ */
+
 public interface DrugReasonDao extends AbstractDao<DrugReason> {
 
     boolean addNewDrugReason(DrugReason d);

@@ -34,6 +34,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 
+/**
+ * DAO interface for healthcare provider operations.
+ *
+ * @since 2001
+ */
+
 public interface ProviderDataDao extends AbstractDao<ProviderData> {
     ProviderData findByOhipNumber(String ohipNumber);
 

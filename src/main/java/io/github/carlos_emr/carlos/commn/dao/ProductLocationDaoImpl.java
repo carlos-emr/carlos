@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.ProductLocation;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProductLocationDao} for product location data access.
+ *
+ * @since 2001
+ */
+
 public class ProductLocationDaoImpl extends AbstractDaoImpl<ProductLocation> implements ProductLocationDao {
 
     public ProductLocationDaoImpl() {

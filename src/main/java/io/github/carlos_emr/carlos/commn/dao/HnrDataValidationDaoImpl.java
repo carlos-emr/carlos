@@ -37,11 +37,19 @@ import io.github.carlos_emr.carlos.commn.model.HnrDataValidation;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link HnrDataValidationDao} for HNR data validation data access.
+ *
+ * @since 2001
+ */
+
 public class HnrDataValidationDaoImpl extends AbstractDaoImpl<HnrDataValidation> implements HnrDataValidationDao {
 
     public HnrDataValidationDaoImpl() {
         super(HnrDataValidation.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public HnrDataValidation findMostCurrentByFacilityIdClientIdType(Integer facilityId, Integer clientId, HnrDataValidation.Type type) {

@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.commn.model.RBTGroup;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link RBTGroupDao} for resource-based template group data access.
+ *
+ * @since 2001
+ */
+
 public class RBTGroupDaoImpl extends AbstractDaoImpl<RBTGroup> implements RBTGroupDao {
 
     public RBTGroupDaoImpl() {

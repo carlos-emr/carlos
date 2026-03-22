@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlBillingServicePremiumDao extends AbstractDao<CtlBillingServicePremium> {
     List<CtlBillingServicePremium> findByServiceCode(String serviceCode);
 

@@ -33,5 +33,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExtArchive;
 
+/**
+ * DAO interface for consultation and referral operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsultationRequestExtArchiveDao extends AbstractDao<ConsultationRequestExtArchive> {
 }

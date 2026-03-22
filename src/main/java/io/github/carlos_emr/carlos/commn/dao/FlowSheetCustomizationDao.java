@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 
+/**
+ * DAO interface for clinical flowsheet operations.
+ *
+ * @since 2001
+ */
+
 public interface FlowSheetCustomizationDao extends AbstractDao<FlowSheetCustomization> {
     FlowSheetCustomization getFlowSheetCustomization(Integer id);
 

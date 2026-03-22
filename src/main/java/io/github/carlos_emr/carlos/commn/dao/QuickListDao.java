@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.QuickList;
 
+/**
+ * DAO interface for quick list operations.
+ *
+ * @since 2001
+ */
+
 public interface QuickListDao extends AbstractDao<QuickList> {
     List<QuickList> findAll();
 

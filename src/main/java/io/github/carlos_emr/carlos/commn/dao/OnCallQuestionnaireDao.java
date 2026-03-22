@@ -33,5 +33,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OnCallQuestionnaire;
 
+/**
+ * DAO interface for on-call operations.
+ *
+ * @since 2001
+ */
+
 public interface OnCallQuestionnaireDao extends AbstractDao<OnCallQuestionnaire> {
 }

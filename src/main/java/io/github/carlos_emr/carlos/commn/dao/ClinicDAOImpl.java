@@ -50,12 +50,16 @@ public class ClinicDAOImpl extends AbstractDaoImpl<Clinic> implements ClinicDAO 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Clinic> findAll() {
         Query query = entityManager.createQuery("SELECT x FROM " + modelClass.getSimpleName() + " x");
         List<Clinic> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Clinic getClinic() {
@@ -67,6 +71,8 @@ public class ClinicDAOImpl extends AbstractDaoImpl<Clinic> implements ClinicDAO 
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void save(Clinic clinic) {

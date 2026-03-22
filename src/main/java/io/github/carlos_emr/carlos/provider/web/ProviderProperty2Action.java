@@ -2691,6 +2691,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genAppointmentCardPrefs";
     }
 
+    /**
+     * Saves the provider's appointment card customization preferences.
+     *
+     * @return String {@code "genAppointmentCardPrefs"} to re-display with success status
+     */
     public String saveAppointmentCardPrefs() {
         UserProperty n = this.getAppointmentCardName();
         UserProperty p = this.getAppointmentCardPhone();
@@ -2745,6 +2750,11 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
 
+    /**
+     * Displays the prevention warning preferences form (SSO, ISPA, non-ISPA toggles).
+     *
+     * @return String {@code "genPreventionPrefs"} to forward to the configuration JSP
+     */
     public String viewPreventionPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

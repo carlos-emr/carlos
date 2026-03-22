@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 
 import java.util.List;
 
+/**
+ * DAO interface for service operations.
+ *
+ * @since 2001
+ */
+
 public interface ServiceClientDao extends AbstractDao<ServiceClient> {
     List<ServiceClient> findAll();
 

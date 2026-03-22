@@ -47,6 +47,12 @@ import io.github.carlos_emr.carlos.report.reportByTemplate.Reporter;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that executes a report template and displays results.
+ * Supports SQL-based and custom reporter types. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class GenerateReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

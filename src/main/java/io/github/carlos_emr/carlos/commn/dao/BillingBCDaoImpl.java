@@ -32,6 +32,12 @@ import io.github.carlos_emr.carlos.commn.NativeSql;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingBCDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingBCDaoImpl extends BillingDaoImpl implements BillingBCDao {
 
     @NativeSql({"ctl_billingservice", "billingservice"})

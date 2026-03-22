@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.OtherId;
 
+/**
+ * DAO interface for other identifier operations.
+ *
+ * @since 2001
+ */
+
 public interface OtherIdDAO extends AbstractDao<OtherId> {
     OtherId getOtherId(Integer tableName, Integer tableId, String otherKey);
 

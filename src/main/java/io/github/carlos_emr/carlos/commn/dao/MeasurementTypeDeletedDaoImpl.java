@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementTypeDeleted;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MeasurementTypeDeletedDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementTypeDeletedDaoImpl extends AbstractDaoImpl<MeasurementTypeDeleted> implements MeasurementTypeDeletedDao {
 
     public MeasurementTypeDeletedDaoImpl() {

@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServiceSexRules;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlBillingServiceSexRulesDao extends AbstractDao<CtlBillingServiceSexRules> {
     List<CtlBillingServiceSexRules> findByServiceCode(String serviceCode);
 }

@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
 
+/**
+ * DAO interface for waiting list operations.
+ *
+ * @since 2001
+ */
+
 public interface WaitingListDao extends AbstractDao<WaitingList> {
     List<Object[]> findByDemographic(Integer demographicNo);
 

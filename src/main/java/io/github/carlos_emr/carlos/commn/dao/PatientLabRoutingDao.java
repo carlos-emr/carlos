@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 
+/**
+ * DAO interface for patient operations.
+ *
+ * @since 2001
+ */
+
 public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting> {
 
     public static final Integer UNMATCHED = 0;

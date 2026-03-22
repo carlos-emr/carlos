@@ -31,6 +31,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.commn.model.Icd9;
 
+/**
+ * DAO interface for ICD diagnostic code operations.
+ *
+ * @since 2001
+ */
+
 public interface Icd9Dao extends AbstractCodeSystemDao<Icd9> {
     List<Icd9> getIcd9Code(String icdCode);
 

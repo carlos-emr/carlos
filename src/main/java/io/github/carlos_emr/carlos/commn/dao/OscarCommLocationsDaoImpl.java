@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link OscarCommLocationsDao} for core data access.
+ *
+ * @since 2001
+ */
+
 public class OscarCommLocationsDaoImpl extends AbstractDaoImpl<OscarCommLocations> implements OscarCommLocationsDao {
 
     public OscarCommLocationsDaoImpl() {
         super(OscarCommLocations.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<OscarCommLocations> findByCurrent1(int current1) {
@@ -60,6 +68,8 @@ public class OscarCommLocationsDaoImpl extends AbstractDaoImpl<OscarCommLocation
     }
 
     @NativeSql({"messagetbl", "oscarcommlocations"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findFormLocationByMesssageId(String messId) {
         String sql = "select ocl.locationDesc, mess.thesubject from messagetbl mess, oscarcommlocations ocl where"
@@ -70,6 +80,8 @@ public class OscarCommLocationsDaoImpl extends AbstractDaoImpl<OscarCommLocation
     }
 
     @NativeSql({"messagetbl", "oscarcommlocations"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findAttachmentsByMessageId(String messageId) {
         String sql = "SELECT m.thesubject, m.theime, m.thedate, m.attachment, m.themessage, m.sentBy, ocl.locationDesc  "

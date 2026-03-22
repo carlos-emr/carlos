@@ -46,6 +46,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action that handles CDM report type selection. Loads measurement
+ * group names and forwards to the appropriate CDM report configuration page.
+ * Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public final class RptSelectCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

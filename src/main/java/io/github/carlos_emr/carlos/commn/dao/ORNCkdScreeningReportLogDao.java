@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ORNCkdScreeningReportLog;
 
+/**
+ * DAO interface for Ontario Renal Network reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ORNCkdScreeningReportLogDao extends AbstractDao<ORNCkdScreeningReportLog> {
     List<ORNCkdScreeningReportLog> getAllReports();
 }

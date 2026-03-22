@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.ResidentOscarMsg;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ResidentOscarMsgDao} for resident messaging data access.
+ *
+ * @since 2001
+ */
+
 public class ResidentOscarMsgDaoImpl extends AbstractDaoImpl<ResidentOscarMsg> implements ResidentOscarMsgDao {
 
     public ResidentOscarMsgDaoImpl() {
         super(ResidentOscarMsg.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ResidentOscarMsg> findBySupervisor(String supervisor) {
@@ -51,6 +59,8 @@ public class ResidentOscarMsgDaoImpl extends AbstractDaoImpl<ResidentOscarMsg> i
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ResidentOscarMsg findByNoteId(Long noteId) {

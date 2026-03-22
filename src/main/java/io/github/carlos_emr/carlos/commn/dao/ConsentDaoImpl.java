@@ -42,6 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.Consent;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ConsentDao} for patient consent data access.
+ *
+ * @since 2001
+ */
+
 public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentDao {
 
     protected ConsentDaoImpl() {
@@ -68,6 +74,8 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
         return consent;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType) {
         String sql = "select x from " + modelClass.getSimpleName()
@@ -80,6 +88,8 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
         return consent;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Consent> findByDemographic(int demographic_no) {
         String sql = "select x from " + modelClass.getSimpleName() + " x where x.demographicNo=?1 AND x.deleted=false";
@@ -90,6 +100,8 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
         List<Consent> consent = query.getResultList();
         return consent;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Consent> findLastEditedByConsentTypeId(int consentTypeId, Date lastEditDate) {

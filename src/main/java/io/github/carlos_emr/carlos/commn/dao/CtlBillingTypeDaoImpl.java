@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlBillingTypeDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlBillingTypeDaoImpl extends AbstractDaoImpl<CtlBillingType> implements CtlBillingTypeDao {
 
     public CtlBillingTypeDaoImpl() {
         super(CtlBillingType.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CtlBillingType> findByServiceType(String serviceType) {

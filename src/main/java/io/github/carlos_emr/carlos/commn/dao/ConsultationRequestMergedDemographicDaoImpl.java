@@ -38,12 +38,22 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import org.springframework.stereotype.Repository;
 
 @Repository("consultationRequestDao")
+/**
+ * JPA implementation of {@link ConsultationRequestMergedDemographicDao} for consultation and referral data access.
+ *
+ * @since 2001
+ */
+
 public class ConsultationRequestMergedDemographicDaoImpl extends ConsultationRequestDaoImpl implements ConsultationRequestMergedDemographicDao {
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ConsultationRequest> getConsults(Integer demoNo) {
         List<ConsultationRequest> result = super.getConsults(demoNo);
         MergedDemographicTemplate<ConsultationRequest> template = new MergedDemographicTemplate<ConsultationRequest>() {
+            /** {@inheritDoc} */
+
             @Override
             protected List<ConsultationRequest> findById(Integer demographic_no) {
                 return ConsultationRequestMergedDemographicDaoImpl.super.getConsults(demographic_no);
@@ -52,10 +62,14 @@ public class ConsultationRequestMergedDemographicDaoImpl extends ConsultationReq
         return template.findMerged(demoNo, result);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ConsultationRequest> getConsultationsByStatus(Integer demographicNo, final String status) {
         List<ConsultationRequest> result = super.getConsultationsByStatus(demographicNo, status);
         MergedDemographicTemplate<ConsultationRequest> template = new MergedDemographicTemplate<ConsultationRequest>() {
+            /** {@inheritDoc} */
+
             @Override
             protected List<ConsultationRequest> findById(Integer demographic_no) {
                 return ConsultationRequestMergedDemographicDaoImpl.super.getConsultationsByStatus(demographic_no, status);

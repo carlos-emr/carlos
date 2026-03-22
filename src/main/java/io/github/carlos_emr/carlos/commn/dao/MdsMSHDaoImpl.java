@@ -41,11 +41,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MdsMSHDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsMSHDaoImpl extends AbstractDaoImpl<MdsMSH> implements MdsMSHDao {
 
     public MdsMSHDaoImpl() {
         super(MdsMSH.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findLabsByAccessionNumAndId(Integer id, String controlId) {
@@ -55,6 +63,8 @@ public class MdsMSHDaoImpl extends AbstractDaoImpl<MdsMSH> implements MdsMSHDao 
         query.setParameter("controlId", controlId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findMdsSementDataById(Integer id) {
@@ -69,6 +79,8 @@ public class MdsMSHDaoImpl extends AbstractDaoImpl<MdsMSH> implements MdsMSHDao 
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate) {
         String query = "select m.id from MdsMSH m, PatientLabRouting p WHERE m.id = p.labNo and p.labType='MDS' and p.demographicNo = ?1 and (m.dateTime > ?2 or p.created > ?3) ";

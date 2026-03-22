@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.InstitutionDepartment;
 
+/**
+ * DAO interface for data access operations.
+ *
+ * @since 2001
+ */
+
 public interface InstitutitionDepartmentDao extends AbstractDao<InstitutionDepartment> {
     List<InstitutionDepartment> findByInstitutionId(int institutionId);
 }

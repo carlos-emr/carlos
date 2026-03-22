@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequestArchive;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ConsultationRequestArchiveDao} for consultation and referral data access.
+ *
+ * @since 2001
+ */
+
 public class ConsultationRequestArchiveDaoImpl extends AbstractDaoImpl<ConsultationRequestArchive> implements ConsultationRequestArchiveDao {
 
     public ConsultationRequestArchiveDaoImpl() {

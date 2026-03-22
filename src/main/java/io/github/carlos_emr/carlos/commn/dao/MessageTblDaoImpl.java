@@ -42,11 +42,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MessageTblDao} for messaging data access.
+ *
+ * @since 2001
+ */
+
 public class MessageTblDaoImpl extends AbstractDaoImpl<MessageTbl> implements MessageTblDao {
 
     public MessageTblDaoImpl() {
         super(MessageTbl.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MessageTbl> findByMaps(List<MsgDemoMap> m) {
@@ -61,6 +69,8 @@ public class MessageTblDaoImpl extends AbstractDaoImpl<MessageTbl> implements Me
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MessageTbl> findByProviderAndSendBy(String providerNo, Integer sendBy) {
         Query query = createQuery("m", "m.sentByNo = :providerNo and m.sentByLocation = :sendBy");
@@ -68,6 +78,8 @@ public class MessageTblDaoImpl extends AbstractDaoImpl<MessageTbl> implements Me
         query.setParameter("sendBy", sendBy);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MessageTbl> findByIds(List<Integer> ids) {

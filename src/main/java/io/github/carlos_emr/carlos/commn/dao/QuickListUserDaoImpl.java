@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.QuickListUser;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link QuickListUserDao} for quick list data access.
+ *
+ * @since 2001
+ */
+
 public class QuickListUserDaoImpl extends AbstractDaoImpl<QuickListUser> implements QuickListUserDao {
 
     public QuickListUserDaoImpl() {
         super(QuickListUser.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<QuickListUser> findByNameAndProviderNo(String name, String providerNo) {

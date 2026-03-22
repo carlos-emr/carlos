@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
 
+/**
+ * DAO interface for service operations.
+ *
+ * @since 2001
+ */
+
 public interface ServiceSpecialistsDao extends AbstractDao<ServiceSpecialists> {
     List<ServiceSpecialists> findByServiceId(int serviceId);
 

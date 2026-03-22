@@ -40,16 +40,26 @@ import jakarta.persistence.Query;
 import java.util.*;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicExtDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> implements DemographicExtDao {
 
     public DemographicExtDaoImpl() {
         super(DemographicExt.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public DemographicExt getDemographicExt(Integer id) {
         return find(id);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicExt> getDemographicExtByDemographicNo(Integer demographicNo) {
@@ -67,6 +77,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public DemographicExt getDemographicExt(Integer demographicNo, DemographicExtKey demographicExtKey) {
@@ -103,6 +115,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicExt> getDemographicExtByKeyAndValue(DemographicExtKey demographicExtKey, String value) {
         return getDemographicExtByKeyAndValue(demographicExtKey.getKey(), value);
@@ -121,6 +135,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         query.setParameter(2, value);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public DemographicExt getLatestDemographicExt(Integer demographicNo, String key) {
@@ -148,6 +164,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void updateDemographicExt(DemographicExt de) {
 
@@ -157,6 +175,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
 
         merge(de);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void saveDemographicExt(Integer demographicNo, String key, String value) {
@@ -191,6 +211,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void removeDemographicExt(Integer id) {
         if (id == null || id.intValue() <= 0) {
@@ -199,6 +221,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
 
         remove(id);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void removeDemographicExt(Integer demographicNo, String key) {
@@ -216,6 +240,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
             remove(tmp.getId());
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Map<String, String> getAllValuesForDemo(Integer demo) {
@@ -254,6 +280,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         persist(demographicExt);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void addKey(String providerNo, Integer demo, String key, String newValue, String oldValue) {
         if (oldValue == null) {
@@ -284,10 +312,14 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         return arr;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<String[]> getListOfValuesForDemo(Integer demo) {
         return hashtable2ArrayList(getAllValuesForDemo(demo));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getValueForDemoKey(Integer demo, String key) {
@@ -297,6 +329,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> findDemographicIdsByKeyVal(DemographicExtKey demographicExtKey, String val) {
@@ -320,6 +354,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicExt> getMultipleDemographicExtKeyForDemographicNumbersByProviderNumber(
             final DemographicExtKey demographicExtKey,
@@ -335,6 +371,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> getDemographicNumbersByDemographicExtKeyAndProviderNumberAndDemographicLastNameRegex(

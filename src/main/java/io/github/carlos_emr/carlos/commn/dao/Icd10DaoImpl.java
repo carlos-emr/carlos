@@ -40,11 +40,19 @@ import java.util.Collections;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link Icd10Dao} for ICD diagnostic code data access.
+ *
+ * @since 2001
+ */
+
 public class Icd10DaoImpl extends AbstractDaoImpl<Icd10> implements Icd10Dao {
 
     public Icd10DaoImpl() {
         super(Icd10.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Icd10> searchCode(String term) {
@@ -62,6 +70,8 @@ public class Icd10DaoImpl extends AbstractDaoImpl<Icd10> implements Icd10Dao {
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Icd10 findByCode(String code) {
         Query query = entityManager.createQuery("select i from Icd10 i where i.icd10=?1");
@@ -69,6 +79,8 @@ public class Icd10DaoImpl extends AbstractDaoImpl<Icd10> implements Icd10Dao {
 
         return getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem) {
@@ -78,6 +90,8 @@ public class Icd10DaoImpl extends AbstractDaoImpl<Icd10> implements Icd10Dao {
 
         return getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Icd10> searchText(String description) {

@@ -40,7 +40,15 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 @Repository("documentResultsDao")
+/**
+ * JPA implementation of {@link DocumentResultsMergedDemographicDao} for document management data access.
+ *
+ * @since 2001
+ */
+
 public class DocumentResultsMergedDemographicDaoImpl extends DocumentResultsDaoImpl implements DocumentResultsMergedDemographicDao {
+
+    /** {@inheritDoc} */
 
     @Override
     public ArrayList<LabResultData> populateDocumentResultsDataOfAllProviders(final String providerNo, String demographicNo, final String status) {
@@ -49,6 +57,8 @@ public class DocumentResultsMergedDemographicDaoImpl extends DocumentResultsDaoI
             return result;
 
         MergedDemographicTemplate<LabResultData> template = new MergedDemographicTemplate<LabResultData>() {
+            /** {@inheritDoc} */
+
             @Override
             protected List<LabResultData> findById(Integer demographic_no) {
                 return DocumentResultsMergedDemographicDaoImpl.super.populateDocumentResultsDataOfAllProviders(providerNo, demographic_no.toString(), status);
@@ -57,6 +67,8 @@ public class DocumentResultsMergedDemographicDaoImpl extends DocumentResultsDaoI
         return (ArrayList<LabResultData>) template.findMerged(ConversionUtils.fromIntString(demographicNo), result);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ArrayList<LabResultData> populateDocumentResultsDataLinkToProvider(final String providerNo, String demographicNo, final String status) {
         ArrayList<LabResultData> result = super.populateDocumentResultsDataLinkToProvider(providerNo, demographicNo, status);
@@ -64,6 +76,8 @@ public class DocumentResultsMergedDemographicDaoImpl extends DocumentResultsDaoI
             return result;
 
         MergedDemographicTemplate<LabResultData> template = new MergedDemographicTemplate<LabResultData>() {
+            /** {@inheritDoc} */
+
             @Override
             protected List<LabResultData> findById(Integer demographic_no) {
                 return DocumentResultsMergedDemographicDaoImpl.super.populateDocumentResultsDataLinkToProvider(providerNo, demographic_no.toString(), status);
@@ -72,12 +86,16 @@ public class DocumentResultsMergedDemographicDaoImpl extends DocumentResultsDaoI
         return (ArrayList<LabResultData>) template.findMerged(ConversionUtils.fromIntString(demographicNo), result);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public ArrayList<LabResultData> populateDocumentResultsData(final String providerNo, String demographicNo, final String status) {
         ArrayList<LabResultData> result = super.populateDocumentResultsData(providerNo, demographicNo, status);
         if (false)
             return result;
         MergedDemographicTemplate<LabResultData> template = new MergedDemographicTemplate<LabResultData>() {
+            /** {@inheritDoc} */
+
             @Override
             protected List<LabResultData> findById(Integer demographic_no) {
                 return DocumentResultsMergedDemographicDaoImpl.super.populateDocumentResultsData(providerNo, demographic_no.toString(), status);

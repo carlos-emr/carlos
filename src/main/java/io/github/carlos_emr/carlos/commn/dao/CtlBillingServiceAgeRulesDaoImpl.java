@@ -39,11 +39,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link CtlBillingServiceAgeRulesDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlBillingServiceAgeRulesDaoImpl extends AbstractDaoImpl<CtlBillingServiceAgeRules> implements CtlBillingServiceAgeRulesDao {
 
     public CtlBillingServiceAgeRulesDaoImpl() {
         super(CtlBillingServiceAgeRules.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CtlBillingServiceAgeRules> findByServiceCode(String serviceCode) {

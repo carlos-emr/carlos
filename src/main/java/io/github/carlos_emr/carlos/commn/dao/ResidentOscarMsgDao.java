@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ResidentOscarMsg;
 
+/**
+ * DAO interface for resident messaging operations.
+ *
+ * @since 2001
+ */
+
 public interface ResidentOscarMsgDao extends AbstractDao<ResidentOscarMsg> {
     List<ResidentOscarMsg> findBySupervisor(String supervisor);
 

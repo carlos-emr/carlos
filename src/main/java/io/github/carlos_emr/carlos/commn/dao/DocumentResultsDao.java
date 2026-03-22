@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
+/**
+ * DAO interface for document management operations.
+ *
+ * @since 2001
+ */
+
 public interface DocumentResultsDao {
     public boolean isSentToValidProvider(String docNo);
 

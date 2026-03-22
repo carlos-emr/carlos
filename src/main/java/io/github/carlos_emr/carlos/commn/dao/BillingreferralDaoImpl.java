@@ -48,6 +48,8 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
         super(Billingreferral.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Billingreferral getByReferralNo(String referral_no) {
         String sql = "select br From Billingreferral br WHERE br.referralNo=?1";
@@ -61,10 +63,14 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Billingreferral getById(int id) {
         return find(id);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billingreferral> getBillingreferrals() {
@@ -76,6 +82,8 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
 
         return brs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billingreferral> getBillingreferral(String referral_no) {
@@ -92,6 +100,8 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
             return null;
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billingreferral> getBillingreferral(String last_name, String first_name) {
@@ -110,6 +120,8 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Billingreferral> getBillingreferralByLastName(String last_name) {
         String sql = "SELECT br From Billingreferral br WHERE br.lastName like ?1 order by br.lastName";
@@ -126,6 +138,8 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
         }
     }
 
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billingreferral> getBillingreferralBySpecialty(String specialty) {
@@ -171,6 +185,8 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
         return cList;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void updateBillingreferral(Billingreferral obj) {
         if (obj.getBillingreferralNo() == null || obj.getBillingreferralNo().intValue() == 0) {
@@ -179,6 +195,8 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
             merge(obj);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getReferralDocName(String referral_no) {

@@ -42,6 +42,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that sets up the CDM report selection page by loading
+ * available measurement groups for the user to choose from.
+ *
+ * @since 2001-01-01
+ */
 public final class RptSetupSelectCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -40,11 +40,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ReportTemplatesDao} for reporting data access.
+ *
+ * @since 2001
+ */
+
 public class ReportTemplatesDaoImpl extends AbstractDaoImpl<ReportTemplates> implements ReportTemplatesDao {
 
     public ReportTemplatesDaoImpl() {
         super(ReportTemplates.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ReportTemplates> findAll() {
@@ -52,11 +60,15 @@ public class ReportTemplatesDaoImpl extends AbstractDaoImpl<ReportTemplates> imp
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<ReportTemplates> findActive() {
         Query q = createQuery("t", "t.active = 1");
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ReportTemplates findByUuid(String uuid) {

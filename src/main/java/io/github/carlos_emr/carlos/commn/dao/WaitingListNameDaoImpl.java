@@ -41,6 +41,12 @@ import java.util.List;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link WaitingListNameDao} for waiting list data access.
+ *
+ * @since 2001
+ */
+
 public class WaitingListNameDaoImpl extends AbstractDaoImpl<WaitingListName> implements WaitingListNameDao {
 
     public WaitingListNameDaoImpl() {

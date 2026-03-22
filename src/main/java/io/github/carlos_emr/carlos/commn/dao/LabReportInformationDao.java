@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
 
+/**
+ * DAO interface for laboratory operations.
+ *
+ * @since 2001
+ */
+
 public interface LabReportInformationDao extends AbstractDao<LabReportInformation> {
     List<Object[]> findReportsByPhysicianId(Integer physicianId);
 }

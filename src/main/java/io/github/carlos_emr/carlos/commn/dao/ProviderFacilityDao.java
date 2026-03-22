@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 
+/**
+ * DAO interface for healthcare provider operations.
+ *
+ * @since 2001
+ */
+
 public interface ProviderFacilityDao extends AbstractDao<ProviderFacility> {
     List<ProviderFacility> findByProviderNoAndFacilityId(String providerNo, int facilityId);
 }

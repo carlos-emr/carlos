@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ServiceAccessTokenDao} for service data access.
+ *
+ * @since 2001
+ */
+
 public class ServiceAccessTokenDaoImpl extends AbstractDaoImpl<ServiceAccessToken> implements ServiceAccessTokenDao {
 
 
@@ -46,10 +52,14 @@ public class ServiceAccessTokenDaoImpl extends AbstractDaoImpl<ServiceAccessToke
         super(ServiceAccessToken.class);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void persist(ServiceAccessToken token) {
         this.entityManager.persist(token);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void remove(ServiceAccessToken token) {
@@ -60,12 +70,16 @@ public class ServiceAccessTokenDaoImpl extends AbstractDaoImpl<ServiceAccessToke
 // public ServiceRequestToken merge(ServiceAccessTokenDao token) {
 //     return this.entityManager.merge(token);
 // }
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<ServiceAccessToken> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public ServiceAccessToken findByTokenId(String token) {

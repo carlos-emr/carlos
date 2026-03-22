@@ -35,6 +35,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.OnCallQuestionnaire;
 
 @Repository
+/**
+ * JPA implementation of {@link OnCallQuestionnaireDao} for on-call data access.
+ *
+ * @since 2001
+ */
+
 public class OnCallQuestionnaireDaoImpl extends AbstractDaoImpl<OnCallQuestionnaire> implements OnCallQuestionnaireDao {
 
     public OnCallQuestionnaireDaoImpl() {

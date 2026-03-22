@@ -35,6 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 
 import java.util.List;
 
+/**
+ * DAO interface for case management operations.
+ *
+ * @since 2001
+ */
+
 public interface CasemgmtNoteLockDao extends AbstractDao<CasemgmtNoteLock> {
     CasemgmtNoteLock findByNoteDemo(Integer demographicNo, Long note_id);
 

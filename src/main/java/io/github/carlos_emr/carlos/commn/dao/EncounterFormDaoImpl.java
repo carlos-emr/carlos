@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EncounterFormDao} for clinical encounter data access.
+ *
+ * @since 2001
+ */
+
 public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> implements EncounterFormDao {
 
     public EncounterFormDaoImpl() {
@@ -46,6 +52,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<EncounterForm> findAll() {
         Query query = entityManager.createQuery("SELECT x FROM " + modelClass.getSimpleName() + " x");
@@ -54,6 +62,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<EncounterForm> findAllNotHidden() {
         Query query = entityManager
@@ -61,6 +71,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         List<EncounterForm> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EncounterForm> findByFormName(String formName) {
@@ -73,6 +85,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EncounterForm> findByFormTable(String formTable) {

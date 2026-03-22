@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.OnCallClinic;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link OnCallClinicDao} for on-call data access.
+ *
+ * @since 2001
+ */
+
 public class OnCallClinicDaoImpl extends AbstractDaoImpl<OnCallClinic> implements OnCallClinicDao {
 
     public OnCallClinicDaoImpl() {
         super(OnCallClinic.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public OnCallClinic findByDate(Date date) {

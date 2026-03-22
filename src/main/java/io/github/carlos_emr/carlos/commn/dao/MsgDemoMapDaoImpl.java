@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MsgDemoMapDao} for message data access.
+ *
+ * @since 2001
+ */
+
 public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements MsgDemoMapDao {
 
     public MsgDemoMapDaoImpl() {
         super(MsgDemoMap.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MsgDemoMap> findByDemographicNo(Integer demographicNo) {
@@ -55,6 +63,8 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
         List<MsgDemoMap> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MsgDemoMap> findByMessageId(Integer messageId) {
@@ -68,6 +78,8 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> getMessagesAndDemographicsByMessageId(Integer messageId) {
         String sql = "SELECT m, d FROM MsgDemoMap m, Demographic d WHERE m.messageID = :msgId AND d.DemographicNo = m.demographic_no ORDER BY d.LastName, d.FirstName";
@@ -75,6 +87,8 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
         query.setParameter("msgId", messageId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> getMapAndMessagesByDemographicNo(Integer demoNo) {
@@ -85,6 +99,8 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> getMapAndMessagesByDemographicNoAndType(Integer demoNo, Integer type) {
         String sql = "SELECT map, m FROM MsgDemoMap map, MessageTbl m WHERE m.id = map.messageID AND map.demographic_no = :demoNo AND m.type = :type ORDER BY m.date DESC, m.id DESC";
@@ -93,6 +109,8 @@ public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements Ms
         query.setParameter("type", type);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void remove(Integer messageID, Integer demographicNo) {

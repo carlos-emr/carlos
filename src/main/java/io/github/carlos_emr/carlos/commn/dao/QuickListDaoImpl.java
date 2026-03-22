@@ -46,6 +46,12 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link QuickListDao} for quick list data access.
+ *
+ * @since 2001
+ */
+
 public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements QuickListDao {
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -54,6 +60,8 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<QuickList> findAll() {
         Query query = createQuery("x", null);
@@ -61,6 +69,8 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object> findDistinct() {
         Query query = entityManager.createQuery("select distinct ql.quickListName from QuickList ql");
@@ -68,6 +78,8 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<QuickList> findByNameResearchCodeAndCodingSystem(String quickListName, String researchCode, String codingSystem) {
         Query query = entityManager.createQuery("from QuickList q where q.quickListName = ?1 AND q.dxResearchCode = ?2 AND q.codingSystem = ?3");
@@ -78,6 +90,8 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<QuickList> findByCodingSystem(String codingSystem) {
         Query query;
@@ -92,6 +106,8 @@ public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements Quic
 
     @NativeSql
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findResearchCodeAndCodingSystemDescriptionByCodingSystem(String codingSystem, String quickListName) {
         try {

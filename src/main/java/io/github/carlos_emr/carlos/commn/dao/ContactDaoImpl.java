@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ContactDao} for contact data access.
+ *
+ * @since 2001
+ */
+
 public class ContactDaoImpl extends AbstractDaoImpl<Contact> implements ContactDao {
 
     public ContactDaoImpl() {
         super(Contact.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Contact> search(String searchMode, String orderBy, String keyword) {

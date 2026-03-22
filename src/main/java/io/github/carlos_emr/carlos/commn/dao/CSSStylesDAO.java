@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CssStyle;
 
+/**
+ * DAO interface for CSS styles for clinical displays operations.
+ *
+ * @since 2001
+ */
+
 public interface CSSStylesDAO extends AbstractDao<CssStyle> {
     List<CssStyle> findAll();
 }

@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MdsOBX;
 
+/**
+ * DAO interface for MDS HL7 segment operations.
+ *
+ * @since 2001
+ */
+
 public interface MdsOBXDao extends AbstractDao<MdsOBX> {
     List<MdsOBX> findByIdObrAndCodes(Integer id, String associatedOBR, List<String> codes);
 }

@@ -117,6 +117,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return sqlQuery.list();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Demographic getDemographic(String demographic_no) {
         if (demographic_no == null || demographic_no.length() == 0) {
@@ -132,6 +134,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return currentSession().get(Demographic.class, dNo);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List getDemographics() {
         log.error(
@@ -139,6 +143,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             new IllegalArgumentException("The entire demographic table is too big to allow a full select."));
         return HqlQueryHelper.find(currentSession(), "from Demographic d order by d.LastName");
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Long getActiveDemographicCount() {
@@ -149,6 +155,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
         return 0L;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @SuppressWarnings("unchecked")
@@ -169,6 +177,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return query.list();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Demographic getDemographicById(Integer demographic_id) {
         String q = "FROM Demographic d WHERE d.DemographicNo = ?1";
@@ -180,10 +190,14 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             return (Demographic) rs.get(0);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getDemographicByProvider(String providerNo) {
         return getDemographicByProvider(providerNo, true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> getDemographicByProvider(String providerNo, boolean onlyActive) {
@@ -194,6 +208,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         List<Demographic> rs = (List<Demographic>) HqlQueryHelper.find(currentSession(), q, providerNo);
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> getDemographicNosByProvider(String providerNo, boolean onlyActive) {
@@ -237,6 +253,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getActiveDemosByHealthCardNo(String hcn, String hcnType) {
         String hql = "FROM Demographic d WHERE d.Hin = :hin AND d.HcType = :hcType AND d.PatientStatus = 'AC'";
@@ -246,6 +264,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             .setParameter("hcType", hcnType)
             .list();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Set getArchiveDemographicByProgramOptimized(int programId, Date dt, Date defdt) {
@@ -282,6 +302,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List getProgramIdByDemoNo(Integer demoNo) {
         String q = "Select a.programId From Admission a Where a.clientId=?1 and a.admissionDate<=?2 and (a.dischargeDate>=?3 or (a.dischargeDate is null) or a.dischargeDate=?4)";
@@ -299,11 +321,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void clear() {
         currentSession().clear();
 
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List getDemoProgram(Integer demoNo) {
@@ -311,6 +337,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         List rs = HqlQueryHelper.find(currentSession(), q, demoNo);
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List getDemoProgramCurrent(Integer demoNo) {
@@ -338,6 +366,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographic(String searchStr) {
         String hql = "From Demographic d where ";
@@ -359,6 +389,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
         return q.list();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByNameString(String searchString, int startIndex, int itemsToReturn) {
@@ -401,11 +433,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     private final String PROGRAM_DOMAIN_RESTRICTION = "select distinct a.clientId from ProgramProvider pp,Admission a WHERE pp.ProgramId=a.programId AND pp.ProviderNo=:providerNo";
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                      boolean outOfDomain) {
         return searchDemographicByNameAndStatus(searchStr, null, limit, offset, null, providerNo, outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByNameAndNotStatus(String searchStr, List<String> statuses, int limit,
@@ -414,12 +450,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             true);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByNameAndStatus(String searchStr, List<String> statuses, int limit,
                                                               int offset, String providerNo, boolean outOfDomain) {
         return searchDemographicByNameAndStatus(searchStr, statuses, limit, offset, null, providerNo, outOfDomain,
             false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByName(String searchStr, int limit, int offset, String orderBy,
@@ -428,12 +468,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByNameAndNotStatus(String searchStr, List<String> statuses, int limit,
                                                                  int offset, String orderBy, String providerNo, boolean outOfDomain) {
         return searchDemographicByNameAndStatus(searchStr, statuses, limit, offset, orderBy, providerNo, outOfDomain,
             true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByNameAndStatus(String searchStr, List<String> statuses, int limit,
@@ -442,12 +486,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByNameAndStatus(String searchStr, List<String> statuses, int limit,
                                                               int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses) {
         return searchDemographicByNameAndStatus(searchStr, statuses, limit, offset, orderBy, providerNo, outOfDomain,
             ignoreStatuses, true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByNameAndStatus(String searchStr, List<String> statuses, int limit,
@@ -495,6 +543,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchMergedDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                            boolean outOfDomain) {
@@ -520,11 +570,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByDOB(String dobStr, int limit, int offset, String providerNo,
                                                     boolean outOfDomain) {
         return searchDemographicByDOBAndStatus(dobStr, null, limit, offset, null, providerNo, outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByDOBWithMerged(String dobStr, int limit, int offset, String providerNo,
@@ -532,6 +586,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return searchDemographicByDOBAndStatus(dobStr, null, limit, offset, null, providerNo, outOfDomain, false,
             false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> getByHinAndGenderAndDobAndLastName(String hin, String gender, String dob,
@@ -554,11 +610,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByDOBAndNotStatus(String dobStr, List<String> statuses, int limit,
                                                                 int offset, String providerNo, boolean outOfDomain) {
         return searchDemographicByDOBAndStatus(dobStr, statuses, limit, offset, null, providerNo, outOfDomain, true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByDOBAndStatus(String dobStr, List<String> statuses, int limit,
@@ -566,11 +626,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return searchDemographicByDOBAndStatus(dobStr, statuses, limit, offset, null, providerNo, outOfDomain, false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByDOB(String dobStr, int limit, int offset, String orderBy,
                                                     String providerNo, boolean outOfDomain) {
         return searchDemographicByDOBAndStatus(dobStr, null, limit, offset, orderBy, providerNo, outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByDOBAndNotStatus(String dobStr, List<String> statuses, int limit,
@@ -578,12 +642,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return searchDemographicByDOBAndStatus(dobStr, statuses, limit, offset, orderBy, providerNo, outOfDomain, true);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByDOBAndStatus(String dobStr, List<String> statuses, int limit,
                                                              int offset, String orderBy, String providerNo, boolean outOfDomain) {
         return searchDemographicByDOBAndStatus(dobStr, statuses, limit, offset, orderBy, providerNo, outOfDomain,
             false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByDOBAndStatus(String dobStr, List<String> statuses, int limit,
@@ -593,6 +661,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByDOBAndStatus(String dobStr, List<String> statuses, int limit,
                                                              int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses,
@@ -643,6 +713,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchMergedDemographicByDOB(String dobStr, int limit, int offset, String providerNo,
                                                           boolean outOfDomain) {
@@ -667,6 +739,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByPhone(String phoneStr, int limit, int offset, String providerNo,
                                                       boolean outOfDomain) {
@@ -676,6 +750,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             phoneStr, limit, offset, null, providerNo, outOfDomain));
         return demographics;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByPhoneAndNotStatus(String phoneStr, List<String> statuses, int limit,
@@ -689,6 +765,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByPhoneAndStatus(String phoneStr, List<String> statuses, int limit,
                                                                int offset, String providerNo, boolean outOfDomain) {
@@ -699,6 +777,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return demographics;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByPhone(String phoneStr, int limit, int offset, String orderBy,
                                                       String providerNo, boolean outOfDomain) {
@@ -708,6 +788,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             phoneStr, limit, offset, orderBy, providerNo, outOfDomain));
         return demographics;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByPhoneAndNotStatus(String phoneStr, List<String> statuses, int limit,
@@ -720,6 +802,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return demographics;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByPhoneAndStatus(String phoneStr, List<String> statuses, int limit,
                                                                int offset, String orderBy, String providerNo, boolean outOfDomain) {
@@ -730,6 +814,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return demographics;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByPhoneAndStatus(String phoneStr, List<String> statuses, int limit,
                                                                int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses) {
@@ -738,6 +824,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByPhoneAndStatus(String phoneStr, List<String> statuses, int limit,
                                                                int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses,
@@ -776,6 +864,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchMergedDemographicByPhone(String phoneStr, int limit, int offset, String providerNo,
                                                             boolean outOfDomain) {
@@ -793,6 +883,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByHIN(String hinStr) {
         List<Demographic> list = new ArrayList<Demographic>();
@@ -808,11 +900,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByHIN(String hinStr, int limit, int offset, String providerNo,
                                                     boolean outOfDomain) {
         return searchDemographicByHINAndStatus(hinStr, null, limit, offset, null, providerNo, outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByHINAndNotStatus(String hinStr, List<String> statuses, int limit,
@@ -820,11 +916,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return searchDemographicByHINAndStatus(hinStr, statuses, limit, offset, null, providerNo, outOfDomain, true);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByHINAndStatus(String hinStr, List<String> statuses, int limit,
                                                              int offset, String providerNo, boolean outOfDomain) {
         return searchDemographicByHINAndStatus(hinStr, statuses, limit, offset, null, providerNo, outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByHIN(String hinStr, int limit, int offset, String orderBy,
@@ -832,11 +932,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return searchDemographicByHINAndStatus(hinStr, null, limit, offset, orderBy, providerNo, outOfDomain, false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByHINAndNotStatus(String hinStr, List<String> statuses, int limit,
                                                                 int offset, String orderBy, String providerNo, boolean outOfDomain) {
         return searchDemographicByHINAndStatus(hinStr, statuses, limit, offset, orderBy, providerNo, outOfDomain, true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByHINAndStatus(String hinStr, List<String> statuses, int limit,
@@ -844,6 +948,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return searchDemographicByHINAndStatus(hinStr, statuses, limit, offset, orderBy, providerNo, outOfDomain,
             false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByHINAndStatus(String hinStr, List<String> statuses, int limit,
@@ -853,6 +959,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByHINAndStatus(String hinStr, List<String> statuses, int limit,
                                                              int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses,
@@ -1073,6 +1181,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchMergedDemographicByHIN(String hinStr, int limit, int offset, String providerNo,
                                                           boolean outOfDomain) {
@@ -1090,12 +1200,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByAddress(String addressStr, int limit, int offset, String providerNo,
                                                         boolean outOfDomain) {
         return searchDemographicByAddressAndStatus(addressStr, null, limit, offset, null, providerNo, outOfDomain,
             false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByAddressAndStatus(String addressStr, List<String> statuses, int limit,
@@ -1104,12 +1218,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByAddressAndNotStatus(String addressStr, List<String> statuses, int limit,
                                                                     int offset, String providerNo, boolean outOfDomain) {
         return searchDemographicByAddressAndStatus(addressStr, statuses, limit, offset, null, providerNo, outOfDomain,
             true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByAddress(String addressStr, int limit, int offset, String orderBy,
@@ -1118,6 +1236,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByAddressAndStatus(String addressStr, List<String> statuses, int limit,
                                                                  int offset, String orderBy, String providerNo, boolean outOfDomain) {
@@ -1125,12 +1245,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             outOfDomain, false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByAddressAndNotStatus(String addressStr, List<String> statuses, int limit,
                                                                     int offset, String orderBy, String providerNo, boolean outOfDomain) {
         return searchDemographicByAddressAndStatus(addressStr, statuses, limit, offset, orderBy, providerNo,
             outOfDomain, true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByAddressAndStatus(String addressStr, List<String> statuses, int limit,
@@ -1140,6 +1264,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByAddressAndStatus(String addressStr, List<String> statuses, int limit,
                                                                  int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses,
@@ -1178,12 +1304,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLike(DemographicExt.DemographicProperty key, String value,
                                                                    int limit, int offset, String providerNo, boolean outOfDomain) {
         return searchDemographicByExtKeyAndValueLikeAndStatus(key, value, null, limit, offset, null, providerNo,
             outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLikeAndNotStatus(DemographicExt.DemographicProperty key,
@@ -1192,12 +1322,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             outOfDomain, true);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLikeAndStatus(DemographicExt.DemographicProperty key,
                                                                             String value, List<String> statuses, int limit, int offset, String providerNo, boolean outOfDomain) {
         return searchDemographicByExtKeyAndValueLikeAndStatus(key, value, statuses, limit, offset, null, providerNo,
             outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLike(DemographicExt.DemographicProperty key, String value,
@@ -1206,12 +1340,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             outOfDomain, false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLikeWithMerged(DemographicExt.DemographicProperty key,
                                                                              String value, int limit, int offset, String orderBy, String providerNo, boolean outOfDomain) {
         return searchDemographicByExtKeyAndValueLikeAndStatus(key, value, null, limit, offset, orderBy, providerNo,
             outOfDomain, false, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLikeAndNotStatus(DemographicExt.DemographicProperty key,
@@ -1221,6 +1359,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             outOfDomain, true);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLikeAndStatus(DemographicExt.DemographicProperty key,
                                                                             String value, List<String> statuses, int limit, int offset, String orderBy, String providerNo,
@@ -1229,6 +1369,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             outOfDomain, false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLikeAndStatus(DemographicExt.DemographicProperty key,
                                                                             String value, List<String> statuses, int limit, int offset, String orderBy, String providerNo,
@@ -1236,6 +1378,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return searchDemographicByExtKeyAndValueLikeAndStatus(key, value, statuses, limit, offset, orderBy, providerNo,
             outOfDomain, ignoreStatuses, true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> searchDemographicByExtKeyAndValueLikeAndStatus(DemographicExt.DemographicProperty key,
@@ -1283,6 +1427,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchMergedDemographicByAddress(String addressStr, int limit, int offset,
                                                               String providerNo, boolean outOfDomain) {
@@ -1301,11 +1447,15 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByChartNo(String chartNoStr, int limit, int offset, String providerNo,
                                                       boolean outOfDomain) {
         return findDemographicByChartNoAndStatus(chartNoStr, null, limit, offset, null, providerNo, outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findDemographicByChartNoAndStatus(String chartNoStr, List<String> statuses, int limit,
@@ -1314,12 +1464,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByChartNoAndNotStatus(String chartNoStr, List<String> statuses, int limit,
                                                                   int offset, String providerNo, boolean outOfDomain) {
         return findDemographicByChartNoAndStatus(chartNoStr, statuses, limit, offset, null, providerNo, outOfDomain,
             true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findDemographicByChartNo(String chartNoStr, int limit, int offset, String orderBy,
@@ -1328,12 +1482,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByChartNoAndStatus(String chartNoStr, List<String> statuses, int limit,
                                                                int offset, String orderBy, String providerNo, boolean outOfDomain) {
         return findDemographicByChartNoAndStatus(chartNoStr, statuses, limit, offset, orderBy, providerNo, outOfDomain,
             false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findDemographicByChartNoAndNotStatus(String chartNoStr, List<String> statuses, int limit,
@@ -1343,6 +1501,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByChartNoAndStatus(String chartNoStr, List<String> statuses, int limit,
                                                                int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses) {
@@ -1381,12 +1541,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByDemographicNo(String demographicNoStr, int limit, int offset,
                                                             String providerNo, boolean outOfDomain) {
         return findDemographicByDemographicNoAndStatus(demographicNoStr, null, limit, offset, null, providerNo,
             outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findDemographicByDemographicNoAndStatus(String demographicNoStr, List<String> statuses,
@@ -1395,12 +1559,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             outOfDomain, false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByDemographicNoAndNotStatus(String demographicNoStr, List<String> statuses,
                                                                         int limit, int offset, String providerNo, boolean outOfDomain) {
         return findDemographicByDemographicNoAndStatus(demographicNoStr, statuses, limit, offset, null, providerNo,
             outOfDomain, true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findDemographicByDemographicNo(String demographicNoStr, int limit, int offset,
@@ -1409,12 +1577,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             outOfDomain, false);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByDemographicNoAndStatus(String demographicNoStr, List<String> statuses,
                                                                      int limit, int offset, String orderBy, String providerNo, boolean outOfDomain) {
         return findDemographicByDemographicNoAndStatus(demographicNoStr, statuses, limit, offset, orderBy, providerNo,
             outOfDomain, false);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findDemographicByDemographicNoAndNotStatus(String demographicNoStr, List<String> statuses,
@@ -1424,6 +1596,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findDemographicByDemographicNoAndStatus(String demographicNoStr, List<String> statuses,
                                                                      int limit, int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses) {
@@ -1470,6 +1644,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return list;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void save(Demographic demographic) {
         if (demographic == null) {
@@ -1500,6 +1676,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getOrderField(String orderBy, boolean nativeQuery) {
         if (!nativeQuery) {
@@ -1514,6 +1692,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         return orderBy;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getOrderField(String orderBy) {
@@ -1542,6 +1722,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return orderByField;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getDemographicIdsAlteredSinceTime(Date value) {
         Connection c = null;
@@ -1565,6 +1747,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getDemographicIdsOpenedChartSinceTime(String value) {
         Connection c = null;
@@ -1587,6 +1771,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getRosterStatuses() {
         List<String> results = (List<String>) HqlQueryHelper.find(currentSession(),
@@ -1595,6 +1781,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getAllRosterStatuses() {
         List<String> results = (List<String>) HqlQueryHelper.find(currentSession(),
@@ -1603,6 +1791,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getAllPatientStatuses() {
         List<String> results = (List<String>) HqlQueryHelper.find(currentSession(),
@@ -1611,6 +1801,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<String> search_ptstatus() {
         List<String> results = (List<String>) HqlQueryHelper.find(currentSession(),
@@ -1619,6 +1811,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<String> getAllProviderNumbers() {
         List<String> results = (List<String>) HqlQueryHelper.find(currentSession(),
@@ -1665,6 +1859,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return exists;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Demographic getClientByDemographicNo(Integer demographicNo) {
 
@@ -1680,6 +1876,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> getClients() {
@@ -1700,6 +1898,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     // Quatro Merge
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> search(ClientSearchFormBean bean, boolean returnOptinsOnly, boolean excludeMerged) {
         Session session = currentSession();
@@ -2047,6 +2247,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void saveClient(Demographic client) {
 
@@ -2206,6 +2408,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getClientsByChartNo(String chartNo) {
         String queryStr = " FROM Demographic d where d.ChartNo=?1";
@@ -2218,6 +2422,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> getClientsByHealthCard(String num, String type) {
@@ -2232,12 +2438,16 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchByHealthCard(String hin, String hcType) {
         return getClientsByHealthCard(hin, hcType);
     }
 
     // from DemographicData
+    /** {@inheritDoc} */
+
     @Override
     public Demographic getDemographicByNamePhoneEmail(String firstName, String lastName, String hPhone, String wPhone,
                                                       String email) {
@@ -2295,6 +2505,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> searchByHealthCard(String hin) {
         String queryStr = " FROM Demographic d where d.Hin=?1";
@@ -2305,6 +2517,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getDemographicWithLastFirstDOB(String lastname, String firstname, String year_of_birth,
                                                             String month_of_birth, String date_of_birth) {
@@ -2331,6 +2545,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getDemographicWithLastFirstDOBExact(String lastname, String firstname,
                                                                  String year_of_birth, String month_of_birth, String date_of_birth) {
@@ -2371,6 +2587,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getDemographicsByHealthNum(String hin) {
         String sSQL = "from Demographic d where d.Hin=?1";
@@ -2378,6 +2596,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getActiveDemographicIds() {
         String sSQL = "select d.DemographicNo from Demographic d where d.PatientStatus=?1";
@@ -2385,6 +2605,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getDemographicIds() {
         String sSQL = "select d.DemographicNo from Demographic d";
@@ -2392,6 +2614,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getDemographicWithGreaterThanYearOfBirth(int yearOfBirth) {
         String sSQL = "from Demographic d where d.YearOfBirth > ?1";
@@ -2399,6 +2623,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> search_catchment(String rosterStatus, int offset, int limit) {
         String sql = "from Demographic d where d.RosterStatus=:status and (d.Postal not like 'L0R%' and d.Postal not like 'L3M%' and d.Postal not like 'L8E%' and d.Postal not like 'L9A%' and d.Postal not like 'L8G%' and d.Postal not like 'L9B%' and d.Postal not like 'L8H%' and d.Postal not like 'L9C%' and d.Postal not like 'L8J%' and d.Postal not like 'L9G%' and d.Postal not like 'L8K%' and d.Postal not like 'L9H%' and d.Postal not like 'L8L%' and d.Postal not like 'L9K%' and d.Postal not like 'L8M%' and d.Postal not like 'L8N%' and d.Postal not like 'N0A%' and d.Postal not like 'L8P%' and d.Postal not like 'N3W%' and d.Postal not like 'L8R%' and d.Postal not like 'L8S%' and d.Postal not like 'L8T%' and d.Postal not like 'L8V%' and d.Postal not like 'L8W%' and d.Postal not like 'K8R%' and d.Postal not like 'L0R%' and d.Postal not like 'L5P%' and d.Postal not like 'L8A%' and d.Postal not like 'L8B%' and d.Postal not like 'L8C%' and d.Postal not like 'L8L%' and d.Postal not like 'L9L%' and d.Postal not like 'L9N%' and d.Postal not like 'L9S%' and d.Postal not like 'M9C%' and d.Postal not like 'N0B%1L0' and d.Postal not like 'L7L%' and d.Postal not like 'L7M%' and d.Postal not like 'L7N%' and d.Postal not like 'L7P%' and d.Postal not like 'L7R%' and d.Postal not like 'L7S%' and d.Postal not like 'L7T%' )";
@@ -2412,6 +2638,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
@@ -2455,6 +2683,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findDemographicsForFluReport(String providerNo) {
         String sql = "select demographic_no, CONCAT(last_name,',',first_name) as demoname, phone, roster_status, patient_status, "
@@ -2477,6 +2707,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getActiveDemographicIdsOlderThan(int age) {
         List<Integer> ids = new ArrayList<Integer>();
@@ -2602,6 +2834,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher publisher) {
         this.publisher = publisher;
@@ -2620,6 +2854,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         else
             return ("0" + i);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> getDemographicIdsAddedSince(Date value) {
@@ -2641,6 +2877,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         query.setMaxResults(itemsToReturn);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getDemographicByRosterStatus(String rosterStatus, String patientStatus) {
         if (patientStatus == null || patientStatus == "") {
@@ -2653,6 +2891,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer searchPatientCount(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest) {
@@ -2671,6 +2911,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             Integer result = ((Number) sqlQuery.uniqueResult()).intValue();
             return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicSearchResult> searchPatients(LoggedInInfo loggedInInfo,
@@ -2823,6 +3065,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             + fieldname + " " + regularexp + " :keyword " + ptstatusexp + domainRestriction + orderBy;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> getDemographics(List<Integer> demographicIds) {
         if (demographicIds.size() == 0)
@@ -2841,6 +3085,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Integer> getMissingExtKey(String keyName) {
         Session session = currentSession();
@@ -2853,6 +3099,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
     }
 
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> getActiveDemographicAfter(Date afterDatetimeExclusive) {
@@ -2868,10 +3116,14 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findByLastNameAndDob(String lastName, Calendar dateOfBirth) {
         return findByAttributes(null, null, lastName, null, dateOfBirth, null, null, null, null, null, 0, 99);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findByFirstAndLastName(String name, String start, String end) {
@@ -2900,6 +3152,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             Integer.parseInt(end) - startIndex);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findByDob(Calendar dateOfBirth, String start, int numToReturn) {
         int startIndex = Integer.parseInt(start);
@@ -2919,6 +3173,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             true);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Demographic> findByPhone(String phone, String start, int numToReturn) {
         int startIndex = Integer.parseInt(start);
@@ -2937,6 +3193,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             numToReturn,
             true);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Demographic> findByHin(String hin, String start, int numToReturn) {

@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 
+/**
+ * DAO interface for electronic form operations.
+ *
+ * @since 2001
+ */
+
 public interface EFormReportToolDao extends AbstractDao<EFormReportTool> {
 
     void markLatest(Integer eformReportToolId);

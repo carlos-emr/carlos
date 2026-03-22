@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FlowSheetUserCreatedDao} for clinical flowsheet data access.
+ *
+ * @since 2001
+ */
+
 public class FlowSheetUserCreatedDaoImpl extends AbstractDaoImpl<FlowSheetUserCreated> implements FlowSheetUserCreatedDao {
 
     public FlowSheetUserCreatedDaoImpl() {

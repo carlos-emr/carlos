@@ -33,6 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.DrugDispensingMapping;
 
+/**
+ * DAO interface for drug and prescription operations.
+ *
+ * @since 2001
+ */
+
 public interface DrugDispensingMappingDao extends AbstractDao<DrugDispensingMapping> {
     DrugDispensingMapping findMappingByDin(String din);
 

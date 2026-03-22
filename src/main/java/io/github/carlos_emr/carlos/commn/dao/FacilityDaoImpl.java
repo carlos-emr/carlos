@@ -37,6 +37,12 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FacilityDao} for facility data access.
+ *
+ * @since 2001
+ */
+
 public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements FacilityDao {
 
     public FacilityDaoImpl() {

@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleHoliday;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ScheduleHolidayDao} for scheduling data access.
+ *
+ * @since 2001
+ */
+
 public class ScheduleHolidayDaoImpl extends AbstractDaoImpl<ScheduleHoliday> implements ScheduleHolidayDao {
 
     public ScheduleHolidayDaoImpl() {
@@ -48,11 +54,15 @@ public class ScheduleHolidayDaoImpl extends AbstractDaoImpl<ScheduleHoliday> imp
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<ScheduleHoliday> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ScheduleHoliday> findAfterDate(Date date) {

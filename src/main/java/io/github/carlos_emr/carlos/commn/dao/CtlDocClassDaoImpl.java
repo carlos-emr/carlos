@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocClass;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlDocClassDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlDocClassDaoImpl extends AbstractDaoImpl<CtlDocClass> implements CtlDocClassDao {
 
     public CtlDocClassDaoImpl() {
         super(CtlDocClass.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> findUniqueReportClasses() {
@@ -56,6 +64,8 @@ public class CtlDocClassDaoImpl extends AbstractDaoImpl<CtlDocClass> implements 
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> findSubClassesByReportClass(String reportClass) {

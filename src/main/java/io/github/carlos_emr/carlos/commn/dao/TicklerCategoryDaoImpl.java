@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.TicklerCategory;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link TicklerCategoryDao} for tickler (task reminder) data access.
+ *
+ * @since 2001
+ */
+
 public class TicklerCategoryDaoImpl extends AbstractDaoImpl<TicklerCategory> implements TicklerCategoryDao {
 
     protected TicklerCategoryDaoImpl() {
@@ -46,6 +52,8 @@ public class TicklerCategoryDaoImpl extends AbstractDaoImpl<TicklerCategory> imp
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<TicklerCategory> getActiveCategories() {
         String sql = "SELECT x FROM TicklerCategory x WHERE x.active = true ORDER BY x.category";

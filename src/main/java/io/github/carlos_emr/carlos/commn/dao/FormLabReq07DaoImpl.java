@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.FormLabReq07;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link FormLabReq07Dao} for medical form data access.
+ *
+ * @since 2001
+ */
+
 public class FormLabReq07DaoImpl extends AbstractDaoImpl<FormLabReq07> implements FormLabReq07Dao {
 
     public FormLabReq07DaoImpl() {

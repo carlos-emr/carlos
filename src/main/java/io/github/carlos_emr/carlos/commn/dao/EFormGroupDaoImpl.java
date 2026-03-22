@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.EFormGroup;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link EFormGroupDao} for electronic form data access.
+ *
+ * @since 2001
+ */
+
 public class EFormGroupDaoImpl extends AbstractDaoImpl<EFormGroup> implements EFormGroupDao {
 
     public EFormGroupDaoImpl() {
@@ -70,10 +76,14 @@ public class EFormGroupDaoImpl extends AbstractDaoImpl<EFormGroup> implements EF
         return query.executeUpdate();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int deleteByName(String groupName) {
         return deleteByNameAndFormId(groupName, null);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<EFormGroup> getByGroupName(String groupName) {
@@ -86,6 +96,8 @@ public class EFormGroupDaoImpl extends AbstractDaoImpl<EFormGroup> implements EF
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> getGroupNames() {

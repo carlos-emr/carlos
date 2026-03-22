@@ -53,6 +53,15 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+/**
+ * Utility class for generating QR code images using the ZXing library.
+ *
+ * <p>Provides methods for encoding text data into QR code barcodes as buffered images,
+ * with configurable error correction levels and output sizes. Used for generating
+ * scannable codes on patient documents and forms.
+ *
+ * @since 2026-03-17
+ */
 public class QrCodeUtils {
 
     private static final Logger logger = MiscUtils.getLogger();

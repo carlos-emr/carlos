@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link BillingPaymentTypeDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingPaymentTypeDaoImpl extends AbstractDaoImpl<BillingPaymentType> implements BillingPaymentTypeDao {
 
     public BillingPaymentTypeDaoImpl() {

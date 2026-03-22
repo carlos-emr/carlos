@@ -40,11 +40,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link RemoteAttachmentsDao} for remote attachment data access.
+ *
+ * @since 2001
+ */
+
 public class RemoteAttachmentsDaoImpl extends AbstractDaoImpl<RemoteAttachments> implements RemoteAttachmentsDao {
 
     public RemoteAttachmentsDaoImpl() {
         super(RemoteAttachments.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RemoteAttachments> findByDemoNo(Integer demoNo) {
@@ -52,6 +60,8 @@ public class RemoteAttachmentsDaoImpl extends AbstractDaoImpl<RemoteAttachments>
         query.setParameter(1, demoNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RemoteAttachments> findByDemoNoAndMessageId(Integer demographicNo, Integer messageId) {

@@ -36,6 +36,12 @@ import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.MdsNTE;
 
 @Repository
+/**
+ * JPA implementation of {@link MdsNTEDao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsNTEDaoImpl extends AbstractDaoImpl<MdsNTE> implements MdsNTEDao {
 
     public MdsNTEDaoImpl() {

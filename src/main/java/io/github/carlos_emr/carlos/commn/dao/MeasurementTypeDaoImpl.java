@@ -38,11 +38,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link MeasurementTypeDao} for clinical measurement data access.
+ *
+ * @since 2001
+ */
+
 public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> implements MeasurementTypeDao {
 
     public MeasurementTypeDaoImpl() {
         super(MeasurementType.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementType> findAll() {
@@ -52,6 +60,8 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementType> findAllOrderByName() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.typeDisplayName";
@@ -59,6 +69,8 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         List<MeasurementType> results = query.getResultList();
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementType> findAllOrderById() {
@@ -68,6 +80,8 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementType> findByType(String type) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.type=?1";
@@ -76,6 +90,8 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         List<MeasurementType> results = query.getResultList();
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementType> findByMeasuringInstructionAndTypeDisplayName(String measuringInstruction, String typeDisplayName) {
@@ -87,6 +103,8 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<MeasurementType> findByTypeDisplayName(String typeDisplayName) {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where x.typeDisplayName=?1";
@@ -95,6 +113,8 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         List<MeasurementType> results = query.getResultList();
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<MeasurementType> findByTypeAndMeasuringInstruction(String type, String measuringInstruction) {
@@ -105,6 +125,8 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         List<MeasurementType> results = query.getResultList();
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object> findUniqueTypeDisplayNames() {

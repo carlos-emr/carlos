@@ -47,11 +47,19 @@ import java.util.*;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link OscarAppointmentDao} for core data access.
+ *
+ * @since 2001
+ */
+
 public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implements OscarAppointmentDao {
 
     public OscarAppointmentDaoImpl() {
         super(Appointment.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean checkForConflict(Appointment appt) {
@@ -73,6 +81,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return false;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> getAppointmentHistory(Integer demographicNo, Integer offset, Integer limit) {
         String sql = "select a from Appointment a where a.demographicNo=?1 and a.status not in ('D') order by a.appointmentDate DESC, a.startTime DESC";
@@ -86,6 +96,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> getAllAppointmentHistory(Integer demographicNo, Integer offset, Integer limit) {
         String sql = "select a from Appointment a where a.demographicNo=?1 order by a.appointmentDate DESC, a.startTime DESC";
@@ -98,6 +110,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return result;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<AppointmentArchive> getDeletedAppointmentHistory(Integer demographicNo, Integer offset, Integer limit) {
@@ -115,6 +129,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> getAppointmentHistory(Integer demographicNo) {
         String sql = "select a from Appointment a where a.demographicNo=?1 and a.status not in ('C','D') order by a.appointmentDate DESC, a.startTime DESC";
@@ -125,6 +141,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void archiveAppointment(int appointmentNo) {
@@ -137,6 +155,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
             entityManager.persist(apptArchive);
         }
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> getAllByDemographicNo(Integer demographicNo) {
@@ -183,6 +203,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> getAllByDemographicNoSince(Integer demographicNo, Date lastUpdateDate) {
         String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 and a.updateDateTime > ?2 ORDER BY a.id";
@@ -193,6 +215,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         List<Appointment> rs = query.getResultList();
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> getAllDemographicNoSince(Date lastUpdateDate, List<Program> programs) {
@@ -212,6 +236,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findByDateRange(Date startTime, Date endTime) {
         String sql = "SELECT a FROM Appointment a WHERE a.appointmentDate >=?1 and a.appointmentDate < ?2";
@@ -224,6 +250,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> findByDateRangeAndProvider(Date startTime, Date endTime, String providerNo) {
@@ -239,6 +267,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> getByProviderAndDay(Date date, String providerNo) {
         String sql = "SELECT a FROM Appointment a WHERE a.providerNo=?1 and a.appointmentDate = ?2 and a.status != 'N' and a.status != 'C' order by a.startTime";
@@ -251,6 +281,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> getByDemoNoAndDay(int demoNo, Date date) {
         Query q = entityManager.createQuery(
@@ -259,6 +291,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         q.setParameter(2, date);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> findByProviderAndDayandNotStatuses(String providerNo, Date date, String[] notThisStatus) {
@@ -271,6 +305,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         List<Appointment> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> findByProviderAndDayandNotStatus(String providerNo, Date date, String notThisStatus) {
@@ -285,6 +321,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findByProviderDayAndStatus(String providerNo, Date date, String status) {
         String sql = "SELECT a FROM Appointment a WHERE a.providerNo=?1 and a.appointmentDate = ?2 and a.status=?3";
@@ -298,6 +336,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findByDayAndStatus(Date date, String status) {
         String sql = "SELECT a FROM Appointment a WHERE a.appointmentDate = ?1 and a.status=?2";
@@ -309,6 +349,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> find(Date date, String providerNo, Date startTime, Date endTime, String name,
@@ -351,6 +393,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findAll() {
         String sql = "SELECT a FROM Appointment a";
@@ -360,6 +404,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return rs;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> findNonCancelledFutureAppointments(Integer demographicId) {
@@ -386,6 +432,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Appointment findDemoAppointmentToday(Integer demographicNo) {
         Appointment appointment = null;
@@ -403,6 +451,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return appointment;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findByProviderAndDate(String providerNo, Date appointmentDate) {
         Query query = createQuery("a", "a.providerNo = :pNo and a.appointmentDate= :aDate");
@@ -410,6 +460,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter("aDate", appointmentDate);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findAppointments(Date sDate, Date eDate) {
@@ -419,6 +471,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(2, eDate == null ? new Date(Long.MAX_VALUE) : eDate);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findPatientAppointments(String providerNo, Date from, Date to) {
@@ -450,6 +504,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     /**
      * Searches for unbilled appointments within a specified date range for a given provider.
@@ -464,6 +520,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findByDateAndProvider(Date date, String provider_no) {
         Query query = createQuery("a",
@@ -472,6 +530,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(2, date);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> search_appt(Date startTime, Date endTime, String providerNo) {
@@ -489,6 +549,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     // search_appt_name
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> search_appt(Date date, String providerNo, Date startTime1, Date startTime2, Date endTime1,
                                          Date endTime2, Date startTime3, Date endTime3, Integer programId) {
@@ -511,6 +573,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> search_appt_future(Integer demographicNo, Date from, Date to) {
         String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo and a.demographicNo = ?1 and a.appointmentDate >= ?2 and a.appointmentDate < ?3 order by a.appointmentDate desc, a.startTime desc";
@@ -524,6 +588,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> search_appt_past(Integer demographicNo, Date from, Date to) {
         String baseHql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo and a.demographicNo = ?1 and a.appointmentDate < ?2 and a.appointmentDate > ?3 order by a.appointmentDate desc, a.startTime desc";
@@ -536,6 +602,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Appointment search_appt_no(String providerNo, Date appointmentDate, Date startTime, Date endTime,
@@ -555,6 +623,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return this.getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> search_appt_data1(String providerNo, Date appointmentDate, Date startTime, Date endTime,
                                             Date createDateTime, String creator, Integer demographicNo) {
@@ -572,6 +642,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> export_appt(Integer demographicNo) {
         String sql = "select app, prov from Appointment app, Provider prov where app.providerNo = prov.ProviderNo and app.demographicNo = ?1";
@@ -580,6 +652,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> search_otherappt(Date appointmentDate, Date startTime1, Date endTime1, Date startTime2,
@@ -595,6 +669,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> search_group_day_appt(String myGroup, Integer demographicNo, Date appointmentDate) {
@@ -613,6 +689,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Appointment findByDate(Date appointmentDate) {
         Query query = createQuery("a", "a.appointmentDate < ?1 ORDER BY a.appointmentDate DESC");
@@ -621,6 +699,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return getSingleResultOrNull(query);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findAppointmentAndProviderByAppointmentNo(Integer apptNo) {
         String sql = "SELECT a, p FROM Appointment a, Provider p WHERE a.providerNo = p.ProviderNo AND a.id = ?1";
@@ -628,6 +708,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(1, apptNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> searchappointmentday(String providerNo, Date appointmentDate, Integer programId) {
@@ -639,6 +721,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(4, "D");
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> searchAppointmentDaySite(String providerNo, Date appointmentDate, Integer programId,
@@ -660,6 +744,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @NativeSql({"demographic", "appointment", "drugs", "provider"})
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findAppointmentsByDemographicIds(Set<String> demoIds, Date from, Date to) {
         String sql = "" +
@@ -733,6 +819,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findByProgramProviderDemographicDate(Integer programId, String providerNo,
                                                                   Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
@@ -767,6 +855,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return rs;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Appointment> findDemoAppointmentsToday(Integer demographicNo) {
         String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE ORDER BY a.appointmentDate, a.startTime";
@@ -778,6 +868,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Appointment> findDemoAppointmentsOnDate(Integer demographicNo, Date date) {
@@ -792,6 +884,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int findProvideAppointmentTodayNum(String provide, String appdate) {
         Date appointDate = UtilDateUtilities.StringToDate(appdate);
@@ -801,6 +895,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         query.setParameter(2, appointDate);
         return Integer.parseInt(String.valueOf(query.getSingleResult()));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public int updateApptStatus(String ids, String status) {
@@ -821,6 +917,8 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         q.setParameter(1, status);
         return q.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> listAppointmentsByPeriodProvider(Date sDate, Date eDate, List<Integer> providerNos) {

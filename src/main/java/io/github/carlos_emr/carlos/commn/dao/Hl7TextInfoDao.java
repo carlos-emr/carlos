@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo2;
 
+/**
+ * DAO interface for HL7 message operations.
+ *
+ * @since 2001
+ */
+
 public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
 
     public List<Hl7TextInfo> findAll();

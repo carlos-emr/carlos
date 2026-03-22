@@ -41,6 +41,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link ConsultDocsDao} for consultation and referral data access.
+ *
+ * @since 2001
+ */
+
 public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements ConsultDocsDao {
 
     public ConsultDocsDaoImpl() {

@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DHIRSubmissionLogDao} for Digital Health Immunization Repository (DHIR) data access.
+ *
+ * @since 2001
+ */
+
 public class DHIRSubmissionLogDaoImpl extends AbstractDaoImpl<DHIRSubmissionLog> implements DHIRSubmissionLogDao {
 
     public DHIRSubmissionLogDaoImpl() {
@@ -46,11 +52,15 @@ public class DHIRSubmissionLogDaoImpl extends AbstractDaoImpl<DHIRSubmissionLog>
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<DHIRSubmissionLog> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public DHIRSubmissionLog findLatestPendingByPreventionId(Integer preventionId) {
@@ -68,6 +78,8 @@ public class DHIRSubmissionLogDaoImpl extends AbstractDaoImpl<DHIRSubmissionLog>
 
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DHIRSubmissionLog> findByPreventionId(Integer preventionId) {

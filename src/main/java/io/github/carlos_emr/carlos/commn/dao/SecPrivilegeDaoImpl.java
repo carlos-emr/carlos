@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.SecPrivilege;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link SecPrivilegeDao} for security data access.
+ *
+ * @since 2001
+ */
+
 public class SecPrivilegeDaoImpl extends AbstractDaoImpl<SecPrivilege> implements SecPrivilegeDao {
 
     public SecPrivilegeDaoImpl() {
         super(SecPrivilege.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<SecPrivilege> findAll() {

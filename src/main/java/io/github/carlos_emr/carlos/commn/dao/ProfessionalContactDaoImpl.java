@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalContact;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ProfessionalContactDao} for professional contact data access.
+ *
+ * @since 2001
+ */
+
 public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalContact> implements ProfessionalContactDao {
 
     public ProfessionalContactDaoImpl() {
@@ -47,11 +53,15 @@ public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalCont
 
     @Deprecated
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<ProfessionalContact> findAll() {
         Query query = createQuery("x", null);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<ProfessionalContact> search(String searchMode, String orderBy, String keyword) {

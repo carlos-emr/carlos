@@ -44,11 +44,19 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicArchiveDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchive> implements DemographicArchiveDao {
 
     public DemographicArchiveDaoImpl() {
         super(DemographicArchive.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicArchive> findByDemographicNo(Integer demographicNo) {
@@ -63,6 +71,8 @@ public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchiv
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicArchive> findRosterStatusHistoryByDemographicNo(Integer demographicNo) {
@@ -96,12 +106,16 @@ public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchiv
         return (results);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Long archiveRecord(Demographic d) {
         DemographicArchive da = new DemographicArchive(d);
         persist(da);
         return da.getId();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicArchive> findByDemographicNoChronologically(Integer demographicNo) {
@@ -116,6 +130,8 @@ public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchiv
 
         return (results);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findMetaByDemographicNo(Integer demographicNo) {

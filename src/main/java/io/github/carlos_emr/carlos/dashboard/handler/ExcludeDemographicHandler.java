@@ -73,6 +73,14 @@ public class ExcludeDemographicHandler {
     private String excludeIndicator = "excludeIndicator";
     Date now = new java.util.Date();
 
+    /**
+     * Returns the demographic IDs currently excluded from the given indicator
+     * for the current provider. Only returns exclusions that are still current
+     * (less than one year old).
+     *
+     * @param indicatorName String the indicator identifier (name|subCategory|category)
+     * @return List of Integer the excluded demographic IDs, or {@code null} if indicator name is blank
+     */
     public List<Integer> getDemoIds(String indicatorName) {
         if (indicatorName == null || indicatorName.isEmpty()) return null;
         demoIds = new ArrayList<Integer>();
@@ -88,6 +96,13 @@ public class ExcludeDemographicHandler {
         return demoIds;
     }
 
+    /**
+     * Returns the {@link DemographicExt} records for patients currently excluded from the
+     * given indicator for the current provider. Only returns current exclusions.
+     *
+     * @param indicatorName String the indicator identifier (name|subCategory|category)
+     * @return List of DemographicExt the exclusion records, or {@code null} if indicator name is blank
+     */
     public List<DemographicExt> getDemoExts(String indicatorName) {
         if (indicatorName == null || indicatorName.isEmpty()) return null;
         demoExts = new ArrayList<DemographicExt>();

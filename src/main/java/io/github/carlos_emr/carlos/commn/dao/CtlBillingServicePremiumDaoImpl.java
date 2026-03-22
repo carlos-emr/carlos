@@ -41,6 +41,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link CtlBillingServicePremiumDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlBillingServicePremiumDaoImpl extends AbstractDaoImpl<CtlBillingServicePremium> implements CtlBillingServicePremiumDao {
 
     public CtlBillingServicePremiumDaoImpl() {

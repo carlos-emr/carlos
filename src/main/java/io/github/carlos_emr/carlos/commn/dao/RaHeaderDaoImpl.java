@@ -39,11 +39,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link RaHeaderDao} for remittance advice data access.
+ *
+ * @since 2001
+ */
+
 public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHeaderDao {
 
     public RaHeaderDaoImpl() {
         super(RaHeader.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RaHeader> findCurrentByFilenamePaymentDate(String filename, String paymentDate) {
@@ -54,6 +62,8 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaHeader> findByFilenamePaymentDate(String filename, String paymentDate) {
         Query query = entityManager.createQuery("SELECT r from RaHeader r WHERE r.filename = ?1 and r.paymentDate = ?2 ORDER BY r.paymentDate");
@@ -62,12 +72,16 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaHeader> findAllExcludeStatus(String status) {
         Query query = entityManager.createQuery("SELECT r FROM RaHeader r WHERE r.status != ?1 ORDER BY r.paymentDate DESC, r.readDate DESC");
         query.setParameter(1, status);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<RaHeader> findByHeaderDetailsAndProviderMagic(String status, String providerNo) {
@@ -90,6 +104,8 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<RaHeader> findByStatusAndProviderMagic(String status, String providerNo) {
         String sql = "SELECT r " +
@@ -111,6 +127,8 @@ public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHead
         query.setParameter(2, providerNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findHeadersAndProvidersById(Integer id) {

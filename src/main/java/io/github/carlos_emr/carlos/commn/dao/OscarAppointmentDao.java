@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
+/**
+ * DAO interface for core operations.
+ *
+ * @since 2001
+ */
+
 public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public boolean checkForConflict(Appointment appt);

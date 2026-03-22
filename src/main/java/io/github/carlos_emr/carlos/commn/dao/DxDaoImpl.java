@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DxDao} for diagnosis data access.
+ *
+ * @since 2001
+ */
+
 public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
 
     public DxDaoImpl() {
         super(DxAssociation.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DxAssociation> findAllAssociations() {
@@ -57,11 +65,15 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public int removeAssociations() {
         Query query = entityManager.createQuery("DELETE from DxAssociation");
         return query.executeUpdate();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public DxAssociation findAssociation(String codeType, String code) {
@@ -78,6 +90,8 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     }
 
     @NativeSql
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<Object[]> findCodingSystemDescription(String codingSystem, String code) {
@@ -101,6 +115,8 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     }
 
     @NativeSql
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<Object[]> findCodingSystemDescription(String codingSystem, String[] keywords) {
@@ -154,6 +170,8 @@ public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
     }
 
     @NativeSql
+    /** {@inheritDoc} */
+
     @Override
     public String getCodeDescription(String codingSystem, String code) {
         String desc = "";

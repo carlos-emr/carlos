@@ -40,6 +40,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link EFormDocsDao} for electronic form data access.
+ *
+ * @since 2001
+ */
+
 public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFormDocsDao {
 
     public EFormDocsDaoImpl() {

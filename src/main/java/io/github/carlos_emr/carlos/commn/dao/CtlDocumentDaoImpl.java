@@ -39,11 +39,19 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CtlDocumentDao} for control table data access.
+ *
+ * @since 2001
+ */
+
 public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements CtlDocumentDao {
 
     public CtlDocumentDaoImpl() {
         super(CtlDocument.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public CtlDocument getCtrlDocument(Integer docId) {
@@ -52,6 +60,8 @@ public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements 
 
         return (getSingleResultOrNull(query));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<CtlDocument> findByDocumentNoAndModule(Integer ctlDocNo, String module) {

@@ -36,6 +36,12 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.SecurityToken;
 
+/**
+ * DAO interface for security operations.
+ *
+ * @since 2001
+ */
+
 public interface SecurityTokenDao extends AbstractDao<SecurityToken> {
     SecurityToken getByTokenAndExpiry(String token, Date expiry);
 }

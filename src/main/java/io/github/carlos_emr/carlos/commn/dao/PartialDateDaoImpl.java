@@ -44,11 +44,19 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 @Repository
+/**
+ * JPA implementation of {@link PartialDateDao} for partial date data access.
+ *
+ * @since 2001
+ */
+
 public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements PartialDateDao {
 
     public PartialDateDaoImpl() {
         super(PartialDate.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public PartialDate getPartialDate(Integer tableName, Integer tableId, Integer fieldName) {
@@ -71,22 +79,30 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
         return result;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getDatePartial(Date fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
         String dateString = UtilDateUtilities.DateToString(fieldDate, "yyyy-MM-dd");
         return getDatePartial(dateString, tableName, tableId, fieldName);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getDatePartial(String fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
         return getDatePartial(fieldDate, getFormat(tableName, tableId, fieldName));
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getDatePartial(Date partialDate, String format) {
         String dateString = UtilDateUtilities.DateToString(partialDate, "yyyy-MM-dd");
         return getDatePartial(dateString, format);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getDatePartial(String dateString, String format) {
@@ -100,11 +116,15 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
         return dateString;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public void setPartialDate(String fieldDate, Integer tableName, Integer tableId, Integer fieldName) {
         String format = getFormat(fieldDate);
         setPartialDate(tableName, tableId, fieldName, format);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void setPartialDate(Integer tableName, Integer tableId, Integer fieldName, String format) {
@@ -118,6 +138,8 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
         if (partialDate != null) persist(partialDate);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getFormat(Integer tableName, Integer tableId, Integer fieldName) {
         PartialDate partialDate = getPartialDate(tableName, tableId, fieldName);
@@ -125,6 +147,8 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
 
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public String getFormat(String dateValue) {
@@ -142,6 +166,8 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public String getFullDate(String partialDate) {
         String format = getFormat(partialDate);
@@ -151,6 +177,8 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
 
         return partialDate;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Date StringToDate(String partialDate) {

@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 
+/**
+ * DAO interface for control table operations.
+ *
+ * @since 2001
+ */
+
 public interface CtlBillingTypeDao extends AbstractDao<CtlBillingType> {
     List<CtlBillingType> findByServiceType(String serviceType);
 }

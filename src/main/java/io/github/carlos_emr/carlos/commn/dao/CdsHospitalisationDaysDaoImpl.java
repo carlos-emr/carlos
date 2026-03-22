@@ -37,6 +37,12 @@ import io.github.carlos_emr.carlos.commn.model.CdsHospitalisationDays;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CdsHospitalisationDaysDao} for Clinical Decision Support (CDS) data access.
+ *
+ * @since 2001
+ */
+
 public class CdsHospitalisationDaysDaoImpl extends AbstractDaoImpl<CdsHospitalisationDays> implements CdsHospitalisationDaysDao {
 
     public CdsHospitalisationDaysDaoImpl() {

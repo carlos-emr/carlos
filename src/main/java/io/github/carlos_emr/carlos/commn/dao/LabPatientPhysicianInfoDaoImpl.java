@@ -41,11 +41,19 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link LabPatientPhysicianInfoDao} for laboratory data access.
+ *
+ * @since 2001
+ */
+
 public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPhysicianInfo> implements LabPatientPhysicianInfoDao {
 
     public LabPatientPhysicianInfoDaoImpl() {
         super(LabPatientPhysicianInfo.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findRoutings(Integer demographicNo, String labType) {
@@ -55,6 +63,8 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
         query.setParameter("demoNo", demographicNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findByPatientName(String status, String labType, String providerNo, String patientLastName, String patientFirstName, String patientHealthNumber) {
@@ -69,6 +79,8 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findByDemographic(Integer demographicNo, String labType) {
         String sql = "SELECT lpp, plr FROM LabPatientPhysicianInfo lpp, PatientLabRouting plr WHERE plr.labType = :labType AND lpp.id = plr.labNo AND plr.demographicNo = :demoNo";
@@ -77,6 +89,8 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
         q.setParameter("demoNo", demographicNo);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findLabServiceDatesByLabId(Integer labId) {
@@ -90,6 +104,8 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
         query.setParameter("labId", labId);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate) {

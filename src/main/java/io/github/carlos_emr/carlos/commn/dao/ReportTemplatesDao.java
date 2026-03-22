@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportTemplatesDao extends AbstractDao<ReportTemplates> {
     List<ReportTemplates> findAll();
 

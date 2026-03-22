@@ -42,6 +42,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Reporter implementation that calculates unused appointment minutes for a provider
+ * within a date range. Compares scheduled appointment durations against available
+ * time slots to identify gaps.
+ *
+ * @since 2001-01-01
+ */
 public class UnusedMinutesReporter implements Reporter {
 
     /**

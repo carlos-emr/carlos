@@ -38,11 +38,19 @@ import jakarta.persistence.Query;
 import java.util.List;
 
 @Repository
+/**
+ * JPA implementation of {@link DepartmentDao} for department data access.
+ *
+ * @since 2001
+ */
+
 public class DepartmentDaoImpl extends AbstractDaoImpl<Department> implements DepartmentDao {
 
     public DepartmentDaoImpl() {
         super(Department.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Department> findAll() {

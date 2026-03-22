@@ -37,6 +37,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 
+/**
+ * DAO interface for reporting operations.
+ *
+ * @since 2001
+ */
+
 public interface ReportByExamplesDao extends AbstractDao<ReportByExamples> {
     List<Object[]> findReportsAndProviders();
 

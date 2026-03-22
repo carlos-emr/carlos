@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingONPremiumDao extends AbstractDao<BillingONPremium> {
     List<BillingONPremium> getActiveRAPremiumsByPayDate(Date startDate, Date endDate, Locale locale);
 

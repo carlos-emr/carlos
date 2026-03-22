@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link CaseManagementTmpSaveDao} for case management data access.
+ *
+ * @since 2001
+ */
+
 public class CaseManagementTmpSaveDaoImpl extends AbstractDaoImpl<CaseManagementTmpSave> implements CaseManagementTmpSaveDao {
 
     private static final String NOTE_TAG_REGEXP = "^\\[[[:digit:]]{2}-[[:alpha:]]{3}-[[:digit:]]{4} \\.\\: [^]]*\\][[:space:]]+$";
@@ -46,6 +52,8 @@ public class CaseManagementTmpSaveDaoImpl extends AbstractDaoImpl<CaseManagement
     public CaseManagementTmpSaveDaoImpl() {
         super(CaseManagementTmpSave.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public void remove(String providerNo, Integer demographicNo, Integer programId) {
@@ -62,6 +70,8 @@ public class CaseManagementTmpSaveDaoImpl extends AbstractDaoImpl<CaseManagement
         }
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public CaseManagementTmpSave find(String providerNo, Integer demographicNo, Integer programId) {
         Query query = entityManager.createQuery("SELECT x FROM CaseManagementTmpSave x WHERE x.providerNo = ?1 and x.demographicNo=?2 and x.programId = ?3 order by x.updateDate DESC");
@@ -71,6 +81,8 @@ public class CaseManagementTmpSaveDaoImpl extends AbstractDaoImpl<CaseManagement
 
         return this.getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public CaseManagementTmpSave find(String providerNo, Integer demographicNo, Integer programId, Date date) {
@@ -82,6 +94,8 @@ public class CaseManagementTmpSaveDaoImpl extends AbstractDaoImpl<CaseManagement
 
         return this.getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public boolean noteHasContent(Integer id) {

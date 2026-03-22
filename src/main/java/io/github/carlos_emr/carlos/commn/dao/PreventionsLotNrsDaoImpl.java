@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link PreventionsLotNrsDao} for prevention and immunization data access.
+ *
+ * @since 2001
+ */
+
 public class PreventionsLotNrsDaoImpl extends AbstractDaoImpl<PreventionsLotNrs> implements PreventionsLotNrsDao {
 
     public PreventionsLotNrsDaoImpl() {
         super(PreventionsLotNrs.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PreventionsLotNrs> findLotNrData(Boolean bDeleted) {
@@ -59,6 +67,8 @@ public class PreventionsLotNrsDaoImpl extends AbstractDaoImpl<PreventionsLotNrs>
         return (pList);
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public PreventionsLotNrs findByName(String prevention, String lotNr, Boolean bDeleted) {
         StringBuilder sb = new StringBuilder();
@@ -72,6 +82,8 @@ public class PreventionsLotNrsDaoImpl extends AbstractDaoImpl<PreventionsLotNrs>
 
         return this.getSingleResultOrNull(query);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<String> findLotNrs(String prevention, Boolean bDeleted) {
@@ -88,6 +100,8 @@ public class PreventionsLotNrsDaoImpl extends AbstractDaoImpl<PreventionsLotNrs>
 
         return (pList);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<PreventionsLotNrs> findPagedData(String prevention, Boolean bDeleted, Integer offset, Integer limit) {

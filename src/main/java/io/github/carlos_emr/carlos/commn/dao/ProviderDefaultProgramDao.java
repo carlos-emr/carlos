@@ -37,6 +37,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
 
+/**
+ * DAO interface for healthcare provider operations.
+ *
+ * @since 2001
+ */
+
 public interface ProviderDefaultProgramDao extends AbstractDao<ProviderDefaultProgram> {
 
     public List<ProviderDefaultProgram> getProgramByProviderNo(String providerNo);

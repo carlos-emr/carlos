@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.commn.model.MdsPV1;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link MdsPV1Dao} for MDS HL7 segment data access.
+ *
+ * @since 2001
+ */
+
 public class MdsPV1DaoImpl extends AbstractDaoImpl<MdsPV1> implements MdsPV1Dao {
 
     public MdsPV1DaoImpl() {

@@ -41,11 +41,19 @@ import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DemographicCustDao} for patient demographic data access.
+ *
+ * @since 2001
+ */
+
 public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> implements DemographicCustDao {
 
     public DemographicCustDaoImpl() {
         super(DemographicCust.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicCust> findMultipleMidwife(Collection<Integer> demographicNos, String oldMidwife) {
@@ -59,6 +67,8 @@ public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> imp
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicCust> findMultipleResident(Collection<Integer> demographicNos, String oldResident) {
         String sql = "select x from DemographicCust x where x.id IN (?1) and x.resident=?2";
@@ -70,6 +80,8 @@ public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> imp
         List<DemographicCust> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicCust> findMultipleNurse(Collection<Integer> demographicNos, String oldNurse) {
@@ -83,6 +95,8 @@ public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> imp
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<DemographicCust> findByResident(String resident) {
         String sql = "select x from DemographicCust x where x.resident like ?1";
@@ -93,6 +107,8 @@ public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> imp
         List<DemographicCust> results = query.getResultList();
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer select_demoname(String resident, String lastNameRegExp) {
@@ -109,6 +125,8 @@ public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> imp
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer select_demoname1(String nurse, String lastNameRegExp) {
         String sql = "select d.demographic_no from demographic d, demographiccust c where c.cust2=?1 and d.demographic_no=c.demographic_no and d.last_name REGEXP ?2";
@@ -124,6 +142,8 @@ public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> imp
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer select_demoname2(String midwife, String lastNameRegExp) {
         String sql = "select d.demographic_no from demographic d, demographiccust c where c.cust2=?1 and d.demographic_no=c.demographic_no and d.last_name REGEXP ?2";
@@ -138,6 +158,8 @@ public class DemographicCustDaoImpl extends AbstractDaoImpl<DemographicCust> imp
         }
         return null;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<DemographicCust> findAllByDemographicNumber(int demographic_no) {

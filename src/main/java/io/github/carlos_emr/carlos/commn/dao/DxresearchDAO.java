@@ -32,6 +32,12 @@ import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 
+/**
+ * DAO interface for diagnosis operations.
+ *
+ * @since 2001
+ */
+
 public interface DxresearchDAO extends AbstractDao<Dxresearch> {
     List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList);
 

@@ -38,6 +38,15 @@ import org.apache.velocity.tools.generic.DateTool;
 import org.apache.velocity.tools.generic.EscapeTool;
 import org.apache.velocity.tools.generic.NumberTool;
 
+/**
+ * Utility class for Apache Velocity template rendering.
+ *
+ * <p>Provides a shared, pre-configured {@link VelocityEngine} instance and common
+ * Velocity tools (escape, number, date). Used for generating dynamic content such
+ * as email bodies, report templates, and other text-based output.
+ *
+ * @since 2026-03-17
+ */
 public class VelocityUtils {
     private static Logger logger = MiscUtils.getLogger();
     public static final VelocityEngine velocityEngine = getInitialisedVelocityEngine();

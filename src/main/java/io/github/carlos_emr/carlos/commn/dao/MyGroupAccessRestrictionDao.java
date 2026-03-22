@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction;
 
+/**
+ * DAO interface for provider group operations.
+ *
+ * @since 2001
+ */
+
 public interface MyGroupAccessRestrictionDao extends AbstractDao<MyGroupAccessRestriction> {
     List<MyGroupAccessRestriction> findByGroupId(String myGroupNo);
 

@@ -36,6 +36,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 
+/**
+ * DAO interface for core operations.
+ *
+ * @since 2001
+ */
+
 public interface OscarLogDao extends AbstractDao<OscarLog> {
 
     public List<OscarLog> findByDemographicId(Integer demographicId);

@@ -36,6 +36,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
 
+/**
+ * DAO interface for messaging operations.
+ *
+ * @since 2001
+ */
+
 public interface MessageTblDao extends AbstractDao<MessageTbl> {
 
     public List<MessageTbl> findByMaps(List<MsgDemoMap> m);

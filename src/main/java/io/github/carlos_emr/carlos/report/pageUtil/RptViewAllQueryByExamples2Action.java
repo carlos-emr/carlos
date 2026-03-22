@@ -46,6 +46,12 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * Struts 2 action that loads all Report By Example queries within a date range
+ * for viewing. Requires {@code _report} read privilege.
+ *
+ * @since 2001-01-01
+ */
 public class RptViewAllQueryByExamples2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

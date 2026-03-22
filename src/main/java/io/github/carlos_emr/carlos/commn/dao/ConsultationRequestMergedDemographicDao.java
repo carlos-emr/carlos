@@ -35,6 +35,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 
+/**
+ * DAO interface for consultation and referral operations.
+ *
+ * @since 2001
+ */
+
 public interface ConsultationRequestMergedDemographicDao {
     List<ConsultationRequest> getConsults(Integer demoNo);
 

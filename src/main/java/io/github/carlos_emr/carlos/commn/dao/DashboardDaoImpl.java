@@ -38,11 +38,19 @@ import io.github.carlos_emr.carlos.commn.model.Dashboard;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link DashboardDao} for dashboard data access.
+ *
+ * @since 2001
+ */
+
 public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements DashboardDao {
 
     public DashboardDaoImpl() {
         super(Dashboard.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Dashboard> getActiveDashboards() {
@@ -50,6 +58,8 @@ public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements Dash
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
+
     @Override
     public List<Dashboard> getDashboardsByStatus(boolean status) {
         Query query = entityManager.createQuery("SELECT x FROM Dashboard x WHERE x.active = :status");

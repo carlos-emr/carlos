@@ -38,6 +38,12 @@ import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * JPA implementation of {@link ClinicLocationDao} for clinic data access.
+ *
+ * @since 2001
+ */
+
 public class ClinicLocationDaoImpl extends AbstractDaoImpl<ClinicLocation> implements ClinicLocationDao {
 
     public ClinicLocationDaoImpl() {

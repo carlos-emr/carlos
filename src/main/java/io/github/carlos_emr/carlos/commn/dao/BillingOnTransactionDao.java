@@ -37,6 +37,12 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 
+/**
+ * DAO interface for healthcare billing operations.
+ *
+ * @since 2001
+ */
+
 public interface BillingOnTransactionDao extends AbstractDao<BillingOnTransaction> {
     BillingOnTransaction getTransTemplate(BillingONCHeader1 cheader1, BillingONItem billItem, BillingONPayment billPayment, String curProviderNo, int itempaymentId);
 

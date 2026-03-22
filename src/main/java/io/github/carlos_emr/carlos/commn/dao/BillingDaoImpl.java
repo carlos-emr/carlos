@@ -45,11 +45,19 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 @Repository
 @SuppressWarnings("unchecked")
+/**
+ * JPA implementation of {@link BillingDao} for healthcare billing data access.
+ *
+ * @since 2001
+ */
+
 public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingDao {
 
     public BillingDaoImpl() {
         super(Billing.class);
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billing> findActive(int billingNo) {
@@ -63,6 +71,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Billing> findByBillingType(String type) {
         Query q = entityManager.createQuery("select x from Billing x where x.billingtype=?1");
@@ -74,6 +84,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Billing> findByAppointmentNo(int apptNo) {
         Query q = entityManager.createQuery("select x from Billing x where x.appointmentNo=?1");
@@ -84,6 +96,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billing> findSet(List<String> list) {
@@ -98,6 +112,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findBillings(Integer demoNo, List<String> serviceCodes) {
@@ -131,6 +147,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         }
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billing> findBillings(Integer demoNo, String statusType, String providerNo, Date startDate, Date endDate) {
@@ -171,6 +189,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     /**
@@ -255,11 +275,15 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Billing> getMyMagicBillings() {
         Query q = createQuery("b", "b.status <> 'B' AND b.billingtype IN ('ICBC', 'WCB', 'MSP')");
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @NativeSql({"billing", "provider", "billingmaster"})
@@ -349,6 +373,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findBillingsByStatus(String statusType) {
         Query query = entityManager.createQuery("SELECT b, bm FROM Billing b, Billingmaster bm " +
@@ -357,6 +383,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         query.setParameter(1, statusType);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findOutstandingBills(Integer demographicNo, String billingType, List<String> statuses) {
@@ -377,6 +405,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> findByBillingMasterNo(Integer billingmasterNo) {
         Query query = entityManager.createQuery("SELECT b, b1 FROM Billingmaster b, Billing b1 " +
@@ -385,6 +415,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         query.setParameter(1, billingmasterNo);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Object[]> findBillingsByManyThings(Integer billing, Date billingDate, String ohipNo, String serviceCode) {
@@ -400,6 +432,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         q.setParameter(4, serviceCode);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public Integer countBillings(String diagCode, String creator, Date sdate, Date edate) {
@@ -422,6 +456,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return ids.size();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> countBillingVisitsByCreator(String providerNo, Date dateBegin, Date dateEnd) {
         String sql = "SELECT b.visitType, COUNT(b) FROM Billing b "
@@ -437,6 +473,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         q.setParameter(3, dateEnd);
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     /**
@@ -457,6 +495,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer search_billing_no_by_appt(int demographicNo, int appointmentNo) {
         Query q = entityManager.createQuery("select x from Billing x where x.demographicNo=?1 and x.appointmentNo = ?2 and x.status <> ?3 order by x.updateDate desc, x.updateTime desc");
@@ -473,6 +513,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public Integer search_billing_no(int demographicNo) {
         Query q = entityManager.createQuery("select x from Billing x where x.demographicNo=?1 order by x.updateDate desc, x.updateTime desc");
@@ -487,6 +529,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return null;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Object[]> search_bill_generic(int billingNo) {
         Query query = entityManager.createQuery("select distinct d.LastName, d.FirstName, p.LastName, p.FirstName, b.id, b.billingDate, b.billingTime, b.status, b.appointmentNo, b.hin"
@@ -500,12 +544,16 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return results;
     }
 
+    /** {@inheritDoc} */
+
     @Override
     public List<Billing> findByProviderStatusForTeleplanFileWriter(String hin) {
         Query query = createQuery("bs", "bs.providerOhipNo = ?1 and (bs.status = 'O' or bs.status = 'W') and bs.billingtype != 'Pri'");
         query.setParameter(1, hin);
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billing> search_bill_history_daterange(String providerNo, Date startBillingDate, Date endBillingDate) {
@@ -519,6 +567,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
         return results;
     }
+
+    /** {@inheritDoc} */
 
     @Override
     @SuppressWarnings("unchecked")
@@ -534,6 +584,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<Object[]> search_billflu(String creator, Date startDate, Date endDate) {
@@ -547,6 +599,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         return q.getResultList();
     }
 
+    /** {@inheritDoc} */
+
     @Override
     @SuppressWarnings("unchecked")
     public List<Billing> search_unsettled_history_daterange(String providerNo, Date startDate, Date endDate) {
@@ -557,6 +611,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
 
         return q.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billing> findActiveBillingsByDemoNo(Integer demoNo, int limit) {
@@ -572,6 +628,8 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
         }
         return query.getResultList();
     }
+
+    /** {@inheritDoc} */
 
     @Override
     public List<Billing> findBillingsByDemoNoServiceCodeAndDate(Integer demoNo, Date date, List<String> serviceCodes) {
