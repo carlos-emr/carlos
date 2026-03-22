@@ -105,10 +105,21 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         RxProviderData rx = new RxProviderData();
 
 
+        String searchType = request.getParameter("searchType");
+        if (searchType == null) {
+            searchType = "name";
+        }
+
         List<Demographic> list = null;
 
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
             list = demographicDao.searchDemographicByDOB(searchStr.substring(0, 4) + "-" + searchStr.substring(4, 6) + "-" + searchStr.substring(6, 8), 100, 0, providerNo, outOfDomain);
+        } else if ("hin".equals(searchType)) {
+            list = demographicDao.searchDemographicByHIN(searchStr, 20, 0, providerNo, outOfDomain);
+        } else if ("phone".equals(searchType)) {
+            list = demographicDao.searchDemographicByPhone(searchStr, 20, 0, providerNo, outOfDomain);
+        } else if ("address".equals(searchType)) {
+            list = demographicDao.searchDemographicByAddress(searchStr, 20, 0, providerNo, outOfDomain);
         } else if (activeOnly) {
             CarlosProperties props = CarlosProperties.getInstance();
             String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
@@ -138,6 +149,11 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
             h.put("status", demo.getPatientStatus() != null ? demo.getPatientStatus() : "");
             h.put("rosterStatus", demo.getRosterStatus() != null ? demo.getRosterStatus() : "");
+            h.put("cellPhone", demo.getCellPhone() != null ? demo.getCellPhone() : "");
+            h.put("phone", demo.getPhone() != null ? demo.getPhone() : "");
+            h.put("email", demo.getEmail() != null ? demo.getEmail() : "");
+            h.put("hin", demo.getHin() != null ? demo.getHin() : "");
+            h.put("address", demo.getAddress() != null ? demo.getAddress() : "");
 
 
             Provider p = rx.getProvider(demo.getProviderNo());

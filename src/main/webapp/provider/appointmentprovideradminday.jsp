@@ -72,6 +72,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 <%
     LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -884,6 +885,8 @@
     </oscar:oscarPropertiesCheck>
     <input type="hidden" value="${ hideReason }" id="hideReason"/>
     <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
+    <input type="hidden" id="scheduleLoggedInProviderNo" value="<%= Encode.forHtmlAttribute(loggedInInfo1.getLoggedInProviderNo()) %>"/>
+    <input type="hidden" id="scheduleCurrentDate" value="<%= Encode.forHtmlAttribute(strYear + "-" + strMonth + "-" + strDay) %>"/>
 
     <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
@@ -1164,7 +1167,18 @@
     <table id="scheduleNavigation">
         <tr id="ivoryBar">
             <td id="dateAndCalendar">
-                <input type="text" placeholder="Search" style="width: 170px;">
+                <span id="quickSearchWrapper" class="quick-search-wrapper noprint">
+                    <span class="quick-search-input-wrapper">
+                        <input type="text" id="quickSearch" name="quickSearch"
+                               placeholder="Search" autocomplete="off"
+                               aria-label="Search patients by name, HIN, phone, or address">
+                        <button type="button" id="quickSearchClear" class="quick-search-clear"
+                                aria-label="Clear search" title="Clear search" style="display:none;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </span>
+                    <div id="quickSearchDropdown" class="quick-search-dropdown" style="display:none;"></div>
+                </span>
                 <a class="redArrow"
                    href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
                     <span class="fa-solid fa-backward-step"
@@ -2493,6 +2507,298 @@
         });
     </script>
     <!-- end of keycode block -->
+
+    <!-- Quick Search Typeahead -->
+    <script>
+    (function() {
+        'use strict';
+
+        var SEARCH_MIN_LENGTH = 2;
+        var DEBOUNCE_DELAY = 300;
+
+        var input = document.getElementById('quickSearch');
+        var clearBtn = document.getElementById('quickSearchClear');
+        var dropdown = document.getElementById('quickSearchDropdown');
+        var wrapper = document.getElementById('quickSearchWrapper');
+
+        if (!input || !dropdown || !wrapper) return;
+
+        var abortController = null;
+        var debounceTimer = null;
+        var activeIndex = -1;
+
+        var ctx = document.getElementById('contextPath').value;
+        var scheduleProviderNo = document.getElementById('scheduleLoggedInProviderNo').value;
+        var scheduleCurrentDate = document.getElementById('scheduleCurrentDate').value;
+
+        /**
+         * Detect search type from the query string.
+         * - comma present → name (Last, First)
+         * - pure digits or digits + separators → phone (8-digit handled as DOB by backend)
+         * - letters followed by digits → HIN
+         * - digit + space + letters → address
+         * - default → name
+         */
+        function detectSearchType(query) {
+            if (query.indexOf(',') !== -1) return 'name';
+            if (/^[\d\s\-().+]+$/.test(query)) return 'phone';
+            if (/^[A-Za-z]{2,4}\d{4,}/i.test(query)) return 'hin';
+            if (/^\d+\s+[A-Za-z]/i.test(query)) return 'address';
+            return 'name';
+        }
+
+        function doSearch(query) {
+            if (query.length < SEARCH_MIN_LENGTH) {
+                hideDropdown();
+                return;
+            }
+            var searchType = detectSearchType(query);
+            var url = ctx + '/demographic/SearchDemographic.do?jqueryJSON=true'
+                    + '&term=' + encodeURIComponent(query)
+                    + '&searchType=' + encodeURIComponent(searchType);
+
+            if (abortController) {
+                try { abortController.abort(); } catch (e) { /* ignore */ }
+            }
+            abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+
+            var fetchOpts = { credentials: 'same-origin' };
+            if (abortController) fetchOpts.signal = abortController.signal;
+
+            fetch(url, fetchOpts)
+                .then(function(r) { return r.json(); })
+                .then(function(data) { renderResults(data); })
+                .catch(function(err) {
+                    if (!err || err.name !== 'AbortError') {
+                        console.error('Quick search error:', err);
+                    }
+                });
+        }
+
+        function renderResults(data) {
+            while (dropdown.firstChild) { dropdown.removeChild(dropdown.firstChild); }
+            activeIndex = -1;
+
+            if (!Array.isArray(data) || data.length === 0) {
+                var noResult = document.createElement('div');
+                noResult.className = 'qs-no-results';
+                noResult.textContent = 'No patients found';
+                dropdown.appendChild(noResult);
+            } else {
+                data.forEach(function(item, idx) {
+                    dropdown.appendChild(buildResultRow(item, idx));
+                });
+            }
+
+            // "Add New Patient" link at bottom
+            var addDiv = document.createElement('div');
+            addDiv.className = 'qs-add-link';
+            var addA = document.createElement('a');
+            addA.href = 'javascript:void(0)';
+            addA.textContent = '+ Add New Patient';
+            addA.addEventListener('click', function(e) {
+                e.stopPropagation();
+                popupPage2(ctx + '/demographic/demographicaddarecordhtm.jsp');
+                hideDropdown();
+            });
+            addDiv.appendChild(addA);
+            dropdown.appendChild(addDiv);
+
+            showDropdown();
+        }
+
+        function buildResultRow(item, idx) {
+            var row = document.createElement('div');
+            row.className = 'qs-result-row' + (idx % 2 === 1 ? ' qs-alt' : '');
+
+            // Clicking anywhere on row (except badges) opens Master File / E-Chart
+            row.addEventListener('click', function(e) {
+                if (e.target.closest && e.target.closest('.qs-badge')) return;
+                if (item.demographicNo) {
+                    popupPage(710, 1024, ctx + '/demographic/demographiccontrol.jsp?demographic_no='
+                        + encodeURIComponent(item.demographicNo)
+                        + '&displaymode=edit&dboperation=search_detail');
+                    hideDropdown();
+                }
+            });
+
+            // --- Line 1: bold name + M/E/Rx badges ---
+            var line1 = document.createElement('div');
+            line1.className = 'qs-line1';
+
+            var nameSpan = document.createElement('strong');
+            nameSpan.className = 'qs-patient-name';
+            nameSpan.textContent = item.formattedName || '';
+            if (item.status) {
+                var statusBadge = document.createElement('span');
+                statusBadge.className = 'qs-status-label';
+                statusBadge.textContent = ' (' + item.status + ')';
+                nameSpan.appendChild(statusBadge);
+            }
+            line1.appendChild(nameSpan);
+
+            var badgesDiv = document.createElement('div');
+            badgesDiv.className = 'qs-badges';
+            badgesDiv.appendChild(makeBadge('M', 'qs-badge-m', 'Master File', function(e) {
+                e.stopPropagation();
+                popupPage(700, 1024, ctx + '/demographic/demographiccontrol.jsp?demographic_no='
+                    + encodeURIComponent(item.demographicNo)
+                    + '&displaymode=edit&dboperation=search_detail');
+                hideDropdown();
+            }));
+            badgesDiv.appendChild(makeBadge('E', 'qs-badge-e', 'E-Chart', function(e) {
+                e.stopPropagation();
+                popupPage(710, 1024, ctx + '/oscarEncounter/IncomingEncounter.do'
+                    + '?demographicNo=' + encodeURIComponent(item.demographicNo)
+                    + '&providerNo=' + encodeURIComponent(scheduleProviderNo)
+                    + '&curProviderNo=' + encodeURIComponent(scheduleProviderNo)
+                    + '&curDate=' + encodeURIComponent(scheduleCurrentDate)
+                    + '&encType=&status=');
+                hideDropdown();
+            }));
+            badgesDiv.appendChild(makeBadge('Rx', 'qs-badge-rx', 'Prescriptions', function(e) {
+                e.stopPropagation();
+                popupPage(700, 1027, ctx + '/oscarRx/choosePatient.do'
+                    + '?providerNo=' + encodeURIComponent(scheduleProviderNo)
+                    + '&demographicNo=' + encodeURIComponent(item.demographicNo));
+                hideDropdown();
+            }));
+            line1.appendChild(badgesDiv);
+            row.appendChild(line1);
+
+            // --- Line 2: DOB + HIN + Appt badge ---
+            var line2 = document.createElement('div');
+            line2.className = 'qs-line2 qs-muted';
+
+            var dobHin = document.createElement('span');
+            var dobStrong = document.createElement('strong');
+            dobStrong.textContent = 'DOB: ';
+            dobHin.appendChild(dobStrong);
+            dobHin.appendChild(document.createTextNode((item.fomattedDob || '\u2014') + '\u00a0\u00a0'));
+            var hinStrong = document.createElement('strong');
+            hinStrong.textContent = 'HIN: ';
+            dobHin.appendChild(hinStrong);
+            dobHin.appendChild(document.createTextNode(item.hin || '\u2014'));
+            line2.appendChild(dobHin);
+
+            var apptBadge = makeBadge('Appt', 'qs-badge-appt', 'Add Appointment', function(e) {
+                e.stopPropagation();
+                popupPage(360, 780, ctx + '/appointment/addappointment.jsp'
+                    + '?demographic_no=' + encodeURIComponent(item.demographicNo));
+                hideDropdown();
+            });
+            line2.appendChild(apptBadge);
+            row.appendChild(line2);
+
+            // --- Line 3: cell/phone + email ---
+            var line3 = document.createElement('div');
+            line3.className = 'qs-line3 qs-muted';
+
+            var hasCell = item.cellPhone && item.cellPhone.trim();
+            var hasPhone = item.phone && item.phone.trim();
+            var hasEmail = item.email && item.email.trim();
+
+            if (hasCell) {
+                appendIconAndText(line3, 'fa-solid fa-mobile-screen-button', item.cellPhone.trim());
+            } else if (hasPhone) {
+                appendIconAndText(line3, 'fa-solid fa-phone', item.phone.trim());
+            }
+            if (hasEmail) {
+                if (hasCell || hasPhone) { line3.appendChild(document.createTextNode('\u00a0\u00a0')); }
+                appendIconAndText(line3, 'fa-solid fa-envelope', item.email.trim());
+            }
+            if (!hasCell && !hasPhone && !hasEmail) {
+                line3.appendChild(document.createTextNode('\u2014'));
+            }
+            row.appendChild(line3);
+
+            // --- Line 4: doctor name ---
+            var doctorName = item.providerName || item.provider || '';
+            if (doctorName) {
+                var line4 = document.createElement('div');
+                line4.className = 'qs-line4 qs-muted';
+                appendIconAndText(line4, 'fa-solid fa-user-doctor', doctorName);
+                row.appendChild(line4);
+            }
+
+            return row;
+        }
+
+        function makeBadge(label, cssClass, title, clickHandler) {
+            var a = document.createElement('a');
+            a.href = 'javascript:void(0)';
+            a.className = 'qs-badge ' + cssClass;
+            a.title = title;
+            a.textContent = label;
+            a.addEventListener('click', clickHandler);
+            return a;
+        }
+
+        function appendIconAndText(parent, iconClass, text) {
+            var icon = document.createElement('i');
+            icon.className = iconClass;
+            parent.appendChild(icon);
+            parent.appendChild(document.createTextNode('\u00a0' + text));
+        }
+
+        function showDropdown() { dropdown.style.display = 'block'; }
+
+        function hideDropdown() {
+            dropdown.style.display = 'none';
+            activeIndex = -1;
+        }
+
+        // Debounced input handler
+        input.addEventListener('input', function() {
+            var query = this.value.trim();
+            clearBtn.style.display = query ? 'flex' : 'none';
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() { doSearch(query); }, DEBOUNCE_DELAY);
+        });
+
+        // Clear button
+        clearBtn.addEventListener('click', function() {
+            input.value = '';
+            clearBtn.style.display = 'none';
+            hideDropdown();
+            input.focus();
+        });
+
+        // Keyboard navigation
+        input.addEventListener('keydown', function(e) {
+            var rows = dropdown.querySelectorAll('.qs-result-row');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIndex = Math.min(activeIndex + 1, rows.length - 1);
+                updateActive(rows);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, -1);
+                updateActive(rows);
+            } else if (e.key === 'Escape' || e.key === 'Tab') {
+                hideDropdown();
+            } else if (e.key === 'Enter') {
+                if (activeIndex >= 0 && rows[activeIndex]) {
+                    rows[activeIndex].click();
+                }
+            }
+        });
+
+        function updateActive(rows) {
+            rows.forEach(function(r, i) {
+                r.classList.toggle('qs-active', i === activeIndex);
+                if (i === activeIndex) { r.scrollIntoView({ block: 'nearest' }); }
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!wrapper.contains(e.target)) { hideDropdown(); }
+        });
+
+    })();
+    </script>
+
     </body>
 </html>
 
