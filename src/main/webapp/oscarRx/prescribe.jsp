@@ -346,7 +346,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 		<div>
         <label id="labelQuantity_<%=Encode.forHtmlAttribute(rand)%>" style="float:left;width:80px;">${i18nQtyMitte}:</label><input
             size="8" <%if (rx.isCustomNote()) {%> disabled <%}%> type="text" id="quantity_<%=Encode.forHtmlAttribute(rand)%>"
-            name="quantity_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(quantityText)%>" onblur="updateQty(this);"/>
+            name="quantity_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(quantityText)%>"
+            onblur="updateQty(this);getCost('cost_<%=Encode.forHtmlAttribute(rand)%>','<%=Encode.forHtmlAttribute(rand)%>','<%=Encode.forJavaScript(rx.getRegionalIdentifier())%>',this.value)">
+        <span id="cost_<%=Encode.forHtmlAttribute(rand)%>" style="margin-left:4px;"></span>
         <label style=""><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgRepeats"/>:</label><input type="text" size="5" id="repeats_<%=Encode.forHtmlAttribute(rand)%>"  <%if (rx.isCustomNote()) {%>
                                                disabled <%}%> name="repeats_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(repeats)%>"
                                                onInput="updateLongTerm('<%=Encode.forJavaScriptAttribute(rand) %>',this)"
@@ -558,7 +560,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             <script type="text/javascript">getRenalDosingInformation('renalDosing_<%=rand%>','<%=rx.getAtcCode()%>');</script>
             </oscar:oscarPropertiesCheck>
            <oscar:oscarPropertiesCheck property="billregion" value="ON" >
-               <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<%=rx.getRegionalIdentifier()%>');</script>
+               <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<%=Encode.forJavaScript(rx.getRegionalIdentifier())%>');</script>
             </oscar:oscarPropertiesCheck>
 			
 </fieldset>
@@ -758,7 +760,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             });
 
             checkAllergy('<%=rand%>','<%=rx.getAtcCode()%>');
-            checkIfInactive('<%=rand%>','<%=rx.getRegionalIdentifier()%>');
+            checkIfInactive('<%=rand%>','<%=Encode.forJavaScript(rx.getRegionalIdentifier())%>');
 
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;
             //oscarLog("isDiscon "+isDiscontinuedLatest);

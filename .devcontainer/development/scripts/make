@@ -138,6 +138,17 @@ build_and_deploy() {
     fi
   fi
 
+  # Verify dependency lock file is up-to-date before building.
+  # This catches pom.xml changes that weren't followed by `make lock`.
+  echo "Checking dependency lock file..."
+  if ! mvn se.vandmo:dependency-lock-maven-plugin:check -q 2>/dev/null; then
+    echo ""
+    echo "ERROR: Dependency lock file is out of date."
+    echo "  Run 'make lock' to update dependencies-lock.json, then rebuild."
+    echo ""
+    return 1
+  fi
+
   if [ "$run_tests" = true ]; then
     # Build and run all tests
     mvn $clean_phase -DskipTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag

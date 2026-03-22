@@ -29,7 +29,7 @@
 
 --%>
 
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.utility.OntarioMD,java.util.Hashtable,org.apache.commons.collections4.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.OntarioMD,java.util.Map" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 
@@ -69,12 +69,10 @@
 <body>
 <ul>
     <%
-        OrderedMap map = new OntarioMD().getDiseaseList();
-        OrderedMapIterator iter = map.orderedMapIterator();
-
-        while (iter.hasNext()) {
-            String key = (String) iter.next();
-            String val = (String) iter.getValue();
+        Map<String, String> map = new OntarioMD().getDiseaseList();
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            String key = entry.getKey();
+            String val = entry.getValue();
     %>
     <li>
         <a href="javascript:void(0)" onclick="goOMD('<%=key%>')"><%=val%>
