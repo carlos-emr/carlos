@@ -67,6 +67,11 @@ import org.springframework.stereotype.Component;
 @Path("/tickler")
 @Component("ticklerWebService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for tickler (clinical reminder) management operations.
+ *
+ * @since 2012-08-13
+ */
 public class TicklerWebService extends AbstractServiceImpl {
 
     @Autowired

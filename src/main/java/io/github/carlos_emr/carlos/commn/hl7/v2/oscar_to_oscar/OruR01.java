@@ -54,6 +54,13 @@ import ca.uhn.hl7v2.model.v26.segment.NTE;
 import ca.uhn.hl7v2.model.v26.segment.OBR;
 import ca.uhn.hl7v2.model.v26.segment.ROL;
 
+/**
+ * Constructs and parses HL7 v2.6 ORU_R01 (Observation Result) messages for inter-EMR
+ * lab data exchange. Populates OBR/OBX segments with observation data including
+ * text messages and binary file attachments.
+ *
+ * @since 2007-01-18
+ */
 public final class OruR01 {
 
     private static final Logger logger = MiscUtils.getLogger();

@@ -29,6 +29,13 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Value object encapsulating laboratory test results commonly used in chronic disease
+ * management, particularly diabetes care. Includes A1C, LDL, triglycerides, kidney
+ * function, and other key clinical measurements.
+ *
+ * @since 2001-01-01
+ */
 public class LabData {
     private String a1c;
     private String ldl;

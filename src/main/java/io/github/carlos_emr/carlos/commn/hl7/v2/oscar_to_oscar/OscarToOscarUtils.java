@@ -41,6 +41,13 @@ import ca.uhn.hl7v2.parser.EncodingNotSupportedException;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
+/**
+ * Common utilities for inter-EMR HL7 v2.6 message handling, including a shared
+ * HAPI PipeParser instance (configured with no validation) and message
+ * serialization/deserialization methods.
+ *
+ * @since 2007-01-18
+ */
 public final class OscarToOscarUtils {
     private static final Logger logger = MiscUtils.getLogger();
 

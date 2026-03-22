@@ -62,6 +62,13 @@ import ca.uhn.hl7v2.model.v26.segment.PRD;
 import ca.uhn.hl7v2.model.v26.segment.ROL;
 import ca.uhn.hl7v2.model.v26.segment.SFT;
 
+/**
+ * Utility class for populating and extracting data from HL7 v2.6 message segments
+ * used in inter-EMR communication. Provides methods for setting and reading MSH, PID,
+ * SFT, ROL, PRD, and NTE segments with demographic, provider, and clinical data.
+ *
+ * @since 2007-01-18
+ */
 public final class DataTypeUtils {
     private static final Logger logger = MiscUtils.getLogger();
     public static final String HEALTH_NUMBER = "HEALTH_NUMBER";

@@ -44,6 +44,17 @@ import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of {@link ProgramQueueManager} for managing program queues
+ * within the CARLOS EMR Program Management module.
+ *
+ * <p>Enriches active queue entries with vacancy and template name information from referrals.
+ * Handles queue rejection by updating both the queue entry and the associated referral status.</p>
+ *
+ * @see ProgramQueueManager
+ * @see ProgramQueue
+ * @since 2005
+ */
 @Transactional
 public class ProgramQueueManagerImpl implements ProgramQueueManager {
     private ProgramQueueDao dao;
@@ -51,6 +62,7 @@ public class ProgramQueueManagerImpl implements ProgramQueueManager {
     private VacancyTemplateDao vacancyTemplateDao;
     private VacancyDao vacancyDao;
 
+    /** {@inheritDoc} */
     public void setVacancyDao(VacancyDao vacancyDao) {
         this.vacancyDao = vacancyDao;
     }

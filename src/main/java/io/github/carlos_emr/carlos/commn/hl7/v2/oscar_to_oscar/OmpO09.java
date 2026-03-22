@@ -62,6 +62,13 @@ import ca.uhn.hl7v2.model.v26.segment.ORC;
 import ca.uhn.hl7v2.model.v26.segment.RXO;
 import ca.uhn.hl7v2.model.v26.segment.TQ1;
 
+/**
+ * Constructs HL7 v2.6 OMP_O09 (Pharmacy/Treatment Order) messages for inter-EMR
+ * prescription data exchange. Populates RXO (Pharmacy/Treatment Order) and TQ1
+ * (Timing/Quantity) segments with drug prescription details.
+ *
+ * @since 2007-01-18
+ */
 public final class OmpO09 {
     private static final Logger logger = MiscUtils.getLogger();
 

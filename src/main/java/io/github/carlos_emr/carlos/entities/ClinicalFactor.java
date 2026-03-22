@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Entity representing a clinical factor associated with a billing or WCB claim,
+ * documenting clinical findings such as diagnoses or contributing factors.
+ *
+ * @since 2001-01-01
+ */
 public class ClinicalFactor {
     // Fields
     //
