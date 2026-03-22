@@ -49,6 +49,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.DocumentBean;
 
+/**
+ * Servlet for handling Teleplan report file uploads from the BC MSP billing system,
+ * processing uploaded remittance and reconciliation files.
+ *
+ * @since 2001-01-01
+ */
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
     final static int BUFFER = 2048;
 

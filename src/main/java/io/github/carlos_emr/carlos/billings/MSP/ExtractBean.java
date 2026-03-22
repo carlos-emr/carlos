@@ -49,6 +49,12 @@ import java.text.SimpleDateFormat;
 import java.util.Properties;
 
 
+/**
+ * Bean for extracting and holding MSP billing claim data fields parsed from
+ * Teleplan submission and remittance files.
+ *
+ * @since 2001-01-01
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);

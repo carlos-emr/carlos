@@ -623,6 +623,14 @@ public interface VacancyTemplateManager {
 
     }
 
+    /**
+     * Creates or retrieves a criteria record. Returns a new empty criteria if the
+     * criteriaId is blank or "0"; otherwise retrieves the existing criteria.
+     *
+     * @param loggedInInfo LoggedInInfo the current session info
+     * @param criteriaId String the criteria identifier, or blank/"0" for a new criteria
+     * @return Criteria the new or existing criteria record
+     */
     public static Criteria createCriteria(LoggedInInfo loggedInInfo, String criteriaId) {
         Criteria c = new Criteria();
         if (!(StringUtils.isBlank(criteriaId) || "0".equals(criteriaId))) {
@@ -631,6 +639,12 @@ public interface VacancyTemplateManager {
         return (c);
     }
 
+    /**
+     * Saves or updates a criteria record. Merges if the criteria has an existing ID,
+     * otherwise persists a new record.
+     *
+     * @param c Criteria the criteria to save
+     */
     public static void saveCriteria(Criteria c) {
         if (c.getId() != null) {
             criteriaDAO.merge(c);
@@ -640,6 +654,12 @@ public interface VacancyTemplateManager {
 
     }
 
+    /**
+     * Saves or updates a criteria selection option. Merges if the option has an existing ID,
+     * otherwise persists a new record.
+     *
+     * @param c CriteriaSelectionOption the criteria selection option to save
+     */
     public static void saveCriteriaSelectedOption(CriteriaSelectionOption c) {
         if (c.getId() != null) {
             criteriaSelectionOptionDAO.merge(c);

@@ -35,6 +35,16 @@ package io.github.carlos_emr.carlos.PMmodule.service;
 
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of {@link VacancyTemplateManager} for managing vacancy templates
+ * within the CARLOS EMR Program Management module.
+ *
+ * <p>This class serves as the Spring-managed transactional wrapper. All operational logic
+ * is defined as static methods in the {@link VacancyTemplateManager} interface.</p>
+ *
+ * @see VacancyTemplateManager
+ * @since 2001
+ */
 @Transactional
 public class VacancyTemplateManagerImpl implements VacancyTemplateManager {
 

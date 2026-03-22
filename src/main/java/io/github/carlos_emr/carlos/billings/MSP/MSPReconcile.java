@@ -51,6 +51,12 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Handles BC MSP billing reconciliation by processing remittance advice files
+ * and updating billing records with payment and rejection information.
+ *
+ * @since 2001-01-01
+ */
 public class MSPReconcile {
 
     public static String REJECTED = "R";
