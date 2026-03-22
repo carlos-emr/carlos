@@ -40,6 +40,12 @@ import java.sql.Statement;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Database extraction bean for reading billing claim data from the database
+ * and formatting it for MSP Teleplan submission.
+ *
+ * @since 2001-01-01
+ */
 public class dbExtract implements Serializable {
 
     private Connection con = null;
