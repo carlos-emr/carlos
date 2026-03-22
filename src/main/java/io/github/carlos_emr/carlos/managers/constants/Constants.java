@@ -28,6 +28,16 @@
  */
 package io.github.carlos_emr.carlos.managers.constants;
 
+/**
+ * Shared constants for the CARLOS EMR managers layer, primarily used by the
+ * FormeCARES clinical decision support integration.
+ *
+ * <p>Defines enumeration constants for prevention types, measurement types,
+ * problem fields, allergy fields, and medication fields used in structured
+ * clinical data exchange.</p>
+ *
+ * @since 2026-03-17
+ */
 public class Constants {
     Constants() {
         throw new UnsupportedOperationException();

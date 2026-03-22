@@ -29,6 +29,14 @@ package io.github.carlos_emr.carlos.integration.fhir.resources.constants;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+/**
+ * Enumerates the types of practitioner actors in FHIR message construction.
+ *
+ * <p>Determines how a practitioner is referenced in the MessageHeader
+ * (e.g., as the author for submitting practitioners).</p>
+ *
+ * @since 2026-03-17
+ */
 public enum ActorType {
     none,
     performing, // a practitioner whom executed the medical service on a patient

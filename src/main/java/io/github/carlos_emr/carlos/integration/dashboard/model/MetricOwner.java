@@ -28,6 +28,12 @@
  */
 package io.github.carlos_emr.carlos.integration.dashboard.model;
 
+/**
+ * Model representing the owner of a dashboard metric, typically a healthcare provider
+ * with demographic and geographic information.
+ *
+ * @since 2012-07-12
+ */
 public class MetricOwner {
     private String username;
     private String firstName;

@@ -28,6 +28,13 @@
  */
 package io.github.carlos_emr.carlos.integration.dashboard.model;
 
+/**
+ * Model representing a user in the Outcomes Dashboard integration, including
+ * credentials, geographic information, and role assignment. Defines a
+ * {@link Province} enum for Canadian province codes.
+ *
+ * @since 2012-07-12
+ */
 public class User {
 
     public enum Province {

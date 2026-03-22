@@ -152,6 +152,11 @@ public class IndicatorTemplateHandler {
         }
     }
 
+    /**
+     * Returns the parsed XML Document representation of the indicator template.
+     *
+     * @return Document the XML document, or {@code null} if parsing failed
+     */
     public Document getIndicatorTemplateDocument() {
         return indicatorTemplateDocument;
     }
@@ -172,6 +177,11 @@ public class IndicatorTemplateHandler {
         this.indicatorTemplateEntity = indicatorTemplateEntity;
     }
 
+    /**
+     * Returns the POJO representation parsed from the XML document.
+     *
+     * @return IndicatorTemplateXML the parsed template POJO, or {@code null} if XML was invalid
+     */
     public IndicatorTemplateXML getIndicatorTemplateXML() {
         return this.indicatorTemplateXML;
     }
@@ -181,6 +191,11 @@ public class IndicatorTemplateHandler {
         this.indicatorTemplateXML = indicatorTemplateXML;
     }
 
+    /**
+     * Returns the XSD schema used for validation.
+     *
+     * @return Schema the XML schema
+     */
     public Schema getSchema() {
         return schema;
     }

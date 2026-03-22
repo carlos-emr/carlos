@@ -33,20 +33,66 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 
 /**
- * @author toby
+ * Service interface for managing appointment status configurations.
+ *
+ * <p>Provides CRUD operations for appointment statuses used to track the workflow
+ * state of appointments (e.g., To Do, Here, Picked, Billed, Cancelled). Supports
+ * activating/deactivating statuses, modifying descriptions and colors, checking
+ * usage, and resetting to default values.</p>
+ *
+ * @since 2026-03-17
  */
 public interface AppointmentStatusMgr {
+
+    /**
+     * Returns all appointment statuses including inactive ones.
+     *
+     * @return List&lt;AppointmentStatus&gt; all appointment statuses
+     */
     public List<AppointmentStatus> getAllStatus();
 
+    /**
+     * Returns only the active appointment statuses.
+     *
+     * @return List&lt;AppointmentStatus&gt; the active statuses
+     */
     public List<AppointmentStatus> getAllActiveStatus();
 
+    /**
+     * Returns the appointment status with the given ID.
+     *
+     * @param ID int the status ID
+     * @return AppointmentStatus the status record
+     */
     public AppointmentStatus getStatus(int ID);
 
+    /**
+     * Activates or deactivates an appointment status.
+     *
+     * @param ID int the status ID
+     * @param iActive int 1 for active, 0 for inactive
+     */
     public void changeStatus(int ID, int iActive);
 
+    /**
+     * Modifies the description and color of an appointment status.
+     *
+     * @param ID int the status ID
+     * @param strDesc String the new description
+     * @param strColor String the new hex color code
+     */
     public void modifyStatus(int ID, String strDesc, String strColor);
 
+    /**
+     * Checks which statuses are currently in use by appointments.
+     *
+     * @param allStatus List&lt;AppointmentStatus&gt; the statuses to check
+     * @return int the ID of the last status in use, or 0 if none
+     */
     public int checkStatusUsuage(List<AppointmentStatus> allStatus);
 
+    /**
+     * Resets all appointment statuses to their default values.
+     */
     public void reset();
 }

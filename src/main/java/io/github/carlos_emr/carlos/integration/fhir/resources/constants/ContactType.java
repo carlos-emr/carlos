@@ -29,6 +29,11 @@ package io.github.carlos_emr.carlos.integration.fhir.resources.constants;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+/**
+ * Enumerates the types of contacts: professional, organization, or personal.
+ *
+ * @since 2026-03-17
+ */
 public enum ContactType {
     professional, organization, personal
 }

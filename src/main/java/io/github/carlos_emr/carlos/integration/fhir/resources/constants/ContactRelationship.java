@@ -29,6 +29,14 @@ package io.github.carlos_emr.carlos.integration.fhir.resources.constants;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+/**
+ * Defines relationship types for patient contacts in FHIR resources.
+ *
+ * <p>Contains nested enums for personal relationships (spouse, parent, etc.)
+ * and professional relationships (emergency, family doctor, etc.).</p>
+ *
+ * @since 2026-03-17
+ */
 public class ContactRelationship {
 
     public enum Personal {

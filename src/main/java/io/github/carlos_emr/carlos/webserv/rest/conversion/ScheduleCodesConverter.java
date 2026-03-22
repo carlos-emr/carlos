@@ -33,8 +33,25 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ScheduleTemplateCodeTo;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * Converter between {@link ScheduleTemplateCode} domain entities and
+ * {@link ScheduleTemplateCodeTo} REST transfer objects.
+ *
+ * <p>Uses Spring {@link BeanUtils#copyProperties} for property-level mapping
+ * between the domain model and transfer object.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ScheduleCodesConverter extends AbstractConverter<ScheduleTemplateCode, ScheduleTemplateCodeTo> {
 
+    /**
+     * Converts a schedule template code transfer object to its domain entity.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param t ScheduleTemplateCodeTo the transfer object to convert
+     * @return ScheduleTemplateCode the domain entity
+     * @throws ConversionException if conversion fails
+     */
     @Override
     public ScheduleTemplateCode getAsDomainObject(LoggedInInfo loggedInInfo, ScheduleTemplateCodeTo t) throws ConversionException {
         ScheduleTemplateCode d = new ScheduleTemplateCode();

@@ -58,6 +58,17 @@ import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Service for generating FormeCARES clinical assessment data in the CARLOS EMR system.
+ *
+ * <p>Aggregates patient health data including demographics, medications,
+ * measurements, problems, prevention records, and allergies into structured
+ * JSON format for the FormeCARES clinical decision support tool.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.FormeCARESDao
+ * @see io.github.carlos_emr.carlos.managers.constants.Constants.Cares
+ * @since 2026-03-17
+ */
 @Service
 public class FormeCARESManager {
 

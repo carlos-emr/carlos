@@ -53,6 +53,14 @@ import io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer2
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP web service endpoint for patient demographic operations in the inter-EMR Integrator system.
+ *
+ * <p>Provides methods for retrieving and synchronizing patient demographic records
+ * (including HIN, addresses, consent, and contact information) between CARLOS EMR installations.
+ *
+ * @since 2012-08-13
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)

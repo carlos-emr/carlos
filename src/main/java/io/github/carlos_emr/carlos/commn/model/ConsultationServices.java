@@ -46,7 +46,17 @@ import jakarta.persistence.FetchType;
 import java.util.List;
 
 /**
- * @author rjonasz
+ * Represents a consultation service category in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code consultationServices} table and defines the types of specialist
+ * services available for consultation referrals (e.g., "Cardiology", "Orthopedics").
+ * Each service category has a many-to-many relationship with
+ * {@link ProfessionalSpecialist} entities through the {@code serviceSpecialists}
+ * join table, allowing multiple specialists to be associated with each service.</p>
+ *
+ * @see ConsultationRequest
+ * @see ProfessionalSpecialist
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "consultationServices")

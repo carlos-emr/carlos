@@ -38,7 +38,13 @@ import jakarta.servlet.jsp.JspWriter;
 import jakarta.servlet.jsp.tagext.TagSupport;
 
 /**
- * @author jay
+ * JSP custom tag that renders the next appointment date for a patient.
+ *
+ * <p>Looks up the next scheduled appointment for the specified demographic number
+ * using {@link AppointmentManager} and writes the formatted date directly to the
+ * JSP output.</p>
+ *
+ * @since 2026-03-17
  */
 public class NextApptTag extends TagSupport {
 

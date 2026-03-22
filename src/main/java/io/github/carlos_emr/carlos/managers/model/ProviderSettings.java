@@ -34,6 +34,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 
+/**
+ * Value object representing configurable provider-specific settings in the
+ * CARLOS EMR system.
+ *
+ * <p>Encapsulates prescription printing address, fax number, tickler warning
+ * preferences, workload management settings, and quick link configurations
+ * for a healthcare provider.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.model.ProviderPreference
+ * @since 2026-03-17
+ */
 public class ProviderSettings {
 
     private String recentPatients;

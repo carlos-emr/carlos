@@ -41,6 +41,15 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler that loads measurement types for a given group name, sorted by display name
+ * and description. Also loads associated measuring instruction handlers for each type.
+ * Used to populate CDM report configuration UIs with available measurement types.
+ *
+ * @see RptMeasurementTypesBean
+ * @see RptMeasuringInstructionBeanHandler
+ * @since 2001-01-01
+ */
 public class RptMeasurementTypesBeanHandler {
 
     Vector<RptMeasurementTypesBean> measurementTypeVector = new Vector<RptMeasurementTypesBean>();

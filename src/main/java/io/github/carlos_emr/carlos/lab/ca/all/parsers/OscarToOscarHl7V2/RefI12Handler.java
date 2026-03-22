@@ -41,6 +41,13 @@ import ca.uhn.hl7v2.model.v26.segment.MSH;
 import ca.uhn.hl7v2.model.v26.segment.PID;
 import ca.uhn.hl7v2.model.v26.segment.PRD;
 
+/**
+ * Inter-EMR message handler for HL7 v2.6 REF_I12 (Patient Referral) messages.
+ * Extracts referral provider information and patient demographics from messages
+ * exchanged between EMR installations.
+ *
+ * @since 2007-01-18
+ */
 public final class RefI12Handler extends ChainnedMessageAdapter<REF_I12> {
 
     private static Logger logger = MiscUtils.getLogger();

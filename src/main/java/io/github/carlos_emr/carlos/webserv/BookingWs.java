@@ -61,6 +61,14 @@ import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 
+/**
+ * SOAP web service endpoint for appointment booking operations in the inter-EMR Integrator system.
+ *
+ * <p>Provides methods for searching available time slots, creating appointments,
+ * and managing booking confirmations between CARLOS EMR installations.
+ *
+ * @since 2012-08-13
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)

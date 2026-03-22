@@ -54,7 +54,19 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Prevention compliance report for influenza (flu) vaccination.
+ *
+ * <p>Evaluates a patient set against flu vaccination guidelines for patients aged 65+.
+ * The flu season runs September through January, with compliance determined by whether
+ * the patient received a flu shot during the current season window. Patients are classified
+ * as up-to-date, due, overdue, refused, ineligible (under 65), or having no information,
+ * with Ontario billing code Q003A eligibility.</p>
+ *
+ * <p>Includes follow-up processing with a simplified letter/phone workflow (L1, P1).</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReport
+ * @see PreventionReportFactory
  */
 public class FluReport implements PreventionReport {
     private static Logger log = MiscUtils.getLogger();
@@ -65,6 +77,7 @@ public class FluReport implements PreventionReport {
     public FluReport() {
     }
 
+    /** {@inheritDoc} */
     public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
         double done = 0;

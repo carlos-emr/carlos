@@ -37,6 +37,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents an application user registration in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code AppUser} table and links a healthcare provider to an
+ * external application (defined by {@link AppDefinition}) with authentication
+ * credentials and registration timestamps.</p>
+ *
+ * @see AppDefinition
+ * @since 2001-01-01
+ */
 @Entity
 public class AppUser extends AbstractModel<Integer> {
 

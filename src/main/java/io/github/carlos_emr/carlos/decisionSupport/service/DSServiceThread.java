@@ -57,11 +57,24 @@ public class DSServiceThread extends Thread {
     private DSService service;
     private LoggedInInfo loggedInInfo;
 
+    /**
+     * Constructs a new DSServiceThread with the specified service and session context.
+     *
+     * @param service DSService the decision support service to invoke for guideline fetching
+     * @param loggedInInfo LoggedInInfo session information for the requesting provider
+     */
     public DSServiceThread(DSService service, LoggedInInfo loggedInInfo) {
         this.service = service;
         this.loggedInInfo = loggedInInfo;
     }
 
+    /**
+     * Executes the guideline fetching operation and ensures database resources are released.
+     * <p>
+     * Errors during guideline fetching are logged but do not propagate, ensuring the
+     * thread completes cleanly and database connections are always released.
+     * </p>
+     */
     @Override
     public void run() {
         try {

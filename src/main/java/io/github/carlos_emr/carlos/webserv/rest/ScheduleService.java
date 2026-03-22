@@ -950,6 +950,12 @@ public class ScheduleService extends AbstractServiceImpl {
         return appointmentSearchTo;
     }
 
+    /**
+     * Disables a search configuration.
+     *
+     * @param id Integer the search configuration ID to disable
+     * @return AppointmentSearchTo1 the disabled search configuration with ID and name
+     */
     @POST
     @Path("/searchConfig/disable/{id}")
     @Produces("application/json")

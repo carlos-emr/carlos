@@ -31,6 +31,12 @@ package io.github.carlos_emr.carlos.integration.dashboard.model;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Model representing a named set of metric data points for the Outcomes Dashboard,
+ * including the set name, date, and a collection of {@link MetricData} entries.
+ *
+ * @since 2012-07-12
+ */
 public class MetricSet {
     private String name;
     private String date;

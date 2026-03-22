@@ -37,6 +37,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Utility class for writing JSON responses to the HTTP response output stream.
+ *
+ * <p>Provides static helper methods for sending JSON-formatted responses with
+ * proper content type ({@code application/json}) and character encoding (UTF-8).
+ * Includes convenience methods for success responses and error responses with
+ * HTTP 500 status codes.</p>
+ *
+ * @since 2026-03-17
+ */
 public abstract class JSONUtil {
 
     private static final String ENCODING = "UTF-8";
@@ -44,6 +54,12 @@ public abstract class JSONUtil {
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Writes a JSON object to the HTTP response.
+     *
+     * @param response HttpServletResponse the response to write to
+     * @param jsonObject ObjectNode the Jackson JSON object to serialize
+     */
     public static void jsonResponse(HttpServletResponse response, ObjectNode jsonObject) {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
@@ -55,6 +71,12 @@ public abstract class JSONUtil {
         }
     }
 
+    /**
+     * Writes a pre-formatted JSON string to the HTTP response.
+     *
+     * @param response HttpServletResponse the response to write to
+     * @param jsonString String the JSON string to write
+     */
     public static void jsonResponse(HttpServletResponse response, String jsonString) {
         try (PrintWriter out = response.getWriter()) {
             response.setContentType(CONTENT_TYPE);
@@ -66,6 +88,13 @@ public abstract class JSONUtil {
         }
     }
 
+    /**
+     * Writes a single name-value pair as a JSON object to the HTTP response.
+     *
+     * @param response HttpServletResponse the response to write to
+     * @param name String the JSON property name
+     * @param value String the JSON property value
+     */
     public static void jsonResponse(HttpServletResponse response, String name, String value) {
         ObjectNode jsonObject = objectMapper.createObjectNode();
         jsonObject.put(name, value);

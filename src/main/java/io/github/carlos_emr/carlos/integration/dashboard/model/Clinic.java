@@ -28,6 +28,12 @@
  */
 package io.github.carlos_emr.carlos.integration.dashboard.model;
 
+/**
+ * Model representing a clinic in the Outcomes Dashboard integration, holding the
+ * clinic's identifier, name, and application type.
+ *
+ * @since 2012-07-12
+ */
 public class Clinic {
 
     private String identifier;

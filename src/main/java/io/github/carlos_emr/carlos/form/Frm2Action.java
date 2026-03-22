@@ -51,6 +51,21 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Struts2 action for handling clinical form submissions including save, print, graph,
+ * and auto-save operations.
+ *
+ * <p>Routes form submissions to the appropriate handler based on the {@code submit}
+ * parameter. Supports multi-page forms with page-specific field tracking, Jasper
+ * Report PDF printing for Rourke forms, AJAX auto-save, and audit logging of all
+ * form operations.</p>
+ *
+ * <p>Requires the {@code _form} write security privilege for all operations.</p>
+ *
+ * @see FrmRecord
+ * @see FrmRecordFactory
+ * @since 2026-03-17
+ */
 public final class Frm2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();

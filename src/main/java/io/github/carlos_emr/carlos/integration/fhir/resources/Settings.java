@@ -47,11 +47,22 @@ public class Settings {
     private Region region;
     private FhirDestination fhirDestination;
 
+    /**
+     * Constructs Settings with a FHIR destination and region.
+     *
+     * @param fhirDestination the target FHIR endpoint
+     * @param region the healthcare region (e.g., Ontario, British Columbia)
+     */
     public Settings(FhirDestination fhirDestination, Region region) {
         this.region = region;
         this.fhirDestination = fhirDestination;
     }
 
+    /**
+     * Returns whether the sender endpoint URL should be included in outbound messages.
+     *
+     * @return boolean {@code true} if the sender endpoint should be included
+     */
     public boolean isIncludeSenderEndpoint() {
         return includeSenderEndpoint;
     }

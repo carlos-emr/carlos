@@ -1839,6 +1839,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genAckCommentLab";
     }
 
+    /**
+     * Saves the provider's lab acknowledgment comment preference.
+     *
+     * @return String {@code "genAckCommentLab"} to re-display with success status
+     */
     public String saveCommentLab() {
         String checkboxValue = request.getParameter("labAckCommentProperty.checked");
 
@@ -1879,6 +1884,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * Displays the lab recall and prevention warning preferences form.
+     *
+     * @return String {@code "genPreventionPrefs"} to forward to the prevention preferences JSP
+     */
     public String viewLabRecall() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1956,6 +1966,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genLabRecallPrefs";
     }
 
+    /**
+     * Saves the provider's lab recall and prevention warning preferences.
+     *
+     * @return String {@code "genPreventionPrefs"} to re-display with success status
+     */
     public String saveLabRecallPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
