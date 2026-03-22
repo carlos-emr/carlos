@@ -66,6 +66,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  *
  * <p>Migrated from abandoned jCharts 0.7.5 library to JFreeChart.
  */
+/**
+ * Servlet that generates scatter plot chart images for measurement data visualization.
+ *
+ * @since 2001-01-01
+ */
 public class ScatterPlotChartServlet extends HttpServlet {
 
     protected int width = 550;

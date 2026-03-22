@@ -44,6 +44,11 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that sets up the measurement history display page for a patient.
+ *
+ * @since 2001-01-01
+ */
 public final class EctSetupDisplayHistory2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -49,6 +49,11 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Struts2 action that deletes measurement data entries.
+ *
+ * @since 2001-01-01
+ */
 public class EctDeleteData2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

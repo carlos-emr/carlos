@@ -52,6 +52,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * @author jaygallagher
  */
+/**
+ * Represents a single condition within a target color rule, defining the
+ * measurement type, comparison operator, and threshold value for color assignment.
+ *
+ * @since 2001-01-01
+ */
 public class TargetCondition {
     private static final Logger log = MiscUtils.getLogger();
 

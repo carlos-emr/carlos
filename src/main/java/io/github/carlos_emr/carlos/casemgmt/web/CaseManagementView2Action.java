@@ -80,6 +80,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 
+/**
+ * Struts2 action for the main case management note list view. Retrieves clinical notes
+ * for a demographic, applies program-based and role-based filtering, handles note
+ * sorting, and prepares display data including issue lists and CPP summaries.
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementView2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();

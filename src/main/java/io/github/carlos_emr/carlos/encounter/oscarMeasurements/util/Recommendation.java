@@ -77,6 +77,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @see io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet
  * @since 2009-02-20
  */
+/**
+ * Generates Drools DRL rules from flowsheet XML for clinical recommendations.
+ * Evaluates patient measurement data against configured conditions to produce
+ * clinical reminder messages.
+ *
+ * @since 2001-01-01
+ */
 public class Recommendation {
     private static final Logger log = MiscUtils.getLogger();
 

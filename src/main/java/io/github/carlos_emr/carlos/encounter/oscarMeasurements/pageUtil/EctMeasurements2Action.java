@@ -66,6 +66,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Struts2 action that processes and saves clinical measurement entries for a patient.
+ *
+ * @since 2001-01-01
+ */
 public class EctMeasurements2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

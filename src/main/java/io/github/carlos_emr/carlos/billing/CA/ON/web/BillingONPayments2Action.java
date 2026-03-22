@@ -65,12 +65,16 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl;
 
 
-/**
- * @author rjonasz
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing Ontario billing payments.
+ * Handles payment processing, recording, and transaction management
+ * for Ontario OHIP billing claims, including support for third-party billing.
+ *
+ * @since 2026-03-17
+ */
 public class BillingONPayments2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

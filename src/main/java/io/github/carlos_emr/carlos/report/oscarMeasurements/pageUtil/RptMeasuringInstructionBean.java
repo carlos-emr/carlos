@@ -31,6 +31,13 @@
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 
+/**
+ * Immutable bean representing a measuring instruction string for a measurement type.
+ * Used to display measurement instructions in CDM report configuration UIs.
+ *
+ * @see RptMeasuringInstructionBeanHandler
+ * @since 2001-01-01
+ */
 public class RptMeasuringInstructionBean {
 
     String measuringInstrc;

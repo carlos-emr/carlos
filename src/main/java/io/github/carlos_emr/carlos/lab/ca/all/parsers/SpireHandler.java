@@ -257,7 +257,11 @@ class Lines {
 }
 
 /**
- * @author j.chisholm
+ * HL7 message handler for Spire laboratory results. Parses ORU_R01 v2.3 messages
+ * from the Spire lab information system, including custom ZDS segment support
+ * via the {@link io.github.carlos_emr.carlos.lab.ca.all.spireHapiExt} extensions.
+ *
+ * @since 2007-01-18
  */
 public class SpireHandler implements MessageHandler {
 

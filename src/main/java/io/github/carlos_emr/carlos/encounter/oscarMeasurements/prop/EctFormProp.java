@@ -44,6 +44,11 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
  */
 @XmlRootElement(name = "formProp")
 @XmlAccessorType(XmlAccessType.NONE)
+/**
+ * Provides access to form-specific properties and configuration for measurement forms.
+ *
+ * @since 2001-01-01
+ */
 public class EctFormProp {
     static EctFormProp fProp = new EctFormProp();
     static private Vector measurementTypes;

@@ -115,6 +115,13 @@ public class JsonUtil {
         return objectNode;
     }
 
+    /**
+     * Parses a JSON string into a list of POJOs of the specified class.
+     *
+     * @param json  String the JSON array string
+     * @param clazz Class&lt;?&gt; the target POJO class
+     * @return List&lt;?&gt; the deserialized list
+     */
     public static final List<?> jsonToPojoList(final String json, final Class<?> clazz) {
         try {
             JsonNode jsonNode = objectMapper.readTree(json);
@@ -124,6 +131,13 @@ public class JsonUtil {
         }
     }
 
+    /**
+     * Converts a Jackson {@link JsonNode} into a list of POJOs of the specified class.
+     *
+     * @param jsonNode JsonNode the JSON array node
+     * @param clazz    Class&lt;?&gt; the target POJO class
+     * @return List&lt;?&gt; the converted list
+     */
     public static final List<?> jsonToPojoList(final JsonNode jsonNode, final Class<?> clazz) {
         try {
             return objectMapper.convertValue(jsonNode,
@@ -133,6 +147,13 @@ public class JsonUtil {
         }
     }
 
+    /**
+     * Parses a JSON string into a POJO of the specified class.
+     *
+     * @param json  String the JSON string
+     * @param clazz Class&lt;?&gt; the target POJO class
+     * @return Object the deserialized POJO
+     */
     public static final Object jsonToPojo(final String json, final Class<?> clazz) {
         try {
             return objectMapper.readValue(json, clazz);
@@ -141,6 +162,13 @@ public class JsonUtil {
         }
     }
 
+    /**
+     * Converts a Jackson {@link JsonNode} into a POJO of the specified class.
+     *
+     * @param jsonNode JsonNode the JSON node
+     * @param clazz    Class&lt;?&gt; the target POJO class
+     * @return Object the converted POJO
+     */
     public static final Object jsonToPojo(final JsonNode jsonNode, final Class<?> clazz) {
         try {
             return objectMapper.treeToValue(jsonNode, clazz);

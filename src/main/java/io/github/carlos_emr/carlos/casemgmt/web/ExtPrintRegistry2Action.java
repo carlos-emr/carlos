@@ -40,6 +40,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing the extension print registry. Handles registration
+ * and invocation of {@link io.github.carlos_emr.carlos.casemgmt.util.ExtPrint}
+ * extensions that add custom sections to the patient chart print output.
+ *
+ * @since 2026-03-17
+ */
 public class ExtPrintRegistry2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

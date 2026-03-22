@@ -50,6 +50,11 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.prop.EctFormProp;
  * Created on: October 31, 2004
  */
 
+/**
+ * Utility class for looking up measurement type definitions by type code or name.
+ *
+ * @since 2001-01-01
+ */
 public class EctFindMeasurementTypeUtil {
 
     private static MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);

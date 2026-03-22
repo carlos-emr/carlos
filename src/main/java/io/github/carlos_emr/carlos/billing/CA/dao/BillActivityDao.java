@@ -38,9 +38,32 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for {@link BillActivity} entities.
+ * Defines persistence operations for billing activity records,
+ * which track billing submission batch activities across Canadian provinces.
+ *
+ * @since 2026-03-17
+ */
 public interface BillActivityDao extends AbstractDao<BillActivity> {
 
+    /**
+     * Finds current (non-deleted) bill activities by month code and group number,
+     * updated after the specified date/time. Results are ordered by batch count.
+     *
+     * @param monthCode String the billing month code
+     * @param groupNo String the group number
+     * @param updateDateTime Date the cutoff date (exclusive lower bound)
+     * @return List of matching {@link BillActivity} records
+     */
     public List<BillActivity> findCurrentByMonthCodeAndGroupNo(String monthCode, String groupNo, Date updateDateTime);
 
+    /**
+     * Finds current (non-deleted) bill activities within a date range, ordered by ID descending.
+     *
+     * @param startDate Date the start date (inclusive)
+     * @param endDate Date the end date (inclusive)
+     * @return List of matching {@link BillActivity} records
+     */
     public List<BillActivity> findCurrentByDateRange(Date startDate, Date endDate);
 }

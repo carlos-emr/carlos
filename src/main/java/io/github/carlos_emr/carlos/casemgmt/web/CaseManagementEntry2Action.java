@@ -83,6 +83,13 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Struts2 action handling clinical note entry and editing in the case management module.
+ * Manages the full note lifecycle including creation, saving, signing, locking/unlocking,
+ * issue association, CPP updates, and temporary draft persistence.
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementEntry2Action extends ActionSupport implements SessionAware {
 
     HttpServletRequest request = ServletActionContext.getRequest();

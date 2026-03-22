@@ -59,6 +59,11 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementM
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that creates LOINC-to-measurement-type mappings.
+ *
+ * @since 2001-01-01
+ */
 public class EctAddMeasurementMap2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

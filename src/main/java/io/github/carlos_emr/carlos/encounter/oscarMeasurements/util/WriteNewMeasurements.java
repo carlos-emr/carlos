@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
 
+/**
+ * Utility class for writing new measurement records to the database,
+ * handling validation, audit logging, and lab measurement integration.
+ *
+ * @since 2001-01-01
+ */
 public class WriteNewMeasurements {
 
     private static MeasurementTypeDao measurementTypeDao = SpringUtils.getBean(MeasurementTypeDao.class);

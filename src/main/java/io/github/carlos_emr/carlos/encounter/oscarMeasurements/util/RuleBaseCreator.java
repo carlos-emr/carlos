@@ -114,6 +114,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @see TargetColour
  * @see io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet
  */
+/**
+ * Creates and caches Drools rule bases from DSCondition objects for clinical
+ * decision support. Generates DRL rules dynamically and compiles them into
+ * executable KieBases.
+ *
+ * @since 2001-01-01
+ */
 public class RuleBaseCreator {
     private static final Logger log = MiscUtils.getLogger();
 

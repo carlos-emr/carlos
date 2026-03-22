@@ -33,6 +33,11 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Form bean for measurement entry form parameters.
+ *
+ * @since 2001-01-01
+ */
 public final class EctMeasurementsForm {
 
     //Using map-backed method to get the value of each field

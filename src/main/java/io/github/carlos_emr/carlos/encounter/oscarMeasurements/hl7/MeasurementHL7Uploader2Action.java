@@ -68,6 +68,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that uploads HL7 messages containing measurement data and
+ * processes them into clinical measurement records.
+ *
+ * @since 2001-01-01
+ */
 public class MeasurementHL7Uploader2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

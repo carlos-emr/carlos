@@ -59,6 +59,8 @@ import org.w3c.dom.Document;
  * Requires the proper IndicatorXMLTemplateSchema.xsd schema file to be set
  * into classpath: indicatorXMLTemplates/IndicatorXMLTemplateSchema.xsd
  * This class will not instantiate without the Schema file
+ *
+ * @since 2026-03-17
  */
 public class IndicatorTemplateHandler {
 

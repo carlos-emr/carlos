@@ -80,6 +80,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @see io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet
  * @since 2009-02-20
  */
+/**
+ * Generates Drools DRL rules from flowsheet XML for color-coded measurement targets.
+ * Evaluates patient measurements against configured ranges to assign visual
+ * indicators (green, yellow, red) in flowsheet displays.
+ *
+ * @since 2001-01-01
+ */
 public class TargetColour {
     private static final Logger log = MiscUtils.getLogger();
 

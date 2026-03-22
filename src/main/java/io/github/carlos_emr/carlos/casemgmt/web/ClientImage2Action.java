@@ -48,6 +48,13 @@ import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.nio.file.Files;
 
+/**
+ * Struts2 action for managing patient (client) photographs. Handles image upload,
+ * retrieval, and deletion operations for patient profile pictures in the case
+ * management module.
+ *
+ * @since 2026-03-17
+ */
 public class ClientImage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

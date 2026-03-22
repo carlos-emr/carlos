@@ -96,6 +96,11 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that generates graphical charts of patient measurement history over time.
+ *
+ * @since 2001-01-01
+ */
 public class MeasurementGraphAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

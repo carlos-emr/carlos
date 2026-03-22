@@ -92,10 +92,35 @@ public abstract class FrmRecord {
      */
     public abstract int saveFormRecord(Properties props) throws SQLException;
 
+    /**
+     * Determines the navigation action based on the form submission type.
+     *
+     * @param submit String the submit button value (e.g., "save", "print", "exit")
+     * @return String the action identifier for navigation
+     * @throws SQLException if a database access error occurs
+     */
     public abstract String findActionValue(String submit) throws SQLException;
 
+    /**
+     * Constructs the URL for the next action after form submission.
+     *
+     * @param where String the base URL path
+     * @param action String the action type (e.g., "print", "save")
+     * @param demoId String the patient's demographic number
+     * @param formId String the form record ID
+     * @return String the complete action URL
+     * @throws SQLException if a database access error occurs
+     */
     public abstract String createActionURL(String where, String action, String demoId, String formId) throws SQLException;
 
+    /**
+     * Retrieves graph data for the form. Default implementation returns empty properties.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param demographicNo int the patient's demographic number
+     * @param existingID int the existing form record ID
+     * @return Properties containing graph data, empty by default
+     */
     public Properties getGraph(LoggedInInfo loggedInInfo, int demographicNo, int existingID) {
         return new Properties();
     }

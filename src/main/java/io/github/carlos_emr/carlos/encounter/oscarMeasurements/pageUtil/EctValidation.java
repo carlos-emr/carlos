@@ -51,6 +51,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Validates clinical measurement values against configured rules including
+ * range checks, data type validation, and required field enforcement.
+ *
+ * @since 2001-01-01
+ */
 public class EctValidation {
 
     public String regCharacterExp = "^[\\w\\s,.?]*$";

@@ -196,6 +196,12 @@ public class HRM2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Assigns a category to an HRM document and returns the updated category info as JSON.
+     *
+     * @return String {@code null} (response written directly to output stream)
+     * @throws Exception if an I/O error occurs writing the response
+     */
     public String saveCategory() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {

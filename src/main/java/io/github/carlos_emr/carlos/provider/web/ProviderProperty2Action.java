@@ -1756,6 +1756,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInMasterFile";
     }
 
+    /**
+     * Saves the provider's eDocument browser in master file preference.
+     *
+     * @return String {@code "genEDocBrowserInMasterFile"} to re-display with success status
+     */
     public String saveEDocBrowserInMasterFile() {
         String checkboxValue = request.getParameter("eDocBrowserInMasterFileProperty.checked");
 
@@ -1794,6 +1799,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInMasterFile";
     }
 
+    /**
+     * Displays the lab acknowledgment comment checkbox preference form.
+     *
+     * @return String {@code "genLabComment"} to forward to the lab comment configuration JSP
+     */
     public String viewCommentLab() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

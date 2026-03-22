@@ -45,6 +45,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * Action class for managing group clinical notes. Provides functionality to
+ * create and manage notes that are shared across multiple patient demographics
+ * within a program, typically used in group therapy or community sessions.
+ *
+ * @since 2026-03-17
+ */
 public class GroupNoteAction {
 
     private static Logger logger = MiscUtils.getLogger();

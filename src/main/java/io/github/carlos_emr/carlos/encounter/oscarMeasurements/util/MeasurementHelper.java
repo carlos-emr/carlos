@@ -53,6 +53,12 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
  * @see MeasurementFlowSheet
  * @see MeasurementInfo
  */
+/**
+ * Helper class providing common measurement operations including unit conversion,
+ * value formatting, and measurement data retrieval.
+ *
+ * @since 2001-01-01
+ */
 public class MeasurementHelper {
 
     /**

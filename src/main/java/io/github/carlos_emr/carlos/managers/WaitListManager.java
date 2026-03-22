@@ -47,6 +47,18 @@ import io.github.carlos_emr.carlos.utility.VelocityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+/**
+ * Service for managing program wait lists and admission notifications in the
+ * CARLOS EMR system.
+ *
+ * <p>Handles email notifications for urgent admissions, daily admission summaries,
+ * new applications, and vacancy alerts. Integrates with the PMmodule program
+ * and admission subsystems for community healthcare program management.</p>
+ *
+ * @see io.github.carlos_emr.carlos.PMmodule.model.Program
+ * @see io.github.carlos_emr.carlos.PMmodule.model.Vacancy
+ * @since 2026-03-17
+ */
 @Service
 public class WaitListManager {
     private static final Logger logger = MiscUtils.getLogger();

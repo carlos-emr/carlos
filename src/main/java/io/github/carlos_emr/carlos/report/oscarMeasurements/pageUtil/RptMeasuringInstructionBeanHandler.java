@@ -35,6 +35,13 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handler that loads measuring instructions for a given measurement type display name
+ * into a vector of {@link RptMeasuringInstructionBean} objects for CDM report UIs.
+ *
+ * @see RptMeasuringInstructionBean
+ * @since 2001-01-01
+ */
 public class RptMeasuringInstructionBeanHandler {
 
     Vector<RptMeasuringInstructionBean> measuringInstrcVector = new Vector<RptMeasuringInstructionBean>();

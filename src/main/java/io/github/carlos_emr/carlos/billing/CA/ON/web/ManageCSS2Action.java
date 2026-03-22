@@ -45,6 +45,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
+/**
+ * Struts2 action for managing CSS styles associated with Ontario billing service codes.
+ * Provides administrative functionality to configure visual styling for billing
+ * service code display in the Ontario billing interface.
+ *
+ * @since 2026-03-17
+ */
 public class ManageCSS2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -41,7 +41,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author apavel
+ * Background thread for fetching clinical decision support guidelines from external services.
+ * <p>
+ * DSServiceThread runs guideline fetching operations asynchronously to avoid blocking
+ * the main request thread. It ensures proper database resource cleanup after execution
+ * via {@link DbConnectionFilter#releaseAllThreadDbResources()}.
+ * </p>
+ *
+ * @since 2009-07-06
+ * @see DSService#fetchGuidelinesFromServiceInBackground(LoggedInInfo)
  */
 public class DSServiceThread extends Thread {
     private static final Logger logger = MiscUtils.getLogger();

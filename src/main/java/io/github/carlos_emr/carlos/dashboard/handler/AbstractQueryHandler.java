@@ -45,6 +45,20 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.stereotype.Service;
 
+/**
+ * Abstract base class for dashboard query handlers. Provides common functionality for
+ * building and executing native SQL queries with parameterized place-holder substitution,
+ * range filtering, and column rewriting.
+ *
+ * <p>Subclasses ({@link IndicatorQueryHandler}, {@link DrilldownQueryHandler},
+ * {@link ExportQueryHandler}) extend this to implement specific query execution
+ * and result transformation strategies.</p>
+ *
+ * <p>Query place-holders follow the pattern {@code ${ parameterId }} and are replaced
+ * at runtime with actual parameter values.</p>
+ *
+ * @since 2026-03-17
+ */
 @Service
 public abstract class AbstractQueryHandler extends AbstractHibernateDao {
 

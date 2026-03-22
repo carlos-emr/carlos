@@ -116,11 +116,22 @@ public class PreventionTag extends TagSupport {
         this.demographicNo = demographicNo;
     }
 
+    /**
+     * Returns the demographic number for this tag instance.
+     *
+     * @return String the patient's demographic number
+     */
     public String getDemographicNo() {
         return demographicNo;
     }
 
 
+    /**
+     * Outputs the closing {@code </span>} tag.
+     *
+     * @return int {@code EVAL_PAGE} to continue processing the rest of the page
+     * @throws JspException if an error occurs writing to the JSP output
+     */
     public int doEndTag() throws JspException {
         try {
             JspWriter out = super.pageContext.getOut();

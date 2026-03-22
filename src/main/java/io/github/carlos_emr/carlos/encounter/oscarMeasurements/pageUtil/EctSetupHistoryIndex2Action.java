@@ -45,6 +45,11 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that initializes the measurement history index page.
+ *
+ * @since 2001-01-01
+ */
 public final class EctSetupHistoryIndex2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

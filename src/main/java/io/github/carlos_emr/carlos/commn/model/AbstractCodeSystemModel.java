@@ -72,5 +72,10 @@ public abstract class AbstractCodeSystemModel<T> extends AbstractModel<T> {
      */
     public abstract void setCode(String code);
 
+    /**
+     * Sets the human-readable description for this code.
+     *
+     * @param description String the description to set
+     */
     public abstract void setDescription(String description);
 }

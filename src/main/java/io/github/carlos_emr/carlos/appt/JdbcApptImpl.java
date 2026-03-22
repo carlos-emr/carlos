@@ -38,11 +38,26 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Data access implementation for appointment operations including deletion,
+ * location resolution from schedules, and previous appointment date lookup.
+ *
+ * <p>Uses Spring-managed DAO beans to interact with appointment, schedule date, and
+ * recurring schedule tables. Archives appointments before deletion for audit compliance.</p>
+ *
+ * @since 2026-03-17
+ */
 public class JdbcApptImpl {
     private static final Logger _logger = MiscUtils.getLogger();
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
 
+    /**
+     * Deletes an appointment by number after archiving it for audit purposes.
+     *
+     * @param apptNo String the appointment number to delete
+     * @return boolean {@code true} if the appointment was successfully deleted
+     */
     public boolean deleteAppt(String apptNo) {
         Appointment appt = appointmentDao.find(Integer.parseInt(apptNo));
         appointmentArchiveDao.archiveAppointment(appt);
@@ -57,6 +72,14 @@ public class JdbcApptImpl {
         return (retval == 1);
     }
 
+    /**
+     * Resolves the appointment location for a provider on a given date by checking
+     * schedule date entries and recurring schedule configuration.
+     *
+     * @param apptDate String the appointment date in {@code yyyy-MM-dd} format
+     * @param provider_no String the provider number
+     * @return String the resolved location, or an empty string if not found
+     */
     public String getLocationFromSchedule(String apptDate, String provider_no) {
         String retval = getLocationFromSpec(apptDate, provider_no, "c");
         if (!"".equals(retval)) {
@@ -104,6 +127,12 @@ public class JdbcApptImpl {
         return retval;
     }
 
+    /**
+     * Finds the previous appointment date before the given service date.
+     *
+     * @param thisServiceDate String the reference date in {@code yyyy-MM-dd} format
+     * @return String the previous appointment date, or an empty string if none found
+     */
     public String getPrevApptDate(String thisServiceDate) {
         String retval = "";
 

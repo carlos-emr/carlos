@@ -54,9 +54,21 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class DSServiceImpl extends DSService {
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Default constructor for DSServiceImpl.
+     */
     public DSServiceImpl() {
     }
 
+    /**
+     * No-op implementation of external guideline fetching.
+     * <p>
+     * External guideline fetching is disabled. Decision support uses local
+     * database guidelines only.
+     * </p>
+     *
+     * @param loggedInInfo LoggedInInfo session information for the requesting provider
+     */
     @Override
     public void fetchGuidelinesFromService(LoggedInInfo loggedInInfo) {
         logger.info("External guideline fetching is disabled. Decision support uses local database guidelines only.");

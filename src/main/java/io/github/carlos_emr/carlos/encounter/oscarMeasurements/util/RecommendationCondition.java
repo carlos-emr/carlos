@@ -50,6 +50,12 @@ import org.jdom2.Element;
  *
  * @author jaygallagher
  */
+/**
+ * Represents a single condition within a clinical recommendation rule,
+ * defining the measurement type, comparison operator, and threshold value.
+ *
+ * @since 2001-01-01
+ */
 public class RecommendationCondition {
 
     private String type = null;

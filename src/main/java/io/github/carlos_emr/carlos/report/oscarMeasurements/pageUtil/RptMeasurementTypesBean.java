@@ -31,6 +31,14 @@
 package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 
+/**
+ * Immutable bean representing a measurement type definition with its ID, type code,
+ * display name, description, measuring instruction, and validation rule reference.
+ * Used by CDM report configuration UIs.
+ *
+ * @see RptMeasurementTypesBeanHandler
+ * @since 2001-01-01
+ */
 public class RptMeasurementTypesBean {
 
     int id;

@@ -843,6 +843,11 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Lists all search configurations.
+     *
+     * @return List of AppointmentSearchTo1 transfer objects
+     */
     @GET
     @Path("/searchConfig/list")
     @Produces("application/json")

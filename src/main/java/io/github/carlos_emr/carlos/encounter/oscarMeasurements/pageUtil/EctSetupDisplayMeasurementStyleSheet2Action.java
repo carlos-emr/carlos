@@ -43,6 +43,11 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctStyleShee
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that displays measurement style sheet details.
+ *
+ * @since 2001-01-01
+ */
 public final class EctSetupDisplayMeasurementStyleSheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -28,21 +28,44 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+/**
+ * Immutable value object representing a patient's age broken down into years, months, and days.
+ *
+ * @see AgeCalculator
+ * @since 2026-03-17
+ */
 public class Age {
     private int days;
     private int months;
     private int years;
 
+    /**
+     * Creates a new Age with the specified components.
+     *
+     * @param days   int the number of days
+     * @param months int the number of months
+     * @param years  int the number of years
+     */
     public Age(int days, int months, int years) {
         this.days = days;
         this.months = months;
         this.years = years;
     }
 
+    /**
+     * Returns the days component of the age.
+     *
+     * @return int the number of days
+     */
     public int getDays() {
         return this.days;
     }
 
+    /**
+     * Returns the months component of the age.
+     *
+     * @return int the number of months
+     */
     public int getMonths() {
         return this.months;
     }
