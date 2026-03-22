@@ -191,6 +191,12 @@ public class ProgramManagerImpl implements ProgramManager {
     }
 
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Respects the FILTER_ON_FACILITY system property to determine whether
+     * to filter programs by the specified facility.</p>
+     */
     public List<Program> getPrograms(Integer facilityId) {
         if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             return programDao.getProgramsByFacilityId(facilityId);
@@ -221,6 +227,7 @@ public class ProgramManagerImpl implements ProgramManager {
         return programDao.isCommunityProgram(Integer.valueOf(programId));
     }
 
+    /** {@inheritDoc} */
     public void saveProgram(Program program) {
         if (program.getHoldingTank()) {
             programDao.resetHoldingTank();

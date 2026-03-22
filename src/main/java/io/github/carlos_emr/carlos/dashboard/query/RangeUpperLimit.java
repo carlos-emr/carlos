@@ -30,6 +30,13 @@ package io.github.carlos_emr.carlos.dashboard.query;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
+/**
+ * Represents an upper limit boundary for a range filter in dashboard queries.
+ * Implements {@link RangeInterface} to provide a consistent contract for
+ * range-based query parameter substitution.
+ *
+ * @since 2026-03-17
+ */
 public class RangeUpperLimit implements RangeInterface {
 
     private String id;
