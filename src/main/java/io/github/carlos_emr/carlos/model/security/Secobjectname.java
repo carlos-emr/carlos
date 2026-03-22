@@ -27,11 +27,12 @@
 package io.github.carlos_emr.carlos.model.security;
 
 /**
- * Secobjectname entity.
+ * Hibernate entity representing a named security object in the CARLOS EMR access control system.
+ * Security objects define the resources and functions that can be protected with
+ * privilege-based access control (e.g., "_demographic", "_appointment").
  *
- * @author JZhang
+ * @since 2005-01-01
  */
-
 public class Secobjectname implements java.io.Serializable {
 
     // Fields

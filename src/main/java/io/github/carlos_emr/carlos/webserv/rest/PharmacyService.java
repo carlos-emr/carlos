@@ -54,6 +54,11 @@ import org.springframework.stereotype.Component;
 @Path("/pharmacies/")
 @Component("pharmacyService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for pharmacy information lookup and management operations.
+ *
+ * @since 2012-08-13
+ */
 public class PharmacyService extends AbstractServiceImpl {
 
     @Autowired

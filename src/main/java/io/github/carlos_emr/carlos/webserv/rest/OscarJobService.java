@@ -62,6 +62,11 @@ import org.springframework.stereotype.Component;
 @Path("/jobs")
 @Component("oscarJobService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for managing scheduled background jobs.
+ *
+ * @since 2012-08-13
+ */
 public class OscarJobService extends AbstractServiceImpl {
 
     Logger logger = MiscUtils.getLogger();

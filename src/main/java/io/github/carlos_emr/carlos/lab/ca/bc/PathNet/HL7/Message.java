@@ -60,6 +60,13 @@ import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.V2_3.MSH;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.V2_3.PID;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents and parses a complete BC PathNET HL7 message. Splits the raw HL7 text
+ * into individual segments (MSH, PID, OBR, OBX, ORC, NTE), populates segment objects,
+ * and persists the parsed data into the database.
+ *
+ * @since 2007-01-18
+ */
 public class Message {
     Logger _logger = MiscUtils.getLogger();
     private Hl7MessageDao hl7MessageDao = SpringUtils.getBean(Hl7MessageDao.class);

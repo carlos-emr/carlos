@@ -400,6 +400,7 @@ public class ProgramManagerImpl implements ProgramManager {
         return programDomain;
     }
 
+    /** {@inheritDoc} */
     public List<Program> getProgramDomainInCurrentFacilityForCurrentProvider(LoggedInInfo loggedInInfo, boolean activeOnly) {
         List<Program> programs = null;
 
@@ -419,6 +420,7 @@ public class ProgramManagerImpl implements ProgramManager {
         return programDao.getProgramsByType(null, Program.COMMUNITY_TYPE, null).toArray(new Program[0]);
     }
 
+    /** {@inheritDoc} */
     public List<LabelValueBean> getProgramBeans(String providerNo) {
         if (providerNo == null || "".equalsIgnoreCase(providerNo.trim())) return new ArrayList<LabelValueBean>();
         ArrayList<LabelValueBean> pList = new ArrayList<LabelValueBean>();
@@ -498,6 +500,7 @@ public class ProgramManagerImpl implements ProgramManager {
         this.vacancyTemplateDao = vacancyTemplateDao;
     }
 
+    /** {@inheritDoc} */
     public boolean hasAccessBasedOnCurrentFacility(LoggedInInfo loggedInInfo, Integer programId) {
         // if no program restrictions are defined.
         if (programId == null) return (true);

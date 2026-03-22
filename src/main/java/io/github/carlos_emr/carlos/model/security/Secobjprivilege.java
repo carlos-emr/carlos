@@ -26,6 +26,13 @@
 
 package io.github.carlos_emr.carlos.model.security;
 
+/**
+ * Hibernate entity representing a security object-privilege mapping, which defines the
+ * specific privilege level (read, write, etc.) that a role or user group has on a
+ * named security object.
+ *
+ * @since 2005-01-01
+ */
 public class Secobjprivilege implements java.io.Serializable {
 
     // Fields

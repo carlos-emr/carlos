@@ -50,7 +50,11 @@ import java.sql.Timestamp;
 import java.util.*;
 
 /**
- * @author Jay Gallagher
+ * Provides data access and population logic for BC PathNET lab results.
+ * Handles querying, filtering, and formatting of PathNET-specific lab data
+ * including consultation attachments, provider routing, and acknowledgement tracking.
+ *
+ * @since 2007-01-18
  */
 public class PathnetResultsData {
     private ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);

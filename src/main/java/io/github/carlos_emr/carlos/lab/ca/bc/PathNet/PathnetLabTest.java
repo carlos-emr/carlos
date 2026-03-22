@@ -56,7 +56,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author Jay Gallagher
+ * Data container for a parsed BC PathNET lab test result, holding patient demographics,
+ * ordering physician, test results with reference ranges, and report metadata.
+ * Fields are populated during PathNET HL7 message parsing.
+ *
+ * @since 2007-01-18
  */
 public class PathnetLabTest {
 

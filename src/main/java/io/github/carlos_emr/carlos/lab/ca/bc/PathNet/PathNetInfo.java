@@ -45,7 +45,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.db.DBHandler;
 
 /**
- * @author root
+ * Provides information retrieval methods for BC PathNET lab results,
+ * including lab counts and provider-specific lab data access.
+ *
+ * @since 2007-01-18
  */
 public class PathNetInfo {
 

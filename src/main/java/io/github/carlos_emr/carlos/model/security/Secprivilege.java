@@ -27,11 +27,11 @@
 package io.github.carlos_emr.carlos.model.security;
 
 /**
- * Secprivilege entity.
+ * Hibernate entity representing a security privilege definition (e.g., read, write, update)
+ * in the CARLOS EMR role-based access control system.
  *
- * @author JZhang
+ * @since 2005-01-01
  */
-
 public class Secprivilege implements java.io.Serializable {
 
     // Fields

@@ -55,6 +55,11 @@ import io.github.carlos_emr.CarlosProperties;
 @Path("/patientDetailStatusService")
 @Produces({MediaType.APPLICATION_JSON})
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for retrieving patient detail status information.
+ *
+ * @since 2012-08-13
+ */
 public class PatientDetailStatusService extends AbstractServiceImpl {
     @Autowired
     private DemographicManager demographicManager;

@@ -80,6 +80,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Path("/persona")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for user persona and provider profile operations.
+ *
+ * @since 2012-08-13
+ */
 public class PersonaService extends AbstractServiceImpl {
     protected Logger logger = MiscUtils.getLogger();
 

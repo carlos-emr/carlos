@@ -58,6 +58,13 @@ import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Communication.HTTP;
  *
  */
 
+/**
+ * Manages HTTP/HTTPS connections to the BC PathNET lab result retrieval system.
+ * Handles authentication, session management, and downloading of new lab requests
+ * and pending results via PathNET's web interface.
+ *
+ * @since 2004-03-17
+ */
 public class Connection {
     private static Logger logger = MiscUtils.getLogger();
 
