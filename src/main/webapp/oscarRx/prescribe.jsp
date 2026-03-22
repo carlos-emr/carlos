@@ -378,16 +378,16 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 		</div>
         
         <%if(genericName!=null&&!genericName.equalsIgnoreCase("null")){%>
-        <div><a>${i18nIngredient}:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<%=genericName%></a></div><%}%>
+        <div><a>${i18nIngredient}:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(genericName)%></a></div><%}%>
        <div class="rxStr" title="not what you mean?" >
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('method_<%=rand%>')">${i18nMethod}:</a><a   id="method_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"><%=methodStr%></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('route_<%=rand%>')">${i18nRoute}:</a><a id="route_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=routeStr%></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('frequency_<%=rand%>')">${i18nFrequency}:</a><a  id="frequency_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=frequencyStr%></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('minimum_<%=rand%>')">${i18nMin}:</a><a  id="minimum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=minimumStr%></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('maximum_<%=rand%>')">${i18nMax}:</a><a id="maximum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=maximumStr%></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('duration_<%=rand%>')">${i18nDuration}:</a><a  id="duration_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=durationStr%></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('durationUnit_<%=rand%>')">${i18nDurationUnit}:</a><a  id="durationUnit_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=durationUnitStr%></a>
-           <a tabindex="-1" >${i18nQtyMitte}:</a><a tabindex="-1" id="quantityStr_<%=rand%>"> <%=quantityStr%></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('method_<%=rand%>')">${i18nMethod}:</a><a   id="method_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"><%=Encode.forHtml(methodStr)%></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('route_<%=rand%>')">${i18nRoute}:</a><a id="route_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=Encode.forHtml(routeStr)%></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('frequency_<%=rand%>')">${i18nFrequency}:</a><a  id="frequency_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=Encode.forHtml(frequencyStr)%></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('minimum_<%=rand%>')">${i18nMin}:</a><a  id="minimum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=Encode.forHtml(minimumStr)%></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('maximum_<%=rand%>')">${i18nMax}:</a><a id="maximum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=Encode.forHtml(maximumStr)%></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('duration_<%=rand%>')">${i18nDuration}:</a><a  id="duration_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=Encode.forHtml(durationStr)%></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('durationUnit_<%=rand%>')">${i18nDurationUnit}:</a><a  id="durationUnit_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <%=Encode.forHtml(durationUnitStr)%></a>
+           <a tabindex="-1" >${i18nQtyMitte}:</a><a tabindex="-1" id="quantityStr_<%=rand%>"> <%=Encode.forHtml(quantityStr)%></a>
            <a> </a><a tabindex="-1" id="unitName_<%=rand%>"> </a>
            <a> </a><a tabindex="-1" href="javascript:void(0);" id="prn_<%=rand%>" onclick="setPrn('<%=rand%>');updateProperty('prnVal_<%=rand%>');"><%=prnStr%></a>
            <input id="prnVal_<%=rand%>"  style="display:none" <%if(prnStr.trim().length()==0){%>value="false"<%} else{%>value="true" <%}%> />
@@ -400,7 +400,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDuration"/>
             <input type="text" size="6" id="refillDuration_<%=rand%>" name="refillDuration_<%=rand%>"
                    value="<%=refillDuration%>"
-                   onchange="var errEl=document.getElementById('refillDurationError_<%=rand%>');var v=Number(this.value);if(Number.isNaN(v)||v<0){errEl.classList.remove('d-none');this.focus();return false;}errEl.classList.add('d-none');"/><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDurationDays"/>
+                   onchange="var errEl=document.getElementById('refillDurationError_<%=rand%>');if(this.value.trim()===''){errEl.classList.remove('d-none');this.focus();return false;}var v=Number(this.value);if(Number.isNaN(v)||v<0){errEl.classList.remove('d-none');this.focus();return false;}errEl.classList.add('d-none');"/><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDurationDays"/>
             <div id="refillDurationError_<%=rand%>" class="alert alert-danger d-none" role="alert" style="margin-top:4px;padding:6px 10px;">
                 <button type="button" class="btn-close float-end" style="font-size:0.75rem;" onclick="document.getElementById('refillDurationError_<%=rand%>').classList.add('d-none');" aria-label="${i18nClose}"></button>
                 ${i18nRefillDurationError}

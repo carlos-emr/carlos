@@ -1084,7 +1084,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                         } else if (elem.equals("nosubs_" + num)) {
                             nosubs = "on".equals(val);
                         } else if (elem.equals("refillDuration_" + num)) {
-                            rx.setRefillDuration(Integer.parseInt(val));
+                            if (val != null && !val.isEmpty() && !val.equalsIgnoreCase("null")) rx.setRefillDuration(Integer.parseInt(val));
                         } else if (elem.equals("refillQuantity_" + num)) {
                             rx.setRefillQuantity(Integer.parseInt(val));
                         } else if (elem.equals("dispenseInterval_" + num)) {
