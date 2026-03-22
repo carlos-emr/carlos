@@ -40,13 +40,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- create table scratch_pad (
-           id int(10) not null auto_increment primary key,
-           provider_no varchar(6),
-           date_time datetime,
-           scratch_text text
-       );
- * @author jay
+ * Data access helper for provider scratch pad (notepad) operations.
+ *
+ * <p>Provides methods to retrieve and persist scratch pad entries for individual providers.
+ * Each provider can have multiple versioned scratch pad entries, with the most recent
+ * active entry being the current note.</p>
+ *
+ * <p>Delegates to {@link ScratchPadDao} for database persistence.</p>
+ *
+ * @see ScratchPadDao
+ * @see ScratchPad
+ * @since 2026-03-17
  */
 public class ScratchData {
 
@@ -54,6 +58,12 @@ public class ScratchData {
 	public ScratchData() {
 	}
 	
+	/**
+	 * Retrieves all scratch pad entry dates for a specific provider.
+	 *
+	 * @param providerNo String the provider number to query
+	 * @return List of {@link ScratchPad} entries with date information
+	 */
 	public List<ScratchPad> getAllDates(String providerNo) {
 		ScratchPadDao dao = SpringUtils.getBean(ScratchPadDao.class);
 		return dao.findAllDatesByProviderNo(providerNo);

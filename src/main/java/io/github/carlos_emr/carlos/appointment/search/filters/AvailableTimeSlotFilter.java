@@ -37,10 +37,32 @@ import io.github.carlos_emr.carlos.appointment.search.TimeSlot;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 
 
+/**
+ * Strategy interface for filtering available appointment time slots during the booking search.
+ *
+ * <p>Implementations apply specific criteria (e.g., existing appointments, future-only,
+ * open access, contiguous time) to narrow down the list of candidate time slots. Filters
+ * are chained together via the {@link SearchConfig} and {@link FilterDefinition} pipeline.</p>
+ *
+ * @since 2026-03-17
+ */
 public interface AvailableTimeSlotFilter {
     /**
-     * @return a list of available time slots, i.e. make a new array and copy the qualifying time slots into it. Probably best not to alter the passed in list contents.
-     * @
+     * Filters the given list of available time slots according to this filter's criteria
+     * and returns a new list containing only the qualifying slots.
+     *
+     * <p>Implementations should not modify the passed-in list; instead, they should create
+     * a new list and copy qualifying time slots into it.</p>
+     *
+     * @param clinic SearchConfig the booking search configuration
+     * @param mrp String the Most Responsible Provider number
+     * @param providerId String the provider number whose schedule is being searched
+     * @param appointmentTypeId Long the appointment type being booked
+     * @param dayWorkScheduleTransfer DayWorkSchedule the provider's work schedule for the day
+     * @param currentlyAllowedTimeSlots List&lt;TimeSlot&gt; the time slots remaining after prior filters
+     * @param date Calendar the date being searched
+     * @param params Map&lt;String, String&gt; the filter-specific parameters from the configuration
+     * @return List&lt;TimeSlot&gt; the filtered list of available time slots
      */
     public List<TimeSlot> filterAvailableTimeSlots(SearchConfig clinic, String mrp, String providerId, Long appointmentTypeId, DayWorkSchedule dayWorkScheduleTransfer, List<TimeSlot> currentlyAllowedTimeSlots, Calendar date, Map<String, String> params);
 }

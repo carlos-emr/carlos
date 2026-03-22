@@ -86,6 +86,12 @@ public class OscarConfiguration extends Configuration {
         this.options.put(key, value);
     }
 
+    /**
+     * Returns the configuration entries for the specified login context name.
+     *
+     * @param name String the login context name to look up
+     * @return AppConfigurationEntry[] the configuration entries, or null if the name does not match
+     */
     @Override
     public AppConfigurationEntry[] getAppConfigurationEntry(String name) {
         if (contextName.equalsIgnoreCase(name)) {

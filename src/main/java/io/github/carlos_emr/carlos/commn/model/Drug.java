@@ -53,6 +53,32 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Represents a prescribed medication (drug) record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code drugs} table and tracks all prescription details for a patient
+ * including drug identification, dosing instructions, dispensing quantities, and
+ * prescription lifecycle management (active, archived, represcribed).</p>
+ *
+ * <p>Key data groups include:</p>
+ * <ul>
+ *   <li><strong>Drug Identity:</strong> brand name (BN), generic name (GN), GCN sequence number,
+ *       ATC code, regional identifier (DIN), custom name</li>
+ *   <li><strong>Dosing:</strong> take min/max, frequency code, duration/unit, dosage, route,
+ *       method, drug form, custom instructions</li>
+ *   <li><strong>Dispensing:</strong> quantity, repeats, refill duration/quantity, dispense interval,
+ *       no substitution flag, PRN flag</li>
+ *   <li><strong>Lifecycle:</strong> rx date, end date, written date, archived flag/reason/date,
+ *       long-term/short-term/past-med indicators</li>
+ *   <li><strong>Provider:</strong> prescribing provider, outside provider name/OHIP number</li>
+ * </ul>
+ *
+ * <p>Archived reason constants (e.g., {@link #ADVERSE_REACTION}, {@link #DOSE_CHANGE},
+ * {@link #DRUG_INTERACTION}) document why a prescription was discontinued.</p>
+ *
+ * @see Demographic
+ * @since 2012-01-11
+ */
 @Entity
 @Table(name = "drugs")
 public class Drug extends AbstractModel<Integer> implements Serializable {

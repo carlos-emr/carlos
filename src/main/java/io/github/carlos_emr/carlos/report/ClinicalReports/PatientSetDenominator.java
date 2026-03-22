@@ -35,7 +35,15 @@ import java.util.List;
 import io.github.carlos_emr.carlos.report.data.DemographicSets;
 
 /**
- * @author rjonasz
+ * Denominator implementation that retrieves patient demographic numbers from
+ * predefined demographic sets (stored in the {@code demographicSets} table).
+ * Requires a {@code "patientSet"} replaceable value identifying which named
+ * set(s) to query.
+ *
+ * @see Denominator
+ * @see DemographicSets
+ * @see ReportEvaluator
+ * @since 2005-12-01
  */
 public class PatientSetDenominator implements Denominator {
     private String[] replaceKeys;

@@ -38,9 +38,11 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * Tag class for evaluating a property from carlos properties.
- * <p>
- * If the value is equal, the jsp code will be included in the page.
+ * JSP custom tag for conditionally including page content based on CARLOS EMR property values.
+ * Compares the value of a named property from {@link CarlosProperties} against an expected value.
+ * If they match (or mismatch when {@code reverse} is set to "true"), the tag body is included.
+ *
+ * @since 2001-01-01
  */
 public class CarlosPropertiesCheck extends TagSupport {
 
@@ -49,6 +51,11 @@ public class CarlosPropertiesCheck extends TagSupport {
     protected String defaultVal = null;
     protected String reverse = null;
 
+    /**
+     * Returns the reverse flag value.
+     *
+     * @return String "true" if the condition logic is inverted, null otherwise
+     */
     public String getReverse() {
         return reverse;
     }

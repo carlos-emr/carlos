@@ -50,6 +50,15 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * Struts2 action that updates the status or start date of a diagnosis research entry.
+ *
+ * <p>Supports changing the status to "C" (completed) or "D" (deleted) and updating
+ * the start date with partial-date support. Logs audit entries for all updates.
+ * Requires {@code _dxresearch} update privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -57,6 +66,14 @@ public class dxResearchUpdate2Action extends ActionSupport {
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Updates a diagnosis research entry's status and/or start date, then redirects
+     * back to the research setup page.
+     *
+     * @return String NONE after redirect
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if an I/O error occurs during redirect
+     */
     public String execute() throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "u", null)) {
             throw new RuntimeException("missing required sec object (_dxresearch)");

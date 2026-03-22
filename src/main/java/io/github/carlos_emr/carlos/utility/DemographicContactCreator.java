@@ -69,6 +69,12 @@ public class DemographicContactCreator {
         return fillContactNames(demographicContactList);
     }
 
+    /**
+     * Populates contact details (name, phone, fax, etc.) for a single demographic contact.
+     *
+     * @param demographicContact DemographicContact the contact to populate
+     * @return DemographicContact the same contact with details filled in
+     */
     public static DemographicContact addContactDetailsToDemographicContact(DemographicContact demographicContact) {
         return fillContactName(demographicContact);
     }
@@ -165,6 +171,12 @@ public class DemographicContactCreator {
         return demographicContact;
     }
 
+    /**
+     * Converts a list of contact objects into a list of generic {@link Contact} instances.
+     *
+     * @param contact List&lt;?&gt; the source contact objects to convert
+     * @return List&lt;Contact&gt; the converted generic contacts
+     */
     public static final List<Contact> buildContact(final List<?> contact) {
         List<Contact> contactlist = new ArrayList<Contact>();
         Contact contactitem;
@@ -177,10 +189,11 @@ public class DemographicContactCreator {
     }
 
     /**
-     * Return a generic Contact class from any other class of
-     * contact.
+     * Converts a contact object (e.g., {@link ProfessionalSpecialist}) into a generic
+     * {@link Contact} instance, extracting and normalizing address, phone, and identity fields.
      *
-     * @return
+     * @param contactobject Object the source contact to convert
+     * @return Contact a generic contact populated with the source object's data
      */
     public static final Contact buildContact(final Object contactobject) {
         ProfessionalContact contact = new ProfessionalContact();
@@ -269,6 +282,15 @@ public class DemographicContactCreator {
         return contact;
     }
 
+    /**
+     * Converts a {@link ProfessionalContact} to a {@link ProfessionalSpecialist}, with
+     * security privilege verification.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info for authorization
+     * @param contact      ProfessionalContact the contact to convert
+     * @return ProfessionalSpecialist the converted specialist entity
+     * @throws SecurityException if the user lacks {@code _demographic} read privilege
+     */
     public static ProfessionalSpecialist convertProfessionalContactAsProfessionalSpecialist(LoggedInInfo loggedInInfo, ProfessionalContact contact) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");

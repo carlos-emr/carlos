@@ -35,13 +35,36 @@ import io.github.carlos_emr.carlos.inbox.InboxManagerQuery;
 import io.github.carlos_emr.carlos.inbox.InboxManagerResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for querying the provider inbox in the CARLOS EMR system.
+ *
+ * <p>The inbox aggregates lab results and documents for a healthcare provider,
+ * supporting filtering by result status (normal, abnormal) and document type.</p>
+ *
+ * @see InboxManagerImpl
+ * @see io.github.carlos_emr.carlos.inbox.InboxManagerQuery
+ * @see io.github.carlos_emr.carlos.inbox.InboxManagerResponse
+ * @since 2026-03-17
+ */
 public interface InboxManager {
+    /** Filter constant for normal results. */
     public static final String NORMAL = "normal";
+    /** Filter constant for all results. */
     public static final String ALL = "all";
+    /** Filter constant for abnormal results. */
     public static final String ABNORMAL = "abnormal";
+    /** Filter constant for lab results only. */
     public static final String LABS = "labs";
+    /** Filter constant for documents only. */
     public static final String DOCUMENTS = "documents";
 
+    /**
+     * Queries the provider inbox based on the specified filter criteria.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param query InboxManagerQuery the search and filter parameters
+     * @return InboxManagerResponse containing the matching inbox items
+     */
     public InboxManagerResponse getInboxResults(LoggedInInfo loggedInInfo, InboxManagerQuery query);
 }
 

@@ -40,9 +40,16 @@ import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA-based implementation of {@link VacancyDao} for managing {@link Vacancy} entities.
+ *
+ * @since 2001-09-17
+ * @see VacancyDao
+ */
 @Repository
 public class VacancyDaoImpl extends AbstractDaoImpl<Vacancy> implements VacancyDao {
 
+    /** Default constructor initializing with Vacancy entity class. */
     public VacancyDaoImpl() {
         super(Vacancy.class);
     }

@@ -44,13 +44,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * See bug 4195.
- * <p>
- * The issue is that there could be some files that are relative, but the file is not in DOCUMENT_DIR (still in the downloads directory)
- * <p>
- * This script (runs once on startup), goes through the HRM db records, and tries to file any missing files.
+ * One-time startup helper that fixes missing HRM report files (bug 4195).
  *
- * @author marc
+ * <p>Some HRM report file paths may be stored as relative paths but the actual
+ * file resides in the downloads directory rather than {@code DOCUMENT_DIR}. This
+ * helper iterates through all HRM document records in batches, checks if the
+ * referenced report file exists, and if not, searches the OMD downloads directory
+ * structure (dated subdirectories with {@code decrypted/} folders) and copies
+ * the found file into {@code DOCUMENT_DIR}.</p>
+ *
+ * <p>Runs only once; uses the {@value #SCRIPT_PROPERTY} property to track execution state.</p>
+ *
+ * @since 2013-10-01
  */
 public class HRMFixMissingReportHelper {
 
@@ -65,6 +70,12 @@ public class HRMFixMissingReportHelper {
     public static final String SCRIPT_PROPERTY = "HRMFixMissingReportHelper.Run";
 
 
+    /**
+     * Executes the fix process to locate and copy missing HRM report files.
+     *
+     * <p>Skips execution if the fix has already been run (tracked via the
+     * {@value #SCRIPT_PROPERTY} property). Processes documents in batches of 100.</p>
+     */
     public void fixIt() {
 
         if (hasThisRunBefore()) {

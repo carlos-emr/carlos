@@ -70,20 +70,40 @@ public class DatabaseAP {
 
 
     /**
-     * Creates a new instance of DatabaseAP
+     * Default constructor required by JAXB.
      */
     public DatabaseAP() {
     }
 
+    /**
+     * Constructs a DatabaseAP with the given name, SQL query, and output template.
+     *
+     * @param apName String the AP name
+     * @param apSQL String the SQL query with {@code ${variable}} placeholders
+     * @param apOutput String the output template with {@code ${variable}} placeholders
+     */
     public DatabaseAP(String apName, String apSQL, String apOutput) {
         set(apName, apSQL, apOutput);
     }
 
 
+    /**
+     * Constructs a DatabaseAP with name, SQL, output template, and input SQL.
+     *
+     * @param apName String the AP name
+     * @param apSQL String the SQL query
+     * @param apOutput String the output template
+     * @param apInSQL String the input SQL for two-way data binding
+     */
     public DatabaseAP(String apName, String apSQL, String apOutput, String apInSQL) {
         set(apName, apSQL, apOutput, apInSQL);
     }
 
+    /**
+     * Copy constructor that creates a new DatabaseAP from an existing one.
+     *
+     * @param ap2 DatabaseAP the source AP to copy
+     */
     public DatabaseAP(DatabaseAP ap2) {
         this.apName = ap2.getApName();
         this.apSQL = ap2.getApSQL();
@@ -179,6 +199,16 @@ public class DatabaseAP {
         return apJsonOutput;
     }
 
+    /**
+     * Replaces all occurrences of {@code ${name}} in the given string with the
+     * specified value. If the value is null, the placeholder is replaced with
+     * an empty string.
+     *
+     * @param name String the variable name (without ${} delimiters)
+     * @param var String the replacement value
+     * @param str String the template string to process
+     * @return String the string with all matching placeholders replaced
+     */
     public static String parserReplace(String name, String var, String str) {
         //replaces <$name$> with var in str
         StringBuilder strb = new StringBuilder(str);
@@ -193,6 +223,16 @@ public class DatabaseAP {
         return strb.toString();
     }
 
+    /**
+     * Replaces all occurrences of {@code ${name}} in either the SQL or input SQL
+     * of the given DatabaseAP.
+     *
+     * @param name String the variable name
+     * @param var String the replacement value
+     * @param dbap DatabaseAP the AP whose SQL to process
+     * @param inSql boolean true to process the input SQL, false for the regular SQL
+     * @return String the processed SQL string
+     */
     public static String parserReplace(String name, String var, DatabaseAP dbap, boolean inSql) {
         String sql;
         if (inSql) sql = dbap.getApInSQL();

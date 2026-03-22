@@ -37,17 +37,62 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for managing {@link Vacancy} entities in the
+ * waitlist matching subsystem.
+ *
+ * @since 2001-09-17
+ * @see Vacancy
+ * @see VacancyDaoImpl
+ */
 public interface VacancyDao extends AbstractDao<Vacancy> {
 
+    /**
+     * Retrieves vacancies for a specific waitlist program, ordered by name.
+     *
+     * @param wlProgramId Integer the waitlist program ID
+     * @return List&lt;Vacancy&gt; vacancies for the program
+     */
     public List<Vacancy> getVacanciesByWlProgramId(Integer wlProgramId);
 
+    /**
+     * Retrieves vacancies for a waitlist program filtered by status.
+     *
+     * @param wlProgramId Integer the waitlist program ID
+     * @param status String the vacancy status filter
+     * @return List&lt;Vacancy&gt; matching vacancies ordered by name
+     */
     public List<Vacancy> getVacanciesByWlProgramIdAndStatus(Integer wlProgramId, String status);
 
+    /**
+     * Retrieves vacancies by exact name.
+     *
+     * @param vacancyName String the vacancy name
+     * @return List&lt;Vacancy&gt; matching vacancies ordered by name
+     */
     public List<Vacancy> getVacanciesByName(String vacancyName);
 
+    /**
+     * Finds vacancies by status and vacancy ID.
+     *
+     * @param status String the vacancy status
+     * @param vacancyId int the vacancy ID
+     * @return List&lt;Vacancy&gt; matching vacancies
+     */
     public List<Vacancy> findByStatusAndVacancyId(String status, int vacancyId);
 
+    /**
+     * Retrieves a single vacancy by its ID.
+     *
+     * @param vacancyId int the vacancy ID
+     * @return Vacancy the vacancy, or {@code null} if not found
+     */
     public Vacancy getVacancyById(int vacancyId);
 
+    /**
+     * Retrieves all currently active vacancies.
+     *
+     * @return List&lt;Vacancy&gt; active vacancies
+     */
     public List<Vacancy> findCurrent();
 }

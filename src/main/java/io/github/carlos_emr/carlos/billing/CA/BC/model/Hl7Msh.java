@@ -41,6 +41,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an HL7 MSH (Message Header) segment in the BC PathNet lab integration.
+ * Maps to the {@code hl7_msh} table, storing message header fields including
+ * sending/receiving application details and message date/time.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "hl7_msh")
 public class Hl7Msh extends AbstractModel<Integer> {

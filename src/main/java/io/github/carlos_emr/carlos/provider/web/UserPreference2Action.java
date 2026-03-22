@@ -545,6 +545,13 @@ public class UserPreference2Action extends ActionSupport {
         return results;
     }
 
+    /**
+     * Generates HTML checkboxes for encounter form multi-selection, pre-checking saved values.
+     *
+     * @param prefs Map&lt;String, String&gt; the current preferences (comma-separated form names)
+     * @param key String the preference key for encounter form selection
+     * @return String HTML checkbox elements for each available encounter form
+     */
     public static String getEncounterFormHTML(Map<String, String> prefs, String key) {
         StringBuilder sb = new StringBuilder();
         List<LabelValueBean> forms = constructEncounterFormList();
@@ -565,6 +572,11 @@ public class UserPreference2Action extends ActionSupport {
         return sb.toString();
     }
 
+    /**
+     * Constructs a sorted list of all active eForms.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; eForm names and IDs sorted alphabetically
+     */
     public static ArrayList<LabelValueBean> constructEformList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 
@@ -579,6 +591,13 @@ public class UserPreference2Action extends ActionSupport {
         return results;
     }
 
+    /**
+     * Generates HTML checkboxes for eForm multi-selection, pre-checking saved values.
+     *
+     * @param prefs Map&lt;String, String&gt; the current preferences (comma-separated eForm IDs)
+     * @param key String the preference key for eForm selection
+     * @return String HTML checkbox elements for each available eForm
+     */
     public static String getEformHTML(Map<String, String> prefs, String key) {
         StringBuilder sb = new StringBuilder();
         List<LabelValueBean> forms = constructEformList();

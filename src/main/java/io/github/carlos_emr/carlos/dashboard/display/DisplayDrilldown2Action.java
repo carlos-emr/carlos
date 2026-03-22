@@ -51,6 +51,15 @@ import org.w3c.dom.NodeList;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that loads and displays drilldown data for a dashboard indicator.
+ *
+ * <p>Supports two modes: drilldown by indicator template ID ({@link #getDrilldown()})
+ * and drilldown by shared metric set name ({@link #getDrilldownBySharedMetricSetName()}).
+ * Requires both {@code _dashboardDrilldown} read and {@code _dxresearch} write privileges.</p>
+ *
+ * @since 2026-03-17
+ */
 public class DisplayDrilldown2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -61,6 +70,11 @@ public class DisplayDrilldown2Action extends ActionSupport {
     private ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Routes to the appropriate drilldown method based on the {@code method} request parameter.
+     *
+     * @return String the result from {@link #getDrilldown()} or {@link #getDrilldownBySharedMetricSetName()}
+     */
     public String execute() {
         if ("getDrilldownBySharedMetricSetName".equals(request.getParameter("method"))) {
             return getDrilldownBySharedMetricSetName();
@@ -68,6 +82,14 @@ public class DisplayDrilldown2Action extends ActionSupport {
         return getDrilldown();
     }
 
+    /**
+     * Loads drilldown data by indicator template ID. The drilldown is optionally
+     * scoped to a specific provider if one has been selected via the dashboard
+     * provider switcher.
+     *
+     * @return String {@link #SUCCESS} with drilldown data, "unauthorized" if
+     *         privilege checks fail, or "error" if drilldown data is null
+     */
     public String getDrilldown() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

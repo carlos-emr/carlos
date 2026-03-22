@@ -248,6 +248,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
+    /** {@inheritDoc} */
     public Appointment getAppointment(LoggedInInfo loggedInInfo, Integer appointmentId) {
         Appointment result = oscarAppointmentDao.find(appointmentId);
 
@@ -259,6 +260,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (result);
     }
 
+    /** {@inheritDoc} */
     public void updateAppointment(LoggedInInfo loggedInInfo, Appointment appointment) {
         //--- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", "appointmentId=" + appointment.getId());
@@ -270,6 +272,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         oscarAppointmentDao.merge(appointment);
     }
 
+    /** {@inheritDoc} */
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo) {
         List<Appointment> appointments = oscarAppointmentDao.findByDateRangeAndProvider(startTime, endTime, providerNo);
 

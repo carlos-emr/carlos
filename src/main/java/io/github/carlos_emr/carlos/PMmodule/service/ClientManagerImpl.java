@@ -102,14 +102,17 @@ public class ClientManagerImpl implements ClientManager {
         return dao.search(criteria, returnOptinsOnly, excludeMerged);
     }
 
+    /** {@inheritDoc} */
     public List<Demographic> search(ClientSearchFormBean criteria) {
         return dao.search(criteria);
     }
 
+    /** {@inheritDoc} */
     public List<ClientReferral> getReferrals() {
         return referralDAO.getReferrals();
     }
 
+    /** {@inheritDoc} */
     public List<ClientReferral> getReferrals(String clientId) {
         return referralDAO.getReferrals(Long.valueOf(clientId));
     }

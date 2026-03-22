@@ -41,6 +41,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an HL7 OBR (Observation Request) segment in the BC PathNet lab integration.
+ * Maps to the {@code hl7_obr} table, storing lab order details including diagnostic service section,
+ * ordering provider, result status, and request/report dates.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "hl7_obr")
 public class Hl7Obr extends AbstractModel<Integer> {

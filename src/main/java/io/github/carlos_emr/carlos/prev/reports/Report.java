@@ -85,14 +85,29 @@ public class Report {
         this.items = items;
     }
 
+    /**
+     * Returns the total number of patients evaluated in this prevention report.
+     *
+     * @return int the total patient count
+     */
     public int getTotalPatients() {
         return totalPatients;
     }
 
+    /**
+     * Sets the total number of patients evaluated in this prevention report.
+     *
+     * @param totalPatients int the total patient count
+     */
     public void setTotalPatients(int totalPatients) {
         this.totalPatients = totalPatients;
     }
 
+    /**
+     * Returns the number of patients who are ineligible for this prevention.
+     *
+     * @return int the ineligible patient count
+     */
     public int getIneligiblePatients() {
         return ineligiblePatients;
     }

@@ -41,6 +41,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a raw HL7 message in the BC PathNet lab integration.
+ * Maps to the {@code hl7_message} table, storing the complete HL7 message text
+ * along with metadata such as date/time and type classification.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "hl7_message")
 public class Hl7Message extends AbstractModel<Integer> {

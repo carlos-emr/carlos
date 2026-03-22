@@ -56,10 +56,24 @@ public final class SenderFactory {
     private static String softwareName = "Oscar";
 
 
+    /**
+     * Creates a Sender with default settings including the sender endpoint.
+     *
+     * @return Sender configured with vendor info, build version, and clinic data
+     */
     public static final Sender getSender() {
         return init(null);
     }
 
+    /**
+     * Creates a Sender configured according to the provided Settings.
+     *
+     * <p>If settings indicate the sender endpoint should not be included,
+     * the endpoint is omitted from the Sender.</p>
+     *
+     * @param settings the FHIR settings controlling sender configuration
+     * @return Sender configured with vendor info and optionally the endpoint
+     */
     public static final Sender getSender(Settings settings) {
         return init(settings);
     }

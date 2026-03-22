@@ -109,11 +109,22 @@ public class ReadHRMFile {
         }
     }
 
+    /**
+     * Returns the total number of reports received in the HRM document.
+     *
+     * @return int the count of reports, or 0 if none
+     */
     public int getReportsReceivedTotal() {
         if (reportsReceived == null) return 0;
         return reportsReceived.size();
     }
 
+    /**
+     * Returns the author physician's name for the specified report.
+     *
+     * @param r int the zero-based report index
+     * @return HashMap&lt;String, String&gt; map with "firstname" and "lastname" keys
+     */
     public HashMap<String, String> getReportAuthorPhysician(int r) {
         HashMap<String, String> authorPhysician = new HashMap<String, String>();
         if (getReportsReceived(r) == null) return authorPhysician;
@@ -126,6 +137,12 @@ public class ReadHRMFile {
         return authorPhysician;
     }
 
+    /**
+     * Returns string metadata fields for the specified report.
+     *
+     * @param r int the zero-based report index
+     * @return HashMap&lt;String, String&gt; map with keys such as "class", "subclass", "format", "media"
+     */
     public HashMap<String, String> getReportStrings(int r) {
         HashMap<String, String> strings = new HashMap<String, String>();
         if (getReportsReceived(r) == null) return strings;
@@ -155,6 +172,12 @@ public class ReadHRMFile {
         return strings;
     }
 
+    /**
+     * Returns date fields for the specified report (event, received, reviewed).
+     *
+     * @param r int the zero-based report index
+     * @return HashMap&lt;String, Calendar&gt; map with date keys "eventdatetime", "receiveddatetime", "revieweddatetime"
+     */
     public HashMap<String, Calendar> getReportDates(int r) {
         HashMap<String, Calendar> dates = new HashMap<String, Calendar>();
         if (getReportsReceived(r) == null) return dates;
@@ -172,6 +195,12 @@ public class ReadHRMFile {
         return dates;
     }
 
+    /**
+     * Returns the content of the specified report (text or binary media).
+     *
+     * @param r int the zero-based report index
+     * @return HashMap&lt;String, Object&gt; map with "textcontent" or "media" key, or null if no content
+     */
     public HashMap<String, Object> getReportContent(int r) {
         HashMap<String, Object> rptContent = new HashMap<String, Object>();
         if (getReportsReceived(r) == null) return rptContent;
@@ -185,6 +214,13 @@ public class ReadHRMFile {
         return rptContent;
     }
 
+    /**
+     * Returns a specific OBR content entry from a report.
+     *
+     * @param r int the zero-based report index
+     * @param o int the zero-based OBR content index within the report
+     * @return OBRContent the OBR content, or null if not found
+     */
     public OBRContent getReportOBRContent(int r, int o) {
         if (getReportsReceived(r) == null) return null;
 
@@ -194,6 +230,12 @@ public class ReadHRMFile {
         return obr.get(o);
     }
 
+    /**
+     * Returns the number of OBR content entries in the specified report.
+     *
+     * @param r int the zero-based report index
+     * @return int the count of OBR entries, or 0 if none
+     */
     public int getReportOBRContentTotal(int r) {
         if (getReportsReceived(r) == null) return 0;
         return getReportsReceived(r).getOBRContent().size();

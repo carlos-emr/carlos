@@ -5,6 +5,14 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * JAXB object factory for creating HNR web service DTOs and JAXBElement wrappers.
+ *
+ * <p>Provides factory methods for all JAXB-bound types in the HNR web service namespace,
+ * including request/response objects, client models, and exception fault beans.
+ *
+ * @since 2012-08-13
+ */
 @XmlRegistry
 public class ObjectFactory
 {

@@ -51,6 +51,22 @@ import io.github.carlos_emr.carlos.providers.data.ProviderData;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Static utility class providing CRUD operations for prevention and immunization records.
+ *
+ * <p>Acts as a data access facade between the web layer and the persistence layer
+ * ({@link PreventionDao}, {@link PreventionExtDao}). Handles insertion, update,
+ * deletion, and retrieval of prevention records and their associated extended
+ * key-value properties (lot numbers, manufacturers, comments, etc.).</p>
+ *
+ * <p>Also provides utility methods for building {@link Prevention} Drools fact
+ * objects and comparing prevention records by date.</p>
+ *
+ * @since 2001-2002
+ * @see io.github.carlos_emr.carlos.commn.dao.PreventionDao
+ * @see io.github.carlos_emr.carlos.commn.dao.PreventionExtDao
+ * @see Prevention
+ */
 public class PreventionData {
 
     private static Logger log = MiscUtils.getLogger();

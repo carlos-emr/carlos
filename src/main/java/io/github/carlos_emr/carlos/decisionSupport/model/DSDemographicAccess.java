@@ -541,6 +541,13 @@ public class DSDemographicAccess {
         return false;
     }
 
+    /**
+     * Checks if the patient has all of the specified prescription codes (AND logic).
+     *
+     * @param rxCodesStr String comma-separated prescription codes
+     * @return boolean true if all prescriptions match
+     * @throws DecisionSupportException if prescription data cannot be retrieved
+     */
     public boolean hasRxCodesAll(String rxCodesStr) throws DecisionSupportException {
         List<DSValue> testRxCodes = DSValue.createDSValues(rxCodesStr);
         for (DSValue testRxCode : testRxCodes) {
@@ -550,14 +557,35 @@ public class DSDemographicAccess {
         return true;
     }
 
+    /**
+     * Negation alias for hasRxCodesNotany.
+     *
+     * @param rxCodesStr String comma-separated prescription codes
+     * @return boolean true if none of the prescriptions match
+     * @throws DecisionSupportException if prescription data cannot be retrieved
+     */
     public boolean hasRxCodesNot(String rxCodesStr) throws DecisionSupportException {
         return hasRxCodesNotany(rxCodesStr);
     }
 
+    /**
+     * Checks if not all of the specified prescription codes are present (NOT AND logic).
+     *
+     * @param rxCodesStr String comma-separated prescription codes
+     * @return boolean true if at least one prescription is absent
+     * @throws DecisionSupportException if prescription data cannot be retrieved
+     */
     public boolean hasRxCodesNotall(String rxCodesStr) throws DecisionSupportException {
         return !hasRxCodesAll(rxCodesStr);
     }
 
+    /**
+     * Checks that none of the specified prescription codes are present (NOT OR logic).
+     *
+     * @param rxCodesStr String comma-separated prescription codes
+     * @return boolean true if the patient has none of the specified prescriptions
+     * @throws DecisionSupportException if prescription data cannot be retrieved
+     */
     public boolean hasRxCodesNotany(String rxCodesStr) throws DecisionSupportException {
         return !hasRxCodesAny(rxCodesStr);
     }

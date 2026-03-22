@@ -24,15 +24,30 @@ public class AttachmentLabResultData {
     private Date labDate;
     private Map<String, String> labVersionIds = new LinkedHashMap<>();
 
+    /**
+     * Default constructor.
+     */
     public AttachmentLabResultData() {
     }
 
+    /**
+     * Constructs an AttachmentLabResultData with the specified lab identifiers.
+     *
+     * @param segmentID String the unique segment identifier of the lab result
+     * @param labName String the display name of the lab result (truncated label or discipline)
+     * @param labDate Date the date of the lab result
+     */
     public AttachmentLabResultData(String segmentID, String labName, Date labDate) {
         this.segmentID = segmentID;
         this.labName = labName;
         this.labDate = labDate;
     }
 
+    /**
+     * Returns the unique segment identifier of the lab result.
+     *
+     * @return String the segment ID
+     */
     public String getSegmentID() {
         return segmentID;
     }
@@ -41,6 +56,11 @@ public class AttachmentLabResultData {
         this.segmentID = segmentID;
     }
 
+    /**
+     * Returns the display name of the lab result (truncated label or discipline, max 40 chars).
+     *
+     * @return String the lab display name
+     */
     public String getLabName() {
         return labName;
     }

@@ -67,6 +67,12 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Displays clinical decision support alerts and guideline notifications
+ * for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
     private String cmd = "Guidelines";
     private static final Logger logger = MiscUtils.getLogger();

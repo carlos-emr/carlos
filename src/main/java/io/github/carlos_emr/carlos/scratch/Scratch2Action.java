@@ -59,6 +59,12 @@ public class Scratch2Action extends JSONAction {
 
     private final ScratchPadDao scratchPadDao = SpringUtils.getBean(ScratchPadDao.class);
 
+    /**
+     * Retrieves a specific scratch pad version by its ID and forwards to the version view.
+     *
+     * @return String the "scratchPadVersion" result name for the version display view
+     * @throws Exception if the ID parameter is missing or invalid
+     */
     public String showVersion() throws Exception {
     	String id = request.getParameter("id");
 
@@ -78,6 +84,13 @@ public class Scratch2Action extends JSONAction {
     	}
     }
     
+    /**
+     * Main entry point that routes to the appropriate handler based on the {@code method}
+     * parameter, or performs the default save/retrieve operation for scratch pad notes.
+     *
+     * @return String the result name, or {@code null} when responding with JSON directly
+     * @throws Exception if an error occurs during processing
+     */
     public String execute() throws Exception {
 
         if ("showVersion".equals(request.getParameter("method"))) {
@@ -172,6 +185,11 @@ public class Scratch2Action extends JSONAction {
         return null;      
     }
     
+    /**
+     * Soft-deletes a scratch pad entry by setting its status to inactive.
+     *
+     * @return String {@code null} (response is written as JSON directly)
+     */
     public String delete() {
     	String id = request.getParameter("id");
 	    ObjectNode jsonObject = objectMapper.createObjectNode();

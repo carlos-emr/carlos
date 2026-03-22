@@ -41,6 +41,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an HL7 OBX (Observation Result) segment in the BC PathNet lab integration.
+ * Maps to the {@code hl7_obx} table, storing individual observation values including
+ * identifier, result value, units, reference range, abnormal flags, and result status.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "hl7_obx")
 public class Hl7Obx extends AbstractModel<Integer> {

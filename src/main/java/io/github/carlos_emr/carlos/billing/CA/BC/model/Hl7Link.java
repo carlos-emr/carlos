@@ -39,6 +39,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an HL7 link record in the BC PathNet lab integration.
+ * Maps to the {@code hl7_link} table, linking HL7 lab results to patient demographics
+ * with status tracking for review workflow (pending, new, acknowledged, signed).
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "hl7_link")
 public class Hl7Link extends AbstractModel<Integer> {
