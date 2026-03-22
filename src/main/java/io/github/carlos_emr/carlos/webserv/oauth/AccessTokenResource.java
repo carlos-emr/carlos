@@ -38,6 +38,14 @@ import java.nio.charset.StandardCharsets;
 import io.github.carlos_emr.carlos.webserv.oauth.util.*;
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 
+/**
+ * JAX-RS resource handling the OAuth 1.0a access token exchange step.
+ *
+ * <p>Validates the request token and verifier, then issues an access token
+ * to the authenticated client consumer.
+ *
+ * @since 2026-01-18
+ */
 public class AccessTokenResource {
 
     private static final org.apache.logging.log4j.Logger logger =

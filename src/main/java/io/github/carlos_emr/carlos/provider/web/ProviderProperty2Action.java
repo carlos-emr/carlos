@@ -3015,6 +3015,12 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genLabMacroPrefs";
     }
 
+    /**
+     * Displays the HL7 lab result filing preferences form (offer/allow filing for other providers).
+     *
+     * @return String {@code "genHl7LabResultPrefs"} to forward to the HL7 lab configuration JSP
+     * @throws RuntimeException if the provider lacks read access to the {@code _lab} security object
+     */
     public String viewHl7LabResultPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {

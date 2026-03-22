@@ -116,6 +116,16 @@ public final class PreventionReportUtil {
         return (false);
     }
 
+    /**
+     * Checks whether a patient was rostered to a specific provider on the given date.
+     * Uses the primary {@code providerNo} field for matching.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param demographicId Integer the patient's demographic number
+     * @param onThisDate Date the date to check rostering for
+     * @param providerNo String the provider number to check rostering against
+     * @return boolean {@code true} if the patient was rostered to the provider
+     */
     public static boolean wasRosteredToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
         logger.debug("Checking rosterd:" + demographicId + " for this date " + onThisDate + " for this providerNo " + providerNo);
         if (providerNo == null) {

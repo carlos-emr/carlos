@@ -40,9 +40,15 @@ import jakarta.persistence.*;
 import java.util.Date;
 
 /**
- * @author mweston4
+ * Represents an Ontario billing payment record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code billing_on_payment} table and tracks payments and
+ * remittance advice received for Ontario OHIP billing claims. Supports
+ * both payments ({@link #PAYMENT}) and refunds ({@link #REFUND}).</p>
+ *
+ * @see BillingONCHeader1
+ * @since 2001-01-01
  */
-
 @Entity
 @Table(name = "billing_on_payment")
 public class BillingONPayment extends AbstractModel<Integer> implements Serializable {

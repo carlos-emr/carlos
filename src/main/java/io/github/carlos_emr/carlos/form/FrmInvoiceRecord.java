@@ -15,6 +15,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Form record handler for invoice forms used in clinical billing.
+ *
+ * <p>Manages loading and saving of invoice form data including patient demographics,
+ * billing details, and signature dates. Extends {@link FrmRecord} with invoice-specific
+ * database operations.</p>
+ *
+ * @see FrmRecord
+ * @since 2026-03-17
+ */
 public class FrmInvoiceRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";
 

@@ -46,6 +46,14 @@ import java.util.stream.Collectors;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.login.OAuthData; // model used by 3rdpartyLogin.jsp
 
+/**
+ * JAX-RS resource implementing the OAuth 1.0a authorization endpoint (Step 2 of the flow).
+ *
+ * <p>Presents the resource owner with an authorization form and processes their
+ * approval or denial of the client's access request.
+ *
+ * @since 2026-01-18
+ */
 @Produces(MediaType.TEXT_HTML)
 public class AuthorizeResource {
 

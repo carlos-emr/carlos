@@ -173,6 +173,12 @@ public class ExcludeDemographicHandler {
         }
     }
 
+    /**
+     * Excludes patients from a dashboard indicator using a JSON array string of demographic IDs.
+     *
+     * @param jsonString String JSON array of demographic numbers (e.g., "[1,2,3]")
+     * @param indicatorName String the indicator identifier
+     */
     public void excludeDemoIds(String jsonString, String indicatorName) {
         String providerNo = getProviderNo();
         if (jsonString == null || jsonString.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return;
@@ -194,6 +200,12 @@ public class ExcludeDemographicHandler {
         }
     }
 
+    /**
+     * Removes exclusions for patients using a JSON array string of demographic IDs.
+     *
+     * @param jsonString String JSON array of demographic numbers (e.g., "[1,2,3]")
+     * @param indicatorName String the indicator identifier
+     */
     public void unExcludeDemoIds(String jsonString, String indicatorName) {
         if (jsonString == null || jsonString.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return;
         if (!jsonString.startsWith("[")) {

@@ -39,6 +39,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
 
+/**
+ * Retrieves Enhanced Ontario Antenatal Record blood work test results from the database.
+ *
+ * <p>Loads laboratory test results (hemoglobin, MCV, blood type, Rh factor, antibody screen,
+ * rubella, hepatitis B, VDRL, HIV) from the enhanced antenatal record form for a specific
+ * patient and form instance.</p>
+ *
+ * @since 2026-03-17
+ */
 public class FrmAREnhancedBloodWorkTest {
 
     private int ar1BloodWorkTestListSize = 0;

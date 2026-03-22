@@ -32,6 +32,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
 
+/**
+ * Retrieves Ontario Antenatal Record (ONAR) blood work test results from the database.
+ *
+ * <p>Loads laboratory test results (hemoglobin, MCV, blood type, Rh factor, antibody screen,
+ * rubella, hepatitis B, VDRL, HIV) for a specific patient and form instance. Results are
+ * stored as properties for use in the antenatal record form display.</p>
+ *
+ * @since 2026-03-17
+ */
 public class FrmARBloodWorkTest {
 
     private int ar1BloodWorkTestListSize = 0;

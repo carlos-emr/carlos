@@ -83,7 +83,11 @@ public class ScheduleWs extends AbstractWs {
     }
 
     /**
-     * @deprecated you should use the method with the useGMTTime option
+     * Retrieves a single appointment by ID using local time.
+     *
+     * @param appointmentId Integer the appointment ID to retrieve
+     * @return AppointmentTransfer the appointment data in local time
+     * @deprecated Use {@link #getAppointment2(Integer, boolean)} with explicit GMT time control
      */
     @Deprecated
     public AppointmentTransfer getAppointment(Integer appointmentId) {
@@ -92,7 +96,12 @@ public class ScheduleWs extends AbstractWs {
     }
 
     /**
-     * @deprecated you should use the method with the useGMTTime option
+     * Retrieves appointments for a provider on a given day using local time.
+     *
+     * @param providerNo String the provider number
+     * @param date Calendar the date to query
+     * @return AppointmentTransfer[] array of appointments in local time
+     * @deprecated Use {@link #getAppointmentsForProvider2(String, Calendar, boolean)} with explicit GMT time control
      */
     @Deprecated
     public AppointmentTransfer[] getAppointmentsForProvider(String providerNo, Calendar date) {
