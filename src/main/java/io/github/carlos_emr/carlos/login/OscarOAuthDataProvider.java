@@ -55,6 +55,26 @@ import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
 
 import java.util.*;
 
+/**
+ * Spring-managed OAuth 1.0a data provider that handles client registration, request tokens,
+ * and access tokens for CARLOS EMR REST API authentication.
+ *
+ * <p>This provider manages the full OAuth 1.0a token lifecycle:
+ * <ul>
+ *   <li>Client lookup by consumer key</li>
+ *   <li>Request token creation and retrieval (with 1-hour expiration)</li>
+ *   <li>Authorization finalization with verifier generation</li>
+ *   <li>Access token creation (with 1-hour lifetime) and retrieval</li>
+ *   <li>Token removal for cleanup</li>
+ * </ul>
+ *
+ * <p>Tokens are persisted via {@link ServiceRequestTokenDao} and {@link ServiceAccessTokenDao},
+ * with client information stored via {@link ServiceClientDao}.
+ *
+ * @see OscarRequestTokenService
+ * @see AppOAuth1Config
+ * @since 2026-03-17
+ */
 @Component
 @Transactional
 public class OscarOAuthDataProvider {
@@ -65,6 +85,12 @@ public class OscarOAuthDataProvider {
     @Autowired private ServiceAccessTokenDao serviceAccessTokenDao;
     @Autowired private ServiceClientDao serviceClientDao;
 
+    /**
+     * Retrieves an OAuth client by its consumer key.
+     *
+     * @param consumerKey String the OAuth consumer key to look up
+     * @return Client the client if found, or null if no matching client exists
+     */
     public Client getClient(String consumerKey) {
         logger.debug("getClient({})", consumerKey);
         ServiceClient sc = serviceClientDao.findByKey(consumerKey);

@@ -290,6 +290,7 @@ public class AdmissionManagerImpl implements AdmissionManager {
         //Once the patient is admitted to this program, the vacancy
     }
 
+    /** {@inheritDoc} */
     public void processInitialAdmission(Integer demographicNo, String providerNo, Program program, String admissionNotes, Date admissionDate) throws ProgramFullException, AlreadyAdmittedException, ServiceRestrictionException {
         // see if there's room first
         if (program.getNumOfMembers().intValue() >= program.getMaxAllowed().intValue()) {
@@ -322,6 +323,7 @@ public class AdmissionManagerImpl implements AdmissionManager {
         saveAdmission(newAdmission);
     }
 
+    /** {@inheritDoc} */
     public Admission getTemporaryAdmission(Integer demographicNo) {
         return dao.getTemporaryAdmission(demographicNo);
     }

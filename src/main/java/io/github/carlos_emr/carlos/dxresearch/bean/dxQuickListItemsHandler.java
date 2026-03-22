@@ -44,16 +44,37 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 
+/**
+ * Handler that loads diagnosis code items from a named quick list.
+ *
+ * <p>Quick lists are provider-configurable shortcut lists of commonly used
+ * diagnosis codes. This handler retrieves items from a named quick list,
+ * tracks usage timestamps per provider, and supports filtering out codes
+ * already assigned to a patient.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxQuickListItemsHandler {
 
     private QuickListUserDao dao = SpringUtils.getBean(QuickListUserDao.class);
 
     Vector dxQuickListItemsVector = new Vector();
 
+    /**
+     * Constructs a handler and loads quick list items, recording usage for the provider.
+     *
+     * @param quickListName String the name of the quick list to load
+     * @param providerNo String the provider number for usage tracking
+     */
     public dxQuickListItemsHandler(String quickListName, String providerNo) {
         init(quickListName, providerNo);
     }
 
+    /**
+     * Constructs a handler and loads quick list items without provider usage tracking.
+     *
+     * @param quickListName String the name of the quick list to load
+     */
     public dxQuickListItemsHandler(String quickListName) {
         init(quickListName);
     }

@@ -29,9 +29,24 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.util.Arrays;
 
+/**
+ * Utility class for managing Cumulative Patient Profile (CPP) section codes.
+ *
+ * <p>Maintains a registry of recognized CPP section codes (e.g., "OMeds", "SocHistory",
+ * "MedHistory") used to categorize clinical notes in the encounter module. Additional
+ * codes can be registered at runtime via {@link #addCppCode(String)}.
+ *
+ * @since 2026-03-17
+ */
 public class CppUtils {
+    /** Array of recognized CPP section code identifiers. */
     public static String cppCodes[] = {"OMeds", "SocHistory", "MedHistory", "Concerns", "FamHistory", "Reminders", "RiskFactors", "OcularMedication", "TicklerNote", "ExternalNote"};
 
+    /**
+     * Registers an additional CPP section code at runtime.
+     *
+     * @param code String the CPP code to add (e.g., "CustomSection")
+     */
     public static void addCppCode(String code) {
         String[] result = Arrays.copyOf(cppCodes, cppCodes.length + 1);
         result[result.length - 1] = code;

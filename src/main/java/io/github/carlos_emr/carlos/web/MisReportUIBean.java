@@ -49,6 +49,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * UI bean for generating Management Information System (MIS) reports.
+ *
+ * <p>Produces encounter statistics (face-to-face visits, telephone visits,
+ * individuals seen, and total individuals served) grouped by program and date range.
+ * Supports both functional centre-based and program ID-based report generation,
+ * including split-program comparison reports.
+ *
+ * @since 2012-08-13
+ */
 public final class MisReportUIBean {
 
     private static Logger logger = MiscUtils.getLogger();

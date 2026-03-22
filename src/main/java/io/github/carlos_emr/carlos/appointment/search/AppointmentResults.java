@@ -28,6 +28,15 @@
  */
 package io.github.carlos_emr.carlos.appointment.search;
 
+/**
+ * Encapsulates the results of an appointment availability search.
+ *
+ * <p>Contains an array of available appointment options, an encrypted pagination token
+ * for fetching additional results, and any booking error that may have occurred during
+ * the search.</p>
+ *
+ * @since 2026-03-17
+ */
 public class AppointmentResults {
     private String nextStartDateEncrypted = null;
     private AppointmentOptionTransfer[] appointmentOptions = null;

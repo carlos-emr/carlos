@@ -38,6 +38,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * JPA entity representing an appointment type code used in schedule templates.
+ *
+ * <p>Maps to the {@code scheduletemplatecode} table. Each code is a single character
+ * that appears in a {@link ScheduleTemplate}'s timecode string. The code defines
+ * the type of appointment slot (e.g., regular visit, phone call, procedure),
+ * along with its display color, duration, booking limit, and confirmation requirements.</p>
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "scheduletemplatecode")
 public class ScheduleTemplateCode extends AbstractModel<Integer> {

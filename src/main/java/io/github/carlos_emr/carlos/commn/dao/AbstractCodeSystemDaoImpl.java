@@ -35,16 +35,34 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 
+/**
+ * Abstract base implementation of {@link AbstractCodeSystemDao} for medical code system entities.
+ * <p>
+ * Provides the JPA infrastructure from {@link AbstractDaoImpl} while declaring
+ * abstract methods for code search and lookup that must be implemented by
+ * each specific coding system DAO (e.g., ICD-9, ICD-10, SNOMED CT).
+ *
+ * @param <T> the code system entity type, which must extend {@link AbstractCodeSystemModel}
+ * @since 2001
+ */
 public abstract class AbstractCodeSystemDaoImpl<T extends AbstractCodeSystemModel<?>> extends AbstractDaoImpl<T> implements AbstractCodeSystemDao<T> {
 
+    /**
+     * Constructs this code system DAO for the specified entity model class.
+     *
+     * @param modelClass Class the JPA entity class this DAO manages
+     */
     public AbstractCodeSystemDaoImpl(Class<T> modelClass) {
         super(modelClass);
     }
 
+    /** {@inheritDoc} */
     public abstract List<T> searchCode(String term);
 
+    /** {@inheritDoc} */
     public abstract T findByCode(String code);
 
+    /** {@inheritDoc} */
     public abstract AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem);
 
 }

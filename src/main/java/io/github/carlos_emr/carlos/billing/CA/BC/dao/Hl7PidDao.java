@@ -36,20 +36,44 @@ import jakarta.persistence.Query;
 import java.sql.Timestamp;
 import java.util.List;
 
+/**
+ * Data access object for {@link Hl7Pid} entities.
+ * Provides persistence operations for HL7 PID (Patient Identification) segments
+ * in the BC PathNet lab integration. Supports lookups by message ID, link status,
+ * observation result status, filler order number, and signed/doc note queries.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7PidDao extends AbstractDaoImpl<Hl7Pid> {
 
+    /**
+     * Constructs a new {@code Hl7PidDao} with the {@link Hl7Pid} entity class.
+     */
     public Hl7PidDao() {
         super(Hl7Pid.class);
     }
 
+    /**
+     * Finds all PID records associated with the given message ID.
+     *
+     * @param messageId int the HL7 message ID
+     * @return List of {@link Hl7Pid} records for the message
+     */
     public List<Hl7Pid> findByMessageId(int messageId) {
         Query q = createQuery("h", "h.messageId = :msgId");
         q.setParameter("msgId", messageId);
         return q.getResultList();
     }
 
+    /**
+     * Finds PID and Link pairs filtered by link status. Includes records where status
+     * matches the given value or is null.
+     *
+     * @param status String the link status to filter by
+     * @return List of Object arrays containing {@link Hl7Pid} and Hl7Link entities
+     */
     public List<Object[]> findPidsByStatus(String status) {
         String sql = "SELECT p, l FROM Hl7Pid p, Hl7Link l WHERE p.id = l.id AND ( l.status = :status OR l.status IS NULL)";
         Query query = entityManager.createQuery(sql);

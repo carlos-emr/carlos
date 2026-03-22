@@ -94,6 +94,12 @@ public class Utility {
         return isInt;
     }
 
+    /**
+     * Checks whether the given string represents an integer greater than zero.
+     *
+     * @param pStr String the string to check
+     * @return boolean true if the string is a valid integer greater than zero, false otherwise
+     */
     public static boolean IsIntBiggerThanZero(String pStr) {
         boolean isInt = true;
         try {
@@ -106,6 +112,12 @@ public class Utility {
         return isInt;
     }
 
+    /**
+     * Checks whether the given string represents an integer less than zero.
+     *
+     * @param pStr String the string to check
+     * @return boolean true if the string is a valid negative integer, false otherwise
+     */
     public static boolean IsIntLessThanZero(String pStr) {
         boolean isInt = true;
         try {

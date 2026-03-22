@@ -45,12 +45,32 @@ import io.github.carlos_emr.carlos.waitinglist.bean.WLPatientWaitingListBeanHand
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that prepares session data for displaying a patient's waiting list memberships.
+ *
+ * <p>Loads demographic information and all waiting list entries for the specified
+ * patient, storing them in the session for the patient waiting list JSP view.
+ * Requires {@code _demographic} read privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class WLSetupDisplayPatientWaitingList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Loads the patient's demographic summary and waiting list entries into the session.
+     *
+     * <p>Reads the {@code demographic_no} request parameter, retrieves the patient's
+     * name, sex, and age for display, then loads all waiting list memberships
+     * via {@link WLPatientWaitingListBeanHandler}.</p>
+     *
+     * @return String "continue" on success
+     * @throws RuntimeException if the logged-in user lacks {@code _demographic} read privilege
+     * @throws Exception if an unexpected error occurs
+     */
     public String execute()
             throws Exception {
 

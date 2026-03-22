@@ -36,13 +36,29 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAdjCodes;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link TeleplanAdjCodes} entities.
+ * Provides lookup operations for Teleplan adjustment codes used in BC MSP
+ * billing claim processing to indicate payment adjustments.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class TeleplanAdjCodesDao extends AbstractDaoImpl<TeleplanAdjCodes> {
 
+    /**
+     * Constructs a new {@code TeleplanAdjCodesDao} with the {@link TeleplanAdjCodes} entity class.
+     */
     protected TeleplanAdjCodesDao() {
         super(TeleplanAdjCodes.class);
     }
 
+    /**
+     * Finds adjustment codes matching the specified code value.
+     *
+     * @param code String the adjustment code to search for
+     * @return List of {@link TeleplanAdjCodes} entities matching the code
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanAdjCodes> findByCode(String code) {
         Query q = createQuery("t", "t.adjCode = ?1");

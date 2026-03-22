@@ -170,17 +170,36 @@ public class UtilDateUtilities {
         return simpledateformat.format(date);
     }
 
+    /**
+     * Extracts the two-digit day of month from the given date.
+     *
+     * @param date Date the date to extract the day from
+     * @return String the day in {@code dd} format
+     */
     public static String justDay(Date date) {
         SimpleDateFormat simpledateformat = new SimpleDateFormat("dd");
         return simpledateformat.format(date);
     }
 
+    /**
+     * Returns tomorrow's date.
+     *
+     * @return Date tomorrow's date
+     */
     public static Date Tomorrow() {
         Calendar c = GregorianCalendar.getInstance();
         c.roll(Calendar.DATE, 1);
         return c.getTime();
     }
 
+    /**
+     * Constructs a {@link Date} from separate year, month, and day strings.
+     *
+     * @param s String the year
+     * @param s1 String the month (1-12)
+     * @param s2 String the day of month
+     * @return Date the constructed date, or null if any parameter is null or empty
+     */
     public static Date calcDate(String s, String s1, String s2) {
         if (s == null || s1 == null || s2 == null || s == "" || s1 == "" || s2 == "") return (null);
 
@@ -191,6 +210,12 @@ public class UtilDateUtilities {
         return gregoriancalendar.getTime();
     }
 
+    /**
+     * Calculates the age string for a patient based on their date of birth relative to today.
+     *
+     * @param DOB Date the patient's date of birth
+     * @return String the age in appropriate units (years, months, weeks, or days)
+     */
     public static String calcAge(Date DOB) {
         return calcAgeAtDate(DOB, new GregorianCalendar().getTime());
     }
@@ -256,6 +281,14 @@ public class UtilDateUtilities {
     }
 
 
+    /**
+     * Calculates the patient's age in whole years from separate birth date components.
+     *
+     * @param year_of_birth String the birth year
+     * @param month_of_birth String the birth month (1-12)
+     * @param date_of_birth String the birth day of month
+     * @return int the age in whole years
+     */
     public static int calcAge(String year_of_birth, String month_of_birth, String date_of_birth) {
         GregorianCalendar now = new GregorianCalendar();
         int curYear = now.get(Calendar.YEAR);

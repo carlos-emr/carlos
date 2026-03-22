@@ -166,11 +166,21 @@ public class ClinicData {
         return clinic_city;
     }
 
+    /**
+     * Returns the clinic province.
+     *
+     * @return String the clinic province
+     */
     public String getClinicProvince() {
         fillClinicData();
         return clinic_province;
     }
 
+    /**
+     * Returns the clinic postal code.
+     *
+     * @return String the clinic postal code
+     */
     public String getClinicPostal() {
         fillClinicData();
         return clinic_postal;

@@ -498,6 +498,12 @@ public class CaseManagementNote extends BaseObject {
 
     }
 
+    /**
+     * Checks whether this note contains history records by looking for the
+     * history record separator marker in the history field.
+     *
+     * @return boolean true if the note contains history records
+     */
     public boolean getHasHistory() {
         if (getHistory() != null) {
             if (getHistory().indexOf("----------------History Record----------------") != -1) {
@@ -531,6 +537,12 @@ public class CaseManagementNote extends BaseObject {
         this.password = password;
     }
 
+    /**
+     * Returns the composite status string for this note combining its signed/unsigned
+     * state and locked/unlocked state (e.g., "Signed/Locked", "Unsigned").
+     *
+     * @return String the human-readable status string
+     */
     public String getStatus() {
         String status = "";
         if (isSigned()) {
@@ -574,14 +586,29 @@ public class CaseManagementNote extends BaseObject {
         this.facilityName = facilityName;
     }
 
+    /**
+     * Checks whether this note is linked to a document.
+     *
+     * @return boolean true if the note is linked to a document record
+     */
     public boolean isDocumentNote() {
         return isLinkTo(CaseManagementNoteLink.DOCUMENT);
     }
 
+    /**
+     * Checks whether this note is linked to an email record.
+     *
+     * @return boolean true if the note is linked to an email record
+     */
     public boolean isEmailNote() {
         return isLinkTo(CaseManagementNoteLink.EMAIL);
     }
 
+    /**
+     * Checks whether this note is an annotation on a prescription (drug) record.
+     *
+     * @return boolean true if the note is linked to a drugs record
+     */
     public boolean isRxAnnotation() {
         return isLinkTo(CaseManagementNoteLink.DRUGS);
     }

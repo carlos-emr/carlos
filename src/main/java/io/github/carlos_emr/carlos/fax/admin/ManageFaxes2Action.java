@@ -246,6 +246,13 @@ public class ManageFaxes2Action extends Fax2Action {
         return null;
     }
 
+    /**
+     * Displays a fax document preview, delegating to the parent {@link Fax2Action#getPreview()}.
+     *
+     * <p>Requires {@code _edoc} read privilege to view the fax document content.</p>
+     *
+     * @throws SecurityException if the user lacks {@code _edoc} read privilege
+     */
     @SuppressWarnings("unused")
     public void viewFax() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

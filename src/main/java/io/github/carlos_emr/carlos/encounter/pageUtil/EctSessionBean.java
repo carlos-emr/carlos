@@ -55,6 +55,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Session-scoped bean that holds encounter context data for a patient visit.
+ * Stores patient demographics, appointment details, eChart content, templates,
+ * and provider information. Initialized from request parameters when entering
+ * the encounter module from the appointment screen.
+ *
+ * @deprecated Migrate to a proper session-scoped Spring bean.
+ * @since 2001-01-01
+ */
 @Deprecated
 public class EctSessionBean implements java.io.Serializable {
     //data passed from the oscar appointment screen these members are constant for the duration of

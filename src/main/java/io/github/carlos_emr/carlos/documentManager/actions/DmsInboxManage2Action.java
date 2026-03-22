@@ -215,6 +215,14 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "doclabPreview";
     }
 
+    /**
+     * Prepares category counts and filter data for the inbox index page. Populates
+     * document/lab counts grouped by category (patient, type, status) based on the
+     * current provider's search filters including acknowledgement status, abnormal
+     * classification, patient name, health number, and date range.
+     *
+     * @return String "dms_index" on success, "error" on SQL failure
+     */
     public String prepareForIndexPage() {
         HttpSession session = request.getSession();
         try {

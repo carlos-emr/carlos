@@ -206,6 +206,14 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Saves the provider's preference for document description template scope (user vs. clinic).
+     *
+     * <p>If {@code defaultShortcut} is {@code "user"}, the provider sees their own templates;
+     * otherwise defaults to clinic-wide templates.</p>
+     *
+     * @return String {@code null} (no view navigation)
+     */
     public String saveDocumentDescriptionTemplatePreference() {
 
         UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);

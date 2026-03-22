@@ -72,6 +72,14 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Provides data access and population logic for HL7 text-based lab results.
+ * Handles measurement table population from parsed HL7 messages, lab version matching,
+ * consultation attachment queries, and provider-filtered lab result retrieval with
+ * support for pagination and abnormal result filtering.
+ *
+ * @since 2007-01-18
+ */
 public class Hl7textResultsData {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -90,6 +98,14 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
+    /**
+     * Populates the measurements and measurements extension tables from parsed HL7 lab data.
+     * Handles lab version detection, replacing measurements from older versions of the same lab,
+     * and maps OBX results to flowsheet measurement types via identifier lookup.
+     *
+     * @param lab_no String the lab number identifying the HL7 message
+     * @param demographic_no String the demographic (patient) number to associate measurements with
+     */
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");

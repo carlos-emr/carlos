@@ -152,6 +152,19 @@ public class EFormLoader {
         return opener;
     }
 
+    /**
+     * Generates a JavaScript {@code window.open()} call to open a linked eForm.
+     * Constructs the URL based on whether this is a new form, an existing filled
+     * form, or an admin preview.
+     *
+     * @param url String the base URL for the eForm view
+     * @param fdid String the form data ID (if viewing an existing filled form)
+     * @param fname String the eForm name to look up by name
+     * @param field String the field name used for eForm linking
+     * @param efm EForm the current eForm context providing provider/demographic info
+     * @return String a JavaScript snippet to open the linked eForm, or an alert
+     *         if the eForm does not exist, or null if URL or field is blank
+     */
     public static String getOpenEform(String url, String fdid, String fname, String field, EForm efm) {
         String fid = EFormUtil.getEFormIdByName(fname);
         if (StringUtils.isBlank(fid)) return "alert('Eform does not exist [" + fname + "]');";
@@ -177,6 +190,12 @@ public class EFormLoader {
         return "window.open('" + url + link + "');";
     }
 
+    /**
+     * Looks up a {@link DatabaseAP} by name from the cached collection.
+     *
+     * @param apName String the AP name to search for (case-insensitive)
+     * @return DatabaseAP the matching access point, or null if not found
+     */
     public static DatabaseAP getAP(String apName) {
         //returns he DatabaseAP corresponding to the ap name
         DatabaseAP curAP = null;
@@ -206,6 +225,12 @@ public class EFormLoader {
      *</eformap-config>
      *Call ap like so: <input type="text" oscarDB=patient_name size="20">*/
 
+    /**
+     * Parses the AP configuration XML file using JAXB and loads all
+     * {@link DatabaseAP} definitions into the cached collection. Uses
+     * the {@code eform_databaseap_config} property path if set, otherwise
+     * falls back to the classpath resource {@code oscar/eform/apconfig.xml}.
+     */
     public static void parseXML() {
         try {
             Properties op = CarlosProperties.getInstance();

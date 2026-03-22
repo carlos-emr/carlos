@@ -384,6 +384,12 @@ public class Prevention {
         return !isNextDateSet(preventionType);
     }
 
+    /**
+     * Checks whether today has passed the next scheduled date for the given prevention type.
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if today is after the next date, or if no next date exists
+     */
     public boolean isPassedNextDate(String preventionType) {
         boolean isPassed = true;
         Date nextDate = getNextPreventionDate(preventionType);
@@ -397,6 +403,12 @@ public class Prevention {
         return isPassed;
     }
 
+    /**
+     * Checks whether today has NOT passed the next scheduled date for the given prevention type.
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if the next date has not yet passed
+     */
     public boolean isNotPassedNextDate(String preventionType) {
         return !isPassedNextDate(preventionType);
     }

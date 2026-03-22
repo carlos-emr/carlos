@@ -449,6 +449,15 @@ public class HRMReport {
         return mediaType;
     }
 
+    /**
+     * Returns the author physician name components of the first report.
+     *
+     * <p>Parses the HL7-encoded physician name string (caret-delimited) into individual
+     * name components. For a 7-component HL7 string, returns elements at indices
+     * 0, 1, 2, 3, and 6.</p>
+     *
+     * @return List&lt;String&gt; the physician name components, or an empty list if no author is set
+     */
     public List<String> getFirstReportAuthorPhysician() {
         List<String> physicianName = new ArrayList<String>();
 
@@ -486,6 +495,11 @@ public class HRMReport {
         return physicianName;
     }
 
+    /**
+     * Returns the sending author's formatted name ("FirstName LastName").
+     *
+     * @return String the author name, or empty string if no author is available
+     */
     public String getSendingAuthor() {
         String sourceAuthor = "";
         if (hrmReport.getPatientRecord().getReportsReceived() != null && !hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
@@ -500,6 +514,11 @@ public class HRMReport {
     }
 
 
+    /**
+     * Returns the sending facility identifier.
+     *
+     * @return String the facility ID, or empty string if unavailable
+     */
     public String getSendingFacilityId() {
         if (hrmReport.getPatientRecord().getReportsReceived() == null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
             return "";
@@ -507,6 +526,11 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getReportsReceived().get(0).getSendingFacility();
     }
 
+    /**
+     * Returns the sending facility's internal report number.
+     *
+     * @return String the facility report number, or empty string if unavailable
+     */
     public String getSendingFacilityReportNo() {
         if (hrmReport.getPatientRecord().getReportsReceived() == null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
             return "";
@@ -514,6 +538,11 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getReportsReceived().get(0).getSendingFacilityReportNumber();
     }
 
+    /**
+     * Returns the result status of the first report (e.g. "C" for Cancelled).
+     *
+     * @return String the result status code, or empty string if unavailable
+     */
     public String getResultStatus() {
         if (hrmReport.getPatientRecord().getReportsReceived() == null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
             return "";

@@ -310,140 +310,190 @@ public abstract class DSGuideline extends AbstractModel<Integer> {
     }
 
     /**
-     * @return the id
+     * Gets the unique database identifier for this guideline.
+     *
+     * @return Integer the auto-generated primary key
      */
     public Integer getId() {
         return id;
     }
 
     /**
-     * @param id the id to set
+     * Sets the unique database identifier for this guideline.
+     *
+     * @param id Integer the primary key value
      */
     public void setId(Integer id) {
         this.id = id;
     }
 
     /**
-     * @return the uuid
+     * Gets the universally unique identifier for this guideline.
+     * <p>
+     * The UUID is used for cross-system identification and provider-guideline mappings.
+     * </p>
+     *
+     * @return String the guideline UUID (max 60 characters)
      */
     public String getUuid() {
         return uuid;
     }
 
     /**
-     * @param uuid the uuid to set
+     * Sets the universally unique identifier for this guideline.
+     *
+     * @param uuid String the guideline UUID
      */
     public void setUuid(String uuid) {
         this.uuid = uuid;
     }
 
     /**
-     * @return the version
+     * Gets the version number of this guideline.
+     *
+     * @return Integer the guideline version, may be null for unversioned guidelines
      */
     public Integer getVersion() {
         return version;
     }
 
     /**
-     * @param version the version to set
+     * Sets the version number of this guideline.
+     *
+     * @param version Integer the guideline version
      */
     public void setVersion(Integer version) {
         this.version = version;
     }
 
     /**
-     * @return the author
+     * Gets the author of this guideline.
+     *
+     * @return String the guideline author name (max 60 characters)
      */
     public String getAuthor() {
         return author;
     }
 
     /**
-     * @param author the author to set
+     * Sets the author of this guideline.
+     *
+     * @param author String the guideline author name
      */
     public void setAuthor(String author) {
         this.author = author;
     }
 
     /**
-     * @return the xml
+     * Gets the XML content defining this guideline's conditions, consequences, and parameters.
+     *
+     * @return String the raw XML guideline definition, may be null
      */
     public String getXml() {
         return xml;
     }
 
     /**
-     * @param xml the xml to set
+     * Sets the XML content defining this guideline's conditions, consequences, and parameters.
+     *
+     * @param xml String the raw XML guideline definition
      */
     public void setXml(String xml) {
         this.xml = xml;
     }
 
     /**
-     * @return the source
+     * Gets the source identifier indicating where this guideline originated.
+     *
+     * @return String the guideline source (max 60 characters)
      */
     public String getSource() {
         return source;
     }
 
     /**
-     * @param source the source to set
+     * Sets the source identifier indicating where this guideline originated.
+     *
+     * @param source String the guideline source
      */
     public void setSource(String source) {
         this.source = source;
     }
 
     /**
-     * @return the dateStart
+     * Gets the date when this guideline became active.
+     *
+     * @return Date the activation timestamp, may be null
      */
     public Date getDateStart() {
         return dateStart;
     }
 
     /**
-     * @param dateStart the dateStart to set
+     * Sets the date when this guideline became active.
+     *
+     * @param dateStart Date the activation timestamp
      */
     public void setDateStart(Date dateStart) {
         this.dateStart = dateStart;
     }
 
     /**
-     * @return the dateDecomissioned
+     * Gets the date when this guideline was decommissioned.
+     *
+     * @return Date the decommissioning timestamp, may be null if still active
      */
     public Date getDateDecomissioned() {
         return dateDecomissioned;
     }
 
     /**
-     * @param dateDecomissioned the dateDecomissioned to set
+     * Sets the date when this guideline was decommissioned.
+     *
+     * @param dateDecomissioned Date the decommissioning timestamp
      */
     public void setDateDecomissioned(Date dateDecomissioned) {
         this.dateDecomissioned = dateDecomissioned;
     }
 
     /**
-     * @return the status
+     * Gets the status of this guideline.
+     * <p>
+     * Default value is 'A' (active). Other values indicate decommissioned or draft states.
+     * </p>
+     *
+     * @return char the guideline status character
      */
     public char getStatus() {
         return status;
     }
 
     /**
-     * @param status the status to set
+     * Sets the status of this guideline.
+     *
+     * @param status char the guideline status character ('A' for active)
      */
     public void setStatus(char status) {
         this.status = status;
     }
 
     /**
-     * @return the parameters
+     * Gets the parameter definitions for this guideline.
+     * <p>
+     * Parameters define named Java class references that can be instantiated and
+     * inserted into the rules engine during guideline evaluation.
+     * </p>
+     *
+     * @return List of DSParameter objects, may be null if no parameters are defined
      */
     public List<DSParameter> getParameters() {
         return parameters;
     }
 
     /**
-     * @param parameters the parameters to set
+     * Sets the parameter definitions for this guideline.
+     *
+     * @param parameters List of DSParameter objects defining named class references
      */
     public void setParameters(List<DSParameter> parameters) {
         this.parameters = parameters;

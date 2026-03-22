@@ -1341,6 +1341,13 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Finds a rule within a ruleset that matches the specified indicator colour.
+     *
+     * @param ruleSet Ruleset the ruleset to search through
+     * @param indicator String the indicator colour key to match against
+     * @return Rule the matching rule, or {@code null} if no rule with the given indicator colour exists
+     */
     public Rule findRuleInRuleset(Ruleset ruleSet, String indicator) {
         for (int x = 0; x < ruleSet.getRuleArray().length; x++) {
             Rule r = ruleSet.getRuleArray(x);

@@ -37,8 +37,23 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.CriteriaSelectionOption;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for managing {@link CriteriaSelectionOption} entities.
+ *
+ * <p>Provides methods to query selected options associated with a specific criteria record.</p>
+ *
+ * @since 2001-09-17
+ * @see CriteriaSelectionOption
+ * @see CriteriaSelectionOptionDaoImpl
+ */
 public interface CriteriaSelectionOptionDao extends AbstractDao<CriteriaSelectionOption> {
 
+    /**
+     * Retrieves all selected options for a specific criteria.
+     *
+     * @param criteriaId Integer the criteria ID
+     * @return List&lt;CriteriaSelectionOption&gt; the selected options for the criteria
+     */
     public List<CriteriaSelectionOption> getCriteriaSelectedOptionsByCriteriaId(Integer criteriaId);
 
 }

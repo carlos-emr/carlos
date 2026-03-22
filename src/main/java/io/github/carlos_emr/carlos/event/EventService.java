@@ -63,6 +63,16 @@ public class EventService implements ApplicationEventPublisherAware {
          src/main/webapp/provider/provideraddstatus.jsp  -- in appt screen when user clicks on the icon to change the appt status
      *
      */
+    /**
+     * Publishes an {@link AppointmentStatusChangeEvent} when an appointment's status is modified.
+     *
+     * <p>Fired from appointment editing and status change JSP pages.</p>
+     *
+     * @param source Object the object triggering the status change
+     * @param appointment_no String the unique identifier of the appointment
+     * @param provider_no String the unique identifier of the provider
+     * @param status String the new appointment status value
+     */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {
         logger.debug("appointmentStatusChanged thrown by " + source.getClass().getName() + " appt# " + appointment_no + " status " + status);
 
@@ -74,6 +84,15 @@ public class EventService implements ApplicationEventPublisherAware {
         src/main/webapp/appointment/appointmentaddarecord.jsp
           src/main/webapp/appointment/appointmentaddrecordcard.jsp
          src/main/webapp/appointment/appointmentaddrecordprint.jsp
+     */
+    /**
+     * Publishes an {@link AppointmentCreatedEvent} when a new appointment is added.
+     *
+     * <p>Fired from appointment creation JSP pages such as {@code appointmentaddarecord.jsp}.</p>
+     *
+     * @param source Object the object triggering the appointment creation
+     * @param appointment_no String the unique identifier of the newly created appointment
+     * @param provider_no String the unique identifier of the provider
      */
     public void appointmentCreated(Object source, String appointment_no, String provider_no) {
         applicationEventPublisher.publishEvent(new AppointmentCreatedEvent(source, appointment_no, provider_no));

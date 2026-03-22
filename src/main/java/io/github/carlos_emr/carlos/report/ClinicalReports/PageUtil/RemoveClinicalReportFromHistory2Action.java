@@ -37,7 +37,12 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author jay
+ * Struts 2 action that removes a clinical report from the user's session history.
+ * The report is identified by its index in the session-stored {@code ClinicalReports}
+ * list. If the list becomes empty after removal, the session attribute is cleared.
+ *
+ * @see RunClinicalReport2Action
+ * @since 2006-06-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -53,6 +58,11 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
     public RemoveClinicalReportFromHistory2Action() {
     }
 
+    /**
+     * Removes the clinical report at the specified index from the session history.
+     *
+     * @return String {@code SUCCESS} on completion
+     */
     public String execute() {
 
         String id = request.getParameter("id");

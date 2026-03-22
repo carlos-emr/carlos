@@ -76,6 +76,15 @@ public class RxInformation {
         return this.currentMedication;
     }
 
+    /**
+     * Retrieves the patient's active allergies as a newline-separated string.
+     *
+     * <p>Each allergy entry includes the description and type descriptor.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographic_no String the patient demographic number
+     * @return String newline-separated list of active allergies with descriptions and types
+     */
     public String getAllergies(LoggedInInfo loggedInInfo, String demographic_no) {
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, Integer.parseInt(demographic_no));
         Allergy[] allergies = {};

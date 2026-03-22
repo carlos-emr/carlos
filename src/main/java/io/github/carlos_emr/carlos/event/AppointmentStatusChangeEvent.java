@@ -32,6 +32,18 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.context.ApplicationEvent;
 
+/**
+ * Spring application event published when an existing appointment's status changes.
+ *
+ * <p>This event is fired from the appointment update and status change JSP pages
+ * (e.g., {@code appointmentupdatearecord.jsp}, {@code provideraddstatus.jsp}) and
+ * carries the appointment number, provider number, and new status to enable
+ * downstream listeners to react to appointment status transitions.</p>
+ *
+ * @see AppointmentCreatedEvent
+ * @see EventService#appointmentStatusChanged(Object, String, String, String)
+ * @since 2026-03-17
+ */
 public class AppointmentStatusChangeEvent extends ApplicationEvent {
     Logger logger = MiscUtils.getLogger();
 
