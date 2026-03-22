@@ -1176,7 +1176,9 @@
                     <span class="quick-search-input-wrapper">
                         <input type="text" id="quickSearch" name="quickSearch"
                                placeholder="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.placeholder'/>" autocomplete="off"
-                               aria-label="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.ariaLabel'/>">
+                               aria-label="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.ariaLabel'/>"
+                               aria-autocomplete="list" aria-expanded="false" aria-controls="quickSearchDropdown"
+                               role="combobox">
                         <button type="button" id="quickSearchClear" class="quick-search-clear"
                                 aria-label="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.clearTitle'/>"
                                 title="<fmt:message key='provider.appointmentProviderAdminDay.quickSearch.clearTitle'/>"
@@ -1184,7 +1186,7 @@
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </span>
-                    <div id="quickSearchDropdown" class="quick-search-dropdown" style="display:none;"></div>
+                    <div id="quickSearchDropdown" class="quick-search-dropdown" role="listbox" aria-live="polite" aria-hidden="true" style="display:none;"></div>
                 </span>
                 <a class="redArrow"
                    href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
@@ -2658,6 +2660,8 @@
         function buildResultRow(item, idx) {
             var row = document.createElement('div');
             row.className = 'qs-result-row' + (idx % 2 === 1 ? ' qs-alt' : '');
+            row.setAttribute('role', 'option');
+            row.setAttribute('aria-selected', 'false');
 
             // Clicking anywhere on row (except badges) opens Master File / E-Chart
             row.addEventListener('click', function(e) {
@@ -2887,10 +2891,16 @@
             parent.appendChild(document.createTextNode('\u00a0' + text));
         }
 
-        function showDropdown() { dropdown.style.display = 'block'; }
+        function showDropdown() {
+            dropdown.style.display = 'block';
+            dropdown.setAttribute('aria-hidden', 'false');
+            input.setAttribute('aria-expanded', 'true');
+        }
 
         function hideDropdown() {
             dropdown.style.display = 'none';
+            dropdown.setAttribute('aria-hidden', 'true');
+            input.setAttribute('aria-expanded', 'false');
             activeIndex = -1;
         }
 
@@ -2932,8 +2942,10 @@
 
         function updateActive(rows) {
             rows.forEach(function(r, i) {
-                r.classList.toggle('qs-active', i === activeIndex);
-                if (i === activeIndex) { r.scrollIntoView({ block: 'nearest' }); }
+                var isActive = i === activeIndex;
+                r.classList.toggle('qs-active', isActive);
+                r.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                if (isActive) { r.scrollIntoView({ block: 'nearest' }); }
             });
         }
 
