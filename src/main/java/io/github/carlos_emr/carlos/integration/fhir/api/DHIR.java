@@ -47,13 +47,30 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.Region;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
+/**
+ * Digital Health Immunization Repository (DHIR) API integration for Ontario.
+ *
+ * <p>Provides synchronized factory methods for building FHIR Bundle messages
+ * containing immunization data for submission to the Ontario eHealth DHIR endpoint.
+ * Supports both all-immunization and single-immunization bundle construction,
+ * as well as convenience methods for extracting the raw JSON, Bundle resource,
+ * and MessageHeader.</p>
+ *
+ * @since 2026-03-17
+ */
 public class DHIR {
 
     private static Settings SETTINGS = new Settings(FhirDestination.DHIR, Region.ON);
 
     /**
-     * Get the FhirBundleBuilder Object for all immunizations
-     * Useful for adding additional resources or adjusting the message structure.
+     * Gets the FhirBundleBuilder object containing all immunizations for a patient.
+     *
+     * <p>Useful for adding additional resources or adjusting the message structure
+     * before serialization. The patient is set as the focus resource in the MessageHeader.</p>
+     *
+     * @param loggedInInfo the logged-in user session context
+     * @param demographicNo the patient's demographic ID
+     * @return FhirBundleBuilder pre-populated with patient, immunizations, and public health unit
      */
     public static synchronized FhirBundleBuilder getFhirBundleBuilder(LoggedInInfo loggedInInfo, int demographicNo) {
         OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, SETTINGS);
@@ -84,8 +101,15 @@ public class DHIR {
     }
 
     /**
-     * Get the FhirBundleBuilder Object for a specific immunization
-     * Useful for adding additional resources or adjusting the message structure.
+     * Gets the FhirBundleBuilder object for a specific immunization record.
+     *
+     * <p>Useful for adding additional resources or adjusting the message structure
+     * before serialization. Includes the submitting practitioner in the resource set.</p>
+     *
+     * @param loggedInInfo the logged-in user session context
+     * @param demographicNo the patient's demographic ID
+     * @param preventionId the specific prevention/immunization record ID
+     * @return FhirBundleBuilder pre-populated with the targeted immunization and related resources
      */
     public static synchronized FhirBundleBuilder getFhirBundleBuilder(LoggedInInfo loggedInInfo, int demographicNo, int preventionId) {
 
@@ -125,9 +149,15 @@ public class DHIR {
 
 
     /**
-     * Get the FHIR Resource Bundle.
-     * Useful if needing to extract and send specific resources separately from the bundle.
-     * ie: send the MessageHeader as a reference back to this bundle resource.
+     * Gets the FHIR Resource Bundle for a specific immunization.
+     *
+     * <p>Useful if needing to extract and send specific resources separately from the bundle,
+     * e.g., send the MessageHeader as a reference back to this bundle resource.</p>
+     *
+     * @param loggedInInfo the logged-in user session context
+     * @param demographicNo the patient's demographic ID
+     * @param preventionId the specific prevention/immunization record ID
+     * @return Bundle the assembled FHIR Bundle resource
      */
     public static Bundle getBundleResource(LoggedInInfo loggedInInfo, int demographicNo, int preventionId) {
         return DHIR.getFhirBundleBuilder(loggedInInfo, demographicNo, preventionId).getBundle();

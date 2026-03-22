@@ -474,11 +474,17 @@ public class CppPreferencesUIBean {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Loads CPP preference values from the database and populates this bean's fields.
+     */
     public void loadValues() {
         Map<String, String> dbValues = userPropertyDao.getProviderPropertiesAsMap(providerNo);
         deserialize(dbValues);
     }
 
+    /**
+     * Persists all current CPP preference values to the database for this provider.
+     */
     public void saveValues() {
         Map<String, String> props = this.serialize();
         userPropertyDao.saveProperties(providerNo, props);
@@ -868,6 +874,14 @@ public class CppPreferencesUIBean {
         this.medicationInstructions = medicationInstructions;
     }
 
+    /**
+     * Generates HTML {@code <option>} elements for a CPP section position dropdown.
+     *
+     * <p>Options include Hide (empty), and four grid positions (R1I1, R1I2, R2I1, R2I2).</p>
+     *
+     * @param currentValue String the currently selected position value for pre-selection
+     * @return String HTML option elements for the position dropdown
+     */
     public static String getPositionSelect(String currentValue) {
         StringBuilder sb = new StringBuilder();
 
@@ -879,6 +893,12 @@ public class CppPreferencesUIBean {
         return sb.toString();
     }
 
+    /**
+     * Generates HTML {@code <option>} elements for a CPP module display toggle dropdown.
+     *
+     * @param currentValue String the currently selected display value ({@code "SHOW"} or empty)
+     * @return String HTML option elements for the show/hide dropdown
+     */
     public static String getDisplaySelect(String currentValue) {
         StringBuilder sb = new StringBuilder();
 
@@ -887,6 +907,14 @@ public class CppPreferencesUIBean {
         return sb.toString();
     }
 
+    /**
+     * Generates a single HTML {@code <option>} element, marking it as selected if it matches the current value.
+     *
+     * @param label String the display text for the option
+     * @param value String the form value for the option
+     * @param currentValue String the currently selected value for comparison
+     * @return String the HTML option element
+     */
     public static String printOption(String label, String value, String currentValue) {
         StringBuilder sb = new StringBuilder();
         String selected = new String();

@@ -33,12 +33,44 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import java.util.List;
 
+/**
+ * Data access interface for managing healthcare forms within the
+ * Program Management module.
+ *
+ * <p>Provides generic form persistence and retrieval using dynamic entity
+ * class resolution, supporting various form types (e.g., intake forms,
+ * assessment forms).</p>
+ *
+ * @since 2005-01-18
+ * @see FormsDAOImpl
+ */
 public interface FormsDAO {
 
+    /**
+     * Saves a form entity to the database.
+     *
+     * @param o Object the form entity to persist
+     */
     public void saveForm(Object o);
 
+    /**
+     * Retrieves the current (most recent) form for a client of a specific form type.
+     *
+     * @param clientId String the demographic ID of the client
+     * @param clazz Class the entity class representing the form type
+     * @return Object the form entity, or {@code null} if not found
+     * @throws IllegalArgumentException if clientId or clazz is {@code null}
+     */
     public Object getCurrentForm(String clientId, Class clazz);
 
+    /**
+     * Retrieves form metadata (ID, provider, edit date) for all forms of a client.
+     *
+     * @param clientId String the demographic ID of the client
+     * @param clazz Class the entity class representing the form type
+     * @return List list of {@link io.github.carlos_emr.carlos.PMmodule.model.FormInfo} objects
+     * @throws IllegalArgumentException if clientId or clazz is {@code null}
+     */
     public List getFormInfo(String clientId, Class clazz);
 }
  

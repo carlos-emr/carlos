@@ -34,12 +34,26 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 
-/*
- * Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061
+/**
+ * Data access interface for {@link CaseManagementCPP} (Cumulative Patient Profile) entities.
+ * Provides retrieval and persistence operations for patient CPP records.
+ *
+ * @since 2026-03-17
  */
 public interface CaseManagementCPPDAO {
 
+    /**
+     * Retrieves the Cumulative Patient Profile for the specified demographic.
+     *
+     * @param demographic_no String the patient demographic number
+     * @return CaseManagementCPP the CPP record, or null if not found
+     */
     public CaseManagementCPP getCPP(String demographic_no);
 
+    /**
+     * Saves or updates the given Cumulative Patient Profile record.
+     *
+     * @param cpp CaseManagementCPP the CPP entity to persist
+     */
     public void saveCPP(CaseManagementCPP cpp);
 }

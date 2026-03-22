@@ -47,6 +47,18 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that orchestrates attachment of documents, labs, HRM reports,
+ * and other eForms to an eForm data record. Delegates to the individual
+ * attachment handlers ({@link EFormAttachDocs}, {@link EFormAttachLabs},
+ * {@link EFormAttachHRMReports}, {@link EFormAttachEForms}).
+ *
+ * <p>Requires {@code _eform} update privilege. Supports both the legacy
+ * combined attachment array format and the newer per-type parameter format
+ * (controlled by the {@code consultation_indivica_attachment_enabled} property).</p>
+ *
+ * @since 2006-05-25
+ */
 public class EFormAttachDocs2Action
         extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -55,6 +67,15 @@ public class EFormAttachDocs2Action
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes attachment requests by delegating to the appropriate attachment
+     * handlers for documents, labs, HRM reports, and eForms.
+     *
+     * @return String the Struts2 result name ({@code SUCCESS})
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if an I/O error occurs
+     * @throws SecurityException if the user lacks {@code _eform} update privilege
+     */
     public String execute()
 
             throws ServletException, IOException {

@@ -31,6 +31,15 @@ package io.github.carlos_emr.carlos.appointment.search;
 import java.util.Calendar;
 import java.util.Comparator;
 
+/**
+ * Represents an available time slot in a provider's schedule for appointment booking.
+ *
+ * <p>Contains the provider information, the available date/time, the schedule template
+ * code character, the appointment type, and the associated demographic (patient) number.
+ * Instances are comparable by time via {@link #getTimeSlotComparator()}.</p>
+ *
+ * @since 2026-03-17
+ */
 public class TimeSlot {
     String providerNo = null;
     private Integer demographicNo = null;
@@ -39,15 +48,33 @@ public class TimeSlot {
     Character code = null;
     Long appointmentType = null;
 
+    /**
+     * Constructs an empty time slot.
+     */
     public TimeSlot() {
     }
 
+    /**
+     * Constructs a time slot for a given provider and time.
+     *
+     * @param providerNo String the provider number
+     * @param providerName String the provider display name
+     * @param cal Calendar the available appointment time
+     */
     public TimeSlot(String providerNo, String providerName, Calendar cal) {
         this.providerNo = providerNo;
         this.providerName = providerName;
         this.availableApptTime = cal;
     }
 
+    /**
+     * Constructs a time slot for a given provider, time, and schedule template code.
+     *
+     * @param providerNo String the provider number
+     * @param providerName String the provider display name
+     * @param cal Calendar the available appointment time
+     * @param code Character the schedule template code for this slot
+     */
     public TimeSlot(String providerNo, String providerName, Calendar cal, Character code) {
         this.providerNo = providerNo;
         this.providerName = providerName;
@@ -55,42 +82,92 @@ public class TimeSlot {
         this.code = code;
     }
 
+    /**
+     * Returns the provider number.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Sets the provider number.
+     *
+     * @param providerNo String the provider number
+     */
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Returns the provider display name.
+     *
+     * @return String the provider name
+     */
     public String getProviderName() {
         return providerName;
     }
 
+    /**
+     * Sets the provider display name.
+     *
+     * @param providerName String the provider name
+     */
     public void setProviderName(String providerName) {
         this.providerName = providerName;
     }
 
+    /**
+     * Returns the available appointment time for this slot.
+     *
+     * @return Calendar the available time
+     */
     public Calendar getAvailableApptTime() {
         return availableApptTime;
     }
 
+    /**
+     * Sets the available appointment time for this slot.
+     *
+     * @param availableApptTime Calendar the available time
+     */
     public void setAvailableApptTime(Calendar availableApptTime) {
         this.availableApptTime = availableApptTime;
     }
 
+    /**
+     * Returns the schedule template code character for this time slot.
+     *
+     * @return Character the schedule code
+     */
     public Character getCode() {
         return code;
     }
 
+    /**
+     * Sets the schedule template code character for this time slot.
+     *
+     * @param code Character the schedule code
+     */
     public void setCode(Character code) {
         this.code = code;
     }
 
+    /**
+     * Returns the appointment type ID associated with this time slot.
+     *
+     * @return Long the appointment type ID
+     */
     public Long getAppointmentType() {
         return appointmentType;
     }
 
+    /**
+     * Sets the appointment type ID associated with this time slot.
+     *
+     * @param appointmentType Long the appointment type ID
+     */
     public void setAppointmentType(Long appointmentType) {
         this.appointmentType = appointmentType;
     }

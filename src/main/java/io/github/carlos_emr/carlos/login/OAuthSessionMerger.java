@@ -43,8 +43,25 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * Utility that associates an authenticated provider's session with an OAuth request token.
+ *
+ * <p>After a provider logs in and authorizes an OAuth consumer, this class updates the
+ * request token record with the provider's number so the token can be exchanged
+ * for an access token that carries the provider's identity.
+ *
+ * @see OscarOAuthDataProvider
+ * @since 2026-03-17
+ */
 public class OAuthSessionMerger {
 
+    /**
+     * Merges the current provider session with the OAuth request token identified
+     * by the "oauth_token" request parameter.
+     *
+     * @param request HttpServletRequest the request containing the oauth_token parameter and the provider session
+     * @return boolean true if the request token was found and updated with the provider number, false otherwise
+     */
     public static boolean mergeSession(HttpServletRequest request) {
 
         String proNo = (String) request.getSession().getAttribute("user");

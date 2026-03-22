@@ -271,24 +271,49 @@ public class ClinicData {
         this.clinic_fax = clinic_fax;
     }
 
+    /**
+     * Sets the clinic name.
+     *
+     * @param clinic_name String the clinic name
+     */
     public void setClinic_name(String clinic_name) {
         this.clinic_name = clinic_name;
     }
 
+    /**
+     * Sets the clinic phone number.
+     *
+     * @param clinic_phone String the clinic phone number
+     */
     public void setClinic_phone(String clinic_phone) {
         this.clinic_phone = clinic_phone;
     }
 
+    /**
+     * Sets the clinic postal code.
+     *
+     * @param clinic_postal String the clinic postal code
+     */
     public void setClinic_postal(String clinic_postal) {
         this.clinic_postal = clinic_postal;
     }
 
+    /**
+     * Sets the clinic province.
+     *
+     * @param clinic_province String the clinic province
+     */
     public void setClinic_province(String clinic_province) {
         this.clinic_province = clinic_province;
     }
 
-    /*
-     * returns all the clinic data in a formatted label
+    /**
+     * Returns all clinic data formatted as a multi-line address label suitable for display
+     * or printing. Includes clinic name, address, city, province, postal code, phone, and fax.
+     * Uses the first entry from the pipe-delimited phone/fax lists if available,
+     * otherwise falls back to the single phone/fax fields.
+     *
+     * @return String the formatted clinic label
      */
     public String getLabel() {
         String strPhones = getClinicDelimPhone();

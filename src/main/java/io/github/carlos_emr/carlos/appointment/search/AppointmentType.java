@@ -197,10 +197,20 @@ public final class AppointmentType {
         return (result);
     }
 
+    /**
+     * Returns the internal CARLOS appointment type ID that this booking type maps to.
+     *
+     * @return Integer the mapped appointment type ID, or {@code null} if not mapped
+     */
     public Integer getMappingOscarApptType() {
         return mappingOscarApptType;
     }
 
+    /**
+     * Sets the internal CARLOS appointment type ID mapping.
+     *
+     * @param mappingOscarApptType Integer the mapped appointment type ID
+     */
     public void setMappingOscarApptType(Integer mappingOscarApptType) {
         this.mappingOscarApptType = mappingOscarApptType;
     }

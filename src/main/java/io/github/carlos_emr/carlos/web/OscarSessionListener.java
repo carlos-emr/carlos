@@ -62,6 +62,12 @@ public class OscarSessionListener implements HttpSessionListener {
         MiscUtils.getLogger().info("Session id: " + se.getSession().getId());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Releases all case management note locks associated with this session
+     * and unregisters the user session from the session manager.
+     */
     @Override
     public void sessionDestroyed(HttpSessionEvent se) {
         String id = se.getSession().getId();

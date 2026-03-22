@@ -31,16 +31,34 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
- * No one should be calling / using this class except the LogAction.java class.
+ * Runnable task that persists an {@link OscarLog} entry synchronously and releases
+ * database resources afterward.
+ *
+ * <p>This class is package-private and intended to be used exclusively by
+ * {@link LogAction} for asynchronous log persistence via an executor service.
+ * After persisting the log entry, it releases all thread-local database resources
+ * via {@link DbConnectionFilter#releaseAllThreadDbResources()}.</p>
+ *
+ * @see LogAction
+ * @see OscarLog
+ * @since 2026-03-17
  */
 class AddLogExecutorTask implements Runnable {
 
     private OscarLog oscarLog;
 
+    /**
+     * Constructs a new task to persist the specified log entry.
+     *
+     * @param oscarLog OscarLog the log entry to persist
+     */
     public AddLogExecutorTask(OscarLog oscarLog) {
         this.oscarLog = oscarLog;
     }
 
+    /**
+     * Persists the log entry synchronously and releases thread-local database resources.
+     */
     public void run() {
         try {
             LogAction.addLogSynchronous(oscarLog);

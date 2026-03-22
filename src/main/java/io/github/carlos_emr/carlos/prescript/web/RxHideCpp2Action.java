@@ -46,6 +46,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for toggling the visibility of a prescription in the Cumulative Patient Profile (CPP).
+ * <p>
+ * Updates the {@code hideFromCpp} flag on a drug record, allowing providers to hide
+ * specific prescriptions from the CPP summary view. Returns a plain text "ok" response.
+ * Requires {@code _rx} update privilege.
+ *
+ * @since 2026-03-17
+ */
 public class RxHideCpp2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

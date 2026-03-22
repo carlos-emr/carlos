@@ -57,7 +57,23 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 /**
- * @author wrighd
+ * Manages the merging and unmerging of patient demographic records.
+ *
+ * <p>This class supports the clinical workflow of merging duplicate patient records
+ * into a single "head" record, and reversing such merges when errors are identified.
+ * Merged records form a chain where each merged demographic points to a head record,
+ * and the chain is resolved recursively to find the ultimate head.</p>
+ *
+ * <p>Merge operations also create security object privileges to restrict access
+ * to the merged record's eChart, and unmerge operations move those privileges
+ * to the recycle bin for audit trail purposes.</p>
+ *
+ * <p>All merge and unmerge operations are logged via {@link LogAction} for
+ * HIPAA/PIPEDA compliance.</p>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.DemographicMergedDao
+ * @see io.github.carlos_emr.carlos.commn.model.DemographicMerged
+ * @since 2026-03-17
  */
 public class DemographicMerged {
 
@@ -66,9 +82,23 @@ public class DemographicMerged {
     private SecObjPrivilegeDao secObjPrivilegeDao = SpringUtils.getBean(SecObjPrivilegeDao.class);
     private RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);
 
+    /**
+     * Constructs a new DemographicMerged instance with Spring-managed DAO dependencies.
+     */
     public DemographicMerged() {
     }
 
+    /**
+     * Merges a demographic record into a head record.
+     *
+     * <p>If the source demographic is already merged to another head, that head is
+     * re-merged to the new head instead. Creates an eChart security privilege
+     * restriction for the merged demographic and logs the operation.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context for audit logging
+     * @param demographic_no String the demographic number to merge (source)
+     * @param head String the demographic number to merge into (target/head)
+     */
     public void Merge(LoggedInInfo loggedInInfo, String demographic_no, String head) {
 
         io.github.carlos_emr.carlos.commn.model.DemographicMerged dm = new io.github.carlos_emr.carlos.commn.model.DemographicMerged();
@@ -108,6 +138,16 @@ public class DemographicMerged {
 
     }
 
+    /**
+     * Reverses a merge operation, restoring a demographic as an independent record.
+     *
+     * <p>Soft-deletes the merge record, removes the eChart security privilege,
+     * saves the privilege to the recycle bin for audit, and logs the operation.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context for audit logging
+     * @param demographic_no String the demographic number to unmerge
+     * @param curUser_no String the provider number of the current user
+     */
     public void UnMerge(LoggedInInfo loggedInInfo, String demographic_no, String curUser_no) {
 
         List<io.github.carlos_emr.carlos.commn.model.DemographicMerged> dms = dao.findByDemographicNo(Integer.parseInt(demographic_no));
@@ -143,6 +183,12 @@ public class DemographicMerged {
 
     }
 
+    /**
+     * Returns the ultimate head demographic number in a merge chain.
+     *
+     * @param demographic_no String the demographic number to resolve
+     * @return String the head demographic number, or null if not part of a merge chain
+     */
     public String getHead(String demographic_no) {
         Integer result = getHead(Integer.parseInt(demographic_no));
         if (result != null) {
@@ -152,6 +198,15 @@ public class DemographicMerged {
     }
 
 
+    /**
+     * Recursively resolves the ultimate head demographic number in a merge chain.
+     *
+     * <p>Follows the merge chain to its end. If the demographic is not merged
+     * to any other record, returns the demographic number itself.</p>
+     *
+     * @param demographic_no Integer the demographic number to resolve
+     * @return Integer the head demographic number at the top of the merge chain
+     */
     public Integer getHead(Integer demographic_no) {
         Integer head = null;
 
@@ -168,6 +223,16 @@ public class DemographicMerged {
         return head;
     }
 
+    /**
+     * Returns all demographic numbers that have been merged into the given head record.
+     *
+     * <p>Recursively traverses the merge tree to find all tail records,
+     * including records merged into records that were themselves merged
+     * into the given head.</p>
+     *
+     * @param demographic_no String the head demographic number
+     * @return ArrayList&lt;String&gt; list of all merged demographic numbers (tails)
+     */
     public ArrayList<String> getTail(String demographic_no) {
         ArrayList<String> tailArray = new ArrayList<String>();
 

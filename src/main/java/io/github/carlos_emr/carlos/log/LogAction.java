@@ -45,11 +45,34 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Centralized audit logging facility for recording user actions and data access events
+ * in the CARLOS EMR system.
+ *
+ * <p>Provides both asynchronous and synchronous methods for persisting {@link OscarLog}
+ * entries. Asynchronous methods submit log entries to a cached thread pool executor
+ * for non-blocking persistence, while synchronous methods persist within the caller's
+ * thread and transaction context.</p>
+ *
+ * <p>All public methods are static for convenient access throughout the application.</p>
+ *
+ * @see OscarLog
+ * @see LogConst
+ * @see AddLogExecutorTask
+ * @since 2026-03-17
+ */
 public class LogAction {
     private static Logger logger = MiscUtils.getLogger();
     private static OscarLogDao oscarLogDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
     private static ExecutorService executorService = Executors.newCachedThreadPool(new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.MAX_PRIORITY));
 
+    /**
+     * Adds a log entry synchronously using the logged-in user's context.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param action String the action being performed (e.g., {@link LogConst#READ})
+     * @param data String additional data associated with the log entry
+     */
     public static void addLogSynchronous(LoggedInInfo loggedInInfo, String action, String data) {
         OscarLog logEntry = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null)
@@ -81,6 +104,16 @@ public class LogAction {
         addLog(provider_no, action, content, contentId, ip, demographicNo, null);
     }
 
+    /**
+     * Adds a log entry asynchronously using the logged-in user's context with full detail.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param action String the action being performed
+     * @param content String the content category (e.g., {@link LogConst#CON_DEMOGRAPHIC})
+     * @param contentId String the identifier of the content being accessed
+     * @param demographicNo String the patient demographic number, if applicable
+     * @param data String additional data associated with the log entry
+     */
     public static void addLog(LoggedInInfo loggedInInfo, String action, String content, String contentId, String demographicNo, String data) {
         OscarLog logEntry = new OscarLog();
         if (loggedInInfo.getLoggedInSecurity() != null)

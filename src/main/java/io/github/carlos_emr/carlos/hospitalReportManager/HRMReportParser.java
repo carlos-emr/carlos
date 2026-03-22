@@ -124,8 +124,17 @@ public class HRMReportParser {
         return parseReport(loggedInInfo, hrmReportFileLocation, null);
     }
 
-    /*
-     * Called when a report is added to system
+    /**
+     * Parses an HRM report XML file into an {@link HRMReport} object using JAXB
+     * with XSD schema validation against the OMD HRM 1.1.2 schema.
+     *
+     * <p>The file is first looked up at the given path, then in the configured
+     * {@code DOCUMENT_DIR} if not found at the original location.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user session context
+     * @param hrmReportFileLocation String the filesystem path to the HRM XML file
+     * @param errors List&lt;Throwable&gt; optional list to collect parsing errors into, may be {@code null}
+     * @return HRMReport the parsed report, or {@code null} if parsing fails or file is not found
      */
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, String hrmReportFileLocation, List<Throwable> errors) {
         OmdCds root = null;
@@ -351,6 +360,16 @@ public class HRMReportParser {
     }
 
 
+    /**
+     * Routes a report's OBR content sub-classes to the HRM sub-class table for
+     * Diagnostic Imaging and Cardio Respiratory report types.
+     *
+     * <p>For these report types, each OBR content entry is persisted as an
+     * {@link HRMDocumentSubClass} record, with the first sub-class marked as active.</p>
+     *
+     * @param report HRMReport the parsed report containing sub-class data
+     * @param reportId Integer the HRM document ID to associate sub-classes with
+     */
     public static void routeReportToSubClass(HRMReport report, Integer reportId) {
         if (report == null) {
             logger.info("routeReportToSubClass cannot continue, report parameter is null");
@@ -387,6 +406,15 @@ public class HRMReportParser {
         }
     }
 
+    /**
+     * Returns the appropriate formatted date string from a report based on its class.
+     *
+     * <p>For Diagnostic Imaging and Cardio Respiratory reports, uses the first OBR
+     * observation date. For Medical Records Reports, uses the report event time.</p>
+     *
+     * @param report HRMReport the report to extract the date from
+     * @return String the formatted date string
+     */
     public static String getAppropriateDateStringFromReport(HRMReport report) {
         if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
             return (String) report.getAccompanyingSubclassList().get(0).get(4);
@@ -399,6 +427,15 @@ public class HRMReportParser {
         return sdf.format(calendar.getTime());
     }
 
+    /**
+     * Returns the appropriate date from a report based on its class.
+     *
+     * <p>For Diagnostic Imaging and Cardio Respiratory reports, returns the first OBR
+     * observation date. For Medical Records Reports, returns the report event time.</p>
+     *
+     * @param report HRMReport the report to extract the date from
+     * @return Date the report date
+     */
     public static Date getAppropriateDateFromReport(HRMReport report) {
         if (report.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || report.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
             return ((Date) (report.getAccompanyingSubclassList().get(0).get(3)));
@@ -408,6 +445,18 @@ public class HRMReportParser {
         return report.getFirstReportEventTime().getTime();
     }
 
+    /**
+     * Routes an HRM report to the appropriate provider(s) based on the deliver-to
+     * practitioner number and applicable forwarding rules.
+     *
+     * <p>Also handles the "queens_resident_tagging" property, which routes reports to
+     * the patient's MRP (Most Responsible Provider) and alternative providers
+     * (midwife, nurse, resident) when enabled.</p>
+     *
+     * @param report HRMReport the parsed report containing provider routing information
+     * @param reportId Integer the HRM document ID to create provider associations for
+     * @return boolean {@code true} if at least one provider was routed, {@code false} otherwise
+     */
     public static boolean routeReportToProvider(HRMReport report, Integer reportId) {
         if (report == null) {
             logger.info("routeReportToProvider cannot continue, report parameter is null");
@@ -502,10 +551,22 @@ public class HRMReportParser {
 
     }
 
+    /**
+     * Routes a new report to providers using an existing document's ID.
+     *
+     * @param originalDocument HRMDocument the existing document whose ID will be used
+     * @param newReport HRMReport the new report to route
+     */
     public static void routeReportToProvider(HRMDocument originalDocument, HRMReport newReport) {
         routeReportToProvider(newReport, originalDocument.getId());
     }
 
+    /**
+     * Creates a direct provider routing for an HRM report.
+     *
+     * @param reportId Integer the HRM document ID
+     * @param providerNo String the provider number to route the report to
+     */
     public static void routeReportToProvider(Integer reportId, String providerNo) {
         HRMDocumentToProviderDao hrmDocumentToProviderDao = (HRMDocumentToProviderDao) SpringUtils.getBean(HRMDocumentToProviderDao.class);
         HRMDocumentToProvider providerRouting = new HRMDocumentToProvider();
@@ -517,6 +578,12 @@ public class HRMReportParser {
 
     }
 
+    /**
+     * Creates a demographic routing for an HRM report, associating it with a patient.
+     *
+     * @param reportId Integer the HRM document ID
+     * @param demographicNo Integer the demographic (patient) number to route to
+     */
     public static void routeReportToDemographic(Integer reportId, Integer demographicNo) {
         HRMDocumentToDemographicDao hrmDocumentToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
 

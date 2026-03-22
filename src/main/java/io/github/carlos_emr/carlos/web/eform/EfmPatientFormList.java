@@ -34,6 +34,14 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * Utility class for patient-specific electronic form list operations.
+ *
+ * <p>Provides access to the demographic data access layer for retrieving
+ * patient information associated with electronic forms.
+ *
+ * @since 2001-01-01
+ */
 public final class EfmPatientFormList {
 
     private static DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);

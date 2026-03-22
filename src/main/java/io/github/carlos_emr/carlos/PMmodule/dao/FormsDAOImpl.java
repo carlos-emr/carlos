@@ -47,11 +47,21 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Hibernate-based implementation of {@link FormsDAO} for managing healthcare form entities.
+ *
+ * <p>Uses JPA Criteria API for dynamic form retrieval by entity class,
+ * and resolves provider names for form metadata display.</p>
+ *
+ * @since 2005-01-18
+ * @see FormsDAO
+ */
 @Transactional
 public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
 
     private Logger log = MiscUtils.getLogger();
 
+    /** {@inheritDoc} */
     public void saveForm(Object o) {
         currentSession().persist(o);
 
@@ -60,6 +70,7 @@ public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
         }
     }
 
+    /** {@inheritDoc} */
     public Object getCurrentForm(String clientId, Class clazz) {
         Object result = null;
 
@@ -83,6 +94,7 @@ public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
         return result;
     }
 
+    /** {@inheritDoc} */
     public List getFormInfo(String clientId, Class clazz) {
         if (clientId == null || clazz == null) {
             throw new IllegalArgumentException();

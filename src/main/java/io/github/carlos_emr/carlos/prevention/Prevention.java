@@ -518,6 +518,12 @@ public class Prevention {
         return getNumDays(getLastPreventionDate(preventionType), Calendar.getInstance().getTime());
     }
 
+    /**
+     * Returns the total count of prevention records for the given type.
+     *
+     * @param preventionType String the prevention type name
+     * @return int the number of records, or 0 if no records exist
+     */
     public int getNumberOfPreventionType(String preventionType) {
         int retval = 0;
         Vector vec = (Vector) preventionTypes.get(preventionType);
@@ -527,6 +533,12 @@ public class Prevention {
         return retval;
     }
 
+    /**
+     * Returns all prevention items for the given type.
+     *
+     * @param preventionType String the prevention type name
+     * @return Vector of {@link PreventionItem} objects, empty vector if no records exist
+     */
     public Vector getPreventionData(String preventionType) {
         Vector a = (Vector) preventionTypes.get(preventionType);
         if (a == null) {
@@ -535,6 +547,12 @@ public class Prevention {
         return a;
     }
 
+    /**
+     * Returns the patient's age in months at the time the last prevention of the given type was administered.
+     *
+     * @param preventionType String the prevention type name
+     * @return int the age in months when the last prevention was given
+     */
     public int getAgeInMonthsLastPreventionTypeGiven(String preventionType) {
         return getNumMonths(DOB, getLastPreventionDate(preventionType));
     }

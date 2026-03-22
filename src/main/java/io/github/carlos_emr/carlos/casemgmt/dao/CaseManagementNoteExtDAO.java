@@ -36,21 +36,76 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 
+/**
+ * Data access interface for {@link CaseManagementNoteExt} entities.
+ * Provides CRUD operations and queries for note extension key-value metadata.
+ *
+ * @since 2026-03-17
+ */
 public interface CaseManagementNoteExtDAO {
 
+    /**
+     * Retrieves a note extension by its unique identifier.
+     *
+     * @param id Long the extension ID
+     * @return CaseManagementNoteExt the extension entity, or null if not found
+     */
     public CaseManagementNoteExt getNoteExt(Long id);
 
+    /**
+     * Retrieves all extensions associated with the specified note.
+     *
+     * @param noteId Long the case management note ID
+     * @return List&lt;CaseManagementNoteExt&gt; the list of extensions for the note
+     */
     public List<CaseManagementNoteExt> getExtByNote(Long noteId);
 
+    /**
+     * Retrieves all extensions matching the specified key.
+     *
+     * @param keyVal String the extension key to search for
+     * @return List the list of matching extensions
+     */
     public List getExtByKeyVal(String keyVal);
 
+    /**
+     * Retrieves all extensions matching the specified key and string value.
+     *
+     * @param keyVal String the extension key
+     * @param value String the extension value to match
+     * @return List the list of matching extensions
+     */
     public List getExtByValue(String keyVal, String value);
 
+    /**
+     * Retrieves all extensions with the specified key whose date value is before the given date.
+     *
+     * @param keyVal String the extension key
+     * @param dateValue Date the upper bound date (exclusive)
+     * @return List the list of matching extensions
+     */
     public List getExtBeforeDate(String keyVal, Date dateValue);
 
+    /**
+     * Retrieves all extensions with the specified key whose date value is after the given date.
+     *
+     * @param keyVal String the extension key
+     * @param dateValue Date the lower bound date (exclusive)
+     * @return List the list of matching extensions
+     */
     public List getExtAfterDate(String keyVal, Date dateValue);
 
+    /**
+     * Persists a new note extension entity.
+     *
+     * @param cExt CaseManagementNoteExt the extension to save
+     */
     public void save(CaseManagementNoteExt cExt);
 
+    /**
+     * Updates an existing note extension entity.
+     *
+     * @param cExt CaseManagementNoteExt the extension to update
+     */
     public void update(CaseManagementNoteExt cExt);
 }

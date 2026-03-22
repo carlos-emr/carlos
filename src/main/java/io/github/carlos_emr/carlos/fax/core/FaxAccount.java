@@ -72,14 +72,29 @@ public class FaxAccount {
 
     }
 
+    /**
+     * Returns the facility name.
+     *
+     * @return String the facility name
+     */
     public String getFacilityName() {
         return facilityName;
     }
 
+    /**
+     * Sets the facility name.
+     *
+     * @param facilityName String the facility name
+     */
     public void setFacilityName(String facilityName) {
         this.facilityName = facilityName;
     }
 
+    /**
+     * Returns the letterhead name, falling back to the facility name if not explicitly set.
+     *
+     * @return String the letterhead name, or the facility name if letterhead is null
+     */
     public String getLetterheadName() {
         if (letterheadName == null) {
             return facilityName;
@@ -87,18 +102,38 @@ public class FaxAccount {
         return letterheadName;
     }
 
+    /**
+     * Sets the letterhead name displayed on fax cover pages.
+     *
+     * @param letterheadName String the letterhead name
+     */
     public void setLetterheadName(String letterheadName) {
         this.letterheadName = letterheadName;
     }
 
+    /**
+     * Returns the account holder name.
+     *
+     * @return String the account name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Sets the account holder name.
+     *
+     * @param name String the account name
+     */
     public void setName(String name) {
         this.name = name;
     }
 
+    /**
+     * Returns the fax number owner label, falling back to the facility name if not set.
+     *
+     * @return String the fax number owner name, or the facility name if owner is null
+     */
     public String getFaxNumberOwner() {
         if (faxNumberOwner == null) {
             return facilityName;
@@ -106,34 +141,74 @@ public class FaxAccount {
         return faxNumberOwner;
     }
 
+    /**
+     * Sets the fax number owner label.
+     *
+     * @param faxNumberOwner String the fax number owner name
+     */
     public void setFaxNumberOwner(String faxNumberOwner) {
         this.faxNumberOwner = faxNumberOwner;
     }
 
+    /**
+     * Returns the fax number.
+     *
+     * @return String the fax number
+     */
     public String getFax() {
         return fax;
     }
 
+    /**
+     * Sets the fax number.
+     *
+     * @param fax String the fax number
+     */
     public void setFax(String fax) {
         this.fax = fax;
     }
 
+    /**
+     * Returns the phone number.
+     *
+     * @return String the phone number
+     */
     public String getPhone() {
         return phone;
     }
 
+    /**
+     * Sets the phone number.
+     *
+     * @param phone String the phone number
+     */
     public void setPhone(String phone) {
         this.phone = phone;
     }
 
+    /**
+     * Returns the address.
+     *
+     * @return String the address
+     */
     public String getAddress() {
         return address;
     }
 
+    /**
+     * Sets the address.
+     *
+     * @param address String the address
+     */
     public void setAddress(String address) {
         this.address = address;
     }
 
+    /**
+     * Returns the sub-text label, falling back to the facility name if not explicitly set.
+     *
+     * @return String the sub-text, or the facility name if sub-text is null
+     */
     public String getSubText() {
         if (subText == null) {
             return facilityName;
@@ -141,6 +216,11 @@ public class FaxAccount {
         return subText;
     }
 
+    /**
+     * Sets the sub-text displayed below the title on the cover page.
+     *
+     * @param subText String the sub-text label
+     */
     public void setSubText(String subText) {
         this.subText = subText;
     }

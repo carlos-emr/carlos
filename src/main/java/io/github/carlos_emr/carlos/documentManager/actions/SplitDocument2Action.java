@@ -60,6 +60,26 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for splitting, rotating, and removing pages from PDF documents in the
+ * CARLOS EMR document management system.
+ *
+ * <p>Supports the following operations via the "method" request parameter:
+ * <ul>
+ *   <li>{@code split} - Extracts selected pages (with optional rotation) into a new PDF document,
+ *       preserving provider routing, patient linking, and queue assignments from the source document</li>
+ *   <li>{@code rotate180} - Rotates all pages of a document by 180 degrees and clears cached images</li>
+ *   <li>{@code rotate90} - Rotates all pages of a document by 90 degrees and clears cached images</li>
+ *   <li>{@code removeFirstPage} - Removes the first page from a multi-page document and updates the page count</li>
+ * </ul>
+ *
+ * <p>PDF manipulation is performed using Apache PDFBox. Split documents are created as new
+ * EDoc records and routed to the same providers and queues as the original document.
+ *
+ * @see ManageDocument2Action
+ * @see EDocUtil
+ * @since 2008-09-10
+ */
 public class SplitDocument2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -69,6 +89,13 @@ public class SplitDocument2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Main Struts2 entry point. Dispatches to the appropriate handler method based on
+     * the "method" request parameter (split, rotate180, rotate90, removeFirstPage).
+     *
+     * @return String the Struts2 result name
+     * @throws Exception if PDF processing fails
+     */
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("split".equals(method)) {
@@ -83,6 +110,14 @@ public class SplitDocument2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Extracts selected pages from a source document into a new PDF document. Each page
+     * can have an independent rotation applied. The new document inherits provider routing,
+     * patient linking, queue assignments, and demographic associations from the source.
+     * Responds with JSON containing the new document number if the source was unlinked.
+     *
+     * @return String SUCCESS or null (JSON response written directly)
+     */
     public String split() {
         String docNum = request.getParameter("document");
         String[] commands = request.getParameterValues("page");
@@ -224,6 +259,12 @@ public class SplitDocument2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Rotates all pages of the specified document by 180 degrees and clears cached page images.
+     *
+     * @return String null (no view rendering)
+     * @throws Exception if the PDF cannot be loaded or saved
+     */
     public String rotate180() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 

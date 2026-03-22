@@ -35,6 +35,14 @@ import java.util.List;
 import jakarta.xml.bind.annotation.XmlRootElement;
 import jakarta.xml.bind.annotation.XmlType;
 
+/**
+ * JAXB-serializable bean representing a patient appointment list with its associated JSP template.
+ *
+ * <p>Wraps a collection of {@link PatientListApptItemBean} entries along with a configurable
+ * JSP template path for rendering the list. Defaults to "patientlist/patientList1.jsp".
+ *
+ * @since 2012-08-13
+ */
 @XmlRootElement
 @XmlType(name = "", propOrder = {"template", "patients"})
 public class PatientListApptBean implements Serializable {
@@ -44,21 +52,41 @@ public class PatientListApptBean implements Serializable {
     private List<PatientListApptItemBean> patients = new ArrayList<PatientListApptItemBean>();
 
 
+    /**
+     * Returns the JSP template path used to render this patient list.
+     *
+     * @return String the relative path to the JSP template
+     */
     public String getTemplate() {
         return template;
     }
 
 
+    /**
+     * Sets the JSP template path used to render this patient list.
+     *
+     * @param template String the relative path to the JSP template
+     */
     public void setTemplate(String template) {
         this.template = template;
     }
 
 
+    /**
+     * Returns the list of patient appointment items.
+     *
+     * @return List&lt;PatientListApptItemBean&gt; the patient appointment items
+     */
     public List<PatientListApptItemBean> getPatients() {
         return patients;
     }
 
 
+    /**
+     * Sets the list of patient appointment items.
+     *
+     * @param patients List&lt;PatientListApptItemBean&gt; the patient appointment items to set
+     */
     public void setPatients(List<PatientListApptItemBean> patients) {
         this.patients = patients;
     }

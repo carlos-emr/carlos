@@ -100,6 +100,12 @@ public class EFormAttachDocs {
         }
     }
 
+    /**
+     * Returns the demographic number for this attachment context, looking it up
+     * from the eForm data record if not already set.
+     *
+     * @return String the demographic number, or an empty string if not found
+     */
     public String getDemoNo() {
         String demo;
         if (!demoNo.equals("")) demo = demoNo;
@@ -117,6 +123,12 @@ public class EFormAttachDocs {
         return demo;
     }
 
+    /**
+     * Reconciles document attachments by comparing currently attached documents
+     * with the selected list, detaching removed ones and attaching new ones.
+     *
+     * @param loggedInInfo LoggedInInfo the current session context
+     */
     public void attach(LoggedInInfo loggedInInfo) {
 
         //first we get a list of currently attached docs

@@ -43,6 +43,26 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * JSP custom tag that conditionally renders its body based on the user's role-based security privileges.
+ *
+ * <p>Evaluates whether the current user's role has the required rights (read, write, etc.)
+ * for the specified security object. If the user has the privilege, the tag body is rendered;
+ * otherwise it is skipped. The {@code reverse} attribute inverts this behavior.
+ *
+ * <p>When the ENABLE_SECURITY_OBJECT_DEBUG property is active, the tag also renders
+ * a visible debug overlay showing the security object name.
+ *
+ * <p>Usage in JSP:
+ * <pre>
+ * &lt;security:oscarSec roleName="${roleName}" objectName="_demographic" rights="r"&gt;
+ *   ...secured content...
+ * &lt;/security:oscarSec&gt;
+ * </pre>
+ *
+ * @see io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege
+ * @since 2026-03-17
+ */
 public class SecurityTag implements Tag {
     private PageContext pageContext;
     private Tag parentTag;

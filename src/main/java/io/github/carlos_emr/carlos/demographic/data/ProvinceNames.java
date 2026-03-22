@@ -34,6 +34,19 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Singleton list of Canadian province names loaded from application configuration.
+ *
+ * <p>Province names are read from the {@code province_names} property in CarlosProperties,
+ * which contains pipe-delimited province names (e.g., "Ontario|British Columbia|Alberta").
+ * The list is populated once at class loading time and cached for the application lifetime.</p>
+ *
+ * <p>If the {@code province_names} property is not defined or empty, the list remains
+ * empty and {@link #isDefined()} returns false.</p>
+ *
+ * @see io.github.carlos_emr.CarlosProperties
+ * @since 2026-03-17
+ */
 public class ProvinceNames extends ArrayList<String> {
 
     public static ProvinceNames getInstance() {

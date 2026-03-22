@@ -41,8 +41,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 
 /**
+ * Struts 2 action for copying prescription favorites between providers.
+ * <p>
+ * Allows providers to share prescription favorites by copying selected favorites
+ * from one provider to another. Supports copying individual favorites and updating
+ * sharing privileges. Routes to sub-methods based on the {@code dispatch} request parameter.
  *
- * @author toby
+ * @since 2026-03-17
  */
 public class CopyFavorites2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

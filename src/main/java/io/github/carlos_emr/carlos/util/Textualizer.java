@@ -43,14 +43,39 @@ import java.util.TreeMap;
 
 import jakarta.persistence.Column;
 
+/**
+ * Reflection-based utility for converting JavaBean objects to and from key-value maps.
+ * Uses Java introspection and JPA {@link Column} annotations to determine property names.
+ * Supports custom conversion templates for both serialization and deserialization of
+ * primitive and wrapper types.
+ *
+ * @since 2001-01-01
+ */
 public class Textualizer {
 
     private static final Class<?>[] PRIMITIVES = {String.class, Integer.class, Date.class, Boolean.class, Long.class, Character.class, Byte.class, Short.class, Float.class, Double.class, int.class, boolean.class, long.class, char.class, byte.class, short.class, float.class, double.class};
 
+    /**
+     * Converts a JavaBean to a sorted map of property name/value pairs using the default template.
+     *
+     * @param object Object the bean to convert
+     * @return SortedMap map of property names to their string values
+     * @throws Exception if introspection or property access fails
+     */
     public SortedMap<String, String> toMap(Object object) throws Exception {
         return toMap(object, new ToTemplate());
     }
 
+    /**
+     * Populates a JavaBean from a {@link Properties} object using the specified conversion template.
+     *
+     * @param <T> the bean type
+     * @param object T the bean to populate
+     * @param props Properties the property name/value pairs to apply
+     * @param template FromTemplate the conversion template for type coercion
+     * @return T the populated bean
+     * @throws Exception if introspection or property setting fails
+     */
     public <T> T fromMap(T object, Properties props, FromTemplate template) throws Exception {
         Map<String, String> map = new HashMap<String, String>();
         for (Entry<Object, Object> p : props.entrySet()) {
@@ -59,10 +84,29 @@ public class Textualizer {
         return fromMap(object, map, template);
     }
 
+    /**
+     * Populates a JavaBean from a map of string values using the default conversion template.
+     *
+     * @param <T> the bean type
+     * @param object T the bean to populate
+     * @param map Map the property name/value pairs to apply
+     * @return T the populated bean
+     * @throws Exception if introspection or property setting fails
+     */
     public <T> T fromMap(T object, Map<String, String> map) throws Exception {
         return fromMap(object, map, new DefaultTemplate());
     }
 
+    /**
+     * Populates a JavaBean from a map of string values using the specified conversion template.
+     *
+     * @param <T> the bean type
+     * @param object T the bean to populate
+     * @param map Map the property name/value pairs to apply
+     * @param template FromTemplate the conversion template for type coercion
+     * @return T the populated bean
+     * @throws Exception if introspection or property setting fails
+     */
     public <T> T fromMap(T object, Map<String, String> map, FromTemplate template) throws Exception {
         Class<?> objectClass = object.getClass();
         BeanInfo beanInfo = Introspector.getBeanInfo(objectClass);
@@ -94,6 +138,14 @@ public class Textualizer {
         return object;
     }
 
+    /**
+     * Converts a JavaBean to a sorted map of property name/value pairs using the specified template.
+     *
+     * @param object Object the bean to convert
+     * @param template ToTemplate the conversion template for value formatting
+     * @return SortedMap map of property names to their string values
+     * @throws Exception if introspection or property access fails
+     */
     public SortedMap<String, String> toMap(Object object, ToTemplate template) throws Exception {
         SortedMap<String, String> result = new TreeMap<String, String>();
 
@@ -135,6 +187,12 @@ public class Textualizer {
         return result;
     }
 
+    /**
+     * Checks whether the given class is a primitive type, wrapper type, String, or Date.
+     *
+     * @param propertyType Class the class to check
+     * @return boolean true if the class is a supported primitive/wrapper type
+     */
     public static boolean isPrimitive(Class<?> propertyType) {
         for (Class<?> c : PRIMITIVES) {
             if (c.isAssignableFrom(propertyType)) {

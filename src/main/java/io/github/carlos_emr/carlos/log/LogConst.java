@@ -34,7 +34,16 @@
 package io.github.carlos_emr.carlos.log;
 
 /**
- * @author yilee18
+ * Constants for audit log action types and content categories used throughout the
+ * CARLOS EMR system.
+ *
+ * <p>Action constants (e.g., {@link #LOGIN}, {@link #READ}, {@link #UPDATE}) represent
+ * the type of operation performed, while content constants prefixed with {@code CON_}
+ * (e.g., {@link #CON_DEMOGRAPHIC}, {@link #CON_PRESCRIPTION}) identify the domain
+ * entity being accessed.</p>
+ *
+ * @see LogAction
+ * @since 2026-03-17
  */
 public class LogConst {
     public static final String LOGIN = "log in";

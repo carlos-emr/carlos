@@ -584,6 +584,13 @@ public class Hl7textResultsData {
         return ret;
     }
 
+    /**
+     * Retrieves a single unacknowledged lab result data object for the given lab number,
+     * including patient matching, priority mapping, and report status.
+     *
+     * @param labNo String the lab number to look up
+     * @return LabResultData the populated lab result data, or an empty HL7TEXT-typed object if not found
+     */
     public static LabResultData getNotAckLabResultDataFromLabNo(String labNo) {
         LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
         // note to self: lab reports not found in the providerLabRouting table will not show up - need to ensure every lab is entered in providerLabRouting, with '0'
@@ -665,6 +672,19 @@ public class Hl7textResultsData {
         return lbData;
     }
 
+    /**
+     * Populates HL7 lab result data filtered by provider, patient demographics, and status.
+     * Supports lookup by specific lab number, demographic number, or provider routing.
+     *
+     * @param providerNo String the provider number for routing lookup, or {@code null}
+     * @param demographicNo String the patient demographic number, or {@code null} for provider-based lookup
+     * @param patientFirstName String patient first name filter
+     * @param patientLastName String patient last name filter
+     * @param patientHealthNumber String patient health insurance number filter
+     * @param status String the acknowledgement status filter
+     * @param labNo Integer specific lab number to retrieve, or {@code null}
+     * @return ArrayList&lt;LabResultData&gt; the populated list of lab results
+     */
     public static ArrayList<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, Integer labNo) {
 
         if (providerNo == null) {

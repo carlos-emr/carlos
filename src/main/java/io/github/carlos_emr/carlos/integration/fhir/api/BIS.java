@@ -54,6 +54,21 @@ public class BIS {
 
     private static Settings settings = new Settings(FhirDestination.DHIR, Region.ON);
 
+    /**
+     * Builds a FHIR Communication message containing clinical attachments for a patient.
+     *
+     * <p>Retrieves the patient by demographic number and attaches Well Baby, Well Baby CSD,
+     * and Antenatal Record data as Base64-encoded text/plain payloads. An Organization
+     * resource for the clinic is added as a contained resource.</p>
+     *
+     * @param loggedInInfo the logged-in user session context
+     * @param demographicNo the patient's demographic ID
+     * @param wbData Well Baby data to attach, or {@code null} to omit
+     * @param wbCsdData Well Baby CSD data to attach, or {@code null} to omit
+     * @param arData Antenatal Record data to attach, or {@code null} to omit
+     * @param clinic the clinic whose Organization resource will be embedded
+     * @return FhirCommunicationBuilder configured with patient subject, attachments, and organization
+     */
     public static synchronized FhirCommunicationBuilder getFhirCommunicationBuilder(LoggedInInfo loggedInInfo, int demographicNo, String wbData, String wbCsdData, String arData, Clinic clinic) {
 
         OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);

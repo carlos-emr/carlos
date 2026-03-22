@@ -433,27 +433,52 @@ public class AdmissionManagerImpl implements AdmissionManager {
         }
     }
 
+    /**
+     * Sets the admission data access object.
+     *
+     * @param dao AdmissionDao the admission DAO to inject
+     */
     @Autowired
     public void setAdmissionDao(AdmissionDao dao) {
         this.dao = dao;
     }
 
+    /**
+     * Sets the program data access object.
+     *
+     * @param programDao ProgramDao the program DAO to inject
+     */
     @Autowired
     public void setProgramDao(ProgramDao programDao) {
         this.programDao = programDao;
     }
 
+    /**
+     * Sets the program queue data access object.
+     *
+     * @param dao ProgramQueueDao the program queue DAO to inject
+     */
     @Autowired
     public void setProgramQueueDao(ProgramQueueDao dao) {
         this.programQueueDao = dao;
     }
 
+    /**
+     * Sets the client referral data access object.
+     *
+     * @param dao ClientReferralDAO the client referral DAO to inject
+     */
     @Autowired
     public void setClientReferralDAO(ClientReferralDAO dao) {
         this.clientReferralDAO = dao;
     }
 
 
+    /**
+     * Sets the program client status data access object.
+     *
+     * @param programClientStatusDAO ProgramClientStatusDAO the client status DAO to inject
+     */
     @Autowired
     public void setProgramClientStatusDAO(ProgramClientStatusDAO programClientStatusDAO) {
         this.programClientStatusDAO = programClientStatusDAO;

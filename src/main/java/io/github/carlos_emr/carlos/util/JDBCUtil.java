@@ -134,6 +134,14 @@ public class JDBCUtil {
         }
     }
 
+    /**
+     * Imports XML data from an input stream into the database. The filename is parsed to extract
+     * the form name, demographic number, and timestamp. Data is inserted only if a matching
+     * record does not already exist.
+     *
+     * @param inputStream InputStream the XML data to import
+     * @param fileName String the filename in the format {@code formName_demographicNo_timestamp.xml}
+     */
     public static void toDataBase(InputStream inputStream, String fileName) {
         boolean validation = true;
         Document doc;

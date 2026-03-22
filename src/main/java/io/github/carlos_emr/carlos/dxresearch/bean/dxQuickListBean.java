@@ -31,45 +31,98 @@
 package io.github.carlos_emr.carlos.dxresearch.bean;
 
 
+/**
+ * Bean representing a diagnosis code quick list entry.
+ *
+ * <p>Quick lists are provider-configurable shortcut lists of commonly used
+ * diagnosis codes. This bean holds the quick list name, who created it,
+ * and a selection indicator for UI rendering.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxQuickListBean {
 
     String quickListName;
     String createdBy;
     String lastUsed = "";
 
+    /**
+     * Default no-argument constructor.
+     */
     public dxQuickListBean() {
     }
 
+    /**
+     * Constructs a quick list bean with name and creator.
+     *
+     * @param quickListName String the name of the quick list
+     * @param createdBy String the provider who created this quick list
+     */
     public dxQuickListBean(String quickListName,
                            String createdBy) {
         this.quickListName = quickListName;
         this.createdBy = createdBy;
     }
 
+    /**
+     * Constructs a quick list bean with only a name.
+     *
+     * @param quickListName String the name of the quick list
+     */
     public dxQuickListBean(String quickListName) {
         this.quickListName = quickListName;
     }
 
+    /**
+     * Returns the name of the quick list.
+     *
+     * @return String the quick list name
+     */
     public String getQuickListName() {
         return quickListName;
     }
 
+    /**
+     * Sets the name of the quick list.
+     *
+     * @param quickListName String the quick list name
+     */
     public void setQuickListName(String quickListName) {
         this.quickListName = quickListName;
     }
 
+    /**
+     * Returns the provider who created this quick list.
+     *
+     * @return String the creator's provider identifier
+     */
     public String getCreatedBy() {
         return createdBy;
     }
 
+    /**
+     * Sets the provider who created this quick list.
+     *
+     * @param createdBy String the creator's provider identifier
+     */
     public void setCreatedBy(String createdBy) {
         this.createdBy = createdBy;
     }
 
+    /**
+     * Returns the selection indicator for this quick list.
+     *
+     * @return String "Selected" if this is the active quick list, empty string otherwise
+     */
     public String getLastUsed() {
         return lastUsed;
     }
 
+    /**
+     * Sets the selection indicator for this quick list.
+     *
+     * @param lastUsed String "Selected" to mark as active
+     */
     public void setLastUsed(String lastUsed) {
         this.lastUsed = lastUsed;
     }

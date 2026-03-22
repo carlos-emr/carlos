@@ -329,6 +329,13 @@ public class Utility {
         return retVal;
     }
 
+    /**
+     * Left-pads a number string with spaces to reach the specified total length.
+     *
+     * @param pNumber String the number string to pad
+     * @param tolLen int the desired total length
+     * @return String the left-padded number string
+     */
     public static String FormatNumber(String pNumber, int tolLen) {
         if (pNumber == null) pNumber = "";
         String retVal = pNumber;
@@ -338,6 +345,13 @@ public class Utility {
         return retVal;
     }
 
+    /**
+     * Left-pads an Integer value with spaces to reach the specified total length.
+     *
+     * @param pNumber Integer the number to format (defaults to 0 if null)
+     * @param tolLen int the desired total length
+     * @return String the left-padded number string
+     */
     public static String FormatNumber(Integer pNumber, int tolLen) {
         if (pNumber == null) pNumber = Integer.valueOf(0);
         String retVal = pNumber.toString();
@@ -347,6 +361,13 @@ public class Utility {
         return retVal;
     }
 
+    /**
+     * Left-pads an integer with leading zeros to reach the specified total length.
+     *
+     * @param pNumber int the number to format
+     * @param tolLen int the desired total length
+     * @return String the zero-padded number string
+     */
     public static String FormatIntNoWithZero(int pNumber, int tolLen) {
         Integer pNo = Integer.valueOf(pNumber);
         String retVal = pNo.toString();
@@ -356,6 +377,15 @@ public class Utility {
         return retVal;
     }
 
+    /**
+     * Formats a Date object using the specified SimpleDateFormat pattern string.
+     *
+     * <p>Falls back to the default yyyy/MM/dd format if the pattern string is empty.</p>
+     *
+     * @param pDate Date the date to format
+     * @param fStr String the SimpleDateFormat pattern (e.g., "yyyyMMdd")
+     * @return String the formatted date string, empty string if null or epoch date, or null on error
+     */
     public static String FormatDate(Date pDate, String fStr) //throws Exception
     {
         try {
@@ -374,6 +404,12 @@ public class Utility {
         }
     }
 
+    /**
+     * Escapes square brackets in a string for use in regex split operations.
+     *
+     * @param str String the input string containing potential regex special characters
+     * @return String the string with '[' characters escaped as '\['
+     */
     public static String getEscapedPattern(String str) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < str.length(); i++) {

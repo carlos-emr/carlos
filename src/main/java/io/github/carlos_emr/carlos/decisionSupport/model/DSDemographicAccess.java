@@ -224,24 +224,56 @@ public class DSDemographicAccess {
         return notInClass;
     }
 
+    /**
+     * Checks if any of the dynamic ATC codes match an active prescription's ATC code.
+     *
+     * @param atcCode String ATC code parameter (delegates to hasRxClassNotany negation)
+     * @return boolean true if any active prescription matches the dynamic ATC codes
+     */
     public boolean hasRxClassAny(String atcCode) {
         return !hasRxClassNotany(atcCode);
     }
 
+    /**
+     * Not implemented. Checks if not all dynamic ATC codes match active prescriptions.
+     *
+     * @param atcCode String ATC code parameter
+     * @return boolean (never returns normally)
+     * @throws DecisionSupportException always thrown as this operator is not implemented
+     */
     public boolean hasRxClassNotall(String atcCode) throws DecisionSupportException {
         throw new DecisionSupportException("NOT IMPLEMENTED");
     }
 
+    /**
+     * Negation alias for hasRxClassNotany.
+     *
+     * @param atcCode String ATC code parameter
+     * @return boolean true if no active prescriptions match the dynamic ATC codes
+     */
     public boolean hasRxClassNot(String atcCode) {
         return hasRxClassNotany(atcCode);
     }
 
+    /**
+     * Not implemented. Checks if all dynamic ATC codes match active prescriptions.
+     *
+     * @param atcCode String ATC code parameter
+     * @return boolean (never returns normally)
+     * @throws DecisionSupportException always thrown as this operator is not implemented
+     */
     public boolean hasRxClassAll(String atcCode) throws DecisionSupportException {
         throw new DecisionSupportException("NOT IMPLEMENTED");
     }
 
 
 
+    /**
+     * Checks if any of the dynamic ATC code arguments start with the specified code prefix.
+     *
+     * @param rxCode DSValue containing the ATC code prefix to match
+     * @return boolean true if any dynamic argument starts with the specified ATC code
+     */
     public boolean hasATCcode(DSValue rxCode) {
         logger.debug("hasATCcode dynamicArgs size " + this.dynamicArgs.size());
         boolean found = false;

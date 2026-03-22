@@ -50,13 +50,39 @@ import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.stream.ImageOutputStream;
 
 
+/**
+ * Utility class for image manipulation operations including scaling, cropping,
+ * and format conversion.
+ *
+ * <p>Provides methods for proportional scaling, center cropping, and writing images
+ * in JPEG and PNG formats with configurable compression quality. Used primarily
+ * for patient photo management and document image processing.
+ *
+ * <p>Image I/O caching is disabled via {@link ImageIO#setUseCache(boolean)} in the
+ * static initializer to avoid temporary file creation on the server.
+ *
+ * @since 2026-03-17
+ */
 public class ImageIoUtils {
     private static Logger logger = MiscUtils.getLogger();
     public static final float GENERAL_GOOD_COMPRESSION = 0.92F;
 
+    /**
+     * Creates a new ImageIoUtils instance. Prefer using static methods directly.
+     */
     public ImageIoUtils() {
     }
 
+    /**
+     * Crops the image to a centered square, then scales it proportionally to fit
+     * within the specified maximum dimensions.
+     *
+     * @param inputImage byte[] the raw image data
+     * @param maxWidth   int the maximum width in pixels
+     * @param maxHeight  int the maximum height in pixels
+     * @return BufferedImage the cropped and scaled image
+     * @throws IOException if the image cannot be read
+     */
     public static BufferedImage cropSquareThenScaleSmallerProportionally(byte[] inputImage, int maxWidth, int maxHeight) throws IOException {
         ByteArrayInputStream bais = new ByteArrayInputStream(inputImage);
         BufferedImage image = ImageIO.read(bais);
@@ -68,6 +94,15 @@ public class ImageIoUtils {
         return image;
     }
 
+    /**
+     * Crops the image to a centered square, scales it proportionally, and encodes as JPEG.
+     *
+     * @param inputImage byte[] the raw image data
+     * @param maxWidth   int the maximum width in pixels
+     * @param maxHeight  int the maximum height in pixels
+     * @param quality    float the JPEG compression quality (0.0 to 1.0)
+     * @return byte[] the JPEG-encoded image data, or {@code null} on error
+     */
     public static byte[] cropSquareThenScaleJpgSmallerProportionally(byte[] inputImage, int maxWidth, int maxHeight, float quality) {
         try {
             BufferedImage image = cropSquareThenScaleSmallerProportionally(inputImage, maxWidth, maxHeight);
@@ -80,6 +115,15 @@ public class ImageIoUtils {
         }
     }
 
+    /**
+     * Crops the image from the center to the specified dimensions. If the image is
+     * already smaller than the desired dimensions, it is returned unchanged.
+     *
+     * @param image         BufferedImage the source image
+     * @param desiredWidth  int the desired width in pixels
+     * @param desiredHeight int the desired height in pixels
+     * @return BufferedImage the center-cropped image
+     */
     public static BufferedImage cropCentre(BufferedImage image, int desiredWidth, int desiredHeight) {
         int imageWidth = image.getWidth();
         int imageHeight = image.getHeight();
@@ -94,6 +138,15 @@ public class ImageIoUtils {
         return image;
     }
 
+    /**
+     * Scales the image proportionally to fit within the maximum dimensions and encodes as JPEG.
+     *
+     * @param inputImage byte[] the raw image data
+     * @param maxWidth   int the maximum width in pixels
+     * @param maxHeight  int the maximum height in pixels
+     * @param quality    float the JPEG compression quality (0.0 to 1.0)
+     * @return byte[] the scaled JPEG-encoded image data, or {@code null} on error
+     */
     public static byte[] scaleJpgSmallerProportionally(byte[] inputImage, int maxWidth, int maxHeight, float quality) {
         try {
             ByteArrayInputStream bais = new ByteArrayInputStream(inputImage);
@@ -106,12 +159,31 @@ public class ImageIoUtils {
         }
     }
 
+    /**
+     * Reads an image from the input stream, scales it proportionally, and writes JPEG output.
+     *
+     * @param inputStream  InputStream the source image stream
+     * @param outputStream OutputStream the destination for the scaled JPEG
+     * @param maxWidth     int the maximum width in pixels
+     * @param maxHeight    int the maximum height in pixels
+     * @param quality      float the JPEG compression quality (0.0 to 1.0)
+     * @throws IOException if reading or writing the image fails
+     */
     public static void scaleJpgSmallerProportionally(InputStream inputStream, OutputStream outputStream, int maxWidth, int maxHeight, float quality) throws IOException {
         BufferedImage image = ImageIO.read(inputStream);
         image = scaleJpgSmallerProportionally(image, maxWidth, maxHeight);
         writeJpg(outputStream, quality, image);
     }
 
+    /**
+     * Scales a buffered image proportionally to fit within the specified maximum dimensions.
+     * Images already within bounds are returned unchanged.
+     *
+     * @param image     BufferedImage the source image
+     * @param maxWidth  int the maximum width in pixels
+     * @param maxHeight int the maximum height in pixels
+     * @return BufferedImage the scaled image
+     */
     public static BufferedImage scaleJpgSmallerProportionally(BufferedImage image, int maxWidth, int maxHeight) {
         int imageWidth = image.getWidth();
         int imageHeight = image.getHeight();

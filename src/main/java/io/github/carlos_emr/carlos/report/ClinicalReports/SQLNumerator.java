@@ -154,9 +154,15 @@ public class SQLNumerator implements Numerator {
     }
 
 
-    //The difference between this version of evaluate is that it evaluates true if there are any rows returned from the query.
-    //as apposed to looking for the value of count(*).
-    // change to get a list of params 
+    /**
+     * Evaluates the SQL query for a specific patient. Returns {@code true} if the
+     * query returns any rows. If output fields are configured, the first row's
+     * values are captured into the output values map.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param demographicNo String the patient demographic number to evaluate
+     * @return boolean {@code true} if the query returns at least one row
+     */
     public boolean evaluate(LoggedInInfo loggedInInfo, String demographicNo) {
         boolean evalTrue = false;
 
@@ -187,18 +193,30 @@ public class SQLNumerator implements Numerator {
     }
 
 
+    /** {@inheritDoc} */
     public String getId() {
         return id;
     }
 
+    /** {@inheritDoc} */
     public String getNumeratorName() {
         return name;
     }
 
+    /**
+     * Sets the display name for this numerator.
+     *
+     * @param name String the numerator name
+     */
     public void setNumeratorName(String name) {
         this.name = name;
     }
 
+    /**
+     * Sets the unique identifier for this numerator.
+     *
+     * @param id String the numerator identifier
+     */
     public void setId(String id) {
         this.id = id;
     }

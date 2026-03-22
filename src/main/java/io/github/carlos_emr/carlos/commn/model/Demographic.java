@@ -46,7 +46,31 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This is the object class that relates to the demographic table. Any customizations belong here.
+ * Represents a patient (demographic) record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code demographic} table, which is the central patient data entity containing
+ * over 50 fields including personal information, health insurance details, provider assignments,
+ * and enrollment status. This is one of the most critical domain models in the system.</p>
+ *
+ * <p>Key data groups include:</p>
+ * <ul>
+ *   <li><strong>Identity:</strong> first name, last name, middle names, preferred name, title, date of birth, sex, gender, pronouns</li>
+ *   <li><strong>Health Insurance:</strong> HIN (Health Insurance Number), version code, HC type (province), renewal/effective dates</li>
+ *   <li><strong>Contact:</strong> address, city, province, postal code, phone, phone2, cell phone, email</li>
+ *   <li><strong>Provider:</strong> assigned provider number, family doctor, family physician (with embedded name parsing)</li>
+ *   <li><strong>Enrollment:</strong> patient status (AC/IN/DE/IC/ID/MO/FI), roster status, date joined, end date</li>
+ *   <li><strong>Residential Address:</strong> separate residential address fields (may differ from mailing address)</li>
+ * </ul>
+ *
+ * <p>The {@link PatientStatus} enum defines valid patient statuses: AC (Active), IN (Inactive),
+ * DE (Deceased), IC (Inactive Chart), ID (ID Retired), MO (Moved), FI (Fired).</p>
+ *
+ * <p>Family doctor and family physician fields use an embedded XML-like format for storing
+ * name and OHIP number, parsed via regex patterns.</p>
+ *
+ * @see AbstractModel
+ * @see DemographicExt
+ * @since 2012-01-11
  */
 @Entity
 @Table(name = "demographic")

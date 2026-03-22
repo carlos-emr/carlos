@@ -298,12 +298,22 @@ public final class ProviderPreferencesUIBean {
         return providerPreference;
     }
 
+    /**
+     * Retrieves all active eForms sorted alphabetically by form name.
+     *
+     * @return List&lt;EForm&gt; all active electronic forms sorted by name
+     */
     public static List<EForm> getAllEForms() {
         List<EForm> results = eFormDao.findAll(true);
         Collections.sort(results, EForm.FORM_NAME_COMPARATOR);
         return (results);
     }
 
+    /**
+     * Retrieves all encounter forms sorted alphabetically by form name.
+     *
+     * @return List&lt;EncounterForm&gt; all encounter forms sorted by name
+     */
     public static List<EncounterForm> getAllEncounterForms() {
         List<EncounterForm> results = encounterFormDao.findAll();
         Collections.sort(results, EncounterForm.FORM_NAME_COMPARATOR);

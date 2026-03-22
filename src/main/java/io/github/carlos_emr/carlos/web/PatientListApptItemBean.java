@@ -33,6 +33,15 @@ import java.util.Date;
 
 import jakarta.xml.bind.annotation.XmlRootElement;
 
+/**
+ * JAXB-serializable bean representing a single patient appointment item in a patient list.
+ *
+ * <p>Contains appointment details including patient demographic number, appointment number,
+ * patient name, status, start time, reason, duration, type, notes, and date.
+ * Used as a data transfer object for XML/JSON serialization of appointment lists.
+ *
+ * @since 2012-08-13
+ */
 @XmlRootElement
 public class PatientListApptItemBean implements Serializable {
     private Integer demographicNo;
