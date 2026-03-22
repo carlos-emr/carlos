@@ -81,7 +81,7 @@ public class FrmXmlUpload2Action extends ActionSupport {
 
         // Validate file path using PathValidationUtils
         try {
-            PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
+            normalizedFile = PathValidationUtils.validateExistingPath(normalizedFile, safeDir);
         } catch (SecurityException e) {
             throw new IllegalArgumentException("Invalid file path: " + normalizedFile.getPath());
         }

@@ -99,7 +99,7 @@ public class ImportLogDownload2Action extends ActionSupport {
 
             // Validate using PathValidationUtils to prevent directory traversal
             try {
-                PathValidationUtils.validateExistingPath(importLogFile, tempDir);
+                importLogFile = PathValidationUtils.validateExistingPath(importLogFile, tempDir);
             } catch (SecurityException e) {
                 logger.error("Path is not in the correct directory: " + importLogParam);
                 return "error";

@@ -82,7 +82,7 @@ public class PATHL7Handler implements MessageHandler {
             java.io.File targetFile = new java.io.File(fileName);
 
             // Validate the existing file is within the allowed directory
-            PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
+            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDirFile);
 
             if (!targetFile.exists() || !targetFile.isFile()) {
                 logger.error("File does not exist or is not a regular file: " + fileName);

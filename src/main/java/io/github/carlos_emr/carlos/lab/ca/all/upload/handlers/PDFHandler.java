@@ -110,7 +110,7 @@ public class PDFHandler implements MessageHandler {
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
             File targetFile = new File(filePath);
-            PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {

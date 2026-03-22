@@ -190,7 +190,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
             for (EDTFolder folder : EDTFolder.values()) {
                 File edtFolderFile = new File(folder.getPath());
                 try {
-                    PathValidationUtils.validateExistingPath(file, edtFolderFile);
+                    file = PathValidationUtils.validateExistingPath(file, edtFolderFile);
                     result = true;
                     break;
                 } catch (SecurityException e) {

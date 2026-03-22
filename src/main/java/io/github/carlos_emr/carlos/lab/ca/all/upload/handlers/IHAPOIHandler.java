@@ -271,7 +271,7 @@ public class IHAPOIHandler implements MessageHandler {
         // Check if the file is within the allowed base directory or temp directory
         boolean isValidPath = false;
         try {
-            PathValidationUtils.validateExistingPath(file, baseDirFile);
+            file = PathValidationUtils.validateExistingPath(file, baseDirFile);
             isValidPath = true;
         } catch (SecurityException e) {
             // Try allowed temp directories as fallback
