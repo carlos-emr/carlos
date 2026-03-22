@@ -268,6 +268,12 @@ public interface VacancyTemplateManager {
         return vacancyDAO.find(id);
     }
 
+    /**
+     * Retrieves a vacancy by its name. Returns the first match if multiple exist.
+     *
+     * @param vacancyName String the vacancy name to search for
+     * @return Vacancy the first matching vacancy, or {@code null} if not found
+     */
     public static Vacancy getVacancyByName(String vacancyName) {
         List<Vacancy> v = vacancyDAO.getVacanciesByName(vacancyName);
         if (v.isEmpty())
