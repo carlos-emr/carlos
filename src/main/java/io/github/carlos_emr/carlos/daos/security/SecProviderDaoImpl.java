@@ -43,6 +43,11 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link SecProviderDao} for security provider data access.
+ *
+ * @since 2005-01-01
+ */
 @Transactional
 public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProviderDao {
     private static final Logger logger = MiscUtils.getLogger();

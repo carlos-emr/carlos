@@ -38,6 +38,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Handles disease registry operations from the dashboard, specifically adding ICD-9
+ * diagnosis codes to patient records. Prevents duplicate active entries for the same
+ * patient and diagnosis code combination.
+ *
+ * @since 2026-03-17
+ */
 public class DiseaseRegistryHandler {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -48,6 +55,12 @@ public class DiseaseRegistryHandler {
 
     private DxresearchDAO dao = (DxresearchDAO) SpringUtils.getBean(DxresearchDAO.class);
 
+    /**
+     * Returns the description for the given ICD-9 diagnosis code.
+     *
+     * @param icd9code String the ICD-9 code to look up
+     * @return String the description of the diagnosis code
+     */
     public String getDescription(String icd9code) {
         return dao.getDescription(ICD9_CODING_SYSTEM, icd9code);
     }

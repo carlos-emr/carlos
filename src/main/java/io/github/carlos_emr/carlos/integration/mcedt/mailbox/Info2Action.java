@@ -50,6 +50,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for displaying MCEDT mailbox resource details and service
+ * type information within a specific mailbox context.
+ *
+ * @since 2013-06-14
+ */
 public class Info2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

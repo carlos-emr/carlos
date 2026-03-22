@@ -85,6 +85,14 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
+/**
+ * CXF phase interceptor that validates OAuth 1.0a signatures on incoming REST API requests.
+ *
+ * <p>Intercepts requests during the PRE_INVOKE phase, verifies OAuth signatures,
+ * and sets up the authenticated provider context via {@link LoggedInInfo}.
+ *
+ * @since 2012-08-13
+ */
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
 

@@ -54,7 +54,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
- * @author yilee18
+ * Manages the mapping between form table field names and their human-readable captions
+ * stored in the {@code reportTableFieldCaption} table. Provides CRUD operations for
+ * field captions and methods to retrieve table metadata and form table name lists.
+ *
+ * @see RptTableShadowFieldConst
+ * @see RptReportConfigData
+ * @since 2005-07-25
  */
 public class RptTableFieldNameCaption {
     private static final Logger logger = MiscUtils.getLogger();

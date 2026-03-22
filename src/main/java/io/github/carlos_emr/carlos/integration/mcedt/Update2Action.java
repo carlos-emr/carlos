@@ -46,6 +46,12 @@ import java.util.List;
 import static io.github.carlos_emr.carlos.integration.mcedt.ActionUtils.*;
 import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_UPLOAD_DETAILS;
 
+/**
+ * Struts2 action for updating MCEDT resources, handling resource status
+ * changes and metadata updates through the EDT web service.
+ *
+ * @since 2013-06-14
+ */
 public class Update2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

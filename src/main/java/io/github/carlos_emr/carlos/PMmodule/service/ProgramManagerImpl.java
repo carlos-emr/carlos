@@ -97,14 +97,17 @@ public class ProgramManagerImpl implements ProgramManager {
         this.programDao = dao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramProviderDAO(ProgramProviderDAO dao) {
         this.programProviderDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramFunctionalUserDAO(ProgramFunctionalUserDAO dao) {
         this.programFunctionalUserDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public void setProgramTeamDAO(ProgramTeamDAO dao) {
         this.programTeamDAO = dao;
     }

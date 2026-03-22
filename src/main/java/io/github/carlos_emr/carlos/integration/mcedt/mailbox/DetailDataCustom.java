@@ -36,6 +36,12 @@ import javax.xml.datatype.XMLGregorianCalendar;
 import ca.ontario.health.edt.CommonResult;
 import ca.ontario.health.edt.ResourceStatus;
 
+/**
+ * Custom wrapper around EDT resource detail data, providing additional
+ * formatting and display-friendly accessors for MCEDT mailbox views.
+ *
+ * @since 2013-06-14
+ */
 public class DetailDataCustom {
     protected XMLGregorianCalendar createTimestamp;
     protected String description;

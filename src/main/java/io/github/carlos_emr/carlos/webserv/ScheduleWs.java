@@ -214,7 +214,13 @@ public class ScheduleWs extends AbstractWs {
     }
 
     /**
-     * @deprecated you should use the method with the useGMTTime option
+     * Retrieves appointments for a provider in a date range using local time.
+     *
+     * @param startTime Date the start of the date range
+     * @param endTime Date the end of the date range
+     * @param providerNo String the provider number
+     * @return AppointmentTransfer[] array of appointments in local time
+     * @deprecated Use {@link #getAppointmentsForDateRangeAndProvider2(Date, Date, String, boolean)} with explicit GMT time control
      */
     @Deprecated
     public AppointmentTransfer[] getAppointmentsForDateRangeAndProvider(Date startTime, Date endTime, String providerNo) {
@@ -222,6 +228,15 @@ public class ScheduleWs extends AbstractWs {
         return (AppointmentTransfer.toTransfers(appointments, false));
     }
 
+    /**
+     * Retrieves appointments for a provider in a date range with timezone control.
+     *
+     * @param startTime Date the start of the date range
+     * @param endTime Date the end of the date range
+     * @param providerNo String the provider number
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentTransfer[] array of appointments
+     */
     public AppointmentTransfer[] getAppointmentsForDateRangeAndProvider2(Date startTime, Date endTime, String providerNo, boolean useGMTTime) {
         List<Appointment> appointments = scheduleManager.getAppointmentsForDateRangeAndProvider(getLoggedInInfo(), startTime, endTime, providerNo);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));

@@ -46,7 +46,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
- * @author yilee18
+ * Utility class for building and executing form-based report queries from the
+ * {@code reportConfig} table. Constructs SQL SELECT, FROM, WHERE, and JOIN
+ * clauses from configured report fields. Also provides template variable
+ * substitution and date format conversion utilities.
+ *
+ * @see RptReportConfigData
+ * @since 2005-08-01
  */
 public final class RptReportCreator {
     DBHelp dbObj = new DBHelp();

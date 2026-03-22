@@ -50,6 +50,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for re-submitting previously failed or rejected resources
+ * through the MCEDT mailbox service.
+ *
+ * @since 2013-06-14
+ */
 public class ReSubmit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

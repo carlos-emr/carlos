@@ -46,6 +46,12 @@ import ca.ontario.health.edt.UploadData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for uploading billing claim files and other resources
+ * to the MCEDT (Medical Claims Electronic Data Transfer) service.
+ *
+ * @since 2013-06-14
+ */
 public class Upload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -67,6 +67,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for downloading resources from an MCEDT mailbox, streaming
+ * claim response files and other EDT resources to the browser.
+ *
+ * @since 2013-06-14
+ */
 public class Download2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
