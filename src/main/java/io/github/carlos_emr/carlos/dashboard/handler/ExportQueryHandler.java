@@ -35,6 +35,13 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Query handler that executes a dashboard drilldown query and transforms the results
+ * into a CSV-formatted string for file export. Extends {@link AbstractQueryHandler}
+ * to inherit query building, parameter substitution, and range filtering.
+ *
+ * @since 2026-03-17
+ */
 public class ExportQueryHandler extends AbstractQueryHandler {
 
     private static Logger logger = MiscUtils.getLogger();

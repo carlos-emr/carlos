@@ -336,6 +336,12 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
         return json.toString();
     }
 
+    /**
+     * Converts graph plot keys to a JSON-like string with indexed tooltip sets.
+     *
+     * @param graphPlots List of GraphPlot[] the graph plot data
+     * @return String the tooltip keys formatted as JSON-like objects with indexed keys
+     */
     public static String plotsToJsonTooltips(List<GraphPlot[]> graphPlots) {
         StringBuilder json = new StringBuilder("");
         int index = 0;

@@ -33,7 +33,12 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
- * @author wrighd
+ * Interface for lab file upload handlers that parse flat files containing HL7 messages
+ * and upload each message to the database. Implementations handle vendor-specific file
+ * formats and delegate to {@link io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader}
+ * for database persistence.
+ *
+ * @since 2007-01-18
  */
 public interface MessageHandler {
 

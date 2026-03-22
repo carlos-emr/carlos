@@ -32,6 +32,14 @@ package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 
+/**
+ * SOAP web service transfer object for a provider's daily work schedule.
+ *
+ * <p>Serializable representation of {@link DayWorkSchedule} containing holiday status,
+ * time slot duration, and an array of time slot/code pairs for wire transfer.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class DayWorkScheduleTransfer {
     private boolean isHoliday;
     private Integer timeSlotDurationMin;

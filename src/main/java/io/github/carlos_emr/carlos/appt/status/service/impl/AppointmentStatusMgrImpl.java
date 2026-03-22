@@ -38,9 +38,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
 
 /**
- * @author toby
+ * Implementation of {@link AppointmentStatusMgr} that manages appointment status
+ * configurations with a static in-memory cache of active statuses.
+ *
+ * <p>Delegates database operations to {@link AppointmentStatusDao} and maintains a
+ * lazily-initialized, dirty-flag-based cache of active statuses for performance.
+ * The {@link #reset()} method restores all statuses to their default descriptions
+ * and colors.</p>
+ *
+ * @since 2026-03-17
  */
-
 public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static AppointmentStatusDao appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
@@ -48,6 +55,12 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     private static List<AppointmentStatus> cachedActiveStatuses = null;
     private static boolean cacheIsDirty = false;
 
+    /**
+     * Returns the cached list of active appointment statuses, refreshing from the
+     * database if the cache is null or dirty.
+     *
+     * @return List&lt;AppointmentStatus&gt; the cached active statuses
+     */
     public static List<AppointmentStatus> getCachedActiveStatuses() {
         if (cachedActiveStatuses == null || cacheIsDirty) {
             cachedActiveStatuses = appointStatusDao.findActive();
@@ -55,6 +68,11 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         return cachedActiveStatuses;
     }
 
+    /**
+     * Sets the cached active statuses, sorting them by ID.
+     *
+     * @param cachedActiveStatuses List&lt;AppointmentStatus&gt; the statuses to cache
+     */
     @SuppressWarnings("unchecked")
     public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
         Collections.sort(cachedActiveStatuses, Comparator.comparing(AppointmentStatus::getId));
@@ -62,6 +80,11 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
 
+    /**
+     * Returns whether the active status cache needs to be refreshed.
+     *
+     * @return boolean {@code true} if the cache is dirty
+     */
     public static boolean isCacheIsDirty() {
         return cacheIsDirty;
     }

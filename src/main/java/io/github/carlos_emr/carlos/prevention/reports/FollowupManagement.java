@@ -41,7 +41,16 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.WriteNewMeas
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Manages the recording of prevention follow-up procedures (letters and phone calls)
+ * as clinical measurements.
+ *
+ * <p>Writes follow-up contact records (L1=Letter 1, L2=Letter 2, P1=Phone Call 1)
+ * to the measurements system for tracking patient outreach in prevention compliance
+ * workflows. Each follow-up type corresponds to a measurement type code
+ * (e.g., PAPF, FLUF, MAMF, FOBF, CIMF).</p>
+ *
+ * @since 2001-2002
+ * @see io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.WriteNewMeasurements
  */
 public class FollowupManagement {
     private static Logger log = MiscUtils.getLogger();

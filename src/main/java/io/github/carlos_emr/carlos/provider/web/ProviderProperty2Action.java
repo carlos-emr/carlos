@@ -2498,6 +2498,11 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
 
+    /**
+     * Displays the preference form for hiding the legacy eChart link in the appointment view.
+     *
+     * @return String {@code "genHideOldEchartLinkInAppt"} to forward to the configuration JSP
+     */
     public String viewHideOldEchartLinkInAppt() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

@@ -149,10 +149,22 @@ public final class FhirUtils {
         return contact;
     }
 
+    /**
+     * Extracts the official identifier value from a list of FHIR Identifiers.
+     *
+     * @param identifierList the list of FHIR Identifier objects
+     * @return String the official identifier value, or an empty string if not found
+     */
     public static final String getFhirOfficialIdentifier(List<Identifier> identifierList) {
         return loopIdentifierList(identifierList, IdentifierUse.OFFICIAL);
     }
 
+    /**
+     * Extracts the secondary identifier value from a list of FHIR Identifiers.
+     *
+     * @param identifierList the list of FHIR Identifier objects
+     * @return String the secondary identifier value, or an empty string if not found
+     */
     public static final String getFhirSecondaryIdentifier(List<Identifier> identifierList) {
         return loopIdentifierList(identifierList, IdentifierUse.SECONDARY);
     }

@@ -49,6 +49,19 @@ import io.github.carlos_emr.carlos.form.data.FrmData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that forwards to the appropriate clinical form JSP page based on the
+ * form name and optional shortcut resolution.
+ *
+ * <p>Resolves form names to their corresponding JSP page paths using {@link FrmData}
+ * and constructs the appropriate redirect URL with demographic and appointment parameters.
+ * Supports both direct form access and shortcut-based navigation.</p>
+ *
+ * <p>Requires the {@code _form} read security privilege.</p>
+ *
+ * @see FrmData
+ * @since 2026-03-17
+ */
 public class FormForward2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
