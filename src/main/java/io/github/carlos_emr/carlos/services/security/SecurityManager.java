@@ -37,28 +37,78 @@ import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 
+/**
+ * Manages per-user security context including function-level access control
+ * and organization-scoped permissions in the CARLOS EMR system.
+ *
+ * <p>This class maintains a user's resolved privilege set, mapping security
+ * object names to access levels (none, read, update, write, all). It evaluates
+ * privilege checks against the {@link SecobjprivilegeDao} to determine whether
+ * the current user has the required permission for a given EMR function.</p>
+ *
+ * <p>Access level constants define the privilege hierarchy:</p>
+ * <ul>
+ *   <li>{@code "o"} - No access</li>
+ *   <li>{@code "r"} - Read access</li>
+ *   <li>{@code "u"} - Update access</li>
+ *   <li>{@code "w"} - Write (create) access</li>
+ *   <li>{@code "x"} - Full access (includes all operations)</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao
+ * @see io.github.carlos_emr.carlos.model.security.Secobjprivilege
+ * @since 2026-03-17
+ */
 public class SecurityManager {
+    /** Access level: no access. */
     public static final String ACCESS_NONE = "o";
+    /** Access level: read-only access. */
     public static final String ACCESS_READ = "r";
+    /** Access level: update access. */
     public static final String ACCESS_UPDATE = "u";
+    /** Access level: write (create) access. */
     public static final String ACCESS_WRITE = "w";
+    /** Access level: full access (all operations). */
     public static final String ACCESS_ALL = "x";
     Hashtable _userFunctionAccessList;
     List _userOrgAccessList;    /* list of all orgs the user has at least read only rights */
 
+    /**
+     * Sets the function-level access list for the current user.
+     *
+     * @param functionAccessList Hashtable mapping function codes to their access entries
+     */
     public void setUserFunctionAccessList(Hashtable functionAccessList) {
         _userFunctionAccessList = functionAccessList;
     }
 
+    /**
+     * Returns the list of organizations the user has at least read access to.
+     *
+     * @return List of organization identifiers accessible by the user
+     */
     public List getUserOrgAccessList() {
         return _userOrgAccessList;
     }
 
+    /**
+     * Sets the list of organizations accessible by the current user.
+     *
+     * @param orgAccessList List of organization identifiers
+     */
     public void setUserOrgAccessList(List orgAccessList) {
         _userOrgAccessList = orgAccessList;
     }
 
 
+    /**
+     * Checks whether any of the specified roles grant read access to the named object.
+     * Returns true if no privilege entries exist for the object (open by default).
+     *
+     * @param objectName String the security object name to check
+     * @param roleNames String comma-separated role names to evaluate
+     * @return boolean true if read or full access is granted
+     */
     public boolean hasReadAccess(String objectName, String roleNames) {
         boolean result = false;
 
@@ -82,6 +132,14 @@ public class SecurityManager {
         return result;
     }
 
+    /**
+     * Checks whether any of the specified roles grant write access to the named object.
+     * Delegates to {@link #hasWriteAccess(String, String, boolean)} with required=false.
+     *
+     * @param objectName String the security object name to check
+     * @param roleNames String comma-separated role names to evaluate
+     * @return boolean true if write or full access is granted
+     */
     public boolean hasWriteAccess(String objectName, String roleNames) {
         return hasWriteAccess(objectName, roleNames, false);
     }

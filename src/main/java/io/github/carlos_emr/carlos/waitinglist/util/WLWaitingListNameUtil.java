@@ -33,12 +33,32 @@ import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Utility class for managing waiting list name definitions (create, update, remove).
+ *
+ * <p>Provides static methods for CRUD operations on {@link WaitingListName} entities.
+ * Removal is a soft-delete that sets the {@code is_history} flag to "Y".
+ * Duplicate name checks are enforced within the same provider group before
+ * creation or renaming.</p>
+ *
+ * @since 2026-03-17
+ */
 public class WLWaitingListNameUtil {
 
     private static WaitingListNameDao nameDao = SpringUtils.getBean(WaitingListNameDao.class);
     private static WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
 
 
+    /**
+     * Soft-deletes a waiting list name by setting its {@code is_history} flag to "Y".
+     *
+     * <p>Refuses to remove a waiting list name that still has patients assigned to it,
+     * throwing an exception with the message "wlNameUsed" in that case.</p>
+     *
+     * @param wlNameId String the ID of the waiting list name to remove
+     * @param groupNo  String the provider group number (used for logging)
+     * @throws Exception with message "wlNameUsed" if the waiting list still has patients
+     */
     static public void removeFromWaitingListName(String wlNameId, String groupNo)
             throws Exception {
         if (wlNameId == null || groupNo == null) {
@@ -64,6 +84,17 @@ public class WLWaitingListNameUtil {
         return;
     }
 
+    /**
+     * Creates a new waiting list name definition for the given provider group.
+     *
+     * <p>Checks for duplicate names within the group before persisting.
+     * Silently returns without action if required parameters are null or empty.</p>
+     *
+     * @param wlName     String the name of the new waiting list
+     * @param groupNo    String the provider group number
+     * @param providerNo String the provider number of the creator
+     * @throws Exception with message "wlNameExists" if the name already exists in the group
+     */
     static public void createWaitingListName(String wlName, String groupNo, String providerNo)
             throws Exception {
 

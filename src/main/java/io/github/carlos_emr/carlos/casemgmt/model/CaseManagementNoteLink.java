@@ -29,6 +29,18 @@
 package io.github.carlos_emr.carlos.casemgmt.model;
 
 
+/**
+ * Persistent entity representing a link between a {@link CaseManagementNote} and another
+ * clinical data entity such as a prescription, allergy, lab test, document, eForm,
+ * prevention, tickler, or appointment.
+ *
+ * <p>The {@code tableName} field uses integer constants (e.g., {@link #DRUGS},
+ * {@link #ALLERGIES}, {@link #LABTEST}) to identify the linked table type, and
+ * {@code tableId} holds the primary key of the linked record. Display name constants
+ * (e.g., {@link #DISP_PRESCRIP}) provide human-readable labels for each link type.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementNoteLink {
 
     // Table Name constants
@@ -62,9 +74,19 @@ public class CaseManagementNoteLink {
     private Long noteId;
     private String otherId;
 
+    /**
+     * Default constructor.
+     */
     public CaseManagementNoteLink() {
     }
 
+    /**
+     * Constructs a note link with the specified linked table type, table record ID, and note ID.
+     *
+     * @param tableName Integer the linked table type constant (e.g., {@link #DRUGS}, {@link #DOCUMENT})
+     * @param tableId Long the primary key of the linked record
+     * @param noteId Long the ID of the associated case management note
+     */
     public CaseManagementNoteLink(Integer tableName, Long tableId, Long noteId) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -104,6 +126,11 @@ public class CaseManagementNoteLink {
         this.noteId = noteId;
     }
 
+    /**
+     * Sets the note ID from an Integer value, converting to Long.
+     *
+     * @param noteId Integer the note ID to convert and set
+     */
     public void setNoteId(Integer noteId) {
         setNoteId(noteId.longValue());
     }

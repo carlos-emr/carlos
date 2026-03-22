@@ -47,6 +47,22 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing document description templates.
+ *
+ * <p>Provides CRUD operations for {@link DocumentDescriptionTemplate} records, which define
+ * reusable description shortcuts for clinical documents. Templates can be scoped to a specific
+ * provider or shared clinic-wide. Also manages the per-provider preference for which template
+ * scope to use by default.</p>
+ *
+ * <p>Routes via the {@code method} request parameter to the appropriate handler:
+ * {@code getDocumentDescriptionFromDocType}, {@code getDocumentDescriptionFromId},
+ * {@code addDocumentDescription}, {@code updateDocumentDescription},
+ * {@code deleteDocumentDescription}, {@code saveDocumentDescriptionTemplatePreference}.</p>
+ *
+ * @see DocumentDescriptionTemplate
+ * @since 2026-03-17
+ */
 public class DocumentDescriptionTemplate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -56,6 +72,11 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Dispatches to the appropriate handler method based on the {@code method} request parameter.
+     *
+     * @return String the Struts2 result name, or {@code null} for JSON responses
+     */
     public String execute() {
         String method = request.getParameter("method");
         if ("getDocumentDescriptionFromDocType".equals(method)) {

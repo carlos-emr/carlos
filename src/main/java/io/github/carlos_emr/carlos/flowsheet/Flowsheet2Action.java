@@ -768,6 +768,15 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Removes a measurement or prevention item from a user-created flowsheet. Identifies
+     * the item by matching its measurement type or prevention type against the {@code id}
+     * request parameter. Rebuilds the header item array without the matched item and
+     * persists the updated XML.
+     *
+     * @return {@code null}; writes a JSON response with success status
+     * @throws IOException if writing to the response fails
+     */
     public String removeItem() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String type = request.getParameter("id");
@@ -833,6 +842,14 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves the warning recommendation rules for a specific measurement item within a flowsheet.
+     * Each rule includes its strength, condition type, parameter, value, and a SHA-256 hash
+     * used as a unique identifier for removal operations.
+     *
+     * @return {@code null}; writes a JSON response with the rules array
+     * @throws IOException if writing to the response fails
+     */
     public String getWarnings() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
@@ -888,6 +905,14 @@ public class Flowsheet2Action extends ActionSupport {
 
     }
 
+    /**
+     * Removes a warning recommendation rule from a flowsheet item. Identifies the rule to remove
+     * by matching the SHA-256 hash (computed from strength, type, param, and value) against
+     * the {@code hash} request parameter. Persists the updated XML after removal.
+     *
+     * @return {@code null}; writes a JSON response with success status
+     * @throws IOException if writing to the response fails
+     */
     public String removeWarning() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("type");

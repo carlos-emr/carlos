@@ -35,6 +35,16 @@ import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * Bean representing a diagnosis research entry associated with a patient.
+ *
+ * <p>Contains the diagnosis code, coding system type, status, date range,
+ * provider information, and a human-readable description. The start date
+ * is resolved through {@link PartialDateDao} to support partial-date
+ * formatting in the Canadian healthcare context.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchBean {
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
@@ -48,9 +58,24 @@ public class dxResearchBean {
     String providerNo;
 
 
+    /**
+     * Default no-argument constructor.
+     */
     public dxResearchBean() {
     }
 
+    /**
+     * Constructs a fully populated diagnosis research bean.
+     *
+     * @param description String the human-readable description of the diagnosis
+     * @param dxResearchNo String the unique identifier for this research entry
+     * @param dxSearchCode String the diagnosis code value
+     * @param end_date String the end/update date of the research entry
+     * @param start_date String the start date of the research entry
+     * @param status String the status of the entry (e.g. "A" for active, "D" for deleted)
+     * @param type String the coding system type (e.g. "icd9", "icd10")
+     * @param providerNo String the provider number who created this entry
+     */
     public dxResearchBean(String description,
                           String dxResearchNo,
                           String dxSearchCode,
@@ -69,22 +94,47 @@ public class dxResearchBean {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Returns the human-readable description of the diagnosis.
+     *
+     * @return String the diagnosis description
+     */
     public String getDescription() {
         return description;
     }
 
+    /**
+     * Sets the human-readable description of the diagnosis.
+     *
+     * @param description String the diagnosis description
+     */
     public void setDescription(String description) {
         this.description = description;
     }
 
+    /**
+     * Returns the unique identifier for this diagnosis research entry.
+     *
+     * @return String the dx research number
+     */
     public String getDxResearchNo() {
         return dxResearchNo;
     }
 
+    /**
+     * Sets the unique identifier for this diagnosis research entry.
+     *
+     * @param dxResearchNo String the dx research number
+     */
     public void setDxResearchNo(String dxResearchNo) {
         this.dxResearchNo = dxResearchNo;
     }
 
+    /**
+     * Returns the diagnosis search code value.
+     *
+     * @return String the diagnosis code
+     */
     public String getDxSearchCode() {
         return dxSearchCode;
     }

@@ -62,6 +62,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * UI bean for generating Community Data Set (CDS) version 4 reports.
+ *
+ * <p>Processes CDS client form data across programs and date ranges to produce
+ * cohort-bucketed statistics for MIS reporting. Handles both single and multiple
+ * admission scenarios, categorizing clients into age-based cohort buckets and
+ * computing aggregate counts for each CDS form option.
+ *
+ * @since 2012-08-13
+ */
 public final class Cds4ReportUIBean {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -82,6 +92,10 @@ public final class Cds4ReportUIBean {
         MIN, MAX
     }
 
+    /**
+     * Container for separating CDS client forms into single-admission and
+     * multiple-admission categories, each with their own cohort bucket distributions.
+     */
     public static class SingleMultiAdmissions {
         // key=clientId
         public HashMap<Integer, CdsClientForm> singleAdmissions = new HashMap<Integer, CdsClientForm>();

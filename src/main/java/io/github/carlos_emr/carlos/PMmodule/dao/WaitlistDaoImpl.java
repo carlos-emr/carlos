@@ -56,12 +56,31 @@ import io.github.carlos_emr.carlos.match.vacancy.VacancyData;
 import io.github.carlos_emr.carlos.match.vacancy.VacancyTemplateData;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA-based implementation of {@link WaitlistDao} for waitlist management operations.
+ *
+ * <p>Uses native SQL queries to perform complex joins across vacancy, demographic,
+ * eform, and criteria tables for client-vacancy matching. Converts raw intake
+ * eform variable names into standardized criteria field names for the matching engine.</p>
+ *
+ * @since 2001-09-17
+ * @see WaitlistDao
+ * @see VacancyDisplayBO
+ */
 @Repository
 public class WaitlistDaoImpl implements WaitlistDao {
 
     @PersistenceContext(unitName = "entityManagerFactory")
     protected EntityManager entityManager = null;
 
+    /**
+     * Constructs a list of {@link MatchBO} objects from raw native query result rows.
+     *
+     * @param results List&lt;Object[]&gt; native query result rows with columns: client_id,
+     *        first_name, last_name, days_in_waitlist, last_contact_days, form_id,
+     *        match_percent, proportion
+     * @return List&lt;MatchBO&gt; the constructed match business objects
+     */
     private List<MatchBO> constructMatchBOList(List<Object[]> results) {
 
         List<MatchBO> list = new ArrayList<MatchBO>();
@@ -473,6 +492,18 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return new ArrayList<ClientData>(clientsDataList.values());
     }
 
+    /**
+     * Maps intake eform variable names and values to standardized criteria field names
+     * used by the waitlist matching engine.
+     *
+     * <p>Handles special mappings for age, gender, language, area/location,
+     * housing status, mental illness diagnosis, and legal history fields.</p>
+     *
+     * @param varName String the intake eform variable name
+     * @param varValue String the intake eform variable value
+     * @return String[] an array of name-value pairs (2 elements for single mapping,
+     *         4 elements for dual mapping such as mental illness diagnosis)
+     */
     private String[] intakeVarToCriteriaFiled(String varName, String varValue) {
         if ("age-years".equalsIgnoreCase(varName) || "age category".equalsIgnoreCase(varName)) {
             return new String[]{"age", varValue};

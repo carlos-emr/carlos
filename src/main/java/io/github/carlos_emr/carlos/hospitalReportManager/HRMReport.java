@@ -173,30 +173,65 @@ public class HRMReport {
         return dob.get(0) + "-" + String.format("%02d", dob.get(1)) + "-" + String.format("%02d", dob.get(2));
     }
 
+    /**
+     * Returns the patient's Health Card Number (HCN).
+     *
+     * @return String the health card number
+     */
     public String getHCN() {
         return demographics.getHealthCard().getNumber();
     }
 
+    /**
+     * Returns the version code of the patient's health card.
+     *
+     * @return String the health card version code
+     */
     public String getHCNVersion() {
         return demographics.getHealthCard().getVersion();
     }
 
+    /**
+     * Returns the expiry date of the patient's health card.
+     *
+     * @return Calendar the health card expiry date
+     */
     public Calendar getHCNExpiryDate() {
         return demographics.getHealthCard().getExpirydate().toGregorianCalendar();
     }
 
+    /**
+     * Returns the province code associated with the patient's health card.
+     *
+     * @return String the province code (e.g. "ON" for Ontario)
+     */
     public String getHCNProvinceCode() {
         return demographics.getHealthCard().getProvinceCode();
     }
 
+    /**
+     * Returns the patient's gender value from the demographics.
+     *
+     * @return String the gender value
+     */
     public String getGender() {
         return demographics.getGender().value();
     }
 
+    /**
+     * Returns the unique vendor ID sequence from the patient demographics.
+     *
+     * @return String the unique vendor identifier
+     */
     public String getUniqueVendorIdSequence() {
         return demographics.getUniqueVendorIdSequence();
     }
 
+    /**
+     * Returns the first line of the patient's structured address.
+     *
+     * @return String address line 1, or empty string if no address is available
+     */
     public String getAddressLine1() {
         if (demographics.getAddress() == null || demographics.getAddress().isEmpty()) {
             return "";
@@ -204,6 +239,11 @@ public class HRMReport {
         return demographics.getAddress().get(0).getStructured().getLine1();
     }
 
+    /**
+     * Returns the second line of the patient's structured address.
+     *
+     * @return String address line 2, or empty string if no address is available
+     */
     public String getAddressLine2() {
         if (demographics.getAddress() == null || demographics.getAddress().isEmpty()) {
             return "";
@@ -211,6 +251,11 @@ public class HRMReport {
         return demographics.getAddress().get(0).getStructured().getLine2();
     }
 
+    /**
+     * Returns the city from the patient's structured address.
+     *
+     * @return String the city name, or empty string if no address is available
+     */
     public String getAddressCity() {
         if (demographics.getAddress() == null || demographics.getAddress().isEmpty()) {
             return "";
@@ -218,6 +263,11 @@ public class HRMReport {
         return demographics.getAddress().get(0).getStructured().getCity();
     }
 
+    /**
+     * Returns the country subdivision code (province/state) from the patient's address.
+     *
+     * @return String the subdivision code, or empty string if no address is available
+     */
     public String getCountrySubDivisionCode() {
         if (demographics.getAddress() == null || demographics.getAddress().isEmpty()) {
             return "";
@@ -225,6 +275,11 @@ public class HRMReport {
         return demographics.getAddress().get(0).getStructured().getCountrySubdivisionCode();
     }
 
+    /**
+     * Returns the Canadian postal code from the patient's address.
+     *
+     * @return String the postal code, or empty string if no address is available
+     */
     public String getPostalCode() {
         if (demographics.getAddress() == null || demographics.getAddress().isEmpty()) {
             return "";

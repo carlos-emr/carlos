@@ -36,13 +36,28 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.CtlServiceCodesDxCodes;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link CtlServiceCodesDxCodes} entities.
+ * Provides persistence operations for the mapping between BC MSP billing
+ * service codes and their associated diagnostic (ICD-9) codes.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class CtlServiceCodesDxCodesDao extends AbstractDaoImpl<CtlServiceCodesDxCodes> {
 
+    /**
+     * Constructs a new {@code CtlServiceCodesDxCodesDao} with the {@link CtlServiceCodesDxCodes} entity class.
+     */
     public CtlServiceCodesDxCodesDao() {
         super(CtlServiceCodesDxCodes.class);
     }
 
+    /**
+     * Retrieves all service code to diagnostic code mappings.
+     *
+     * @return List of all {@link CtlServiceCodesDxCodes} records
+     */
     public List<CtlServiceCodesDxCodes> findAll() {
         Query q = entityManager.createQuery("select c from CtlServiceCodesDxCodes c");
 
@@ -52,6 +67,12 @@ public class CtlServiceCodesDxCodesDao extends AbstractDaoImpl<CtlServiceCodesDx
         return results;
     }
 
+    /**
+     * Finds all diagnostic code mappings for a specific service code.
+     *
+     * @param serviceCode String the BC MSP service code to look up
+     * @return List of {@link CtlServiceCodesDxCodes} matching the service code
+     */
     public List<CtlServiceCodesDxCodes> findByServiceCode(String serviceCode) {
         Query q = entityManager.createQuery("select c from CtlServiceCodesDxCodes c where c.serviceCode=?1");
         q.setParameter(1, serviceCode);

@@ -97,6 +97,13 @@ public class Hl7MshDao extends AbstractDaoImpl<Hl7Msh> {
         return query.getResultList();
     }
 
+    /**
+     * Finds PathNet lab results for a specific lab number. Uses a constructor expression
+     * to build {@link PathNetLabResults} instances.
+     *
+     * @param labNo Integer the lab number (message ID) to look up
+     * @return List of {@link PathNetLabResults} for the given lab number
+     */
     public List<PathNetLabResults> findPathnetResultsByLabNo(Integer labNo) {
 		/*
 		 * Below query use a constructor expression (SELECT new io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, ProviderLabRoutingModel, String))
@@ -116,6 +123,14 @@ public class Hl7MshDao extends AbstractDaoImpl<Hl7Msh> {
         return query.getResultList();
     }
 
+	/**
+	 * Finds PathNet lab results for a specific demographic (patient) and lab type.
+	 * Uses patient lab routing to join with HL7 segments.
+	 *
+	 * @param demographicNo Integer the demographic (patient) number
+	 * @param labType String the lab type identifier (e.g., "BCP")
+	 * @return List of {@link PathNetLabResults} for the given demographic and lab type
+	 */
 	public List<PathNetLabResults> findPathnetResultsDeomgraphicNo(Integer demographicNo, String labType) {
 		/*
 		 * Below query use a constructor expression (SELECT new io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults(Hl7Msh, Hl7Pid, Hl7Orc, Hl7Obr, PatientLabRouting, String))
@@ -137,6 +152,14 @@ public class Hl7MshDao extends AbstractDaoImpl<Hl7Msh> {
         return query.getResultList();
     }
 
+    /**
+     * Retrieves IDs of lab results for a demographic that have been updated since the given date.
+     * Checks both the MSH date/time and the patient lab routing modification date.
+     *
+     * @param demographicNo Integer the demographic (patient) number
+     * @param updateDate Date the cutoff date for finding updated results
+     * @return List of Integer MSH IDs for results updated since the given date
+     */
     public List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate) {
         String query = "select m.id from Hl7Msh m, PatientLabRouting p WHERE m.id = p.labNo and p.labType='BCP' and p.demographicNo = ?1 and (m.dateTime > ?2 or p.dateModified > ?3) ";
         Query q = entityManager.createQuery(query);

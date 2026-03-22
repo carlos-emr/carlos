@@ -166,18 +166,22 @@ public class AdmissionManagerImpl implements AdmissionManager {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, false, null, false);
     }
     */
+    /** {@inheritDoc} */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, false, null, false, null);
     }
 
+    /** {@inheritDoc} */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes, boolean tempAdmission) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, tempAdmission, null, false, null);
     }
 
+    /** {@inheritDoc} */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes, boolean tempAdmission, List<Integer> dependents) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, tempAdmission, null, false, dependents);
     }
 
+    /** {@inheritDoc} */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes, boolean tempAdmission, boolean overrideRestriction) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, tempAdmission, null, overrideRestriction, null);
     }

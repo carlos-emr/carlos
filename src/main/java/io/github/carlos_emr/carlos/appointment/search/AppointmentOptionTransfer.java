@@ -156,6 +156,11 @@ public class AppointmentOptionTransfer {
     }
 
 
+    /**
+     * Sets the cancellation status of this appointment option.
+     *
+     * @param isCancelled boolean {@code true} to mark as cancelled
+     */
     public void setCancelled(boolean isCancelled) {
         this.isCancelled = isCancelled;
     }

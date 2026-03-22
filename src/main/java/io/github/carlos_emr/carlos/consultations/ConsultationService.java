@@ -81,10 +81,11 @@ public class ConsultationService {
      */
     @Deprecated
     public List<ConsultationRequest> listConsultationRequests(LoggedInInfo loggedInInfo, PaginationQuery paginationQuery) {
+        // Narrow to ConsultationQuery to access consultation-specific filter fields
         ConsultationQuery query = (ConsultationQuery) paginationQuery;
 
         List<ConsultationRequest> results = consultationDao.listConsultationRequests(query);
-        //--- log action ---
+        // Log the IDs of returned results for audit trail compliance
         if (results.size() > 0) {
             String resultIds = ConsultationRequest.getIdsAsStringList(results);
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationService.listConsultationRequests", "ids returned=" + resultIds);

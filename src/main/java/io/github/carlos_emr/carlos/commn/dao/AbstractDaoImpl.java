@@ -511,6 +511,11 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         return getModelClass().getSimpleName();
     }
 
+    /**
+     * Sets the entity model class managed by this DAO.
+     *
+     * @param modelClass Class the entity class
+     */
     private void setModelClass(Class<T> modelClass) {
         this.modelClass = modelClass;
     }
@@ -576,10 +581,22 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         return new ParamAppender(getBaseQuery(alias));
     }
 
+    /**
+     * Applies the default maximum result limit to the given query.
+     *
+     * @param query the JPA query to limit
+     */
     protected final void setDefaultLimit(Query query) {
         query.setMaxResults(getMaxSelectSize());
     }
 
+    /**
+     * Applies a result limit to the given query, ensuring it does not exceed the maximum.
+     *
+     * @param query         the JPA query to limit
+     * @param itemsToReturn int the maximum number of results to return
+     * @throws IllegalArgumentException if {@code itemsToReturn} exceeds the maximum select size
+     */
     protected final void setLimit(Query query, int itemsToReturn) {
         if (itemsToReturn > getMaxSelectSize())
             throw (new IllegalArgumentException("Requested too large of a result list size : " + itemsToReturn));
@@ -587,6 +604,14 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         query.setMaxResults(itemsToReturn);
     }
 
+    /**
+     * Applies pagination (offset and limit) to the given query.
+     *
+     * @param query         the JPA query to paginate
+     * @param startIndex    int the zero-based offset of the first result
+     * @param itemsToReturn int the maximum number of results to return
+     * @throws IllegalArgumentException if {@code itemsToReturn} exceeds the maximum select size
+     */
     protected final void setLimit(Query query, int startIndex, int itemsToReturn) {
         query.setFirstResult(startIndex);
         setLimit(query, itemsToReturn);

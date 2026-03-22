@@ -56,26 +56,60 @@ public class ScheduleTemplate extends AbstractModel<ScheduleTemplatePrimaryKey> 
     private String summary;
     private String timecode;
 
+    /**
+     * Gets the composite primary key (provider number + template name).
+     *
+     * @return ScheduleTemplatePrimaryKey the composite primary key
+     */
     public ScheduleTemplatePrimaryKey getId() {
         return id;
     }
 
+    /**
+     * Gets the summary description of this template.
+     *
+     * @return String the template summary
+     */
     public String getSummary() {
         return summary;
     }
 
+    /**
+     * Sets the summary description of this template.
+     *
+     * @param summary String the template summary to set
+     */
     public void setSummary(String summary) {
         this.summary = summary;
     }
 
+    /**
+     * Gets the timecode string defining the day's schedule slot pattern.
+     *
+     * <p>Each character maps to a {@link ScheduleTemplateCode}, and underscore
+     * ({@code _}) represents an empty slot. The total number of characters
+     * determines the slot duration (1440 / length = minutes per slot).</p>
+     *
+     * @return String the timecode pattern
+     */
     public String getTimecode() {
         return timecode;
     }
 
+    /**
+     * Sets the timecode string defining the day's schedule slot pattern.
+     *
+     * @param timecode String the timecode pattern to set
+     */
     public void setTimecode(String timecode) {
         this.timecode = timecode;
     }
 
+    /**
+     * Sets the composite primary key (provider number + template name).
+     *
+     * @param id ScheduleTemplatePrimaryKey the composite primary key to set
+     */
     public void setId(ScheduleTemplatePrimaryKey id) {
         this.id = id;
     }

@@ -36,6 +36,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
+/**
+ * Defines a time slot filter used in the appointment search pipeline.
+ *
+ * <p>Each filter definition holds a fully qualified class name of an
+ * {@link io.github.carlos_emr.carlos.appointment.search.filters.AvailableTimeSlotFilter}
+ * implementation along with a parameter map parsed from XML configuration attributes.
+ * Filters are applied sequentially to narrow down available appointment time slots.</p>
+ *
+ * @since 2026-03-17
+ */
 public class FilterDefinition {
     private static Logger logger = MiscUtils.getLogger();
 
@@ -43,22 +53,51 @@ public class FilterDefinition {
     Map<String, String> params = new HashMap<String, String>();
 
 
+    /**
+     * Returns the fully qualified class name of the filter implementation.
+     *
+     * @return String the filter class name
+     */
     public String getFilterClassName() {
         return filterClassName;
     }
 
+    /**
+     * Sets the fully qualified class name of the filter implementation.
+     *
+     * @param filterClassName String the filter class name
+     */
     public void setFilterClassName(String filterClassName) {
         this.filterClassName = filterClassName;
     }
 
+    /**
+     * Returns the configuration parameters for this filter.
+     *
+     * @return Map&lt;String, String&gt; the parameter map
+     */
     public Map<String, String> getParams() {
         return params;
     }
 
+    /**
+     * Sets the configuration parameters for this filter.
+     *
+     * @param params Map&lt;String, String&gt; the parameter map
+     */
     public void setParams(Map<String, String> params) {
         this.params = params;
     }
 
+    /**
+     * Creates a {@code FilterDefinition} from an XML node.
+     *
+     * <p>The node's text content is used as the filter class name. All XML attributes
+     * on the node are extracted as key-value parameter pairs.</p>
+     *
+     * @param node Node the XML node containing the filter definition
+     * @return FilterDefinition the parsed filter definition
+     */
     public static FilterDefinition fromXml(Node node) {
         FilterDefinition filterDefinition = new FilterDefinition();
         filterDefinition.setFilterClassName(node.getTextContent());

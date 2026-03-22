@@ -263,6 +263,12 @@ public class Prevention {
             return 0;
     }
 
+    /**
+     * Returns the patient's age in months, calculated from this profile's DOB.
+     * The result is cached after the first calculation.
+     *
+     * @return int the age in months, or 0 if DOB is {@code null}
+     */
     public int getAgeInMonths() {
         if (ageInMonths == -1) {
             ageInMonths = getAgeInMonths(DOB);
@@ -270,6 +276,11 @@ public class Prevention {
         return ageInMonths;
     }
 
+    /**
+     * Returns the patient's age in years, calculated from this profile's DOB to now.
+     *
+     * @return int the age in years, or 0 if DOB is {@code null}
+     */
     public int getAgeInYears() {
         if (DOB != null)
             return getNumYears(DOB, Calendar.getInstance().getTime());
@@ -277,6 +288,13 @@ public class Prevention {
             return 0;
     }
 
+    /**
+     * Checks whether today falls within the specified date range (exclusive).
+     *
+     * @param startDate String the range start date in "yyyy-MM-dd" format
+     * @param endDate String the range end date in "yyyy-MM-dd" format
+     * @return boolean {@code true} if today is after startDate and before endDate
+     */
     public boolean isTodayinDateRange(String startDate, String endDate) {
         boolean inRange = false;
         Calendar calendar = Calendar.getInstance();

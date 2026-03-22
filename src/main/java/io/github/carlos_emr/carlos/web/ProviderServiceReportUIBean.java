@@ -65,11 +65,21 @@ public class ProviderServiceReportUIBean {
     private Date endDate = null;
     private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM");
 
+    /**
+     * Constructs a report bean for the specified date range.
+     *
+     * @param startDate Date the start date of the reporting period
+     * @param endDate Date the end date of the reporting period (inclusive)
+     */
     public ProviderServiceReportUIBean(Date startDate, Date endDate) {
         this.startDate = startDate;
         this.endDate = endDate;
     }
 
+    /**
+     * Represents a single row of report data containing program details,
+     * date information, and associated encounter counts.
+     */
     public static class DataRow {
         public String programName = null;
         public String programType = null;
@@ -77,6 +87,15 @@ public class ProviderServiceReportUIBean {
         public EncounterCounts encounterCounts = null;
     }
 
+    /**
+     * Generates and returns all data rows for the report.
+     *
+     * <p>Iterates through all active service programs, computing monthly encounter counts
+     * for each, then appends agency-wide totals across all programs.
+     *
+     * @return List&lt;DataRow&gt; the complete set of report data rows, or {@code null} if the
+     *         "doctor" role is not found in the database
+     */
     public List<DataRow> getDataRows() {
         Calendar startCal = Calendar.getInstance();
         startCal.setTimeInMillis(startDate.getTime());

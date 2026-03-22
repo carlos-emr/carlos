@@ -44,7 +44,13 @@ import java.util.Set;
 import java.util.StringTokenizer;
 
 /**
- * @author Oscar
+ * Provides lazy-loaded access to clinic configuration data stored in the database.
+ *
+ * <p>Clinic data is loaded on first access from the {@link ClinicDAO} and cached
+ * in memory. The cache can be refreshed by calling {@link #refreshClinicData()}.
+ * Fields correspond to columns in the {@code clinic} database table.</p>
+ *
+ * @since 2026-03-17
  */
 public class ClinicData {
     /**
@@ -84,9 +90,16 @@ public class ClinicData {
 
     boolean filled = false;
 
+    /**
+     * Constructs a new ClinicData instance. Data is not loaded until first access.
+     */
     public ClinicData() {
     }
 
+    /**
+     * Lazily loads clinic data from the database if not already populated.
+     * Subsequent calls are no-ops unless {@link #refreshClinicData()} is called first.
+     */
     void fillClinicData() {
         if (!filled) {
             ClinicDAO dao = SpringUtils.getBean(ClinicDAO.class);
@@ -110,11 +123,21 @@ public class ClinicData {
         }
     }
 
+    /**
+     * Returns the clinic number (primary key).
+     *
+     * @return String the clinic number, or {@code null} if no clinic data exists
+     */
     public String getClinicNo() {
         fillClinicData();
         return clinic_no;
     }
 
+	/**
+	 * Returns the clinic name, defaulting to an empty string if not set.
+	 *
+	 * @return String the clinic name, or empty string if {@code null}
+	 */
 	public String getClinicName() {
 		fillClinicData();
 		if (clinic_name == null) {

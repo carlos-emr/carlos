@@ -37,6 +37,17 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * JPA entity representing a holiday in the clinic scheduling system.
+ *
+ * <p>Maps to the {@code scheduleholiday} table. Each entry marks a specific
+ * date as a holiday, which is used by the schedule manager to flag days
+ * when the clinic may be closed or have reduced availability.</p>
+ *
+ * <p>The primary key is the holiday date itself ({@code sdate} column).</p>
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "scheduleholiday")
 public class ScheduleHoliday extends AbstractModel<Date> {

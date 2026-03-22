@@ -41,6 +41,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that forwards allergy reaction details to the reaction entry form.
+ * <p>
+ * Extracts allergy identification parameters (ID, name, type) from the request and
+ * sets them as request attributes for the AddReaction JSP to render the reaction
+ * detail entry form.
+ *
+ * @since 2026-03-17
+ */
 public final class RxAddReaction2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

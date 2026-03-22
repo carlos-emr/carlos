@@ -43,7 +43,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author rjonasz
+ * Manages the attachment and detachment of Hospital Report Manager (HRM)
+ * documents to eForms. Handles the reconciliation logic that compares
+ * currently attached reports with newly selected ones, attaching new
+ * selections and detaching removed ones.
+ *
+ * @see EFormAttachDocs
+ * @see EFormAttachLabs
+ * @see EFormAttachEForms
+ * @since 2006-05-25
  */
 public class EFormAttachHRMReports {
 
@@ -58,7 +66,17 @@ public class EFormAttachHRMReports {
     private ArrayList<String> hrmReports;
 
     /**
-     * Creates a new instance of ConsultationAttachLabs
+     * Constructs an EFormAttachHRMReports instance with the given provider, demographic,
+     * eForm data ID, and array of HRM report identifiers to attach.
+     *
+     * <p>When the {@code consultation_indivica_attachment_enabled} property is active,
+     * all report IDs are used directly. Otherwise, IDs prefixed with 'H' are extracted
+     * and the prefix is stripped.</p>
+     *
+     * @param providerNumberToAttach String the provider number performing the attachment
+     * @param demographicNumberToAttach String the demographic number of the patient
+     * @param consultationIdToAttach String the eForm data ID to attach reports to
+     * @param hrmReportsToAttach String[] array of HRM report identifiers
      */
     public EFormAttachHRMReports(String providerNumberToAttach, String demographicNumberToAttach, String consultationIdToAttach, String[] hrmReportsToAttach) {
         providerNumber = providerNumberToAttach;
@@ -81,6 +99,11 @@ public class EFormAttachHRMReports {
         }
     }
 
+    /**
+     * Reconciles HRM report attachments for this eForm. Compares currently
+     * attached reports against the selected reports, detaching removed ones
+     * and attaching newly added ones.
+     */
     public void attach() {
 
         //Gets a list of already attached hrmDocumentToDemographic objects
@@ -117,6 +140,13 @@ public class EFormAttachHRMReports {
             attachHRMReportConsult(providerNumber, newList.get(index), consultationId);
     }
 
+    /**
+     * Soft-deletes HRM report attachments for a given eForm data ID by
+     * setting the deleted flag to "Y" on matching {@link EFormDocs} records.
+     *
+     * @param hrmDocumentNumber String the HRM document number to detach
+     * @param consultationId String the eForm data ID
+     */
     public static void detachHRMReportConsult(String hrmDocumentNumber, String consultationId) {
         //Selects all of the consultDocs for the given consultation id and hrm document number
         List<EFormDocs> consultDocs = eformDocsDao.findByFdidIdDocNoDocType(Integer.parseInt(consultationId), Integer.parseInt(hrmDocumentNumber), "H");

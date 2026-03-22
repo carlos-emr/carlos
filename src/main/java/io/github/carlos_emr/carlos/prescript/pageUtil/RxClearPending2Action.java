@@ -42,6 +42,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for clearing all pending prescriptions from the session stash.
+ * <p>
+ * Removes all in-progress prescriptions from the {@link RxSessionBean} stash.
+ * Returns either a close result or success based on the {@code action} parameter.
+ *
+ * @since 2026-03-17
+ */
 public final class RxClearPending2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -492,10 +492,22 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
         else return ("Unknown " + onsetCode);
     }
 
+    /**
+     * Returns the human-readable description of this allergy's type code.
+     *
+     * @return String the type description (e.g., "Generic Name", "Brand Name", "Ingredient")
+     */
     public String getTypeDesc() {
         return Allergy.getTypeDesc(this.getTypeCode());
     }
 
+    /**
+     * Translates an allergy type code to its human-readable description.
+     *
+     * @param typeCode int the type code (8=ATC Class, 10=AHFS Class, 11=Generic Name,
+     *                 12=Compound, 13=Brand Name, 14=Ingredient)
+     * @return String the type description, or empty string if unrecognized
+     */
     public static String getTypeDesc(int typeCode) {
         String s;
         /** 6 |  1 | generic
@@ -539,11 +551,22 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
         return s;
     }
 
+    /**
+     * Returns the human-readable description of this allergy's severity of reaction.
+     *
+     * @return String the severity description (e.g., "Mild", "Moderate", "Severe")
+     */
     public String getSeverityOfReactionDesc() {
         return Allergy.getSeverityOfReactionDesc(this.getSeverityOfReaction());
     }
 
     //TODO: NEEDS I18N
+    /**
+     * Translates a severity of reaction code to its human-readable description.
+     *
+     * @param severityCode String the severity code ("1"=Mild, "2"=Moderate, "3"=Severe, "5"=No Reaction)
+     * @return String the severity description, or "Unknown" if unrecognized
+     */
     public static String getSeverityOfReactionDesc(String severityCode) {
         if ("1".equals(severityCode)) return ("Mild");
         if ("2".equals(severityCode)) return ("Moderate");

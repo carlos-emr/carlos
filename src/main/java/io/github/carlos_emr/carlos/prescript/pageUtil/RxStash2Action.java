@@ -42,6 +42,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for managing the prescription stash (in-progress prescriptions).
+ * <p>
+ * Supports editing, deleting, and navigating prescriptions within the session stash.
+ * The stash index can be set by random ID (for AJAX workflows) or by direct stash position.
+ * Routes to sub-methods based on the {@code parameterValue} request parameter.
+ *
+ * @since 2026-03-17
+ */
 public final class RxStash2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

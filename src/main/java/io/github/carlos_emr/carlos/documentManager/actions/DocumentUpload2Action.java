@@ -369,6 +369,12 @@ public class DocumentUpload2Action extends ActionSupport {
         return baseName;
     }
 
+    /**
+     * Persists the user's preferred upload destination (standard document store or incoming docs)
+     * as a {@link UserProperty}. Called via AJAX to remember the user's last selection.
+     *
+     * @return String null (no view rendering needed)
+     */
     public String setUploadDestination() {
 
         String user_no = (String) request.getSession().getAttribute("user");
@@ -389,6 +395,12 @@ public class DocumentUpload2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Persists the user's preferred incoming document subfolder (Fax, Mail, File, etc.)
+     * as a {@link UserProperty}. Called via AJAX to remember the user's last selection.
+     *
+     * @return String null (no view rendering needed)
+     */
     public String setUploadIncomingDocumentFolder() {
 
 

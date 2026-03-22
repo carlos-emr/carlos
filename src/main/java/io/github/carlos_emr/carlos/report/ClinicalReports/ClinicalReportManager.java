@@ -149,10 +149,22 @@ public class ClinicalReportManager {
         return denominatorList;
     }
 
+    /**
+     * Returns the list of all loaded numerator definitions.
+     *
+     * @return List&lt;Numerator&gt; the numerator list
+     */
     public List<Numerator> getNumeratorList() {
         return numeratorList;
     }
 
+    /**
+     * Retrieves a numerator by its unique identifier, instantiating the appropriate
+     * typed numerator (SQL, DROOLS, DROOLS2-5) from the raw hashtable definition.
+     *
+     * @param id String the numerator identifier
+     * @return Numerator the instantiated numerator, or {@code null} if not found or type is unknown
+     */
     public Numerator getNumeratorById(String id) {
         if (StringUtils.isEmpty(id)) {
             return null;
@@ -219,6 +231,12 @@ public class ClinicalReportManager {
         return null;
     }
 
+    /**
+     * Retrieves a denominator by its unique identifier.
+     *
+     * @param id String the denominator identifier
+     * @return Denominator the denominator, or {@code null} if not found
+     */
     public Denominator getDenominatorById(String id) {
         return (Denominator) denominatorHash.get(id);
     }

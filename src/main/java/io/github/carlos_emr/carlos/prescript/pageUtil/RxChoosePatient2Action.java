@@ -51,6 +51,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 
+/**
+ * Struts 2 action that initializes a prescription session for a selected patient.
+ * <p>
+ * Creates an {@link RxSessionBean} for the patient, loads their demographic data,
+ * sets up the provider's prescription profile view preferences, and determines whether
+ * to route to the RX3 or legacy prescription interface based on system and user settings.
+ * Requires {@code _demographic} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxChoosePatient2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

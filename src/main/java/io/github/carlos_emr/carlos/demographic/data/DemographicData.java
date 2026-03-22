@@ -440,10 +440,22 @@ public class DemographicData {
         return addZero(d.getYearOfBirth(), 4) + addZero(d.getMonthOfBirth(), 2) + addZero(d.getDateOfBirth(), 2);
     }
 
+    /**
+     * Calculates the patient's current age in days.
+     *
+     * @param d Demographic the patient demographic record
+     * @return long the age in days
+     */
     public static long getAgeInDays(Demographic d) {
         return UtilDateUtilities.getNumDays(UtilDateUtilities.calcDate(d.getYearOfBirth(), d.getMonthOfBirth(), d.getDateOfBirth()), Calendar.getInstance().getTime());
     }
 
+    /**
+     * Returns the patient's date of birth as a Date object.
+     *
+     * @param d Demographic the patient demographic record
+     * @return Date the parsed date of birth, or null if not set or invalid
+     */
     public static Date getDOBObj(Demographic d) {
         Date date = null;
         try {
@@ -455,12 +467,25 @@ public class DemographicData {
         return date;
     }
 
+    /**
+     * Returns the patient's date of birth with a custom separator.
+     *
+     * @param d Demographic the patient demographic record
+     * @param seperator String the separator between year, month, and day components
+     * @return String the date of birth in "yyyy{sep}MM{sep}dd" format, or null if any component is null
+     */
     public static String getDob(Demographic d, String seperator) {
         if (d.getYearOfBirth() == null || d.getMonthOfBirth() == null || d.getDateOfBirth() == null) return (null);
 
         return d.getYearOfBirth() + seperator + d.getMonthOfBirth() + seperator + d.getDateOfBirth();
     }
 
+    /**
+     * Checks whether the patient's sex is female.
+     *
+     * @param d Demographic the patient demographic record
+     * @return boolean true if the patient's sex is "F" (case-insensitive)
+     */
     public static boolean isFemale(Demographic d) {
         boolean female = false;
         if (d.getSex() != null && d.getSex().trim().equalsIgnoreCase("f")) {
@@ -469,6 +494,12 @@ public class DemographicData {
         return female;
     }
 
+    /**
+     * Checks whether the patient's sex is male.
+     *
+     * @param d Demographic the patient demographic record
+     * @return boolean true if the patient's sex is "M" (case-insensitive)
+     */
     public static boolean isMale(Demographic d) {
         boolean male = false;
         if (d.getSex() != null && d.getSex().trim().equalsIgnoreCase("m")) {
@@ -477,6 +508,13 @@ public class DemographicData {
         return male;
     }
 
+    /**
+     * Left-pads a string with zeros to the specified length.
+     *
+     * @param text String the text to pad, or null
+     * @param num int the desired minimum length
+     * @return String the zero-padded string, or null if input is null
+     */
     public static String addZero(String text, int num) {
         if (text == null) return (null);
 

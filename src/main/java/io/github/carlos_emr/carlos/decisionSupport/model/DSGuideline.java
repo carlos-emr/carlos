@@ -135,28 +135,66 @@ public abstract class DSGuideline extends AbstractModel<Integer> {
     @Transient
     private boolean parsed = false;
 
+    /**
+     * Gets the title of this clinical guideline.
+     *
+     * @return String the guideline title used for display and identification
+     */
     public String getTitle() {
         return title;
     }
 
+    /**
+     * Sets the title of this clinical guideline.
+     *
+     * @param title String the guideline title
+     */
     public void setTitle(String title) {
         this.title = title;
     }
 
+    /**
+     * Gets the list of clinical conditions for this guideline, parsing from XML if needed.
+     * <p>
+     * Triggers lazy parsing of the XML content on first access if the guideline
+     * has not yet been parsed.
+     * </p>
+     *
+     * @return List of DSCondition objects defining the guideline's evaluation criteria
+     */
     public List<DSCondition> getConditions() {
         if (!parsed) this.tryParseFromXml();
         return conditions;
     }
 
+    /**
+     * Sets the list of clinical conditions for this guideline.
+     *
+     * @param conditions List of DSCondition objects defining evaluation criteria
+     */
     public void setConditions(List<DSCondition> conditions) {
         this.conditions = conditions;
     }
 
+    /**
+     * Gets the list of consequences triggered when guideline conditions are met, parsing from XML if needed.
+     * <p>
+     * Triggers lazy parsing of the XML content on first access if the guideline
+     * has not yet been parsed.
+     * </p>
+     *
+     * @return List of DSConsequence objects defining the guideline's triggered actions
+     */
     public List<DSConsequence> getConsequences() {
         if (!parsed) this.tryParseFromXml();
         return consequences;
     }
 
+    /**
+     * Sets the list of consequences for this guideline.
+     *
+     * @param consequences List of DSConsequence objects defining triggered actions
+     */
     public void setConsequences(List<DSConsequence> consequences) {
         this.consequences = consequences;
     }
@@ -229,7 +267,15 @@ public abstract class DSGuideline extends AbstractModel<Integer> {
         }
     }
 
-    //generally done automatically
+    /**
+     * Parses the guideline's XML content into structured condition, consequence, and parameter objects.
+     * <p>
+     * Generally invoked automatically on first access to conditions or consequences.
+     * Can be called explicitly to force re-parsing of the XML content.
+     * </p>
+     *
+     * @throws DecisionSupportParseException if the XML content is malformed or contains invalid elements
+     */
     public void parseFromXml() throws DecisionSupportParseException {
         DSGuidelineFactory factory = new DSGuidelineFactory();
         DSGuideline newGuideline = factory.createGuidelineFromXml(getXml());

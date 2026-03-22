@@ -40,6 +40,13 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import org.apache.commons.text.StringEscapeUtils;
 
 
+/**
+ * JSP custom tag that constructs and outputs a fully-qualified URL path based on the
+ * current request context. Combines the request scheme, server name, port, and
+ * current URI path with a configurable JSP page name to produce an absolute URL.
+ *
+ * @since 2001-01-01
+ */
 public class FullPathReWrite extends TagSupport {
 
 
@@ -53,10 +60,20 @@ public class FullPathReWrite extends TagSupport {
      */
     protected String jspPage = null;
 
+    /**
+     * Returns the configured JSP page name.
+     *
+     * @return String the JSP page name, or an empty string if not set
+     */
     public String getJspPage() {
         return (this.jspPage == null) ? "" : this.jspPage;
     }
 
+    /**
+     * Sets the JSP page name to append to the constructed URL.
+     *
+     * @param jspPage String the JSP page name
+     */
     public void setJspPage(String jspPage) {
         this.jspPage = jspPage;
     }

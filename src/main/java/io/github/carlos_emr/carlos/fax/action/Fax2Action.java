@@ -663,6 +663,11 @@ public class Fax2Action extends ActionSupport {
         return copyToRecipients;
     }
 
+    /**
+     * Sets the copy-to recipients from Struts parameter binding.
+     *
+     * @param copyToRecipients String[] JSON-encoded additional recipients
+     */
     @StrutsParameter
     public void setCopyToRecipients(String[] copyToRecipients) {
         this.copyToRecipients = copyToRecipients;

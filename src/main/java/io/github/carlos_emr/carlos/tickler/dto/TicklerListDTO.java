@@ -184,122 +184,160 @@ public class TicklerListDTO implements Serializable {
         return sb.toString();
     }
 
+    /** @return Integer the tickler ID */
     public Integer getId() {
         return id;
     }
 
+    /** @param id Integer the tickler ID */
     public void setId(Integer id) {
         this.id = id;
     }
 
+    /** @return String the tickler message text */
     public String getMessage() {
         return message;
     }
 
+    /** @param message String the tickler message text */
     public void setMessage(String message) {
         this.message = message;
     }
 
+    /** @return Date the tickler service date */
     public Date getServiceDate() {
         return serviceDate;
     }
 
+    /** @param serviceDate Date the tickler service date */
     public void setServiceDate(Date serviceDate) {
         this.serviceDate = serviceDate;
     }
 
+    /** @return Date the tickler creation date */
     public Date getCreateDate() {
         return createDate;
     }
 
+    /** @param createDate Date the tickler creation date */
     public void setCreateDate(Date createDate) {
         this.createDate = createDate;
     }
 
+    /** @return Tickler.STATUS the tickler status (A=Active, C=Completed, D=Deleted) */
     public Tickler.STATUS getStatus() {
         return status;
     }
 
+    /** @param status Tickler.STATUS the tickler status */
     public void setStatus(Tickler.STATUS status) {
         this.status = status;
     }
 
+    /** @return Tickler.PRIORITY the tickler priority (High, Normal, Low) */
     public Tickler.PRIORITY getPriority() {
         return priority;
     }
 
+    /** @param priority Tickler.PRIORITY the tickler priority */
     public void setPriority(Tickler.PRIORITY priority) {
         this.priority = priority;
     }
 
+    /** @return Integer the patient demographic number */
     public Integer getDemographicNo() {
         return demographicNo;
     }
 
+    /** @param demographicNo Integer the patient demographic number */
     public void setDemographicNo(Integer demographicNo) {
         this.demographicNo = demographicNo;
     }
 
+    /** @return String the patient's last name */
     public String getDemographicLastName() {
         return demographicLastName;
     }
 
+    /** @param demographicLastName String the patient's last name */
     public void setDemographicLastName(String demographicLastName) {
         this.demographicLastName = demographicLastName;
     }
 
+    /** @return String the patient's first name */
     public String getDemographicFirstName() {
         return demographicFirstName;
     }
 
+    /** @param demographicFirstName String the patient's first name */
     public void setDemographicFirstName(String demographicFirstName) {
         this.demographicFirstName = demographicFirstName;
     }
 
+    /** @return String the creating provider's last name */
     public String getCreatorLastName() {
         return creatorLastName;
     }
 
+    /** @param creatorLastName String the creating provider's last name */
     public void setCreatorLastName(String creatorLastName) {
         this.creatorLastName = creatorLastName;
     }
 
+    /** @return String the creating provider's first name */
     public String getCreatorFirstName() {
         return creatorFirstName;
     }
 
+    /** @param creatorFirstName String the creating provider's first name */
     public void setCreatorFirstName(String creatorFirstName) {
         this.creatorFirstName = creatorFirstName;
     }
 
+    /** @return String the assigned provider's last name */
     public String getAssigneeLastName() {
         return assigneeLastName;
     }
 
+    /** @param assigneeLastName String the assigned provider's last name */
     public void setAssigneeLastName(String assigneeLastName) {
         this.assigneeLastName = assigneeLastName;
     }
 
+    /** @return String the assigned provider's first name */
     public String getAssigneeFirstName() {
         return assigneeFirstName;
     }
 
+    /** @param assigneeFirstName String the assigned provider's first name */
     public void setAssigneeFirstName(String assigneeFirstName) {
         this.assigneeFirstName = assigneeFirstName;
     }
 
+    /** @return List of TicklerCommentDTO the tickler comments, populated via batch loading */
     public List<TicklerCommentDTO> getComments() {
         return comments;
     }
 
+    /**
+     * Sets the tickler comments, making a defensive copy of the input list.
+     *
+     * @param comments List of TicklerCommentDTO the tickler comments, or null for an empty list
+     */
     public void setComments(List<TicklerCommentDTO> comments) {
         this.comments = comments != null ? new ArrayList<>(comments) : Collections.emptyList();
     }
 
+    /** @return List of TicklerLinkDTO the tickler links, populated via batch loading */
     public List<TicklerLinkDTO> getLinks() {
         return links;
     }
 
+    /**
+     * Sets the tickler links, making a defensive copy of the input list.
+     *
+     * @param links List of TicklerLinkDTO the tickler links, or null for an empty list
+     */
     public void setLinks(List<TicklerLinkDTO> links) {
         this.links = links != null ? new ArrayList<>(links) : Collections.emptyList();
     }

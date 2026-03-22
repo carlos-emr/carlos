@@ -63,10 +63,23 @@ public class ProviderRxInteractionWarningLevel2Action extends ActionSupport {
 
     private UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
 
+    /**
+     * Delegates to {@link #update()} to save the interaction warning level.
+     *
+     * @return String {@code null} (writes directly to the response)
+     */
     public String execute() {
         return update();
     }
 
+    /**
+     * Saves or updates the {@code rxInteractionWarningLevel} user property for the logged-in provider.
+     *
+     * <p>Reads the {@code value} request parameter and persists it. If no existing property
+     * is found, a new one is created. Writes {@code "ok"} to the response on success.</p>
+     *
+     * @return String {@code null} (response written directly)
+     */
     public String update() {
         String value = request.getParameter("value");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

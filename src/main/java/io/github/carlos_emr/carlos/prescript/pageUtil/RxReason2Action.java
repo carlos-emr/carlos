@@ -48,6 +48,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Struts 2 action for managing drug prescription reasons using ICD-9 coding.
+ * <p>
+ * Supports adding new drug reasons (linking an ICD-9 code to a prescription) and
+ * archiving existing reasons. Validates that the ICD-9 code exists and is not already
+ * associated with the drug before adding. All actions are audit-logged.
+ * Requires {@code _rx} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxReason2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

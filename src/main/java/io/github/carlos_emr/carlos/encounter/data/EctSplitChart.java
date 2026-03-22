@@ -38,10 +38,20 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Retrieves split chart entries for a patient from the eChart table.
+ * Split charts are eChart records with the subject "SPLIT CHART", used to
+ * mark points where a patient's chart was divided.
+ *
+ * @since 2001-01-01
  */
 public class EctSplitChart {
 
+    /**
+     * Returns split chart entries for a patient, each containing chart ID and date.
+     *
+     * @param demographicNo String the demographic (patient) number
+     * @return Vector of String arrays, each containing [chartId, dateString]
+     */
     public Vector<String[]> getSplitCharts(String demographicNo) {
         EChartDao dao = SpringUtils.getBean(EChartDao.class);
         Vector<String[]> vec = new Vector<String[]>();

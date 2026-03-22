@@ -44,13 +44,23 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.db.DBHandler;
 
 /**
- * deprecated Use JPA instead, no new code should be written against this class.
+ * Legacy database helper that provides direct SQL query execution via {@link DBHandler}.
+ *
+ * @deprecated Use JPA/Hibernate DAOs instead. No new code should be written against this class.
+ * @since 2026-03-17
  */
 @Deprecated
 public final class DBHelp {
     private static final Logger logger = MiscUtils.getLogger();
 
 
+    /**
+     * Executes a SQL query and returns the result set.
+     *
+     * @param sql String the SQL query to execute
+     * @return ResultSet the query results, or null if a SQL error occurs
+     * @deprecated Use JPA/Hibernate DAOs instead
+     */
     public static ResultSet searchDBRecord(String sql) {
         ResultSet ret = null;
         try {
@@ -63,10 +73,28 @@ public final class DBHelp {
         return ret;
     }
 
+    /**
+     * Retrieves a String value from a ResultSet by column name.
+     *
+     * @param rs ResultSet the result set to read from
+     * @param columnName String the name of the column
+     * @return String the column value
+     * @throws SQLException if a database access error occurs
+     * @deprecated Use JPA/Hibernate entity mappings instead
+     */
     public static String getString(ResultSet rs, String columnName) throws SQLException {
         return Misc.getString(rs, columnName);
     }
 
+    /**
+     * Retrieves a String value from a ResultSet by column index.
+     *
+     * @param rs ResultSet the result set to read from
+     * @param columnIndex int the 1-based column index
+     * @return String the column value
+     * @throws SQLException if a database access error occurs
+     * @deprecated Use JPA/Hibernate entity mappings instead
+     */
     public static String getString(ResultSet rs, int columnIndex) throws SQLException {
         return Misc.getString(rs, columnIndex);
     }

@@ -69,6 +69,13 @@ public class StaticScriptBean {
     private static final Logger logger = MiscUtils.getLogger();
     private static DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
 
+    /**
+     * Value object containing prescription drug information formatted for display in the UI.
+     *
+     * <p>Includes provider name, prescription dates, drug identifiers (generic, brand, custom),
+     * archive and authorization status, pickup details, and refill information. Supports
+     * sorting by start date via the {@link #DATE_COMPARATOR}.</p>
+     */
     public static class DrugDisplayData {
         public static final Comparator<DrugDisplayData> DATE_COMPARATOR = new Comparator<DrugDisplayData>() {
             public int compare(DrugDisplayData o1, DrugDisplayData o2) {
@@ -103,10 +110,32 @@ public class StaticScriptBean {
         public Integer refillDuration;
     }
 
+    /**
+     * Retrieves a sorted list of drug display data for a patient, matching by drug identifiers.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for audit logging
+     * @param demographicId int the patient demographic ID
+     * @param regionalIdentifier String the drug regional identifier (DIN) to match, or null
+     * @param customName String the custom drug name to match, or null
+     * @param brandName String the brand name to match, or null
+     * @return ArrayList of DrugDisplayData sorted by start date descending
+     */
     public static ArrayList<DrugDisplayData> getDrugList(LoggedInInfo loggedInInfo, int demographicId, String regionalIdentifier, String customName, String brandName) {
         return getDrugList(loggedInInfo, demographicId, regionalIdentifier, customName, brandName, null);
     }
 
+    /**
+     * Retrieves a sorted list of drug display data for a patient, matching by drug identifiers
+     * including ATC code.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for audit logging
+     * @param demographicId int the patient demographic ID
+     * @param regionalIdentifier String the drug regional identifier (DIN) to match, or null
+     * @param customName String the custom drug name to match, or null
+     * @param brandName String the brand name to match, or null
+     * @param atc String the ATC (Anatomical Therapeutic Chemical) code to match, or null
+     * @return ArrayList of DrugDisplayData sorted by start date descending
+     */
     public static ArrayList<DrugDisplayData> getDrugList(LoggedInInfo loggedInInfo, int demographicId, String regionalIdentifier, String customName, String brandName, String atc) {
         regionalIdentifier = StringUtils.trimToNull(regionalIdentifier);
         customName = StringUtils.trimToNull(customName);

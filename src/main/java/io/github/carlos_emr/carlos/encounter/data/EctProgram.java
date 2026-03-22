@@ -36,8 +36,11 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 /**
+ * Resolves the active program for a provider within the current HTTP session context.
+ * Determines the provider's default program or falls back to the first available
+ * program if the default is not in the provider's assigned list.
  *
- * @author rjonasz
+ * @since 2005-01-01
  */
 public class EctProgram {
     private HttpSession se;
@@ -46,6 +49,14 @@ public class EctProgram {
         this.se = se;
     }
 
+    /**
+     * Determines the active program ID for the given provider. Returns the provider's
+     * default program if it exists in their assigned list, otherwise returns the first
+     * available program.
+     *
+     * @param providerNo String the provider number
+     * @return String the program ID, or "0" if no programs are available
+     */
     public String getProgram(String providerNo) {
         EctProgramManager manager = getEctProgramManager();
         List<LabelValueBean> programBeans = manager.getProgramBeans(providerNo, null);
@@ -77,11 +88,21 @@ public class EctProgram {
         }
     }
 
+    /**
+     * Retrieves the Spring ApplicationContext from the servlet context.
+     *
+     * @return ApplicationContext the web application context
+     */
     public ApplicationContext getAppContext() {
         return WebApplicationContextUtils.getWebApplicationContext(
         		se.getServletContext());
     }
 
+    /**
+     * Retrieves the EctProgramManager bean from the Spring context.
+     *
+     * @return EctProgramManager the program manager service
+     */
     public EctProgramManager getEctProgramManager() {
 		EctProgramManager manager = (EctProgramManager) getAppContext()
 				.getBean("ectProgramManager");

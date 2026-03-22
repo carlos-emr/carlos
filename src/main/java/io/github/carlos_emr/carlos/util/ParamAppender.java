@@ -117,11 +117,21 @@ public class ParamAppender extends QueryAppender {
         return query;
     }
 
+    /**
+     * Combines the clauses and parameters from the specified appender using AND.
+     *
+     * @param appender ParamAppender the appender whose clauses and parameters to merge
+     */
     public void and(ParamAppender appender) {
         super.and(appender);
         mergeParams(appender);
     }
 
+    /**
+     * Combines the clauses and parameters from the specified appender using OR.
+     *
+     * @param appender ParamAppender the appender whose clauses and parameters to merge
+     */
     public void or(ParamAppender appender) {
         super.or(appender);
         mergeParams(appender);

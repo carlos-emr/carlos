@@ -34,16 +34,26 @@ import java.io.File;
 import java.util.Comparator;
 
 /**
- * @author jay
+ * Comparator that sorts {@link File} objects by their last-modified date in
+ * descending order (most recently modified first).
+ *
+ * @since 2001-01-01
  */
 public class FileSortByDate implements Comparator {
 
     /**
-     * Creates a new instance of FileSortByDate
+     * Creates a new instance of FileSortByDate.
      */
     public FileSortByDate() {
     }
 
+    /**
+     * Compares two {@link File} objects by last-modified timestamp in descending order.
+     *
+     * @param object Object the first File to compare
+     * @param object0 Object the second File to compare
+     * @return int a negative value if the first file is newer, positive if older, zero if equal
+     */
     public int compare(Object object, Object object0) {
         File f1 = (File) object;
         File f2 = (File) object0;
