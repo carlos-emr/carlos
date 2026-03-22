@@ -2535,6 +2535,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves the provider's preference for hiding the legacy eChart link in appointments.
+     *
+     * @return String {@code "genHideOldEchartLinkInAppt"} to re-display with success status
+     */
     public String saveHideOldEchartLinkInAppt() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2570,6 +2575,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Displays the dashboard sharing preference checkbox form.
+     *
+     * @return String {@code "genDashboardPrefs"} to forward to the configuration JSP
+     */
     public String viewDashboardPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2601,6 +2611,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genDashboardPrefs";
     }
 
+    /**
+     * Saves the provider's dashboard sharing preference.
+     *
+     * @return String {@code "genDashboardPrefs"} to re-display with success status
+     */
     public String saveDashboardPrefs() {
         String checkboxValue = request.getParameter("dashboardShareProperty.checked");
 
@@ -2635,6 +2650,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genDashboardPrefs";
     }
 
+    /**
+     * Displays the appointment card customization preference form (name, phone, fax).
+     *
+     * @return String {@code "genAppointmentCardPrefs"} to forward to the configuration JSP
+     */
     public String viewAppointmentCardPrefs() {
         String provider = (String) request.getSession().getAttribute("user");
 

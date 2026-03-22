@@ -41,6 +41,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Utility class for prescription-related string formatting and text measurement operations.
+ *
+ * <p>Provides methods for trimming prescription special instructions, measuring text
+ * width in pixels for print layout calculations, and other prescription formatting
+ * helpers used in the prescription module.</p>
+ *
+ * @since 2001-01-01
+ */
 public class RxUtil {
 
     public static String trimSpecial(Drug rx) {

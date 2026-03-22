@@ -89,14 +89,21 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         return cacheIsDirty;
     }
 
+    /**
+     * Sets the dirty flag for the active status cache.
+     *
+     * @param cacheIsDirty boolean {@code true} to mark the cache as needing refresh
+     */
     public static void setCacheIsDirty(boolean cacheIsDirty) {
         AppointmentStatusMgrImpl.cacheIsDirty = cacheIsDirty;
     }
 
+    /** {@inheritDoc} */
     public List<AppointmentStatus> getAllStatus() {
         return appointStatusDao.findAll();
     }
 
+    /** {@inheritDoc} */
     public List<AppointmentStatus> getAllActiveStatus() {
         if (cacheIsDirty) {
             setCachedActiveStatuses(appointStatusDao.findActive());
@@ -105,22 +112,27 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         return appointStatusDao.findActive();
     }
 
+    /** {@inheritDoc} */
     public AppointmentStatus getStatus(int ID) {
         return appointStatusDao.find(ID);
     }
 
+    /** {@inheritDoc} */
     public void changeStatus(int ID, int iActive) {
         appointStatusDao.changeStatus(ID, iActive);
     }
 
+    /** {@inheritDoc} */
     public void modifyStatus(int ID, String strDesc, String strColor) {
         appointStatusDao.modifyStatus(ID, strDesc, strColor);
     }
 
+    /** {@inheritDoc} */
     public int checkStatusUsuage(List<AppointmentStatus> allStatus) {
         return appointStatusDao.checkStatusUsuage(allStatus);
     }
 
+    /** {@inheritDoc} */
     public void reset() {
         appointStatusDao.modifyStatus(1, "To Do", "#FDFEC7");
         appointStatusDao.modifyStatus(2, "Daysheet Printed", "#FDFEC7");

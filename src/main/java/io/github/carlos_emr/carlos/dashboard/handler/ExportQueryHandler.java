@@ -81,6 +81,11 @@ public class ExportQueryHandler extends AbstractQueryHandler {
         super.setColumns(columns);
     }
 
+    /**
+     * Returns the generated CSV content as a string.
+     *
+     * @return String the CSV file content, or empty string if no columns were set
+     */
     public String getCsvFile() {
         return csvFile;
     }

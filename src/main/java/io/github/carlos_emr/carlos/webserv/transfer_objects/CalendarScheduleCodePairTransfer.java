@@ -35,6 +35,14 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.Map.Entry;
 
+/**
+ * SOAP web service transfer object representing a single time slot and its schedule code.
+ *
+ * <p>Pairs a {@link Calendar} date/time with a schedule template code character
+ * for wire transfer. Used as elements within {@link DayWorkScheduleTransfer#getTimeSlots()}.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class CalendarScheduleCodePairTransfer {
     private Calendar date;
     private Character scheduleCode;
@@ -56,6 +64,12 @@ public final class CalendarScheduleCodePairTransfer {
         this.scheduleCode = scheduleCode;
     }
 
+    /**
+     * Converts a single map entry (time slot to code) into a transfer object.
+     *
+     * @param entry Map.Entry mapping a Calendar time to a Character schedule code, may be null
+     * @return CalendarScheduleCodePairTransfer the transfer object, or null if input is null
+     */
     public static CalendarScheduleCodePairTransfer toTransfer(Map.Entry<? extends Calendar, Character> entry) {
         if (entry == null) return (null);
 

@@ -53,7 +53,19 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Prevention compliance report for PAP smear (cervical cancer screening).
+ *
+ * <p>Evaluates a patient set against PAP screening guidelines with a 3-year cycle
+ * and 6-month grace period. Calculates bonus eligibility within a 42-month window,
+ * with Ontario billing code Q001A eligibility. Handles refused and ineligible statuses
+ * separately from date-based compliance.</p>
+ *
+ * <p>Includes follow-up letter processing logic (L1, L2, P1) for patients who are
+ * not yet compliant.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReport
+ * @see PreventionReportFactory
  */
 public class PapReport implements PreventionReport {
     private static Logger log = MiscUtils.getLogger();
@@ -64,6 +76,7 @@ public class PapReport implements PreventionReport {
     public PapReport() {
     }
 
+    /** {@inheritDoc} */
     public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList list, Date asofDate) {
         int inList = 0;
         double done = 0, doneWithGrace = 0;

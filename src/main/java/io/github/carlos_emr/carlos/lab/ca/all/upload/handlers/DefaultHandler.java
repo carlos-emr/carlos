@@ -57,6 +57,13 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Default upload handler implementation that parses flat files containing HL7 messages
+ * separated by MSH segments. Serves as the base class for vendor-specific upload handlers
+ * and provides the standard parsing and uploading logic via {@link MessageUploader}.
+ *
+ * @since 2007-01-18
+ */
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
     String hl7Type = null;

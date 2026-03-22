@@ -30,6 +30,12 @@ package io.github.carlos_emr.carlos.integration.dhir;
 
 import org.apache.struts2.ActionSupport;
 
+/**
+ * Struts2 action for submitting immunization records to the Ontario Digital Health
+ * Immunization Repository (DHIR) via the FHIR R4 integration layer.
+ *
+ * @since 2016-01-28
+ */
 public class SubmitImmunization2Action extends ActionSupport {
     public String execute() throws Exception {
         return SUCCESS;

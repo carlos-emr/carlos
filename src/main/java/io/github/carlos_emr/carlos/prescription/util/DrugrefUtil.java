@@ -59,6 +59,16 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 
+/**
+ * Utility class for drug reference database interactions including drug interaction checking,
+ * allergy warnings, drug lookups by DIN/ATC/name, and favourite drug list management.
+ *
+ * <p>Provides methods to search for drugs, check interactions between medications,
+ * and manage provider-specific favourite drug lists. Uses the drug reference service
+ * for clinical decision support in the prescription workflow.</p>
+ *
+ * @since 2001-01-01
+ */
 public class DrugrefUtil {
     private static final Logger logger = MiscUtils.getLogger();
     UserPropertyDAO propDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);

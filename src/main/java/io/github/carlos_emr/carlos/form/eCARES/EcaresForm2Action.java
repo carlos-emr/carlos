@@ -49,6 +49,18 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 
+/**
+ * Struts2 action for managing eCARES (electronic Clinical Assessment and Recording) forms.
+ *
+ * <p>Provides save and CSV export operations for eCARES form data. Uses method-based
+ * routing via the {@code method} request parameter. Supports JSON responses for AJAX-based
+ * form interactions and CSV export for data analysis.</p>
+ *
+ * <p>Requires the {@code _form} security privilege for all operations.</p>
+ *
+ * @see FormeCARESManager
+ * @since 2026-03-17
+ */
 public class EcaresForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

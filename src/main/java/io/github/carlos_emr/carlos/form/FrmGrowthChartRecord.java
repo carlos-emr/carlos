@@ -35,6 +35,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Form record handler for pediatric growth chart forms.
+ *
+ * <p>Manages loading and saving of growth chart data including patient demographics,
+ * height, weight, and head circumference measurements. Supports graph data retrieval
+ * for plotting growth curves on the chart.</p>
+ *
+ * @see FrmRecord
+ * @since 2026-03-17
+ */
 public class FrmGrowthChartRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";
 

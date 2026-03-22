@@ -72,6 +72,20 @@ import java.util.Set;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing the British Columbia Antenatal Record 2020 (BCAR 2020) form.
+ *
+ * <p>Provides CRUD operations and Jasper Report PDF printing for the BCAR 2020 prenatal
+ * care form. Uses method-based routing for save, print, and data retrieval operations.
+ * Form data is stored across multiple related tables (form header, data fields, and
+ * text fields).</p>
+ *
+ * <p>Requires the {@code _form} security privilege for all operations.</p>
+ *
+ * @see FormBCAR2020
+ * @see FrmBCAR2020Record
+ * @since 2026-03-17
+ */
 public class FrmBCAR20202Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

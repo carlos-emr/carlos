@@ -52,7 +52,19 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Prevention compliance report for mammogram (breast cancer screening).
+ *
+ * <p>Evaluates a patient set against mammogram screening guidelines with a 2-year cycle
+ * and 6-month grace period. Calculates bonus eligibility within a 30-month window,
+ * with Ontario billing code Q002A eligibility. Supports "Pending" status for
+ * tests awaiting results.</p>
+ *
+ * <p>Includes follow-up letter processing logic (L1, L2, P1, Follow Up) for
+ * patients who are not yet compliant.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReport
+ * @see PreventionReportFactory
  */
 public class MammogramReport implements PreventionReport {
     private static Logger log = MiscUtils.getLogger();

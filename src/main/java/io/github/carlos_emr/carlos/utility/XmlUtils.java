@@ -56,6 +56,17 @@ import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.SAXException;
 
+/**
+ * Utility class for XML document manipulation, including parsing, serialization,
+ * node traversal, and Base64 encoding/decoding of XML content.
+ *
+ * <p>Provides methods for creating new XML documents, reading from files/streams,
+ * converting to/from strings, and extracting child node content. Used throughout
+ * the application for configuration parsing, web service message handling, and
+ * data exchange.
+ *
+ * @since 2026-03-17
+ */
 public final class XmlUtils {
     private static Logger logger = MiscUtils.getLogger();
 

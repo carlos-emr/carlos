@@ -69,6 +69,12 @@ public final class DayWorkScheduleTransfer {
         this.timeSlots = timeSlots;
     }
 
+    /**
+     * Converts a {@link DayWorkSchedule} domain object to a transfer object.
+     *
+     * @param dayWorkSchedule DayWorkSchedule the domain object to convert, may be null
+     * @return DayWorkScheduleTransfer the transfer object, or null if input is null
+     */
     public static DayWorkScheduleTransfer toTransfer(DayWorkSchedule dayWorkSchedule) {
         if (dayWorkSchedule == null) return (null);
 

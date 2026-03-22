@@ -48,6 +48,17 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Manages patient exclusions from dashboard indicators. Exclusions are stored as
+ * {@link DemographicExt} records with the key "excludeIndicator" and are valid
+ * for one year from their creation date.
+ *
+ * <p>Supports excluding and un-excluding patients by demographic number (individually,
+ * as lists, or as JSON arrays) for a specific indicator identified by a composite
+ * name|subCategory|category string.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ExcludeDemographicHandler {
 
     private static Logger logger = MiscUtils.getLogger();
