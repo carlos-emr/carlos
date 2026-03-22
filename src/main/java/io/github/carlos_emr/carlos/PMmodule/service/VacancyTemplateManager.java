@@ -283,9 +283,15 @@ public interface VacancyTemplateManager {
     }
 
     /**
-     * This method is meant to return a bunch of html <option> tags for each list element.
+     * Renders HTML form elements for vacancy template criteria selection, including radio buttons
+     * for mandatory/optional/never, text inputs for number types, and select lists for option types.
+     * Supports single-select, multi-select, range-select, and narrowing-select field types.
+     *
+     * @param templateId Integer the template identifier, may be {@code null}
+     * @param vacancyId Integer the vacancy identifier, may be {@code null}
+     * @param typeId Integer the criteria type identifier
+     * @return String the rendered HTML form elements
      */
-
     public static String renderAllSelectOptions(Integer templateId, Integer vacancyId, Integer typeId) {
         Criteria criteria = new Criteria();
         criteria = getSelectedCriteria(templateId, vacancyId, typeId);
@@ -570,6 +576,13 @@ public interface VacancyTemplateManager {
         return (sb.toString());
     }
 
+    /**
+     * Creates or retrieves a vacancy template. Returns a new active template if the
+     * templateId is blank, "0", or "null"; otherwise retrieves the existing template.
+     *
+     * @param templateId String the template identifier, or blank/"0"/"null" for a new template
+     * @return VacancyTemplate the new or existing vacancy template
+     */
     public static VacancyTemplate createVacancyTemplate(String templateId) {
         if (StringUtils.isBlank(String.valueOf(templateId)) || "0".equals(templateId) || templateId.equalsIgnoreCase("null")) {
             VacancyTemplate vt = new VacancyTemplate();
