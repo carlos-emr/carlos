@@ -38,6 +38,15 @@ import javax.xml.datatype.Duration;
 import javax.xml.datatype.XMLGregorianCalendar;
 import javax.xml.namespace.QName;
 
+/**
+ * Stub implementation of {@link XMLGregorianCalendar} used as a placeholder in
+ * MCEDT web service operations where a calendar value is required but not significant.
+ *
+ * <p>All methods throw {@link UnsupportedOperationException} except those needed
+ * for basic instantiation.</p>
+ *
+ * @since 2013-06-14
+ */
 public class DummyXMLGregorianCalendar extends XMLGregorianCalendar {
 
     private int year;

@@ -44,6 +44,12 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 
+/**
+ * Upload handler for PHS Star HL7 messages, implementing the {@link MessageHandler}
+ * interface to process HL7 message files uploaded to the system.
+ *
+ * @since 2012-07-12
+ */
 public class PhsStarHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();

@@ -31,7 +31,16 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * @author rjonasz
+ * Interface for custom report template reporters. Implementations generate report
+ * output (HTML tables, CSV data) by executing domain-specific queries based on
+ * request parameters such as date range and provider.
+ *
+ * @see SQLReporter
+ * @see INRReporter
+ * @see ThirdApptTimeReporter
+ * @see DepressionContinuityReporter
+ * @see UnusedMinutesReporter
+ * @since 2001-01-01
  */
 public interface Reporter {
 

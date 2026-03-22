@@ -47,7 +47,13 @@ import org.apache.commons.csv.CSVPrinter;
 
 
 /**
- * @author rjonasz
+ * Default {@link Reporter} implementation that executes a SQL query from the report
+ * template and renders results as an HTML table or CSV. Supports parameterized queries
+ * with runtime value substitution.
+ *
+ * @see Reporter
+ * @see ReportFactory
+ * @since 2001-01-01
  */
 public class SQLReporter implements Reporter {
 

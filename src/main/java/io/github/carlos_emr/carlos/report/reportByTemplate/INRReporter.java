@@ -42,7 +42,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author rjonasz
+ * Reporter implementation for INR (International Normalized Ratio) monitoring reports.
+ * Identifies patients on anticoagulant therapy (diagnosis codes 427, 451, 453) and
+ * checks their most recent INR measurement against therapeutic ranges.
+ *
+ * @see Reporter
+ * @since 2001-01-01
  */
 public class INRReporter implements Reporter {
 

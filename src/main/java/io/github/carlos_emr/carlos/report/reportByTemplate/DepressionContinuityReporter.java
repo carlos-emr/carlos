@@ -48,7 +48,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author rjonasz
+ * Reporter implementation for depression continuity of care reports. Identifies
+ * patients with depression diagnoses and checks for follow-up billing codes
+ * within specified time periods to assess continuity of care compliance.
+ *
+ * @see Reporter
+ * @since 2001-01-01
  */
 public class DepressionContinuityReporter implements Reporter {
     private StringBuilder rsHtml = new StringBuilder();

@@ -48,6 +48,12 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Factory for creating MCEDT (Medical Claims Electronic Data Transfer) web service
+ * delegate instances, managing service endpoint configuration and authentication.
+ *
+ * @since 2013-06-14
+ */
 public class DelegateFactory {
 
     private static Logger logger = MiscUtils.getLogger();

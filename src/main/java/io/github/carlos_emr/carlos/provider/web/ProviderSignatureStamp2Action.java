@@ -391,18 +391,24 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     private String imageFileName;
     private String imageFileContentType;
 
+    /** @return File the uploaded signature image temporary file */
     public File getImage() { return image; }
 
+    /** @return String the original filename of the uploaded image */
     public String getImageFileName() { return imageFileName; }
 
+    /** @return String the MIME content type of the uploaded image */
     public String getImageFileContentType() { return imageFileContentType; }
 
+    /** @param image File the uploaded signature image temporary file, injected by Struts2 */
     @StrutsParameter
     public void setImage(File image) { this.image = image; }
 
+    /** @param imageFileName String the original filename, injected by Struts2 */
     @StrutsParameter
     public void setImageFileName(String imageFileName) { this.imageFileName = imageFileName; }
 
+    /** @param imageFileContentType String the MIME content type, injected by Struts2 */
     @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) { this.imageFileContentType = imageFileContentType; }
 }

@@ -34,6 +34,15 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+/**
+ * Data access interface for security role management in the CARLOS EMR system.
+ *
+ * <p>Provides operations for retrieving, creating, and managing security roles
+ * used in the role-based access control system.</p>
+ *
+ * @since 2005-01-01
+ * @see io.github.carlos_emr.carlos.model.security.Secrole
+ */
 public interface SecroleDao {
 
     public List<Secrole> getRoles();

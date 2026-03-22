@@ -47,7 +47,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author rjonasz
+ * Reporter implementation that calculates the third next available appointment time
+ * for a provider. Analyzes schedule templates and existing appointments to determine
+ * when the third available slot occurs, a key access metric in healthcare.
+ *
+ * @see Reporter
+ * @since 2001-01-01
  */
 public class ThirdApptTimeReporter implements Reporter {
 

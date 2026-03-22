@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+/**
+ * Upload handler for Epsilon laboratory result files.
+ *
+ * @since 2007-01-18
+ */
 public class EpsilonHandler implements MessageHandler {
 
     private static Logger logger = MiscUtils.getLogger();

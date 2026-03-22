@@ -56,9 +56,14 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilXML;
 
 /**
- * Created on December 27, 2006, 10:54 AM
+ * Central manager for the Report By Template system. Handles CRUD operations for
+ * report templates stored as XML in the database, including loading, saving, deleting,
+ * and organizing templates into groups. Templates define SQL queries, parameters,
+ * choices, and custom reporter classes.
  *
- * @author apavel (Paul)
+ * @see ReportObject
+ * @see ReportObjectGeneric
+ * @since 2006-12-27
  */
 public class ReportManager {
 

@@ -29,7 +29,12 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 /**
- * @author rjonasz
+ * Factory class that instantiates {@link Reporter} implementations by class name.
+ * Used by the report template system to create the appropriate reporter for a
+ * given template configuration.
+ *
+ * @see Reporter
+ * @since 2001-01-01
  */
 public class ReportFactory {
 

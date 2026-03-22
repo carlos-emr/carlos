@@ -136,11 +136,28 @@ public class ScheduleWs extends AbstractWs {
         return (AppointmentTransfer.toTransfer(appointment, useGMTTime));
     }
 
+    /**
+     * Retrieves appointments for a provider on a given day with timezone control.
+     *
+     * @param providerNo String the provider number
+     * @param date Calendar the date to query
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentTransfer[] array of appointments
+     */
     public AppointmentTransfer[] getAppointmentsForProvider2(String providerNo, Calendar date, boolean useGMTTime) {
         List<Appointment> appointments = scheduleManager.getDayAppointments(getLoggedInInfo(), providerNo, date);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
+    /**
+     * Retrieves appointments for a patient with pagination and timezone control.
+     *
+     * @param demographicId Integer the patient demographic ID
+     * @param startIndex int the zero-based start index for pagination
+     * @param itemsToReturn int the maximum number of appointments to return
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentTransfer[] array of appointments
+     */
     public AppointmentTransfer[] getAppointmentsForPatient2(Integer demographicId, int startIndex, int itemsToReturn, boolean useGMTTime) {
         List<Appointment> appointments = scheduleManager.getAppointmentsForPatient(getLoggedInInfo(), demographicId, startIndex, itemsToReturn);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));

@@ -48,6 +48,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
 
+/**
+ * Handles the creation and persistence of ticklers from the dashboard bulk operations.
+ * Uses a "master tickler" pattern where a template tickler is configured once and then
+ * cloned for each target demographic, allowing bulk tickler assignment to multiple patients.
+ *
+ * @since 2026-03-17
+ */
 public class TicklerHandler {
 
     private static Logger logger = MiscUtils.getLogger();

@@ -28,9 +28,29 @@ package io.github.carlos_emr.carlos.commn.model;
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
+/**
+ * Interface marking entities that are associated with a specific patient (demographic).
+ *
+ * <p>Implemented by model classes such as {@link Allergy}, {@link Appointment},
+ * {@link Prevention}, and others that contain patient-specific data and need
+ * to expose the demographic number for cross-entity queries and filtering.</p>
+ *
+ * @see Demographic
+ * @since 2001-01-01
+ */
 public interface DemographicData {
 
+    /**
+     * Returns the unique identifier for this entity.
+     *
+     * @return Integer the entity ID
+     */
     Integer getId();
 
+    /**
+     * Returns the demographic (patient) number this entity is associated with.
+     *
+     * @return int the demographic number
+     */
     int getDemographicNo();
 }

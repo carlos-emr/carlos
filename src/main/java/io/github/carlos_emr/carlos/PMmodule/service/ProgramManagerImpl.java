@@ -45,6 +45,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Implementation of {@link ProgramManager} for managing programs within the CARLOS EMR
+ * Program Management module.
+ *
+ * <p>Delegates to multiple DAOs for program data, provider assignments, team management,
+ * access control, functional users, client statuses, signatures, and vacancy templates.
+ * Respects the FILTER_ON_FACILITY system property when retrieving programs by facility.</p>
+ *
+ * @see ProgramManager
+ * @see Program
+ * @since 2005
+ */
 public class ProgramManagerImpl implements ProgramManager {
 
     private ProgramDao programDao;
@@ -60,6 +72,7 @@ public class ProgramManagerImpl implements ProgramManager {
 
     private boolean enabled;
 
+    /** {@inheritDoc} */
     public boolean getEnabled() {
         return enabled;
     }
