@@ -101,15 +101,18 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- for the com.github.openosp htmltopdf dependency only. Upgrades
-        from this dependency are welcome -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+
+        <!-- Only for com.github.openosp:ultrabuk-htmltopdf-java (not on Maven Central).
+             Listed last so Central resolves everything it can before jitpack is consulted. -->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
 

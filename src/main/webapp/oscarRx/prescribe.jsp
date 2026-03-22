@@ -560,7 +560,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             <script type="text/javascript">getRenalDosingInformation('renalDosing_<%=rand%>','<%=rx.getAtcCode()%>');</script>
             </oscar:oscarPropertiesCheck>
            <oscar:oscarPropertiesCheck property="billregion" value="ON" >
-               <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<%=rx.getRegionalIdentifier()%>');</script>
+               <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<%=Encode.forJavaScript(rx.getRegionalIdentifier())%>');</script>
             </oscar:oscarPropertiesCheck>
 			
 </fieldset>
@@ -760,7 +760,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             });
 
             checkAllergy('<%=rand%>','<%=rx.getAtcCode()%>');
-            checkIfInactive('<%=rand%>','<%=rx.getRegionalIdentifier()%>');
+            checkIfInactive('<%=rand%>','<%=Encode.forJavaScript(rx.getRegionalIdentifier())%>');
 
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;
             //oscarLog("isDiscon "+isDiscontinuedLatest);
