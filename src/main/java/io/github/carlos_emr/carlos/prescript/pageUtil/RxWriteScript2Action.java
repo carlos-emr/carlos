@@ -1403,12 +1403,21 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * @return null (writes JSON directly to response)
      * @throws IOException if response writing fails
+     * @since 2026-03-22
      */
     public String getInstructionsAutocomplete() throws IOException {
         checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), PRIVILEGE_READ);
 
         String randomId = request.getParameter("randomId");
         String term = request.getParameter("term");
+
+        // Reject excessively long term values to prevent potential abuse
+        if (term != null && term.length() > 100) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null || randomId == null || randomId.isBlank()) {
@@ -1428,7 +1437,16 @@ public final class RxWriteScript2Action extends ActionSupport {
             return null;
         }
         RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
+        if (rx == null) {
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"results\":[]}");
+            return null;
+        }
         List<HashMap<String, String>> history = RxUtil.getPreviousInstructions(rx);
+        if (history == null) {
+            history = new ArrayList<>();
+        }
 
         List<String> instructions = new ArrayList<>();
         for (HashMap<String, String> hm : history) {

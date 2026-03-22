@@ -273,7 +273,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 <fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='<c:out value="${ctx}/images/close.png"/>' border="0"></a>
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<%=drugName%>')">F</a>
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<%=Encode.forJavaScript(drugName)%>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
 
     <%-- Modern flexbox layout for drug name field - replaces float-based layout for better alignment and responsiveness --%>
@@ -400,7 +400,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDuration"/>
             <input type="text" size="6" id="refillDuration_<%=rand%>" name="refillDuration_<%=rand%>"
                    value="<%=refillDuration%>"
-                   onchange="var errEl=document.getElementById('refillDurationError_<%=rand%>');if(isNaN(this.value)||this.value<0){errEl.classList.remove('d-none');this.focus();return false;}errEl.classList.add('d-none');"/><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDurationDays"/>
+                   onchange="var errEl=document.getElementById('refillDurationError_<%=rand%>');var v=Number(this.value);if(Number.isNaN(v)||v<0){errEl.classList.remove('d-none');this.focus();return false;}errEl.classList.add('d-none');"/><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgPrescribedRefillDurationDays"/>
             <div id="refillDurationError_<%=rand%>" class="alert alert-danger d-none" role="alert" style="margin-top:4px;padding:6px 10px;">
                 <button type="button" class="btn-close float-end" style="font-size:0.75rem;" onclick="document.getElementById('refillDurationError_<%=rand%>').classList.add('d-none');" aria-label="${i18nClose}"></button>
                 ${i18nRefillDurationError}
@@ -432,11 +432,11 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                 <b><label style="float:left;width:80px;">${i18nName}:</label></b> <input type="text"
                                                                                    id="outsideProviderName_<%=rand%>"
                                                                                    name="outsideProviderName_<%=rand%>" <%if (outsideProvName != null) {%>
-                                                                                   value="<%=outsideProvName%>"<%} else {%>
+                                                                                   value="<%=Encode.forHtmlAttribute(outsideProvName)%>"<%} else {%>
                                                                                    value=""<%}%> />
                 <b><label style="width:80px;">${i18nOHIPNO}:</label></b> <input type="text" id="outsideProviderOhip_<%=rand%>"
                                                                           name="outsideProviderOhip_<%=rand%>"
-                                                                          <%if(outsideProvOhip!=null){%>value="<%=outsideProvOhip%>"<%} else {%>
+                                                                          <%if(outsideProvOhip!=null){%>value="<%=Encode.forHtmlAttribute(outsideProvOhip)%>"<%} else {%>
                                                                           value=""<%}%>/>
             </div>
           </div>
@@ -487,7 +487,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 	</div><div>
         <label style="float:left;width:80px;">${i18nWrittenDate}:</label>
            <input type="text" id="writtenDate_<%=rand%>"  name="writtenDate_<%=rand%>" value="<%=writtenDate%>" />
-           <a href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="addFav('<%=rand%>','<%=drugName%>');return false;">${i18nAddToFavoriteLink}</a>
+           <a href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="addFav('<%=rand%>','<%=Encode.forJavaScript(drugName)%>');return false;">${i18nAddToFavoriteLink}</a>
        
            </div><div>
            			           
@@ -701,7 +701,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 				source: function(request, response) {
 					var randId = this.element[0].id.split("_")[1];
 					jQuery.ajax({
-						url: ctx + "/oscarRx/WriteScript.do?parameterValue=getInstructionsAutocomplete",
+						url: "${ctx}/oscarRx/WriteScript.do?parameterValue=getInstructionsAutocomplete",
 						type: "POST",
 						data: "randomId=" + randId + "&term=" + encodeURIComponent(request.term),
 						dataType: "json",
@@ -732,14 +732,13 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 		<% } %>
 
 		<%--   if number of refills more than 0 set long term flag.  May not be OMD but is convenient --%>
-			jQuery("input[id^='repeats_']").keyup(function(){
-            	var rand = <%=rand%>;
+			jQuery("#repeats_<%=rand%>").keyup(function(){
+            	var rand = this.id.split("_")[1];
             	var repeatsVal = this.value;
             	if(repeatsVal>0){
-            		jQuery("#longTermY_"+rand).prop("checked", true);
-            		jQuery(".med-term").trigger('change');
+            		jQuery("#longTermY_" + rand).prop("checked", true).trigger('change');
             	}
-            }); 
+            });
       
 		  
        });
@@ -747,7 +746,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 
         <script type="text/javascript">
-            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<%=drugName%>'));
+            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<%=Encode.forJavaScript(drugName)%>'));
             calculateRxData('<%=rand%>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
