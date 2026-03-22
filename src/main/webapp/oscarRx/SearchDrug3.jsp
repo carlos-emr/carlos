@@ -2490,7 +2490,18 @@ function updateQty(element){
              var params="randomId="+randomId+"&din="+encodeURIComponent(din);
              CarlosAjax.updater(divId,url,{method:'get',parameters:params,insertion: 'bottom'});
          }
-         
+
+         function getCost(divId, randomId, din, qty) {
+            var url = ctx + "/oscarRx/DrugPrice.jsp";
+            var params = "randomId=" + randomId + "&din=" +encodeURIComponent(din) + "&qty=" +encodeURIComponent(qty);
+            new CarlosAjax.Updater(divId, url, {
+                method: 'get',
+                parameters: params,
+                insertion: Insertion.Bottom,
+                asynchronous: true
+            });
+        }  
+
          function validateRxDate() {
          	var x = true;
              jQuery('input[name^="rxDate__"]').each(function(){

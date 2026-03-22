@@ -33,7 +33,6 @@
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
-<%@ page import="com.github.scribejava.core.model.OAuth1RequestToken" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.login.OAuthSessionMerger" %>
 <%@ page import="java.util.*" %>

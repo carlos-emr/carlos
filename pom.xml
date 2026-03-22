@@ -101,15 +101,19 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- for the com.github.openosp htmltopdf dependency only. Upgrades
-        from this dependency are welcome -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+
+        <!-- Only for com.github.openosp:ultrabuk-htmltopdf-java (not on Maven Central).
+             Listed LAST so Central resolves everything it can first, preventing jitpack
+             from shadowing Central artifacts with its own builds (different bytes/hashes). -->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
 
@@ -570,22 +574,22 @@
                 <!-- Swing GUI PDF viewer - not used (server-side app).
                      Also eliminates discontinued org.swinglabs:pdf-renderer:1.0.5 -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>pdf-swing</artifactId>
                 </exclusion>
                 <!-- Kotlin bindings - not used (Java project) -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>openpdf-kotlin</artifactId>
                 </exclusion>
                 <!-- PDF renderer engine - not used directly (server-side PDF generation only) -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>openpdf-renderer</artifactId>
                 </exclusion>
                 <!-- CLI tools and examples - not used -->
                 <exclusion>
-                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <groupId>com.github.librepdf</groupId>
                     <artifactId>pdf-toolbox</artifactId>
                 </exclusion>
             </exclusions>
@@ -595,7 +599,7 @@
              openpdf artifact, NOT in this module. This module provides org.openpdf.simple.*
              classes for advanced HTML rendering. Retained for transitive compatibility. -->
         <dependency>
-            <groupId>com.github.librepdf.openpdf</groupId>
+            <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf-html</artifactId>
             <version>3.0.3</version>
         </dependency>
@@ -1696,7 +1700,7 @@
                     <plugin>
                         <groupId>io.leonard.maven.plugins</groupId>
                         <artifactId>jspc-maven-plugin</artifactId>
-                        <version>3.0.0</version>
+                        <version>5.0.0</version>
                         <executions>
                             <execution>
                                 <id>jspc</id>
@@ -1715,6 +1719,20 @@
                                         <exclude>PMmodule/Admin/AgencyEdit/bed.jsp</exclude>
                                     </excludes>
                                 </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Dependency lock is already validated in the build job.
+                         Skip in jspc profile because JitPack can shadow Maven Central
+                         artifacts under alternate groupIds in CI environments with cold
+                         caches, causing false dependency-lock failures. -->
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
                             </execution>
                         </executions>
                     </plugin>
