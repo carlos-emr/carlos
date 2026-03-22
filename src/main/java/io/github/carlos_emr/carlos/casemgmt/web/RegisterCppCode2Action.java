@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for registering CPP (Cumulative Patient Profile) issue codes.
+ * Handles the association of clinical issue codes with CPP sections for a patient.
+ *
+ * @since 2026-03-17
+ */
 public class RegisterCppCode2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

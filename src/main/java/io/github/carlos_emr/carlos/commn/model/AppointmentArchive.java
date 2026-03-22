@@ -46,6 +46,16 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.Appointment.BookingSource;
 
+/**
+ * Represents an archived appointment record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code appointmentArchive} table and stores historical versions of
+ * appointment records. When an appointment is modified, the previous state is preserved
+ * in this archive table for audit trail and history tracking purposes.</p>
+ *
+ * @see Appointment
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "appointmentArchive")
 public class AppointmentArchive extends AbstractModel<Integer> {

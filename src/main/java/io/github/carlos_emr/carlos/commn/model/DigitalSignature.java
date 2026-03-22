@@ -33,6 +33,17 @@ import java.util.Date;
 
 import jakarta.persistence.*;
 
+/**
+ * Represents a captured digital signature in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code DigitalSignature} table and stores electronic signatures
+ * captured from healthcare providers or patients. Each signature is associated with
+ * a specific facility, provider, demographic, and module type, and stores the
+ * signature image data as binary content.</p>
+ *
+ * @see Facility
+ * @since 2012-01-11
+ */
 @Entity
 public class DigitalSignature extends AbstractModel<Integer> {
 

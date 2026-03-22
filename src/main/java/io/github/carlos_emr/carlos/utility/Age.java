@@ -70,6 +70,11 @@ public class Age {
         return this.months;
     }
 
+    /**
+     * Returns the years component of the age.
+     *
+     * @return int the number of years
+     */
     public int getYears() {
         return this.years;
     }

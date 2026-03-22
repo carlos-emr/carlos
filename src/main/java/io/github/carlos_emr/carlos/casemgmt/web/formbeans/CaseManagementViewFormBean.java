@@ -32,6 +32,13 @@ import io.github.carlos_emr.carlos.commn.model.EncounterWindow;
 
 import java.io.File;
 
+/**
+ * Form bean backing the case management note list view. Holds filter criteria
+ * including demographic number, provider number, issue selections, search parameters,
+ * date range, and display preferences for the note listing UI.
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementViewFormBean {
     private String demographicNo;
     private String providerNo;

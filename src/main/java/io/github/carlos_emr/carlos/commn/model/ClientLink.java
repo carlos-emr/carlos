@@ -38,6 +38,19 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents a link between a local patient record and an external data source in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code ClientLink} table and tracks associations between local
+ * demographic records and identifiers in external systems (e.g., DHIR, CDS). This
+ * enables cross-system data exchange and identity resolution.</p>
+ *
+ * <p>Link types are defined by the {@link Type} enum, which includes various external
+ * system integrations such as Ontario's Digital Health Immunization Repository (DHIR).</p>
+ *
+ * @see Demographic
+ * @since 2012-01-11
+ */
 @Entity
 public class ClientLink extends AbstractModel<Integer> {
 

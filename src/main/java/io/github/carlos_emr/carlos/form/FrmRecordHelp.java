@@ -51,6 +51,20 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Helper class providing common database operations for clinical form records.
+ *
+ * <p>Handles JDBC-level form data retrieval, persistence, and URL construction
+ * for the form subsystem. Manages type-aware conversion between database columns
+ * (TINYINT for booleans, DATE, TIMESTAMP) and form properties, and supports
+ * both MySQL and PostgreSQL databases.</p>
+ *
+ * <p>Used by {@link FrmRecord} subclasses for their database interactions.</p>
+ *
+ * @see FrmRecord
+ * @see FrmRecordFactory
+ * @since 2026-03-17
+ */
 public class FrmRecordHelp {
     private String _dateFormat = "yyyy/MM/dd";
     private String _newDateFormat = "yyyy-MM-dd"; //handles both date formats, but yyyy/MM/dd is displayed to avoid deprecation

@@ -33,7 +33,13 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDest
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.Region;
 
 /**
- * TODO this will eventually load a properties file of settings.
+ * Configuration settings for FHIR message construction, including destination,
+ * region, and sender endpoint preferences.
+ *
+ * <p>Currently configured via constructor parameters. Future versions may
+ * load settings from a properties file.</p>
+ *
+ * @since 2026-03-17
  */
 public class Settings {
 

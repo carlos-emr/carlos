@@ -37,11 +37,37 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for {@link BillingDetail} entities.
+ * Defines persistence operations for billing detail line items,
+ * which represent individual service codes within a billing submission.
+ *
+ * @since 2026-03-17
+ */
 public interface BillingDetailDao extends AbstractDao<BillingDetail> {
 
+    /**
+     * Finds all billing details for a given billing number.
+     *
+     * @param billingNo int the billing number
+     * @return List of {@link BillingDetail} records
+     */
     public List<BillingDetail> findByBillingNo(int billingNo);
 
+    /**
+     * Finds billing details for a given billing number and status.
+     *
+     * @param billingNo Integer the billing number
+     * @param status String the status to filter by
+     * @return List of matching {@link BillingDetail} records
+     */
     public List<BillingDetail> findByBillingNoAndStatus(Integer billingNo, String status);
 
+    /**
+     * Finds non-deleted billing details for a given billing number, ordered by service code.
+     *
+     * @param billingNo Integer the billing number
+     * @return List of active {@link BillingDetail} records
+     */
     public List<BillingDetail> findByBillingNo(Integer billingNo);
 }

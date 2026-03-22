@@ -41,6 +41,12 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link BillActivityDao}.
+ * Provides persistence operations for billing activity records using JPA queries.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillActivityDaoImpl extends AbstractDaoImpl<BillActivity> implements BillActivityDao {
 

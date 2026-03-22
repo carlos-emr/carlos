@@ -55,7 +55,19 @@ import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Prevention compliance report for childhood immunizations (DTaP-IPV, Hib, MMR/MMRV).
+ *
+ * <p>Evaluates a patient set against Canadian childhood immunization schedules,
+ * calculating compliance status based on the recommended total of 5 immunizations
+ * (4 DTaP + 1 MMR). Patients are classified as up-to-date, due, overdue, refused,
+ * ineligible, or having no information, with Ontario billing code Q004A eligibility.</p>
+ *
+ * <p>Includes follow-up letter processing logic (L1, L2, P1) for patients who are
+ * not yet compliant.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReport
+ * @see PreventionReportFactory
  */
 public class ChildImmunizationReport implements PreventionReport {
 
@@ -77,6 +89,7 @@ public class ChildImmunizationReport implements PreventionReport {
     }
 
 
+    /** {@inheritDoc} */
     public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
         double done = 0;

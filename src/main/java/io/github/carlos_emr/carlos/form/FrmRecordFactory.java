@@ -32,9 +32,28 @@ package io.github.carlos_emr.carlos.form;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Factory for creating {@link FrmRecord} instances based on form name.
+ *
+ * <p>Uses reflection to instantiate the appropriate form record handler class
+ * based on a naming convention: the form name is mapped to a class in the
+ * {@code io.github.carlos_emr.carlos.form} package with the pattern
+ * {@code Frm<FormName>Record}.</p>
+ *
+ * @see FrmRecord
+ * @since 2026-03-17
+ */
 public class FrmRecordFactory {
 
 
+    /**
+     * Creates a FrmRecord instance for the specified form type.
+     *
+     * @param which String the form name (e.g., "Rourke2020", "BCAR2020", "LabReq")
+     *              used to resolve the class {@code Frm<which>Record}
+     * @return FrmRecord the instantiated form record handler, or {@code null} if
+     *         the class cannot be found or instantiated
+     */
     public FrmRecord factory(String which) {
 
         // Build the full class name from the form name (the 'which' parameter).

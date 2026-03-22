@@ -87,6 +87,7 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         return returnPcrs;
     }
 
+    /** {@inheritDoc} */
     public List<ProgramClientRestriction> getActiveRestrictionsForClient(int demographicNo, Date asOfDate) {
         // check daos for restriction
         Collection<ProgramClientRestriction> pcrs = programClientRestrictionDAO.findForClient(demographicNo);
@@ -100,6 +101,7 @@ public class ClientRestrictionManagerImpl implements ClientRestrictionManager {
         return returnPcrs;
     }
 
+    /** {@inheritDoc} */
     public List<ProgramClientRestriction> getActiveRestrictionsForClient(int demographicNo, int facilityId, Date asOfDate) {
         // check daos for restriction
         Collection<ProgramClientRestriction> pcrs = programClientRestrictionDAO.findForClient(demographicNo, facilityId);

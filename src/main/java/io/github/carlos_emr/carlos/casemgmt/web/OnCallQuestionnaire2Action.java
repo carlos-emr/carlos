@@ -40,6 +40,13 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+/**
+ * Struts2 action for handling on-call questionnaire submissions in the case
+ * management module. Manages the creation and retrieval of on-call clinical
+ * questionnaire data.
+ *
+ * @since 2026-03-17
+ */
 public class OnCallQuestionnaire2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

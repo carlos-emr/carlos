@@ -36,6 +36,13 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 
+/**
+ * Form bean backing the case management note entry form. Holds the clinical note,
+ * CPP data, demographic number, issue selections, note text, and encounter metadata
+ * for submission from the note editing UI.
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementEntryFormBean {
     private CaseManagementNote caseNote;
     private CaseManagementCPP cpp;

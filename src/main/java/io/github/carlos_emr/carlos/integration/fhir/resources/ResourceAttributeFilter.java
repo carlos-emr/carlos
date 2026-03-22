@@ -37,6 +37,16 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ResourceAttributeFilterInterface;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Properties-file-based implementation of {@link ResourceAttributeFilterInterface}
+ * that controls which optional and mandatory FHIR attributes are included in outbound messages.
+ *
+ * <p>Filter properties are loaded from a file at the given URL path. Each property key
+ * follows the format {@code resourceclassname.attributename=true|false}, where the class
+ * name is lowercased. Attributes default to {@code true} (included) if not specified.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ResourceAttributeFilter implements ResourceAttributeFilterInterface {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -44,6 +54,11 @@ public class ResourceAttributeFilter implements ResourceAttributeFilterInterface
     private Class<?> targetResource;
     private Properties properties;
 
+    /**
+     * Constructs a ResourceAttributeFilter by loading properties from the given URL path.
+     *
+     * @param filterURL the classpath or filesystem path to the filter properties file
+     */
     public ResourceAttributeFilter(String filterURL) {
         properties = new Properties();
         try {

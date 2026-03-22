@@ -881,6 +881,12 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Creates a new search configuration with a generated UUID.
+     *
+     * @param appointmentSearchTo AppointmentSearchTo1 the search configuration data to create
+     * @return AppointmentSearchTo1 the created search configuration with its generated ID
+     */
     @POST
     @Path("/searchConfig/add")
     @Produces("application/json")
@@ -907,6 +913,12 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Enables a search configuration and disables all other configurations with the same UUID.
+     *
+     * @param id Integer the search configuration ID to enable
+     * @return AppointmentSearchTo1 the enabled search configuration
+     */
     @POST
     @Path("/searchConfig/enable/{id}")
     @Produces("application/json")

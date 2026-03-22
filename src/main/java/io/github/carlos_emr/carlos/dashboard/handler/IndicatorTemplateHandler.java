@@ -85,6 +85,12 @@ public class IndicatorTemplateHandler {
         setSchema();
     }
 
+    /**
+     * Constructs a handler with the logged-in user context and immediately parses the given byte array.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for provider-specific parameters
+     * @param bytearray byte[] the raw XML template data
+     */
     public IndicatorTemplateHandler(LoggedInInfo loggedInInfo, byte[] bytearray) {
         this.loggedInInfo = loggedInInfo;
         setSchema();
@@ -124,6 +130,13 @@ public class IndicatorTemplateHandler {
         return isValidXML();
     }
 
+    /**
+     * Parses the given byte array as XML, validates it against the schema, and populates
+     * the template document, XML POJO, and entity bean. If parsing or validation fails,
+     * the {@code validXML} flag is set to {@code false}.
+     *
+     * @param bytearray byte[] the raw XML template data to parse
+     */
     public void read(byte[] bytearray) {
         this.bytearray = bytearray;
 

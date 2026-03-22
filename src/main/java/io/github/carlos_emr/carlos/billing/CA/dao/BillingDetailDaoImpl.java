@@ -40,6 +40,12 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link BillingDetailDao}.
+ * Provides persistence operations for billing detail line items using JPA queries.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingDetailDaoImpl extends AbstractDaoImpl<BillingDetail> implements BillingDetailDao {

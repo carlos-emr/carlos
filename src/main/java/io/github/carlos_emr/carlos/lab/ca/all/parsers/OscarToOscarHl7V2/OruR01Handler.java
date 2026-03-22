@@ -43,6 +43,13 @@ import ca.uhn.hl7v2.model.v26.segment.NTE;
 import ca.uhn.hl7v2.model.v26.segment.PID;
 import ca.uhn.hl7v2.model.v26.segment.ROL;
 
+/**
+ * Inter-EMR message handler for HL7 v2.6 ORU_R01 (Observation Result) messages.
+ * Extracts observation data, provider roles, and NTE comments from messages exchanged
+ * between EMR installations.
+ *
+ * @since 2007-01-18
+ */
 public final class OruR01Handler extends ChainnedMessageAdapter<ORU_R01> {
 
     private static Logger logger = MiscUtils.getLogger();
