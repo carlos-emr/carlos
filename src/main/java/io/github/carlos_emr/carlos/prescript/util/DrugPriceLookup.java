@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -35,13 +35,15 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 import org.apache.logging.log4j.Logger;
 import org.jdom2.Document;
 import org.jdom2.Element;
+import org.jdom2.JDOMException;
 import org.jdom2.filter.ElementFilter;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
@@ -53,18 +55,17 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * Parses xml file, storing an HashMap
- * @author phc
+ * Parses xml file, storing a ConcurrentHashMap of DIN to price information.
  */
 public class DrugPriceLookup {
 
 	private static Logger log = MiscUtils.getLogger();
 
-	static HashMap<String, String> costLookup = new HashMap<String, String>();
-	static boolean loaded = false;
+	static final Map<String, String> costLookup = new ConcurrentHashMap<>();
+	static volatile boolean loaded = false;
 
-	/** Creates a new instance  */
-	protected DrugPriceLookup() {
+	/** Utility class - not instantiable */
+	private DrugPriceLookup() {
 	}
 
 	static public String getPriceInfoForDin(String din) {
@@ -73,79 +74,74 @@ public class DrugPriceLookup {
 			log.info("din null returning null");
 			return null;
 		}
-		log.debug("current lookup for din " + din + " yields " + costLookup.get(din));
+		log.debug("current lookup for din {} yields {}", din, costLookup.get(din));
 		return costLookup.get(din);
 	}
 
-	static public String getVal(Element e, String name) {
-		if (e.getAttribute(name) != null) {
-			return e.getAttribute(name).getValue();
-		}
-		return "";
-	}
-	
-	static public void reLoadLookupInformation(){
+	static public synchronized void reLoadLookupInformation() {
 		loaded = false;
+		costLookup.clear();
 		loadCostLookupInformation();
 	}
 
 	static private void loadCostLookupInformation() {
-		log.debug("current price lookup size " + costLookup.size());
+		log.debug("current price lookup size {}", costLookup.size());
 		if (!loaded) {
-			DrugPriceLookup rdf = new DrugPriceLookup();
-			InputStream is = null;
-			ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
-			try {
-
-				String fileName = OscarProperties.getInstance().getProperty("odb_formulary_file");
-				if (fileName != null && !fileName.isEmpty()) {
-					is = new BufferedInputStream(new FileInputStream(fileName));
-					log.info("loading odb file from property "+fileName);
-
-				} else {
-					ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);
-		        	if(resourceStorage != null){
-		        		is = new ByteArrayInputStream(resourceStorage.getFileContents());
-		        		log.info("loading odb file from resource storage id"+resourceStorage.getId());
-		        	}else{
-						String dosing = "oscar/oscarRx/data_extract_20250730.xml";
-						log.info("loading odb file from internal resource "+dosing);
-						is = rdf.getClass().getClassLoader().getResourceAsStream(dosing);
-		        	}
-				}
-
-/**
- * Parses xml file.  
- * Simplified structure is
- * extract > formulary > pcg2 > pcg6 > genericName > pcgGroup > pcg9 > drug > individualPrice
- * we want the drug.id (its din) and link it to drug.individualPrice its formulary cost per unit
- * 
- */
-				SAXBuilder parser = new SAXBuilder();
-				Document doc = parser.build(is);
-				Element root = doc.getRootElement();
-				Element formulary = root.getChild("formulary");
-				@SuppressWarnings("unchecked")
-				Iterator<Element> drugs = formulary.getDescendants(new ElementFilter("drug"));
-
-				while (drugs.hasNext()) {
-					Element drug = drugs.next();
-					String din = drug.getAttribute("id").getValue();
-					String cost = drug.getChildText("individualPrice");
-					costLookup.put(din, cost);
-				}
-						
-				log.debug("Drug Prices loaded=true size:"+costLookup.size());
-				loaded = true;
-				
-			} catch (Exception e) {
-				MiscUtils.getLogger().error("Error", e);
-			} finally {
-				if(is != null) {
+			synchronized (DrugPriceLookup.class) {
+				if (!loaded) {
+					InputStream is = null;
+					ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
 					try {
-						is.close();
-					}catch(IOException e) {
+
+						String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
+						if (fileName != null && !fileName.isEmpty()) {
+							is = new BufferedInputStream(new FileInputStream(fileName));
+							log.info("loading odb file from property {}", fileName);
+
+						} else {
+							ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);
+							if (resourceStorage != null) {
+								is = new ByteArrayInputStream(resourceStorage.getFileContents());
+								log.info("loading odb file from resource storage id {}", resourceStorage.getId());
+							} else {
+								String dosing = "oscar/oscarRx/data_extract_20250730.xml";
+								log.info("loading odb file from internal resource {}", dosing);
+								is = DrugPriceLookup.class.getClassLoader().getResourceAsStream(dosing);
+							}
+						}
+
+						/*
+						 * Parses xml file.
+						 * Simplified structure is
+						 * extract > formulary > pcg2 > pcg6 > genericName > pcgGroup > pcg9 > drug > individualPrice
+						 * we want the drug.id (its din) and link it to drug.individualPrice its formulary cost per unit
+						 */
+						SAXBuilder parser = new SAXBuilder();
+						Document doc = parser.build(is);
+						Element root = doc.getRootElement();
+						Element formulary = root.getChild("formulary");
+						Iterator<Element> drugs = formulary.getDescendants(new ElementFilter("drug")).iterator();
+
+						while (drugs.hasNext()) {
+							Element drug = drugs.next();
+							String din = drug.getAttribute("id").getValue();
+							String cost = drug.getChildText("individualPrice");
+							costLookup.put(din, cost);
+						}
+
+						log.debug("Drug Prices loaded=true size: {}", costLookup.size());
+						loaded = true;
+
+					} catch (JDOMException | IOException e) {
 						MiscUtils.getLogger().error("Error", e);
+					} finally {
+						if (is != null) {
+							try {
+								is.close();
+							} catch (IOException e) {
+								MiscUtils.getLogger().error("Error", e);
+							}
+						}
 					}
 				}
 			}
@@ -153,4 +149,3 @@ public class DrugPriceLookup {
 
 	}
 }
-
