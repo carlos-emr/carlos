@@ -258,7 +258,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             try {
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
-                PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                 if (sigFile.exists() && !sigFile.delete()) {
                     MiscUtils.getLogger().warn("Could not delete signature file for provider {}: {}", providerNo, sigFile.getAbsolutePath());
                 }
@@ -303,7 +303,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
             try {
                 File imageFolder = getImageFolder();
                 File sigFile = new File(imageFolder, expectedName);
-                PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                 if (sigFile.exists()) {
                     exists = true;
                     imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";

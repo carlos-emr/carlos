@@ -258,7 +258,7 @@ public class FaxSender {
             File absoluteFile = path.toFile();
             try {
                 // Prefer files that are under DOCUMENT_DIR and already exist
-                PathValidationUtils.validateExistingPath(absoluteFile, new File(documentDir));
+                absoluteFile = PathValidationUtils.validateExistingPath(absoluteFile, new File(documentDir));
                 return absoluteFile.toPath();
             } catch (SecurityException e) {
                 // Allow absolute paths in an explicitly allowed temp directory
