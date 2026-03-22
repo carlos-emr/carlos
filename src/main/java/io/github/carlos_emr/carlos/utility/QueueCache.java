@@ -35,6 +35,18 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 
+/**
+ * A bounded, time-expiring cache backed by a {@link HashMap} with configurable
+ * time-to-live (TTL) and maximum size.
+ *
+ * <p>Entries are automatically evicted after the TTL expires via a background {@link Timer}.
+ * Values are cloned on retrieval using the provided {@link QueueCacheValueCloner} to prevent
+ * callers from modifying cached instances.
+ *
+ * @param <K> the type of cache keys
+ * @param <V> the type of cache values
+ * @since 2026-03-17
+ */
 public final class QueueCache<K, V> {
     private static Logger logger = MiscUtils.getLogger();
     private static Timer timer = null;

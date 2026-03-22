@@ -43,6 +43,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a billing detail line item.
+ * Maps to the {@code billingdetail} table, storing individual service codes
+ * and their associated amounts within a billing submission.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billingdetail")
 public class BillingDetail extends AbstractModel<Integer> {

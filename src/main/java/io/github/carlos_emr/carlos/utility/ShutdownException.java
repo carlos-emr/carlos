@@ -27,6 +27,14 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+/**
+ * Exception thrown to signal that a JVM or servlet container shutdown has been detected.
+ *
+ * <p>Long-running threads should periodically call {@link MiscUtils#checkShutdownSignaled()}
+ * to detect shutdown requests and terminate gracefully.
+ *
+ * @since 2026-03-17
+ */
 public class ShutdownException extends Exception {
     public ShutdownException() {
         super("Shutdown received.");

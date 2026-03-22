@@ -37,6 +37,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents an external application definition in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code AppDefinition} table and defines third-party applications
+ * that integrate with CARLOS via OAuth 1.0a, OAuth 2.0, or JWT authentication.
+ * Each definition includes the application name, authentication type, configuration,
+ * and active status.</p>
+ *
+ * @see AppUser
+ * @since 2001-01-01
+ */
 @Entity
 public class AppDefinition extends AbstractModel<Integer> {
     public static final String OAUTH1_TYPE = "oauth1";

@@ -191,32 +191,69 @@ public class DSGuideline2Action extends ActionSupport {
         Boolean result;
         String actualValues;
 
+        /**
+         * Constructs a ConditionResult with the specified condition, evaluation result, and actual values.
+         *
+         * @param condition DSCondition the evaluated condition
+         * @param result Boolean the evaluation result (true if condition was met), may be null
+         * @param actualValues String the patient's actual data for this condition type, may be null
+         */
         public ConditionResult(DSCondition condition, Boolean result, String actualValues) {
             this.condition = condition;
             this.result = result;
             this.actualValues = actualValues;
         }
 
+        /**
+         * Sets the condition for this result.
+         *
+         * @param condition DSCondition the evaluated condition
+         */
         public void setCondition(DSCondition condition) {
             this.condition = condition;
         }
 
+        /**
+         * Gets the condition for this result.
+         *
+         * @return DSCondition the evaluated condition
+         */
         public DSCondition getCondition() {
             return this.condition;
         }
 
+        /**
+         * Sets the evaluation result.
+         *
+         * @param result Boolean true if the condition was met, null if not evaluated
+         */
         public void setResult(Boolean result) {
             this.result = result;
         }
 
+        /**
+         * Gets the evaluation result.
+         *
+         * @return Boolean true if the condition was met, null if not evaluated
+         */
         public Boolean getResult() {
             return this.result;
         }
 
+        /**
+         * Sets the patient's actual values for this condition type.
+         *
+         * @param actualValues String formatted patient data
+         */
         public void setActualValues(String actualValues) {
             this.actualValues = actualValues;
         }
 
+        /**
+         * Gets the patient's actual values for this condition type.
+         *
+         * @return String formatted patient data, may be null
+         */
         public String getActualValues() {
             return this.actualValues;
         }

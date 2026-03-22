@@ -40,6 +40,15 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
+/**
+ * Represents a clinical dashboard configuration in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code dashboard} table and stores named dashboard definitions
+ * that aggregate clinical indicators and quality metrics for healthcare providers.
+ * Each dashboard has a name, description, creator, and associated indicators.</p>
+ *
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "dashboard")
 public class Dashboard extends AbstractModel<Integer> {

@@ -33,6 +33,15 @@ import java.util.Date;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 
+/**
+ * Value object representing a drug lot in the dispensary system.
+ *
+ * <p>Encapsulates lot identification, quantity, expiry date, and deleted status.
+ * Supports generating a unique hash based on the lot name using SHA-256 for
+ * deduplication purposes.</p>
+ *
+ * @since 2001-01-01
+ */
 public class LotBean {
 
     private String name;        //name of lot

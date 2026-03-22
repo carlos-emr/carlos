@@ -2393,6 +2393,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genPatientNameLength";
     }
 
+    /**
+     * Saves the provider's patient name display length preference.
+     *
+     * @return String {@code "genPatientNameLength"} to re-display with success status
+     */
     public String savePatientNameLength() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -2423,6 +2428,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genPatientNameLength";
     }
 
+    /**
+     * Displays the document display mode preference form.
+     *
+     * @return String {@code "genDisplayDocumentAs"} to forward to the configuration JSP
+     */
     public String viewDisplayDocumentAs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2452,6 +2462,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genDisplayDocumentAs";
     }
 
+    /**
+     * Saves the provider's document display mode preference.
+     *
+     * @return String {@code "genDisplayDocumentAs"} to re-display with success status
+     */
     public String saveDisplayDocumentAs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

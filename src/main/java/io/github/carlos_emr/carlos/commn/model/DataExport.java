@@ -37,7 +37,13 @@ import java.sql.Timestamp;
 
 
 /**
- * The persistent class for the dataExport database table.
+ * Represents a data export record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code dataExport} table and tracks data export operations
+ * performed on clinical data. Each record captures the export file, type,
+ * executing user, run timestamp, and contact information for the requestor.</p>
+ *
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "dataExport")

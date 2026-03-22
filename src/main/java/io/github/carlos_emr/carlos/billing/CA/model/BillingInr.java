@@ -43,6 +43,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an INR (International Normalized Ratio) billing record.
+ * Maps to the {@code billinginr} table, tracking billing for anticoagulation
+ * monitoring services associated with patients and providers.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billinginr")
 public class BillingInr extends AbstractModel<Integer> {

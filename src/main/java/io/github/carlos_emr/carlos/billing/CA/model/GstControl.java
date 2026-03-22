@@ -40,7 +40,11 @@ import jakarta.persistence.Table;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 /**
- * @author rjonasz
+ * JPA entity representing a GST (Goods and Services Tax) control record.
+ * Maps to the {@code gstControl} table, storing tax rate configurations
+ * used in billing calculations for taxable medical services.
+ *
+ * @since 2026-03-17
  */
 @Entity
 @Table(name = "gstControl")

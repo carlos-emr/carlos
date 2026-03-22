@@ -39,6 +39,14 @@ import org.apache.cxf.annotations.GZIP;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP web service endpoint for system information and connectivity testing.
+ *
+ * <p>Provides a hello-world connectivity test method and system metadata retrieval
+ * (server time, timezone, database version) for verifying inter-EMR configuration.
+ *
+ * @since 2012-08-13
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)

@@ -33,8 +33,13 @@ import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 
 /**
- * This class holds utilities used to work with spring.
- * The main usage is probably the beanFactory singleton.
+ * Utility class providing access to the Spring {@link BeanFactory} singleton.
+ *
+ * <p>The bean factory is populated by the context startup listener during application
+ * initialization. Used throughout the codebase to obtain Spring-managed beans in
+ * classes that are not themselves Spring-managed (e.g., Struts 2Actions, legacy code).
+ *
+ * @since 2026-03-17
  */
 public class SpringUtils {
 

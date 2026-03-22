@@ -43,6 +43,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
+/**
+ * Spring-managed component that validates billing codes against patient demographics,
+ * appointment context, and time-based rules. Uses a fail-fast approach to quickly
+ * reject codes that do not match the patient's age, sex, appointment location,
+ * time of day, or required diagnostic codes.
+ *
+ * @since 2026-03-17
+ */
 @Component
 public class CodeFilterManager {
     private static Logger logger = MiscUtils.getLogger();
@@ -69,6 +77,18 @@ public class CodeFilterManager {
          First approach is to try to find a reason why this code shouldn't be used and then fail fast and return FALSE
          ie. code is for 12-24mo and person is 65, just return false and don't look further
 
+     */
+    /**
+     * Validates whether a billing code is applicable for the given context.
+     * Checks age, sex, appointment time, location, and required diagnostic codes.
+     * Returns true if no filter data is available or if the code passes all applicable checks.
+     *
+     * @param billingCode String the 5+ character billing code to validate
+     * @param location String the visit location (e.g., "office", "home", "ltc", "hosp", "phone")
+     * @param procedure boolean whether this is a procedure billing
+     * @param dateOfAppt Date the appointment date and time for time-of-day validation
+     * @param demographic Demographic the patient demographics for age and sex checks
+     * @return boolean true if the code is valid for the given context, false otherwise
      */
     public boolean isCodeValid(String billingCode, String location, boolean procedure, Date dateOfAppt, Demographic demographic) {
         logger.debug("billingCode " + billingCode + "  location " + location + "  procedure " + procedure + "  dateOfAppt " + dateOfAppt + " Demographic " + demographic);

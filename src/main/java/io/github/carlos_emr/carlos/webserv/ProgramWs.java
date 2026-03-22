@@ -43,6 +43,14 @@ import io.github.carlos_emr.carlos.webserv.transfer_objects.ProgramTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * SOAP web service endpoint for program management operations in the inter-EMR Integrator system.
+ *
+ * <p>Provides methods for retrieving program information and provider-program
+ * assignments across CARLOS EMR installations.
+ *
+ * @since 2012-08-13
+ */
 @WebService(targetNamespace = "http://ws.oscarehr.org/")
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)

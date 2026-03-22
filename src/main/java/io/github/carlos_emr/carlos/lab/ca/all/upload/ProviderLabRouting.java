@@ -57,7 +57,11 @@ import io.github.carlos_emr.carlos.lab.ForwardingRules;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author wrighd
+ * Manages the routing of lab results to providers in the provider-lab routing table.
+ * Handles creating routing entries, checking for existing routes, and updating
+ * acknowledgement status when providers view or acknowledge lab results.
+ *
+ * @since 2007-01-18
  */
 public class ProviderLabRouting {
 

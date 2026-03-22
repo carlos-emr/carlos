@@ -44,8 +44,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * Class FrmGraphicAR : ar2 week-height plot data
- * 2003-02-08
+ * Provides gestational week-to-height plot data for the Antenatal Record (AR2) form.
+ *
+ * <p>Calculates fundal height plot coordinates based on gestational age for rendering
+ * on the antenatal record growth chart. Converts between date-based measurements and
+ * the chart's coordinate system.</p>
+ *
+ * @since 2026-03-17
  */
 public class FrmGraphicAR {
     int nWeek = 0;

@@ -53,5 +53,12 @@ public abstract class FrmPdfGraphic {
      */
     public abstract void init(Properties prop);
 
+    /**
+     * Calculates the X-Y coordinate properties for plotting data points on the chart.
+     *
+     * @param xDate List the X-axis date values
+     * @param yHeight List the Y-axis measurement values (height, weight, etc.)
+     * @return Properties containing the calculated coordinate pairs for chart rendering
+     */
     public abstract Properties getGraphicXYProp(List xDate, List yHeight);
 }

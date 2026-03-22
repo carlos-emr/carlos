@@ -42,6 +42,12 @@ import io.github.carlos_emr.carlos.commn.Gender;
  */
 public final class EnumMappingUtil {
 
+    /**
+     * Converts a CARLOS Gender enum to a FHIR AdministrativeGender enum.
+     *
+     * @param gender the CARLOS Gender value (M, F, X, or U)
+     * @return AdministrativeGender the corresponding FHIR gender, defaults to UNKNOWN
+     */
     public static final AdministrativeGender genderToAdministrativeGender(final Gender gender) {
         AdministrativeGender genderCode = AdministrativeGender.UNKNOWN;
         switch (gender) {
@@ -64,6 +70,12 @@ public final class EnumMappingUtil {
         return genderCode;
     }
 
+    /**
+     * Converts a FHIR AdministrativeGender enum to a CARLOS Gender enum.
+     *
+     * @param gender the FHIR AdministrativeGender value
+     * @return Gender the corresponding CARLOS gender, defaults to U (unknown)
+     */
     public static final Gender administrativeGenderToGender(final AdministrativeGender gender) {
         Gender genderCode = Gender.U;
         switch (gender) {

@@ -76,6 +76,7 @@ public class FOBTReport implements PreventionReport {
     public FOBTReport() {
     }
 
+    /** {@inheritDoc} */
     public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
 
         int inList = 0;

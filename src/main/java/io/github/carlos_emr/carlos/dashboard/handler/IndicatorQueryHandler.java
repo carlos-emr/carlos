@@ -249,6 +249,13 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
         return json.toString();
     }
 
+    /**
+     * Creates a JSON-like string representation of the raw query results before
+     * percentage conversion, preserving original numerator values.
+     *
+     * @param queryResultList List the raw query result rows
+     * @return String the original results formatted as a JSON-like object
+     */
     public static String createOriginalGraphPlots(List<?> queryResultList) {
 
 
@@ -277,6 +284,12 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
 
     }
 
+    /**
+     * Converts graph plots to a JSON-like string with indexed result sets for chart rendering.
+     *
+     * @param graphPlots List of GraphPlot[] the graph plot data
+     * @return String the plots formatted as JSON-like objects with indexed keys
+     */
     public static String plotsToJson(List<GraphPlot[]> graphPlots) {
         StringBuilder json = new StringBuilder("");
         int index = 0;
@@ -299,6 +312,12 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
         return json.toString();
     }
 
+    /**
+     * Converts graph plot keys to a JavaScript-compatible string array for tooltip display.
+     *
+     * @param graphPlots List of GraphPlot[] the graph plot data
+     * @return String the tooltip keys formatted as nested JavaScript array literals
+     */
     public static String plotsToTooltipsStringArray(List<GraphPlot[]> graphPlots) {
         StringBuilder json = new StringBuilder("");
         for (GraphPlot[] graphPlotArray : graphPlots) {

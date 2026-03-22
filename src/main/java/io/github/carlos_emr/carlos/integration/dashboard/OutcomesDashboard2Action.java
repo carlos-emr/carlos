@@ -53,6 +53,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for the Outcomes Dashboard integration, providing clinical quality
+ * indicator submission and template management via the dashboard REST API.
+ *
+ * <p>Supports uploading indicator data, retrieving indicator templates, and
+ * authenticating with the external dashboard service. All operations require
+ * appropriate security privileges.</p>
+ *
+ * @since 2012-07-12
+ */
 public class OutcomesDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

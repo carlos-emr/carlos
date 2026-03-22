@@ -44,6 +44,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a billing activity record.
+ * Maps to the {@code billactivity} table, tracking billing submission batch activities
+ * including month codes, group numbers, batch counts, and update timestamps.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billactivity")
 public class BillActivity extends AbstractModel<Integer> {

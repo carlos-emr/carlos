@@ -67,6 +67,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Utility class for the Outcomes Dashboard integration, handling HTTP communication
+ * with the external dashboard REST API for submitting clinical quality indicator
+ * data sets and managing user/clinic registration.
+ *
+ * @since 2012-07-12
+ */
 public class OutcomesDashboardUtils {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 

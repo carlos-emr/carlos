@@ -14,6 +14,12 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
+/**
+ * Simple value object holding the segment ID resulting from a lab report routing operation.
+ *
+ * @since 2008-01-01
+ */
 public class RouteReportResults {
+    /** The database segment identifier of the routed lab report. */
     public int segmentId;
 }

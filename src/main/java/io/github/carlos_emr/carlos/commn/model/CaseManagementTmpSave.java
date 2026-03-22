@@ -39,6 +39,16 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents a temporary save of case management notes in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code casemgmt_tmpsave} table and stores auto-saved or draft versions
+ * of clinical case management notes before they are finalized. This prevents data loss
+ * during extended note-writing sessions.</p>
+ *
+ * @see Demographic
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "casemgmt_tmpsave")
 public class CaseManagementTmpSave extends AbstractModel<Integer> {

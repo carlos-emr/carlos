@@ -35,6 +35,15 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * SOAP web service transfer object for schedule template codes.
+ *
+ * <p>Provides static factory methods for converting between
+ * {@link ScheduleTemplateCode} domain entities and this transfer object,
+ * supporting both single-object and batch conversions.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class ScheduleTemplateCodeTransfer {
 
     private Integer id;
@@ -101,6 +110,12 @@ public final class ScheduleTemplateCodeTransfer {
         this.bookinglimit = bookinglimit;
     }
 
+    /**
+     * Converts a single domain entity to a transfer object using property copying.
+     *
+     * @param scheduleTemplateCode ScheduleTemplateCode the domain entity to convert, may be null
+     * @return ScheduleTemplateCodeTransfer the transfer object, or null if input is null
+     */
     public static ScheduleTemplateCodeTransfer toTransfer(ScheduleTemplateCode scheduleTemplateCode) {
         if (scheduleTemplateCode == null) return (null);
 
@@ -111,6 +126,12 @@ public final class ScheduleTemplateCodeTransfer {
         return (scheduleTemplateCodeTransfer);
     }
 
+    /**
+     * Converts a list of domain entities to an array of transfer objects.
+     *
+     * @param scheduleTemplateCodes List of ScheduleTemplateCode entities to convert
+     * @return ScheduleTemplateCodeTransfer[] array of transfer objects
+     */
     public static ScheduleTemplateCodeTransfer[] toTransfer(List<ScheduleTemplateCode> scheduleTemplateCodes) {
         ScheduleTemplateCodeTransfer[] result = new ScheduleTemplateCodeTransfer[scheduleTemplateCodes.size()];
 

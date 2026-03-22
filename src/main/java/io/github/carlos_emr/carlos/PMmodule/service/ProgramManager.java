@@ -39,8 +39,27 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.List;
 
+/**
+ * Service interface for managing programs within the CARLOS EMR Program Management module.
+ *
+ * <p>Provides comprehensive operations for program lifecycle management including program CRUD,
+ * provider assignments, team management, access control, functional user types, client status
+ * tracking, program signatures, vacancy templates, and role-based access configuration.
+ * Programs can be of various types including service, community, and external.</p>
+ *
+ * @see ProgramManagerImpl
+ * @see Program
+ * @see ProgramProvider
+ * @see ProgramAccess
+ * @since 2005
+ */
 public interface ProgramManager {
 
+    /**
+     * Checks whether the program management module is enabled.
+     *
+     * @return boolean {@code true} if program management is enabled
+     */
     boolean getEnabled();
 
     void setEnabled(boolean enabled);

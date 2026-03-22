@@ -77,12 +77,22 @@ public class AppointmentStatus2Action extends ActionSupport {
         return view();
     }
 
+    /**
+     * Displays all appointment statuses.
+     *
+     * @return String the success result name
+     */
     public String view() {
         logger.warn("view");
         populateAllStatus(request);
         return SUCCESS;
     }
 
+    /**
+     * Resets all appointment statuses to their default values.
+     *
+     * @return String the success result name
+     */
     public String reset() {
         logger.warn("reset");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
@@ -91,6 +101,11 @@ public class AppointmentStatus2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Toggles the active/inactive state of an appointment status.
+     *
+     * @return String the success result name
+     */
     public String changestatus() {
         logger.warn("changestatus");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
@@ -101,6 +116,11 @@ public class AppointmentStatus2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Loads an appointment status for editing.
+     *
+     * @return String "edit" result name to display the edit form
+     */
     public String modify() {
         logger.warn("modify");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
@@ -115,6 +135,11 @@ public class AppointmentStatus2Action extends ActionSupport {
         return "edit";
     }
 
+    /**
+     * Saves modifications to an appointment status description and color.
+     *
+     * @return String the success result name
+     */
     public String update() {
         logger.warn("update");
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
@@ -129,10 +154,20 @@ public class AppointmentStatus2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Returns the Spring web application context.
+     *
+     * @return WebApplicationContext the application context
+     */
     public WebApplicationContext getApptContext() {
         return WebApplicationContextUtils.getRequiredWebApplicationContext(ServletActionContext.getServletContext());
     }
 
+    /**
+     * Creates and returns a new appointment status manager instance.
+     *
+     * @return AppointmentStatusMgr the status manager
+     */
     public AppointmentStatusMgr getApptStatusMgr() {
         return new AppointmentStatusMgrImpl();
     }

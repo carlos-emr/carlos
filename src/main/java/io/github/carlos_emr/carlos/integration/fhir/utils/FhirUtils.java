@@ -39,8 +39,23 @@ import org.hl7.fhir.dstu3.model.StringType;
 import org.hl7.fhir.dstu3.model.codesystems.ContactPointSystem;
 import org.hl7.fhir.dstu3.model.codesystems.IdentifierUse;
 
+/**
+ * Utility methods for extracting data from FHIR DSTU3 resource types.
+ *
+ * <p>Provides helper methods for converting FHIR Address lines to strings,
+ * extracting phone/fax/email from ContactPoint lists, and retrieving
+ * identifier values by use type.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class FhirUtils {
 
+    /**
+     * Converts a list of FHIR Address objects to a list of concatenated street line strings.
+     *
+     * @param addresses the list of FHIR Address objects
+     * @return List of street address strings, or {@code null} if the list is empty
+     */
     public static final List<String> fhirAddressLineToString(List<Address> addresses) {
         List<String> addressList = null;
         for (Address address : addresses) {
@@ -53,6 +68,12 @@ public final class FhirUtils {
         return addressList;
     }
 
+    /**
+     * Concatenates a FHIR Address's line components into a single string.
+     *
+     * @param address the FHIR Address object
+     * @return String the concatenated street address lines
+     */
     public static final String fhirAddressLineToString(Address address) {
         List<StringType> addressLine = address.getLine();
         String street = "";
@@ -62,14 +83,32 @@ public final class FhirUtils {
         return street;
     }
 
+    /**
+     * Extracts the fax number from a list of FHIR ContactPoint objects.
+     *
+     * @param contactPointList the list of contact points
+     * @return String the fax number, or an empty string if not found
+     */
     public static final String getFhirFax(List<ContactPoint> contactPointList) {
         return loopContactPointList(contactPointList, ContactPointSystem.FAX);
     }
 
+    /**
+     * Extracts the phone number from a list of FHIR ContactPoint objects.
+     *
+     * @param contactPointList the list of contact points
+     * @return String the phone number, or an empty string if not found
+     */
     public static final String getFhirPhone(List<ContactPoint> contactPointList) {
         return loopContactPointList(contactPointList, ContactPointSystem.PHONE);
     }
 
+    /**
+     * Extracts the email address from a list of FHIR ContactPoint objects.
+     *
+     * @param contactPointList the list of contact points
+     * @return String the email address, or an empty string if not found
+     */
     public static final String getFhirEmail(List<ContactPoint> contactPointList) {
         return loopContactPointList(contactPointList, ContactPointSystem.EMAIL);
     }

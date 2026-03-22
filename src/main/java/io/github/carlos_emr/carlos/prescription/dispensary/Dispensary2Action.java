@@ -62,6 +62,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing drug dispensary operations including lot management,
+ * dispensing records, and drug product lookups within the CARLOS EMR prescription module.
+ *
+ * <p>Follows the 2Action migration pattern and provides JSON-based API endpoints for
+ * dispensary workflow operations such as creating/updating dispensing records, managing
+ * drug lot inventory, and searching drug products.</p>
+ *
+ * @since 2001-01-01
+ */
 public class Dispensary2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
