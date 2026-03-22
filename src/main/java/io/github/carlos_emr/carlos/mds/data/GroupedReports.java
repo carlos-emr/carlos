@@ -35,6 +35,12 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Utility for grouping MDS lab reports by date, organizing multiple report segments
+ * into chronological groupings for display.
+ *
+ * @since 2001-01-01
+ */
 public class GroupedReports {
 
     public String associatedOBR;

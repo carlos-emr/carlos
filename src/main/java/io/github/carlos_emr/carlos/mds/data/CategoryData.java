@@ -51,6 +51,13 @@ import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 
+/**
+ * Data container for inbox category counts and patient lists, providing aggregate
+ * statistics for laboratory results, documents, and HRM records filtered by provider
+ * and patient criteria.
+ *
+ * @since 2001-01-01
+ */
 public class CategoryData {
 
     private final SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);

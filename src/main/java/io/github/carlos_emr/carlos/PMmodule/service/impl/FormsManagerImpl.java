@@ -33,11 +33,23 @@ import io.github.carlos_emr.carlos.PMmodule.dao.FormsDAO;
 import io.github.carlos_emr.carlos.PMmodule.service.FormsManager;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of {@link FormsManager} for managing clinical forms
+ * within the CARLOS EMR Program Management module.
+ *
+ * @see FormsManager
+ * @since 2005
+ */
 @Transactional
 public class FormsManagerImpl implements FormsManager {
 
     private FormsDAO formsDAO;
 
+    /**
+     * Sets the forms data access object.
+     *
+     * @param dao FormsDAO the forms DAO to inject
+     */
     public void setFormsDAO(FormsDAO dao) {
         this.formsDAO = dao;
     }
