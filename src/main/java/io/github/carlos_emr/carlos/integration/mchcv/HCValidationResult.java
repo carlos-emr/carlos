@@ -39,6 +39,12 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Model holding the result of an Ontario health card validation, including
+ * response code, patient demographics, health card details, and expiry date.
+ *
+ * @since 2014-07-25
+ */
 public class HCValidationResult {
 
     private String auditUID;

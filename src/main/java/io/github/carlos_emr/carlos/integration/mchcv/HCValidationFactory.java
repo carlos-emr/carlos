@@ -30,6 +30,13 @@ package io.github.carlos_emr.carlos.integration.mchcv;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Factory for creating {@link HCValidator} instances based on system configuration,
+ * choosing between online and simple validation modes.
+ *
+ * @see HCValidator
+ * @since 2014-07-25
+ */
 public class HCValidationFactory {
 
 //    private static HCValidator validator;

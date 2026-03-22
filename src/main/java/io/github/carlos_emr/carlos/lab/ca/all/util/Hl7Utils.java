@@ -5,6 +5,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ca.uhn.hl7v2.HL7Exception;
 
+/**
+ * Utility class providing safe accessor methods for HL7 message fields.
+ * Wraps HAPI library calls with exception handling to return empty strings
+ * on HL7 access errors, preventing null pointer exceptions during parsing.
+ *
+ * @since 2007-01-18
+ */
 public final class Hl7Utils {
 
     private static final Logger logger = LoggerFactory.getLogger(Hl7Utils.class);

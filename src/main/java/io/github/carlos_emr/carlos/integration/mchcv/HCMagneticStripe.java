@@ -28,6 +28,12 @@
  */
 package io.github.carlos_emr.carlos.integration.mchcv;
 
+/**
+ * Parses Ontario health card magnetic stripe data to extract the health card number,
+ * version code, and expiry date from card swipe input.
+ *
+ * @since 2014-07-25
+ */
 public class HCMagneticStripe {
 
     private String healthNumber;

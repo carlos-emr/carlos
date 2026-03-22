@@ -285,8 +285,14 @@ public class ScheduleWs extends AbstractWs {
     }
 
     /**
-     * This method is a helper method to help people code and test their clients against time zone differences.
-     * We will not support revisioning for this method, if / when we want to change this, we will.
+     * Helper method for testing timezone handling in SOAP clients.
+     *
+     * <p>Returns a fixed date of 1492-06-12 18:26:32 (note: month is 0-based in GregorianCalendar,
+     * so 05 = June), optionally converted to GMT. Useful for verifying that client
+     * implementations correctly handle timezone conversions.</p>
+     *
+     * @param useGMTTime boolean if true, the returned calendar is in GMT; otherwise in server local time
+     * @return Calendar the fixed test date
      */
     public Calendar testTimeZone_1492_05_12_18_26_32(boolean useGMTTime) {
         Calendar cal = new GregorianCalendar(1492, 05, 12, 18, 26, 32);

@@ -53,6 +53,11 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Struts2 action for uploading billing claim files to a specific MCEDT mailbox.
+ *
+ * @since 2013-06-14
+ */
 public class Upload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

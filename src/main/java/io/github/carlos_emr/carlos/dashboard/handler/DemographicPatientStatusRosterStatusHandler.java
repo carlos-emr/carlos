@@ -47,6 +47,13 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Handles bulk updates to patient status and roster status from the dashboard.
+ * Supports setting patients to inactive status and updating roster status,
+ * with audit trail updates for each modification.
+ *
+ * @since 2026-03-17
+ */
 public class DemographicPatientStatusRosterStatusHandler {
 
     private static Logger logger = MiscUtils.getLogger();

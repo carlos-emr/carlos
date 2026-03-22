@@ -132,6 +132,7 @@ public class ProgramManagerImpl implements ProgramManager {
         this.clientStatusDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public Program getProgram(String programId) {
         return programDao.getProgram(Integer.valueOf(programId));
     }

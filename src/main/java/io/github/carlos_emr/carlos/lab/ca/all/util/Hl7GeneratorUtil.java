@@ -39,6 +39,12 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.LabTest;
 
+/**
+ * Utility class providing common date formatting constants and helper methods
+ * used by HL7 message generators (CML, GDML, MDS) when constructing HL7 segments.
+ *
+ * @since 2007-01-18
+ */
 public final class Hl7GeneratorUtil {
 
     public static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");

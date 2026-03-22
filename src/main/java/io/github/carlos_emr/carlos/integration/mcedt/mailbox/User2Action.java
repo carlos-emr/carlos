@@ -41,6 +41,12 @@ import io.github.carlos_emr.CarlosProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * Struts2 action for managing MCEDT mailbox user settings and service
+ * type configuration for the logged-in provider.
+ *
+ * @since 2013-06-14
+ */
 public class User2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

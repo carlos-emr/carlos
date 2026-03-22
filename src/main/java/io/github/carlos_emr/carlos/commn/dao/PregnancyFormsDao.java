@@ -37,8 +37,22 @@ import io.github.carlos_emr.carlos.login.DBHelp;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+/**
+ * DAO interface for pregnancy form lookups.
+ * <p>
+ * Provides static utility methods to retrieve the latest ONAR (Ontario Antenatal Record)
+ * form identifiers by pregnancy episode or patient demographic number.
+ *
+ * @since 2001
+ */
 public interface PregnancyFormsDao {
 
+    /**
+     * Returns the most recent ONAR Enhanced Record form ID for the given pregnancy episode.
+     *
+     * @param episodeId Integer the pregnancy episode identifier
+     * @return Integer the most recent form ID, or 0 if not found or on error
+     */
     public static Integer getLatestFormIdByPregnancy(Integer episodeId) {
         String sql = "SELECT id from formONAREnhancedRecord WHERE episodeId=" + episodeId + " ORDER BY formEdited DESC";
         ResultSet rs = DBHelp.searchDBRecord(sql);
@@ -54,6 +68,12 @@ public interface PregnancyFormsDao {
         return 0;
     }
 
+    /**
+     * Returns the most recent ONAR Enhanced Record form ID for the given patient.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return Integer the most recent form ID, or 0 if not found or on error
+     */
     public static Integer getLatestFormIdByDemographicNo(Integer demographicNo) {
         String sql = "SELECT id from formONAREnhancedRecord WHERE demographic_no=" + demographicNo + " ORDER BY formEdited DESC";
         ResultSet rs = DBHelp.searchDBRecord(sql);

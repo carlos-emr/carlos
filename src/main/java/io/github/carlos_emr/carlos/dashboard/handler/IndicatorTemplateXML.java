@@ -49,6 +49,18 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 
+/**
+ * POJO representation of a parsed indicator template XML document. Provides accessor
+ * methods for all XML elements including heading metadata (category, framework, name),
+ * indicator query parameters and ranges, drilldown query parameters, columns, actions,
+ * and ranges.
+ *
+ * <p>Handles provider-specific parameter alias resolution (e.g., replacing
+ * "loggedinprovider" with the actual provider number) and patient exclusion
+ * list injection.</p>
+ *
+ * @since 2026-03-17
+ */
 public class IndicatorTemplateXML {
 
     private static Logger logger = MiscUtils.getLogger();
