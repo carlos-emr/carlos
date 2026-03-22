@@ -111,6 +111,12 @@ public final class Cds4ReportUIBean {
         // this is a map where key=0-10 representing each cohort bucket., value is a collection of CdsClientForms
         public MultiValueMap multipleAdmissionCohortBuckets = new MultiValueMap();
 
+        /**
+         * Adds a CDS client form to the multiple-admissions list, replacing any existing
+         * form with the same version and admission ID if this form was created more recently.
+         *
+         * @param cdsClientForm CdsClientForm the form to add or use as a replacement
+         */
         public void addUniqueCdsProgramFormToMultipleAdmissionsAllForms(CdsClientForm cdsClientForm) {
             for (CdsClientForm tempForm : multipleAdmissionsAllForms) {
                 if (tempForm.getCdsFormVersion().equals(cdsClientForm.getCdsFormVersion()) && tempForm.getAdmissionId().equals(cdsClientForm.getAdmissionId())) {
@@ -140,6 +146,16 @@ public final class Cds4ReportUIBean {
     /**
      * End dates should be treated as inclusive.
      */
+    /**
+     * Constructs a CDS 4 report for the specified criteria.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param functionalCentreId String the functional centre ID to report on
+     * @param startDate Date the start date of the reporting period
+     * @param endDateInclusive Date the end date of the reporting period (inclusive)
+     * @param providerIdList String[] optional array of provider IDs to filter by, or {@code null} for all providers
+     * @param programIds HashSet&lt;Integer&gt; the set of program IDs to include in the report
+     */
     public Cds4ReportUIBean(LoggedInInfo loggedInInfo, String functionalCentreId, Date startDate, Date endDateInclusive, String[] providerIdList, HashSet<Integer> programIds) {
 
         this.loggedInInfo = loggedInInfo;
@@ -164,10 +180,20 @@ public final class Cds4ReportUIBean {
         singleMultiAdmissions = getAdmissionsSortedSingleMulti();
     }
 
+    /**
+     * Returns an HTML-escaped description of the functional centre, formatted as "accountId, description".
+     *
+     * @return String the HTML-escaped functional centre description
+     */
     public String getFunctionalCentreDescription() {
         return (StringEscapeUtils.escapeHtml4(functionalCentre.getAccountId() + ", " + functionalCentre.getDescription()));
     }
 
+    /**
+     * Returns an HTML-escaped date range string for display, formatted as "startDate to endDate (inclusive)".
+     *
+     * @return String the HTML-escaped formatted date range
+     */
     public String getDateRangeForDisplay() {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         GregorianCalendar displayEndDate = (GregorianCalendar) endDateExclusive.clone();
@@ -175,6 +201,11 @@ public final class Cds4ReportUIBean {
         return (StringEscapeUtils.escapeHtml4(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(displayEndDate.getTime()) + " (inclusive)"));
     }
 
+    /**
+     * Retrieves all CDS form options available in the system.
+     *
+     * @return List&lt;CdsFormOption&gt; all CDS form options
+     */
     public static List<CdsFormOption> getCdsFormOptions() {
         return (cdsFormOptionDao.findByVersion("4"));
     }
@@ -329,6 +360,15 @@ public final class Cds4ReportUIBean {
     }
 
 
+    /**
+     * Computes the data row for a given CDS form option, returning an array of cohort-bucketed counts.
+     *
+     * <p>The returned array has {@link #NUMBER_OF_COHORT_BUCKETS} + 1 elements, where the last
+     * element is the total across all cohorts.
+     *
+     * @param cdsFormOption CdsFormOption the form option to compute data for
+     * @return int[] array of counts per cohort bucket plus a total column
+     */
     public int[] getDataRow(CdsFormOption cdsFormOption) {
         if (cdsFormOption.getCdsDataCategory().startsWith("007-")) return (get007DataLine(cdsFormOption));
         else if (cdsFormOption.getCdsDataCategory().startsWith("07a-")) return (get07aDataLine(cdsFormOption));
@@ -1242,6 +1282,12 @@ public final class Cds4ReportUIBean {
         return (dataRow);
     }
 
+    /**
+     * Calculates the sum of all values in a data row array.
+     *
+     * @param dataRow int[] the array of cohort bucket counts
+     * @return int the total sum across all buckets
+     */
     public static int getCohortTotal(int[] dataRow) {
         int total = 0;
 
@@ -1252,6 +1298,12 @@ public final class Cds4ReportUIBean {
         return (total);
     }
 
+    /**
+     * Calculates the age of a client (demographic) at the time of the report's start date.
+     *
+     * @param clientId int the demographic number of the client
+     * @return Integer the client's age in years at report time, or {@code null} if the demographic is not found
+     */
     public Integer getClientAgeAtReportTime(int clientId) {
         Demographic demographic = demographicDao.getDemographicById(clientId);
         return (DateUtils.getAge(demographic.getBirthDay(), endDateExclusive));

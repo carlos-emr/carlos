@@ -186,15 +186,25 @@ public class AdmissionManagerImpl implements AdmissionManager {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, tempAdmission, null, overrideRestriction, null);
     }
 
+    /** {@inheritDoc} */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes, Date admissionDate) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, false, admissionDate, false, null);
     }
 
+    /** {@inheritDoc} */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes, boolean tempAdmission, List<Integer> dependents, Date admissionDate) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, tempAdmission, admissionDate, false, dependents);
     }
 
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Core admission processing method that all other processAdmission overloads delegate to.
+     * Validates program capacity, checks service restrictions, enforces single temporary bed
+     * constraint, creates the admission record, updates the program queue and referral status,
+     * and recursively admits any dependents.</p>
+     */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes, boolean tempAdmission, Date admissionDate, boolean overrideRestriction, List<Integer> dependents) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         // see if there's room first
         if (program.getNumOfMembers().intValue() >= program.getMaxAllowed().intValue()) {

@@ -40,13 +40,22 @@ import io.github.carlos_emr.carlos.PMmodule.model.Criteria;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA-based implementation of {@link CriteriaDao} for managing {@link Criteria} entities.
+ *
+ * @since 2001-09-17
+ * @see CriteriaDao
+ * @see Criteria
+ */
 @Repository
 public class CriteriaDaoImpl extends AbstractDaoImpl<Criteria> implements CriteriaDao {
 
+    /** Default constructor initializing with Criteria entity class. */
     public CriteriaDaoImpl() {
         super(Criteria.class);
     }
 
+    /** {@inheritDoc} */
     public List<Criteria> getCriteriaByTemplateId(Integer templateId) {
         Query q = entityManager.createQuery("select c from Criteria c where c.templateId=?1");
         q.setParameter(1, templateId);
@@ -57,6 +66,7 @@ public class CriteriaDaoImpl extends AbstractDaoImpl<Criteria> implements Criter
         return results;
     }
 
+    /** {@inheritDoc} */
     public Criteria getCriteriaByTemplateIdVacancyIdTypeId(Integer templateId, Integer vacancyId, Integer typeId) {
         if (templateId != null && vacancyId != null) {
             Query q = entityManager.createQuery("select c from Criteria c where c.templateId=?1 and c.criteriaTypeId=?2 and c.vacancyId=?3");
@@ -81,6 +91,7 @@ public class CriteriaDaoImpl extends AbstractDaoImpl<Criteria> implements Criter
 
     }
 
+    /** {@inheritDoc} */
     public List<Criteria> getCriteriasByVacancyId(Integer vacancyId) {
         Query q = entityManager.createQuery("select c from Criteria c where c.vacancyId=?1");
         q.setParameter(1, vacancyId);
@@ -91,6 +102,7 @@ public class CriteriaDaoImpl extends AbstractDaoImpl<Criteria> implements Criter
         return results;
     }
 
+    /** {@inheritDoc} */
     public List<Criteria> getRefinedCriteriasByVacancyId(Integer vacancyId) {
         Query q = entityManager.createQuery("select c from Criteria c where c.canBeAdhoc!=?1 and c.vacancyId=?2");
         q.setParameter(1, 0); //canBeAdhoc=0 means don't appear in vacancy.
@@ -102,6 +114,7 @@ public class CriteriaDaoImpl extends AbstractDaoImpl<Criteria> implements Criter
         return results;
     }
 
+    /** {@inheritDoc} */
     public List<Criteria> getRefinedCriteriasByTemplateId(Integer templateId) {
         Query q = entityManager.createQuery("select c from Criteria c where c.canBeAdhoc!=?1 and c.templateId=?2");
         q.setParameter(1, 0); //canBeAdhoc=0 means don't appear in vacancy.

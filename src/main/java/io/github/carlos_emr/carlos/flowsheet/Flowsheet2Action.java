@@ -981,6 +981,15 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Removes a target indicator condition from a flowsheet item's ruleset. Identifies the
+     * condition by matching the SHA-256 hash (computed from indicator colour, type, param,
+     * and value). If removing the last condition from a rule, the entire rule is removed.
+     * Persists the updated XML after removal.
+     *
+     * @return {@code null}; writes a JSON response with success status
+     * @throws IOException if writing to the response fails
+     */
     public String removeTarget() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("type");
@@ -1056,6 +1065,13 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves the colour indicator definitions for a user-created flowsheet. Each indicator
+     * has a key (e.g., HIGH_1, HIGH, LOW) and an associated colour value.
+     *
+     * @return {@code null}; writes a JSON response with the indicators array
+     * @throws IOException if writing to the response fails
+     */
     public String getIndicators() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
@@ -1096,6 +1112,14 @@ public class Flowsheet2Action extends ActionSupport {
 
     }
 
+    /**
+     * Retrieves the target indicator ruleset conditions for a specific measurement item within
+     * a flowsheet. Each condition includes the indicator colour, condition type, parameter,
+     * value, and a SHA-256 hash used as a unique identifier for removal operations.
+     *
+     * @return {@code null}; writes a JSON response with the rules array
+     * @throws IOException if writing to the response fails
+     */
     public String getTargets() throws IOException {
 
         String flowsheetId = request.getParameter("flowsheetId");
@@ -1156,6 +1180,14 @@ public class Flowsheet2Action extends ActionSupport {
 
     }
 
+    /**
+     * Saves a new warning recommendation rule to a flowsheet measurement item. Creates a new
+     * recommendation with the specified strength and condition (type, param, value) from
+     * request parameters. Initializes the rules container if it does not yet exist.
+     *
+     * @return {@code null}; writes a JSON response with success status
+     * @throws IOException if writing to the response fails
+     */
     public String saveFlowsheetItemWarning() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");
@@ -1225,6 +1257,15 @@ public class Flowsheet2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Saves a new target indicator condition to a flowsheet measurement item's ruleset.
+     * Creates the ruleset if it does not yet exist, and groups conditions under rules
+     * by indicator colour. Reads flowsheetId, measurementType, param, value, indicator,
+     * and type from request parameters.
+     *
+     * @return {@code null}; writes a JSON response with success status
+     * @throws IOException if writing to the response fails
+     */
     public String saveFlowsheetItemTarget() throws IOException {
         String flowsheetId = request.getParameter("flowsheetId");
         String measurementType = request.getParameter("measurementType");

@@ -30,12 +30,32 @@ package io.github.carlos_emr.carlos.consultations;
 
 import java.util.Date;
 
+/**
+ * Filter criteria for searching consultation responses with sorting and pagination support.
+ *
+ * <p>Encapsulates all search parameters for consultation response queries, including
+ * date range filters (referral, response, and appointment dates), status, team,
+ * demographic, MRP (Most Responsible Provider), and urgency. Supports configurable
+ * sort modes and directions for result ordering. Defaults to sorting by referral
+ * date descending.</p>
+ *
+ * <p>Differs from {@link ConsultationRequestSearchFilter} by including response-specific
+ * fields such as response date range and sort columns for referring doctor and response date.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ConsultationResponseSearchFilter {
 
+    /**
+     * Available sort columns for consultation response search results.
+     */
     public static enum SORTMODE {
         Demographic, ReferringDoctor, Team, Status, Provider, AppointmentDate, FollowUpDate, ReferralDate, ResponseDate, Urgency
     }
 
+    /**
+     * Sort direction for search results.
+     */
     public static enum SORTDIR {
         asc, desc
     }

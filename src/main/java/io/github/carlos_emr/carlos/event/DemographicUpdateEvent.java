@@ -32,21 +32,47 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.context.ApplicationEvent;
 
+/**
+ * Spring application event published when an existing patient demographic record is updated.
+ *
+ * <p>Enables downstream listeners to perform additional processing when patient data
+ * is modified, such as integrator synchronization or audit logging.</p>
+ *
+ * @see DemographicCreateEvent
+ * @see EventService
+ * @since 2026-03-17
+ */
 public class DemographicUpdateEvent extends ApplicationEvent {
 
     Logger logger = MiscUtils.getLogger();
 
     private Integer demographicNo;
 
+    /**
+     * Constructs a new demographic update event.
+     *
+     * @param source Object the object that published this event
+     * @param demographicNo Integer the unique identifier of the updated demographic record
+     */
     public DemographicUpdateEvent(Object source, Integer demographicNo) {
         super(source);
         this.demographicNo = demographicNo;
     }
 
+    /**
+     * Returns the demographic number of the updated patient record.
+     *
+     * @return Integer the unique identifier of the demographic record
+     */
     public Integer getDemographicNo() {
         return demographicNo;
     }
 
+    /**
+     * Sets the demographic number for this event.
+     *
+     * @param demographicNo Integer the unique identifier of the demographic record
+     */
     public void setDemographicNo(Integer demographicNo) {
         this.demographicNo = demographicNo;
     }

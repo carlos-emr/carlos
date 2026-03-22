@@ -53,6 +53,17 @@ import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
 
+/**
+ * Struts2 action that prepares session data for the waiting list display page.
+ *
+ * <p>Handles both initial page load and update/remove operations on waiting list
+ * entries. When an update is requested, delegates to {@link WLWaitingListUtil}
+ * for record updates or position recalculation. On every invocation, populates
+ * the session with the current waiting list entries, available waiting list names,
+ * provider list for the group, patient count, and today's date.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -60,6 +71,16 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
     private Logger log = MiscUtils.getLogger();
 
+    /**
+     * Processes waiting list display requests, handling updates and removals.
+     *
+     * <p>Reads request parameters to determine if an update or removal is requested,
+     * then loads the waiting list data, provider list, and list names into the
+     * session for display by the JSP view.</p>
+     *
+     * @return String "continue" on success, "failure" on error during update
+     * @throws Exception if an unexpected error occurs
+     */
     public String execute()
             throws Exception {
 
@@ -222,10 +243,20 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
     private String selectedWL;
 
+    /**
+     * Returns the selected waiting list ID from form input.
+     *
+     * @return String the selected waiting list ID
+     */
     public String getSelectedWL() {
         return selectedWL;
     }
 
+    /**
+     * Sets the selected waiting list ID from form input.
+     *
+     * @param selectedWL String the selected waiting list ID
+     */
     @StrutsParameter
     public void setSelectedWL(String selectedWL) {
         this.selectedWL = selectedWL;

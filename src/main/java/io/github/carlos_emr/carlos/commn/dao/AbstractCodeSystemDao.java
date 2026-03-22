@@ -35,20 +35,52 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 
+/**
+ * DAO interface for medical code system entities (ICD-9, ICD-10, SNOMED CT, etc.).
+ * <p>
+ * Extends {@link AbstractDao} with operations specific to searching and looking up
+ * diagnostic and clinical codes used throughout the CARLOS EMR billing and
+ * clinical documentation modules.
+ *
+ * @param <T> the code system entity type, which must extend {@link AbstractCodeSystemModel}
+ * @since 2001
+ */
 public interface AbstractCodeSystemDao<T extends AbstractCodeSystemModel<?>> extends AbstractDao<T> {
 
-    //public static enum codingSystem {icd9, icd10, ichppccode, msp, SnomedCore}
-
-    // public static String getDaoName(codingSystem codeSystem);
-
+    /**
+     * Searches for codes matching the given search term.
+     *
+     * @param term String the search term to match against code descriptions or values
+     * @return List of matching code system entities
+     */
     public List<T> searchCode(String term);
 
+    /**
+     * Finds a single code system entity by its exact code value.
+     *
+     * @param code String the code to look up (e.g., "250" for ICD-9 Diabetes)
+     * @return the matching entity, or {@code null} if not found
+     */
     public T findByCode(String code);
 
+    /**
+     * Finds a code system entity by the name of its coding system.
+     *
+     * @param codingSystem String the name of the coding system to search
+     * @return the matching code system model, or {@code null} if not found
+     */
     public AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem);
 
+    /** Enumeration of supported medical coding systems. */
     public static enum codingSystem {icd9, icd10, ichppccode, msp, SnomedCore}
 
+    /**
+     * Returns the DAO class corresponding to the specified coding system.
+     *
+     * @param codeSystem the coding system enumeration value
+     * @return Class the DAO class for the specified coding system
+     * @throws IllegalArgumentException if the coding system is not supported
+     */
     public static Class<?> getDaoName(codingSystem codeSystem) {
         Class<?> object;
         switch (codeSystem) {

@@ -43,21 +43,70 @@ import java.util.Hashtable;
 import java.util.List;
 
 /**
- * @author jay
+ * Defines the contract for a clinical report denominator, representing the patient
+ * population (denominator set) against which numerator criteria are evaluated.
+ *
+ * <p>Implementations include {@link SQLDenominator} (SQL-based patient lists) and
+ * {@link PatientSetDenominator} (predefined demographic sets). Denominators may
+ * accept replaceable values (e.g. provider number, date ranges) that are injected
+ * at runtime before the denominator list is generated.</p>
+ *
+ * @see Numerator
+ * @see SQLDenominator
+ * @see PatientSetDenominator
+ * @see ReportEvaluator
+ * @since 2006-06-17
  */
 public interface Denominator {
+
+    /**
+     * Returns the list of patient demographic numbers that form this denominator set.
+     *
+     * @return List the list of demographic number strings
+     */
     public List getDenominatorList();
 
+    /**
+     * Returns the human-readable display name for this denominator.
+     *
+     * @return String the denominator name
+     */
     public String getDenominatorName();
 
+    /**
+     * Returns the unique identifier for this denominator.
+     *
+     * @return String the denominator identifier
+     */
     public String getId();
 
+    /**
+     * Checks whether this denominator expects replaceable values to be injected
+     * before generating the denominator list.
+     *
+     * @return boolean {@code true} if replaceable value keys have been configured
+     */
     public boolean hasReplaceableValues();
 
+    /**
+     * Returns the array of replaceable value keys expected by this denominator.
+     *
+     * @return String[] the keys identifying expected replaceable values
+     */
     public String[] getReplaceableKeys();
 
+    /**
+     * Sets the replaceable values map containing runtime parameters for this denominator.
+     *
+     * @param vals Hashtable the runtime parameter map to inject
+     */
     public void setReplaceableValues(Hashtable vals);
 
+    /**
+     * Returns the current replaceable values map.
+     *
+     * @return Hashtable the replaceable values, or {@code null} if not set
+     */
     public Hashtable getReplaceableValues();
 
 

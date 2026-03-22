@@ -129,14 +129,21 @@ public class WLWaitingListNameUtil {
         return;
     }
 
-    /*
-     * This method adds the Waiting List note to the same position in the waitingListName table but
-     * do not delete previous ones - later on EditWaitingListName.jsp will display only the most
-     * current Waiting List Note record.
+    /**
+     * Renames an existing waiting list name definition.
      *
-     * This update involves 8 calls to 2 separate tables and must be able to roll back if any of those calls failed !!!
-     * Currently it seems rather hard to implement the roll back function due to using existing DBHandler, so using the
-     * alternate synchronized feature for the 2 methods involved instead ...
+     * <p>Checks for duplicate names within the group before updating.
+     * Silently returns without action if required parameters are null or empty,
+     * or if {@code wlNameId} is "0".</p>
+     *
+     * <p>Note: The original design preserved historical records rather than
+     * deleting them, with the JSP displaying only the most current record.</p>
+     *
+     * @param wlNameId   String the ID of the waiting list name to rename
+     * @param wlName     String the new name to assign
+     * @param groupNo    String the provider group number for duplicate checking
+     * @param providerNo String the provider number performing the update
+     * @throws Exception with message "wlNameExists" if the new name already exists in the group
      */
     static public void updateWaitingListName(String wlNameId, String wlName, String groupNo, String providerNo)
             throws Exception {

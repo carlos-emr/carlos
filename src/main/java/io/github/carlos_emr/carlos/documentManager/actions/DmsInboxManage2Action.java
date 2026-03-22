@@ -66,6 +66,29 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing the document and lab inbox in the CARLOS EMR system.
+ *
+ * <p>Uses method-based routing via the "method" request parameter to handle inbox operations:
+ * <ul>
+ *   <li>{@code previewPatientDocLab} - Previews documents and labs for a specific patient</li>
+ *   <li>{@code prepareForIndexPage} - Prepares category counts and filters for the inbox index</li>
+ *   <li>{@code prepareForContentPage} - Loads paginated document/lab results for the inbox content pane</li>
+ *   <li>{@code addNewQueue} - Creates a new document routing queue</li>
+ *   <li>{@code isDocumentLinkedToDemographic} - Checks if a document is linked to a patient</li>
+ *   <li>{@code isLabLinkedToDemographic} - Checks if a lab is linked to a patient</li>
+ *   <li>{@code updateDocStatusInQueue} - Updates document status within a queue</li>
+ *   <li>{@code getDocumentsInQueues} - Retrieves documents assigned to queues</li>
+ * </ul>
+ *
+ * <p>The inbox supports filtering by provider, patient name/health number, date range,
+ * acknowledgement status, and abnormal/normal classification. Results include documents,
+ * HL7 lab results, and HRM reports, sorted by accession number grouping.
+ *
+ * @see ManageDocument2Action
+ * @see EDocUtil
+ * @since 2006-07-27
+ */
 public class DmsInboxManage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -82,6 +105,12 @@ public class DmsInboxManage2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Main Struts2 entry point. Dispatches to the appropriate handler method based on
+     * the "method" request parameter.
+     *
+     * @return String the Struts2 result name, or null if no matching method is found
+     */
     public String execute() {
         String mtd = request.getParameter("method");
         if ("previewPatientDocLab".equals(mtd)) {
@@ -130,6 +159,13 @@ public class DmsInboxManage2Action extends ActionSupport {
 //		return unique;
 //	}
 
+    /**
+     * Loads document and lab preview data for a specific patient in the inbox.
+     * Retrieves EDoc previews by document IDs and unacknowledged lab results by lab IDs,
+     * then sets them as request attributes for the preview JSP.
+     *
+     * @return String "doclabPreview" result name for Struts2 result mapping
+     */
     public String previewPatientDocLab() {
         String demographicNo = request.getParameter("demog");
         String docs = request.getParameter("docs");

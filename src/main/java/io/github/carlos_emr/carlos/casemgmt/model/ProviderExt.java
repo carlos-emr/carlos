@@ -35,6 +35,12 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing extended provider information stored in the {@code providerExt} table.
+ * Currently holds the provider's electronic signature data.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "providerExt")
 public class ProviderExt extends AbstractModel<String> {

@@ -32,6 +32,18 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.context.ApplicationEvent;
 
+/**
+ * Spring application event published when a new appointment is created in the scheduling system.
+ *
+ * <p>This event is fired from the appointment creation JSP pages (e.g.,
+ * {@code appointmentaddarecord.jsp}, {@code appointmentaddrecordcard.jsp}) and
+ * carries the appointment number and provider number to enable downstream listeners
+ * to react to new appointments.</p>
+ *
+ * @see AppointmentStatusChangeEvent
+ * @see EventService#appointmentCreated(Object, String, String)
+ * @since 2026-03-17
+ */
 public class AppointmentCreatedEvent extends ApplicationEvent {
     Logger logger = MiscUtils.getLogger();
 
@@ -44,6 +56,13 @@ public class AppointmentCreatedEvent extends ApplicationEvent {
      */
     private final String provider_no;
 
+    /**
+     * Constructs a new appointment created event.
+     *
+     * @param source Object the object that published this event
+     * @param appointment_no String the unique identifier of the newly created appointment
+     * @param provider_no String the unique identifier of the provider associated with the appointment
+     */
     public AppointmentCreatedEvent(Object source, String appointment_no, String provider_no) {
         super(source);
         this.appointment_no = appointment_no;

@@ -58,6 +58,16 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for searching allergies in the DrugRef database by category.
+ * <p>
+ * Supports searching across brand names, generic names, ingredients, and drug classes
+ * based on checkbox selections. Results are categorized by type and optionally enriched
+ * with AHFS drug class information. Supports both form-based and JSON-based search input.
+ * Requires {@code _allergy} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxSearchAllergy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

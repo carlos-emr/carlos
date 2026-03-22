@@ -34,6 +34,16 @@ import java.io.Serializable;
 
 import jakarta.persistence.Column;
 
+/**
+ * Composite primary key for {@link ScheduleTemplate}, consisting of provider number and template name.
+ *
+ * <p>This embeddable key allows schedule templates to be scoped per provider.
+ * Public templates use a special sentinel value
+ * ({@link #DODGY_FAKE_PROVIDER_NO_USED_TO_HOLD_PUBLIC_TEMPLATES}) as the provider number,
+ * allowing templates to be shared across all providers.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ScheduleTemplatePrimaryKey implements Serializable {
 
     /**
@@ -45,42 +55,78 @@ public class ScheduleTemplatePrimaryKey implements Serializable {
     private String providerNo;
     private String name;
 
+    /**
+     * Default constructor required by JPA.
+     */
     public ScheduleTemplatePrimaryKey() {
         //required by JPA
     }
 
+    /**
+     * Constructs a composite key with the specified provider number and template name.
+     *
+     * @param providerNo String the provider number, or "Public" for shared templates
+     * @param name String the template name
+     */
     public ScheduleTemplatePrimaryKey(String providerNo, String name) {
         this.providerNo = providerNo;
         this.name = name;
     }
 
-
+    /**
+     * Gets the provider number component of this key.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Sets the provider number component of this key.
+     *
+     * @param providerNo String the provider number to set
+     */
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Gets the template name component of this key.
+     *
+     * @return String the template name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Sets the template name component of this key.
+     *
+     * @param name String the template name to set
+     */
     public void setName(String name) {
         this.name = name;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return ("name=" + name + ", providerNo=" + providerNo);
     }
 
+    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         return (toString().hashCode());
     }
 
+    /**
+     * Checks equality based on both name and provider number.
+     *
+     * @param o Object the object to compare
+     * @return boolean true if both name and providerNo match
+     */
     @Override
     public boolean equals(Object o) {
         try {

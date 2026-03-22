@@ -59,18 +59,38 @@ public class ScheduleHoliday extends AbstractModel<Date> {
     @Column(name = "holiday_name")
     private String holidayName;
 
+    /**
+     * Gets the holiday date, which serves as the primary key.
+     *
+     * @return Date the holiday date
+     */
     public Date getId() {
         return id;
     }
 
+    /**
+     * Sets the holiday date.
+     *
+     * @param id Date the holiday date to set
+     */
     public void setId(Date id) {
         this.id = id;
     }
 
+    /**
+     * Gets the name of the holiday (e.g., "Christmas Day", "New Year's Day").
+     *
+     * @return String the holiday name
+     */
     public String getHolidayName() {
         return holidayName;
     }
 
+    /**
+     * Sets the name of the holiday.
+     *
+     * @param holidayName String the holiday name to set
+     */
     public void setHolidayName(String holidayName) {
         this.holidayName = holidayName;
     }

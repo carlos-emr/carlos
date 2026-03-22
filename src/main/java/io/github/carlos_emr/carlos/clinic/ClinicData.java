@@ -146,11 +146,21 @@ public class ClinicData {
 		return clinic_name;
 	}
 
+    /**
+     * Returns the clinic street address.
+     *
+     * @return String the clinic address
+     */
     public String getClinicAddress() {
         fillClinicData();
         return clinic_address;
     }
 
+    /**
+     * Returns the clinic city.
+     *
+     * @return String the clinic city
+     */
     public String getClinicCity() {
         fillClinicData();
         return clinic_city;

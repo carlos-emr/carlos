@@ -45,6 +45,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 
 
+/**
+ * Persistent entity representing a clinical note in the case management system.
+ * Notes are the primary documentation unit for patient encounters and can be linked
+ * to clinical issues, prescriptions, documents, labs, and other clinical data via
+ * {@link CaseManagementNoteLink}.
+ *
+ * <p>Supports signing, locking (password-protected), archiving, versioning (UUID/revision),
+ * and multi-facility remote access. Provides comparators for sorting by provider name,
+ * program, role, observation date, and display position.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementNote extends BaseObject {
 
     private Long id;
@@ -93,6 +105,11 @@ public class CaseManagementNote extends BaseObject {
     private CaseManagementNoteLink cmnLink = null;
     private boolean cmnLinkRetrieved = false;
 
+    /**
+     * Returns a map representation of this note's fields for serialization or display purposes.
+     *
+     * @return Map&lt;String, Object&gt; a map of field names to their values
+     */
     public Map<String, Object> getMap() {
         HashMap<String, Object> map = new HashMap<String, Object>();
 
@@ -154,6 +171,12 @@ public class CaseManagementNote extends BaseObject {
         update_date = new Date();
     }
 
+    /**
+     * Returns a string suitable for audit logging that includes the note text
+     * followed by a list of associated issue descriptions.
+     *
+     * @return String the audit string containing note content and linked issues
+     */
     public String getAuditString() {
         StringBuilder auditStr = new StringBuilder(getNote());
         Iterator<CaseManagementIssue> iter = issues.iterator();
@@ -368,6 +391,12 @@ public class CaseManagementNote extends BaseObject {
         return this.revision;
     }
 
+    /**
+     * Returns the formatted name of the authoring provider (Last, First format).
+     * Returns "DELETED" if the provider reference is null.
+     *
+     * @return String the provider name or "DELETED"
+     */
     public String getProviderName() {
         if (getProvider() == null) {
             return "DELETED";
@@ -375,6 +404,12 @@ public class CaseManagementNote extends BaseObject {
         return getProvider().getFormattedName();
     }
 
+    /**
+     * Returns the provider name in First Last format.
+     * Returns "DELETED" if the provider reference is null.
+     *
+     * @return String the provider full name or "DELETED"
+     */
     public String getProviderNameFirstLast() {
         if (getProvider() == null) {
             return "DELETED";
@@ -382,6 +417,11 @@ public class CaseManagementNote extends BaseObject {
         return getProvider().getFullName();
     }
 
+    /**
+     * Returns a comparator that sorts notes alphabetically by provider name.
+     *
+     * @return Comparator&lt;CaseManagementNote&gt; provider name comparator
+     */
     public static Comparator<CaseManagementNote> getProviderComparator() {
         return new Comparator<CaseManagementNote>() {
             public int compare(CaseManagementNote note1, CaseManagementNote note2) {
@@ -395,6 +435,11 @@ public class CaseManagementNote extends BaseObject {
 
     }
 
+    /**
+     * Returns a comparator that sorts notes alphabetically by program name.
+     *
+     * @return Comparator&lt;CaseManagementNote&gt; program name comparator
+     */
     public static Comparator<CaseManagementNote> getProgramComparator() {
         return new Comparator<CaseManagementNote>() {
             public int compare(CaseManagementNote note1, CaseManagementNote note2) {
@@ -407,6 +452,11 @@ public class CaseManagementNote extends BaseObject {
 
     }
 
+    /**
+     * Returns a comparator that sorts notes alphabetically by role name.
+     *
+     * @return Comparator&lt;CaseManagementNote&gt; role name comparator
+     */
     public static Comparator<CaseManagementNote> getRoleComparator() {
         return new Comparator<CaseManagementNote>() {
             public int compare(CaseManagementNote note1, CaseManagementNote note2) {
@@ -430,6 +480,11 @@ public class CaseManagementNote extends BaseObject {
         }
     };
 
+    /**
+     * Returns a comparator that sorts notes by their display position (ascending).
+     *
+     * @return Comparator&lt;CaseManagementNote&gt; position comparator
+     */
     public static Comparator<CaseManagementNote> getPositionComparator() {
         return new Comparator<CaseManagementNote>() {
             public int compare(CaseManagementNote note1, CaseManagementNote note2) {

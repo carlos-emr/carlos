@@ -37,19 +37,40 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link TeleplanC12} entities.
+ * Provides persistence operations for Teleplan C12 (claim rejection/correction) records
+ * in the BC MSP billing system.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class TeleplanC12Dao extends AbstractDaoImpl<TeleplanC12> {
 
+    /**
+     * Constructs a new {@code TeleplanC12Dao} with the {@link TeleplanC12} entity class.
+     */
     public TeleplanC12Dao() {
         super(TeleplanC12.class);
     }
 
+    /**
+     * Finds all current (non-expired) C12 records where status is not 'E'.
+     *
+     * @return List of current {@link TeleplanC12} records
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanC12> findCurrent() {
         Query query = createQuery("t", "t.status <> 'E'");
         return query.getResultList();
     }
 
+    /**
+     * Finds C12 records by office folio claim number.
+     *
+     * @param claimNo String the office folio claim number
+     * @return List of {@link TeleplanC12} records matching the claim number
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanC12> findByOfficeClaimNo(String claimNo) {
         Query query = createQuery("t", "t.officeFolioClaimNo = :claimNo");
@@ -57,6 +78,12 @@ public class TeleplanC12Dao extends AbstractDaoImpl<TeleplanC12> {
         return query.getResultList();
     }
 
+    /**
+     * Finds rejected C12 records joined with their parent S21 records.
+     * Returns records where status is not 'E'.
+     *
+     * @return List of Object arrays containing {@link TeleplanC12} and TeleplanS21 pairs
+     */
     @SuppressWarnings("unchecked")
     public List<Object[]> findRejected() {
         String sql = "SELECT tc, ts FROM TeleplanC12 tc, TeleplanS21 ts WHERE tc.s21Id = ts.id AND tc.status != 'E'";
@@ -64,6 +91,13 @@ public class TeleplanC12Dao extends AbstractDaoImpl<TeleplanC12> {
         return query.getResultList();
     }
 
+    /**
+     * Finds C12 records matching a specific status and office folio claim number.
+     *
+     * @param status String the status to filter by
+     * @param claimNo String the office folio claim number
+     * @return List of matching {@link TeleplanC12} records
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanC12> select_c12_record(String status, String claimNo) {
         Query query = createQuery("t", "t.status = :status and t.officeFolioClaimNo = :claimNo");

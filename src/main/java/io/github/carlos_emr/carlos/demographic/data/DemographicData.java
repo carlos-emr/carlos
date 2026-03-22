@@ -527,6 +527,63 @@ public class DemographicData {
     }
 
 
+    /**
+     * Adds a new demographic record with duplicate detection.
+     *
+     * <p>Checks for duplicates by HIN and by name/DOB combination before adding.
+     * If a duplicate HIN is found with different name/DOB, the record is added without
+     * the HIN and a warning is generated. If an exact duplicate is found, the record
+     * is not added.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param title String the patient's title (e.g., Mr., Mrs.)
+     * @param last_name String the patient's last name
+     * @param first_name String the patient's first name
+     * @param middleNames String the patient's middle names
+     * @param address String the mailing address
+     * @param city String the city
+     * @param province String the province code
+     * @param postal String the postal code
+     * @param residentialAddress String the residential address
+     * @param residentialCity String the residential city
+     * @param residentialProvince String the residential province code
+     * @param residentialPostal String the residential postal code
+     * @param phone String the primary phone number
+     * @param phone2 String the secondary phone number
+     * @param year_of_birth String four-digit birth year
+     * @param month_of_birth String two-digit birth month
+     * @param date_of_birth String two-digit birth day
+     * @param hin String the Health Insurance Number
+     * @param ver String the HIN version code
+     * @param roster_status String the roster status code
+     * @param roster_date String the roster date in "yyyy-MM-dd" format
+     * @param roster_termination_date String the roster termination date
+     * @param roster_termination_reason String the reason for roster termination
+     * @param rosterEnrolledTo String the provider enrolled to
+     * @param patient_status String the patient status code (e.g., "AC" for active)
+     * @param patient_status_date String the patient status date
+     * @param date_joined String the date the patient joined
+     * @param chart_no String the chart number
+     * @param official_lang String the official language code
+     * @param spoken_lang String the spoken language code
+     * @param provider_no String the primary provider number
+     * @param sex String the sex code ("M" or "F")
+     * @param end_date String the end date
+     * @param eff_date String the effective date
+     * @param pcn_indicator String the Primary Care Network indicator
+     * @param hc_type String the health card province type
+     * @param hc_renew_date String the health card renewal date
+     * @param family_doctor String the family doctor information
+     * @param email String the email address
+     * @param alias String the patient alias
+     * @param previousAddress String the previous address
+     * @param children String children information
+     * @param sourceOfIncome String the source of income
+     * @param citizenship String the citizenship
+     * @param sin String the Social Insurance Number
+     * @return DemographicAddResult the result containing success status, warnings, and assigned ID
+     * @throws Exception if a date parsing or persistence error occurs
+     */
     public DemographicAddResult addDemographic(LoggedInInfo loggedInInfo, String title, String last_name, String first_name, String middleNames, String address,
                                                String city, String province, String postal, String residentialAddress, String residentialCity, String residentialProvince, String residentialPostal, String phone, String phone2, String year_of_birth,
                                                String month_of_birth, String date_of_birth, String hin, String ver, String roster_status,
@@ -646,6 +703,15 @@ public class DemographicData {
         return ret;
     }
 
+    /**
+     * Creates a custom demographic record with notes for the given patient.
+     *
+     * <p>Wraps the content in {@code <unotes>} XML tags and persists it with
+     * empty alert, midwife, nurse, and resident fields.</p>
+     *
+     * @param demoNo String the demographic number
+     * @param content String the notes content to store
+     */
     public void addDemographiccust(String demoNo, String content) {
         DemographicCust demographicCust = new DemographicCust();
         demographicCust.setId(Integer.parseInt(demoNo));

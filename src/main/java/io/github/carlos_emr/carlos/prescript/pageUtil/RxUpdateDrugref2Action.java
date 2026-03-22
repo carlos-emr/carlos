@@ -47,6 +47,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Struts 2 action for managing DrugRef database updates and verification.
+ * <p>
+ * Provides operations to update the local DrugRef database from the remote source,
+ * verify database integrity, and retrieve the last update timestamp. All methods
+ * return JSON responses for AJAX-based admin interfaces.
+ *
+ * @since 2026-03-17
+ */
 public class RxUpdateDrugref2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

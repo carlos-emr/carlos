@@ -47,19 +47,36 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Utility class for retrieving provider acknowledgement status for lab results.
+ * Queries the provider-lab routing table to determine which providers have acknowledged
+ * a given lab report segment.
+ *
+ * @since 2007-07-09
+ */
 public class AcknowledgementData {
 
-    /**
-     * Creates a new instance of AcknowledgementData
-     */
     private AcknowledgementData() {
         // don't instantiate
     }
 
+    /**
+     * Retrieves acknowledgement statuses for an HL7 lab report segment.
+     *
+     * @param segmentID String the HL7 segment identifier
+     * @return ArrayList&lt;ReportStatus&gt; list of acknowledgement statuses from all routed providers
+     */
     public static ArrayList<ReportStatus> getAcknowledgements(String segmentID) {
         return getAcknowledgements("HL7", segmentID);
     }
 
+    /**
+     * Retrieves acknowledgement statuses for a lab report segment of the specified document type.
+     *
+     * @param docType String the document type (e.g., "HL7", "DOC")
+     * @param segmentID String the segment identifier
+     * @return ArrayList&lt;ReportStatus&gt; list of acknowledgement statuses from all routed providers
+     */
     public static ArrayList<ReportStatus> getAcknowledgements(String docType, String segmentID) {
         ProviderLabRoutingDao dao = (ProviderLabRoutingDao) SpringUtils.getBean(ProviderLabRoutingDao.class);
 

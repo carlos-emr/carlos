@@ -41,23 +41,55 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 /**
- * @deprecated 2013-04-28 use io.github.carlos_emr.carlos.util.DateUtils instead
+ * Legacy date utility class providing methods for date parsing, formatting,
+ * age calculation, and date arithmetic using {@link SimpleDateFormat} patterns.
+ *
+ * @deprecated 2013-04-28 use {@link DateUtils} instead
+ * @since 2001-01-01
  */
 @Deprecated
 public class UtilDateUtilities {
 
+    /**
+     * Parses a date string using the default pattern ({@code yyyy-MM-dd}) and Canadian locale.
+     *
+     * @param s String the date string to parse
+     * @return Date the parsed date, or null if parsing fails
+     */
     public static Date StringToDate(String s) {
         return StringToDate(s, defaultPattern, defaultLocale);
     }
 
+    /**
+     * Parses a date string using the default pattern and the specified locale.
+     *
+     * @param s String the date string to parse
+     * @param locale Locale the locale for parsing
+     * @return Date the parsed date, or null if parsing fails
+     */
     public static Date StringToDate(String s, Locale locale) {
         return StringToDate(s, defaultPattern, locale);
     }
 
+    /**
+     * Parses a date string using the specified pattern and Canadian locale.
+     *
+     * @param s String the date string to parse
+     * @param spattern String the {@link SimpleDateFormat} pattern
+     * @return Date the parsed date, or null if parsing fails
+     */
     public static Date StringToDate(String s, String spattern) {
         return StringToDate(s, spattern, defaultLocale);
     }
 
+    /**
+     * Parses a date string using the specified pattern and locale.
+     *
+     * @param s String the date string to parse
+     * @param spattern String the {@link SimpleDateFormat} pattern
+     * @param locale Locale the locale for parsing
+     * @return Date the parsed date, or null if parsing fails
+     */
     public static Date StringToDate(String s, String spattern, Locale locale) {
         try {
             SimpleDateFormat simpledateformat = new SimpleDateFormat(spattern, locale);
@@ -67,18 +99,46 @@ public class UtilDateUtilities {
         }
     }
 
+    /**
+     * Formats a date to string using the default pattern and Canadian locale.
+     *
+     * @param date Date the date to format
+     * @return String the formatted date string, or an empty string if the date is null
+     */
     public static String DateToString(Date date) {
         return DateToString(date, defaultPattern, defaultLocale);
     }
 
+    /**
+     * Formats a date to string using the default pattern and the specified locale.
+     *
+     * @param date Date the date to format
+     * @param locale Locale the locale for formatting
+     * @return String the formatted date string, or an empty string if the date is null
+     */
     public static String DateToString(Date date, Locale locale) {
         return DateToString(date, defaultPattern, locale);
     }
 
+    /**
+     * Formats a date to string using the specified pattern and Canadian locale.
+     *
+     * @param date Date the date to format
+     * @param spattern String the {@link SimpleDateFormat} pattern
+     * @return String the formatted date string, or an empty string if the date is null
+     */
     public static String DateToString(Date date, String spattern) {
         return DateToString(date, spattern, defaultLocale);
     }
 
+    /**
+     * Formats a date to string using the specified pattern and locale.
+     *
+     * @param date Date the date to format
+     * @param spattern String the {@link SimpleDateFormat} pattern
+     * @param locale Locale the locale for formatting
+     * @return String the formatted date string, or an empty string if the date is null
+     */
     public static String DateToString(Date date, String spattern, Locale locale) {
         if (date != null) {
             SimpleDateFormat simpledateformat = new SimpleDateFormat(spattern, locale);
@@ -88,12 +148,23 @@ public class UtilDateUtilities {
         }
     }
 
-    //"yyyy-MM-dd";
+    /**
+     * Extracts the four-digit year from the given date.
+     *
+     * @param date Date the date to extract the year from
+     * @return String the year in {@code yyyy} format
+     */
     public static String justYear(Date date) {
         SimpleDateFormat simpledateformat = new SimpleDateFormat("yyyy");
         return simpledateformat.format(date);
     }
 
+    /**
+     * Extracts the two-digit month from the given date.
+     *
+     * @param date Date the date to extract the month from
+     * @return String the month in {@code MM} format
+     */
     public static String justMonth(Date date) {
         SimpleDateFormat simpledateformat = new SimpleDateFormat("MM");
         return simpledateformat.format(date);

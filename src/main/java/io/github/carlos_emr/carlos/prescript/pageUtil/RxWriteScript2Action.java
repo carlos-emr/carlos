@@ -84,6 +84,16 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.Vector;
 
+/**
+ * Struts 2 action for writing, saving, and managing prescription scripts.
+ * <p>
+ * Handles the core prescription writing workflow including drug selection, dosage entry,
+ * script saving, printing, annotation management, and interaction/allergy warning display.
+ * This is one of the largest actions in the prescription module, supporting both the legacy
+ * and RX3 prescription interfaces. Requires {@code _rx} read or write privileges.
+ *
+ * @since 2026-03-17
+ */
 public final class RxWriteScript2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

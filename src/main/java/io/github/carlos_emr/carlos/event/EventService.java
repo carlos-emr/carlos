@@ -33,10 +33,23 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 
+/**
+ * Spring-managed service responsible for publishing application events related to
+ * appointments and demographics within the CARLOS EMR system.
+ *
+ * <p>Implements {@link ApplicationEventPublisherAware} to receive the Spring
+ * {@link ApplicationEventPublisher}, which is used to broadcast events to registered
+ * listeners. Events are fired from JSP pages for appointment creation and status changes.</p>
+ *
+ * @see AppointmentCreatedEvent
+ * @see AppointmentStatusChangeEvent
+ * @since 2026-03-17
+ */
 public class EventService implements ApplicationEventPublisherAware {
     Logger logger = MiscUtils.getLogger();
     protected ApplicationEventPublisher applicationEventPublisher;
 
+    /** {@inheritDoc} */
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher arg0) {
         this.applicationEventPublisher = arg0;

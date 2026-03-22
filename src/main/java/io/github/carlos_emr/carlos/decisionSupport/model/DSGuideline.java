@@ -287,10 +287,24 @@ public abstract class DSGuideline extends AbstractModel<Integer> {
         this.parameters = newGuideline.getParameters();
     }
 
+    /**
+     * Checks whether this guideline's XML has been parsed into structured objects.
+     *
+     * @return boolean true if the XML has been parsed, false otherwise
+     */
     public boolean isParsed() {
         return parsed;
     }
 
+    /**
+     * Sets the parsed status of this guideline.
+     * <p>
+     * Setting to true suppresses automatic XML parsing on condition/consequence access.
+     * Used when manually configuring guideline objects for testing or preview.
+     * </p>
+     *
+     * @param parsed boolean true to indicate parsing is complete
+     */
     public void setParsed(boolean parsed) {
         this.parsed = parsed;
     }

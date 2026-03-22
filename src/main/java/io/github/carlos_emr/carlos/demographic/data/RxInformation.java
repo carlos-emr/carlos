@@ -36,10 +36,30 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 
+/**
+ * Provides access to a patient's current medication list and active allergies.
+ *
+ * <p>This class retrieves prescription and allergy data for a given patient
+ * demographic number, formatting the results as newline-separated text strings
+ * suitable for display in clinical encounter forms or export documents.</p>
+ *
+ * @see io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData
+ * @see io.github.carlos_emr.carlos.prescript.data.RxPatientData
+ * @since 2026-03-17
+ */
 public class RxInformation {
     private String currentMedication;
     private String allergies;
 
+    /**
+     * Retrieves the patient's current active medications as a newline-separated string.
+     *
+     * <p>Filters prescriptions to only include those marked as current, and formats
+     * each as a full outline with semicolons replaced by spaces.</p>
+     *
+     * @param demographic_no String the patient demographic number
+     * @return String newline-separated list of current medications
+     */
     public String getCurrentMedication(String demographic_no) {
         RxPrescriptionData prescriptData = new RxPrescriptionData();
         RxPrescriptionData.Prescription[] arr = {};

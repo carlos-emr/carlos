@@ -158,6 +158,14 @@ public class EFormAttachHRMReports {
         }
     }
 
+    /**
+     * Creates a new HRM report attachment record linking the specified HRM
+     * document to an eForm data record.
+     *
+     * @param providerNo String the provider number performing the attachment
+     * @param hrmDocumentNumber String the HRM document number to attach
+     * @param consultationId String the eForm data ID to attach to
+     */
     public static void attachHRMReportConsult(String providerNo, String hrmDocumentNumber, String consultationId) {
         //Creates a new consultDoc and sets it's attributes
         EFormDocs consultDoc = new EFormDocs();

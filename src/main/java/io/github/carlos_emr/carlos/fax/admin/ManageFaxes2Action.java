@@ -69,6 +69,22 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 
+/**
+ * Admin action for managing outbound and inbound fax jobs.
+ *
+ * <p>Extends {@link Fax2Action} to inherit preview and page-count capabilities, and adds
+ * administrative operations: cancel, resend, view fax documents, fetch filtered fax status
+ * reports, and mark fax jobs as completed. All mutating operations require {@code _admin}
+ * write privilege.</p>
+ *
+ * <p>Dispatches via the {@code method} request parameter: {@code CancelFax}, {@code ResendFax},
+ * {@code viewFax}, {@code fetchFaxStatus}, {@code SetCompleted}. Unrecognized methods
+ * delegate to the parent {@link Fax2Action#execute()}.</p>
+ *
+ * @see Fax2Action
+ * @see io.github.carlos_emr.carlos.managers.FaxManager
+ * @since 2026-03-17
+ */
 public class ManageFaxes2Action extends Fax2Action {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -80,6 +96,14 @@ public class ManageFaxes2Action extends Fax2Action {
 
     private final FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
+    /**
+     * Dispatches admin fax management requests based on the {@code method} parameter.
+     *
+     * <p>Handles {@code CancelFax}, {@code ResendFax}, {@code viewFax}, {@code fetchFaxStatus},
+     * and {@code SetCompleted}. Delegates unrecognized methods to the parent action.</p>
+     *
+     * @return String Struts result name, or null for methods that write directly to the response
+     */
     @Override
     public String execute() {
         String method = request.getParameter("method");
@@ -103,6 +127,16 @@ public class ManageFaxes2Action extends Fax2Action {
     }
 
 
+    /**
+     * Cancels a fax job by ID, updating its status to CANCELLED.
+     *
+     * <p>For faxes in SENT status, cancellation is local only. For faxes in WAITING status
+     * with a provider job ID, a cancellation request is sent to the middleware relay server.
+     * Requires {@code _admin} write privilege.</p>
+     *
+     * @return null (writes JSON response directly to the output stream)
+     * @throws SecurityException if the user lacks {@code _admin} write privilege
+     */
     @SuppressWarnings("unused")
     public String CancelFax() {
 
@@ -173,6 +207,15 @@ public class ManageFaxes2Action extends Fax2Action {
 
     }
 
+    /**
+     * Resends a previously failed or cancelled fax job.
+     *
+     * <p>Creates a new fax job based on the original, optionally with an updated fax number.
+     * Only attempts resend if the fax service is enabled. Requires {@code _admin} write privilege.</p>
+     *
+     * @return null (writes JSON response with success/failure directly to the output stream)
+     * @throws SecurityException if the user lacks {@code _admin} write privilege
+     */
     @SuppressWarnings("unused")
     public String ResendFax() {
 

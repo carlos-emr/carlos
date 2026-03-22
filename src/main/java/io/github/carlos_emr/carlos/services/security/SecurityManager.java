@@ -144,6 +144,16 @@ public class SecurityManager {
         return hasWriteAccess(objectName, roleNames, false);
     }
 
+    /**
+     * Checks whether any of the specified roles grant write access to the named object.
+     * When required is false and no privilege entries exist, access is granted by default.
+     * When required is true and no privilege entries exist, access is denied.
+     *
+     * @param objectName String the security object name to check
+     * @param roleNames String comma-separated role names to evaluate
+     * @param required boolean if true, privilege entries must exist for access to be granted
+     * @return boolean true if write or full access is granted
+     */
     public boolean hasWriteAccess(String objectName, String roleNames, boolean required) {
         boolean result = false;
 
@@ -170,6 +180,14 @@ public class SecurityManager {
         return result;
     }
 
+    /**
+     * Checks whether any of the specified roles grant delete access to the named object.
+     * Returns true if no privilege entries exist for the object (open by default).
+     *
+     * @param objectName String the security object name to check
+     * @param roleNames String comma-separated role names to evaluate
+     * @return boolean true if delete or full access is granted
+     */
     public boolean hasDeleteAccess(String objectName, String roleNames) {
         boolean result = false;
 
@@ -193,6 +211,14 @@ public class SecurityManager {
         return result;
     }
 
+    /**
+     * Static convenience method that checks whether a role has any privilege
+     * on the named object using the {@link OscarRoleObjectPrivilege} utility.
+     *
+     * @param objectName String the security object name to check
+     * @param roleName String the role name to evaluate
+     * @return boolean true if the role has the required privilege
+     */
     public static boolean hasPrivilege(String objectName, String roleName) {
         ArrayList<Object> v = OscarRoleObjectPrivilege.getPrivilegePropAsArrayList(objectName);
         return OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (ArrayList<String>) v.get(1));

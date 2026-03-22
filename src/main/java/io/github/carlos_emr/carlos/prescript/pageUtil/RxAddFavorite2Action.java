@@ -50,6 +50,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts 2 action for saving a prescription as a provider favorite template.
+ * <p>
+ * Supports saving favorites from either a persisted drug ID or a stash item. The AJAX
+ * variant (addFav2) is used with the RX3 interface. Requires {@code _rx} write privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxAddFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

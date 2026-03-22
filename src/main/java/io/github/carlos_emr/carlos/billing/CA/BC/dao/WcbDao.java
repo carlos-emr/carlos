@@ -35,13 +35,29 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link Wcb} entities.
+ * Provides persistence operations for Workers' Compensation Board (WCB)
+ * billing records in British Columbia.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class WcbDao extends AbstractDaoImpl<Wcb> {
 
+    /**
+     * Constructs a new {@code WcbDao} with the {@link Wcb} entity class.
+     */
     public WcbDao() {
         super(Wcb.class);
     }
 
+    /**
+     * Finds all WCB records associated with the specified billing number.
+     *
+     * @param billingNo int the billing number
+     * @return List of {@link Wcb} records matching the billing number
+     */
     public List<Wcb> findByBillingNo(int billingNo) {
         Query q = entityManager.createQuery("SELECT x FROM Wcb x WHERE x.billingNo=?1");
         q.setParameter(1, billingNo);
@@ -53,6 +69,12 @@ public class WcbDao extends AbstractDaoImpl<Wcb> {
 
     }
 
+    /**
+     * Finds all WCB records for a given demographic (patient).
+     *
+     * @param demoNo Integer the demographic number
+     * @return List of {@link Wcb} records for the patient
+     */
     public List<Wcb> findByDemographic(Integer demoNo) {
         Query q = createQuery("w", "w.demographicNo = :demoNo");
         q.setParameter("demoNo", demoNo);

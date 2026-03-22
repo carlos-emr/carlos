@@ -312,6 +312,14 @@ public class Prevention {
         return inRange;
     }
 
+    /**
+     * Checks whether the last prevention of the given type falls within the specified date range.
+     *
+     * @param preventionType String the prevention type name (e.g., "Flu", "DTaP-IPV")
+     * @param startDate String the range start date in "yyyy-MM-dd" format
+     * @param endDate String the range end date in "yyyy-MM-dd" format
+     * @return boolean {@code true} if the last prevention date is within range
+     */
     public boolean isLastPreventionWithinRange(String preventionType, String startDate, String endDate) {
         boolean withinRange = false;
         Date lastdate = getLastPreventionDate(preventionType);
@@ -331,7 +339,12 @@ public class Prevention {
         return withinRange;
     }
 
-    ////
+    /**
+     * Returns the date of the most recent prevention of the specified type.
+     *
+     * @param preventionType String the prevention type name
+     * @return Date the date of the last prevention, or {@code null} if no records exist
+     */
     public Date getLastPreventionDate(String preventionType) {
         //Still needs to be implemented
         Date lastDate = null;
@@ -345,6 +358,12 @@ public class Prevention {
         return lastDate; //
     }
 
+    /**
+     * Checks whether a next-date is set for the most recent prevention of the given type.
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if a next date is set
+     */
     public boolean isNextDateSet(String preventionType) {
         boolean isSet = true;
         Date nextDate = getNextPreventionDate(preventionType);
@@ -355,6 +374,12 @@ public class Prevention {
         return isSet;
     }
 
+    /**
+     * Checks whether a next-date is NOT set for the given prevention type.
+     *
+     * @param preventionType String the prevention type name
+     * @return boolean {@code true} if no next date is set
+     */
     public boolean isNotNextDateSet(String preventionType) {
         return !isNextDateSet(preventionType);
     }

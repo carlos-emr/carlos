@@ -288,6 +288,11 @@ public class HRMReport {
 
     }
 
+    /**
+     * Returns the US zip code from the patient's address.
+     *
+     * @return String the zip code, or empty string if no address is available
+     */
     public String getZipCode() {
         if (demographics.getAddress() == null || demographics.getAddress().isEmpty()) {
             return "";
@@ -295,6 +300,11 @@ public class HRMReport {
         return demographics.getAddress().get(0).getStructured().getPostalZipCode().getZipCode();
     }
 
+    /**
+     * Returns the patient's primary phone number.
+     *
+     * @return String the phone number, or empty string if none is available
+     */
     public String getPhoneNumber() {
         if (demographics.getPhoneNumber() == null || demographics.getPhoneNumber().isEmpty()) {
             return "";
@@ -302,14 +312,29 @@ public class HRMReport {
         return demographics.getPhoneNumber().get(0).getContent().get(0).getValue();
     }
 
+    /**
+     * Returns the patient's enrollment status.
+     *
+     * @return String the enrollment status value
+     */
     public String getEnrollmentStatus() {
         return demographics.getEnrollmentStatus();
     }
 
+    /**
+     * Returns the patient's person status code (e.g. active, deceased).
+     *
+     * @return String the person status value
+     */
     public String getPersonStatus() {
         return demographics.getPersonStatusCode().value();
     }
 
+    /**
+     * Determines whether the first report in this document has binary content format.
+     *
+     * @return boolean {@code true} if the report format is {@link ReportFormat#BINARY}
+     */
     public boolean isBinary() {
         if (hrmReport.getPatientRecord().getReportsReceived() != null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
             if (hrmReport.getPatientRecord().getReportsReceived().get(0).getFormat() == ReportFormat.BINARY) {
@@ -319,6 +344,11 @@ public class HRMReport {
         return false;
     }
 
+    /**
+     * Returns the file extension and version string of the first report attachment.
+     *
+     * @return String the file extension (e.g. ".pdf", ".jpg"), or empty string if unavailable
+     */
     public String getFileExtension() {
         if (hrmReport.getPatientRecord().getReportsReceived() == null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
             return "";
@@ -326,6 +356,12 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getReportsReceived().get(0).getFileExtensionAndVersion();
     }
 
+    /**
+     * Returns the text content of the first report. For binary reports, returns
+     * the Base64-encoded representation of the binary content.
+     *
+     * @return String the report text content or Base64-encoded binary, or {@code null} on error
+     */
     public String getFirstReportTextContent() {
         String result = null;
         if (hrmReport.getPatientRecord().getReportsReceived() != null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
@@ -342,7 +378,11 @@ public class HRMReport {
         return result;
     }
 
-    //this is actually BASE64, so using as ASCII ok.
+    /**
+     * Returns the raw binary (Base64-decoded) content of the first report media attachment.
+     *
+     * @return byte[] the binary content, or {@code null} on error
+     */
     public byte[] getBinaryContent() {
 
         try {
@@ -354,6 +394,12 @@ public class HRMReport {
         return null;
     }
 
+    /**
+     * Returns the report class of the first received report (e.g. "Diagnostic Imaging Report",
+     * "Medical Records Report", "Cardio Respiratory Report").
+     *
+     * @return String the report class value, or empty string if unavailable
+     */
     public String getFirstReportClass() {
         if (hrmReport.getPatientRecord().getReportsReceived() == null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
             return "";
@@ -361,6 +407,11 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getReportsReceived().get(0).getClazz().value();
     }
 
+    /**
+     * Returns the sub-class of the first received report.
+     *
+     * @return String the report sub-class, or empty string if unavailable
+     */
     public String getFirstReportSubClass() {
         if (hrmReport.getPatientRecord().getReportsReceived() == null || hrmReport.getPatientRecord().getReportsReceived().isEmpty()) {
             return "";
@@ -368,6 +419,11 @@ public class HRMReport {
         return hrmReport.getPatientRecord().getReportsReceived().get(0).getSubClass();
     }
 
+    /**
+     * Returns the event date/time of the first received report.
+     *
+     * @return Calendar the event timestamp, or {@code null} if not available
+     */
     public Calendar getFirstReportEventTime() {
 
         if (hrmReport.getPatientRecord().getReportsReceived() != null &&
@@ -377,6 +433,11 @@ public class HRMReport {
         return null;
     }
 
+    /**
+     * Returns the media type of the first received report (e.g. "Text", "Binary").
+     *
+     * @return String the media type value, or empty string on error
+     */
     public String getMediaType() {
         String mediaType = "";
         try {

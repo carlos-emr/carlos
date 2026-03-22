@@ -45,6 +45,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+/**
+ * Struts 2 action for selecting a drug from DrugRef and adding it to the prescription stash.
+ * <p>
+ * Retrieves the drug monograph from DrugRef by drug ID, populates a new prescription
+ * with the drug's ATC code, brand name, regional identifier, dosage, and generic name
+ * components, then adds it to the session's prescription stash with default values.
+ * Requires {@code _rx} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxChooseDrug2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

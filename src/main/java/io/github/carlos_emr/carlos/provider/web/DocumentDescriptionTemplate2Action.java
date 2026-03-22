@@ -95,6 +95,14 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Retrieves document description templates filtered by document type and optional provider number.
+     *
+     * <p>If {@code useDocumentDescriptionTemplateType} is {@code "user"}, filters by the
+     * specified {@code providerNo}; otherwise returns clinic-wide templates.</p>
+     *
+     * @return String {@code null} (JSON written directly to response output stream)
+     */
     public String getDocumentDescriptionFromDocType() {
         String docType = request.getParameter("doctype");
         String providerNo = null;
@@ -114,6 +122,11 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves a single document description template by its database ID.
+     *
+     * @return String {@code null} (JSON written directly to response output stream)
+     */
     public String getDocumentDescriptionFromId() {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
@@ -129,6 +142,14 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Creates a new document description template from request parameters.
+     *
+     * <p>Reads {@code doctype}, {@code description}, {@code shortcut}, and {@code providerNo}
+     * from the request. Logs the creation via {@link LogAction}.</p>
+     *
+     * @return String {@code null} (no view navigation)
+     */
     public String addDocumentDescription() {
         String docType = request.getParameter("doctype");
         String description = request.getParameter("description");
@@ -144,6 +165,13 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Updates an existing document description template identified by the {@code id} parameter.
+     *
+     * <p>Merges the updated fields and logs the modification via {@link LogAction}.</p>
+     *
+     * @return String {@code null} (no view navigation)
+     */
     public String updateDocumentDescription() {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);
@@ -163,6 +191,13 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Deletes a document description template by the {@code id} request parameter.
+     *
+     * <p>Logs the deletion via {@link LogAction}.</p>
+     *
+     * @return String {@code null} (no view navigation)
+     */
     public String deleteDocumentDescription() {
         String ids = request.getParameter("id");
         Integer id = Integer.valueOf(ids);

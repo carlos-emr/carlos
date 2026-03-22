@@ -575,14 +575,29 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
         else return ("Unknown");
     }
 
+    /**
+     * Returns a string representation suitable for audit logging.
+     *
+     * @return String the allergy display string including description and type
+     */
     public String getAuditString() {
         return getAllergyDisp();
     }
 
+    /**
+     * Returns a display-friendly representation of this allergy with description and type.
+     *
+     * @return String formatted as "description (type)"
+     */
     public String getAllergyDisp() {
         return this.getDescription() + " (" + getTypeDesc(getTypeCode()) + ")";
     }
 
+    /**
+     * Returns whether this allergy is a non-drug allergy (e.g., environmental, food).
+     *
+     * @return Boolean {@code true} if non-drug allergy, {@code false} for drug allergy
+     */
     public Boolean isNonDrug() {
         return nonDrug;
     }

@@ -33,10 +33,46 @@ import java.util.List;
 import io.github.carlos_emr.carlos.daos.security.UserAccessDao;
 import io.github.carlos_emr.carlos.services.LookupManager;
 
+/**
+ * Service interface for building a user's security context by resolving
+ * their function-level and organization-level access permissions.
+ *
+ * <p>This manager constructs a {@link SecurityManager} instance populated
+ * with the authenticated provider's privileges, which is then used throughout
+ * the session to evaluate access control decisions.</p>
+ *
+ * @see UserAccessManagerImpl
+ * @see SecurityManager
+ * @see io.github.carlos_emr.carlos.daos.security.UserAccessDao
+ * @since 2026-03-17
+ */
 public interface UserAccessManager {
+
+    /**
+     * Builds a fully resolved {@link SecurityManager} for the specified provider,
+     * loading their function access list and organization access list from the database.
+     *
+     * @param providerNo String the provider number identifying the logged-in user
+     * @param shelterId Integer the shelter/facility context identifier
+     * @param lkManager LookupManager the lookup manager for resolving reference data
+     * @return SecurityManager a populated security context for the provider
+     */
     SecurityManager getUserSecurityManager(String providerNo, Integer shelterId, LookupManager lkManager);
 
+    /**
+     * Extracts a contiguous group of access entries sharing the same function code,
+     * starting from the specified index in the sorted access list.
+     *
+     * @param list List the sorted list of UserAccessValue entries
+     * @param startIdx int the starting index in the list
+     * @return List of UserAccessValue entries for the current function, or null if startIdx is out of bounds
+     */
     List getAccessListForFunction(List list, int startIdx);
 
+    /**
+     * Sets the user access DAO via Spring dependency injection.
+     *
+     * @param dao UserAccessDao the data access object for user access queries
+     */
     void setUserAccessDao(UserAccessDao dao);
 }

@@ -32,9 +32,20 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link TeleplanSubmissionLink} entities.
+ * Provides persistence operations for links between Teleplan submissions
+ * and billing records in the BC MSP billing system. Inherits standard CRUD
+ * from {@link AbstractDaoImpl}.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class TeleplanSubmissionLinkDao extends AbstractDaoImpl<TeleplanSubmissionLink> {
 
+    /**
+     * Constructs a new {@code TeleplanSubmissionLinkDao} with the {@link TeleplanSubmissionLink} entity class.
+     */
     public TeleplanSubmissionLinkDao() {
         super(TeleplanSubmissionLink.class);
     }

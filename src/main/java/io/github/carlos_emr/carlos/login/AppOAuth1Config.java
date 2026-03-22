@@ -8,7 +8,15 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Configuration class for OAuth 1.0a applications.
+ * Configuration class for OAuth 1.0a consumer applications in CARLOS EMR.
+ *
+ * <p>Holds the consumer key, secret, base URL, callback URI, application URI,
+ * and scopes for an OAuth 1.0a client registration. Instances can be created
+ * programmatically or parsed from an XML configuration document via {@link #fromDocument(Object)}.
+ *
+ * @see OscarOAuthDataProvider
+ * @see OscarRequestTokenService
+ * @since 2026-03-17
  */
 public class AppOAuth1Config {
     private static final Logger logger = MiscUtils.getLogger();
@@ -19,22 +27,40 @@ public class AppOAuth1Config {
     private String applicationURI;
     private List<String> scopes;
 
+    /** @return String the OAuth consumer key */
     public String getConsumerKey() { return consumerKey; }
+
+    /** @param consumerKey String the OAuth consumer key */
     public void setConsumerKey(String consumerKey) { this.consumerKey = consumerKey; }
-    
+
+    /** @return String the OAuth consumer secret */
     public String getConsumerSecret() { return consumerSecret; }
+
+    /** @param consumerSecret String the OAuth consumer secret */
     public void setConsumerSecret(String consumerSecret) { this.consumerSecret = consumerSecret; }
-    
+
+    /** @return String the base URL of the OAuth provider */
     public String getBaseUrl() { return baseUrl; }
+
+    /** @param baseUrl String the base URL of the OAuth provider */
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
-    
+
+    /** @return String the OAuth callback URI */
     public String getCallbackURI() { return callbackURI; }
+
+    /** @param callbackURI String the OAuth callback URI */
     public void setCallbackURI(String callbackURI) { this.callbackURI = callbackURI; }
-    
+
+    /** @return String the application URI for the OAuth client */
     public String getApplicationURI() { return applicationURI; }
+
+    /** @param applicationURI String the application URI for the OAuth client */
     public void setApplicationURI(String applicationURI) { this.applicationURI = applicationURI; }
-    
+
+    /** @return List of String scope identifiers */
     public List<String> getScopes() { return scopes; }
+
+    /** @param scopes List of String scope identifiers */
     public void setScopes(List<String> scopes) { this.scopes = scopes; }
 
     /**

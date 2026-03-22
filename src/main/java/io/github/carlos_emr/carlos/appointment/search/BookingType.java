@@ -28,22 +28,48 @@
  */
 package io.github.carlos_emr.carlos.appointment.search;
 
+/**
+ * Represents a booking type combining an appointment type with a provider,
+ * identified by an encrypted ID string for secure online booking.
+ *
+ * @since 2026-03-17
+ */
 public class BookingType {
     private String id;
     private String name;
 
+    /**
+     * Returns the display name of this booking type.
+     *
+     * @return String the booking type name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Sets the display name of this booking type.
+     *
+     * @param name String the booking type name
+     */
     public void setName(String name) {
         this.name = name;
     }
 
+    /**
+     * Returns the encrypted identifier for this booking type.
+     *
+     * @return String the encrypted booking type ID
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * Sets the encrypted identifier for this booking type.
+     *
+     * @param id String the encrypted booking type ID
+     */
     public void setId(String id) {
         this.id = id;
     }

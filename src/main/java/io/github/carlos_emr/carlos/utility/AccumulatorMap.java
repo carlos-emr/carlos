@@ -30,14 +30,40 @@ package io.github.carlos_emr.carlos.utility;
 import java.util.Iterator;
 import java.util.TreeMap;
 
+/**
+ * A sorted map that accumulates integer counts for keys.
+ *
+ * <p>Provides convenience methods for incrementing key counters, computing totals,
+ * and counting occurrences of specific values. Useful for tallying frequencies
+ * in reporting and statistical contexts.
+ *
+ * @param <K> the type of keys maintained by this map (must be {@link Comparable})
+ * @since 2026-03-17
+ */
 public class AccumulatorMap<K> extends TreeMap<K, Integer> {
+
+    /**
+     * Creates an empty accumulator map.
+     */
     public AccumulatorMap() {
     }
 
+    /**
+     * Increments the count for the specified key by one.
+     *
+     * @param key K the key whose count to increment
+     */
     public void increment(K key) {
         this.increment(key, 1);
     }
 
+    /**
+     * Increments the count for the specified key by the given value.
+     * If the key does not exist, it is initialized with the given value.
+     *
+     * @param key   K the key whose count to increment
+     * @param value int the amount to add to the current count
+     */
     public void increment(K key, int value) {
         Integer previousValue = (Integer) this.get(key);
         if (previousValue == null) {
@@ -48,6 +74,11 @@ public class AccumulatorMap<K> extends TreeMap<K, Integer> {
 
     }
 
+    /**
+     * Returns the sum of all accumulated values across all keys.
+     *
+     * @return int the total of all values in the map
+     */
     public int getTotalOfAllValues() {
         int total = 0;
 
@@ -60,7 +91,10 @@ public class AccumulatorMap<K> extends TreeMap<K, Integer> {
     }
 
     /**
-     * Counts the number of instances of a specified value in the collection.
+     * Counts the number of keys that have the specified accumulated value.
+     *
+     * @param value int the value to search for
+     * @return int the number of keys with exactly this value
      */
     public int countInstancesOfValue(int value) {
         int count = 0;

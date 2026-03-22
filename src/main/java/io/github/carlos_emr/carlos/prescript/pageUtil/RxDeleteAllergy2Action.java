@@ -49,6 +49,15 @@ import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for deleting (archiving) or reactivating a patient allergy record.
+ * <p>
+ * Supports both deletion (archive) and activation of allergy records based on the
+ * {@code action} request parameter. All operations are audit-logged.
+ * Requires {@code _allergy} update privilege.
+ *
+ * @since 2026-03-17
+ */
 public final class RxDeleteAllergy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

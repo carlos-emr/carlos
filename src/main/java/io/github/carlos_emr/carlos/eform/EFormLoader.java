@@ -47,6 +47,21 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Singleton loader for eForm database access points (APs). Parses the AP
+ * configuration from {@code apconfig.xml} (or a custom path specified by
+ * the {@code eform_databaseap_config} property) using JAXB and caches the
+ * resulting {@link DatabaseAP} definitions in memory.
+ *
+ * <p>APs define named SQL queries that populate eForm fields at render time.
+ * The marker strings {@code oscarDB} and {@code oscarOPEN} are used to
+ * identify AP references and linked eForm openers in the HTML source.</p>
+ *
+ * @see DatabaseAP
+ * @see APExecute
+ * @see EFormApConfig
+ * @since 2006-05-25
+ */
 public class EFormLoader {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -57,6 +72,12 @@ public class EFormLoader {
     static private String opener = "oscarOPEN";
 
 
+    /**
+     * Returns the singleton instance of EFormLoader, parsing the AP configuration
+     * XML on first access.
+     *
+     * @return EFormLoader the singleton instance
+     */
     static public EFormLoader getInstance() {
         if (_instance == null) {
             _instance = new EFormLoader();
@@ -66,6 +87,12 @@ public class EFormLoader {
         return _instance;
     }
 
+    /**
+     * Adds a {@link DatabaseAP} to the cached collection, processing escaped
+     * newline sequences ({@code \n}) in the AP output template.
+     *
+     * @param ap DatabaseAP the access point definition to add
+     */
     static public void addDatabaseAP(DatabaseAP ap) {
         String processed = ap.getApOutput();
         //-------allow user to enter '\n' for new line---
@@ -107,10 +134,20 @@ public class EFormLoader {
         return names;
     }
 
+    /**
+     * Returns the marker string used to identify database AP references in eForm HTML.
+     *
+     * @return String the AP marker ({@code "oscarDB"})
+     */
     public static String getMarker() {
         return marker;
     }
 
+    /**
+     * Returns the opener marker string used to identify linked eForm references.
+     *
+     * @return String the opener marker ({@code "oscarOPEN"})
+     */
     public static String getOpener() {
         return opener;
     }

@@ -58,6 +58,15 @@ import org.owasp.encoder.Encode;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for writing prescription data to the patient's encounter notes.
+ * <p>
+ * Creates or updates case management notes with prescription information from the
+ * current session, integrating prescription data into the clinical encounter record.
+ * Requires {@code _rx} read privilege.
+ *
+ * @since 2026-03-17
+ */
 public class RxWriteToEncounter2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

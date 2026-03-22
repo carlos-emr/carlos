@@ -139,50 +139,113 @@ public class dxResearchBean {
         return dxSearchCode;
     }
 
+    /**
+     * Sets the diagnosis search code value.
+     *
+     * @param dxSearchCode String the diagnosis code
+     */
     public void setDxSearchCode(String dxSearchCode) {
         this.dxSearchCode = dxSearchCode;
     }
 
+    /**
+     * Returns the end/update date of the diagnosis research entry.
+     *
+     * @return String the end date
+     */
     public String getEnd_date() {
         return end_date;
     }
 
+    /**
+     * Sets the end/update date of the diagnosis research entry.
+     *
+     * @param end_date String the end date
+     */
     public void setEnd_date(String end_date) {
         this.end_date = end_date;
     }
 
+    /**
+     * Returns the start date of the diagnosis research entry, resolved through
+     * {@link PartialDateDao} to support partial-date formatting.
+     *
+     * @return String the formatted start date, potentially partial
+     */
     public String getStart_date() {
         return partialDateDao.getDatePartial(start_date, PartialDate.DXRESEARCH, Integer.valueOf(dxResearchNo), PartialDate.DXRESEARCH_STARTDATE);
     }
 
+    /**
+     * Sets the start date of the diagnosis research entry.
+     *
+     * @param start_date String the start date
+     */
     public void setStart_date(String start_date) {
         this.start_date = start_date;
     }
 
+    /**
+     * Returns the status of the diagnosis research entry.
+     *
+     * @return String the status (e.g. "A" for active, "D" for deleted)
+     */
     public String getStatus() {
         return status;
     }
 
+    /**
+     * Sets the status of the diagnosis research entry.
+     *
+     * @param status String the status code
+     */
     public void setStatus(String status) {
         this.status = status;
     }
 
+    /**
+     * Returns the coding system type for this diagnosis.
+     *
+     * @return String the coding system identifier (e.g. "icd9", "icd10")
+     */
     public String getType() {
         return type;
     }
 
+    /**
+     * Sets the coding system type for this diagnosis.
+     *
+     * @param type String the coding system identifier
+     */
     public void setType(String type) {
         this.type = type;
     }
 
+    /**
+     * Returns the provider number who created this diagnosis research entry.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Sets the provider number who created this diagnosis research entry.
+     *
+     * @param providerNo String the provider number
+     */
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Checks equality by comparing diagnosis code and coding system type
+     * against a {@link dxCodeSearchBean} instance.
+     *
+     * @param o Object the object to compare with
+     * @return boolean {@code true} if the object is a {@link dxCodeSearchBean} with matching code and type
+     */
     public boolean equals(Object o) {
         if (o instanceof dxCodeSearchBean) {
             dxCodeSearchBean bean = (dxCodeSearchBean) o;

@@ -38,9 +38,23 @@ import io.github.carlos_emr.carlos.daos.security.UserAccessDao;
 import io.github.carlos_emr.carlos.model.security.UserAccessValue;
 import io.github.carlos_emr.carlos.services.LookupManager;
 
+/**
+ * Implementation of the {@link UserAccessManager} interface that builds
+ * a user's security context from database-stored access control entries.
+ *
+ * <p>Queries the {@link UserAccessDao} to retrieve function-level and
+ * organization-level permissions, then assembles them into a
+ * {@link SecurityManager} instance for the authenticated provider.</p>
+ *
+ * @see UserAccessManager
+ * @see SecurityManager
+ * @see io.github.carlos_emr.carlos.daos.security.UserAccessDao
+ * @since 2026-03-17
+ */
 public class UserAccessManagerImpl implements UserAccessManager {
     private UserAccessDao _dao = null;
 
+    /** {@inheritDoc} */
     @Override
     public SecurityManager getUserSecurityManager(String providerNo, Integer shelterId, LookupManager lkManager) {
         // _list is ordered by Function, privilege (desc) and the org
@@ -72,6 +86,7 @@ public class UserAccessManagerImpl implements UserAccessManager {
         return secManager;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List getAccessListForFunction(List list, int startIdx) {
         if (startIdx >= list.size()) return null;
@@ -92,6 +107,7 @@ public class UserAccessManagerImpl implements UserAccessManager {
         return orgList;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setUserAccessDao(UserAccessDao dao) {
         _dao = dao;

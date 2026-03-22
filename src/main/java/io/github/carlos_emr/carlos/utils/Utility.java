@@ -37,7 +37,27 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * General-purpose utility class providing common validation, date formatting,
+ * string manipulation, and template parsing operations used throughout the CARLOS EMR system.
+ *
+ * <p>This class offers static helper methods for:</p>
+ * <ul>
+ *   <li><strong>Validation:</strong> Empty string checks, date parsing validation, integer validation</li>
+ *   <li><strong>Date operations:</strong> Parsing dates from dd/mm/yyyy format, formatting dates to various patterns</li>
+ *   <li><strong>String formatting:</strong> Padding, number formatting with zero-fill, string replacement</li>
+ *   <li><strong>Template parsing:</strong> Reading field definition templates from the filesystem</li>
+ * </ul>
+ *
+ * @since 2005-01-01
+ */
 public class Utility {
+    /**
+     * Checks whether the given string is null or contains only whitespace.
+     *
+     * @param pStr String the string to check
+     * @return boolean true if the string is null or blank, false otherwise
+     */
     public static boolean IsEmpty(String pStr) {
         if (pStr == null || pStr.trim().equals("")) {
             return true;
@@ -46,11 +66,23 @@ public class Utility {
         }
     }
 
+    /**
+     * Checks whether the given string can be parsed as a valid date.
+     *
+     * @param pStr String the date string to validate
+     * @return boolean true if the string represents a valid date, false otherwise
+     */
     public static boolean IsDate(String pStr) {
         java.sql.Date date = MyDateFormat.getSysDate(pStr);
         return date != null;
     }
 
+    /**
+     * Checks whether the given string can be parsed as a valid integer.
+     *
+     * @param pStr String the string to check
+     * @return boolean true if the string is a valid integer, false otherwise
+     */
     public static boolean IsInt(String pStr) {
         boolean isInt = true;
         try {
