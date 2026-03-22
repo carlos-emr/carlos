@@ -282,6 +282,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (appointments);
     }
 
+    /** {@inheritDoc} */
     public List<Appointment> getAppointmentUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
         List<Appointment> results = oscarAppointmentDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
 
@@ -293,6 +294,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
+    /** {@inheritDoc} */
     public List<Appointment> getAppointmentByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo, Integer demographicId, Date updatedAfterThisDateExclusive) {
         List<Appointment> results = new ArrayList<Appointment>();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);

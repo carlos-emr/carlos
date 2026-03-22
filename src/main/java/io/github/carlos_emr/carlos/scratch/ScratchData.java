@@ -69,6 +69,12 @@ public class ScratchData {
 		return dao.findAllDatesByProviderNo(providerNo);
 	}
 
+	/**
+	 * Retrieves the most recent scratch pad entry for a provider as a key-value map.
+	 *
+	 * @param providerNo String the provider number to query
+	 * @return Map with keys "id", "text", and "date"; or {@code null} if no entry exists
+	 */
 	public Map<String, String> getLatest(String providerNo) {
 		ScratchPadDao dao = SpringUtils.getBean(ScratchPadDao.class);
 		ScratchPad scratchPad = dao.findByProviderNo(providerNo);
@@ -81,6 +87,13 @@ public class ScratchData {
 		return retval;
 	}
 
+	/**
+	 * Persists a new scratch pad entry with the current timestamp.
+	 *
+	 * @param providerNo String the provider number to associate with the entry
+	 * @param text String the scratch pad text content
+	 * @return String the generated ID of the new entry as a string
+	 */
 	public String insert2(String providerNo, String text) {
 		ScratchPad scratchPad = new ScratchPad();
 		scratchPad.setProviderNo(providerNo);
@@ -92,6 +105,13 @@ public class ScratchData {
 		return scratchPad.getId().toString();
 	}
 
+	/**
+	 * Inserts a new scratch pad entry. Delegates to {@link #insert2(String, String)}.
+	 *
+	 * @param providerNo String the provider number to associate with the entry
+	 * @param text String the scratch pad text content
+	 * @return String the generated ID of the new entry as a string
+	 */
 	public String insert(String providerNo, String text) {
 		return insert2(providerNo, text);
 	}

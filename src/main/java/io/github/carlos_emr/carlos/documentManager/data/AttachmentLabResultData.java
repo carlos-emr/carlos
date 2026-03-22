@@ -69,6 +69,11 @@ public class AttachmentLabResultData {
         this.labName = labName;
     }
 
+    /**
+     * Returns the date of the lab result.
+     *
+     * @return Date the lab result date
+     */
     public Date getLabDate() {
         return labDate;
     }

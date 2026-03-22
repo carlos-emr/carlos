@@ -30,12 +30,28 @@ package io.github.carlos_emr.carlos.integration.fhir.exception;
  */
 
 
+/**
+ * Thrown when a mandatory FHIR resource attribute is missing, null, or empty.
+ *
+ * <p>Used during FHIR message construction to signal that a required attribute
+ * (e.g., practitioner number, OneID) was not found on the source entity.</p>
+ *
+ * @since 2026-03-17
+ */
 public class MandatoryAttributeException extends Exception {
 
+    /**
+     * Constructs a MandatoryAttributeException with a specific message.
+     *
+     * @param comment the detail message describing which attribute is missing
+     */
     public MandatoryAttributeException(String comment) {
         super(comment);
     }
 
+    /**
+     * Constructs a MandatoryAttributeException with a default message.
+     */
     public MandatoryAttributeException() {
         super("This attribute is mandatory. It was found to be null or empty.");
     }

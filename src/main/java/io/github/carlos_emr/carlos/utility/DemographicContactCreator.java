@@ -375,9 +375,7 @@ public class DemographicContactCreator {
         return professionalSpecialist;
     }
 
-    /**
-     * Sort Contacts Alpha
-     */
+    /** Comparator that sorts {@link Contact} objects alphabetically by last name (case-insensitive). */
     public static Comparator<Contact> byLastName = new Comparator<Contact>() {
         public int compare(Contact contact1, Contact contact2) {
             String lastname1 = contact1.getLastName().toUpperCase();

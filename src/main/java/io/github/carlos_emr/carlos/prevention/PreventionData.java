@@ -114,6 +114,23 @@ public class PreventionData {
         return pd;
     }
 
+    /**
+     * Inserts a new prevention record with its extended key-value properties.
+     *
+     * @param creator String the provider number of the creator
+     * @param demoNo String the patient's demographic number
+     * @param date String the prevention date in "yyyy-MM-dd HH:mm" or partial format
+     * @param providerNo String the administering provider number
+     * @param providerName String the administering provider name
+     * @param preventionType String the prevention type name
+     * @param refused String status code: "0"=completed, "1"=refused, "2"=ineligible, "3"=external
+     * @param nextDate String the next scheduled date in "yyyy-MM-dd" format
+     * @param neverWarn String "1" if never remind, "0" otherwise
+     * @param list ArrayList&lt;Map&lt;String, String&gt;&gt; extended key-value properties
+     * @param snomedId String the SNOMED concept ID for the prevention
+     * @param din String the Drug Identification Number (unused, may be {@code null})
+     * @return Integer the ID of the inserted prevention record, or -1 on failure
+     */
     public static Integer insertPreventionData(String creator, String demoNo, String date, String providerNo, String providerName, String preventionType, String refused, String nextDate, String neverWarn, ArrayList<Map<String, String>> list, String snomedId, String din) {
         Integer insertId = -1;
         try {

@@ -37,15 +37,51 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for managing {@link VacancyTemplate} entities that define
+ * reusable templates for creating vacancies in the waitlist subsystem.
+ *
+ * @since 2001-09-17
+ * @see VacancyTemplate
+ * @see VacancyTemplateDaoImpl
+ */
 public interface VacancyTemplateDao extends AbstractDao<VacancyTemplate> {
 
+    /**
+     * Persists a new vacancy template.
+     *
+     * @param obj VacancyTemplate the template to save
+     */
     public void saveVacancyTemplate(VacancyTemplate obj);
 
+    /**
+     * Merges (updates) an existing vacancy template.
+     *
+     * @param obj VacancyTemplate the template to merge
+     */
     public void mergeVacancyTemplate(VacancyTemplate obj);
 
+    /**
+     * Retrieves a vacancy template by its ID.
+     *
+     * @param templateId Integer the template ID
+     * @return VacancyTemplate the template, or {@code null} if not found
+     */
     public VacancyTemplate getVacancyTemplate(Integer templateId);
 
+    /**
+     * Retrieves all vacancy templates for a specific waitlist program.
+     *
+     * @param wlProgramId Integer the waitlist program ID
+     * @return List&lt;VacancyTemplate&gt; templates for the program
+     */
     public List<VacancyTemplate> getVacancyTemplateByWlProgramId(Integer wlProgramId);
 
+    /**
+     * Retrieves only active vacancy templates for a specific waitlist program.
+     *
+     * @param wlProgramId Integer the waitlist program ID
+     * @return List&lt;VacancyTemplate&gt; active templates for the program
+     */
     public List<VacancyTemplate> getActiveVacancyTemplatesByWlProgramId(Integer wlProgramId);
 }

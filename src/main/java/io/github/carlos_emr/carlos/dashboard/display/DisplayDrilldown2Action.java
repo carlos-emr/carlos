@@ -142,6 +142,14 @@ public class DisplayDrilldown2Action extends ActionSupport {
     }
 
 
+    /**
+     * Loads drilldown data by shared metric set name and optional metric label.
+     * Looks up the indicator template from the library by matching the shared metric
+     * set name, then delegates to the dashboard manager for drilldown data retrieval.
+     *
+     * @return String {@link #SUCCESS} with drilldown data, "unauthorized" if privilege
+     *         check fails, or "error" if no matching template or drilldown data is found
+     */
     public String getDrilldownBySharedMetricSetName() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

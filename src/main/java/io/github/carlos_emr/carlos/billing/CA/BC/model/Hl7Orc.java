@@ -41,6 +41,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing an HL7 ORC (Common Order) segment in the BC PathNet lab integration.
+ * Maps to the {@code hl7_orc} table, storing order control information including
+ * filler order numbers and ordering provider details.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "hl7_orc")
 public class Hl7Orc extends AbstractModel<Integer> {

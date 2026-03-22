@@ -42,6 +42,15 @@ import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
+/**
+ * Filters out time slots that are in the past or within a configurable buffer period
+ * from the current time.
+ *
+ * <p>Supports a {@code buffer} parameter (in minutes) that shifts the cutoff time forward,
+ * and a {@code nowDate} parameter for testing purposes that overrides the current time.</p>
+ *
+ * @since 2026-03-17
+ */
 public class FutureApptFilter implements AvailableTimeSlotFilter {
 
     private static Logger logger = MiscUtils.getLogger();

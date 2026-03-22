@@ -60,22 +60,47 @@ public class CarlosPropertiesCheck extends TagSupport {
         return reverse;
     }
 
+    /**
+     * Sets the reverse flag. When "true", the condition logic is inverted.
+     *
+     * @param reverse String "true" to invert the condition
+     */
     public void setReverse(String reverse) {
         this.reverse = reverse;
     }
 
+    /**
+     * Returns the expected property value to compare against.
+     *
+     * @return String the expected value
+     */
     public String getValue() {
         return (this.value);
     }
 
+    /**
+     * Sets the expected property value to compare against.
+     *
+     * @param value String the expected value (trimmed on assignment)
+     */
     public void setValue(String value) {
         this.value = value.trim();
     }
 
+    /**
+     * Returns the property name to look up.
+     *
+     * @return String the property name
+     */
     public String getProperty() {
         return (this.property);
     }
 
+    /**
+     * Sets the property name to look up in {@link CarlosProperties}.
+     *
+     * @param property String the property name (trimmed on assignment)
+     */
     public void setProperty(String property) {
         this.property = property.trim();
     }

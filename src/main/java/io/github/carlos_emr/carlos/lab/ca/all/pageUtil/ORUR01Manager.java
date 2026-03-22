@@ -18,7 +18,11 @@
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 /**
- * @author dritan
+ * Provides version-specific casting of HAPI ORU_R01 message objects to their
+ * corresponding HL7 version classes (v2.2, v2.3, v2.5, v2.6). Used during lab
+ * result parsing to access version-specific segment accessors.
+ *
+ * @since 2008-01-01
  */
 public class ORUR01Manager {
 

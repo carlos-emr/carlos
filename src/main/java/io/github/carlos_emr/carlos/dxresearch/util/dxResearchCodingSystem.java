@@ -32,17 +32,35 @@ package io.github.carlos_emr.carlos.dxresearch.util;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Utility class that provides access to the configured diagnosis coding systems.
+ *
+ * <p>Reads the {@code dxResearch_coding_sys} property from the CARLOS configuration
+ * to determine which coding systems (e.g. "icd9", "ichppccode") are available for
+ * diagnosis research. Defaults to "icd9,ichppccode" if the property is not set.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchCodingSystem {
 
     private String codingSystem;
     private String[] arrCodingSystems;
 
+    /**
+     * Constructs a coding system instance by reading the configured coding systems
+     * from the {@code dxResearch_coding_sys} application property.
+     */
     public dxResearchCodingSystem() {
         codingSystem = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "icd9,ichppccode");
         arrCodingSystems = codingSystem.split(",");
 
     }
 
+    /**
+     * Returns the array of configured coding system identifiers.
+     *
+     * @return String[] the coding system names (e.g. {"icd9", "ichppccode"})
+     */
     public String[] getCodingSystems() {
         return arrCodingSystems;
     }

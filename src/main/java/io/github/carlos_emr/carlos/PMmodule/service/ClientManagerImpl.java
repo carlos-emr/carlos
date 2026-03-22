@@ -117,10 +117,12 @@ public class ClientManagerImpl implements ClientManager {
         return referralDAO.getReferrals(Long.valueOf(clientId));
     }
 
+    /** {@inheritDoc} */
     public List<ClientReferral> getReferralsByFacility(Integer clientId, Integer facilityId) {
         return referralDAO.getReferralsByFacility(clientId.longValue(), facilityId);
     }
 
+    /** {@inheritDoc} */
     public List<ClientReferral> getActiveReferrals(String clientId, String sourceFacilityId) {
         List<ClientReferral> results = referralDAO.getActiveReferrals(Long.valueOf(clientId), Integer.parseInt(sourceFacilityId));
 

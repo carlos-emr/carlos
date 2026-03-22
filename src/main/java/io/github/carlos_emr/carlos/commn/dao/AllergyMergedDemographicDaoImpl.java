@@ -38,6 +38,16 @@ import io.github.carlos_emr.carlos.commn.merge.MergedDemographicTemplate;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Implementation of {@link AllergyMergedDemographicDao} that returns allergy records
+ * including data from merged patient demographics.
+ * <p>
+ * Extends {@link AllergyDaoImpl} and uses {@link MergedDemographicTemplate} to
+ * transparently include allergy records from any demographics that have been
+ * merged into the queried patient's record.
+ *
+ * @since 2001
+ */
 @Repository("AllergyDao")
 public class AllergyMergedDemographicDaoImpl extends AllergyDaoImpl implements AllergyMergedDemographicDao {
 

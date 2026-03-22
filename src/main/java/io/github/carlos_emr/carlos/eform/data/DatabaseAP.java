@@ -243,6 +243,13 @@ public class DatabaseAP {
         return sql;
     }
 
+    /**
+     * Extracts all variable names from {@code ${variable}} placeholders in the
+     * given string.
+     *
+     * @param str String the template string to parse
+     * @return ArrayList of String variable names found in the template
+     */
     public static ArrayList<String> parserGetNames(String str) {
         StringBuilder strb = new StringBuilder(str);
         ArrayList<String> names = new ArrayList<String>();
@@ -255,6 +262,14 @@ public class DatabaseAP {
         return names;
     }
 
+    /**
+     * Removes remaining {@code ${...}} placeholders from the string by replacing
+     * the delimiters with double-quote characters, effectively converting
+     * unresolved variables into quoted string literals.
+     *
+     * @param str String the template string to clean
+     * @return String the cleaned string with placeholders converted to quoted literals
+     */
     public static String parserClean(String str) {
         //removes left over ${...} in str; replaces with ""
         StringBuilder strb = new StringBuilder(str);

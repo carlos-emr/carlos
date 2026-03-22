@@ -44,6 +44,19 @@ import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
 
 
+/**
+ * Service interface for the internal messaging system in the CARLOS EMR.
+ *
+ * <p>Provides operations for sending, receiving, and managing messages between
+ * healthcare providers within and across clinic locations. Supports inbox
+ * management, message status tracking, recipient management, and system-generated
+ * notifications such as lab recall messages.</p>
+ *
+ * @see MessagingManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.MessageTbl
+ * @see io.github.carlos_emr.carlos.commn.model.MessageList
+ * @since 2026-03-17
+ */
 public interface MessagingManager {
 
     /*

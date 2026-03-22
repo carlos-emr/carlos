@@ -590,7 +590,12 @@ public class DSDemographicAccess {
         return !hasRxCodesAny(rxCodesStr);
     }
 
-    //not used by isAge
+    /**
+     * Gets the patient's age as a formatted string with year unit suffix.
+     * Not used by isAge evaluation; primarily for display purposes.
+     *
+     * @return String the patient's age in years (e.g., "45 y")
+     */
     public String getAge() {
         return getDemographicData(loggedInInfo).getAge() + " y";
     }

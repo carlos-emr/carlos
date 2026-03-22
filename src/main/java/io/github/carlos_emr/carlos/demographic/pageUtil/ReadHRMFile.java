@@ -241,6 +241,13 @@ public class ReadHRMFile {
         return getReportsReceived(r).getOBRContent().size();
     }
 
+    /**
+     * Returns string fields from a specific OBR content entry.
+     *
+     * @param r int the zero-based report index
+     * @param o int the zero-based OBR content index
+     * @return HashMap&lt;String, String&gt; map with "accompanyingdescription", "accompanyingmnemonic", "accompanyingsubclass"
+     */
     public HashMap<String, String> getReportOBRStrings(int r, int o) {
         HashMap<String, String> strings = new HashMap<String, String>();
         if (getReportOBRContent(r, o) == null) return strings;
@@ -258,12 +265,25 @@ public class ReadHRMFile {
         return strings;
     }
 
+    /**
+     * Returns the observation date/time from a specific OBR content entry.
+     *
+     * @param r int the zero-based report index
+     * @param o int the zero-based OBR content index
+     * @return Calendar the observation date/time, or null if not available
+     */
     public Calendar getReportOBRObservationDateTime(int r, int o) {
         if (getReportOBRContent(r, o) == null) return null;
 
         return dateFPtoCal(getReportOBRContent(r, o).getObservationDateTime());
     }
 
+    /**
+     * Returns the unique message ID from the transaction information at the given index.
+     *
+     * @param r int the zero-based transaction index
+     * @return String the message unique ID, or null if not available
+     */
     public String getTransactionMessageUniqueID(int r) {
         if (transactionInformation == null) return null;
         if (transactionInformation.size() <= r) return null;
@@ -271,6 +291,12 @@ public class ReadHRMFile {
         return transactionInformation.get(r).getMessageUniqueID();
     }
 
+    /**
+     * Returns the ReportsReceived element at the given index.
+     *
+     * @param r int the zero-based report index
+     * @return ReportsReceived the report element, or null if index is out of bounds
+     */
     public ReportsReceived getReportsReceived(int r) {
         if (reportsReceived == null) return null;
         if (reportsReceived.size() <= r) return null;

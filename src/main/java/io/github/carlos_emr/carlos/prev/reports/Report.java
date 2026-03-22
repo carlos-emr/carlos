@@ -112,10 +112,20 @@ public class Report {
         return ineligiblePatients;
     }
 
+    /**
+     * Sets the number of patients who are ineligible for this prevention.
+     *
+     * @param ineligiblePatients int the ineligible patient count
+     */
     public void setIneligiblePatients(int ineligiblePatients) {
         this.ineligiblePatients = ineligiblePatients;
     }
 
+    /**
+     * Returns the number of patients who are up-to-date on this prevention.
+     *
+     * @return int the up-to-date patient count
+     */
     public int getUp2date() {
         return up2date;
     }

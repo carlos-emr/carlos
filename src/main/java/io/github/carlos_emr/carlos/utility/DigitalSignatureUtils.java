@@ -37,6 +37,14 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 
+/**
+ * Utility class for managing digital signatures in the EMR system.
+ *
+ * <p>Provides methods for generating signature request IDs, resolving temporary
+ * file paths for signature images, and storing captured signatures to the database.
+ *
+ * @since 2026-03-17
+ */
 public class DigitalSignatureUtils {
 
     private static Logger logger = MiscUtils.getLogger();

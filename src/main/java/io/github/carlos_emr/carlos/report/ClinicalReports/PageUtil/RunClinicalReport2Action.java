@@ -54,12 +54,36 @@ import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that executes a clinical report by combining a selected numerator
+ * and denominator with optional additional numerators, replaceable values, and
+ * measurement fields. Results are stored in the session for display and CSV export.
+ *
+ * <p>Requires {@code _report} read privilege. The action reads numerator/denominator
+ * IDs from request parameters, resolves them via {@link ClinicalReportManager},
+ * injects any replaceable values, and delegates evaluation to {@link ReportEvaluator}.</p>
+ *
+ * @see ClinicalReportManager
+ * @see ReportEvaluator
+ * @see RemoveClinicalReportFromHistory2Action
+ * @since 2006-06-17
+ */
 public class RunClinicalReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Executes the clinical report by loading numerator/denominator definitions,
+     * injecting replaceable values from request parameters, running the evaluation,
+     * and storing results in session and request attributes.
+     *
+     * @return String {@code SUCCESS} on successful evaluation
+     * @throws IOException if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     * @throws SecurityException if the user lacks {@code _report} read privilege
+     */
     public String execute()
             throws IOException, ServletException {
 

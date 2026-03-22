@@ -44,6 +44,16 @@ import io.github.carlos_emr.carlos.managers.ScheduleManager;
 
 //import io.github.carlos_emr.carlos.webserv.ScheduleWs;
 
+/**
+ * Filters out time slots that conflict with existing appointments already booked
+ * for the provider on the given date.
+ *
+ * <p>Queries the {@link ScheduleManager} for the day's existing appointments and removes
+ * any candidate time slots whose start time falls within an existing appointment's
+ * time range.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ExistingAppointmentFilter implements AvailableTimeSlotFilter {
 
     private static Logger logger = MiscUtils.getLogger();

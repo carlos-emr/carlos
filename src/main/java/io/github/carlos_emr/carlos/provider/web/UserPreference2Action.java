@@ -618,6 +618,11 @@ public class UserPreference2Action extends ActionSupport {
         return sb.toString();
     }
 
+    /**
+     * Constructs a list of unique provider team names for consultation team warning configuration.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; non-empty team names
+     */
     public static ArrayList<LabelValueBean> constructProviderTeamList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 

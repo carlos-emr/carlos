@@ -37,6 +37,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Teleplan transaction log entry in the BC MSP billing system.
+ * Maps to the {@code log_teleplantx} table, storing claim data as a binary blob
+ * for audit and resubmission purposes.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "log_teleplantx")
 public class LogTeleplanTx extends AbstractModel<Integer> {

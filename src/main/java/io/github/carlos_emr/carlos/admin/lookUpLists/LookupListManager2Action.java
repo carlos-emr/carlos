@@ -43,6 +43,25 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing configurable lookup lists in CARLOS EMR.
+ *
+ * <p>Provides CRUD operations for lookup list items used throughout the application
+ * (e.g., dropdown options). Supports managing individual lists, reordering items,
+ * adding new items with auto-generated UUIDs, and removing items.
+ *
+ * <p>Routes via the "method" request parameter:
+ * <ul>
+ *   <li>manage - Lists all active lookup lists</li>
+ *   <li>order - Updates display order of a lookup list item</li>
+ *   <li>add - Adds a new item to a lookup list</li>
+ *   <li>remove - Removes an item from a lookup list</li>
+ *   <li>(default) - Displays a single lookup list by name</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.carlos.managers.LookupListManager
+ * @since 2026-03-17
+ */
 public class LookupListManager2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -54,6 +73,11 @@ public class LookupListManager2Action extends ActionSupport {
         super();
     }
 
+    /**
+     * Routes to the appropriate handler method based on the "method" request parameter.
+     *
+     * @return String the Struts2 result name
+     */
     public String execute() {
         String method = request.getParameter("method");
         if ("manage".equals(method)) {
@@ -68,6 +92,11 @@ public class LookupListManager2Action extends ActionSupport {
         return manageSingle();
     }
 
+    /**
+     * Displays a single lookup list identified by the "listName" request parameter.
+     *
+     * @return String SUCCESS with the lookup list set as a request attribute
+     */
     @SuppressWarnings("unused")
     public String manageSingle() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -79,6 +108,11 @@ public class LookupListManager2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Lists all active lookup lists and sets them as a request attribute.
+     *
+     * @return String SUCCESS with all active lookup lists
+     */
     @SuppressWarnings("unused")
     public String manage() {
 
