@@ -1,0 +1,261 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.commn.web;
+
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao;
+import io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+/**
+ * Struts 2 action that finds the next available appointment slot across a set of schedule providers.
+ *
+ * <p>Searches forward from the given start date (or tomorrow if omitted), checking each provider's
+ * schedule template for days with open slots. Returns the first provider/day/time combination found
+ * as JSON, suitable for driving the quick-search "Appt" badge navigation.</p>
+ *
+ * <h3>Request parameters</h3>
+ * <ul>
+ *   <li>{@code providerNos} – comma-separated list of provider numbers to search (required)</li>
+ *   <li>{@code startDate}   – ISO date to start searching from, inclusive, {@code YYYY-MM-DD}
+ *       (optional; defaults to tomorrow)</li>
+ * </ul>
+ *
+ * <h3>Response JSON (on success)</h3>
+ * <pre>
+ * { "found": true, "year": 2026, "month": 3, "day": 25,
+ *   "providerNo": "10001", "startTime": "09:00", "duration": 15 }
+ * </pre>
+ * <pre>
+ * { "found": false }
+ * </pre>
+ *
+ * @since 2026-03-22
+ */
+public class FindNextAvailableSlot2Action extends ActionSupport {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    /** Maximum days to search ahead before giving up. */
+    private static final int MAX_LOOKAHEAD_DAYS = 60;
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    @Override
+    public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+
+        String providerNosParam = StringUtils.trimToNull(request.getParameter("providerNos"));
+        if (providerNosParam == null) {
+            writeJson(Map.of("found", false, "error", "providerNos parameter is required"));
+            return null;
+        }
+
+        String[] providerNos = providerNosParam.split(",");
+
+        // Determine start date (default: tomorrow)
+        Calendar searchCal = new GregorianCalendar();
+        String startDateParam = StringUtils.trimToNull(request.getParameter("startDate"));
+        if (startDateParam != null) {
+            try {
+                java.util.Date parsedDate = ConversionUtils.fromDateString(startDateParam);
+                searchCal.setTime(parsedDate);
+            } catch (Exception e) {
+                // Fall back to tomorrow if the date is unparseable
+                searchCal.add(Calendar.DATE, 1);
+            }
+        } else {
+            searchCal.add(Calendar.DATE, 1);
+        }
+
+        // Build templateMap: timecode character → duration in minutes
+        ScheduleTemplateCodeDao templateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
+        Map<String, String> templateMap = new HashMap<>();
+        for (ScheduleTemplateCode stc : templateCodeDao.findTemplateCodes()) {
+            templateMap.put(String.valueOf(stc.getCode()), stc.getDuration());
+        }
+
+        ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
+        OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
+
+        // Search forward up to MAX_LOOKAHEAD_DAYS
+        for (int day = 0; day < MAX_LOOKAHEAD_DAYS; day++) {
+            int searchYear  = searchCal.get(Calendar.YEAR);
+            int searchMonth = searchCal.get(Calendar.MONTH) + 1;
+            int searchDay   = searchCal.get(Calendar.DAY_OF_MONTH);
+            String dateStr  = searchYear + "-" + searchMonth + "-" + searchDay;
+
+            try {
+                java.util.Date searchDate = ConversionUtils.fromDateString(dateStr);
+
+                for (String providerNo : providerNos) {
+                    providerNo = providerNo.trim();
+                    if (providerNo.isEmpty()) continue;
+
+                    List<Object> timecodeResult = scheduleTemplateDao.findTimeCodeByProviderNo2(
+                            providerNo, searchDate);
+
+                    if (timecodeResult == null || timecodeResult.isEmpty()) {
+                        continue; // No schedule template for this provider on this day
+                    }
+
+                    String timecode = StringUtils.trimToEmpty(String.valueOf(timecodeResult.get(0)));
+                    if (timecode.isEmpty()) continue;
+
+                    int timecodeLength   = timecode.length();
+                    int timecodeInterval = 1440 / timecodeLength; // minutes per slot
+
+                    // Build schedArr: 1 = open slot according to template
+                    int[] schedArr = new int[timecodeLength];
+                    for (int i = 0; i < timecodeLength; i++) {
+                        String slotChar = String.valueOf(timecode.charAt(i));
+                        if (!"_".equals(slotChar) && templateMap.containsKey(slotChar)) {
+                            schedArr[i] = 1;
+                        }
+                    }
+
+                    // Mark slots occupied by existing (non-cancelled) appointments as 0
+                    List<Appointment> booked = appointmentDao.findByProviderAndDayandNotStatuses(
+                            providerNo, searchDate, new String[]{"N", "C"});
+                    for (Appointment appt : booked) {
+                        String startStr = StringUtils.trimToEmpty(ConversionUtils.toTimeString(appt.getStartTime()));
+                        String endStr   = StringUtils.trimToEmpty(ConversionUtils.toTimeString(appt.getEndTime()));
+                        int startIdx = timeStrToMins(startStr) / timecodeInterval;
+                        int endIdx   = timeStrToMins(endStr)   / timecodeInterval;
+                        startIdx = Math.max(0, startIdx);
+                        endIdx   = Math.min(timecodeLength - 1, endIdx);
+                        for (int i = startIdx; i <= endIdx; i++) {
+                            schedArr[i] = 0;
+                        }
+                    }
+
+                    // Find the first open slot that has enough consecutive room for its duration
+                    for (int i = 0; i < timecodeLength; i++) {
+                        if (schedArr[i] != 1) continue;
+
+                        String slotChar = String.valueOf(timecode.charAt(i));
+                        String durationStr = templateMap.get(slotChar);
+                        if (durationStr == null || durationStr.isEmpty()) continue;
+
+                        int slotDuration;
+                        try {
+                            slotDuration = Integer.parseInt(durationStr.trim());
+                        } catch (NumberFormatException e) {
+                            continue;
+                        }
+
+                        int slotsNeeded = slotDuration / timecodeInterval;
+                        boolean enoughRoom = true;
+                        for (int n = 1; n < slotsNeeded; n++) {
+                            if ((i + n) >= timecodeLength || schedArr[i + n] != 1) {
+                                enoughRoom = false;
+                                break;
+                            }
+                        }
+
+                        if (enoughRoom) {
+                            int startHour = (i * timecodeInterval) / 60;
+                            int startMin  = (i * timecodeInterval) % 60;
+                            String startTime = String.format("%02d:%02d", startHour, startMin);
+
+                            Map<String, Object> result = new HashMap<>();
+                            result.put("found",      true);
+                            result.put("year",       searchYear);
+                            result.put("month",      searchMonth);
+                            result.put("day",        searchDay);
+                            result.put("providerNo", providerNo);
+                            result.put("startTime",  startTime);
+                            result.put("duration",   slotDuration);
+                            writeJson(result);
+                            return null;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().warn("FindNextAvailableSlot2Action: error checking date "
+                        + dateStr + ": " + e.getMessage());
+            }
+
+            searchCal.add(Calendar.DATE, 1);
+        }
+
+        // No slot found within lookahead window
+        writeJson(Map.of("found", false));
+        return null;
+    }
+
+    /**
+     * Converts a time string in "HH:mm" format to total minutes since midnight.
+     *
+     * @param timeStr String time in "HH:mm" format (e.g. "09:30")
+     * @return int total minutes since midnight, or 0 if the string cannot be parsed
+     */
+    private int timeStrToMins(String timeStr) {
+        if (timeStr == null || !timeStr.contains(":")) return 0;
+        try {
+            String[] parts = timeStr.split(":");
+            return Integer.parseInt(parts[0]) * 60 + Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Writes an object as JSON to the HTTP response.
+     *
+     * @param obj Object the object to serialize and write
+     * @throws Exception if JSON serialization or writing fails
+     */
+    private void writeJson(Object obj) throws Exception {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().print(OBJECT_MAPPER.writeValueAsString(obj));
+        response.getWriter().flush();
+    }
+}

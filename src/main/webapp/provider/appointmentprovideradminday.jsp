@@ -887,6 +887,11 @@
     <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
     <input type="hidden" id="scheduleLoggedInProviderNo" value="<%= Encode.forHtmlAttribute(loggedInInfo1.getLoggedInProviderNo()) %>"/>
     <input type="hidden" id="scheduleCurrentDate" value="<%= Encode.forHtmlAttribute(strYear + "-" + strMonth + "-" + strDay) %>"/>
+    <%-- Provider numbers visible on this schedule view, comma-separated, for the quick-search slot finder --%>
+    <input type="hidden" id="scheduleVisibleProviderNos" value="<%= Encode.forHtmlAttribute(java.util.Arrays.stream(curProvider_no).filter(p -> p != null && !p.isEmpty()).collect(java.util.stream.Collectors.joining(","))) %>"/>
+    <%-- Current schedule view parameters needed to rebuild the navigation URL after finding a slot --%>
+    <input type="hidden" id="scheduleViewAll" value="<%= Encode.forHtmlAttribute(request.getParameter("viewall") != null ? request.getParameter("viewall") : "1") %>"/>
+    <input type="hidden" id="scheduleView" value="<%= Encode.forHtmlAttribute(request.getParameter("view") != null ? request.getParameter("view") : "0") %>"/>
 
     <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
@@ -2530,6 +2535,9 @@
         var ctx = document.getElementById('contextPath').value;
         var scheduleProviderNo = document.getElementById('scheduleLoggedInProviderNo').value;
         var scheduleCurrentDate = document.getElementById('scheduleCurrentDate').value;
+        var scheduleVisibleProviderNos = document.getElementById('scheduleVisibleProviderNos').value;
+        var scheduleViewAll = document.getElementById('scheduleViewAll').value;
+        var scheduleView = document.getElementById('scheduleView').value;
 
         /**
          * Detect search type from the query string.
@@ -2681,11 +2689,9 @@
             dobHin.appendChild(document.createTextNode(item.hin || '\u2014'));
             line2.appendChild(dobHin);
 
-            var apptBadge = makeBadge('Appt', 'qs-badge-appt', 'Add Appointment', function(e) {
+            var apptBadge = makeBadge('Appt', 'qs-badge-appt', 'Find Next Open Slot', function(e) {
                 e.stopPropagation();
-                popupPage(360, 780, ctx + '/appointment/addappointment.jsp'
-                    + '?demographic_no=' + encodeURIComponent(item.demographicNo));
-                hideDropdown();
+                openNextAvailableAppt(item.demographicNo, apptBadge);
             });
             line2.appendChild(apptBadge);
             row.appendChild(line2);
@@ -2722,6 +2728,91 @@
             }
 
             return row;
+        }
+
+        /**
+         * Fetches the next available appointment slot across all visible schedule providers,
+         * stores the slot and demographic info in sessionStorage, then navigates the schedule
+         * to that day. On page load the schedule will detect the pending slot and open the
+         * add-appointment popup automatically (see window.addEventListener('load', ...) below).
+         *
+         * @param {string} demographicNo - patient demographic number
+         * @param {HTMLElement} badgeEl  - the Appt badge element (used to show loading state)
+         */
+        function openNextAvailableAppt(demographicNo, badgeEl) {
+            var providerNos = scheduleVisibleProviderNos || scheduleProviderNo;
+            if (!providerNos) {
+                alert('No providers visible on this schedule.');
+                return;
+            }
+
+            // Show loading state on badge
+            var origText = badgeEl.textContent;
+            badgeEl.textContent = '...';
+            badgeEl.style.opacity = '0.6';
+            badgeEl.style.pointerEvents = 'none';
+
+            var url = ctx + '/demographic/FindNextAvailableSlot.do'
+                + '?providerNos=' + encodeURIComponent(providerNos)
+                + '&startDate=' + encodeURIComponent(scheduleCurrentDate);
+
+            fetch(url, { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(slot) {
+                    if (!slot.found) {
+                        badgeEl.textContent = origText;
+                        badgeEl.style.opacity = '';
+                        badgeEl.style.pointerEvents = '';
+                        alert('No available appointment slots found in the next 60 days for the visible providers.');
+                        return;
+                    }
+
+                    // Store pending appointment in sessionStorage so the page-load handler can open the popup
+                    try {
+                        sessionStorage.setItem('carlosPendingAppt', JSON.stringify({
+                            demographicNo: demographicNo,
+                            providerNo:    slot.providerNo,
+                            startTime:     slot.startTime,
+                            duration:      slot.duration,
+                            year:          slot.year,
+                            month:         slot.month,
+                            day:           slot.day
+                        }));
+                    } catch (storageErr) {
+                        // sessionStorage unavailable — fall back to opening popup directly (no schedule nav)
+                        popupPage(360, 780, ctx + '/appointment/addappointment.jsp'
+                            + '?demographic_no=' + encodeURIComponent(demographicNo)
+                            + '&provider_no='    + encodeURIComponent(slot.providerNo)
+                            + '&year='           + encodeURIComponent(slot.year)
+                            + '&month='          + encodeURIComponent(slot.month)
+                            + '&day='            + encodeURIComponent(slot.day)
+                            + '&start_time='     + encodeURIComponent(slot.startTime)
+                            + '&duration='       + encodeURIComponent(slot.duration)
+                            + '&bFirstDisp=true');
+                        hideDropdown();
+                        return;
+                    }
+
+                    // Navigate the schedule to the next available day
+                    var navUrl = 'providercontrol.jsp'
+                        + '?year='          + slot.year
+                        + '&month='         + slot.month
+                        + '&day='           + slot.day
+                        + '&view='          + scheduleView
+                        + '&displaymode=day'
+                        + '&dboperation=searchappointmentday'
+                        + '&viewall='       + scheduleViewAll;
+                    window.location.href = navUrl;
+                })
+                .catch(function(err) {
+                    badgeEl.textContent = origText;
+                    badgeEl.style.opacity = '';
+                    badgeEl.style.pointerEvents = '';
+                    console.error('FindNextAvailableSlot error:', err);
+                    alert('Could not find next available slot. Please try again.');
+                });
+
+            hideDropdown();
         }
 
         function makeBadge(label, cssClass, title, clickHandler) {
@@ -2796,6 +2887,38 @@
             if (!wrapper.contains(e.target)) { hideDropdown(); }
         });
 
+    })();
+
+    // ── Pending-Appt page-load handler ─────────────────────────────────────
+    // After navigating the schedule to the next available day, this fires and
+    // opens the add-appointment popup pre-filled with the slot time / duration.
+    (function openPendingApptOnLoad() {
+        var pending;
+        try {
+            var raw = sessionStorage.getItem('carlosPendingAppt');
+            if (!raw) return;
+            pending = JSON.parse(raw);
+            sessionStorage.removeItem('carlosPendingAppt');
+        } catch (e) {
+            return; // sessionStorage unavailable or JSON parse error
+        }
+        if (!pending || !pending.startTime) return;
+
+        var ctx2 = document.getElementById('contextPath').value;
+        var popupUrl = ctx2 + '/appointment/addappointment.jsp'
+            + '?demographic_no=' + encodeURIComponent(pending.demographicNo)
+            + '&provider_no='    + encodeURIComponent(pending.providerNo)
+            + '&year='           + encodeURIComponent(pending.year)
+            + '&month='          + encodeURIComponent(pending.month)
+            + '&day='            + encodeURIComponent(pending.day)
+            + '&start_time='     + encodeURIComponent(pending.startTime)
+            + '&duration='       + encodeURIComponent(pending.duration)
+            + '&bFirstDisp=true';
+
+        // Wait for the page to finish rendering before opening the popup
+        window.addEventListener('load', function() {
+            popupPage(360, 780, popupUrl);
+        });
     })();
     </script>
 
