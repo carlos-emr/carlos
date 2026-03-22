@@ -39,6 +39,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 import java.util.List;
 
 
+/**
+ * Interface for converting Drug domain entities to transfer objects.
+ *
+ * @since 2013-01-01
+ */
 public interface DrugConverter {
 
     public Drug getAsDomainObject(LoggedInInfo loggedInInfo, DrugTo1 t) throws ConversionException;

@@ -39,6 +39,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.PrescriptionTo1;
 import java.util.List;
 
 
+/**
+ * Interface for converting Prescription domain entities to transfer objects.
+ *
+ * @since 2013-01-01
+ */
 public interface PrescriptionConverter {
 
     public Prescription getAsDomainObject(LoggedInInfo loggedInInfo, PrescriptionTo1 t);

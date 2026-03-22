@@ -28,6 +28,11 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
+/**
+ * Unchecked exception thrown when a domain-to-transfer-object conversion fails.
+ *
+ * @since 2012-08-13
+ */
 public class ConversionException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

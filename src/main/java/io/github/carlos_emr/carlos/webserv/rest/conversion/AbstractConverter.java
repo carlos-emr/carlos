@@ -40,6 +40,14 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * @param <T> Transfer object type
  */
 // TODO define TO interface and bound T by that
+/**
+ * Abstract base class for REST API data converters that transform domain entities
+ * to transfer objects and vice versa.
+ *
+ * @param <D> the domain entity type
+ * @param <T> the transfer object type
+ * @since 2012-08-13
+ */
 public abstract class AbstractConverter<D, T> {
 
 

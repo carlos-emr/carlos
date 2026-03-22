@@ -45,6 +45,11 @@ import java.util.List;
  * and the data model that is presented to a client.
  */
 
+/**
+ * Interface for converting Favorite domain entities to transfer objects.
+ *
+ * @since 2013-01-01
+ */
 public interface FavoriteConverter {
 
     public Favorite getAsDomainObject(LoggedInInfo loggedInInfo, FavoriteTo1 t) throws ConversionException;

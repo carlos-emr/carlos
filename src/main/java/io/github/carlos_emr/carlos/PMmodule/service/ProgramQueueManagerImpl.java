@@ -126,10 +126,12 @@ public class ProgramQueueManagerImpl implements ProgramQueueManager {
         return q;
     }
 
+    /** {@inheritDoc} */
     public ProgramQueue getActiveProgramQueue(String programId, String demographicNo) {
         return dao.getActiveProgramQueue(Long.valueOf(programId), Long.valueOf(demographicNo));
     }
 
+    /** {@inheritDoc} */
     public void rejectQueue(String programId, String clientId, String notes, String rejectionReason) {
         ProgramQueue queue = getActiveProgramQueue(programId, clientId);
         if (queue == null) {

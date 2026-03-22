@@ -29,7 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
-//
+/**
+ * Extension of {@link Test} representing a laboratory test result with additional
+ * fields for observation date/time, LOINC code classification, and lab system type.
+ *
+ * @since 2001-01-01
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";
