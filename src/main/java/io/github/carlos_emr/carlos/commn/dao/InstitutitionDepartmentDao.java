@@ -42,5 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.InstitutionDepartment;
  */
 
 public interface InstitutitionDepartmentDao extends AbstractDao<InstitutionDepartment> {
+    /**
+     * Find By Institution Id.
+     *
+     * @param institutionId int the institutionId
+     * @return List<InstitutionDepartment>
+     */
     List<InstitutionDepartment> findByInstitutionId(int institutionId);
 }

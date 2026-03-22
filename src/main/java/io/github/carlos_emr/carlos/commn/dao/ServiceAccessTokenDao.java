@@ -44,12 +44,32 @@ import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 
 public interface ServiceAccessTokenDao extends AbstractDao<ServiceAccessToken> {
 
+    /**
+     * Find All.
+     * @return List<ServiceAccessToken>
+     */
     public List<ServiceAccessToken> findAll();
 
+    /**
+     * Persist.
+     *
+     * @param token ServiceAccessToken the token
+     */
     void persist(ServiceAccessToken token);
 
+    /**
+     * Remove.
+     *
+     * @param token ServiceAccessToken the token
+     */
     void remove(ServiceAccessToken token);
 
+    /**
+     * Find By Token Id.
+     *
+     * @param token String the token
+     * @return ServiceAccessToken
+     */
     public ServiceAccessToken findByTokenId(String token);
 
 }

@@ -42,5 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.PrintResourceLog;
  */
 
 public interface PrintResourceLogDao extends AbstractDao<PrintResourceLog> {
+    /**
+     * Find By Resource.
+     *
+     * @param resourceName String the resourceName
+     * @param resourceId String the resourceId
+     * @return List<PrintResourceLog>
+     */
     List<PrintResourceLog> findByResource(String resourceName, String resourceId);
 }

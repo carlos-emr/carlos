@@ -43,13 +43,40 @@ import io.github.carlos_emr.carlos.commn.model.CountryCode;
  */
 
 public interface CountryCodeDao extends AbstractDao<CountryCode> {
+    /**
+     * Find All.
+     * @return List<CountryCode>
+     */
     List<CountryCode> findAll();
 
+    /**
+     * Get All Country Codes.
+     * @return List<CountryCode>
+     */
     List<CountryCode> getAllCountryCodes();
 
+    /**
+     * Get All Country Codes.
+     *
+     * @param locale String the locale
+     * @return List<CountryCode>
+     */
     List<CountryCode> getAllCountryCodes(String locale);
 
+    /**
+     * Get Country Code.
+     *
+     * @param countryCode String the countryCode
+     * @return CountryCode
+     */
     CountryCode getCountryCode(String countryCode);
 
+    /**
+     * Get Country Code.
+     *
+     * @param countryCode String the countryCode
+     * @param locale String the locale
+     * @return CountryCode
+     */
     CountryCode getCountryCode(String countryCode, String locale);
 }

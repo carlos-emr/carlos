@@ -41,7 +41,17 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocClass;
  */
 
 public interface CtlDocClassDao extends AbstractDao<CtlDocClass> {
+    /**
+     * Find Unique Report Classes.
+     * @return List<String>
+     */
     List<String> findUniqueReportClasses();
 
+    /**
+     * Find Sub Classes By Report Class.
+     *
+     * @param reportClass String the reportClass
+     * @return List<String>
+     */
     List<String> findSubClassesByReportClass(String reportClass);
 }

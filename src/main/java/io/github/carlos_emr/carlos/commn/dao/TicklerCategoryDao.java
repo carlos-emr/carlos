@@ -43,5 +43,9 @@ import io.github.carlos_emr.carlos.commn.model.TicklerCategory;
 
 public interface TicklerCategoryDao extends AbstractDao<TicklerCategory> {
 
+    /**
+     * Get Active Categories.
+     * @return List<TicklerCategory>
+     */
     public List<TicklerCategory> getActiveCategories();
 }

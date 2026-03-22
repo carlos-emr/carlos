@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.DemographicQueryFavourite;
  */
 
 public interface DemographicQueryFavouritesDao extends AbstractDao<DemographicQueryFavourite> {
+    /**
+     * Find By Archived.
+     *
+     * @param archived String the archived
+     * @return List<DemographicQueryFavourite>
+     */
     List<DemographicQueryFavourite> findByArchived(String archived);
 }

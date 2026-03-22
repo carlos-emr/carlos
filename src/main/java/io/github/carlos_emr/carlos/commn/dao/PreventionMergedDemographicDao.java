@@ -43,11 +43,37 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
  */
 
 public interface PreventionMergedDemographicDao {
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Prevention>
+     */
     List<Prevention> findByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Demographic Id After Datetime.
+     *
+     * @param demographicId Integer the demographicId
+     * @param dateTime final Date the dateTime
+     * @return List<Prevention>
+     */
     List<Prevention> findByDemographicIdAfterDatetime(Integer demographicId, final Date dateTime);
 
+    /**
+     * Find Not Deleted By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Prevention>
+     */
     List<Prevention> findNotDeletedByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Type And Demo No.
+     *
+     * @param preventionType final String the preventionType
+     * @param demoNo Integer the demoNo
+     * @return List<Prevention>
+     */
     List<Prevention> findByTypeAndDemoNo(final String preventionType, Integer demoNo);
 }

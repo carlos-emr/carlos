@@ -42,9 +42,27 @@ import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 
 public interface EncounterTemplateDao extends AbstractDao<EncounterTemplate> {
 
+    /**
+     * Find All.
+     * @return List<EncounterTemplate>
+     */
     List<EncounterTemplate> findAll();
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return List<EncounterTemplate>
+     */
     List<EncounterTemplate> findByName(String name);
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @param startIndex Integer the startIndex
+     * @param itemsToReturn Integer the itemsToReturn
+     * @return List<EncounterTemplate>
+     */
     List<EncounterTemplate> findByName(String name, Integer startIndex, Integer itemsToReturn);
 }

@@ -35,6 +35,12 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
+/**
+ * Upload handler for Hamilton Health Sciences (HHS) EMR download files.
+ * Extends {@link DefaultHandler} with HHS-specific parsing.
+ *
+ * @since 2007-01-18
+ */
 public class HHSEmrDownloadHandler extends DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
 

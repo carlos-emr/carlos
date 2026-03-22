@@ -42,7 +42,19 @@ import io.github.carlos_emr.carlos.commn.model.Diseases;
  */
 
 public interface DiseasesDao extends AbstractDao<Diseases> {
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<Diseases>
+     */
     List<Diseases> findByDemographicNo(int demographicNo);
 
+    /**
+     * Find By Icd9.
+     *
+     * @param icd9 String the icd9
+     * @return List<Diseases>
+     */
     List<Diseases> findByIcd9(String icd9);
 }

@@ -36,23 +36,89 @@ import io.github.carlos_emr.carlos.commn.model.Billingreferral;
  */
 
 public interface BillingreferralDao extends AbstractDao<Billingreferral> {
+    /**
+     * Get By Referral No.
+     *
+     * @param referral_no String the referral_no
+     * @return Billingreferral
+     */
     public Billingreferral getByReferralNo(String referral_no);
 
+    /**
+     * Get By Id.
+     *
+     * @param id int the id
+     * @return Billingreferral
+     */
     public Billingreferral getById(int id);
 
+    /**
+     * Get Billingreferrals.
+     * @return List<Billingreferral>
+     */
     public List<Billingreferral> getBillingreferrals();
 
+    /**
+     * Get Billingreferral.
+     *
+     * @param referral_no String the referral_no
+     * @return List<Billingreferral>
+     */
     public List<Billingreferral> getBillingreferral(String referral_no);
 
+    /**
+     * Get Billingreferral.
+     *
+     * @param last_name String the last_name
+     * @param first_name String the first_name
+     * @return List<Billingreferral>
+     */
     public List<Billingreferral> getBillingreferral(String last_name, String first_name);
 
+    /**
+     * Get Billingreferral By Last Name.
+     *
+     * @param last_name String the last_name
+     * @return List<Billingreferral>
+     */
     public List<Billingreferral> getBillingreferralByLastName(String last_name);
 
+    /**
+     * Get Billingreferral By Specialty.
+     *
+     * @param specialty String the specialty
+     * @return List<Billingreferral>
+     */
     public List<Billingreferral> getBillingreferralBySpecialty(String specialty);
 
+    /**
+     * Search Referral Code.
+     *
+     * @param codeName String the codeName
+     * @param codeName1 String the codeName1
+     * @param codeName2 String the codeName2
+     * @param desc String the desc
+     * @param fDesc String the fDesc
+     * @param desc1 String the desc1
+     * @param fDesc1 String the fDesc1
+     * @param desc2 String the desc2
+     * @param fDesc2 String the fDesc2
+     * @return List<Billingreferral>
+     */
     public List<Billingreferral> searchReferralCode(String codeName, String codeName1, String codeName2, String desc, String fDesc, String desc1, String fDesc1, String desc2, String fDesc2);
 
+    /**
+     * Update Billingreferral.
+     *
+     * @param obj Billingreferral the obj
+     */
     public void updateBillingreferral(Billingreferral obj);
 
+    /**
+     * Get Referral Doc Name.
+     *
+     * @param referral_no String the referral_no
+     * @return String
+     */
     public String getReferralDocName(String referral_no);
 }

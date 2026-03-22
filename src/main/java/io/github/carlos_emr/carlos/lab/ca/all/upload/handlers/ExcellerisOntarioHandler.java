@@ -48,6 +48,12 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
 import io.github.carlos_emr.CarlosProperties;
 
 
+/**
+ * Upload handler for Excelleris Ontario laboratory result files. Handles both
+ * standard uploads and OLIS (Ontario Laboratory Information System) integration.
+ *
+ * @since 2007-01-18
+ */
 public class ExcellerisOntarioHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();

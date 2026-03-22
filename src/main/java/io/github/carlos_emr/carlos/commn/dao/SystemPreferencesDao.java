@@ -43,15 +43,52 @@ import java.util.*;
 
 public interface SystemPreferencesDao extends AbstractDao<SystemPreferences> {
 
+    /**
+     * Find Preference By Name.
+     *
+     * @param name Enum<T> the name
+     * @return <T extends Enum<T>> SystemPreferences
+     */
     <T extends Enum<T>> SystemPreferences findPreferenceByName(Enum<T> name);
 
+    /**
+     * Find Preferences By Names.
+     *
+     * @param clazz Class<E> the clazz
+     * @return <E extends Enum<E>> List<SystemPreferences>
+     */
     <E extends Enum<E>> List<SystemPreferences> findPreferencesByNames(Class<E> clazz);
 
+    /**
+     * Find By Keys As Map.
+     *
+     * @param clazz Class<E> the clazz
+     * @return <E extends Enum<E>> Map<String, Boolean>
+     */
     <E extends Enum<E>> Map<String, Boolean> findByKeysAsMap(Class<E> clazz);
 
+    /**
+     * Find By Keys As Preference Map.
+     *
+     * @param keys List<String> the keys
+     * @return Map<String, SystemPreferences>
+     */
     Map<String, SystemPreferences> findByKeysAsPreferenceMap(List<String> keys);
 
+    /**
+     * Is Read Boolean Preference.
+     *
+     * @param name Enum<T> the name
+     * @return <T extends Enum<T>> boolean
+     */
     <T extends Enum<T>> boolean isReadBooleanPreference(Enum<T> name);
 
+    /**
+     * Is Preference Value Equals.
+     *
+     * @param preferenceName Enum<T> the preferenceName
+     * @param trueValueStr String the trueValueStr
+     * @return <T extends Enum<T>> boolean
+     */
     <T extends Enum<T>> boolean isPreferenceValueEquals(Enum<T> preferenceName, String trueValueStr);
 }

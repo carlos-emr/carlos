@@ -42,7 +42,17 @@ import io.github.carlos_emr.carlos.commn.model.CtlRelationships;
  */
 
 public interface CtlRelationshipsDao extends AbstractDao<CtlRelationships> {
+    /**
+     * Find All Active.
+     * @return List<CtlRelationships>
+     */
     List<CtlRelationships> findAllActive();
 
+    /**
+     * Find By Value.
+     *
+     * @param value String the value
+     * @return CtlRelationships
+     */
     CtlRelationships findByValue(String value);
 }

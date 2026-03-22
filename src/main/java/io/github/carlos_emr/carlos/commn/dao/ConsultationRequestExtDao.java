@@ -43,9 +43,27 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
  */
 
 public interface ConsultationRequestExtDao extends AbstractDao<ConsultationRequestExt> {
+    /**
+     * Get Consultation Request Exts.
+     *
+     * @param requestId int the requestId
+     * @return List<ConsultationRequestExt>
+     */
     List<ConsultationRequestExt> getConsultationRequestExts(int requestId);
 
+    /**
+     * Get Consultation Request Exts By Key.
+     *
+     * @param requestId int the requestId
+     * @param key String the key
+     * @return String
+     */
     String getConsultationRequestExtsByKey(int requestId, String key);
 
+    /**
+     * Clear.
+     *
+     * @param requestId int the requestId
+     */
     void clear(int requestId);
 }

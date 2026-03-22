@@ -43,7 +43,20 @@ import java.util.List;
  */
 
 public interface FormeCARESDao extends AbstractDao<FormeCARES> {
+    /**
+     * Find All By Form Created Date Demographic No.
+     *
+     * @param createDate Date the createDate
+     * @param demographicNo int the demographicNo
+     * @return List<FormeCARES>
+     */
     List<FormeCARES> findAllByFormCreatedDateDemographicNo(Date createDate, int demographicNo);
 
+    /**
+     * Find All Incomplete By Demographic Number.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<FormeCARES>
+     */
     List<FormeCARES> findAllIncompleteByDemographicNumber(int demographicNo);
 }

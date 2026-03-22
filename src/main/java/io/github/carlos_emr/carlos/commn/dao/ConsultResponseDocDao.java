@@ -42,9 +42,29 @@ import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
  */
 
 public interface ConsultResponseDocDao extends AbstractDao<ConsultResponseDoc> {
+    /**
+     * Find By Response Id Doc No Doc Type.
+     *
+     * @param responseId Integer the responseId
+     * @param documentNo Integer the documentNo
+     * @param docType String the docType
+     * @return ConsultResponseDoc
+     */
     ConsultResponseDoc findByResponseIdDocNoDocType(Integer responseId, Integer documentNo, String docType);
 
+    /**
+     * Find By Response Id.
+     *
+     * @param responseId Integer the responseId
+     * @return List<ConsultResponseDoc>
+     */
     List<ConsultResponseDoc> findByResponseId(Integer responseId);
 
+    /**
+     * Find Labs.
+     *
+     * @param consultResponseId Integer the consultResponseId
+     * @return List<Object[]>
+     */
     List<Object[]> findLabs(Integer consultResponseId);
 }

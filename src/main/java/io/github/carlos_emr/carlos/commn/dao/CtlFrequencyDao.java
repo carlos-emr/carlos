@@ -42,5 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.CtlFrequency;
  */
 
 public interface CtlFrequencyDao extends AbstractDao<CtlFrequency> {
+    /**
+     * Find All.
+     * @return List<CtlFrequency>
+     */
     List<CtlFrequency> findAll();
 }

@@ -42,9 +42,25 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
  */
 
 public interface MeasurementGroupStyleDao extends AbstractDao<MeasurementGroupStyle> {
+    /**
+     * Find All.
+     * @return List<MeasurementGroupStyle>
+     */
     List<MeasurementGroupStyle> findAll();
 
+    /**
+     * Find By Group Name.
+     *
+     * @param groupName String the groupName
+     * @return List<MeasurementGroupStyle>
+     */
     List<MeasurementGroupStyle> findByGroupName(String groupName);
 
+    /**
+     * Find By Css Id.
+     *
+     * @param cssId Integer the cssId
+     * @return List<MeasurementGroupStyle>
+     */
     List<MeasurementGroupStyle> findByCssId(Integer cssId);
 }

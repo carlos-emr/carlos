@@ -43,5 +43,9 @@ import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 
 public interface PreventionReportDao extends AbstractDao<PreventionReport> {
 
+    /**
+     * Get Prevention Reports.
+     * @return List<PreventionReport>
+     */
     List<PreventionReport> getPreventionReports();
 }

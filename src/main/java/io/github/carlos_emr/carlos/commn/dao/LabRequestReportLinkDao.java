@@ -42,7 +42,21 @@ import io.github.carlos_emr.carlos.commn.model.LabRequestReportLink;
  */
 
 public interface LabRequestReportLinkDao extends AbstractDao<LabRequestReportLink> {
+    /**
+     * Find By Report Table And Report Id.
+     *
+     * @param reportTable String the reportTable
+     * @param reportId int the reportId
+     * @return List<LabRequestReportLink>
+     */
     List<LabRequestReportLink> findByReportTableAndReportId(String reportTable, int reportId);
 
+    /**
+     * Find By Request Table And Request Id.
+     *
+     * @param requestTable String the requestTable
+     * @param requestId int the requestId
+     * @return List<LabRequestReportLink>
+     */
     List<LabRequestReportLink> findByRequestTableAndRequestId(String requestTable, int requestId);
 }

@@ -42,7 +42,17 @@ import io.github.carlos_emr.carlos.commn.model.Flowsheet;
  */
 
 public interface FlowsheetDao extends AbstractDao<Flowsheet> {
+    /**
+     * Find All.
+     * @return List<Flowsheet>
+     */
     List<Flowsheet> findAll();
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return Flowsheet
+     */
     Flowsheet findByName(String name);
 }

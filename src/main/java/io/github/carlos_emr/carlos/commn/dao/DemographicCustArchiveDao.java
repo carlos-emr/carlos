@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.DemographicCustArchive;
 
 public interface DemographicCustArchiveDao extends AbstractDao<DemographicCustArchive> {
 
+    /**
+     * Archive Demographic Cust.
+     *
+     * @param dc DemographicCust the dc
+     * @return Integer
+     */
     public Integer archiveDemographicCust(DemographicCust dc);
 }

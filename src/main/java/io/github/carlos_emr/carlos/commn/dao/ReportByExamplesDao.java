@@ -44,7 +44,18 @@ import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
  */
 
 public interface ReportByExamplesDao extends AbstractDao<ReportByExamples> {
+    /**
+     * Find Reports And Providers.
+     * @return List<Object[]>
+     */
     List<Object[]> findReportsAndProviders();
 
+    /**
+     * Find Reports And Providers.
+     *
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return List<Object[]>
+     */
     List<Object[]> findReportsAndProviders(Date startDate, Date endDate);
 }

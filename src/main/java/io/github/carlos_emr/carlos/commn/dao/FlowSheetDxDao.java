@@ -44,7 +44,21 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetDx;
  */
 
 public interface FlowSheetDxDao extends AbstractDao<FlowSheetDx> {
+    /**
+     * Get Flow Sheet Dx.
+     *
+     * @param flowsheet String the flowsheet
+     * @param demographic Integer the demographic
+     * @return List<FlowSheetDx>
+     */
     List<FlowSheetDx> getFlowSheetDx(String flowsheet, Integer demographic);
 
+    /**
+     * Get Flow Sheet Dx Map.
+     *
+     * @param flowsheet String the flowsheet
+     * @param demographic Integer the demographic
+     * @return HashMap<String, String>
+     */
     HashMap<String, String> getFlowSheetDxMap(String flowsheet, Integer demographic);
 }

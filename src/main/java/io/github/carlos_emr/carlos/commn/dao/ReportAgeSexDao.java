@@ -43,15 +43,66 @@ import io.github.carlos_emr.carlos.commn.model.ReportAgeSex;
  */
 
 public interface ReportAgeSexDao extends AbstractDao<ReportAgeSex> {
+    /**
+     * Find Before Report Date.
+     *
+     * @param reportDate Date the reportDate
+     * @return List<ReportAgeSex>
+     */
     List<ReportAgeSex> findBeforeReportDate(Date reportDate);
 
+    /**
+     * Delete All By Date.
+     *
+     * @param reportDate Date the reportDate
+     */
     void deleteAllByDate(Date reportDate);
 
+    /**
+     * Populate All.
+     *
+     * @param yearOfBirth String the yearOfBirth
+     */
     void populateAll(String yearOfBirth);
 
+    /**
+     * Count_reportagesex_roster.
+     *
+     * @param roster String the roster
+     * @param sex String the sex
+     * @param providerNo String the providerNo
+     * @param age int the age
+     * @param dateStarted Date the dateStarted
+     * @param dateEnded Date the dateEnded
+     * @return Long
+     */
     Long count_reportagesex_roster(String roster, String sex, String providerNo, int age, Date dateStarted, Date dateEnded);
 
+    /**
+     * Count_reportagesex_noroster.
+     *
+     * @param roster String the roster
+     * @param sex String the sex
+     * @param providerNo String the providerNo
+     * @param minAge int the minAge
+     * @param maxAge int the maxAge
+     * @param dateStarted Date the dateStarted
+     * @param dateEnded Date the dateEnded
+     * @return Long
+     */
     Long count_reportagesex_noroster(String roster, String sex, String providerNo, int minAge, int maxAge, Date dateStarted, Date dateEnded);
 
+    /**
+     * Count_reportagesex.
+     *
+     * @param roster String the roster
+     * @param sex String the sex
+     * @param providerNo String the providerNo
+     * @param minAge int the minAge
+     * @param maxAge int the maxAge
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Long
+     */
     Long count_reportagesex(String roster, String sex, String providerNo, int minAge, int maxAge, Date startDate, Date endDate);
 }

@@ -46,6 +46,12 @@ import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 import java.util.Locale;
 
+/**
+ * Implementation of {@link OAuth1SignatureVerifier} that verifies OAuth 1.0a
+ * HMAC-SHA1/HMAC-SHA256 request signatures using the configured data provider.
+ *
+ * @since 2026-01-18
+ */
 @Service
 public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVerifier {
     @Autowired

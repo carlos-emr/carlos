@@ -45,40 +45,160 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 
 public interface DemographicExtDao extends AbstractDao<DemographicExt> {
 
+    /**
+     * Get Demographic Ext.
+     *
+     * @param id Integer the id
+     * @return DemographicExt
+     */
     public DemographicExt getDemographicExt(Integer id);
 
+    /**
+     * Get Demographic Ext By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<DemographicExt>
+     */
     public List<DemographicExt> getDemographicExtByDemographicNo(Integer demographicNo);
 
+    /**
+     * Get Demographic Ext.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param demographicExtKey DemographicExtKey the demographicExtKey
+     * @return DemographicExt
+     */
     public DemographicExt getDemographicExt(Integer demographicNo, DemographicExtKey demographicExtKey);
 
+    /**
+     * Get Demographic Ext.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param key String the key
+     * @return DemographicExt
+     */
     public DemographicExt getDemographicExt(Integer demographicNo, String key);
 
+    /**
+     * Get Demographic Ext By Key And Value.
+     *
+     * @param demographicExtKey DemographicExtKey the demographicExtKey
+     * @param value String the value
+     * @return List<DemographicExt>
+     */
     public List<DemographicExt> getDemographicExtByKeyAndValue(DemographicExtKey demographicExtKey, String value);
 
+    /**
+     * Get Demographic Ext By Key And Value.
+     *
+     * @param key String the key
+     * @param value String the value
+     * @return List<DemographicExt>
+     */
     public List<DemographicExt> getDemographicExtByKeyAndValue(String key, String value);
 
+    /**
+     * Get Latest Demographic Ext.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param key String the key
+     * @return DemographicExt
+     */
     public DemographicExt getLatestDemographicExt(Integer demographicNo, String key);
 
+    /**
+     * Update Demographic Ext.
+     *
+     * @param de DemographicExt the de
+     */
     public void updateDemographicExt(DemographicExt de);
 
+    /**
+     * Save Demographic Ext.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param key String the key
+     * @param value String the value
+     */
     public void saveDemographicExt(Integer demographicNo, String key, String value);
 
+    /**
+     * Remove Demographic Ext.
+     *
+     * @param id Integer the id
+     */
     public void removeDemographicExt(Integer id);
 
+    /**
+     * Remove Demographic Ext.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param key String the key
+     */
     public void removeDemographicExt(Integer demographicNo, String key);
 
+    /**
+     * Get All Values For Demo.
+     *
+     * @param demo Integer the demo
+     * @return Map<String, String>
+     */
     public Map<String, String> getAllValuesForDemo(Integer demo);
 
+    /**
+     * Add Key.
+     *
+     * @param providerNo String the providerNo
+     * @param demo Integer the demo
+     * @param key String the key
+     * @param value String the value
+     */
     public void addKey(String providerNo, Integer demo, String key, String value);
 
+    /**
+     * Add Key.
+     *
+     * @param providerNo String the providerNo
+     * @param demo Integer the demo
+     * @param key String the key
+     * @param newValue String the newValue
+     * @param oldValue String the oldValue
+     */
     public void addKey(String providerNo, Integer demo, String key, String newValue, String oldValue);
 
+    /**
+     * Get List Of Values For Demo.
+     *
+     * @param demo Integer the demo
+     * @return List<String[]>
+     */
     public List<String[]> getListOfValuesForDemo(Integer demo);
 
+    /**
+     * Get Value For Demo Key.
+     *
+     * @param demo Integer the demo
+     * @param key String the key
+     * @return String
+     */
     public String getValueForDemoKey(Integer demo, String key);
 
+    /**
+     * Find Demographic Ids By Key Val.
+     *
+     * @param demographicExtKey DemographicExtKey the demographicExtKey
+     * @param val String the val
+     * @return List<Integer>
+     */
     public List<Integer> findDemographicIdsByKeyVal(DemographicExtKey demographicExtKey, String val);
 
+    /**
+     * Find Demographic Ids By Key Val.
+     *
+     * @param key String the key
+     * @param val String the val
+     * @return List<Integer>
+     */
     public List<Integer> findDemographicIdsByKeyVal(String key, String val);
 
     public List<DemographicExt> getMultipleDemographicExtKeyForDemographicNumbersByProviderNumber(

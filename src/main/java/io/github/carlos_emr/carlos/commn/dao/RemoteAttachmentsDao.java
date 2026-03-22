@@ -43,7 +43,20 @@ import io.github.carlos_emr.carlos.commn.model.RemoteAttachments;
  */
 
 public interface RemoteAttachmentsDao extends AbstractDao<RemoteAttachments> {
+    /**
+     * Find By Demo No.
+     *
+     * @param demoNo Integer the demoNo
+     * @return List<RemoteAttachments>
+     */
     List<RemoteAttachments> findByDemoNo(Integer demoNo);
 
+    /**
+     * Find By Demo No And Message Id.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param messageId Integer the messageId
+     * @return List<RemoteAttachments>
+     */
     List<RemoteAttachments> findByDemoNoAndMessageId(Integer demographicNo, Integer messageId);
 }

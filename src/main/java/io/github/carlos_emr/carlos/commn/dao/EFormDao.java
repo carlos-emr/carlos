@@ -53,21 +53,77 @@ public interface EFormDao extends AbstractDao<EForm> {
         DATE, NAME, SUBJECT, FILE_NAME;
     }
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return EForm
+     */
     public EForm findByName(String name);
 
+    /**
+     * Find By Name Similar.
+     *
+     * @param name String the name
+     * @return List<EForm>
+     */
     public List<EForm> findByNameSimilar(String name);
 
+    /**
+     * Find By Id.
+     *
+     * @param formId Integer the formId
+     * @return EForm
+     */
     public EForm findById(Integer formId);
 
+    /**
+     * Find All.
+     *
+     * @param current Boolean the current
+     * @return List<EForm>
+     */
     public List<EForm> findAll(Boolean current);
 
+    /**
+     * Find By Status.
+     *
+     * @param status boolean the status
+     * @return List<EForm>
+     */
     public List<EForm> findByStatus(boolean status);
 
+    /**
+     * Find By Status.
+     *
+     * @param status boolean the status
+     * @param sortOrder EFormSortOrder the sortOrder
+     * @return List<EForm>
+     */
     public List<EForm> findByStatus(boolean status, EFormSortOrder sortOrder);
 
+    /**
+     * Find Max Id For Active Form.
+     *
+     * @param formName String the formName
+     * @return Integer
+     */
     public Integer findMaxIdForActiveForm(String formName);
 
+    /**
+     * Count Forms Other Than Specified.
+     *
+     * @param formName String the formName
+     * @param id Integer the id
+     * @return Long
+     */
     public Long countFormsOtherThanSpecified(String formName, Integer id);
 
+    /**
+     * Get Efrom In Group By Group Name.
+     *
+     * @param groupName String the groupName
+     * @return List<EForm>
+     */
     public List<EForm> getEfromInGroupByGroupName(String groupName);
 }

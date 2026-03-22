@@ -42,13 +42,46 @@ import io.github.carlos_emr.carlos.commn.model.PageMonitor;
  */
 
 public interface PageMonitorDao extends AbstractDao<PageMonitor> {
+    /**
+     * Find By Page.
+     *
+     * @param pageName String the pageName
+     * @param pageId String the pageId
+     * @return List<PageMonitor>
+     */
     List<PageMonitor> findByPage(String pageName, String pageId);
 
+    /**
+     * Find By Page Name.
+     *
+     * @param pageName String the pageName
+     * @return List<PageMonitor>
+     */
     List<PageMonitor> findByPageName(String pageName);
 
+    /**
+     * Update Page.
+     *
+     * @param pageName String the pageName
+     * @param pageId String the pageId
+     */
     void updatePage(String pageName, String pageId);
 
+    /**
+     * Remove Page Name Keep Page Id For Provider.
+     *
+     * @param pageName String the pageName
+     * @param excludePageId String the excludePageId
+     * @param providerNo String the providerNo
+     */
     void removePageNameKeepPageIdForProvider(String pageName, String excludePageId, String providerNo);
 
+    /**
+     * Cancel Page Id For Provider.
+     *
+     * @param pageName String the pageName
+     * @param cancelPageId String the cancelPageId
+     * @param providerNo String the providerNo
+     */
     void cancelPageIdForProvider(String pageName, String cancelPageId, String providerNo);
 }

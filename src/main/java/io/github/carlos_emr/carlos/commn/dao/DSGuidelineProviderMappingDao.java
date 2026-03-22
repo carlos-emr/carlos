@@ -42,7 +42,19 @@ import java.util.List;
  */
 
 public interface DSGuidelineProviderMappingDao extends AbstractDao<DSGuidelineProviderMapping> {
+    /**
+     * Get Mappings By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return List<DSGuidelineProviderMapping>
+     */
     List<DSGuidelineProviderMapping> getMappingsByProvider(String providerNo);
 
+    /**
+     * Mapping Exists.
+     *
+     * @param dsGuidelineProviderMapping DSGuidelineProviderMapping the dsGuidelineProviderMapping
+     * @return boolean
+     */
     boolean mappingExists(DSGuidelineProviderMapping dsGuidelineProviderMapping);
 }

@@ -43,10 +43,30 @@ import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 
 public interface LookupListItemDao extends AbstractDao<LookupListItem> {
 
+    /**
+     * Find Active By Lookup List Id.
+     *
+     * @param lookupListId int the lookupListId
+     * @return List<LookupListItem>
+     */
     public List<LookupListItem> findActiveByLookupListId(int lookupListId);
 
+    /**
+     * Find By Lookup List Id.
+     *
+     * @param lookupListId int the lookupListId
+     * @param active boolean the active
+     * @return List<LookupListItem>
+     */
     public List<LookupListItem> findByLookupListId(int lookupListId, boolean active);
 
+    /**
+     * Find By Lookup List Id And Value.
+     *
+     * @param lookupListId int the lookupListId
+     * @param value String the value
+     * @return LookupListItem
+     */
     public LookupListItem findByLookupListIdAndValue(int lookupListId, String value);
 
 }

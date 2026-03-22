@@ -42,12 +42,39 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
  */
 
 public interface FlowSheetCustomizationDao extends AbstractDao<FlowSheetCustomization> {
+    /**
+     * Get Flow Sheet Customization.
+     *
+     * @param id Integer the id
+     * @return FlowSheetCustomization
+     */
     FlowSheetCustomization getFlowSheetCustomization(Integer id);
 
+    /**
+     * Get Flow Sheet Customizations.
+     *
+     * @param flowsheet String the flowsheet
+     * @param provider String the provider
+     * @param demographic Integer the demographic
+     * @return List<FlowSheetCustomization>
+     */
     List<FlowSheetCustomization> getFlowSheetCustomizations(String flowsheet, String provider, Integer demographic);
 
+    /**
+     * Get Flow Sheet Customizations.
+     *
+     * @param flowsheet String the flowsheet
+     * @param provider String the provider
+     * @return List<FlowSheetCustomization>
+     */
     List<FlowSheetCustomization> getFlowSheetCustomizations(String flowsheet, String provider);
 
+    /**
+     * Get Flow Sheet Customizations.
+     *
+     * @param flowsheet String the flowsheet
+     * @return List<FlowSheetCustomization>
+     */
     List<FlowSheetCustomization> getFlowSheetCustomizations(String flowsheet);
 
     /**

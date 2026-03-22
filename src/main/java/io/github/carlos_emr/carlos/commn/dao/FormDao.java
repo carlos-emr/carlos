@@ -43,9 +43,26 @@ import io.github.carlos_emr.carlos.commn.model.Form;
  */
 
 public interface FormDao extends AbstractDao<Form> {
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Form>
+     */
     List<Form> findByDemographicNo(Integer demographicNo);
 
+    /**
+     * Search_form_no.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param formName String the formName
+     * @return Form
+     */
     Form search_form_no(Integer demographicNo, String formName);
 
+    /**
+     * Find All Group By Demographic No.
+     * @return List<Form>
+     */
     List<Form> findAllGroupByDemographicNo();
 }

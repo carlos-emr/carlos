@@ -42,5 +42,14 @@ import io.github.carlos_emr.carlos.commn.model.ClientLink;
  */
 
 public interface ClientLinkDao extends AbstractDao<ClientLink> {
+    /**
+     * Find By Facility Id Client Id Type.
+     *
+     * @param facilityId Integer the facilityId
+     * @param clientId Integer the clientId
+     * @param currentlyLinked Boolean the currentlyLinked
+     * @param type ClientLink.Type the type
+     * @return List<ClientLink>
+     */
     List<ClientLink> findByFacilityIdClientIdType(Integer facilityId, Integer clientId, Boolean currentlyLinked, ClientLink.Type type);
 }

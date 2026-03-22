@@ -42,5 +42,9 @@ import java.util.List;
  */
 
 public interface DepartmentDao extends AbstractDao<Department> {
+    /**
+     * Find All.
+     * @return List<Department>
+     */
     List<Department> findAll();
 }

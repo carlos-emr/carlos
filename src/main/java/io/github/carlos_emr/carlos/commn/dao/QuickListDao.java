@@ -42,13 +42,42 @@ import io.github.carlos_emr.carlos.commn.model.QuickList;
  */
 
 public interface QuickListDao extends AbstractDao<QuickList> {
+    /**
+     * Find All.
+     * @return List<QuickList>
+     */
     List<QuickList> findAll();
 
+    /**
+     * Find Distinct.
+     * @return List<Object>
+     */
     List<Object> findDistinct();
 
+    /**
+     * Find By Name Research Code And Coding System.
+     *
+     * @param quickListName String the quickListName
+     * @param researchCode String the researchCode
+     * @param codingSystem String the codingSystem
+     * @return List<QuickList>
+     */
     List<QuickList> findByNameResearchCodeAndCodingSystem(String quickListName, String researchCode, String codingSystem);
 
+    /**
+     * Find By Coding System.
+     *
+     * @param codingSystem String the codingSystem
+     * @return List<QuickList>
+     */
     List<QuickList> findByCodingSystem(String codingSystem);
 
+    /**
+     * Find Research Code And Coding System Description By Coding System.
+     *
+     * @param codingSystem String the codingSystem
+     * @param quickListName String the quickListName
+     * @return List<Object[]>
+     */
     List<Object[]> findResearchCodeAndCodingSystemDescriptionByCodingSystem(String codingSystem, String quickListName);
 }

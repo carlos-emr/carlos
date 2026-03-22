@@ -77,10 +77,12 @@ public class ProgramManagerImpl implements ProgramManager {
         return enabled;
     }
 
+    /** {@inheritDoc} */
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
 
+    /** {@inheritDoc} */
     public ProgramSignatureDao getProgramSignatureDao() {
         return programSignatureDao;
     }

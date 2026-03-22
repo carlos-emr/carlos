@@ -43,9 +43,28 @@ import io.github.carlos_emr.carlos.commn.model.SecurityArchive;
  */
 
 public interface SecurityArchiveDao extends AbstractDao<SecurityArchive> {
+    /**
+     * Find By Security No.
+     *
+     * @param securityNo Integer the securityNo
+     * @return List<SecurityArchive>
+     */
     List<SecurityArchive> findBySecurityNo(Integer securityNo);
 
+    /**
+     * Find Previous Passwords By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @param maxResult int the maxResult
+     * @return List<String>
+     */
     List<String> findPreviousPasswordsByProviderNo(String providerNo, int maxResult);
 
+    /**
+     * Archive Record.
+     *
+     * @param s Security the s
+     * @return Integer
+     */
     Integer archiveRecord(Security s);
 }

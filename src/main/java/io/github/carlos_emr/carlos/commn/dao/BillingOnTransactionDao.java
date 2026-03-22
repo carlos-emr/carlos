@@ -44,7 +44,24 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
  */
 
 public interface BillingOnTransactionDao extends AbstractDao<BillingOnTransaction> {
+    /**
+     * Get Trans Template.
+     *
+     * @param cheader1 BillingONCHeader1 the cheader1
+     * @param billItem BillingONItem the billItem
+     * @param billPayment BillingONPayment the billPayment
+     * @param curProviderNo String the curProviderNo
+     * @param itempaymentId int the itempaymentId
+     * @return BillingOnTransaction
+     */
     BillingOnTransaction getTransTemplate(BillingONCHeader1 cheader1, BillingONItem billItem, BillingONPayment billPayment, String curProviderNo, int itempaymentId);
 
+    /**
+     * Get Update Cheader1 Trans Template.
+     *
+     * @param cheader1 BillingClaimHeader1Data the cheader1
+     * @param curProviderNo String the curProviderNo
+     * @return BillingOnTransaction
+     */
     BillingOnTransaction getUpdateCheader1TransTemplate(BillingClaimHeader1Data cheader1, String curProviderNo);
 }

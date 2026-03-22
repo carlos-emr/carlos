@@ -43,6 +43,12 @@ import ca.ontario.health.edt.EDTDelegate;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for displaying MCEDT service and resource information,
+ * including EDT service type descriptions and resource details.
+ *
+ * @since 2013-06-14
+ */
 public class Info2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -41,7 +41,21 @@ import io.github.carlos_emr.carlos.commn.model.CdsClientFormData;
  */
 
 public interface CdsClientFormDataDao extends AbstractDao<CdsClientFormData> {
+    /**
+     * Find By Question.
+     *
+     * @param cdsClientFormId Integer the cdsClientFormId
+     * @param question String the question
+     * @return List<CdsClientFormData>
+     */
     List<CdsClientFormData> findByQuestion(Integer cdsClientFormId, String question);
 
+    /**
+     * Find By Answer.
+     *
+     * @param cdsClientFormId Integer the cdsClientFormId
+     * @param answer String the answer
+     * @return CdsClientFormData
+     */
     CdsClientFormData findByAnswer(Integer cdsClientFormId, String answer);
 }

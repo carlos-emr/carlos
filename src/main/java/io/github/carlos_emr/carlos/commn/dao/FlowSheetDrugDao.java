@@ -43,7 +43,20 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetDrug;
  */
 
 public interface FlowSheetDrugDao extends AbstractDao<FlowSheetDrug> {
+    /**
+     * Get Flow Sheet Drug.
+     *
+     * @param id Integer the id
+     * @return FlowSheetDrug
+     */
     FlowSheetDrug getFlowSheetDrug(Integer id);
 
+    /**
+     * Get Flow Sheet Drugs.
+     *
+     * @param flowsheet String the flowsheet
+     * @param demographic Integer the demographic
+     * @return List<FlowSheetDrug>
+     */
     List<FlowSheetDrug> getFlowSheetDrugs(String flowsheet, Integer demographic);
 }

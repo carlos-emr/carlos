@@ -42,5 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.Favorites;
  */
 
 public interface FavoritesDao extends AbstractDao<Favorites> {
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Favorites>
+     */
     List<Favorites> findByProviderNo(String providerNo);
 }

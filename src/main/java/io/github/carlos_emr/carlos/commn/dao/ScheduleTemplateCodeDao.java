@@ -42,11 +42,31 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
  */
 
 public interface ScheduleTemplateCodeDao extends AbstractDao<ScheduleTemplateCode> {
+    /**
+     * Find All.
+     * @return List<ScheduleTemplateCode>
+     */
     List<ScheduleTemplateCode> findAll();
 
+    /**
+     * Get By Code.
+     *
+     * @param code char the code
+     * @return ScheduleTemplateCode
+     */
     ScheduleTemplateCode getByCode(char code);
 
+    /**
+     * Find Template Codes.
+     * @return List<ScheduleTemplateCode>
+     */
     List<ScheduleTemplateCode> findTemplateCodes();
 
+    /**
+     * Find By Code.
+     *
+     * @param code String the code
+     * @return ScheduleTemplateCode
+     */
     ScheduleTemplateCode findByCode(String code);
 }

@@ -44,5 +44,11 @@ import io.github.carlos_emr.carlos.commn.model.Groups;
 
 public interface GroupsDao extends AbstractDao<Groups> {
 
+    /**
+     * Find By Parent Id.
+     *
+     * @param groupId int the groupId
+     * @return List<Groups>
+     */
     public List<Groups> findByParentId(int groupId);
 }

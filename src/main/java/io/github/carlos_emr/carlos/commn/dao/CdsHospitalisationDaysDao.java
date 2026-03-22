@@ -41,5 +41,11 @@ import io.github.carlos_emr.carlos.commn.model.CdsHospitalisationDays;
  */
 
 public interface CdsHospitalisationDaysDao extends AbstractDao<CdsHospitalisationDays> {
+    /**
+     * Find By Client Id.
+     *
+     * @param clientId Integer the clientId
+     * @return List<CdsHospitalisationDays>
+     */
     List<CdsHospitalisationDays> findByClientId(Integer clientId);
 }

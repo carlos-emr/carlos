@@ -43,5 +43,9 @@ import io.github.carlos_emr.carlos.commn.model.SecPrivilege;
  */
 
 public interface SecPrivilegeDao extends AbstractDao<SecPrivilege> {
+    /**
+     * Find All.
+     * @return List<SecPrivilege>
+     */
     List<SecPrivilege> findAll();
 }

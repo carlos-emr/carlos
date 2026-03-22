@@ -44,14 +44,47 @@ import io.github.carlos_emr.carlos.commn.model.Consent;
 
 public interface ConsentDao extends AbstractDao<Consent> {
 
+    /**
+     * Find By Demographic And Consent Type Id.
+     *
+     * @param demographic_no int the demographic_no
+     * @param consentTypeId int the consentTypeId
+     * @return Consent
+     */
     public Consent findByDemographicAndConsentTypeId(int demographic_no, int consentTypeId);
 
+    /**
+     * Find By Demographic And Consent Type.
+     *
+     * @param demographic_no int the demographic_no
+     * @param consentType String the consentType
+     * @return Consent
+     */
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType);
 
+    /**
+     * Find By Demographic.
+     *
+     * @param demographic_no int the demographic_no
+     * @return List<Consent>
+     */
     public List<Consent> findByDemographic(int demographic_no);
 
+    /**
+     * Find Last Edited By Consent Type Id.
+     *
+     * @param consentTypeId int the consentTypeId
+     * @param lastEditDate Date the lastEditDate
+     * @return List<Consent>
+     */
     public List<Consent> findLastEditedByConsentTypeId(int consentTypeId, Date lastEditDate);
 
+    /**
+     * Find All Demo Ids Consented To Type.
+     *
+     * @param consentTypeId int the consentTypeId
+     * @return List<Integer>
+     */
     public List<Integer> findAllDemoIdsConsentedToType(int consentTypeId);
 
 }

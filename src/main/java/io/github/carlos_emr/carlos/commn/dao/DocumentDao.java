@@ -82,6 +82,12 @@ public interface DocumentDao extends AbstractDao<Document> {
      */
     public List<Object[]> getCtlDocsAndDocsByDemoId(Integer demoId, Module moduleName, DocumentType docType);
 
+    /**
+     * Find Active By Document No.
+     *
+     * @param demoId Integer the demoId
+     * @return List<Document>
+     */
     public List<Document> findActiveByDocumentNo(Integer demoId);
 
     public List<Object[]> findCtlDocsAndDocsByModuleDocTypeAndModuleId(Module module, DocumentType docType,
@@ -93,6 +99,12 @@ public interface DocumentDao extends AbstractDao<Document> {
      */
     public List<Object[]> findCtlDocsAndDocsByModuleAndModuleId(Module module, Integer moduleId);
 
+    /**
+     * Find Docs And Consult Docs By Consult Id.
+     *
+     * @param consultationId Integer the consultationId
+     * @return List<Object[]>
+     */
     public List<Object[]> findDocsAndConsultDocsByConsultId(Integer consultationId);
 
     /**
@@ -128,6 +140,12 @@ public interface DocumentDao extends AbstractDao<Document> {
      */
     public Integer findMaxDocNo();
 
+    /**
+     * Get Document.
+     *
+     * @param documentNo String the documentNo
+     * @return Document
+     */
     public Document getDocument(String documentNo);
 
     /**
@@ -162,6 +180,13 @@ public interface DocumentDao extends AbstractDao<Document> {
      */
     public List<Document> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
 
+    /**
+     * Find By Demographic Update Date.
+     *
+     * @param demographicId Integer the demographicId
+     * @param updatedAfterThisDateInclusive Date the updatedAfterThisDateInclusive
+     * @return List<Document>
+     */
     public List<Document> findByDemographicUpdateDate(Integer demographicId, Date updatedAfterThisDateInclusive);
 
     /**
@@ -192,6 +217,13 @@ public interface DocumentDao extends AbstractDao<Document> {
      */
     public List<Document> findByDemographicAndDoctype(int demographicId, DocumentType documentType);
 
+    /**
+     * Find By Demographic And Filename.
+     *
+     * @param demographicId int the demographicId
+     * @param fileName String the fileName
+     * @return Document
+     */
     public Document findByDemographicAndFilename(int demographicId, String fileName);
 
     /**

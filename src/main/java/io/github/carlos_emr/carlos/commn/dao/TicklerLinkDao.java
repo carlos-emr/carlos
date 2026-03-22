@@ -44,13 +44,42 @@ import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 
 public interface TicklerLinkDao extends AbstractDao<TicklerLink> {
 
+    /**
+     * Get Tickler Link.
+     *
+     * @param id Integer the id
+     * @return TicklerLink
+     */
     public TicklerLink getTicklerLink(Integer id);
 
+    /**
+     * Get Link By Table Id.
+     *
+     * @param tableName String the tableName
+     * @param tableId Long the tableId
+     * @return List<TicklerLink>
+     */
     public List<TicklerLink> getLinkByTableId(String tableName, Long tableId);
 
+    /**
+     * Get Link By Tickler.
+     *
+     * @param ticklerNo Integer the ticklerNo
+     * @return List<TicklerLink>
+     */
     public List<TicklerLink> getLinkByTickler(Integer ticklerNo);
 
+    /**
+     * Save.
+     *
+     * @param cLink TicklerLink the cLink
+     */
     public void save(TicklerLink cLink);
 
+    /**
+     * Update.
+     *
+     * @param cLink TicklerLink the cLink
+     */
     public void update(TicklerLink cLink);
 }

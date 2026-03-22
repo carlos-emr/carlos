@@ -48,29 +48,134 @@ public interface PopulationReportDao {
     public static final int MEDIUM = 1;
     public static final int HIGH = 2;
 
+    /**
+     * Get Current Population Size.
+     * @return int
+     */
     int getCurrentPopulationSize();
 
+    /**
+     * Get Current And Historical Population Size.
+     *
+     * @param numYears int the numYears
+     * @return int
+     */
     int getCurrentAndHistoricalPopulationSize(int numYears);
 
+    /**
+     * Get Usages.
+     *
+     * @param numYears int the numYears
+     * @return int[]
+     */
     int[] getUsages(int numYears);
 
+    /**
+     * Get Mortalities.
+     *
+     * @param numYears int the numYears
+     * @return int
+     */
     int getMortalities(int numYears);
 
+    /**
+     * Get Prevalence.
+     *
+     * @param icd10Codes SortedSet<String> the icd10Codes
+     * @return int
+     */
     int getPrevalence(SortedSet<String> icd10Codes);
 
+    /**
+     * Get Incidence.
+     *
+     * @param icd10Codes SortedSet<String> the icd10Codes
+     * @return int
+     */
     int getIncidence(SortedSet<String> icd10Codes);
 
+    /**
+     * Get Case Management Note Count Grouped By Issue Group.
+     *
+     * @param programId int the programId
+     * @param roleId Integer the roleId
+     * @param encounterType EncounterType the encounterType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Map<Integer, Integer>
+     */
     Map<Integer, Integer> getCaseManagementNoteCountGroupedByIssueGroup(int programId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate);
 
+    /**
+     * Get Case Management Note Count Grouped By Issue Group.
+     *
+     * @param programId int the programId
+     * @param provider Provider the provider
+     * @param encounterType EncounterType the encounterType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Map<Integer, Integer>
+     */
     Map<Integer, Integer> getCaseManagementNoteCountGroupedByIssueGroup(int programId, Provider provider, EncounterType encounterType, Date startDate, Date endDate);
 
+    /**
+     * Get Case Management Note Total Unique Encounter Count In Issue Groups.
+     *
+     * @param programId int the programId
+     * @param roleId Integer the roleId
+     * @param encounterType EncounterType the encounterType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Integer
+     */
     Integer getCaseManagementNoteTotalUniqueEncounterCountInIssueGroups(int programId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate);
 
+    /**
+     * Get Case Management Note Total Unique Encounter Count In Issue Groups.
+     *
+     * @param programId int the programId
+     * @param provider Provider the provider
+     * @param encounterType EncounterType the encounterType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Integer
+     */
     Integer getCaseManagementNoteTotalUniqueEncounterCountInIssueGroups(int programId, Provider provider, EncounterType encounterType, Date startDate, Date endDate);
 
+    /**
+     * Get Case Management Note Total Unique Client Count In Issue Groups.
+     *
+     * @param programId int the programId
+     * @param roleId Integer the roleId
+     * @param encounterType EncounterType the encounterType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Integer
+     */
     Integer getCaseManagementNoteTotalUniqueClientCountInIssueGroups(int programId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate);
 
+    /**
+     * Get Case Management Note Total Unique Client Count In Issue Groups.
+     *
+     * @param programId int the programId
+     * @param provider Provider the provider
+     * @param encounterType EncounterType the encounterType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Integer
+     */
     Integer getCaseManagementNoteTotalUniqueClientCountInIssueGroups(int programId, Provider provider, EncounterType encounterType, Date startDate, Date endDate);
 
+    /**
+     * Get Case Management Note Count By Issue Group.
+     *
+     * @param programId int the programId
+     * @param issueGroupId Integer the issueGroupId
+     * @param roleId Integer the roleId
+     * @param encounterType EncounterType the encounterType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return Integer
+     */
     Integer getCaseManagementNoteCountByIssueGroup(int programId, Integer issueGroupId, Integer roleId, EncounterType encounterType, Date startDate, Date endDate);
 }

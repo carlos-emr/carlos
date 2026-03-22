@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.Encounter;
  */
 
 public interface EncounterDao extends AbstractDao<Encounter> {
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Encounter>
+     */
     List<Encounter> findByDemographicNo(Integer demographicNo);
 }

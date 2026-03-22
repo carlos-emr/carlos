@@ -42,23 +42,80 @@ import io.github.carlos_emr.carlos.commn.model.Security;
  */
 
 public interface SecurityDao extends AbstractDao<Security> {
+    /**
+     * Find All Order By.
+     *
+     * @param columnName String the columnName
+     * @return List<Security>
+     */
     List<Security> findAllOrderBy(String columnName);
 
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Security>
+     */
     List<Security> findByProviderNo(String providerNo);
 
+    /**
+     * Find By Like Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Security>
+     */
     List<Security> findByLikeProviderNo(String providerNo);
 
+    /**
+     * Find By User Name.
+     *
+     * @param userName String the userName
+     * @return List<Security>
+     */
     List<Security> findByUserName(String userName);
 
+    /**
+     * Find By One Id Key.
+     *
+     * @param ssoKey String the ssoKey
+     * @return List<Security>
+     */
     List<Security> findByOneIdKey(String ssoKey);
 
+    /**
+     * Update One Id Key.
+     *
+     * @param securityRecord Security the securityRecord
+     */
     void updateOneIdKey(Security securityRecord);
 
+    /**
+     * Find By Like User Name.
+     *
+     * @param userName String the userName
+     * @return List<Security>
+     */
     List<Security> findByLikeUserName(String userName);
 
+    /**
+     * Get By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return Security
+     */
     Security getByProviderNo(String providerNo);
 
+    /**
+     * Find Providers.
+     * @return List<Object[]>
+     */
     List<Object[]> findProviders();
 
+    /**
+     * Find By Provider Site.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Security>
+     */
     List<Security> findByProviderSite(String providerNo);
 }

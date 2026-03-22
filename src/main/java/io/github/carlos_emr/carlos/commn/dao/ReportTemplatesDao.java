@@ -43,9 +43,23 @@ import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
  */
 
 public interface ReportTemplatesDao extends AbstractDao<ReportTemplates> {
+    /**
+     * Find All.
+     * @return List<ReportTemplates>
+     */
     List<ReportTemplates> findAll();
 
+    /**
+     * Find Active.
+     * @return List<ReportTemplates>
+     */
     List<ReportTemplates> findActive();
 
+    /**
+     * Find By Uuid.
+     *
+     * @param uuid String the uuid
+     * @return ReportTemplates
+     */
     ReportTemplates findByUuid(String uuid);
 }

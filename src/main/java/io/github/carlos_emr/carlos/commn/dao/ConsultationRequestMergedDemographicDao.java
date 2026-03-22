@@ -42,7 +42,20 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
  */
 
 public interface ConsultationRequestMergedDemographicDao {
+    /**
+     * Get Consults.
+     *
+     * @param demoNo Integer the demoNo
+     * @return List<ConsultationRequest>
+     */
     List<ConsultationRequest> getConsults(Integer demoNo);
 
+    /**
+     * Get Consultations By Status.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param status final String the status
+     * @return List<ConsultationRequest>
+     */
     List<ConsultationRequest> getConsultationsByStatus(Integer demographicNo, final String status);
 }

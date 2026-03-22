@@ -42,9 +42,28 @@ import io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction;
  */
 
 public interface MyGroupAccessRestrictionDao extends AbstractDao<MyGroupAccessRestriction> {
+    /**
+     * Find By Group Id.
+     *
+     * @param myGroupNo String the myGroupNo
+     * @return List<MyGroupAccessRestriction>
+     */
     List<MyGroupAccessRestriction> findByGroupId(String myGroupNo);
 
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<MyGroupAccessRestriction>
+     */
     List<MyGroupAccessRestriction> findByProviderNo(String providerNo);
 
+    /**
+     * Find By Group No And Provider.
+     *
+     * @param myGroupNo String the myGroupNo
+     * @param providerNo String the providerNo
+     * @return MyGroupAccessRestriction
+     */
     MyGroupAccessRestriction findByGroupNoAndProvider(String myGroupNo, String providerNo);
 }

@@ -43,5 +43,9 @@ import io.github.carlos_emr.carlos.commn.model.PublicKey;
  */
 
 public interface PublicKeyDao extends AbstractDao<PublicKey> {
+    /**
+     * Find All.
+     * @return List<PublicKey>
+     */
     List<PublicKey> findAll();
 }

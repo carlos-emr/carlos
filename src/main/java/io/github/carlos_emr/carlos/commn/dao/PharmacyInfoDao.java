@@ -46,22 +46,93 @@ import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 public interface PharmacyInfoDao extends AbstractDao<PharmacyInfo> {
 
 
+    /**
+     * Add Pharmacy.
+     *
+     * @param name String the name
+     * @param address String the address
+     * @param city String the city
+     * @param province String the province
+     * @param postalCode String the postalCode
+     * @param phone1 String the phone1
+     * @param phone2 String the phone2
+     * @param fax String the fax
+     * @param email String the email
+     * @param serviceLocationIdentifier String the serviceLocationIdentifier
+     * @param notes String the notes
+     */
     public void addPharmacy(String name, String address, String city, String province, String postalCode, String phone1, String phone2, String fax, String email, String serviceLocationIdentifier, String notes);
 
+    /**
+     * Update Pharmacy.
+     *
+     * @param ID Integer the ID
+     * @param name String the name
+     * @param address String the address
+     * @param city String the city
+     * @param province String the province
+     * @param postalCode String the postalCode
+     * @param phone1 String the phone1
+     * @param phone2 String the phone2
+     * @param fax String the fax
+     * @param email String the email
+     * @param serviceLocationIdentifier String the serviceLocationIdentifier
+     * @param notes String the notes
+     */
     public void updatePharmacy(Integer ID, String name, String address, String city, String province, String postalCode, String phone1, String phone2, String fax, String email, String serviceLocationIdentifier, String notes);
 
+    /**
+     * Delete Pharmacy.
+     *
+     * @param ID Integer the ID
+     */
     public void deletePharmacy(Integer ID);
 
+    /**
+     * Get Pharmacies.
+     *
+     * @param idList List<Integer> the idList
+     * @return List<PharmacyInfo>
+     */
     public List<PharmacyInfo> getPharmacies(List<Integer> idList);
 
+    /**
+     * Get Pharmacy.
+     *
+     * @param ID Integer the ID
+     * @return PharmacyInfo
+     */
     public PharmacyInfo getPharmacy(Integer ID);
 
+    /**
+     * Get Pharmacy By Record I D.
+     *
+     * @param recordID Integer the recordID
+     * @return PharmacyInfo
+     */
     public PharmacyInfo getPharmacyByRecordID(Integer recordID);
 
+    /**
+     * Get All Pharmacies.
+     * @return List<PharmacyInfo>
+     */
     public List<PharmacyInfo> getAllPharmacies();
 
+    /**
+     * Search Pharmacy By Name Address City.
+     *
+     * @param name String the name
+     * @param city String the city
+     * @return List<PharmacyInfo>
+     */
     public List<PharmacyInfo> searchPharmacyByNameAddressCity(String name, String city);
 
+    /**
+     * Search Pharmacy By City.
+     *
+     * @param city String the city
+     * @return List<String>
+     */
     public List<String> searchPharmacyByCity(String city);
 
     // public PharmacyInfo find(Integer id);

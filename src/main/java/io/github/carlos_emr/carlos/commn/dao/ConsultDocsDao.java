@@ -42,11 +42,38 @@ import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
  */
 
 public interface ConsultDocsDao extends AbstractDao<ConsultDocs> {
+    /**
+     * Find By Request Id Doc No Doc Type.
+     *
+     * @param requestId Integer the requestId
+     * @param documentNo Integer the documentNo
+     * @param docType String the docType
+     * @return List<ConsultDocs>
+     */
     List<ConsultDocs> findByRequestIdDocNoDocType(Integer requestId, Integer documentNo, String docType);
 
+    /**
+     * Find By Request Id Doc Type.
+     *
+     * @param requestId Integer the requestId
+     * @param docType String the docType
+     * @return List<ConsultDocs>
+     */
     List<ConsultDocs> findByRequestIdDocType(Integer requestId, String docType);
 
+    /**
+     * Find By Request Id.
+     *
+     * @param requestId Integer the requestId
+     * @return List<ConsultDocs>
+     */
     List<ConsultDocs> findByRequestId(Integer requestId);
 
+    /**
+     * Find Labs.
+     *
+     * @param consultationId Integer the consultationId
+     * @return List<Object[]>
+     */
     List<Object[]> findLabs(Integer consultationId);
 }

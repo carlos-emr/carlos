@@ -43,9 +43,25 @@ import io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog;
 
 public interface DHIRSubmissionLogDao extends AbstractDao<DHIRSubmissionLog> {
 
+    /**
+     * Find All.
+     * @return List<DHIRSubmissionLog>
+     */
     public List<DHIRSubmissionLog> findAll();
 
+    /**
+     * Find Latest Pending By Prevention Id.
+     *
+     * @param preventionId Integer the preventionId
+     * @return DHIRSubmissionLog
+     */
     public DHIRSubmissionLog findLatestPendingByPreventionId(Integer preventionId);
 
+    /**
+     * Find By Prevention Id.
+     *
+     * @param preventionId Integer the preventionId
+     * @return List<DHIRSubmissionLog>
+     */
     public List<DHIRSubmissionLog> findByPreventionId(Integer preventionId);
 }

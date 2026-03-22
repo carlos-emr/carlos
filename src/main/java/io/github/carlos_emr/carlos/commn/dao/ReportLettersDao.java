@@ -43,5 +43,9 @@ import io.github.carlos_emr.carlos.commn.model.ReportLetters;
  */
 
 public interface ReportLettersDao extends AbstractDao<ReportLetters> {
+    /**
+     * Find Current.
+     * @return List<ReportLetters>
+     */
     List<ReportLetters> findCurrent();
 }

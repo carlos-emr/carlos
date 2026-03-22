@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
  */
 
 public interface CtlBillingTypeDao extends AbstractDao<CtlBillingType> {
+    /**
+     * Find By Service Type.
+     *
+     * @param serviceType String the serviceType
+     * @return List<CtlBillingType>
+     */
     List<CtlBillingType> findByServiceType(String serviceType);
 }

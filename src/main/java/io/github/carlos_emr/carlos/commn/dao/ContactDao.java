@@ -42,5 +42,13 @@ import io.github.carlos_emr.carlos.commn.model.Contact;
  */
 
 public interface ContactDao extends AbstractDao<Contact> {
+    /**
+     * Search.
+     *
+     * @param searchMode String the searchMode
+     * @param orderBy String the orderBy
+     * @param keyword String the keyword
+     * @return List<Contact>
+     */
     public List<Contact> search(String searchMode, String orderBy, String keyword);
 }

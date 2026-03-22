@@ -38,13 +38,43 @@ import io.github.carlos_emr.carlos.commn.model.Icd9;
  */
 
 public interface Icd9Dao extends AbstractCodeSystemDao<Icd9> {
+    /**
+     * Get Icd9 Code.
+     *
+     * @param icdCode String the icdCode
+     * @return List<Icd9>
+     */
     List<Icd9> getIcd9Code(String icdCode);
 
+    /**
+     * Get Icd9.
+     *
+     * @param query String the query
+     * @return List<Icd9>
+     */
     List<Icd9> getIcd9(String query);
 
+    /**
+     * Find By Code.
+     *
+     * @param code String the code
+     * @return Icd9
+     */
     Icd9 findByCode(String code);
 
+    /**
+     * Search Code.
+     *
+     * @param term String the term
+     * @return List<Icd9>
+     */
     List<Icd9> searchCode(String term);
 
+    /**
+     * Find By Coding System.
+     *
+     * @param codingSystem String the codingSystem
+     * @return AbstractCodeSystemModel<?>
+     */
     AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem);
 }

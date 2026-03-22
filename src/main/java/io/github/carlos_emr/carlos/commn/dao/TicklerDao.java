@@ -61,10 +61,31 @@ public interface TicklerDao extends AbstractDao<Tickler> {
      */
     public List<Tickler> findActiveByDemographicNoAndMessage(Integer demoNo, String message);
 
+    /**
+     * Find Active By Demographic No.
+     *
+     * @param demoNo Integer the demoNo
+     * @return List<Tickler>
+     */
     public List<Tickler> findActiveByDemographicNo(Integer demoNo);
 
+    /**
+     * Find By Tickler No Demo.
+     *
+     * @param ticklerNo Integer the ticklerNo
+     * @param demoNo Integer the demoNo
+     * @return List<Tickler>
+     */
     public List<Tickler> findByTicklerNoDemo(Integer ticklerNo, Integer demoNo);
 
+    /**
+     * Find By Tickler No Assigned To.
+     *
+     * @param ticklerNo Integer the ticklerNo
+     * @param assignedTo String the assignedTo
+     * @param demoNo Integer the demoNo
+     * @return List<Tickler>
+     */
     public List<Tickler> findByTicklerNoAssignedTo(Integer ticklerNo, String assignedTo, Integer demoNo);
 
     /**
@@ -83,6 +104,14 @@ public interface TicklerDao extends AbstractDao<Tickler> {
      */
     public List<Tickler> search_tickler(Integer demographicNo, Date endDate);
 
+    /**
+     * List Ticklers.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param beginDate Date the beginDate
+     * @param endDate Date the endDate
+     * @return List<Tickler>
+     */
     public List<Tickler> listTicklers(Integer demographicNo, Date beginDate, Date endDate);
 
     /**
@@ -95,6 +124,14 @@ public interface TicklerDao extends AbstractDao<Tickler> {
      */
     public int getActiveTicklerByDemoCount(Integer demographicNo);
 
+    /**
+     * Get Ticklers.
+     *
+     * @param filter CustomFilter the filter
+     * @param offset int the offset
+     * @param limit int the limit
+     * @return List<Tickler>
+     */
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit);
 
     /**

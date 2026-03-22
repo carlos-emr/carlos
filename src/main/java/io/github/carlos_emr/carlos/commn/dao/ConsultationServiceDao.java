@@ -48,13 +48,37 @@ public interface ConsultationServiceDao extends AbstractDao<ConsultationServices
     public boolean ACTIVE_ONLY = true;
     public boolean WITH_INACTIVE = false;
 
+    /**
+     * Find All.
+     * @return List<ConsultationServices>
+     */
     public List<ConsultationServices> findAll();
 
+    /**
+     * Find Active.
+     * @return List<ConsultationServices>
+     */
     public List<ConsultationServices> findActive();
 
+    /**
+     * Find Active Names.
+     * @return List<ConsultationServices>
+     */
     public List<ConsultationServices> findActiveNames();
 
+    /**
+     * Find By Description.
+     *
+     * @param description String the description
+     * @return ConsultationServices
+     */
     public ConsultationServices findByDescription(String description);
 
+    /**
+     * Find Referring Doctor Service.
+     *
+     * @param activeOnly boolean the activeOnly
+     * @return ConsultationServices
+     */
     public ConsultationServices findReferringDoctorService(boolean activeOnly);
 }

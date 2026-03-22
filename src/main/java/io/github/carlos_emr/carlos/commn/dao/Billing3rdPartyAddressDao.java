@@ -42,9 +42,29 @@ import java.util.List;
  */
 
 public interface Billing3rdPartyAddressDao extends AbstractDao<Billing3rdPartyAddress> {
+    /**
+     * Find All.
+     * @return List<Billing3rdPartyAddress>
+     */
     List<Billing3rdPartyAddress> findAll();
 
+    /**
+     * Find By Company Name.
+     *
+     * @param companyName String the companyName
+     * @return List<Billing3rdPartyAddress>
+     */
     List<Billing3rdPartyAddress> findByCompanyName(String companyName);
 
+    /**
+     * Find Addresses.
+     *
+     * @param searchModeParam String the searchModeParam
+     * @param orderByParam String the orderByParam
+     * @param keyword String the keyword
+     * @param limit1 String the limit1
+     * @param limit2 String the limit2
+     * @return List<Billing3rdPartyAddress>
+     */
     List<Billing3rdPartyAddress> findAddresses(String searchModeParam, String orderByParam, String keyword, String limit1, String limit2);
 }

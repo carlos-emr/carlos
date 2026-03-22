@@ -42,9 +42,23 @@ import io.github.carlos_emr.carlos.commn.model.Dashboard;
  */
 
 public interface DashboardDao extends AbstractDao<Dashboard> {
+    /**
+     * Get Active Dashboards.
+     * @return List<Dashboard>
+     */
     List<Dashboard> getActiveDashboards();
 
+    /**
+     * Get Dashboards By Status.
+     *
+     * @param status boolean the status
+     * @return List<Dashboard>
+     */
     List<Dashboard> getDashboardsByStatus(boolean status);
 
+    /**
+     * Get Dashboards.
+     * @return List<Dashboard>
+     */
     List<Dashboard> getDashboards();
 }

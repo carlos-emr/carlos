@@ -41,5 +41,11 @@ import io.github.carlos_emr.carlos.commn.model.DemographicAccessory;
  */
 
 public interface DemographicAccessoryDao extends AbstractDao<DemographicAccessory> {
+    /**
+     * Find Count.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return long
+     */
     long findCount(Integer demographicNo);
 }

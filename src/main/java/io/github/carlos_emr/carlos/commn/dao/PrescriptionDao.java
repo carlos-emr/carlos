@@ -44,14 +44,48 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 
 public interface PrescriptionDao extends AbstractDao<Prescription> {
 
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Prescription>
+     */
     public List<Prescription> findByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Demographic Id Updated After Date.
+     *
+     * @param demographicId Integer the demographicId
+     * @param afterThisDate Date the afterThisDate
+     * @return List<Prescription>
+     */
     public List<Prescription> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date afterThisDate);
 
+    /**
+     * Find By Demographic Id Updated After Date Exclusive.
+     *
+     * @param demographicId Integer the demographicId
+     * @param afterThisDate Date the afterThisDate
+     * @return List<Prescription>
+     */
     public List<Prescription> findByDemographicIdUpdatedAfterDateExclusive(Integer demographicId, Date afterThisDate);
 
+    /**
+     * Update Prescriptions By Script No.
+     *
+     * @param scriptNo Integer the scriptNo
+     * @param comment String the comment
+     * @return int
+     */
     public int updatePrescriptionsByScriptNo(Integer scriptNo, String comment);
 
+    /**
+     * Find By Update Date.
+     *
+     * @param updatedAfterThisDateExclusive Date the updatedAfterThisDateExclusive
+     * @param itemsToReturn int the itemsToReturn
+     * @return List<Prescription>
+     */
     public List<Prescription> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
 
     public List<Prescription> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,

@@ -41,25 +41,107 @@ import io.github.carlos_emr.carlos.commn.model.PartialDate;
  */
 
 public interface PartialDateDao extends AbstractDao<PartialDate> {
+    /**
+     * Get Partial Date.
+     *
+     * @param tableName Integer the tableName
+     * @param tableId Integer the tableId
+     * @param fieldName Integer the fieldName
+     * @return PartialDate
+     */
     PartialDate getPartialDate(Integer tableName, Integer tableId, Integer fieldName);
 
+    /**
+     * Get Date Partial.
+     *
+     * @param fieldDate Date the fieldDate
+     * @param tableName Integer the tableName
+     * @param tableId Integer the tableId
+     * @param fieldName Integer the fieldName
+     * @return String
+     */
     String getDatePartial(Date fieldDate, Integer tableName, Integer tableId, Integer fieldName);
 
+    /**
+     * Get Date Partial.
+     *
+     * @param fieldDate String the fieldDate
+     * @param tableName Integer the tableName
+     * @param tableId Integer the tableId
+     * @param fieldName Integer the fieldName
+     * @return String
+     */
     String getDatePartial(String fieldDate, Integer tableName, Integer tableId, Integer fieldName);
 
+    /**
+     * Get Date Partial.
+     *
+     * @param partialDate Date the partialDate
+     * @param format String the format
+     * @return String
+     */
     String getDatePartial(Date partialDate, String format);
 
+    /**
+     * Get Date Partial.
+     *
+     * @param dateString String the dateString
+     * @param format String the format
+     * @return String
+     */
     String getDatePartial(String dateString, String format);
 
+    /**
+     * Set Partial Date.
+     *
+     * @param fieldDate String the fieldDate
+     * @param tableName Integer the tableName
+     * @param tableId Integer the tableId
+     * @param fieldName Integer the fieldName
+     */
     void setPartialDate(String fieldDate, Integer tableName, Integer tableId, Integer fieldName);
 
+    /**
+     * Set Partial Date.
+     *
+     * @param tableName Integer the tableName
+     * @param tableId Integer the tableId
+     * @param fieldName Integer the fieldName
+     * @param format String the format
+     */
     void setPartialDate(Integer tableName, Integer tableId, Integer fieldName, String format);
 
+    /**
+     * Get Format.
+     *
+     * @param tableName Integer the tableName
+     * @param tableId Integer the tableId
+     * @param fieldName Integer the fieldName
+     * @return String
+     */
     String getFormat(Integer tableName, Integer tableId, Integer fieldName);
 
+    /**
+     * Get Format.
+     *
+     * @param dateValue String the dateValue
+     * @return String
+     */
     String getFormat(String dateValue);
 
+    /**
+     * Get Full Date.
+     *
+     * @param partialDate String the partialDate
+     * @return String
+     */
     String getFullDate(String partialDate);
 
+    /**
+     * String To Date.
+     *
+     * @param partialDate String the partialDate
+     * @return Date
+     */
     Date StringToDate(String partialDate);
 }

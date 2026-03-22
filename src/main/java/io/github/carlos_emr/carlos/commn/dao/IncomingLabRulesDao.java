@@ -42,13 +42,45 @@ import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
  */
 
 public interface IncomingLabRulesDao extends AbstractDao<IncomingLabRules> {
+    /**
+     * Find Current By Provider No And Frwd Provider.
+     *
+     * @param providerNo String the providerNo
+     * @param frwdProvider String the frwdProvider
+     * @return List<IncomingLabRules>
+     */
     List<IncomingLabRules> findCurrentByProviderNoAndFrwdProvider(String providerNo, String frwdProvider);
 
+    /**
+     * Find By Provider No And Frwd Provider.
+     *
+     * @param providerNo String the providerNo
+     * @param frwdProvider String the frwdProvider
+     * @return List<IncomingLabRules>
+     */
     List<IncomingLabRules> findByProviderNoAndFrwdProvider(String providerNo, String frwdProvider);
 
+    /**
+     * Find Current By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<IncomingLabRules>
+     */
     List<IncomingLabRules> findCurrentByProviderNo(String providerNo);
 
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<IncomingLabRules>
+     */
     List<IncomingLabRules> findByProviderNo(String providerNo);
 
+    /**
+     * Find Rules.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Object[]>
+     */
     List<Object[]> findRules(String providerNo);
 }

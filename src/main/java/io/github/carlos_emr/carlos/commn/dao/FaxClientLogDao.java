@@ -44,9 +44,27 @@ import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
 
 public interface FaxClientLogDao extends AbstractDao<FaxClientLog> {
 
+    /**
+     * Find Client Logby Fax Id.
+     *
+     * @param faxId int the faxId
+     * @return FaxClientLog
+     */
     public FaxClientLog findClientLogbyFaxId(int faxId);
 
+    /**
+     * Find Client Logby Fax Ids.
+     *
+     * @param faxIds List<Integer> the faxIds
+     * @return List<FaxClientLog>
+     */
     public List<FaxClientLog> findClientLogbyFaxIds(List<Integer> faxIds);
 
+    /**
+     * Find Client Logby Request Id.
+     *
+     * @param requestId int the requestId
+     * @return List<FaxClientLog>
+     */
     public List<FaxClientLog> findClientLogbyRequestId(int requestId);
 }

@@ -42,7 +42,18 @@ import io.github.carlos_emr.carlos.commn.model.ConfigImmunization;
  */
 
 public interface ConfigImmunizationDao extends AbstractDao<ConfigImmunization> {
+    /**
+     * Find All.
+     * @return List<ConfigImmunization>
+     */
     List<ConfigImmunization> findAll();
 
+    /**
+     * Find By Archived.
+     *
+     * @param archived Integer the archived
+     * @param orderByName boolean the orderByName
+     * @return List<ConfigImmunization>
+     */
     List<ConfigImmunization> findByArchived(Integer archived, boolean orderByName);
 }

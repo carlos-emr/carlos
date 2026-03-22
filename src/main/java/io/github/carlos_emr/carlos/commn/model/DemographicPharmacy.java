@@ -43,6 +43,16 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
+/**
+ * Represents a patient's preferred pharmacy association in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code demographicPharmacy} table and links a patient (demographic)
+ * to their preferred pharmacy for prescription fulfillment. Supports tracking
+ * active/inactive pharmacy preferences over time.</p>
+ *
+ * @see Demographic
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "demographicPharmacy")
 public class DemographicPharmacy extends AbstractModel<Integer> {

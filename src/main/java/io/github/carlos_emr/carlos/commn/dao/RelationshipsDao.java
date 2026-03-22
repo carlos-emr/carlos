@@ -42,11 +42,36 @@ import io.github.carlos_emr.carlos.commn.model.Relationships;
  */
 
 public interface RelationshipsDao extends AbstractDao<Relationships> {
+    /**
+     * Find Active.
+     *
+     * @param id Integer the id
+     * @return Relationships
+     */
     Relationships findActive(Integer id);
 
+    /**
+     * Find By Demographic Number.
+     *
+     * @param demographicNumber Integer the demographicNumber
+     * @return List<Relationships>
+     */
     List<Relationships> findByDemographicNumber(Integer demographicNumber);
 
+    /**
+     * Find Active Sub Decision Maker.
+     *
+     * @param demographicNumber Integer the demographicNumber
+     * @return List<Relationships>
+     */
     List<Relationships> findActiveSubDecisionMaker(Integer demographicNumber);
 
+    /**
+     * Find Active By Demographic Number And Facility.
+     *
+     * @param demographicNumber Integer the demographicNumber
+     * @param facilityId Integer the facilityId
+     * @return List<Relationships>
+     */
     List<Relationships> findActiveByDemographicNumberAndFacility(Integer demographicNumber, Integer facilityId);
 }

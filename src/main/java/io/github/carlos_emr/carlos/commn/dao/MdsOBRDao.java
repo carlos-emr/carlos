@@ -42,5 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.MdsOBR;
  */
 
 public interface MdsOBRDao extends AbstractDao<MdsOBR> {
+    /**
+     * Find By Id And Result Codes.
+     *
+     * @param id Integer the id
+     * @param resultCodes List<String> the resultCodes
+     * @return List<Object[]>
+     */
     List<Object[]> findByIdAndResultCodes(Integer id, List<String> resultCodes);
 }

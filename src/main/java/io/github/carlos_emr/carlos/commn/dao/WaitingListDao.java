@@ -43,17 +43,60 @@ import io.github.carlos_emr.carlos.commn.model.WaitingList;
  */
 
 public interface WaitingListDao extends AbstractDao<WaitingList> {
+    /**
+     * Find By Demographic.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Object[]>
+     */
     List<Object[]> findByDemographic(Integer demographicNo);
 
+    /**
+     * Find Waiting Lists And Demographics.
+     *
+     * @param listId Integer the listId
+     * @return List<Object[]>
+     */
     List<Object[]> findWaitingListsAndDemographics(Integer listId);
 
+    /**
+     * Find By Waiting List Id.
+     *
+     * @param listId Integer the listId
+     * @return List<WaitingList>
+     */
     List<WaitingList> findByWaitingListId(Integer listId);
 
+    /**
+     * Find Appointment For.
+     *
+     * @param waitingList WaitingList the waitingList
+     * @return List<Appointment>
+     */
     List<Appointment> findAppointmentFor(WaitingList waitingList);
 
+    /**
+     * Find By Waiting List Id And Demographic Id.
+     *
+     * @param waitingListId Integer the waitingListId
+     * @param demographicId Integer the demographicId
+     * @return List<WaitingList>
+     */
     List<WaitingList> findByWaitingListIdAndDemographicId(Integer waitingListId, Integer demographicId);
 
+    /**
+     * Get Max Position.
+     *
+     * @param listId Integer the listId
+     * @return Integer
+     */
     Integer getMaxPosition(Integer listId);
 
+    /**
+     * Search_wlstatus.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<WaitingList>
+     */
     List<WaitingList> search_wlstatus(Integer demographicId);
 }

@@ -45,6 +45,10 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 public interface CtlBillingServiceDao {
     public static final String DEFAULT_STATUS = "A";
 
+    /**
+     * Find All.
+     * @return List<CtlBillingService>
+     */
     public List<CtlBillingService> findAll();
 
     /**
@@ -62,12 +66,35 @@ public interface CtlBillingServiceDao {
      */
     public List<Object[]> getUniqueServiceTypes();
 
+    /**
+     * Find By Service Type Id.
+     *
+     * @param serviceTypeId String the serviceTypeId
+     * @return List<CtlBillingService>
+     */
     public List<CtlBillingService> findByServiceTypeId(String serviceTypeId);
 
+    /**
+     * Find By Service Group And Service Type Id.
+     *
+     * @param serviceGroup String the serviceGroup
+     * @param serviceTypeId String the serviceTypeId
+     * @return List<CtlBillingService>
+     */
     public List<CtlBillingService> findByServiceGroupAndServiceTypeId(String serviceGroup, String serviceTypeId);
 
+    /**
+     * Find By Service Type.
+     *
+     * @param serviceTypeId String the serviceTypeId
+     * @return List<CtlBillingService>
+     */
     public List<CtlBillingService> findByServiceType(String serviceTypeId);
 
+    /**
+     * Get Service Type List.
+     * @return List<CtlBillingService>
+     */
     public List<CtlBillingService> getServiceTypeList();
 
     /**
@@ -94,16 +121,48 @@ public interface CtlBillingServiceDao {
     public List<CtlBillingService> findByServiceGroupAndServiceType(String serviceGroup, String serviceType);
 
 
+    /**
+     * Find Unique Service Types By Code.
+     *
+     * @param serviceCode String the serviceCode
+     * @return List<Object[]>
+     */
     public List<Object[]> findUniqueServiceTypesByCode(String serviceCode);
 
+    /**
+     * Find Service Types.
+     * @return List<Object[]>
+     */
     public List<Object[]> findServiceTypes();
 
+    /**
+     * Find Service Types By Status.
+     *
+     * @param status String the status
+     * @return List<Object[]>
+     */
     public List<Object[]> findServiceTypesByStatus(String status);
 
+    /**
+     * Find Service Codes By Type.
+     *
+     * @param serviceType String the serviceType
+     * @return List<Object>
+     */
     public List<Object> findServiceCodesByType(String serviceType);
 
+    /**
+     * Remove.
+     *
+     * @param id Integer the id
+     */
     void remove(Integer id);
 
+    /**
+     * Persist.
+     *
+     * @param ctlBillingService CtlBillingService the ctlBillingService
+     */
     void persist(CtlBillingService ctlBillingService);
 }
  

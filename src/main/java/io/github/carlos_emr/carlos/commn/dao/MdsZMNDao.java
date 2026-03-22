@@ -42,9 +42,30 @@ import io.github.carlos_emr.carlos.commn.model.MdsZMN;
  */
 
 public interface MdsZMNDao extends AbstractDao<MdsZMN> {
+    /**
+     * Find By Segment Id And Report Name.
+     *
+     * @param id Integer the id
+     * @param reportName String the reportName
+     * @return MdsZMN
+     */
     MdsZMN findBySegmentIdAndReportName(Integer id, String reportName);
 
+    /**
+     * Find By Segment Id And Result Mnemonic.
+     *
+     * @param id Integer the id
+     * @param rm String the rm
+     * @return MdsZMN
+     */
     MdsZMN findBySegmentIdAndResultMnemonic(Integer id, String rm);
 
+    /**
+     * Find Result Codes.
+     *
+     * @param id Integer the id
+     * @param reportSequence String the reportSequence
+     * @return List<String>
+     */
     List<String> findResultCodes(Integer id, String reportSequence);
 }

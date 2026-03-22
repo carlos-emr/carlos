@@ -44,11 +44,34 @@ import io.github.carlos_emr.carlos.commn.model.EFormGroup;
 
 public interface EFormGroupDao extends AbstractDao<EFormGroup> {
 
+    /**
+     * Delete By Name And Form Id.
+     *
+     * @param groupName String the groupName
+     * @param formId Integer the formId
+     * @return int
+     */
     public int deleteByNameAndFormId(String groupName, Integer formId);
 
+    /**
+     * Delete By Name.
+     *
+     * @param groupName String the groupName
+     * @return int
+     */
     public int deleteByName(String groupName);
 
+    /**
+     * Get By Group Name.
+     *
+     * @param groupName String the groupName
+     * @return List<EFormGroup>
+     */
     public List<EFormGroup> getByGroupName(String groupName);
 
+    /**
+     * Get Group Names.
+     * @return List<String>
+     */
     public List<String> getGroupNames();
 }

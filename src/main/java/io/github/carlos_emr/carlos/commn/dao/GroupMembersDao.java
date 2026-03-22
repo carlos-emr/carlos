@@ -46,19 +46,69 @@ import java.util.List;
 
 public interface GroupMembersDao extends AbstractDao<GroupMembers> {
 
+    /**
+     * Find Remote By Group Id.
+     *
+     * @param groupId int the groupId
+     * @return List<GroupMembers>
+     */
     public List<GroupMembers> findRemoteByGroupId(int groupId);
 
+    /**
+     * Find Local By Group Id.
+     *
+     * @param groupId int the groupId
+     * @return List<GroupMembers>
+     */
     public List<GroupMembers> findLocalByGroupId(int groupId);
 
+    /**
+     * Find By Group Id.
+     *
+     * @param groupId int the groupId
+     * @return List<GroupMembers>
+     */
     public List<GroupMembers> findByGroupId(int groupId);
 
+    /**
+     * Find Members By Group Id.
+     *
+     * @param groupId int the groupId
+     * @return List<Object[]>
+     */
     public List<Object[]> findMembersByGroupId(int groupId);
 
+    /**
+     * Find By Provider Number And Facility Id.
+     *
+     * @param providerNo String the providerNo
+     * @param facilityId Integer the facilityId
+     * @return List<GroupMembers>
+     */
     public List<GroupMembers> findByProviderNumberAndFacilityId(String providerNo, Integer facilityId);
 
+    /**
+     * Find Group Member.
+     *
+     * @param providerNo String the providerNo
+     * @param groupId int the groupId
+     * @return List<GroupMembers>
+     */
     public List<GroupMembers> findGroupMember(String providerNo, int groupId);
 
+    /**
+     * Find By Facility Id.
+     *
+     * @param facilityId Integer the facilityId
+     * @return List<GroupMembers>
+     */
     public List<GroupMembers> findByFacilityId(Integer facilityId);
 
+    /**
+     * Find By Identity.
+     *
+     * @param contactIdentifier ContactIdentifier the contactIdentifier
+     * @return GroupMembers
+     */
     public GroupMembers findByIdentity(ContactIdentifier contactIdentifier);
 }

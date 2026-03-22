@@ -43,8 +43,32 @@ import java.util.List;
  */
 
 public interface Icd10Dao extends AbstractCodeSystemDao<Icd10> {
+    /**
+     * Search Code.
+     *
+     * @param term String the term
+     * @return List<Icd10>
+     */
     List<Icd10> searchCode(String term);
+    /**
+     * Find By Code.
+     *
+     * @param code String the code
+     * @return Icd10
+     */
     Icd10 findByCode(String code);
+    /**
+     * Find By Coding System.
+     *
+     * @param codingSystem String the codingSystem
+     * @return AbstractCodeSystemModel<?>
+     */
     AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem);
+    /**
+     * Search Text.
+     *
+     * @param description String the description
+     * @return List<Icd10>
+     */
     List<Icd10> searchText(String description);
 }

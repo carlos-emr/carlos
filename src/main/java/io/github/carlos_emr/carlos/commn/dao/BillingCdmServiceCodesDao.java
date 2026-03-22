@@ -42,5 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.BillingCdmServiceCodes;
  */
 
 public interface BillingCdmServiceCodesDao extends AbstractDao<BillingCdmServiceCodes> {
+    /**
+     * Find All.
+     * @return List<BillingCdmServiceCodes>
+     */
     List<BillingCdmServiceCodes> findAll();
 }

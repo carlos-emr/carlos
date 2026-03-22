@@ -43,15 +43,54 @@ import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
  */
 
 public interface SecObjPrivilegeDao extends AbstractDao<SecObjPrivilege> {
+    /**
+     * Find By Role User Group And Object Name.
+     *
+     * @param roleUserGroup String the roleUserGroup
+     * @param objectName String the objectName
+     * @return List<SecObjPrivilege>
+     */
     List<SecObjPrivilege> findByRoleUserGroupAndObjectName(String roleUserGroup, String objectName);
 
+    /**
+     * Find By Object Names.
+     *
+     * @param objectNames Collection<String> the objectNames
+     * @return List<SecObjPrivilege>
+     */
     List<SecObjPrivilege> findByObjectNames(Collection<String> objectNames);
 
+    /**
+     * Find By Role User Group.
+     *
+     * @param roleUserGroup String the roleUserGroup
+     * @return List<SecObjPrivilege>
+     */
     List<SecObjPrivilege> findByRoleUserGroup(String roleUserGroup);
 
+    /**
+     * Find By Object Name.
+     *
+     * @param objectName String the objectName
+     * @return List<SecObjPrivilege>
+     */
     List<SecObjPrivilege> findByObjectName(String objectName);
 
+    /**
+     * Count Objects By Name.
+     *
+     * @param objName String the objName
+     * @return int
+     */
     int countObjectsByName(String objName);
 
+    /**
+     * Find By Form Name Privilege And Provider No.
+     *
+     * @param formName String the formName
+     * @param privilege String the privilege
+     * @param providerNo String the providerNo
+     * @return List<Object[]>
+     */
     List<Object[]> findByFormNamePrivilegeAndProviderNo(String formName, String privilege, String providerNo);
 }

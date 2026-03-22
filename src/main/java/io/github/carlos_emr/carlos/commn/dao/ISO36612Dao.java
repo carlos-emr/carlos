@@ -40,11 +40,33 @@ import io.github.carlos_emr.carlos.commn.model.ISO36612;
  */
 
 public interface ISO36612Dao extends AbstractDao<ISO36612> {
+    /**
+     * Find By Code.
+     *
+     * @param code String the code
+     * @return ISO36612
+     */
     ISO36612 findByCode(String code);
 
+    /**
+     * Find Province By Code.
+     *
+     * @param code String the code
+     * @return String
+     */
     String findProvinceByCode(String code);
 
+    /**
+     * Find Country By Code.
+     *
+     * @param code String the code
+     * @return String
+     */
     String findCountryByCode(String code);
 
+    /**
+     * Reload Table.
+     * @return boolean
+     */
     boolean reloadTable();
 }

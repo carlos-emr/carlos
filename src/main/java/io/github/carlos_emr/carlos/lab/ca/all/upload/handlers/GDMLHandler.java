@@ -53,6 +53,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+/**
+ * Upload handler for GDML (Gamma-Dynacare Medical Laboratories) result files.
+ *
+ * @since 2007-01-18
+ */
 public class GDMLHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();

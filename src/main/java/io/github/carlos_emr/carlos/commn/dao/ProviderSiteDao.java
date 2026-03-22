@@ -43,11 +43,35 @@ import io.github.carlos_emr.carlos.commn.model.ProviderSite;
  */
 
 public interface ProviderSiteDao extends AbstractDao<ProviderSite> {
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<ProviderSite>
+     */
     List<ProviderSite> findByProviderNo(String providerNo);
 
+    /**
+     * Find Active Providers With Sites.
+     *
+     * @param provider_no String the provider_no
+     * @return List<Provider>
+     */
     List<Provider> findActiveProvidersWithSites(String provider_no);
 
+    /**
+     * Find By Provider No By Site Name.
+     *
+     * @param siteName String the siteName
+     * @return List<String>
+     */
     List<String> findByProviderNoBySiteName(String siteName);
 
+    /**
+     * Find By Site Id.
+     *
+     * @param siteId Integer the siteId
+     * @return List<ProviderSite>
+     */
     List<ProviderSite> findBySiteId(Integer siteId);
 }

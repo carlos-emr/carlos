@@ -28,6 +28,12 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt;
 
+/**
+ * Constants used throughout the MCEDT (Medical Claims Electronic Data Transfer) integration,
+ * including service type codes, resource type identifiers, and configuration keys.
+ *
+ * @since 2013-06-14
+ */
 public class McedtConstants {
 
     public static final String REQUEST_ATTR_KEY_RESOURCE_ID = "resourceId";

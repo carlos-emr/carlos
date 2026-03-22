@@ -42,5 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.Institution;
  */
 
 public interface InstitutionDao extends AbstractDao<Institution> {
+    /**
+     * Find All.
+     * @return List<Institution>
+     */
     List<Institution> findAll();
 }

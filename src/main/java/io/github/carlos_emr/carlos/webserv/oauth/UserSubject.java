@@ -28,6 +28,11 @@ package io.github.carlos_emr.carlos.webserv.oauth;
 
 import java.util.List;
 
+/**
+ * Lightweight domain model representing the OAuth 1.0a resource owner (the authenticated user).
+ *
+ * @since 2026-01-18
+ */
 public class UserSubject {
 
     // Stable identifier for the user (e.g., providerNo or username)

@@ -43,13 +43,43 @@ import io.github.carlos_emr.carlos.commn.model.SnomedCore;
  */
 
 public interface SnomedCoreDao extends AbstractCodeSystemDao<SnomedCore> {
+    /**
+     * Get Snomed Core Code.
+     *
+     * @param snomedCoreCode String the snomedCoreCode
+     * @return List<SnomedCore>
+     */
     List<SnomedCore> getSnomedCoreCode(String snomedCoreCode);
 
+    /**
+     * Get Snomed Core.
+     *
+     * @param query String the query
+     * @return List<SnomedCore>
+     */
     List<SnomedCore> getSnomedCore(String query);
 
+    /**
+     * Search Code.
+     *
+     * @param term String the term
+     * @return List<SnomedCore>
+     */
     List<SnomedCore> searchCode(String term);
 
+    /**
+     * Find By Code.
+     *
+     * @param code String the code
+     * @return SnomedCore
+     */
     SnomedCore findByCode(String code);
 
+    /**
+     * Find By Coding System.
+     *
+     * @param codingSystem String the codingSystem
+     * @return AbstractCodeSystemModel<?>
+     */
     AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem);
 }

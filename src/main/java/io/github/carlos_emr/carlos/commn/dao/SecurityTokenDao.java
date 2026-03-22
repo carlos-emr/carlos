@@ -43,5 +43,12 @@ import io.github.carlos_emr.carlos.commn.model.SecurityToken;
  */
 
 public interface SecurityTokenDao extends AbstractDao<SecurityToken> {
+    /**
+     * Get By Token And Expiry.
+     *
+     * @param token String the token
+     * @param expiry Date the expiry
+     * @return SecurityToken
+     */
     SecurityToken getByTokenAndExpiry(String token, Date expiry);
 }

@@ -37,6 +37,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents a DHIR (Digital Health Immunization Repository) submission log entry
+ * in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code DHIRSubmissionLog} table and tracks immunization data
+ * submissions to Ontario's Digital Health Immunization Repository. Each log entry
+ * records which prevention record was submitted for which patient, along with
+ * submission timestamps and status.</p>
+ *
+ * @see Prevention
+ * @since 2001-01-01
+ */
 @Entity
 public class DHIRSubmissionLog extends AbstractModel<Integer> {
 

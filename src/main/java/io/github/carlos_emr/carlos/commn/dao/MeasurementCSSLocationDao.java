@@ -43,7 +43,17 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
  */
 
 public interface MeasurementCSSLocationDao extends AbstractDao<MeasurementCSSLocation> {
+    /**
+     * Find All.
+     * @return List<MeasurementCSSLocation>
+     */
     List<MeasurementCSSLocation> findAll();
 
+    /**
+     * Find By Location.
+     *
+     * @param location String the location
+     * @return List<MeasurementCSSLocation>
+     */
     List<MeasurementCSSLocation> findByLocation(String location);
 }

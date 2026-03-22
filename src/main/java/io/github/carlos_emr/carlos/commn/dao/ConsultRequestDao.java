@@ -46,11 +46,35 @@ import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter
 
 public interface ConsultRequestDao extends AbstractDao<ConsultationRequest> {
 
+    /**
+     * Get Consultation Count.
+     *
+     * @param paginationQuery PaginationQuery the paginationQuery
+     * @return int
+     */
     public int getConsultationCount(PaginationQuery paginationQuery);
 
+    /**
+     * List Consultation Requests.
+     *
+     * @param consultationQuery ConsultationQuery the consultationQuery
+     * @return List<ConsultationRequest>
+     */
     public List<ConsultationRequest> listConsultationRequests(ConsultationQuery consultationQuery);
 
+    /**
+     * Get Consultation Count2.
+     *
+     * @param filter ConsultationRequestSearchFilter the filter
+     * @return int
+     */
     public int getConsultationCount2(ConsultationRequestSearchFilter filter);
 
+    /**
+     * Search.
+     *
+     * @param filter ConsultationRequestSearchFilter the filter
+     * @return List<Object[]>
+     */
     public List<Object[]> search(ConsultationRequestSearchFilter filter);
 }

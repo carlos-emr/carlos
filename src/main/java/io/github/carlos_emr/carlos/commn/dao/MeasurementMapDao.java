@@ -43,30 +43,98 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 
 public interface MeasurementMapDao extends AbstractDao<MeasurementMap> {
 
+    /**
+     * Add Measurement Map.
+     *
+     * @param measurementMap MeasurementMap the measurementMap
+     */
     public void addMeasurementMap(MeasurementMap measurementMap);
 
+    /**
+     * Get All Maps.
+     * @return List<MeasurementMap>
+     */
     public List<MeasurementMap> getAllMaps();
 
+    /**
+     * Get Maps By Ident.
+     *
+     * @param identCode String the identCode
+     * @return List<MeasurementMap>
+     */
     public List<MeasurementMap> getMapsByIdent(String identCode);
 
+    /**
+     * Find By Loinc Code.
+     *
+     * @param loincCode String the loincCode
+     * @return List<MeasurementMap>
+     */
     public List<MeasurementMap> findByLoincCode(String loincCode);
 
+    /**
+     * Get Maps By Loinc.
+     *
+     * @param loinc String the loinc
+     * @return List<MeasurementMap>
+     */
     public List<MeasurementMap> getMapsByLoinc(String loinc);
 
+    /**
+     * Find By Loinc Code And Lab Type.
+     *
+     * @param loincCode String the loincCode
+     * @param labType String the labType
+     * @return List<MeasurementMap>
+     */
     public List<MeasurementMap> findByLoincCodeAndLabType(String loincCode, String labType);
 
     public MeasurementMap findByLonicCodeLabTypeAndMeasurementName(String loincCode, String labType,
                                                                    String measurementName);
 
+    /**
+     * Find Distinct Lab Types.
+     * @return List<String>
+     */
     public List<String> findDistinctLabTypes();
 
+    /**
+     * Find Distinct Loinc Codes.
+     * @return List<String>
+     */
     public List<String> findDistinctLoincCodes();
 
+    /**
+     * Find Distinct Loinc Codes By Lab Type.
+     *
+     * @param lab_type MeasurementMap.LAB_TYPE the lab_type
+     * @return List<String>
+     */
     public List<String> findDistinctLoincCodesByLabType(MeasurementMap.LAB_TYPE lab_type);
 
+    /**
+     * Find Measurements.
+     *
+     * @param labType String the labType
+     * @param idCode String the idCode
+     * @param name String the name
+     * @return List<Object[]>
+     */
     public List<Object[]> findMeasurements(String labType, String idCode, String name);
 
+    /**
+     * Find Measurements By Name.
+     *
+     * @param searchString String the searchString
+     * @return List<MeasurementMap>
+     */
     public List<MeasurementMap> findMeasurementsByName(String searchString);
 
+    /**
+     * Search Measurements By Name.
+     *
+     * @param searchString String the searchString
+     * @return List<MeasurementMap>
+     */
     public List<MeasurementMap> searchMeasurementsByName(String searchString);
 }

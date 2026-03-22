@@ -42,7 +42,19 @@ import io.github.carlos_emr.carlos.commn.model.ResidentOscarMsg;
  */
 
 public interface ResidentOscarMsgDao extends AbstractDao<ResidentOscarMsg> {
+    /**
+     * Find By Supervisor.
+     *
+     * @param supervisor String the supervisor
+     * @return List<ResidentOscarMsg>
+     */
     List<ResidentOscarMsg> findBySupervisor(String supervisor);
 
+    /**
+     * Find By Note Id.
+     *
+     * @param noteId Long the noteId
+     * @return ResidentOscarMsg
+     */
     ResidentOscarMsg findByNoteId(Long noteId);
 }

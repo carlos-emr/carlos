@@ -43,9 +43,24 @@ import io.github.carlos_emr.carlos.commn.model.CVCMedication;
 
 public interface CVCMedicationDao extends AbstractDao<CVCMedication> {
 
+    /**
+     * Find By D I N.
+     *
+     * @param din String the din
+     * @return List<CVCMedication>
+     */
     public List<CVCMedication> findByDIN(String din);
 
+    /**
+     * Find By S N O M E D.
+     *
+     * @param conceptId String the conceptId
+     * @return CVCMedication
+     */
     public CVCMedication findBySNOMED(String conceptId);
 
+    /**
+     * Remove All.
+     */
     public void removeAll();
 }

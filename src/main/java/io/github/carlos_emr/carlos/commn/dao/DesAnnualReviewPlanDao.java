@@ -41,5 +41,12 @@ import io.github.carlos_emr.carlos.commn.model.DesAnnualReviewPlan;
  */
 
 public interface DesAnnualReviewPlanDao extends AbstractDao<DesAnnualReviewPlan> {
+    /**
+     * Search.
+     *
+     * @param formNo Integer the formNo
+     * @param demographicNo Integer the demographicNo
+     * @return DesAnnualReviewPlan
+     */
     DesAnnualReviewPlan search(Integer formNo, Integer demographicNo);
 }

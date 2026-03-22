@@ -42,5 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingServiceAgeRules;
  */
 
 public interface CtlBillingServiceAgeRulesDao extends AbstractDao<CtlBillingServiceAgeRules> {
+    /**
+     * Find By Service Code.
+     *
+     * @param serviceCode String the serviceCode
+     * @return List<CtlBillingServiceAgeRules>
+     */
     List<CtlBillingServiceAgeRules> findByServiceCode(String serviceCode);
 }

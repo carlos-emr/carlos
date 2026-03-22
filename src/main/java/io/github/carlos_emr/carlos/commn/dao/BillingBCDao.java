@@ -34,15 +34,54 @@ import java.util.List;
  */
 
 public interface BillingBCDao extends BillingDao {
+    /**
+     * Find Billing Services.
+     *
+     * @param billRegion String the billRegion
+     * @param serviceGroup String the serviceGroup
+     * @param serviceType String the serviceType
+     * @return List<Object[]>
+     */
     List<Object[]> findBillingServices(String billRegion, String serviceGroup, String serviceType);
 
+    /**
+     * Find Billing Services By Type.
+     *
+     * @param serviceType String the serviceType
+     * @return List<Object[]>
+     */
     List<Object[]> findBillingServicesByType(String serviceType);
 
+    /**
+     * Find Billing Services.
+     *
+     * @param billRegion String the billRegion
+     * @param serviceGroup String the serviceGroup
+     * @param serviceType String the serviceType
+     * @param billReferenceDate String the billReferenceDate
+     * @return List<Object[]>
+     */
     List<Object[]> findBillingServices(String billRegion, String serviceGroup, String serviceType, String billReferenceDate);
 
+    /**
+     * Find Billing Locations.
+     *
+     * @param billRegion String the billRegion
+     * @return List<Object[]>
+     */
     List<Object[]> findBillingLocations(String billRegion);
 
+    /**
+     * Find Billing Visits.
+     *
+     * @param billRegion String the billRegion
+     * @return List<Object[]>
+     */
     List<Object[]> findBillingVisits(String billRegion);
 
+    /**
+     * Find Injury Locations.
+     * @return List<Object[]>
+     */
     List<Object[]> findInjuryLocations();
 }

@@ -42,15 +42,55 @@ import io.github.carlos_emr.carlos.commn.model.RaHeader;
  */
 
 public interface RaHeaderDao extends AbstractDao<RaHeader> {
+    /**
+     * Find Current By Filename Payment Date.
+     *
+     * @param filename String the filename
+     * @param paymentDate String the paymentDate
+     * @return List<RaHeader>
+     */
     List<RaHeader> findCurrentByFilenamePaymentDate(String filename, String paymentDate);
 
+    /**
+     * Find By Filename Payment Date.
+     *
+     * @param filename String the filename
+     * @param paymentDate String the paymentDate
+     * @return List<RaHeader>
+     */
     List<RaHeader> findByFilenamePaymentDate(String filename, String paymentDate);
 
+    /**
+     * Find All Exclude Status.
+     *
+     * @param status String the status
+     * @return List<RaHeader>
+     */
     List<RaHeader> findAllExcludeStatus(String status);
 
+    /**
+     * Find By Header Details And Provider Magic.
+     *
+     * @param status String the status
+     * @param providerNo String the providerNo
+     * @return List<RaHeader>
+     */
     List<RaHeader> findByHeaderDetailsAndProviderMagic(String status, String providerNo);
 
+    /**
+     * Find By Status And Provider Magic.
+     *
+     * @param status String the status
+     * @param providerNo String the providerNo
+     * @return List<RaHeader>
+     */
     List<RaHeader> findByStatusAndProviderMagic(String status, String providerNo);
 
+    /**
+     * Find Headers And Providers By Id.
+     *
+     * @param id Integer the id
+     * @return List<Object[]>
+     */
     List<Object[]> findHeadersAndProvidersById(Integer id);
 }

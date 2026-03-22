@@ -40,7 +40,25 @@ import io.github.carlos_emr.carlos.commn.model.DrugDispensingMapping;
  */
 
 public interface DrugDispensingMappingDao extends AbstractDao<DrugDispensingMapping> {
+    /**
+     * Find Mapping By Din.
+     *
+     * @param din String the din
+     * @return DrugDispensingMapping
+     */
     DrugDispensingMapping findMappingByDin(String din);
 
+    /**
+     * Find Mapping.
+     *
+     * @param din String the din
+     * @param duration String the duration
+     * @param durUnit String the durUnit
+     * @param freqCode String the freqCode
+     * @param quantity String the quantity
+     * @param takeMin Float the takeMin
+     * @param takeMax Float the takeMax
+     * @return DrugDispensingMapping
+     */
     DrugDispensingMapping findMapping(String din, String duration, String durUnit, String freqCode, String quantity, Float takeMin, Float takeMax);
 }

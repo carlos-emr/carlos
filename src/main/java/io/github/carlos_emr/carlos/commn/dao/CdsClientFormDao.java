@@ -42,11 +42,42 @@ import io.github.carlos_emr.carlos.commn.model.CdsClientForm;
  */
 
 public interface CdsClientFormDao extends AbstractDao<CdsClientForm> {
+    /**
+     * Find Latest By Facility Client.
+     *
+     * @param facilityId Integer the facilityId
+     * @param clientId Integer the clientId
+     * @return CdsClientForm
+     */
     CdsClientForm findLatestByFacilityClient(Integer facilityId, Integer clientId);
 
+    /**
+     * Find Latest By Facility Admission Id.
+     *
+     * @param facilityId Integer the facilityId
+     * @param admissionId Integer the admissionId
+     * @param signed Boolean the signed
+     * @return CdsClientForm
+     */
     CdsClientForm findLatestByFacilityAdmissionId(Integer facilityId, Integer admissionId, Boolean signed);
 
+    /**
+     * Find By Facility Client.
+     *
+     * @param facilityId Integer the facilityId
+     * @param clientId Integer the clientId
+     * @return List<CdsClientForm>
+     */
     List<CdsClientForm> findByFacilityClient(Integer facilityId, Integer clientId);
 
+    /**
+     * Find Signed Cds Forms.
+     *
+     * @param facilityId Integer the facilityId
+     * @param formVersion String the formVersion
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return List<CdsClientForm>
+     */
     List<CdsClientForm> findSignedCdsForms(Integer facilityId, String formVersion, Date startDate, Date endDate);
 }

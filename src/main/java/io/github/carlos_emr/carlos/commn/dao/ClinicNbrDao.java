@@ -29,9 +29,26 @@ import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 
 public interface ClinicNbrDao extends AbstractDao<ClinicNbr> {
 
+    /**
+     * Find All.
+     * @return ArrayList<ClinicNbr>
+     */
     ArrayList<ClinicNbr> findAll();
 
+    /**
+     * Remove Entry.
+     *
+     * @param id Integer the id
+     * @return Integer
+     */
     Integer removeEntry(Integer id);
 
+    /**
+     * Add Entry.
+     *
+     * @param nbrValue String the nbrValue
+     * @param nbrString String the nbrString
+     * @return int
+     */
     int addEntry(String nbrValue, String nbrString);
 }

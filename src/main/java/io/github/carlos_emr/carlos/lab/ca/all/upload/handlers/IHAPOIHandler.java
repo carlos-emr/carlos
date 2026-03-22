@@ -59,6 +59,12 @@ import org.xml.sax.SAXException;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 
+/**
+ * Upload handler for IHAPOI (Interior Health Authority - POI format) laboratory
+ * result files. Parses MEDITECH XML-based lab data specific to BC's Interior Health Authority.
+ *
+ * @since 2007-01-18
+ */
 public class IHAPOIHandler implements MessageHandler {
 
     public final String HL7_FORMAT = "IHAPOI";

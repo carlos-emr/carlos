@@ -42,5 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.OnCallClinic;
  */
 
 public interface OnCallClinicDao extends AbstractDao<OnCallClinic> {
+    /**
+     * Find By Date.
+     *
+     * @param date Date the date
+     * @return OnCallClinic
+     */
     OnCallClinic findByDate(Date date);
 }

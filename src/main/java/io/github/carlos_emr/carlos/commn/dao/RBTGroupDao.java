@@ -44,12 +44,35 @@ import io.github.carlos_emr.carlos.commn.model.RBTGroup;
 
 public interface RBTGroupDao extends AbstractDao<RBTGroup> {
 
+    /**
+     * Delete By Name And Template Id.
+     *
+     * @param groupName String the groupName
+     * @param templateId Integer the templateId
+     * @return int
+     */
     public int deleteByNameAndTemplateId(String groupName, Integer templateId);
 
+    /**
+     * Delete By Name.
+     *
+     * @param groupName String the groupName
+     * @return int
+     */
     public int deleteByName(String groupName);
 
+    /**
+     * Get By Group Name.
+     *
+     * @param groupName String the groupName
+     * @return List<RBTGroup>
+     */
     public List<RBTGroup> getByGroupName(String groupName);
 
+    /**
+     * Get Group Names.
+     * @return List<String>
+     */
     public List<String> getGroupNames();
 
 }

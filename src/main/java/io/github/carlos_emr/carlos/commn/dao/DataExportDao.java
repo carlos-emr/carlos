@@ -48,8 +48,18 @@ public interface DataExportDao extends AbstractDao<DataExport> {
     public static final String CIHI_OMD4 = "CIHI_OMD4";
     public static final String CIHI_PHC_VRS = "CIHI_PHC_VRS";
 
+    /**
+     * Find All.
+     * @return List<DataExport>
+     */
     public List<DataExport> findAll();
 
+    /**
+     * Find All By Type.
+     *
+     * @param type String the type
+     * @return List<DataExport>
+     */
     public List<DataExport> findAllByType(String type);
 
 }

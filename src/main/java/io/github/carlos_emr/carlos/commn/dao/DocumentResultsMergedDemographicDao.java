@@ -42,9 +42,33 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
  */
 
 public interface DocumentResultsMergedDemographicDao extends DocumentResultsDao {
+    /**
+     * Populate Document Results Data Of All Providers.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo String the demographicNo
+     * @param status String the status
+     * @return ArrayList<LabResultData>
+     */
     ArrayList<LabResultData> populateDocumentResultsDataOfAllProviders(String providerNo, String demographicNo, String status);
 
+    /**
+     * Populate Document Results Data Link To Provider.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo String the demographicNo
+     * @param status String the status
+     * @return ArrayList<LabResultData>
+     */
     ArrayList<LabResultData> populateDocumentResultsDataLinkToProvider(String providerNo, String demographicNo, String status);
 
+    /**
+     * Populate Document Results Data.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo String the demographicNo
+     * @param status String the status
+     * @return ArrayList<LabResultData>
+     */
     ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String status);
 }

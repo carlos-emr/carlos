@@ -42,9 +42,26 @@ import io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege;
  */
 
 public interface FavoritesPrivilegeDao extends AbstractDao<FavoritesPrivilege> {
+    /**
+     * Get Providers.
+     * @return List<String>
+     */
     List<String> getProviders();
 
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return FavoritesPrivilege
+     */
     FavoritesPrivilege findByProviderNo(String providerNo);
 
+    /**
+     * Set Favorites Privilege.
+     *
+     * @param providerNo String the providerNo
+     * @param openpublic boolean the openpublic
+     * @param writeable boolean the writeable
+     */
     void setFavoritesPrivilege(String providerNo, boolean openpublic, boolean writeable);
 }

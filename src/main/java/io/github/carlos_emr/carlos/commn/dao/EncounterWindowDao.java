@@ -40,5 +40,11 @@ import io.github.carlos_emr.carlos.commn.model.EncounterWindow;
  */
 
 public interface EncounterWindowDao extends AbstractDao<EncounterWindow> {
+    /**
+     * Find By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return EncounterWindow
+     */
     EncounterWindow findByProvider(String providerNo);
 }

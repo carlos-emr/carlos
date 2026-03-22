@@ -42,8 +42,20 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 
 public interface CaseManagementIssueNotesDao {
 
+    /**
+     * Get Note Issues.
+     *
+     * @param noteId Integer the noteId
+     * @return List<CaseManagementIssue>
+     */
     public List<CaseManagementIssue> getNoteIssues(Integer noteId);
 
+    /**
+     * Get Note Ids Which Have Issues.
+     *
+     * @param issueId String[] the issueId
+     * @return List<Integer>
+     */
     public List<Integer> getNoteIdsWhichHaveIssues(String[] issueId);
 
 }

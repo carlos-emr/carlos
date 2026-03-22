@@ -44,18 +44,58 @@ import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 
 public interface DemographicContactDao extends AbstractDao<DemographicContact> {
 
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<DemographicContact>
+     */
     public List<DemographicContact> findByDemographicNo(int demographicNo);
 
+    /**
+     * Find Active By Demographic No.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<DemographicContact>
+     */
     public List<DemographicContact> findActiveByDemographicNo(int demographicNo);
 
+    /**
+     * Find By Demographic No And Category.
+     *
+     * @param demographicNo int the demographicNo
+     * @param category String the category
+     * @return List<DemographicContact>
+     */
     public List<DemographicContact> findByDemographicNoAndCategory(int demographicNo, String category);
 
+    /**
+     * Find.
+     *
+     * @param demographicNo int the demographicNo
+     * @param contactId int the contactId
+     * @return List<DemographicContact>
+     */
     public List<DemographicContact> find(int demographicNo, int contactId);
 
+    /**
+     * Find All By Contact Id And Category And Type.
+     *
+     * @param contactId int the contactId
+     * @param category String the category
+     * @param type int the type
+     * @return List<DemographicContact>
+     */
     public List<DemographicContact> findAllByContactIdAndCategoryAndType(int contactId, String category, int type);
 
     public List<DemographicContact> findAllByDemographicNoAndCategoryAndType(int demographicNo, String category,
                                                                              int type);
 
+    /**
+     * Find S D M By Demographic No.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<DemographicContact>
+     */
     public List<DemographicContact> findSDMByDemographicNo(int demographicNo);
 }

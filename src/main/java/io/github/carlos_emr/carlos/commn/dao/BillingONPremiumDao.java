@@ -47,11 +47,41 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  */
 
 public interface BillingONPremiumDao extends AbstractDao<BillingONPremium> {
+    /**
+     * Get Active R A Premiums By Pay Date.
+     *
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @param locale Locale the locale
+     * @return List<BillingONPremium>
+     */
     List<BillingONPremium> getActiveRAPremiumsByPayDate(Date startDate, Date endDate, Locale locale);
 
+    /**
+     * Get Active R A Premiums By Provider.
+     *
+     * @param p Provider the p
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @param locale Locale the locale
+     * @return List<BillingONPremium>
+     */
     List<BillingONPremium> getActiveRAPremiumsByProvider(Provider p, Date startDate, Date endDate, Locale locale);
 
+    /**
+     * Get R A Premiums By Ra Header No.
+     *
+     * @param raHeaderNo Integer the raHeaderNo
+     * @return List<BillingONPremium>
+     */
     List<BillingONPremium> getRAPremiumsByRaHeaderNo(Integer raHeaderNo);
 
+    /**
+     * Parse And Save R A Premiums.
+     *
+     * @param loggedInInfo LoggedInInfo the loggedInInfo
+     * @param raHeaderNo Integer the raHeaderNo
+     * @param locale Locale the locale
+     */
     void parseAndSaveRAPremiums(LoggedInInfo loggedInInfo, Integer raHeaderNo, Locale locale);
 }

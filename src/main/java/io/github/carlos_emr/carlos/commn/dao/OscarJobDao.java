@@ -43,7 +43,19 @@ import io.github.carlos_emr.carlos.commn.model.OscarJobType;
  */
 
 public interface OscarJobDao extends AbstractDao<OscarJob> {
+    /**
+     * Find By Type.
+     *
+     * @param oscarJobType OscarJobType the oscarJobType
+     * @return List<OscarJob>
+     */
     List<OscarJob> findByType(OscarJobType oscarJobType);
 
+    /**
+     * Get Job By Name.
+     *
+     * @param name String the name
+     * @return List<OscarJob>
+     */
     List<OscarJob> getJobByName(String name);
 }

@@ -48,37 +48,124 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo2;
 
 public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
 
+    /**
+     * Find All.
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> findAll();
 
+    /**
+     * Find Lab Id.
+     *
+     * @param labId int the labId
+     * @return Hl7TextInfo
+     */
     public Hl7TextInfo findLabId(int labId);
 
+    /**
+     * Find By Health Card No.
+     *
+     * @param hin String the hin
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> findByHealthCardNo(String hin);
 
+    /**
+     * Search By Accession Number.
+     *
+     * @param acc String the acc
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> searchByAccessionNumber(String acc);
 
+    /**
+     * Search By Accession Number.
+     *
+     * @param acc1 String the acc1
+     * @param acc2 String the acc2
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> searchByAccessionNumber(String acc1, String acc2);
 
+    /**
+     * Search By Accession Number Order By Obr Date.
+     *
+     * @param accessionNumber String the accessionNumber
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> searchByAccessionNumberOrderByObrDate(String accessionNumber);
 
     public Hl7TextInfo findLatestVersionByAccessionNumberOrFillerNumber(
             String acc, String fillerNumber);
 
+    /**
+     * Get Matching Labs.
+     *
+     * @param hl7msg String the hl7msg
+     * @return List<Hl7TextMessageInfo>
+     */
     public List<Hl7TextMessageInfo> getMatchingLabs(String hl7msg);
 
+    /**
+     * Get Matching Labs By Accession No.
+     *
+     * @param accession String the accession
+     * @return List<Hl7TextMessageInfo2>
+     */
     public List<Hl7TextMessageInfo2> getMatchingLabsByAccessionNo(String accession);
 
+    /**
+     * Get All Labs By Lab Number Result Status.
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> getAllLabsByLabNumberResultStatus();
 
+    /**
+     * Update Result Status By Lab Id.
+     *
+     * @param resultStatus String the resultStatus
+     * @param labNumber int the labNumber
+     */
     public void updateResultStatusByLabId(String resultStatus, int labNumber);
 
+    /**
+     * Create Update Label By Lab Number.
+     *
+     * @param label String the label
+     * @param lab_no int the lab_no
+     */
     public void createUpdateLabelByLabNumber(String label, int lab_no);
 
+    /**
+     * Find By Lab Id.
+     *
+     * @param labNo Integer the labNo
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> findByLabId(Integer labNo);
 
+    /**
+     * Find By Lab Id Via Magic.
+     *
+     * @param labNo Integer the labNo
+     * @return List<Object[]>
+     */
     public List<Object[]> findByLabIdViaMagic(Integer labNo);
 
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Object[]>
+     */
     public List<Object[]> findByDemographicId(Integer demographicNo);
 
+    /**
+     * Find By Lab Id List.
+     *
+     * @param labIds List<Integer> the labIds
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> findByLabIdList(List<Integer> labIds);
 
     public List<Object[]> findLabsViaMagic(String status, String providerNo, String patientFirstName,
@@ -94,7 +181,19 @@ public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
                                                  Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch,
                                                  Date startDate, Date endDate);
 
+    /**
+     * Find Disciplines.
+     *
+     * @param labid Integer the labid
+     * @return List<Object>
+     */
     public List<Object> findDisciplines(Integer labid);
 
+    /**
+     * Find By Filler Order Number.
+     *
+     * @param fillerOrderNum String the fillerOrderNum
+     * @return List<Hl7TextInfo>
+     */
     public List<Hl7TextInfo> findByFillerOrderNumber(String fillerOrderNum);
 }

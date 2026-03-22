@@ -47,8 +47,18 @@ public interface FaxJobDao extends AbstractDao<FaxJob> {
     public List<FaxJob> getFaxStatusByDateDemographicProviderStatusTeam(String demographic_no, String provider_no,
                                                                         String status, String team, Date beginDate, Date endDate);
 
+    /**
+     * Get Ready To Send Faxes.
+     *
+     * @param number String the number
+     * @return List<FaxJob>
+     */
     public List<FaxJob> getReadyToSendFaxes(String number);
 
+    /**
+     * Get Inprogress Faxes By Job Id.
+     * @return List<FaxJob>
+     */
     public List<FaxJob> getInprogressFaxesByJobId();
 
 }

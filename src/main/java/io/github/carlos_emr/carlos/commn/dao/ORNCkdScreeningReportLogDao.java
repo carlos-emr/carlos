@@ -42,5 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.ORNCkdScreeningReportLog;
  */
 
 public interface ORNCkdScreeningReportLogDao extends AbstractDao<ORNCkdScreeningReportLog> {
+    /**
+     * Get All Reports.
+     * @return List<ORNCkdScreeningReportLog>
+     */
     List<ORNCkdScreeningReportLog> getAllReports();
 }

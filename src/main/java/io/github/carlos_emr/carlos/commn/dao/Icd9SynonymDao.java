@@ -40,5 +40,11 @@ import io.github.carlos_emr.carlos.commn.model.Icd9Synonym;
  */
 
 public interface Icd9SynonymDao extends AbstractDao<Icd9Synonym> {
+    /**
+     * Find Patient Friendly Translation For.
+     *
+     * @param dxCode String the dxCode
+     * @return Icd9Synonym
+     */
     Icd9Synonym findPatientFriendlyTranslationFor(String dxCode);
 }

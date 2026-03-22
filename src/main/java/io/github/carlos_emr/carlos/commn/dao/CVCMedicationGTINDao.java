@@ -43,7 +43,16 @@ import io.github.carlos_emr.carlos.commn.model.CVCMedicationGTIN;
 
 public interface CVCMedicationGTINDao extends AbstractDao<CVCMedicationGTIN> {
 
+    /**
+     * Remove All.
+     */
     public void removeAll();
 
+    /**
+     * Query.
+     *
+     * @param term String the term
+     * @return List<CVCMedicationGTIN>
+     */
     public List<CVCMedicationGTIN> query(String term);
 }

@@ -43,13 +43,43 @@ import io.github.carlos_emr.carlos.commn.model.FacilityMessage;
 
 public interface FacilityMessageDao extends AbstractDao<FacilityMessage> {
 
+    /**
+     * Get Messages.
+     * @return List<FacilityMessage>
+     */
     public List<FacilityMessage> getMessages();
 
+    /**
+     * Get Messages By Facility Id.
+     *
+     * @param facilityId Integer the facilityId
+     * @return List<FacilityMessage>
+     */
     public List<FacilityMessage> getMessagesByFacilityId(Integer facilityId);
 
+    /**
+     * Get Messages By Facility Id Or Null.
+     *
+     * @param facilityId Integer the facilityId
+     * @return List<FacilityMessage>
+     */
     public List<FacilityMessage> getMessagesByFacilityIdOrNull(Integer facilityId);
 
+    /**
+     * Get Messages By Facility Id And Program Id.
+     *
+     * @param facilityId Integer the facilityId
+     * @param programId Integer the programId
+     * @return List<FacilityMessage>
+     */
     public List<FacilityMessage> getMessagesByFacilityIdAndProgramId(Integer facilityId, Integer programId);
 
+    /**
+     * Get Messages By Facility Id Or Null And Program Id Or Null.
+     *
+     * @param facilityId Integer the facilityId
+     * @param programId Integer the programId
+     * @return List<FacilityMessage>
+     */
     public List<FacilityMessage> getMessagesByFacilityIdOrNullAndProgramIdOrNull(Integer facilityId, Integer programId);
 }

@@ -40,5 +40,13 @@ import io.github.carlos_emr.carlos.commn.model.HnrDataValidation;
  */
 
 public interface HnrDataValidationDao extends AbstractDao<HnrDataValidation> {
+    /**
+     * Find Most Current By Facility Id Client Id Type.
+     *
+     * @param facilityId Integer the facilityId
+     * @param clientId Integer the clientId
+     * @param type HnrDataValidation.Type the type
+     * @return HnrDataValidation
+     */
     HnrDataValidation findMostCurrentByFacilityIdClientIdType(Integer facilityId, Integer clientId, HnrDataValidation.Type type);
 }

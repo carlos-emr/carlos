@@ -27,6 +27,11 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth;
 
+/**
+ * Domain model representing a client's registration request for obtaining an OAuth 1.0a request token.
+ *
+ * @since 2026-01-18
+ */
 public class RequestTokenRegistration {
     private Client client;
     private String callback;

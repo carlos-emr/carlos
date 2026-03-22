@@ -42,15 +42,53 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocType;
  */
 
 public interface CtlDocTypeDao extends AbstractDao<CtlDocType> {
+    /**
+     * Change Doc Type.
+     *
+     * @param docType String the docType
+     * @param module String the module
+     * @param status String the status
+     */
     void changeDocType(String docType, String module, String status);
 
+    /**
+     * Find By Status And Module.
+     *
+     * @param status String[] the status
+     * @param module String the module
+     * @return List<CtlDocType>
+     */
     List<CtlDocType> findByStatusAndModule(String[] status, String module);
 
+    /**
+     * Find By Status And Module.
+     *
+     * @param status List<String> the status
+     * @param module String the module
+     * @return List<CtlDocType>
+     */
     List<CtlDocType> findByStatusAndModule(List<String> status, String module);
 
+    /**
+     * Find By Doc Type And Module.
+     *
+     * @param docType String the docType
+     * @param module String the module
+     * @return List<CtlDocType>
+     */
     List<CtlDocType> findByDocTypeAndModule(String docType, String module);
 
+    /**
+     * Add Doc Type.
+     *
+     * @param docType String the docType
+     * @param module String the module
+     */
     void addDocType(String docType, String module);
 
+    /**
+     * Find Modules.
+     * @return List<String>
+     */
     List<String> findModules();
 }

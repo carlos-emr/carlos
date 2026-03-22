@@ -42,11 +42,33 @@ import java.util.List;
  */
 
 public interface ServiceClientDao extends AbstractDao<ServiceClient> {
+    /**
+     * Find All.
+     * @return List<ServiceClient>
+     */
     List<ServiceClient> findAll();
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return ServiceClient
+     */
     ServiceClient findByName(String name);
 
+    /**
+     * Find By Key.
+     *
+     * @param key String the key
+     * @return ServiceClient
+     */
     ServiceClient findByKey(String key);
 
+    /**
+     * Find.
+     *
+     * @param id Integer the id
+     * @return ServiceClient
+     */
     ServiceClient find(Integer id);
 }

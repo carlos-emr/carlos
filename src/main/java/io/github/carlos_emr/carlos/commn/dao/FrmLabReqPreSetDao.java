@@ -42,5 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.FrmLabReqPreSet;
  */
 
 public interface FrmLabReqPreSetDao extends AbstractDao<FrmLabReqPreSet> {
+    /**
+     * Fill Properties By Lab Type.
+     *
+     * @param labType String the labType
+     * @param prop Properties the prop
+     * @return Properties
+     */
     Properties fillPropertiesByLabType(String labType, Properties prop);
 }

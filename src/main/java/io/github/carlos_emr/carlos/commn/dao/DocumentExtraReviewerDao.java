@@ -42,5 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer;
  */
 
 public interface DocumentExtraReviewerDao extends AbstractDao<DocumentExtraReviewer> {
+    /**
+     * Find By Document No.
+     *
+     * @param documentNo Integer the documentNo
+     * @return List<DocumentExtraReviewer>
+     */
     List<DocumentExtraReviewer> findByDocumentNo(Integer documentNo);
 }

@@ -44,9 +44,27 @@ import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
 
 public interface OscarCommLocationsDao extends AbstractDao<OscarCommLocations> {
 
+    /**
+     * Find By Current1.
+     *
+     * @param current1 int the current1
+     * @return List<OscarCommLocations>
+     */
     public List<OscarCommLocations> findByCurrent1(int current1);
 
+    /**
+     * Find Form Location By Messsage Id.
+     *
+     * @param messId String the messId
+     * @return List<Object[]>
+     */
     public List<Object[]> findFormLocationByMesssageId(String messId);
 
+    /**
+     * Find Attachments By Message Id.
+     *
+     * @param messageId String the messageId
+     * @return List<Object[]>
+     */
     public List<Object[]> findAttachmentsByMessageId(String messageId);
 }

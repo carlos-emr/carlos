@@ -43,21 +43,90 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
  */
 
 public interface ScheduleDateDao extends AbstractDao<ScheduleDate> {
+    /**
+     * Find By Provider No And Date.
+     *
+     * @param providerNo String the providerNo
+     * @param date Date the date
+     * @return ScheduleDate
+     */
     ScheduleDate findByProviderNoAndDate(String providerNo, Date date);
 
+    /**
+     * Find By Provider Priority And Date Range.
+     *
+     * @param providerNo String the providerNo
+     * @param priority char the priority
+     * @param date Date the date
+     * @param date2 Date the date2
+     * @return List<ScheduleDate>
+     */
     List<ScheduleDate> findByProviderPriorityAndDateRange(String providerNo, char priority, Date date, Date date2);
 
+    /**
+     * Find By Provider And Date Range.
+     *
+     * @param providerNo String the providerNo
+     * @param date Date the date
+     * @param date2 Date the date2
+     * @return List<ScheduleDate>
+     */
     List<ScheduleDate> findByProviderAndDateRange(String providerNo, Date date, Date date2);
 
+    /**
+     * Search_scheduledate_c.
+     *
+     * @param providerNo String the providerNo
+     * @return List<ScheduleDate>
+     */
     List<ScheduleDate> search_scheduledate_c(String providerNo);
 
+    /**
+     * Search_numgrpscheduledate.
+     *
+     * @param myGroupNo String the myGroupNo
+     * @param sDate Date the sDate
+     * @return List<ScheduleDate>
+     */
     List<ScheduleDate> search_numgrpscheduledate(String myGroupNo, Date sDate);
 
+    /**
+     * Search_appttimecode.
+     *
+     * @param sDate Date the sDate
+     * @param providerNo String the providerNo
+     * @return List<Object[]>
+     */
     List<Object[]> search_appttimecode(Date sDate, String providerNo);
 
+    /**
+     * Search_scheduledate_teamp.
+     *
+     * @param date Date the date
+     * @param date2 Date the date2
+     * @param status Character the status
+     * @param providerNos List<String> the providerNos
+     * @return List<ScheduleDate>
+     */
     List<ScheduleDate> search_scheduledate_teamp(Date date, Date date2, Character status, List<String> providerNos);
 
+    /**
+     * Search_scheduledate_datep.
+     *
+     * @param date Date the date
+     * @param date2 Date the date2
+     * @param status Character the status
+     * @return List<ScheduleDate>
+     */
     List<ScheduleDate> search_scheduledate_datep(Date date, Date date2, Character status);
 
+    /**
+     * Find By Provider Start Date And Priority.
+     *
+     * @param providerNo String the providerNo
+     * @param apptDate Date the apptDate
+     * @param priority String the priority
+     * @return List<ScheduleDate>
+     */
     List<ScheduleDate> findByProviderStartDateAndPriority(String providerNo, Date apptDate, String priority);
 }

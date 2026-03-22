@@ -43,5 +43,12 @@ import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
  */
 
 public interface ProviderFacilityDao extends AbstractDao<ProviderFacility> {
+    /**
+     * Find By Provider No And Facility Id.
+     *
+     * @param providerNo String the providerNo
+     * @param facilityId int the facilityId
+     * @return List<ProviderFacility>
+     */
     List<ProviderFacility> findByProviderNoAndFacilityId(String providerNo, int facilityId);
 }

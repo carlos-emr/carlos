@@ -64,6 +64,12 @@ public class TicklerHandler {
     private Integer[] demographicArray;
     private LoggedInInfo loggedinInfo;
 
+    /**
+     * Constructs a TicklerHandler with the required session and manager dependencies.
+     *
+     * @param loggedinInfo LoggedInInfo the logged-in user context
+     * @param ticklerManager TicklerManager the manager for tickler persistence
+     */
     public TicklerHandler(LoggedInInfo loggedinInfo, TicklerManager ticklerManager) {
         this.loggedinInfo = loggedinInfo;
         this.ticklerManager = ticklerManager;

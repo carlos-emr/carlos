@@ -43,21 +43,75 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated;
 
 public interface FlowSheetUserCreatedDao extends AbstractDao<FlowSheetUserCreated> {
 
+    /**
+     * Find Active No Template.
+     * @return List<FlowSheetUserCreated>
+     */
     List<FlowSheetUserCreated> findActiveNoTemplate();
 
+    /**
+     * Get All User Created Flow Sheets.
+     * @return List<FlowSheetUserCreated>
+     */
     List<FlowSheetUserCreated> getAllUserCreatedFlowSheets();
 
+    /**
+     * Find Active By Scope.
+     *
+     * @param scope String the scope
+     * @return List<FlowSheetUserCreated>
+     */
     List<FlowSheetUserCreated> findActiveByScope(String scope);
 
+    /**
+     * Find By Patient Scope.
+     *
+     * @param template String the template
+     * @param demographicNo Integer the demographicNo
+     * @return FlowSheetUserCreated
+     */
     FlowSheetUserCreated findByPatientScope(String template, Integer demographicNo);
 
+    /**
+     * Find By Provider Scope.
+     *
+     * @param template String the template
+     * @param providerNo String the providerNo
+     * @return FlowSheetUserCreated
+     */
     FlowSheetUserCreated findByProviderScope(String template, String providerNo);
 
+    /**
+     * Find By Clinic Scope.
+     *
+     * @param template String the template
+     * @return FlowSheetUserCreated
+     */
     FlowSheetUserCreated findByClinicScope(String template);
 
+    /**
+     * Find By Patient Scope Name.
+     *
+     * @param name String the name
+     * @param demographicNo Integer the demographicNo
+     * @return FlowSheetUserCreated
+     */
     FlowSheetUserCreated findByPatientScopeName(String name, Integer demographicNo);
 
+    /**
+     * Find By Provider Scope Name.
+     *
+     * @param name String the name
+     * @param providerNo String the providerNo
+     * @return FlowSheetUserCreated
+     */
     FlowSheetUserCreated findByProviderScopeName(String name, String providerNo);
 
+    /**
+     * Find By Clinic Scope Name.
+     *
+     * @param name String the name
+     * @return FlowSheetUserCreated
+     */
     FlowSheetUserCreated findByClinicScopeName(String name);
 }

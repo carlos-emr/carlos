@@ -44,7 +44,19 @@ import io.github.carlos_emr.carlos.commn.model.ReportTemp;
  */
 
 public interface ReportTempDao extends AbstractDao<ReportTemp> {
+    /**
+     * Find All.
+     * @return List<ReportTemp>
+     */
     List<ReportTemp> findAll();
 
+    /**
+     * Find Greate Than Edb.
+     *
+     * @param edb Date the edb
+     * @param offset int the offset
+     * @param limit int the limit
+     * @return List<ReportTemp>
+     */
     List<ReportTemp> findGreateThanEdb(Date edb, int offset, int limit);
 }

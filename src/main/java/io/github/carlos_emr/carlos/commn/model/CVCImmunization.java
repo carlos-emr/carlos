@@ -33,6 +33,17 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
+/**
+ * Represents a Canadian Vaccine Catalogue (CVC) immunization entry in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code CVCImmunization} table and stores standardized vaccine
+ * definitions from the Canadian Vaccine Catalogue, including SNOMED concept IDs,
+ * display names, and generic/trade name classification.</p>
+ *
+ * @see CVCMapping
+ * @see CVCMedication
+ * @since 2001-01-01
+ */
 @Entity
 public class CVCImmunization extends AbstractModel<Integer> {
 

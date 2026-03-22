@@ -43,25 +43,98 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
  */
 
 public interface DiagnosticCodeDao extends AbstractCodeSystemDao<DiagnosticCode> {
+    /**
+     * Find By Diagnostic Code.
+     *
+     * @param diagnosticCode String the diagnosticCode
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> findByDiagnosticCode(String diagnosticCode);
 
+    /**
+     * Find By Diagnostic Code And Region.
+     *
+     * @param diagnosticCode String the diagnosticCode
+     * @param region String the region
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> findByDiagnosticCodeAndRegion(String diagnosticCode, String region);
 
+    /**
+     * Search.
+     *
+     * @param searchString String the searchString
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> search(String searchString);
 
+    /**
+     * New Search.
+     *
+     * @param a String the a
+     * @param b String the b
+     * @param c String the c
+     * @param d String the d
+     * @param e String the e
+     * @param f String the f
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> newSearch(String a, String b, String c, String d, String e, String f);
 
+    /**
+     * Search Code.
+     *
+     * @param code String the code
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> searchCode(String code);
 
+    /**
+     * Search Text.
+     *
+     * @param description String the description
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> searchText(String description);
 
+    /**
+     * Get By Dx Code.
+     *
+     * @param dxCode String the dxCode
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> getByDxCode(String dxCode);
 
+    /**
+     * Find By Region And Type.
+     *
+     * @param billRegion String the billRegion
+     * @param serviceType String the serviceType
+     * @return List<DiagnosticCode>
+     */
     List<DiagnosticCode> findByRegionAndType(String billRegion, String serviceType);
 
+    /**
+     * Find Diagnosicts And Ctl Diag Codes By Service Type.
+     *
+     * @param serviceType String the serviceType
+     * @return List<Object[]>
+     */
     List<Object[]> findDiagnosictsAndCtlDiagCodesByServiceType(String serviceType);
 
+    /**
+     * Find By Code.
+     *
+     * @param code String the code
+     * @return DiagnosticCode
+     */
     DiagnosticCode findByCode(String code);
 
+    /**
+     * Find By Coding System.
+     *
+     * @param codingSystem String the codingSystem
+     * @return AbstractCodeSystemModel<?>
+     */
     AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem);
 }

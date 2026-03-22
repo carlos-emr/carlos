@@ -163,12 +163,24 @@ public class ScheduleWs extends AbstractWs {
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
+    /**
+     * Retrieves a provider's work schedule for a specific day.
+     *
+     * @param providerNo String the provider number
+     * @param date Calendar the date to retrieve the schedule for
+     * @return DayWorkScheduleTransfer the day's schedule, or null if none configured
+     */
     public DayWorkScheduleTransfer getDayWorkSchedule(String providerNo, Calendar date) {
         DayWorkSchedule dayWorkSchedule = scheduleManager.getDayWorkSchedule(providerNo, date);
         if (dayWorkSchedule == null) return (null);
         else return (DayWorkScheduleTransfer.toTransfer(dayWorkSchedule));
     }
 
+    /**
+     * Retrieves all configured appointment types.
+     *
+     * @return AppointmentTypeTransfer[] array of appointment types
+     */
     public AppointmentTypeTransfer[] getAppointmentTypes() {
         List<AppointmentType> appointmentTypes = scheduleManager.getAppointmentTypes();
         return (AppointmentTypeTransfer.toTransfer(appointmentTypes));

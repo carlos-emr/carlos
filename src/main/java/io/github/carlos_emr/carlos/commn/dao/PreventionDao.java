@@ -42,31 +42,125 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
  */
 
 public interface PreventionDao extends AbstractDao<Prevention> {
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Prevention>
+     */
     List<Prevention> findByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Update Date.
+     *
+     * @param updatedAfterThisDateExclusive Date the updatedAfterThisDateExclusive
+     * @param itemsToReturn int the itemsToReturn
+     * @return List<Prevention>
+     */
     List<Prevention> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
 
+    /**
+     * Find By Demographic Id After Datetime.
+     *
+     * @param demographicId Integer the demographicId
+     * @param dateTime Date the dateTime
+     * @return List<Prevention>
+     */
     List<Prevention> findByDemographicIdAfterDatetime(Integer demographicId, Date dateTime);
 
+    /**
+     * Find By Demographic Id After Datetime Exclusive.
+     *
+     * @param demographicId Integer the demographicId
+     * @param dateTime Date the dateTime
+     * @return List<Prevention>
+     */
     List<Prevention> findByDemographicIdAfterDatetimeExclusive(Integer demographicId, Date dateTime);
 
+    /**
+     * Find Demographic Ids After Datetime.
+     *
+     * @param dateTime Date the dateTime
+     * @return List<Integer>
+     */
     List<Integer> findDemographicIdsAfterDatetime(Date dateTime);
 
+    /**
+     * Find By Provider Demographic Last Update Date.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicId Integer the demographicId
+     * @param updatedAfterThisDateExclusive Date the updatedAfterThisDateExclusive
+     * @param itemsToReturn int the itemsToReturn
+     * @return List<Prevention>
+     */
     List<Prevention> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn);
 
+    /**
+     * Find Not Deleted By Demographic Id After Datetime.
+     *
+     * @param demographicId Integer the demographicId
+     * @param dateTime Date the dateTime
+     * @return List<Prevention>
+     */
     List<Prevention> findNotDeletedByDemographicIdAfterDatetime(Integer demographicId, Date dateTime);
 
+    /**
+     * Find Non Deleted Ids By Demographic.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Integer>
+     */
     List<Integer> findNonDeletedIdsByDemographic(Integer demographicId);
 
+    /**
+     * Find Not Deleted By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Prevention>
+     */
     List<Prevention> findNotDeletedByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Type And Date.
+     *
+     * @param preventionType String the preventionType
+     * @param startDate Date the startDate
+     * @param endDate Date the endDate
+     * @return List<Prevention>
+     */
     List<Prevention> findByTypeAndDate(String preventionType, Date startDate, Date endDate);
 
+    /**
+     * Find By Type And Demo No.
+     *
+     * @param preventionType String the preventionType
+     * @param demoNo Integer the demoNo
+     * @return List<Prevention>
+     */
     List<Prevention> findByTypeAndDemoNo(String preventionType, Integer demoNo);
 
+    /**
+     * Find Active By Demo Id.
+     *
+     * @param demoId Integer the demoId
+     * @return List<Prevention>
+     */
     List<Prevention> findActiveByDemoId(Integer demoId);
 
+    /**
+     * Find Unique By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Prevention>
+     */
     List<Prevention> findUniqueByDemographicId(Integer demographicId);
 
+    /**
+     * Find New Preventions Since Demo Key.
+     *
+     * @param keyName String the keyName
+     * @return List<Integer>
+     */
     List<Integer> findNewPreventionsSinceDemoKey(String keyName);
 }

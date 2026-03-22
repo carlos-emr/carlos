@@ -43,20 +43,63 @@ import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
  */
 
 public interface BillingOnItemPaymentDao extends AbstractDao<BillingOnItemPayment> {
+    /**
+     * Find By Payment Id And Item Id.
+     *
+     * @param paymentId int the paymentId
+     * @param itemId int the itemId
+     * @return BillingOnItemPayment
+     */
     BillingOnItemPayment findByPaymentIdAndItemId(int paymentId, int itemId);
 
+    /**
+     * Get All By Item Id.
+     *
+     * @param itemId int the itemId
+     * @return List<BillingOnItemPayment>
+     */
     List<BillingOnItemPayment> getAllByItemId(int itemId);
 
+    /**
+     * Get Items By Payment Id.
+     *
+     * @param paymentId int the paymentId
+     * @return List<BillingOnItemPayment>
+     */
     List<BillingOnItemPayment> getItemsByPaymentId(int paymentId);
 
+    /**
+     * Get Amount Paid By Item Id.
+     *
+     * @param itemId int the itemId
+     * @return BigDecimal
+     */
     BigDecimal getAmountPaidByItemId(int itemId);
 
+    /**
+     * Get Item Payment By Invoice No Item Id.
+     *
+     * @param ch1_id Integer the ch1_id
+     * @param item_id Integer the item_id
+     * @return List<BillingOnItemPayment>
+     */
     List<BillingOnItemPayment> getItemPaymentByInvoiceNoItemId(Integer ch1_id, Integer item_id);
 
+    /**
+     * Find By Billing No.
+     *
+     * @param billingNo int the billingNo
+     * @return List<BillingOnItemPayment>
+     */
     List<BillingOnItemPayment> findByBillingNo(int billingNo);
 
     public static BigDecimal calculateItemPaymentTotal(List<BillingOnItemPayment> paymentRecords) {
 
+    /**
+     * Big Decimal.
+     *
+     * @return new
+     */
         BigDecimal paidTotal = new BigDecimal("0.00");
         for (BillingOnItemPayment bPay : paymentRecords) {
             BigDecimal amtPaid = bPay.getPaid();
@@ -68,6 +111,11 @@ public interface BillingOnItemPaymentDao extends AbstractDao<BillingOnItemPaymen
 
     public static BigDecimal calculateItemRefundTotal(List<BillingOnItemPayment> paymentRecords) {
 
+    /**
+     * Big Decimal.
+     *
+     * @return new
+     */
         BigDecimal refundTotal = new BigDecimal("0.00");
         for (BillingOnItemPayment bPay : paymentRecords) {
             BigDecimal amtRefunded = bPay.getRefund();

@@ -30,8 +30,23 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 public interface InboxResultsDao {
 
+    /**
+     * Populate H L7 Results Data.
+     *
+     * @param demographicNo String the demographicNo
+     * @param consultationId String the consultationId
+     * @param attached boolean the attached
+     * @return ArrayList
+     */
     public ArrayList populateHL7ResultsData(String demographicNo, String consultationId, boolean attached);
 
+    /**
+     * Is Sent To Provider.
+     *
+     * @param docNo String the docNo
+     * @param providerNo String the providerNo
+     * @return boolean
+     */
     public boolean isSentToProvider(String docNo, String providerNo);
 
     public ArrayList populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,

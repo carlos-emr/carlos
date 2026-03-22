@@ -42,7 +42,17 @@ import io.github.carlos_emr.carlos.commn.model.CaisiAccessType;
  */
 
 public interface CaisiAccessTypeDao extends AbstractDao<CaisiAccessType> {
+    /**
+     * Find All.
+     * @return List<CaisiAccessType>
+     */
     List<CaisiAccessType> findAll();
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return CaisiAccessType
+     */
     CaisiAccessType findByName(String name);
 }

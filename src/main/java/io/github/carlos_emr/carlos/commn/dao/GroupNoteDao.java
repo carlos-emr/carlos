@@ -44,11 +44,36 @@ import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 
 public interface GroupNoteDao extends AbstractDao<GroupNoteLink> {
 
+    /**
+     * Find Links By Demographic.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<GroupNoteLink>
+     */
     public List<GroupNoteLink> findLinksByDemographic(Integer demographicNo);
 
+    /**
+     * Find Links By Demographic Since.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param lastDateUpdated Date the lastDateUpdated
+     * @return List<GroupNoteLink>
+     */
     public List<GroupNoteLink> findLinksByDemographicSince(Integer demographicNo, Date lastDateUpdated);
 
+    /**
+     * Find Links By Note Id.
+     *
+     * @param noteId Integer the noteId
+     * @return List<GroupNoteLink>
+     */
     public List<GroupNoteLink> findLinksByNoteId(Integer noteId);
 
+    /**
+     * Get Number Of Links By Note Id.
+     *
+     * @param noteId Integer the noteId
+     * @return int
+     */
     public int getNumberOfLinksByNoteId(Integer noteId);
 }

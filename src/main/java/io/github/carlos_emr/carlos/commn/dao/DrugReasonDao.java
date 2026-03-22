@@ -43,11 +43,40 @@ import io.github.carlos_emr.carlos.commn.model.DrugReason;
 
 public interface DrugReasonDao extends AbstractDao<DrugReason> {
 
+    /**
+     * Add New Drug Reason.
+     *
+     * @param d DrugReason the d
+     * @return boolean
+     */
     boolean addNewDrugReason(DrugReason d);
 
+    /**
+     * Has Reason.
+     *
+     * @param drugId Integer the drugId
+     * @param codingSystem String the codingSystem
+     * @param code String the code
+     * @param onlyActive boolean the onlyActive
+     * @return Boolean
+     */
     Boolean hasReason(Integer drugId, String codingSystem, String code, boolean onlyActive);
 
+    /**
+     * Get Reasons For Drug I D.
+     *
+     * @param drugId Integer the drugId
+     * @param onlyActive boolean the onlyActive
+     * @return List<DrugReason>
+     */
     List<DrugReason> getReasonsForDrugID(Integer drugId, boolean onlyActive);
 
+    /**
+     * Get Reasons By Icd9 Code And Demographic No.
+     *
+     * @param icd9Code String the icd9Code
+     * @param demographicNo Integer the demographicNo
+     * @return List<DrugReason>
+     */
     List<DrugReason> getReasonsByIcd9CodeAndDemographicNo(String icd9Code, Integer demographicNo);
 }

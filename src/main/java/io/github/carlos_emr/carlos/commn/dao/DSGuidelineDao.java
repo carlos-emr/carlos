@@ -42,7 +42,19 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
  */
 
 public interface DSGuidelineDao extends AbstractDao<DSGuideline> {
+    /**
+     * Find By U U I D.
+     *
+     * @param uuid String the uuid
+     * @return DSGuideline
+     */
     DSGuideline findByUUID(String uuid);
 
+    /**
+     * Get D S Guidelines By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return List<DSGuideline>
+     */
     List<DSGuideline> getDSGuidelinesByProvider(String providerNo);
 }

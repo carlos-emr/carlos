@@ -42,5 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.CssStyle;
  */
 
 public interface CSSStylesDAO extends AbstractDao<CssStyle> {
+    /**
+     * Find All.
+     * @return List<CssStyle>
+     */
     List<CssStyle> findAll();
 }

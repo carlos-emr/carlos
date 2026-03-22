@@ -43,9 +43,24 @@ import io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber;
 
 public interface CVCMedicationLotNumberDao extends AbstractDao<CVCMedicationLotNumber> {
 
+    /**
+     * Remove All.
+     */
     public void removeAll();
 
+    /**
+     * Find By Lot Number.
+     *
+     * @param lotNumber String the lotNumber
+     * @return CVCMedicationLotNumber
+     */
     public CVCMedicationLotNumber findByLotNumber(String lotNumber);
 
+    /**
+     * Query.
+     *
+     * @param term String the term
+     * @return List<CVCMedicationLotNumber>
+     */
     public List<CVCMedicationLotNumber> query(String term);
 }

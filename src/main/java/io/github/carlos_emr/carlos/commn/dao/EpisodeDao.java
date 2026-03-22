@@ -43,11 +43,39 @@ import io.github.carlos_emr.carlos.commn.model.Episode;
  */
 
 public interface EpisodeDao extends AbstractDao<Episode> {
+    /**
+     * Find All.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Episode>
+     */
     List<Episode> findAll(Integer demographicNo);
 
+    /**
+     * Find All Current.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Episode>
+     */
     List<Episode> findAllCurrent(Integer demographicNo);
 
+    /**
+     * Find Current By Code Type And Codes.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param codeType String the codeType
+     * @param codes Collection<String> the codes
+     * @return List<Episode>
+     */
     List<Episode> findCurrentByCodeTypeAndCodes(Integer demographicNo, String codeType, Collection<String> codes);
 
+    /**
+     * Find Completed By Code Type And Codes.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param codeType String the codeType
+     * @param codes Collection<String> the codes
+     * @return List<Episode>
+     */
     List<Episode> findCompletedByCodeTypeAndCodes(Integer demographicNo, String codeType, Collection<String> codes);
 }

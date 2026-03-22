@@ -42,5 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingServiceSexRules;
  */
 
 public interface CtlBillingServiceSexRulesDao extends AbstractDao<CtlBillingServiceSexRules> {
+    /**
+     * Find By Service Code.
+     *
+     * @param serviceCode String the serviceCode
+     * @return List<CtlBillingServiceSexRules>
+     */
     List<CtlBillingServiceSexRules> findByServiceCode(String serviceCode);
 }

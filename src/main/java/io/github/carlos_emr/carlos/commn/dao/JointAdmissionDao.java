@@ -42,11 +42,34 @@ import io.github.carlos_emr.carlos.commn.model.JointAdmission;
  */
 
 public interface JointAdmissionDao extends AbstractDao<JointAdmission> {
+    /**
+     * Get Spouse And Dependents.
+     *
+     * @param clientId Integer the clientId
+     * @return List<JointAdmission>
+     */
     List<JointAdmission> getSpouseAndDependents(Integer clientId);
 
+    /**
+     * Get Joint Admission.
+     *
+     * @param clientId Integer the clientId
+     * @return JointAdmission
+     */
     JointAdmission getJointAdmission(Integer clientId);
 
+    /**
+     * Remove Joint Admission.
+     *
+     * @param clientId Integer the clientId
+     * @param providerNo String the providerNo
+     */
     void removeJointAdmission(Integer clientId, String providerNo);
 
+    /**
+     * Remove Joint Admission.
+     *
+     * @param admission JointAdmission the admission
+     */
     void removeJointAdmission(JointAdmission admission);
 }

@@ -43,12 +43,32 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 
 public interface EncounterFormDao extends AbstractDao<EncounterForm> {
 
+    /**
+     * Find All.
+     * @return List<EncounterForm>
+     */
     public List<EncounterForm> findAll();
 
+    /**
+     * Find All Not Hidden.
+     * @return List<EncounterForm>
+     */
     public List<EncounterForm> findAllNotHidden();
 
+    /**
+     * Find By Form Name.
+     *
+     * @param formName String the formName
+     * @return List<EncounterForm>
+     */
     public List<EncounterForm> findByFormName(String formName);
 
+    /**
+     * Find By Form Table.
+     *
+     * @param formTable String the formTable
+     * @return List<EncounterForm>
+     */
     public List<EncounterForm> findByFormTable(String formTable);
 
 }

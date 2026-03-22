@@ -42,5 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.ORNPreImplementationReportLog;
  */
 
 public interface ORNPreImplementationReportLogDao extends AbstractDao<ORNPreImplementationReportLog> {
+    /**
+     * Get All Reports.
+     * @return List<ORNPreImplementationReportLog>
+     */
     List<ORNPreImplementationReportLog> getAllReports();
 }

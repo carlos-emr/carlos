@@ -43,7 +43,25 @@ import io.github.carlos_emr.carlos.commn.model.ReportConfig;
  */
 
 public interface ReportConfigDao extends AbstractDao<ReportConfig> {
+    /**
+     * Find By Report Id And Name And Caption And Table Name And Save.
+     *
+     * @param reportId int the reportId
+     * @param name String the name
+     * @param caption String the caption
+     * @param tableName String the tableName
+     * @param save String the save
+     * @return List<ReportConfig>
+     */
     List<ReportConfig> findByReportIdAndNameAndCaptionAndTableNameAndSave(int reportId, String name, String caption, String tableName, String save);
 
+    /**
+     * Find By Report Id And Save And Gt Order No.
+     *
+     * @param reportId int the reportId
+     * @param save String the save
+     * @param orderNo int the orderNo
+     * @return List<ReportConfig>
+     */
     List<ReportConfig> findByReportIdAndSaveAndGtOrderNo(int reportId, String save, int orderNo);
 }

@@ -41,6 +41,16 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents an immunization configuration entry in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code config_Immunization} table and defines the configurable
+ * immunization types available in the prevention module. Each entry specifies
+ * the immunization name, active status, and associated configuration parameters.</p>
+ *
+ * @see Prevention
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "config_Immunization")
 public class ConfigImmunization extends AbstractModel<Integer> {

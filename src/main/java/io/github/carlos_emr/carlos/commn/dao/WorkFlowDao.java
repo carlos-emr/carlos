@@ -42,9 +42,28 @@ import io.github.carlos_emr.carlos.commn.model.WorkFlow;
  */
 
 public interface WorkFlowDao extends AbstractDao<WorkFlow> {
+    /**
+     * Find By Workflow Type.
+     *
+     * @param type String the type
+     * @return List<WorkFlow>
+     */
     List<WorkFlow> findByWorkflowType(String type);
 
+    /**
+     * Find Active By Workflow Type.
+     *
+     * @param type String the type
+     * @return List<WorkFlow>
+     */
     List<WorkFlow> findActiveByWorkflowType(String type);
 
+    /**
+     * Find Active By Workflow Type And Demographic No.
+     *
+     * @param type String the type
+     * @param demographicNo String the demographicNo
+     * @return List<WorkFlow>
+     */
     List<WorkFlow> findActiveByWorkflowTypeAndDemographicNo(String type, String demographicNo);
 }

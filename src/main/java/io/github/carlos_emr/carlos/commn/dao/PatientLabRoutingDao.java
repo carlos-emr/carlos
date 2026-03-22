@@ -48,42 +48,173 @@ public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting> {
     public static final Integer UNMATCHED = 0;
     public static final String HL7 = "HL7";
 
+    /**
+     * Find Demographic By Lab Id.
+     *
+     * @param labId Integer the labId
+     * @return PatientLabRouting
+     */
     public PatientLabRouting findDemographicByLabId(Integer labId);
 
+    /**
+     * Find Demographics.
+     *
+     * @param labType String the labType
+     * @param labNo Integer the labNo
+     * @return PatientLabRouting
+     */
     public PatientLabRouting findDemographics(String labType, Integer labNo);
 
+    /**
+     * Find Doc By Demographic.
+     *
+     * @param docNum Integer the docNum
+     * @return List<PatientLabRouting>
+     */
     public List<PatientLabRouting> findDocByDemographic(Integer docNum);
 
+    /**
+     * Find By Lab No.
+     *
+     * @param labNo int the labNo
+     * @return PatientLabRouting
+     */
     public PatientLabRouting findByLabNo(int labNo);
 
+    /**
+     * Find By Lab No And Lab Type.
+     *
+     * @param labNo int the labNo
+     * @param labType String the labType
+     * @return List<PatientLabRouting>
+     */
     public List<PatientLabRouting> findByLabNoAndLabType(int labNo, String labType);
 
+    /**
+     * Find Unique Test Names.
+     *
+     * @param demoId Integer the demoId
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     public List<Object[]> findUniqueTestNames(Integer demoId, String labType);
 
+    /**
+     * Find Tests.
+     *
+     * @param demoId Integer the demoId
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     public List<Object[]> findTests(Integer demoId, String labType);
 
+    /**
+     * Find Unique Test Names For Patient Excelleris.
+     *
+     * @param demoNo Integer the demoNo
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     public List<Object[]> findUniqueTestNamesForPatientExcelleris(Integer demoNo, String labType);
 
+    /**
+     * Find By Demographic And Lab Type.
+     *
+     * @param demoNo Integer the demoNo
+     * @param labType String the labType
+     * @return List<PatientLabRouting>
+     */
     public List<PatientLabRouting> findByDemographicAndLabType(Integer demoNo, String labType);
 
+    /**
+     * Find Routings And Tests.
+     *
+     * @param demoNo Integer the demoNo
+     * @param labType String the labType
+     * @param testName String the testName
+     * @return List<Object[]>
+     */
     public List<Object[]> findRoutingsAndTests(Integer demoNo, String labType, String testName);
 
+    /**
+     * Find Routings And Tests.
+     *
+     * @param demoNo Integer the demoNo
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     public List<Object[]> findRoutingsAndTests(Integer demoNo, String labType);
 
+    /**
+     * Find Mds Routings.
+     *
+     * @param demoNo Integer the demoNo
+     * @param testName String the testName
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     public List<Object[]> findMdsRoutings(Integer demoNo, String testName, String labType);
 
+    /**
+     * Find Hl7 Info For Routings And Tests.
+     *
+     * @param demoNo Integer the demoNo
+     * @param labType String the labType
+     * @param testName String the testName
+     * @return List<Object[]>
+     */
     public List<Object[]> findHl7InfoForRoutingsAndTests(Integer demoNo, String labType, String testName);
 
+    /**
+     * Find Routings And Consult Docs By Request Id.
+     *
+     * @param reqId Integer the reqId
+     * @param docType String the docType
+     * @return List<Object[]>
+     */
     public List<Object[]> findRoutingsAndConsultDocsByRequestId(Integer reqId, String docType);
 
+    /**
+     * Find Results By Demographic And Lab Type.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     public List<Object[]> findResultsByDemographicAndLabType(Integer demographicNo, String labType);
 
+    /**
+     * Find Routing And Physician Info By Type And Demo No.
+     *
+     * @param labType String the labType
+     * @param demographicNo Integer the demographicNo
+     * @return List<Object[]>
+     */
     public List<Object[]> findRoutingAndPhysicianInfoByTypeAndDemoNo(String labType, Integer demographicNo);
 
+    /**
+     * Find Routings And Mds Msh By Demo No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Object[]>
+     */
     public List<Object[]> findRoutingsAndMdsMshByDemoNo(Integer demographicNo);
 
+    /**
+     * Find Lab Nos By Demographic.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param labTypes String[] the labTypes
+     * @return List<PatientLabRouting>
+     */
     public List<PatientLabRouting> findLabNosByDemographic(Integer demographicNo, String[] labTypes);
 
+    /**
+     * Find Demographic Ids Since.
+     *
+     * @param date Date the date
+     * @return List<Integer>
+     */
     public List<Integer> findDemographicIdsSince(Date date);
 
 }

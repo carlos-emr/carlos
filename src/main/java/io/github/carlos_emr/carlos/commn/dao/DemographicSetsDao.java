@@ -45,15 +45,51 @@ import io.github.carlos_emr.carlos.commn.model.DemographicSets;
 
 public interface DemographicSetsDao extends AbstractDao<DemographicSets> {
 
+    /**
+     * Find By Set Name.
+     *
+     * @param setName String the setName
+     * @return List<DemographicSets>
+     */
     public List<DemographicSets> findBySetName(String setName);
 
+    /**
+     * Find By Set Names.
+     *
+     * @param setNameList Collection<String> the setNameList
+     * @return List<DemographicSets>
+     */
     public List<DemographicSets> findBySetNames(Collection<String> setNameList);
 
+    /**
+     * Find By Set Name And Eligibility.
+     *
+     * @param setName String the setName
+     * @param eligibility String the eligibility
+     * @return List<DemographicSets>
+     */
     public List<DemographicSets> findBySetNameAndEligibility(String setName, String eligibility);
 
+    /**
+     * Find Set Names By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<String>
+     */
     public List<String> findSetNamesByDemographicNo(Integer demographicNo);
 
+    /**
+     * Find Set Names.
+     * @return List<String>
+     */
     public List<String> findSetNames();
 
+    /**
+     * Find By Set Name And Demographic No.
+     *
+     * @param setName String the setName
+     * @param demographicNo int the demographicNo
+     * @return List<DemographicSets>
+     */
     public List<DemographicSets> findBySetNameAndDemographicNo(String setName, int demographicNo);
 }

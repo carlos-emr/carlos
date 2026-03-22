@@ -43,13 +43,41 @@ import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
  */
 
 public interface ClinicLocationDao extends AbstractDao<ClinicLocation> {
+    /**
+     * Find All.
+     * @return List<ClinicLocation>
+     */
     List<ClinicLocation> findAll();
 
+    /**
+     * Find By Clinic No.
+     *
+     * @param clinicNo Integer the clinicNo
+     * @return List<ClinicLocation>
+     */
     List<ClinicLocation> findByClinicNo(Integer clinicNo);
 
+    /**
+     * Search Visit Location.
+     *
+     * @param clinicLocationNo String the clinicLocationNo
+     * @return String
+     */
     String searchVisitLocation(String clinicLocationNo);
 
+    /**
+     * Search Bill Location.
+     *
+     * @param clinicNo Integer the clinicNo
+     * @param clinicLocationNo String the clinicLocationNo
+     * @return ClinicLocation
+     */
     ClinicLocation searchBillLocation(Integer clinicNo, String clinicLocationNo);
 
+    /**
+     * Remove By Clinic Location No.
+     *
+     * @param clinicLocationNo String the clinicLocationNo
+     */
     void removeByClinicLocationNo(String clinicLocationNo);
 }

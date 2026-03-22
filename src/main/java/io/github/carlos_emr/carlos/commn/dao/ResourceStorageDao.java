@@ -44,11 +44,35 @@ import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
  */
 
 public interface ResourceStorageDao extends AbstractDao<ResourceStorage> {
+    /**
+     * Find Active.
+     *
+     * @param resourceType String the resourceType
+     * @return ResourceStorage
+     */
     public ResourceStorage findActive(String resourceType);
 
+    /**
+     * Find Active All.
+     *
+     * @param resourceType String the resourceType
+     * @return List<ResourceStorage>
+     */
     public List<ResourceStorage> findActiveAll(String resourceType);
 
+    /**
+     * Find All.
+     *
+     * @param resourceType String the resourceType
+     * @return List<ResourceStorage>
+     */
     public List<ResourceStorage> findAll(String resourceType);
 
+    /**
+     * Find By U U I D.
+     *
+     * @param uuid String the uuid
+     * @return List<ResourceStorage>
+     */
     public List<ResourceStorage> findByUUID(String uuid);
 }

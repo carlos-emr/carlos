@@ -42,5 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.DocumentDescriptionTemplate;
  */
 
 public interface DocumentDescriptionTemplateDao extends AbstractDao<DocumentDescriptionTemplate> {
+    /**
+     * Find By Doc Type And Provider No.
+     *
+     * @param docType String the docType
+     * @param providerNo String the providerNo
+     * @return List<DocumentDescriptionTemplate>
+     */
     List<DocumentDescriptionTemplate> findByDocTypeAndProviderNo(String docType, String providerNo);
 }

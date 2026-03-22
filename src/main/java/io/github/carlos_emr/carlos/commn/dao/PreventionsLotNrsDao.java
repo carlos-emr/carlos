@@ -42,11 +42,41 @@ import io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs;
  */
 
 public interface PreventionsLotNrsDao extends AbstractDao<PreventionsLotNrs> {
+    /**
+     * Find Lot Nr Data.
+     *
+     * @param bDeleted Boolean the bDeleted
+     * @return List<PreventionsLotNrs>
+     */
     List<PreventionsLotNrs> findLotNrData(Boolean bDeleted);
 
+    /**
+     * Find By Name.
+     *
+     * @param prevention String the prevention
+     * @param lotNr String the lotNr
+     * @param bDeleted Boolean the bDeleted
+     * @return PreventionsLotNrs
+     */
     PreventionsLotNrs findByName(String prevention, String lotNr, Boolean bDeleted);
 
+    /**
+     * Find Lot Nrs.
+     *
+     * @param prevention String the prevention
+     * @param bDeleted Boolean the bDeleted
+     * @return List<String>
+     */
     List<String> findLotNrs(String prevention, Boolean bDeleted);
 
+    /**
+     * Find Paged Data.
+     *
+     * @param prevention String the prevention
+     * @param bDeleted Boolean the bDeleted
+     * @param offset Integer the offset
+     * @param limit Integer the limit
+     * @return List<PreventionsLotNrs>
+     */
     List<PreventionsLotNrs> findPagedData(String prevention, Boolean bDeleted, Integer offset, Integer limit);
 }

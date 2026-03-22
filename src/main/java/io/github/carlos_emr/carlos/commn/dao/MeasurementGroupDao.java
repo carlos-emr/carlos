@@ -43,13 +43,42 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
  */
 
 public interface MeasurementGroupDao extends AbstractDao<MeasurementGroup> {
+    /**
+     * Find All.
+     * @return List<MeasurementGroup>
+     */
     List<MeasurementGroup> findAll();
 
+    /**
+     * Find By Name And Type Display Name.
+     *
+     * @param name String the name
+     * @param typeDisplayName String the typeDisplayName
+     * @return List<MeasurementGroup>
+     */
     List<MeasurementGroup> findByNameAndTypeDisplayName(String name, String typeDisplayName);
 
+    /**
+     * Find By Type Display Name.
+     *
+     * @param typeDisplayName String the typeDisplayName
+     * @return List<MeasurementGroup>
+     */
     List<MeasurementGroup> findByTypeDisplayName(String typeDisplayName);
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return List<MeasurementGroup>
+     */
     List<MeasurementGroup> findByName(String name);
 
+    /**
+     * Find Unique Type Display Names By Group Name.
+     *
+     * @param groupName String the groupName
+     * @return List<Object>
+     */
     List<Object> findUniqueTypeDisplayNamesByGroupName(String groupName);
 }

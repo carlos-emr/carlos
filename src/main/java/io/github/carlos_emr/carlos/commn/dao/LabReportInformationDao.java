@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
  */
 
 public interface LabReportInformationDao extends AbstractDao<LabReportInformation> {
+    /**
+     * Find Reports By Physician Id.
+     *
+     * @param physicianId Integer the physicianId
+     * @return List<Object[]>
+     */
     List<Object[]> findReportsByPhysicianId(Integer physicianId);
 }

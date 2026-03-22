@@ -43,7 +43,17 @@ import io.github.carlos_emr.carlos.commn.model.LookupList;
 
 public interface LookupListDao extends AbstractDao<LookupList> {
 
+    /**
+     * Find All Active.
+     * @return List<LookupList>
+     */
     public List<LookupList> findAllActive();
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return LookupList
+     */
     public LookupList findByName(String name);
 }

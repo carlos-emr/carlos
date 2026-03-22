@@ -45,20 +45,74 @@ import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 
 public interface DemographicCustDao extends AbstractDao<DemographicCust> {
 
+    /**
+     * Find Multiple Midwife.
+     *
+     * @param demographicNos Collection<Integer> the demographicNos
+     * @param oldMidwife String the oldMidwife
+     * @return List<DemographicCust>
+     */
     public List<DemographicCust> findMultipleMidwife(Collection<Integer> demographicNos, String oldMidwife);
 
+    /**
+     * Find Multiple Resident.
+     *
+     * @param demographicNos Collection<Integer> the demographicNos
+     * @param oldResident String the oldResident
+     * @return List<DemographicCust>
+     */
     public List<DemographicCust> findMultipleResident(Collection<Integer> demographicNos, String oldResident);
 
+    /**
+     * Find Multiple Nurse.
+     *
+     * @param demographicNos Collection<Integer> the demographicNos
+     * @param oldNurse String the oldNurse
+     * @return List<DemographicCust>
+     */
     public List<DemographicCust> findMultipleNurse(Collection<Integer> demographicNos, String oldNurse);
 
+    /**
+     * Find By Resident.
+     *
+     * @param resident String the resident
+     * @return List<DemographicCust>
+     */
     public List<DemographicCust> findByResident(String resident);
 
+    /**
+     * Select_demoname.
+     *
+     * @param resident String the resident
+     * @param lastNameRegExp String the lastNameRegExp
+     * @return Integer
+     */
     public Integer select_demoname(String resident, String lastNameRegExp);
 
+    /**
+     * Select_demoname1.
+     *
+     * @param nurse String the nurse
+     * @param lastNameRegExp String the lastNameRegExp
+     * @return Integer
+     */
     public Integer select_demoname1(String nurse, String lastNameRegExp);
 
+    /**
+     * Select_demoname2.
+     *
+     * @param midwife String the midwife
+     * @param lastNameRegExp String the lastNameRegExp
+     * @return Integer
+     */
     public Integer select_demoname2(String midwife, String lastNameRegExp);
 
+    /**
+     * Find All By Demographic Number.
+     *
+     * @param demographic_no int the demographic_no
+     * @return List<DemographicCust>
+     */
     public List<DemographicCust> findAllByDemographicNumber(int demographic_no);
 
 }

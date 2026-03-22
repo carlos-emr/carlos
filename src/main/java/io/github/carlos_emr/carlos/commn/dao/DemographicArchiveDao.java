@@ -44,13 +44,43 @@ import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
 
 public interface DemographicArchiveDao extends AbstractDao<DemographicArchive> {
 
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<DemographicArchive>
+     */
     public List<DemographicArchive> findByDemographicNo(Integer demographicNo);
 
+    /**
+     * Find Roster Status History By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<DemographicArchive>
+     */
     public List<DemographicArchive> findRosterStatusHistoryByDemographicNo(Integer demographicNo);
 
+    /**
+     * Archive Record.
+     *
+     * @param d Demographic the d
+     * @return Long
+     */
     public Long archiveRecord(Demographic d);
 
+    /**
+     * Find By Demographic No Chronologically.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<DemographicArchive>
+     */
     public List<DemographicArchive> findByDemographicNoChronologically(Integer demographicNo);
 
+    /**
+     * Find Meta By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Object[]>
+     */
     public List<Object[]> findMetaByDemographicNo(Integer demographicNo);
 }

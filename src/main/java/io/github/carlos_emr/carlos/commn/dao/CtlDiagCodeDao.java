@@ -42,7 +42,20 @@ import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
  */
 
 public interface CtlDiagCodeDao extends AbstractDao<CtlDiagCode> {
+    /**
+     * Get Diagnostics.
+     *
+     * @param billRegion String the billRegion
+     * @param serviceType String the serviceType
+     * @return List<Object[]>
+     */
     List<Object[]> getDiagnostics(String billRegion, String serviceType);
 
+    /**
+     * Find By Service Type.
+     *
+     * @param serviceType String the serviceType
+     * @return List<CtlDiagCode>
+     */
     List<CtlDiagCode> findByServiceType(String serviceType);
 }

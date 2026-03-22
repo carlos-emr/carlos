@@ -43,11 +43,36 @@ import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 
 public interface DemographicMergedDao extends AbstractDao<DemographicMerged> {
 
+    /**
+     * Find Current By Merged To.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<DemographicMerged>
+     */
     public List<DemographicMerged> findCurrentByMergedTo(int demographicNo);
 
+    /**
+     * Find Current By Demographic No.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<DemographicMerged>
+     */
     public List<DemographicMerged> findCurrentByDemographicNo(int demographicNo);
 
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<DemographicMerged>
+     */
     public List<DemographicMerged> findByDemographicNo(int demographicNo);
 
+    /**
+     * Find By Parent And Child Ids.
+     *
+     * @param parentId Integer the parentId
+     * @param childId Integer the childId
+     * @return List<DemographicMerged>
+     */
     public List<DemographicMerged> findByParentAndChildIds(Integer parentId, Integer childId);
 }

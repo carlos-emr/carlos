@@ -43,15 +43,52 @@ import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
 
 public interface MsgDemoMapDao extends AbstractDao<MsgDemoMap> {
 
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<MsgDemoMap>
+     */
     public List<MsgDemoMap> findByDemographicNo(Integer demographicNo);
 
+    /**
+     * Find By Message Id.
+     *
+     * @param messageId Integer the messageId
+     * @return List<MsgDemoMap>
+     */
     public List<MsgDemoMap> findByMessageId(Integer messageId);
 
+    /**
+     * Get Messages And Demographics By Message Id.
+     *
+     * @param messageId Integer the messageId
+     * @return List<Object[]>
+     */
     public List<Object[]> getMessagesAndDemographicsByMessageId(Integer messageId);
 
+    /**
+     * Get Map And Messages By Demographic No.
+     *
+     * @param demoNo Integer the demoNo
+     * @return List<Object[]>
+     */
     public List<Object[]> getMapAndMessagesByDemographicNo(Integer demoNo);
 
+    /**
+     * Get Map And Messages By Demographic No And Type.
+     *
+     * @param demoNo Integer the demoNo
+     * @param type Integer the type
+     * @return List<Object[]>
+     */
     public List<Object[]> getMapAndMessagesByDemographicNoAndType(Integer demoNo, Integer type);
 
+    /**
+     * Remove.
+     *
+     * @param messageID Integer the messageID
+     * @param demographicNo Integer the demographicNo
+     */
     public void remove(Integer messageID, Integer demographicNo);
 }

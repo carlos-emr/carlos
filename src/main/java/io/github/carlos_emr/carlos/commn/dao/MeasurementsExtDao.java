@@ -43,19 +43,64 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
  */
 
 public interface MeasurementsExtDao extends AbstractDao<MeasurementsExt> {
+    /**
+     * Get Measurements Ext By Measurement Id.
+     *
+     * @param measurementId Integer the measurementId
+     * @return List<MeasurementsExt>
+     */
     List<MeasurementsExt> getMeasurementsExtByMeasurementId(Integer measurementId);
 
+    /**
+     * Get Measurements Ext Map By Measurement Id.
+     *
+     * @param measurementId Integer the measurementId
+     * @return HashMap<String, MeasurementsExt>
+     */
     HashMap<String, MeasurementsExt> getMeasurementsExtMapByMeasurementId(Integer measurementId);
 
+    /**
+     * Get Measurements Ext List By Measurement Id List.
+     *
+     * @param measurementIdList List<Integer> the measurementIdList
+     * @return List<MeasurementsExt>
+     */
     List<MeasurementsExt> getMeasurementsExtListByMeasurementIdList(List<Integer> measurementIdList);
 
+    /**
+     * Get Measurements Ext By Measurement Id And Key Val.
+     *
+     * @param measurementId Integer the measurementId
+     * @param keyVal String the keyVal
+     * @return MeasurementsExt
+     */
     MeasurementsExt getMeasurementsExtByMeasurementIdAndKeyVal(Integer measurementId, String keyVal);
 
+    /**
+     * Get Measurement Id By Key Value.
+     *
+     * @param key String the key
+     * @param value String the value
+     * @return Integer
+     */
     Integer getMeasurementIdByKeyValue(String key, String value);
 
     public Integer getMeasurementIdByLabNoAndTestName(String labNo, String testName); //new
 
+    /**
+     * Find By Key Value.
+     *
+     * @param key String the key
+     * @param value String the value
+     * @return List<MeasurementsExt>
+     */
     List<MeasurementsExt> findByKeyValue(String key, String value);
 
+    /**
+     * Find Unmapped Measuremnt Ids.
+     *
+     * @param excludeList List<String> the excludeList
+     * @return List<Integer>
+     */
     List<Integer> findUnmappedMeasuremntIds(List<String> excludeList);
 }

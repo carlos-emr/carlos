@@ -44,9 +44,28 @@ import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
 
 public interface MessageTblDao extends AbstractDao<MessageTbl> {
 
+    /**
+     * Find By Maps.
+     *
+     * @param m List<MsgDemoMap> the m
+     * @return List<MessageTbl>
+     */
     public List<MessageTbl> findByMaps(List<MsgDemoMap> m);
 
+    /**
+     * Find By Provider And Send By.
+     *
+     * @param providerNo String the providerNo
+     * @param sendBy Integer the sendBy
+     * @return List<MessageTbl>
+     */
     public List<MessageTbl> findByProviderAndSendBy(String providerNo, Integer sendBy);
 
+    /**
+     * Find By Ids.
+     *
+     * @param ids List<Integer> the ids
+     * @return List<MessageTbl>
+     */
     public List<MessageTbl> findByIds(List<Integer> ids);
 }

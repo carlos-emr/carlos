@@ -47,13 +47,43 @@ public interface DemographicPharmacyDao extends AbstractDao<DemographicPharmacy>
     public DemographicPharmacy addPharmacyToDemographic(Integer pharmacyId, Integer demographicNo,
                                                         Integer preferredOrder);
 
+    /**
+     * Unlink Pharmacy.
+     *
+     * @param pharmacyId Integer the pharmacyId
+     * @param demographicNo Integer the demographicNo
+     */
     public void unlinkPharmacy(Integer pharmacyId, Integer demographicNo);
 
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<DemographicPharmacy>
+     */
     public List<DemographicPharmacy> findByDemographicId(Integer demographicNo);
 
+    /**
+     * Find All By Demographic Id.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<DemographicPharmacy>
+     */
     public List<DemographicPharmacy> findAllByDemographicId(Integer demographicNo);
 
+    /**
+     * Find All By Pharmacy Id.
+     *
+     * @param pharmacyId Integer the pharmacyId
+     * @return List<DemographicPharmacy>
+     */
     public List<DemographicPharmacy> findAllByPharmacyId(Integer pharmacyId);
 
+    /**
+     * Get Total Demographics Prefered To Pharmacy By Pharmacy Id.
+     *
+     * @param pharmacyId Integer the pharmacyId
+     * @return Long
+     */
     public Long getTotalDemographicsPreferedToPharmacyByPharmacyId(Integer pharmacyId);
 }

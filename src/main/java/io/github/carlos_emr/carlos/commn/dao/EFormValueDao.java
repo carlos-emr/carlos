@@ -41,15 +41,52 @@ import io.github.carlos_emr.carlos.commn.model.EFormValue;
  */
 
 public interface EFormValueDao extends AbstractDao<EFormValue> {
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<EFormValue>
+     */
     List<EFormValue> findByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Appt No.
+     *
+     * @param apptNo int the apptNo
+     * @return List<EFormValue>
+     */
     List<EFormValue> findByApptNo(int apptNo);
 
+    /**
+     * Find By Form Data Id.
+     *
+     * @param fdid int the fdid
+     * @return List<EFormValue>
+     */
     List<EFormValue> findByFormDataId(int fdid);
 
+    /**
+     * Find By Form Data Id And Key.
+     *
+     * @param fdid int the fdid
+     * @param varName String the varName
+     * @return EFormValue
+     */
     EFormValue findByFormDataIdAndKey(int fdid, String varName);
 
+    /**
+     * Find By Form Data Id List.
+     *
+     * @param fdids List<Integer> the fdids
+     * @return List<EFormValue>
+     */
     List<EFormValue> findByFormDataIdList(List<Integer> fdids);
 
+    /**
+     * Find All Var Names For E Form.
+     *
+     * @param fid Integer the fid
+     * @return List<String>
+     */
     List<String> findAllVarNamesForEForm(Integer fid);
 }

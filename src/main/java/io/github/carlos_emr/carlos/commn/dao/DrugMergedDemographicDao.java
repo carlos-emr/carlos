@@ -43,43 +43,191 @@ import io.github.carlos_emr.carlos.commn.model.Drug;
  */
 
 public interface DrugMergedDemographicDao extends DrugDao {
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @param archived Boolean the archived
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicId(Integer demographicId, Boolean archived);
 
+    /**
+     * Find By Demographic Id Order By Date.
+     *
+     * @param demographicId Integer the demographicId
+     * @param archived Boolean the archived
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdOrderByDate(Integer demographicId, Boolean archived);
 
+    /**
+     * Find By Demographic Id Order By Position.
+     *
+     * @param demographicId Integer the demographicId
+     * @param archived Boolean the archived
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdOrderByPosition(Integer demographicId, Boolean archived);
 
+    /**
+     * Find By Demographic Id Similar Drug Order By Date.
+     *
+     * @param demographicId Integer the demographicId
+     * @param regionalIdentifier String the regionalIdentifier
+     * @param customName String the customName
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdSimilarDrugOrderByDate(Integer demographicId, String regionalIdentifier, String customName);
 
+    /**
+     * Find By Demographic Id Similar Drug Order By Date.
+     *
+     * @param demographicId Integer the demographicId
+     * @param regionalIdentifier String the regionalIdentifier
+     * @param customName String the customName
+     * @param brandName String the brandName
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdSimilarDrugOrderByDate(Integer demographicId, String regionalIdentifier, String customName, String brandName);
 
+    /**
+     * Find By Demographic Id Similar Drug Order By Date.
+     *
+     * @param demographicId Integer the demographicId
+     * @param regionalIdentifier String the regionalIdentifier
+     * @param customName String the customName
+     * @param brandName String the brandName
+     * @param atc String the atc
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdSimilarDrugOrderByDate(Integer demographicId, String regionalIdentifier, String customName, String brandName, String atc);
 
+    /**
+     * Get Unique Prescriptions.
+     *
+     * @param demographic_no String the demographic_no
+     * @return List<Drug>
+     */
     List<Drug> getUniquePrescriptions(String demographic_no);
 
+    /**
+     * Get Prescriptions.
+     *
+     * @param demographic_no String the demographic_no
+     * @return List<Drug>
+     */
     List<Drug> getPrescriptions(String demographic_no);
 
+    /**
+     * Get Prescriptions.
+     *
+     * @param demographic_no String the demographic_no
+     * @param all boolean the all
+     * @return List<Drug>
+     */
     List<Drug> getPrescriptions(String demographic_no, boolean all);
 
+    /**
+     * Find By Demographic Id Updated After Date.
+     *
+     * @param demographicId Integer the demographicId
+     * @param updatedAfterThisDate Date the updatedAfterThisDate
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdUpdatedAfterDate(Integer demographicId, Date updatedAfterThisDate);
 
+    /**
+     * Find By Demographic Id And Atc.
+     *
+     * @param demographicNo int the demographicNo
+     * @param atc String the atc
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdAndAtc(int demographicNo, String atc);
 
+    /**
+     * Find By Demographic Id And Region.
+     *
+     * @param demographicNo int the demographicNo
+     * @param regionalIdentifier String the regionalIdentifier
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdAndRegion(int demographicNo, String regionalIdentifier);
 
+    /**
+     * Find By Demographic Id And Drug Id.
+     *
+     * @param demographicNo int the demographicNo
+     * @param drugId Integer the drugId
+     * @return List<Drug>
+     */
     List<Drug> findByDemographicIdAndDrugId(int demographicNo, Integer drugId);
 
+    /**
+     * Find Drugs And Prescriptions.
+     *
+     * @param demographicNo int the demographicNo
+     * @return List<Object[]>
+     */
     List<Object[]> findDrugsAndPrescriptions(int demographicNo);
 
+    /**
+     * Find By Region Brand Demographic And Provider.
+     *
+     * @param regionalIdentifier String the regionalIdentifier
+     * @param brandName String the brandName
+     * @param demographicNo int the demographicNo
+     * @param providerNo String the providerNo
+     * @return List<Drug>
+     */
     List<Drug> findByRegionBrandDemographicAndProvider(String regionalIdentifier, String brandName, int demographicNo, String providerNo);
 
+    /**
+     * Find By Brand Name Demographic And Provider.
+     *
+     * @param brandName String the brandName
+     * @param demographicNo int the demographicNo
+     * @param providerNo String the providerNo
+     * @return Drug
+     */
     Drug findByBrandNameDemographicAndProvider(String brandName, int demographicNo, String providerNo);
 
+    /**
+     * Find By Custom Name Demographic Id And Provider No.
+     *
+     * @param customName String the customName
+     * @param demographicNo int the demographicNo
+     * @param providerNo String the providerNo
+     * @return Drug
+     */
     Drug findByCustomNameDemographicIdAndProviderNo(String customName, int demographicNo, String providerNo);
 
+    /**
+     * Find Last Not Archived Id.
+     *
+     * @param brandName String the brandName
+     * @param genericName String the genericName
+     * @param demographicNo int the demographicNo
+     * @return Integer
+     */
     Integer findLastNotArchivedId(String brandName, String genericName, int demographicNo);
 
+    /**
+     * Find By Demographic Id Regional Identifier And Atc Code.
+     *
+     * @param atcCode String the atcCode
+     * @param regionalIdentifier String the regionalIdentifier
+     * @param demographicNo int the demographicNo
+     * @return Drug
+     */
     Drug findByDemographicIdRegionalIdentifierAndAtcCode(String atcCode, String regionalIdentifier, int demographicNo);
 }

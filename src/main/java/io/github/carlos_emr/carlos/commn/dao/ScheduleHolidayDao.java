@@ -44,7 +44,17 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleHoliday;
  */
 
 public interface ScheduleHolidayDao extends AbstractDao<ScheduleHoliday> {
+    /**
+     * Find All.
+     * @return List<ScheduleHoliday>
+     */
     List<ScheduleHoliday> findAll();
 
+    /**
+     * Find After Date.
+     *
+     * @param date Date the date
+     * @return List<ScheduleHoliday>
+     */
     List<ScheduleHoliday> findAfterDate(Date date);
 }

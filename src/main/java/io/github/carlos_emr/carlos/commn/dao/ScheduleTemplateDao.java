@@ -43,17 +43,65 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleTemplate;
  */
 
 public interface ScheduleTemplateDao extends AbstractDao<ScheduleTemplate> {
+    /**
+     * Find By Summary.
+     *
+     * @param summary String the summary
+     * @return List<ScheduleTemplate>
+     */
     List<ScheduleTemplate> findBySummary(String summary);
 
+    /**
+     * Find Schedules.
+     *
+     * @param date_from Date the date_from
+     * @param date_to Date the date_to
+     * @param provider_no String the provider_no
+     * @return List<Object[]>
+     */
     List<Object[]> findSchedules(Date date_from, Date date_to, String provider_no);
 
+    /**
+     * Find Schedules.
+     *
+     * @param dateFrom Date the dateFrom
+     * @param providerIds List<String> the providerIds
+     * @return List<Object[]>
+     */
     List<Object[]> findSchedules(Date dateFrom, List<String> providerIds);
 
+    /**
+     * Find By Provider No And Name.
+     *
+     * @param providerNo String the providerNo
+     * @param name String the name
+     * @return List<ScheduleTemplate>
+     */
     List<ScheduleTemplate> findByProviderNoAndName(String providerNo, String name);
 
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<ScheduleTemplate>
+     */
     List<ScheduleTemplate> findByProviderNo(String providerNo);
 
+    /**
+     * Find Time Code By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @param date Date the date
+     * @return List<Object>
+     */
     List<Object> findTimeCodeByProviderNo(String providerNo, Date date);
 
+    /**
+     * Find Time Code By Provider No2.
+     *
+     * @param providerNo String the providerNo
+     * @param date Date the date
+     * @return List<Object>
+     */
     List<Object> findTimeCodeByProviderNo2(String providerNo, Date date);
 }

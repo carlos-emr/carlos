@@ -43,25 +43,86 @@ import java.util.List;
  */
 
 public interface MyGroupDao extends AbstractDao<MyGroup> {
+    /**
+     * Find All.
+     * @return List<MyGroup>
+     */
     List<MyGroup> findAll();
 
+    /**
+     * Get Group Doctors.
+     *
+     * @param groupNo String the groupNo
+     * @return List<String>
+     */
     List<String> getGroupDoctors(String groupNo);
 
+    /**
+     * Get Groups.
+     * @return List<String>
+     */
     List<String> getGroups();
 
+    /**
+     * Get Group By Group No.
+     *
+     * @param groupNo String the groupNo
+     * @return List<MyGroup>
+     */
     List<MyGroup> getGroupByGroupNo(String groupNo);
 
+    /**
+     * Delete Group Member.
+     *
+     * @param myGroupNo String the myGroupNo
+     * @param providerNo String the providerNo
+     */
     void deleteGroupMember(String myGroupNo, String providerNo);
 
+    /**
+     * Get Provider Groups.
+     *
+     * @param providerNo String the providerNo
+     * @return List<MyGroup>
+     */
     List<MyGroup> getProviderGroups(String providerNo);
 
+    /**
+     * Get Default Billing Form.
+     *
+     * @param myGroupNo String the myGroupNo
+     * @return String
+     */
     String getDefaultBillingForm(String myGroupNo);
 
+    /**
+     * Search_groupprovider.
+     *
+     * @param groupNo String the groupNo
+     * @return List<Provider>
+     */
     List<Provider> search_groupprovider(String groupNo);
 
+    /**
+     * Search_mygroup.
+     *
+     * @param groupNo String the groupNo
+     * @return List<MyGroup>
+     */
     List<MyGroup> search_mygroup(String groupNo);
 
+    /**
+     * Searchmygroupno.
+     * @return List<MyGroup>
+     */
     List<MyGroup> searchmygroupno();
 
+    /**
+     * Search_providersgroup.
+     *
+     * @param lastName String the lastName
+     * @param firstName String the firstName
+     * @return List<MyGroup>
+     */
     List<MyGroup> search_providersgroup(String lastName, String firstName);
 }

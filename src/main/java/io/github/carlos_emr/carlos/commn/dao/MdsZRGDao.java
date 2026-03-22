@@ -42,7 +42,20 @@ import io.github.carlos_emr.carlos.commn.model.MdsZRG;
  */
 
 public interface MdsZRGDao extends AbstractDao<MdsZRG> {
+    /**
+     * Find By Id.
+     *
+     * @param id Integer the id
+     * @return List<Object[]>
+     */
     List<Object[]> findById(Integer id);
 
+    /**
+     * Find Report Group Headings By Id.
+     *
+     * @param id Integer the id
+     * @param reportGroupId String the reportGroupId
+     * @return List<Object>
+     */
     List<Object> findReportGroupHeadingsById(Integer id, String reportGroupId);
 }

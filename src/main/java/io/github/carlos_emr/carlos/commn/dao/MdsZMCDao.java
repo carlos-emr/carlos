@@ -41,5 +41,12 @@ import io.github.carlos_emr.carlos.commn.model.MdsZMC;
  */
 
 public interface MdsZMCDao extends AbstractDao<MdsZMC> {
+    /**
+     * Find By Id And Set Id.
+     *
+     * @param id Integer the id
+     * @param setId String the setId
+     * @return MdsZMC
+     */
     MdsZMC findByIdAndSetId(Integer id, String setId);
 }

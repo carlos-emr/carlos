@@ -43,13 +43,40 @@ import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 
 public interface CVCImmunizationDao extends AbstractDao<CVCImmunization> {
 
+    /**
+     * Remove All.
+     */
     public void removeAll();
 
+    /**
+     * Find All Generic.
+     * @return List<CVCImmunization>
+     */
     public List<CVCImmunization> findAllGeneric();
 
+    /**
+     * Find By Parent.
+     *
+     * @param conceptCodeId String the conceptCodeId
+     * @return List<CVCImmunization>
+     */
     public List<CVCImmunization> findByParent(String conceptCodeId);
 
+    /**
+     * Find By Snomed Concept Id.
+     *
+     * @param conceptCodeId String the conceptCodeId
+     * @return CVCImmunization
+     */
     public CVCImmunization findBySnomedConceptId(String conceptCodeId);
 
+    /**
+     * Query.
+     *
+     * @param term String the term
+     * @param includeGenerics boolean the includeGenerics
+     * @param includeBrands boolean the includeBrands
+     * @return List<CVCImmunization>
+     */
     public List<CVCImmunization> query(String term, boolean includeGenerics, boolean includeBrands);
 }

@@ -44,18 +44,69 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 
 public interface OscarLogDao extends AbstractDao<OscarLog> {
 
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<OscarLog>
+     */
     public List<OscarLog> findByDemographicId(Integer demographicId);
 
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<OscarLog>
+     */
     public List<OscarLog> findByProviderNo(String providerNo);
 
+    /**
+     * Has Read.
+     *
+     * @param providerNo String the providerNo
+     * @param content String the content
+     * @param contentId String the contentId
+     * @return boolean
+     */
     public boolean hasRead(String providerNo, String content, String contentId);
 
+    /**
+     * Find By Action And Data.
+     *
+     * @param action String the action
+     * @param data String the data
+     * @return List<OscarLog>
+     */
     public List<OscarLog> findByActionAndData(String action, String data);
 
+    /**
+     * Find By Action.
+     *
+     * @param action String the action
+     * @param start int the start
+     * @param length int the length
+     * @param orderBy String the orderBy
+     * @param orderByDirection String the orderByDirection
+     * @return List<OscarLog>
+     */
     public List<OscarLog> findByAction(String action, int start, int length, String orderBy, String orderByDirection);
 
+    /**
+     * Find By Action Content And Demographic Id.
+     *
+     * @param action String the action
+     * @param content String the content
+     * @param demographicId Integer the demographicId
+     * @return List<OscarLog>
+     */
     public List<OscarLog> findByActionContentAndDemographicId(String action, String content, Integer demographicId);
 
+    /**
+     * Get Demographic Ids Opened Since Time.
+     *
+     * @param value Date the value
+     * @return List<Integer>
+     */
     public List<Integer> getDemographicIdsOpenedSinceTime(Date value);
 
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
@@ -67,6 +118,12 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
     public List<Object[]> getRecentDemographicsViewedByProviderAfterDateIncluded(String providerNo, Date date,
                                                                                  int startPosition, int itemsToReturn);
 
+    /**
+     * Purge Log Entries.
+     *
+     * @param maxDateToRemove Date the maxDateToRemove
+     * @return int
+     */
     public int purgeLogEntries(Date maxDateToRemove);
 
 }

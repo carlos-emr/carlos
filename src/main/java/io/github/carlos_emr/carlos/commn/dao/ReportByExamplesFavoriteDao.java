@@ -42,9 +42,29 @@ import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
  */
 
 public interface ReportByExamplesFavoriteDao extends AbstractDao<ReportByExamplesFavorite> {
+    /**
+     * Find By Query.
+     *
+     * @param query String the query
+     * @return List<ReportByExamplesFavorite>
+     */
     List<ReportByExamplesFavorite> findByQuery(String query);
 
+    /**
+     * Find By Everything.
+     *
+     * @param providerNo String the providerNo
+     * @param favoriteName String the favoriteName
+     * @param queryString String the queryString
+     * @return List<ReportByExamplesFavorite>
+     */
     List<ReportByExamplesFavorite> findByEverything(String providerNo, String favoriteName, String queryString);
 
+    /**
+     * Find By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return List<ReportByExamplesFavorite>
+     */
     List<ReportByExamplesFavorite> findByProvider(String providerNo);
 }

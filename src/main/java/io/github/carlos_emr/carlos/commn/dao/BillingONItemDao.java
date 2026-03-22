@@ -44,17 +44,61 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
  */
 
 public interface BillingONItemDao extends AbstractDao<BillingONItem> {
+    /**
+     * Get Billing Item By Ch1 Id.
+     *
+     * @param ch1_id Integer the ch1_id
+     * @return List<BillingONItem>
+     */
     List<BillingONItem> getBillingItemByCh1Id(Integer ch1_id);
 
+    /**
+     * Get Active Billing Item By Ch1 Id.
+     *
+     * @param ch1_id Integer the ch1_id
+     * @return List<BillingONItem>
+     */
     List<BillingONItem> getActiveBillingItemByCh1Id(Integer ch1_id);
 
+    /**
+     * Get Ch1 By Demographic No.
+     *
+     * @param demographic_no Integer the demographic_no
+     * @return List<BillingONCHeader1>
+     */
     List<BillingONCHeader1> getCh1ByDemographicNo(Integer demographic_no);
 
+    /**
+     * Find By Ch1 Id.
+     *
+     * @param id Integer the id
+     * @return List<BillingONItem>
+     */
     List<BillingONItem> findByCh1Id(Integer id);
 
+    /**
+     * Find By Ch1 Id And Status Not Equal.
+     *
+     * @param chId Integer the chId
+     * @param string String the string
+     * @return List<BillingONItem>
+     */
     List<BillingONItem> findByCh1IdAndStatusNotEqual(Integer chId, String string);
 
+    /**
+     * Get Ch1 By Demographic No Since.
+     *
+     * @param demographic_no Integer the demographic_no
+     * @param lastUpdateDate Date the lastUpdateDate
+     * @return List<BillingONCHeader1>
+     */
     List<BillingONCHeader1> getCh1ByDemographicNoSince(Integer demographic_no, Date lastUpdateDate);
 
+    /**
+     * Get Demographic No Since.
+     *
+     * @param lastUpdateDate Date the lastUpdateDate
+     * @return List<Integer>
+     */
     List<Integer> getDemographicNoSince(Date lastUpdateDate);
 }

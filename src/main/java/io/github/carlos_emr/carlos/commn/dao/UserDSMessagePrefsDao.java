@@ -43,17 +43,65 @@ import io.github.carlos_emr.carlos.commn.model.UserDSMessagePrefs;
  */
 
 public interface UserDSMessagePrefsDao extends AbstractDao<UserDSMessagePrefs> {
+    /**
+     * Save Prop.
+     *
+     * @param prop UserDSMessagePrefs the prop
+     */
     void saveProp(UserDSMessagePrefs prop);
 
+    /**
+     * Update Prop.
+     *
+     * @param prop UserDSMessagePrefs the prop
+     */
     void updateProp(UserDSMessagePrefs prop);
 
+    /**
+     * Get Message Prefs On Type.
+     *
+     * @param prov String the prov
+     * @param name String the name
+     * @return UserDSMessagePrefs
+     */
     UserDSMessagePrefs getMessagePrefsOnType(String prov, String name);
 
+    /**
+     * Get Hashof Messages.
+     *
+     * @param providerNo String the providerNo
+     * @param name String the name
+     * @return Hashtable<String, Long>
+     */
     Hashtable<String, Long> getHashofMessages(String providerNo, String name);
 
+    /**
+     * Find Messages.
+     *
+     * @param providerNo String the providerNo
+     * @param resourceType String the resourceType
+     * @param resourceId String the resourceId
+     * @param archived boolean the archived
+     * @return List<UserDSMessagePrefs>
+     */
     List<UserDSMessagePrefs> findMessages(String providerNo, String resourceType, String resourceId, boolean archived);
 
+    /**
+     * Get Ds Message.
+     *
+     * @param providerNo String the providerNo
+     * @param resourceType String the resourceType
+     * @param resourceId String the resourceId
+     * @param archived boolean the archived
+     * @return UserDSMessagePrefs
+     */
     UserDSMessagePrefs getDsMessage(String providerNo, String resourceType, String resourceId, boolean archived);
 
+    /**
+     * Find All By Resource Id.
+     *
+     * @param resourceId String the resourceId
+     * @return List<UserDSMessagePrefs>
+     */
     List<UserDSMessagePrefs> findAllByResourceId(String resourceId);
 }

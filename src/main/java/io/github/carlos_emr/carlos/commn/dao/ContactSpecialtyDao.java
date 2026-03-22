@@ -43,7 +43,17 @@ import io.github.carlos_emr.carlos.commn.model.ContactSpecialty;
 
 public interface ContactSpecialtyDao extends AbstractDao<ContactSpecialty> {
 
+    /**
+     * Find All.
+     * @return List<ContactSpecialty>
+     */
     public List<ContactSpecialty> findAll();
 
+    /**
+     * Find By Specialty.
+     *
+     * @param specialtyName String the specialtyName
+     * @return ContactSpecialty
+     */
     public ContactSpecialty findBySpecialty(String specialtyName);
 }

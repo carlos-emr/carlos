@@ -43,6 +43,12 @@ import io.github.carlos_emr.carlos.commn.model.DrugDispensing;
 
 public interface DrugDispensingDao extends AbstractDao<DrugDispensing> {
 
+    /**
+     * Find By Drug Id.
+     *
+     * @param drugId Integer the drugId
+     * @return List<DrugDispensing>
+     */
     public List<DrugDispensing> findByDrugId(Integer drugId);
 
 }

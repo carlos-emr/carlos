@@ -42,15 +42,51 @@ import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 
 public interface DxDao extends AbstractDao<DxAssociation> {
 
+    /**
+     * Find All Associations.
+     * @return List<DxAssociation>
+     */
     List<DxAssociation> findAllAssociations();
 
+    /**
+     * Remove Associations.
+     * @return int
+     */
     int removeAssociations();
 
+    /**
+     * Find Association.
+     *
+     * @param codeType String the codeType
+     * @param code String the code
+     * @return DxAssociation
+     */
     DxAssociation findAssociation(String codeType, String code);
 
+    /**
+     * Find Coding System Description.
+     *
+     * @param codingSystem String the codingSystem
+     * @param code String the code
+     * @return List<Object[]>
+     */
     List<Object[]> findCodingSystemDescription(String codingSystem, String code);
 
+    /**
+     * Find Coding System Description.
+     *
+     * @param codingSystem String the codingSystem
+     * @param keywords String[] the keywords
+     * @return List<Object[]>
+     */
     List<Object[]> findCodingSystemDescription(String codingSystem, String[] keywords);
 
+    /**
+     * Get Code Description.
+     *
+     * @param codingSystem String the codingSystem
+     * @param code String the code
+     * @return String
+     */
     String getCodeDescription(String codingSystem, String code);
 }

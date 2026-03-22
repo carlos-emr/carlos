@@ -42,15 +42,49 @@ import io.github.carlos_emr.carlos.commn.model.BatchBilling;
  */
 
 public interface BatchBillingDAO extends AbstractDao<BatchBilling> {
+    /**
+     * Find.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param service_code String the service_code
+     * @return List<BatchBilling>
+     */
     List<BatchBilling> find(Integer demographicNo, String service_code);
 
+    /**
+     * Find By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return List<BatchBilling>
+     */
     List<BatchBilling> findByProvider(String providerNo);
 
+    /**
+     * Find By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @param service_code String the service_code
+     * @return List<BatchBilling>
+     */
     List<BatchBilling> findByProvider(String providerNo, String service_code);
 
+    /**
+     * Find By Service Code.
+     *
+     * @param service_code String the service_code
+     * @return List<BatchBilling>
+     */
     List<BatchBilling> findByServiceCode(String service_code);
 
+    /**
+     * Find All.
+     * @return List<BatchBilling>
+     */
     List<BatchBilling> findAll();
 
+    /**
+     * Find Distinct Service Codes.
+     * @return List<String>
+     */
     List<String> findDistinctServiceCodes();
 }

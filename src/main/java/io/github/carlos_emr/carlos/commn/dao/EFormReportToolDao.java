@@ -46,16 +46,55 @@ import io.github.carlos_emr.carlos.commn.model.EFormValue;
 
 public interface EFormReportToolDao extends AbstractDao<EFormReportTool> {
 
+    /**
+     * Mark Latest.
+     *
+     * @param eformReportToolId Integer the eformReportToolId
+     */
     void markLatest(Integer eformReportToolId);
 
+    /**
+     * Add New.
+     *
+     * @param eformReportTool EFormReportTool the eformReportTool
+     * @param eform EForm the eform
+     * @param fields List<String> the fields
+     * @param providerNo String the providerNo
+     */
     void addNew(EFormReportTool eformReportTool, EForm eform, List<String> fields, String providerNo);
 
+    /**
+     * Populate Report Table Item.
+     *
+     * @param eft EFormReportTool the eft
+     * @param values List<EFormValue> the values
+     * @param fdid Integer the fdid
+     * @param demographicNo Integer the demographicNo
+     * @param dateFormCreated Date the dateFormCreated
+     * @param providerNo String the providerNo
+     */
     void populateReportTableItem(EFormReportTool eft, List<EFormValue> values, Integer fdid, Integer demographicNo, Date dateFormCreated, String providerNo);
 
+    /**
+     * Delete All Data.
+     *
+     * @param eft EFormReportTool the eft
+     */
     void deleteAllData(EFormReportTool eft);
 
+    /**
+     * Drop.
+     *
+     * @param eft EFormReportTool the eft
+     */
     void drop(EFormReportTool eft);
 
+    /**
+     * Get Num Records.
+     *
+     * @param eformReportTool EFormReportTool the eformReportTool
+     * @return Integer
+     */
     Integer getNumRecords(EFormReportTool eformReportTool);
 
 }

@@ -44,15 +44,54 @@ import java.util.List;
 
 public interface LabTestResultsDao extends AbstractDao<LabTestResults> {
 
+    /**
+     * Find By Title And Lab Info Id.
+     *
+     * @param labId Integer the labId
+     * @return List<LabTestResults>
+     */
     List<LabTestResults> findByTitleAndLabInfoId(Integer labId);
 
+    /**
+     * Find By Lab Info Id.
+     *
+     * @param labId Integer the labId
+     * @return List<LabTestResults>
+     */
     List<LabTestResults> findByLabInfoId(Integer labId);
 
+    /**
+     * Find By Abn And Lab Info Id.
+     *
+     * @param abn String the abn
+     * @param labId Integer the labId
+     * @return List<LabTestResults>
+     */
     List<LabTestResults> findByAbnAndLabInfoId(String abn, Integer labId);
 
+    /**
+     * Find Unique Test Names.
+     *
+     * @param demoNo Integer the demoNo
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     List<Object[]> findUniqueTestNames(Integer demoNo, String labType);
 
+    /**
+     * Find By Abn And Physician Id.
+     *
+     * @param abn String the abn
+     * @param lppii Integer the lppii
+     * @return List<LabTestResults>
+     */
     List<LabTestResults> findByAbnAndPhysicianId(String abn, Integer lppii);
 
+    /**
+     * Find By Lab Patient Physicial Info Id.
+     *
+     * @param labid Integer the labid
+     * @return List<LabTestResults>
+     */
     List<LabTestResults> findByLabPatientPhysicialInfoId(Integer labid);
 }

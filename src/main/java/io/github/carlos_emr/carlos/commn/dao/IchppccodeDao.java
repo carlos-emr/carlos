@@ -43,17 +43,62 @@ import io.github.carlos_emr.carlos.commn.model.Ichppccode;
  */
 
 public interface IchppccodeDao extends AbstractDao<Ichppccode> {
+    /**
+     * Find All.
+     * @return List<Ichppccode>
+     */
     List<Ichppccode> findAll();
 
+    /**
+     * Get Ichppccode Code.
+     *
+     * @param term String the term
+     * @return List<Ichppccode>
+     */
     List<Ichppccode> getIchppccodeCode(String term);
 
+    /**
+     * Get Ichppccode.
+     *
+     * @param query String the query
+     * @return List<Ichppccode>
+     */
     List<Ichppccode> getIchppccode(String query);
 
+    /**
+     * Search Code.
+     *
+     * @param term String the term
+     * @return List<Ichppccode>
+     */
     List<Ichppccode> searchCode(String term);
 
+    /**
+     * Find By Code.
+     *
+     * @param code String the code
+     * @return Ichppccode
+     */
     Ichppccode findByCode(String code);
 
+    /**
+     * Find By Coding System.
+     *
+     * @param codingSystem String the codingSystem
+     * @return AbstractCodeSystemModel<?>
+     */
     AbstractCodeSystemModel<?> findByCodingSystem(String codingSystem);
 
+    /**
+     * Search_research_code.
+     *
+     * @param code String the code
+     * @param code1 String the code1
+     * @param code2 String the code2
+     * @param desc String the desc
+     * @param desc1 String the desc1
+     * @param desc2 String the desc2
+     * @return List<Ichppccode>
+     */
     List<Ichppccode> search_research_code(String code, String code1, String code2, String desc, String desc1, String desc2);
 }

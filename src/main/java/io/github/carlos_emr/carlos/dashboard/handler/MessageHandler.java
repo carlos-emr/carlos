@@ -41,6 +41,13 @@ import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 
+/**
+ * Sends system messages to providers as part of dashboard bulk operations. Messages
+ * are sent from a system user account to notify providers about actions taken on
+ * their patients (exclusions, disease registry additions, status changes).
+ *
+ * @since 2026-03-17
+ */
 public class MessageHandler {
 
     private static final String SYSTEM_USER_ID = "-1";

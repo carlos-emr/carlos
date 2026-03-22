@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.FileUploadCheck;
  */
 
 public interface FileUploadCheckDao extends AbstractDao<FileUploadCheck> {
+    /**
+     * Find By Md5 Sum.
+     *
+     * @param md5sum String the md5sum
+     * @return List<FileUploadCheck>
+     */
     List<FileUploadCheck> findByMd5Sum(String md5sum);
 }

@@ -43,15 +43,66 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
  */
 
 public interface BillingONEAReportDao extends AbstractDao<BillingONEAReport> {
+    /**
+     * Find By Provider Ohip No And Group No And Specialty And Process Date.
+     *
+     * @param providerOhipNo String the providerOhipNo
+     * @param groupNo String the groupNo
+     * @param specialty String the specialty
+     * @param processDate Date the processDate
+     * @return List<BillingONEAReport>
+     */
     List<BillingONEAReport> findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDate(String providerOhipNo, String groupNo, String specialty, Date processDate);
 
+    /**
+     * Find By Provider Ohip No And Group No And Specialty And Process Date And Billing No.
+     *
+     * @param providerOhipNo String the providerOhipNo
+     * @param groupNo String the groupNo
+     * @param specialty String the specialty
+     * @param processDate Date the processDate
+     * @param billingNo Integer the billingNo
+     * @return List<BillingONEAReport>
+     */
     List<BillingONEAReport> findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(String providerOhipNo, String groupNo, String specialty, Date processDate, Integer billingNo);
 
+    /**
+     * Find By Billing No.
+     *
+     * @param billingNo Integer the billingNo
+     * @return List<BillingONEAReport>
+     */
     List<BillingONEAReport> findByBillingNo(Integer billingNo);
 
+    /**
+     * Get Billing Error List.
+     *
+     * @param billingNo Integer the billingNo
+     * @return List<String>
+     */
     List<String> getBillingErrorList(Integer billingNo);
 
+    /**
+     * Find By Magic.
+     *
+     * @param ohipNo String the ohipNo
+     * @param billingGroupNo String the billingGroupNo
+     * @param specialtyCode String the specialtyCode
+     * @param fromDate Date the fromDate
+     * @param toDate Date the toDate
+     * @param reportName String the reportName
+     * @return List<BillingONEAReport>
+     */
     List<BillingONEAReport> findByMagic(String ohipNo, String billingGroupNo, String specialtyCode, Date fromDate, Date toDate, String reportName);
 
+    /**
+     * Find By Magic.
+     *
+     * @param list List<BillingProviderData> the list
+     * @param fromDate Date the fromDate
+     * @param toDate Date the toDate
+     * @param reportName String the reportName
+     * @return List<BillingONEAReport>
+     */
     List<BillingONEAReport> findByMagic(List<BillingProviderData> list, Date fromDate, Date toDate, String reportName);
 }

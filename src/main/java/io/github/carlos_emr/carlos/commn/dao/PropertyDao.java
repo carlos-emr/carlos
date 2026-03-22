@@ -42,31 +42,120 @@ import io.github.carlos_emr.carlos.commn.model.Property;
  */
 
 public interface PropertyDao extends AbstractDao<Property> {
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return List<Property>
+     */
     List<Property> findByName(String name);
 
+    /**
+     * Find Global By Name.
+     *
+     * @param name String the name
+     * @return List<Property>
+     */
     List<Property> findGlobalByName(String name);
 
+    /**
+     * Find Global By Name.
+     *
+     * @param propertyName Property.PROPERTY_KEY the propertyName
+     * @return List<Property>
+     */
     List<Property> findGlobalByName(Property.PROPERTY_KEY propertyName);
 
+    /**
+     * Find By Name And Provider.
+     *
+     * @param propertyName Property.PROPERTY_KEY the propertyName
+     * @param providerNo String the providerNo
+     * @return List<Property>
+     */
     List<Property> findByNameAndProvider(Property.PROPERTY_KEY propertyName, String providerNo);
 
+    /**
+     * Find By Name And Provider.
+     *
+     * @param propertyName String the propertyName
+     * @param providerNo String the providerNo
+     * @return List<Property>
+     */
     List<Property> findByNameAndProvider(String propertyName, String providerNo);
 
+    /**
+     * Find By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Property>
+     */
     List<Property> findByProvider(String providerNo);
 
+    /**
+     * Check By Name.
+     *
+     * @param name String the name
+     * @return Property
+     */
     Property checkByName(String name);
 
+    /**
+     * Get Value By Name And Default.
+     *
+     * @param name String the name
+     * @param defaultValue String the defaultValue
+     * @return String
+     */
     String getValueByNameAndDefault(String name, String defaultValue);
 
+    /**
+     * Find By Name And Value.
+     *
+     * @param name String the name
+     * @param value String the value
+     * @return List<Property>
+     */
     List<Property> findByNameAndValue(String name, String value);
 
+    /**
+     * Remove By Name.
+     *
+     * @param name String the name
+     */
     void removeByName(String name);
 
+    /**
+     * Is Active Boolean Property.
+     *
+     * @param name Property.PROPERTY_KEY the name
+     * @return Boolean
+     */
     Boolean isActiveBooleanProperty(Property.PROPERTY_KEY name);
 
+    /**
+     * Is Active Boolean Property.
+     *
+     * @param name Property.PROPERTY_KEY the name
+     * @param providerNo String the providerNo
+     * @return Boolean
+     */
     Boolean isActiveBooleanProperty(Property.PROPERTY_KEY name, String providerNo);
 
+    /**
+     * Is Active Boolean Property.
+     *
+     * @param name String the name
+     * @return Boolean
+     */
     Boolean isActiveBooleanProperty(String name);
 
+    /**
+     * Is Active Boolean Property.
+     *
+     * @param name String the name
+     * @param providerNo String the providerNo
+     * @return Boolean
+     */
     Boolean isActiveBooleanProperty(String name, String providerNo);
 }

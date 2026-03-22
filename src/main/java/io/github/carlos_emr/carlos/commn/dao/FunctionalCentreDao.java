@@ -41,7 +41,17 @@ import io.github.carlos_emr.carlos.commn.model.FunctionalCentre;
  */
 
 public interface FunctionalCentreDao extends AbstractDao<FunctionalCentre> {
+    /**
+     * Find All.
+     * @return List<FunctionalCentre>
+     */
     List<FunctionalCentre> findAll();
 
+    /**
+     * Find In Use By Facility.
+     *
+     * @param facilityId Integer the facilityId
+     * @return List<FunctionalCentre>
+     */
     List<FunctionalCentre> findInUseByFacility(Integer facilityId);
 }

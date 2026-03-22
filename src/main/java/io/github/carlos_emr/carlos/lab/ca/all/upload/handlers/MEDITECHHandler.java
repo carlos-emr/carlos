@@ -59,6 +59,12 @@ import org.xml.sax.SAXException;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 
+/**
+ * Upload handler for MEDITECH laboratory result files. Parses XML-based lab data
+ * from MEDITECH health information systems used by BC's Interior Health Authority.
+ *
+ * @since 2007-01-18
+ */
 public class MEDITECHHandler implements MessageHandler {
 
     private static Logger logger = MiscUtils.getLogger();

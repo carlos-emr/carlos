@@ -42,7 +42,19 @@ import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
  */
 
 public interface ServiceSpecialistsDao extends AbstractDao<ServiceSpecialists> {
+    /**
+     * Find By Service Id.
+     *
+     * @param serviceId int the serviceId
+     * @return List<ServiceSpecialists>
+     */
     List<ServiceSpecialists> findByServiceId(int serviceId);
 
+    /**
+     * Find Specialists.
+     *
+     * @param servId Integer the servId
+     * @return List<Object[]>
+     */
     List<Object[]> findSpecialists(Integer servId);
 }

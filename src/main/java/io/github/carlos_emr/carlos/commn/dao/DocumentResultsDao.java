@@ -47,8 +47,21 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
  */
 
 public interface DocumentResultsDao {
+    /**
+     * Is Sent To Valid Provider.
+     *
+     * @param docNo String the docNo
+     * @return boolean
+     */
     public boolean isSentToValidProvider(String docNo);
 
+    /**
+     * Is Sent To Provider.
+     *
+     * @param docNo String the docNo
+     * @param providerNo String the providerNo
+     * @return boolean
+     */
     public boolean isSentToProvider(String docNo, String providerNo);
 
     public ArrayList<LabResultData> populateDocumentResultsDataOfAllProviders(String providerNo, String demographicNo,
@@ -59,8 +72,22 @@ public interface DocumentResultsDao {
                                                                               String status);
 
     //retrieve all documents from database
+    /**
+     * Populate Document Results Data.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo String the demographicNo
+     * @param status String the status
+     * @return ArrayList<LabResultData>
+     */
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String status);
 
+    /**
+     * Get Photos By Appointment No.
+     *
+     * @param appointmentNo int the appointmentNo
+     * @return List<Document>
+     */
     public List<Document> getPhotosByAppointmentNo(int appointmentNo);
 }
  

@@ -44,20 +44,65 @@ import io.github.carlos_emr.carlos.commn.model.QueueDocumentLink;
 
 public interface QueueDocumentLinkDao extends AbstractDao<QueueDocumentLink> {
 
+    /**
+     * Get Queue Doc Links.
+     * @return List<QueueDocumentLink>
+     */
     public List<QueueDocumentLink> getQueueDocLinks();
 
+    /**
+     * Get Active Queue Doc Link.
+     * @return List<QueueDocumentLink>
+     */
     public List<QueueDocumentLink> getActiveQueueDocLink();
 
+    /**
+     * Get Queue From Document.
+     *
+     * @param docId Integer the docId
+     * @return List<QueueDocumentLink>
+     */
     public List<QueueDocumentLink> getQueueFromDocument(Integer docId);
 
+    /**
+     * Get Document From Queue.
+     *
+     * @param qId Integer the qId
+     * @return List<QueueDocumentLink>
+     */
     public List<QueueDocumentLink> getDocumentFromQueue(Integer qId);
 
+    /**
+     * Has Queue Been Linked With Document.
+     *
+     * @param dId Integer the dId
+     * @param qId Integer the qId
+     * @return boolean
+     */
     public boolean hasQueueBeenLinkedWithDocument(Integer dId, Integer qId);
 
+    /**
+     * Set Status Inactive.
+     *
+     * @param docId Integer the docId
+     * @return boolean
+     */
     public boolean setStatusInactive(Integer docId);
 
+    /**
+     * Add Active Queue Document Link.
+     *
+     * @param qId Integer the qId
+     * @param dId Integer the dId
+     */
     public void addActiveQueueDocumentLink(Integer qId, Integer dId);
 
+    /**
+     * Add To Queue Document Link.
+     *
+     * @param qId Integer the qId
+     * @param dId Integer the dId
+     */
     public void addToQueueDocumentLink(Integer qId, Integer dId);
 }
  

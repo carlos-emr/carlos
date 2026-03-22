@@ -40,11 +40,40 @@ import io.github.carlos_emr.carlos.commn.model.OtherId;
  */
 
 public interface OtherIdDAO extends AbstractDao<OtherId> {
+    /**
+     * Get Other Id.
+     *
+     * @param tableName Integer the tableName
+     * @param tableId Integer the tableId
+     * @param otherKey String the otherKey
+     * @return OtherId
+     */
     OtherId getOtherId(Integer tableName, Integer tableId, String otherKey);
 
+    /**
+     * Get Other Id.
+     *
+     * @param tableName Integer the tableName
+     * @param tableId String the tableId
+     * @param otherKey String the otherKey
+     * @return OtherId
+     */
     OtherId getOtherId(Integer tableName, String tableId, String otherKey);
 
+    /**
+     * Search Table.
+     *
+     * @param tableName Integer the tableName
+     * @param otherKey String the otherKey
+     * @param otherValue String the otherValue
+     * @return OtherId
+     */
     OtherId searchTable(Integer tableName, String otherKey, String otherValue);
 
+    /**
+     * Save.
+     *
+     * @param otherId OtherId the otherId
+     */
     void save(OtherId otherId);
 }

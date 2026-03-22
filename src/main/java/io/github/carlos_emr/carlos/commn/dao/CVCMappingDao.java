@@ -42,9 +42,27 @@ import io.github.carlos_emr.carlos.commn.model.CVCMapping;
  */
 
 public interface CVCMappingDao extends AbstractDao<CVCMapping> {
+    /**
+     * Find By Oscar Name.
+     *
+     * @param oscarName String the oscarName
+     * @return CVCMapping
+     */
     CVCMapping findByOscarName(String oscarName);
 
+    /**
+     * Find By Snomed Id.
+     *
+     * @param cvcSnomedId String the cvcSnomedId
+     * @return CVCMapping
+     */
     CVCMapping findBySnomedId(String cvcSnomedId);
 
+    /**
+     * Find Multiple By Oscar Name.
+     *
+     * @param oscarName String the oscarName
+     * @return List<CVCMapping>
+     */
     List<CVCMapping> findMultipleByOscarName(String oscarName);
 }

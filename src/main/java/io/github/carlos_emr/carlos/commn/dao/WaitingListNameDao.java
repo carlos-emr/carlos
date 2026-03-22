@@ -45,11 +45,35 @@ import java.util.List;
  */
 
 public interface WaitingListNameDao extends AbstractDao<WaitingListName> {
+    /**
+     * Count Active Wating List Names.
+     * @return long
+     */
     long countActiveWatingListNames();
 
+    /**
+     * Find Current By Name And Group.
+     *
+     * @param name String the name
+     * @param group String the group
+     * @return List<WaitingListName>
+     */
     List<WaitingListName> findCurrentByNameAndGroup(String name, String group);
 
+    /**
+     * Find By My Groups.
+     *
+     * @param providerNo String the providerNo
+     * @param myGroups List<MyGroup> the myGroups
+     * @return List<WaitingListName>
+     */
     List<WaitingListName> findByMyGroups(String providerNo, List<MyGroup> myGroups);
 
+    /**
+     * Find Current By Group.
+     *
+     * @param group String the group
+     * @return List<WaitingListName>
+     */
     List<WaitingListName> findCurrentByGroup(String group);
 }

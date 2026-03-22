@@ -43,28 +43,103 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
  */
 
 public interface UserPropertyDAO extends AbstractDao<UserProperty> {
+    /**
+     * Delete.
+     *
+     * @param prop UserProperty the prop
+     */
     void delete(UserProperty prop);
 
+    /**
+     * Save Prop.
+     *
+     * @param provider String the provider
+     * @param userPropertyName String the userPropertyName
+     * @param value String the value
+     */
     void saveProp(String provider, String userPropertyName, String value);
 
+    /**
+     * Save Prop.
+     *
+     * @param prop UserProperty the prop
+     */
     void saveProp(UserProperty prop);
 
+    /**
+     * Save Prop.
+     *
+     * @param name String the name
+     * @param val String the val
+     */
     void saveProp(String name, String val);
 
+    /**
+     * Get String Value.
+     *
+     * @param provider String the provider
+     * @param propertyName String the propertyName
+     * @return String
+     */
     String getStringValue(String provider, String propertyName);
 
+    /**
+     * Get All Properties.
+     *
+     * @param name String the name
+     * @param list List<String> the list
+     * @return List<UserProperty>
+     */
     List<UserProperty> getAllProperties(String name, List<String> list);
 
+    /**
+     * Get Prop Values.
+     *
+     * @param name String the name
+     * @param value String the value
+     * @return List<UserProperty>
+     */
     List<UserProperty> getPropValues(String name, String value);
 
+    /**
+     * Get Prop.
+     *
+     * @param prov String the prov
+     * @param name String the name
+     * @return UserProperty
+     */
     UserProperty getProp(String prov, String name);
 
+    /**
+     * Get Prop.
+     *
+     * @param name String the name
+     * @return UserProperty
+     */
     UserProperty getProp(String name);
 
+    /**
+     * Get Demographic Properties.
+     *
+     * @param providerNo String the providerNo
+     * @return List<UserProperty>
+     */
     List<UserProperty> getDemographicProperties(String providerNo);
 
+    /**
+     * Get Provider Properties As Map.
+     *
+     * @param providerNo String the providerNo
+     * @return Map<String, String>
+     */
     Map<String, String> getProviderPropertiesAsMap(String providerNo);
 
+    /**
+     * Save Properties.
+     *
+     * @param providerNo String the providerNo
+     * @param props Map<String, String> the props
+     */
     void saveProperties(String providerNo, Map<String, String> props);
 
     public final static String COLOR_PROPERTY = "ProviderColour";

@@ -94,7 +94,17 @@ import java.util.List;
  */
 
 public interface ServiceRequestTokenDao extends AbstractDao<ServiceRequestToken> {
+    /**
+     * Find All.
+     * @return List<ServiceRequestToken>
+     */
     List<ServiceRequestToken> findAll();
 
+    /**
+     * Find By Token Id.
+     *
+     * @param token String the token
+     * @return ServiceRequestToken
+     */
     ServiceRequestToken findByTokenId(String token);
 }

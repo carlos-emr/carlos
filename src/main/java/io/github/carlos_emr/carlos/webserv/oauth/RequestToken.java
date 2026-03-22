@@ -32,6 +32,12 @@ package io.github.carlos_emr.carlos.webserv.oauth;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Domain model representing an OAuth 1.0a request token, issued during the
+ * temporary credential step before user authorization.
+ *
+ * @since 2026-01-18
+ */
 public class RequestToken {
 
     private Client client;

@@ -40,7 +40,19 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
  */
 
 public interface FaxConfigDao extends AbstractDao<FaxConfig> {
+    /**
+     * Get Config By Number.
+     *
+     * @param number String the number
+     * @return FaxConfig
+     */
     FaxConfig getConfigByNumber(String number);
 
+    /**
+     * Get Active Config By Number.
+     *
+     * @param number String the number
+     * @return FaxConfig
+     */
     FaxConfig getActiveConfigByNumber(String number);
 }

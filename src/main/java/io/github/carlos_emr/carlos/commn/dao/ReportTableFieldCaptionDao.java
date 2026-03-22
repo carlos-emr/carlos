@@ -43,5 +43,12 @@ import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
  */
 
 public interface ReportTableFieldCaptionDao extends AbstractDao<ReportTableFieldCaption> {
+    /**
+     * Find By Table Name And Name.
+     *
+     * @param tableName String the tableName
+     * @param name String the name
+     * @return List<ReportTableFieldCaption>
+     */
     List<ReportTableFieldCaption> findByTableNameAndName(String tableName, String name);
 }

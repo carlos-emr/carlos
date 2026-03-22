@@ -42,9 +42,29 @@ import java.util.List;
  */
 
 public interface CasemgmtNoteLockDao extends AbstractDao<CasemgmtNoteLock> {
+    /**
+     * Find By Note Demo.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param note_id Long the note_id
+     * @return CasemgmtNoteLock
+     */
     CasemgmtNoteLock findByNoteDemo(Integer demographicNo, Long note_id);
 
+    /**
+     * Remove.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo Integer the demographicNo
+     * @param note_id Long the note_id
+     */
     void remove(String providerNo, Integer demographicNo, Long note_id);
 
+    /**
+     * Find By Session.
+     *
+     * @param sessionId String the sessionId
+     * @return List<CasemgmtNoteLock>
+     */
     List<CasemgmtNoteLock> findBySession(String sessionId);
 }

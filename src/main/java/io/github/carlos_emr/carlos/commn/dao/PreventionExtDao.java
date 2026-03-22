@@ -44,12 +44,38 @@ import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 
 public interface PreventionExtDao extends AbstractDao<PreventionExt> {
 
+    /**
+     * Find By Prevention Id.
+     *
+     * @param preventionId Integer the preventionId
+     * @return List<PreventionExt>
+     */
     public List<PreventionExt> findByPreventionId(Integer preventionId);
 
+    /**
+     * Find By Key And Value.
+     *
+     * @param key String the key
+     * @param value String the value
+     * @return List<PreventionExt>
+     */
     public List<PreventionExt> findByKeyAndValue(String key, String value);
 
+    /**
+     * Find By Prevention Id And Key.
+     *
+     * @param preventionId Integer the preventionId
+     * @param key String the key
+     * @return List<PreventionExt>
+     */
     public List<PreventionExt> findByPreventionIdAndKey(Integer preventionId, String key);
 
+    /**
+     * Get Prevention Ext.
+     *
+     * @param preventionId Integer the preventionId
+     * @return HashMap<String, String>
+     */
     public HashMap<String, String> getPreventionExt(Integer preventionId);
 }
  

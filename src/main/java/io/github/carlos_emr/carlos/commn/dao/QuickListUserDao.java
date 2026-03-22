@@ -43,5 +43,12 @@ import io.github.carlos_emr.carlos.commn.model.QuickListUser;
  */
 
 public interface QuickListUserDao extends AbstractDao<QuickListUser> {
+    /**
+     * Find By Name And Provider No.
+     *
+     * @param name String the name
+     * @param providerNo String the providerNo
+     * @return List<QuickListUser>
+     */
     List<QuickListUser> findByNameAndProviderNo(String name, String providerNo);
 }

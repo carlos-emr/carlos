@@ -45,17 +45,57 @@ import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
 
 public interface ProviderDefaultProgramDao extends AbstractDao<ProviderDefaultProgram> {
 
+    /**
+     * Get Program By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<ProviderDefaultProgram>
+     */
     public List<ProviderDefaultProgram> getProgramByProviderNo(String providerNo);
 
+    /**
+     * Set Default Program.
+     *
+     * @param providerNo String the providerNo
+     * @param programId int the programId
+     */
     public void setDefaultProgram(String providerNo, int programId);
 
+    /**
+     * Get Provider Sig.
+     *
+     * @param providerNo String the providerNo
+     * @return List<ProviderDefaultProgram>
+     */
     public List<ProviderDefaultProgram> getProviderSig(String providerNo);
 
+    /**
+     * Save Provider Default Program.
+     *
+     * @param pdp ProviderDefaultProgram the pdp
+     */
     public void saveProviderDefaultProgram(ProviderDefaultProgram pdp);
 
+    /**
+     * Toggle Sig.
+     *
+     * @param providerNo String the providerNo
+     */
     public void toggleSig(String providerNo);
 
+    /**
+     * Find Programs By Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Program>
+     */
     public List<Program> findProgramsByProvider(String providerNo);
 
+    /**
+     * Find Programs By Facility Id.
+     *
+     * @param facilityId Integer the facilityId
+     * @return List<Program>
+     */
     public List<Program> findProgramsByFacilityId(Integer facilityId);
 }

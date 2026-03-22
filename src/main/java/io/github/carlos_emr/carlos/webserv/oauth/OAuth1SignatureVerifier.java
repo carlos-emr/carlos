@@ -30,6 +30,11 @@ package io.github.carlos_emr.carlos.webserv.oauth;
 import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 
+/**
+ * Interface for server-side verification of OAuth 1.0a request signatures.
+ *
+ * @since 2026-01-18
+ */
 public interface OAuth1SignatureVerifier {
     String verifySignature(HttpServletRequest req, AppOAuth1Config cfg);
     String getProviderNo(String token);

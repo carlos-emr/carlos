@@ -43,15 +43,43 @@ import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 
 public interface IndicatorTemplateDao extends AbstractDao<IndicatorTemplate> {
 
+    /**
+     * Get Active Indicator Templates.
+     * @return List<IndicatorTemplate>
+     */
     public List<IndicatorTemplate> getActiveIndicatorTemplates();
 
+    /**
+     * Get Indicator Templates By Status.
+     *
+     * @param status boolean the status
+     * @return List<IndicatorTemplate>
+     */
     public List<IndicatorTemplate> getIndicatorTemplatesByStatus(boolean status);
 
+    /**
+     * Get Indicator Templates.
+     * @return List<IndicatorTemplate>
+     */
     public List<IndicatorTemplate> getIndicatorTemplates();
 
+    /**
+     * Get Not Shared Indicator Templates.
+     * @return List<IndicatorTemplate>
+     */
     public List<IndicatorTemplate> getNotSharedIndicatorTemplates();
 
+    /**
+     * Get Shared Indicator Templates.
+     * @return List<IndicatorTemplate>
+     */
     public List<IndicatorTemplate> getSharedIndicatorTemplates();
 
+    /**
+     * Get Indicator Templates By Dashboard Id.
+     *
+     * @param id int the id
+     * @return List<IndicatorTemplate>
+     */
     public List<IndicatorTemplate> getIndicatorTemplatesByDashboardId(int id);
 }

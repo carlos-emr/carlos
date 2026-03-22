@@ -44,17 +44,62 @@ import io.github.carlos_emr.carlos.commn.model.EChart;
  */
 
 public interface EChartDao extends AbstractDao<EChart> {
+    /**
+     * Get Latest Chart.
+     *
+     * @param demographicNo int the demographicNo
+     * @return EChart
+     */
     EChart getLatestChart(int demographicNo);
 
+    /**
+     * Save Echart.
+     *
+     * @param note CaseManagementNote the note
+     * @param cpp CaseManagementCPP the cpp
+     * @param userName String the userName
+     * @param lastStr String the lastStr
+     * @return String
+     */
     String saveEchart(CaseManagementNote note, CaseManagementCPP cpp, String userName, String lastStr);
 
+    /**
+     * Update Echart Ongoing.
+     *
+     * @param cpp CaseManagementCPP the cpp
+     */
     void updateEchartOngoing(CaseManagementCPP cpp);
 
+    /**
+     * Save C P P Into Echart.
+     *
+     * @param cpp CaseManagementCPP the cpp
+     * @param providerNo String the providerNo
+     */
     void saveCPPIntoEchart(CaseManagementCPP cpp, String providerNo);
 
+    /**
+     * Get Max Id For Demographic.
+     *
+     * @param demoNo Integer the demoNo
+     * @return Integer
+     */
     Integer getMaxIdForDemographic(Integer demoNo);
 
+    /**
+     * Get Charts For Demographic.
+     *
+     * @param demoNo Integer the demoNo
+     * @return List<EChart>
+     */
     List<EChart> getChartsForDemographic(Integer demoNo);
 
+    /**
+     * Find By Demo Id And Subject.
+     *
+     * @param demoNo Integer the demoNo
+     * @param subj String the subj
+     * @return List<EChart>
+     */
     List<EChart> findByDemoIdAndSubject(Integer demoNo, String subj);
 }

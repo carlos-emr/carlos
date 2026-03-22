@@ -43,8 +43,21 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 
 public interface CtlDocumentDao extends AbstractDao<CtlDocument> {
 
+    /**
+     * Get Ctrl Document.
+     *
+     * @param docId Integer the docId
+     * @return CtlDocument
+     */
     public CtlDocument getCtrlDocument(Integer docId);
 
+    /**
+     * Find By Document No And Module.
+     *
+     * @param ctlDocNo Integer the ctlDocNo
+     * @param module String the module
+     * @return List<CtlDocument>
+     */
     public List<CtlDocument> findByDocumentNoAndModule(Integer ctlDocNo, String module);
 
 }

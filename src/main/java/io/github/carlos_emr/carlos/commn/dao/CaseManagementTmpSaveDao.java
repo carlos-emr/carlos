@@ -42,11 +42,41 @@ import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
  */
 
 public interface CaseManagementTmpSaveDao extends AbstractDao<CaseManagementTmpSave> {
+    /**
+     * Remove.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo Integer the demographicNo
+     * @param programId Integer the programId
+     */
     void remove(String providerNo, Integer demographicNo, Integer programId);
 
+    /**
+     * Find.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo Integer the demographicNo
+     * @param programId Integer the programId
+     * @return CaseManagementTmpSave
+     */
     CaseManagementTmpSave find(String providerNo, Integer demographicNo, Integer programId);
 
+    /**
+     * Find.
+     *
+     * @param providerNo String the providerNo
+     * @param demographicNo Integer the demographicNo
+     * @param programId Integer the programId
+     * @param date Date the date
+     * @return CaseManagementTmpSave
+     */
     CaseManagementTmpSave find(String providerNo, Integer demographicNo, Integer programId, Date date);
 
+    /**
+     * Note Has Content.
+     *
+     * @param id Integer the id
+     * @return boolean
+     */
     boolean noteHasContent(Integer id);
 }

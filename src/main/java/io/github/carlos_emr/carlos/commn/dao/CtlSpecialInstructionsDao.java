@@ -43,6 +43,16 @@ import io.github.carlos_emr.carlos.commn.model.CtlSpecialInstructions;
  */
 
 public interface CtlSpecialInstructionsDao extends AbstractDao<CtlSpecialInstructions> {
+    /**
+     * Find All.
+     * @return List<CtlSpecialInstructions>
+     */
     List<CtlSpecialInstructions> findAll();
+    /**
+     * Find Descriptions Matching.
+     *
+     * @param descQuery String the descQuery
+     * @return List<String>
+     */
     List<String> findDescriptionsMatching(String descQuery);
 }

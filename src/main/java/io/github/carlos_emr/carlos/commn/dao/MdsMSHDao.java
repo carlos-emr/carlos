@@ -43,9 +43,29 @@ import io.github.carlos_emr.carlos.commn.model.MdsMSH;
  */
 
 public interface MdsMSHDao extends AbstractDao<MdsMSH> {
+    /**
+     * Find Labs By Accession Num And Id.
+     *
+     * @param id Integer the id
+     * @param controlId String the controlId
+     * @return List<Object[]>
+     */
     List<Object[]> findLabsByAccessionNumAndId(Integer id, String controlId);
 
+    /**
+     * Find Mds Sement Data By Id.
+     *
+     * @param id Integer the id
+     * @return List<Object[]>
+     */
     List<Object[]> findMdsSementDataById(Integer id);
 
+    /**
+     * Get Lab Results Since.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param updateDate Date the updateDate
+     * @return List<Integer>
+     */
     List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate);
 }

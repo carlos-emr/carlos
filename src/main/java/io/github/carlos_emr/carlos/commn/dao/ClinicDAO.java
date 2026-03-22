@@ -41,10 +41,23 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
  */
 public interface ClinicDAO extends AbstractDao<Clinic> {
 
+    /**
+     * Find All.
+     * @return List<Clinic>
+     */
     public List<Clinic> findAll();
 
+    /**
+     * Get Clinic.
+     * @return Clinic
+     */
     public Clinic getClinic();
 
+    /**
+     * Save.
+     *
+     * @param clinic Clinic the clinic
+     */
     public void save(Clinic clinic);
 
 }

@@ -42,7 +42,17 @@ import io.github.carlos_emr.carlos.commn.model.BillCenter;
  */
 
 public interface BillCenterDao extends AbstractDao<BillCenter> {
+    /**
+     * Find All.
+     * @return List<BillCenter>
+     */
     List<BillCenter> findAll();
 
+    /**
+     * Find By Bill Center Desc.
+     *
+     * @param descr String the descr
+     * @return List<BillCenter>
+     */
     List<BillCenter> findByBillCenterDesc(String descr);
 }

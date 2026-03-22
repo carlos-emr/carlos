@@ -45,7 +45,19 @@ import io.github.carlos_emr.carlos.commn.model.BillingONRepo;
  */
 
 public interface BillingONRepoDao extends AbstractDao<BillingONRepo> {
+    /**
+     * Create Billing O N Item Entry.
+     *
+     * @param bItem BillingONItem the bItem
+     * @param locale Locale the locale
+     */
     void createBillingONItemEntry(BillingONItem bItem, Locale locale);
 
+    /**
+     * Create Billing O N C Header1 Entry.
+     *
+     * @param bCh1 BillingONCHeader1 the bCh1
+     * @param locale Locale the locale
+     */
     void createBillingONCHeader1Entry(BillingONCHeader1 bCh1, Locale locale);
 }

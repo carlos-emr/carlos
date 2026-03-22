@@ -42,7 +42,19 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalContact;
  */
 
 public interface ProfessionalContactDao extends AbstractDao<ProfessionalContact> {
+    /**
+     * Find All.
+     * @return List<ProfessionalContact>
+     */
     List<ProfessionalContact> findAll();
 
+    /**
+     * Search.
+     *
+     * @param searchMode String the searchMode
+     * @param orderBy String the orderBy
+     * @param keyword String the keyword
+     * @return List<ProfessionalContact>
+     */
     List<ProfessionalContact> search(String searchMode, String orderBy, String keyword);
 }

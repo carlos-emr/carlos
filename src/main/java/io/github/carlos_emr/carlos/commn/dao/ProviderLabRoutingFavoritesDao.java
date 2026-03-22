@@ -43,5 +43,11 @@ import java.util.List;
  */
 
 public interface ProviderLabRoutingFavoritesDao extends AbstractDao<ProviderLabRoutingFavorite> {
+    /**
+     * Find Favorites.
+     *
+     * @param provider_no String the provider_no
+     * @return List<ProviderLabRoutingFavorite>
+     */
     List<ProviderLabRoutingFavorite> findFavorites(String provider_no);
 }

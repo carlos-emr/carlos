@@ -42,9 +42,25 @@ import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
  */
 
 public interface BillingPaymentTypeDao extends AbstractDao<BillingPaymentType> {
+    /**
+     * Find All.
+     * @return List<BillingPaymentType>
+     */
     List<BillingPaymentType> findAll();
 
+    /**
+     * Find Id By Name.
+     *
+     * @param name String the name
+     * @return Integer
+     */
     Integer findIdByName(String name);
 
+    /**
+     * Get Payment Type By Name.
+     *
+     * @param typeName String the typeName
+     * @return BillingPaymentType
+     */
     BillingPaymentType getPaymentTypeByName(String typeName);
 }

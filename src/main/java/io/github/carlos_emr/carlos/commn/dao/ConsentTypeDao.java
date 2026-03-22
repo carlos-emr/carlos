@@ -43,9 +43,26 @@ import java.util.List;
 
 public interface ConsentTypeDao extends AbstractDao<ConsentType> {
 
+    /**
+     * Find Consent Type.
+     *
+     * @param type String the type
+     * @return ConsentType
+     */
     public ConsentType findConsentType(String type);
 
+    /**
+     * Find Consent Type For Provider.
+     *
+     * @param type String the type
+     * @param providerNo String the providerNo
+     * @return ConsentType
+     */
     public ConsentType findConsentTypeForProvider(String type, String providerNo);
 
+    /**
+     * Find All Active.
+     * @return List<ConsentType>
+     */
     public List<ConsentType> findAllActive();
 }

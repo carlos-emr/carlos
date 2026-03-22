@@ -43,7 +43,15 @@ import io.github.carlos_emr.carlos.commn.model.SecObjectName;
  */
 
 public interface SecObjectNameDao extends AbstractDao<SecObjectName> {
+    /**
+     * Find All.
+     * @return List<SecObjectName>
+     */
     List<SecObjectName> findAll();
 
+    /**
+     * Find Distinct Object Names.
+     * @return List<String>
+     */
     List<String> findDistinctObjectNames();
 }

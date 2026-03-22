@@ -45,13 +45,45 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 
 public interface DemographicExtArchiveDao extends AbstractDao<DemographicExtArchive> {
 
+    /**
+     * Get Demographic Ext Archive By Demo And Key.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param key String the key
+     * @return List<DemographicExtArchive>
+     */
     public List<DemographicExtArchive> getDemographicExtArchiveByDemoAndKey(Integer demographicNo, String key);
 
+    /**
+     * Get Demographic Ext Archive By Archive Id And Key.
+     *
+     * @param archiveId Long the archiveId
+     * @param key String the key
+     * @return DemographicExtArchive
+     */
     public DemographicExtArchive getDemographicExtArchiveByArchiveIdAndKey(Long archiveId, String key);
 
+    /**
+     * Get Demographic Ext Archive By Archive Id.
+     *
+     * @param archiveId Long the archiveId
+     * @return List<DemographicExtArchive>
+     */
     public List<DemographicExtArchive> getDemographicExtArchiveByArchiveId(Long archiveId);
 
+    /**
+     * Get Demographic Ext Archive By Demo Reverse Cronological.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<DemographicExtArchive>
+     */
     public List<DemographicExtArchive> getDemographicExtArchiveByDemoReverseCronological(Integer demographicNo);
 
+    /**
+     * Archive Demographic Ext.
+     *
+     * @param de DemographicExt the de
+     * @return Integer
+     */
     public Integer archiveDemographicExt(DemographicExt de);
 }

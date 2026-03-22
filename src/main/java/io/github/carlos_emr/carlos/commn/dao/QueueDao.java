@@ -44,15 +44,45 @@ import io.github.carlos_emr.carlos.commn.model.Queue;
  */
 
 public interface QueueDao extends AbstractDao<Queue> {
+    /**
+     * Get Hash Map Of Queues.
+     * @return HashMap
+     */
     HashMap getHashMapOfQueues();
 
+    /**
+     * Get Queues.
+     * @return List<Hashtable>
+     */
     List<Hashtable> getQueues();
 
+    /**
+     * Get Last Id.
+     * @return String
+     */
     String getLastId();
 
+    /**
+     * Get Queue Name.
+     *
+     * @param id int the id
+     * @return String
+     */
     String getQueueName(int id);
 
+    /**
+     * Get Queueid.
+     *
+     * @param name String the name
+     * @return String
+     */
     String getQueueid(String name);
 
+    /**
+     * Add New Queue.
+     *
+     * @param qn String the qn
+     * @return boolean
+     */
     boolean addNewQueue(String qn);
 }

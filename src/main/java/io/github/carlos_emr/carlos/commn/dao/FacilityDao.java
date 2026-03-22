@@ -41,5 +41,11 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
  */
 
 public interface FacilityDao extends AbstractDao<Facility> {
+    /**
+     * Find All.
+     *
+     * @param active Boolean the active
+     * @return List<Facility>
+     */
     List<Facility> findAll(Boolean active);
 }

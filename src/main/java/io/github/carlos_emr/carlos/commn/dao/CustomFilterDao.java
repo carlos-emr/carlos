@@ -43,15 +43,49 @@ import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 
 public interface CustomFilterDao extends AbstractDao<CustomFilter> {
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return CustomFilter
+     */
     public CustomFilter findByName(String name);
 
+    /**
+     * Find By Name And Provider No.
+     *
+     * @param name String the name
+     * @param providerNo String the providerNo
+     * @return CustomFilter
+     */
     public CustomFilter findByNameAndProviderNo(String name, String providerNo);
 
+    /**
+     * Get Custom Filters.
+     * @return List<CustomFilter>
+     */
     public List<CustomFilter> getCustomFilters();
 
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<CustomFilter>
+     */
     public List<CustomFilter> findByProviderNo(String providerNo);
 
+    /**
+     * Get Custom Filter With Short Cut.
+     *
+     * @param providerNo String the providerNo
+     * @return List<CustomFilter>
+     */
     public List<CustomFilter> getCustomFilterWithShortCut(String providerNo);
 
+    /**
+     * Delete Custom Filter.
+     *
+     * @param name String the name
+     */
     public void deleteCustomFilter(String name);
 }

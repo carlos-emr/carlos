@@ -42,7 +42,15 @@ import io.github.carlos_emr.carlos.commn.model.FormLabReq07;
  */
 
 public interface FormLabReq07Dao extends AbstractDao<FormLabReq07> {
+    /**
+     * Find Creatinine.
+     * @return List<FormLabReq07>
+     */
     List<FormLabReq07> findCreatinine();
 
+    /**
+     * Find Acr.
+     * @return List<FormLabReq07>
+     */
     List<FormLabReq07> findAcr();
 }

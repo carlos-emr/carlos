@@ -42,11 +42,29 @@ import io.github.carlos_emr.carlos.commn.model.SecRole;
 
 public interface SecRoleDao extends AbstractDao<SecRole> {
 
+    /**
+     * Find All.
+     * @return List<SecRole>
+     */
     public List<SecRole> findAll();
 
+    /**
+     * Find All Names.
+     * @return List<String>
+     */
     public List<String> findAllNames();
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return SecRole
+     */
     public SecRole findByName(String name);
 
+    /**
+     * Find All Order By Role.
+     * @return List<SecRole>
+     */
     public List<SecRole> findAllOrderByRole();
 }

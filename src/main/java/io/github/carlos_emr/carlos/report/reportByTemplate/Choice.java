@@ -32,10 +32,14 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 /**
- * @author apavel (Paul)
+ * Represents a single option in a report template parameter dropdown list. Each
+ * choice has an ID (the submitted value) and display text (shown to the user).
+ * Used by report template parameters that offer a fixed set of selectable values.
+ *
+ * @see Parameter
+ * @see ReportObjectGeneric
+ * @since 2001-01-01
  */
-
-//<option value="<%=choiceId%>"><%=choiceText%></option>
 public class Choice {
     private String choiceId = "";
     private String choiceText = "";

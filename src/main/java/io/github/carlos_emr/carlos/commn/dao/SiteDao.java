@@ -36,33 +36,117 @@ import io.github.carlos_emr.carlos.commn.model.Site;
  */
 
 public interface SiteDao extends AbstractDao<Site> {
+    /**
+     * Save.
+     *
+     * @param s Site the s
+     */
     void save(Site s);
 
+    /**
+     * Get All Sites.
+     * @return List<Site>
+     */
     List<Site> getAllSites();
 
+    /**
+     * Get All Active Sites.
+     * @return List<Site>
+     */
     List<Site> getAllActiveSites();
 
+    /**
+     * Get Active Sites By Provider No.
+     *
+     * @param provider_no String the provider_no
+     * @return List<Site>
+     */
     List<Site> getActiveSitesByProviderNo(String provider_no);
 
+    /**
+     * Get By Id.
+     *
+     * @param id Integer the id
+     * @return Site
+     */
     Site getById(Integer id);
 
+    /**
+     * Get By Location.
+     *
+     * @param location String the location
+     * @return Site
+     */
     Site getByLocation(String location);
 
+    /**
+     * Get Group By Site Location.
+     *
+     * @param location String the location
+     * @return List<String>
+     */
     List<String> getGroupBySiteLocation(String location);
 
+    /**
+     * Get Provider No By Site Location.
+     *
+     * @param location String the location
+     * @return List<String>
+     */
     List<String> getProviderNoBySiteLocation(String location);
 
+    /**
+     * Get Provider No By Site Manager Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<String>
+     */
     List<String> getProviderNoBySiteManagerProviderNo(String providerNo);
 
+    /**
+     * Get Group By Site Manager Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<String>
+     */
     List<String> getGroupBySiteManagerProviderNo(String providerNo);
 
+    /**
+     * Site_searchmygroupcount.
+     *
+     * @param myGroupNo String the myGroupNo
+     * @param siteName String the siteName
+     * @return Long
+     */
     Long site_searchmygroupcount(String myGroupNo, String siteName);
 
+    /**
+     * Get Site Name By Appointment No.
+     *
+     * @param appointmentNo String the appointmentNo
+     * @return String
+     */
     String getSiteNameByAppointmentNo(String appointmentNo);
 
+    /**
+     * Get Groups By Site Provider No.
+     *
+     * @param groupNo String the groupNo
+     * @return List<String>
+     */
     List<String> getGroupsBySiteProviderNo(String groupNo);
 
+    /**
+     * Get Groups For All Sites.
+     * @return List<String>
+     */
     List<String> getGroupsForAllSites();
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return Site
+     */
     Site findByName(String name);
 }

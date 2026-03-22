@@ -43,21 +43,101 @@ import io.github.carlos_emr.carlos.commn.model.RSchedule;
  */
 
 public interface RScheduleDao extends AbstractDao<RSchedule> {
+    /**
+     * Find By Provider Available And Date.
+     *
+     * @param providerNo String the providerNo
+     * @param available String the available
+     * @param sdate Date the sdate
+     * @return List<RSchedule>
+     */
     List<RSchedule> findByProviderAvailableAndDate(String providerNo, String available, Date sdate);
 
+    /**
+     * Search_rschedule_overlaps.
+     *
+     * @param providerNo String the providerNo
+     * @param d1 Date the d1
+     * @param d2 Date the d2
+     * @param d3 Date the d3
+     * @param d4 Date the d4
+     * @param d5 Date the d5
+     * @param d6 Date the d6
+     * @param d7 Date the d7
+     * @param d8 Date the d8
+     * @param d9 Date the d9
+     * @param d10 Date the d10
+     * @param d11 Date the d11
+     * @param d12 Date the d12
+     * @param d13 Date the d13
+     * @param d14 Date the d14
+     * @return Long
+     */
     Long search_rschedule_overlaps(String providerNo, Date d1, Date d2, Date d3, Date d4, Date d5, Date d6, Date d7, Date d8, Date d9, Date d10, Date d11, Date d12, Date d13, Date d14);
 
+    /**
+     * Search_rschedule_exists.
+     *
+     * @param providerNo String the providerNo
+     * @param d1 Date the d1
+     * @param d2 Date the d2
+     * @return Long
+     */
     Long search_rschedule_exists(String providerNo, Date d1, Date d2);
 
+    /**
+     * Search_rschedule_current.
+     *
+     * @param providerNo String the providerNo
+     * @param available String the available
+     * @param sdate Date the sdate
+     * @return RSchedule
+     */
     RSchedule search_rschedule_current(String providerNo, String available, Date sdate);
 
+    /**
+     * Search_rschedule_future.
+     *
+     * @param providerNo String the providerNo
+     * @param available String the available
+     * @param sdate Date the sdate
+     * @return List<RSchedule>
+     */
     List<RSchedule> search_rschedule_future(String providerNo, String available, Date sdate);
 
+    /**
+     * Search_rschedule_current1.
+     *
+     * @param providerNo String the providerNo
+     * @param sdate Date the sdate
+     * @return RSchedule
+     */
     RSchedule search_rschedule_current1(String providerNo, Date sdate);
 
+    /**
+     * Search_rschedule_current2.
+     *
+     * @param providerNo String the providerNo
+     * @param sdate Date the sdate
+     * @return RSchedule
+     */
     RSchedule search_rschedule_current2(String providerNo, Date sdate);
 
+    /**
+     * Search_rschedule_future1.
+     *
+     * @param providerNo String the providerNo
+     * @param sdate Date the sdate
+     * @return List<RSchedule>
+     */
     List<RSchedule> search_rschedule_future1(String providerNo, Date sdate);
 
+    /**
+     * Find By Provider No And Dates.
+     *
+     * @param providerNo String the providerNo
+     * @param apptDate Date the apptDate
+     * @return List<RSchedule>
+     */
     List<RSchedule> findByProviderNoAndDates(String providerNo, Date apptDate);
 }

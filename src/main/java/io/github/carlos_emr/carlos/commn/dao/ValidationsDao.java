@@ -44,13 +44,31 @@ import io.github.carlos_emr.carlos.commn.model.Validations;
 
 public interface ValidationsDao extends AbstractDao<Validations> {
 
+    /**
+     * Find All.
+     * @return List<Validations>
+     */
     public List<Validations> findAll();
 
     public List<Validations> findByAll(String regularExpParam, Double minValueParam, Double maxValueParam,
                                        Integer minLengthParam, Integer maxLengthParam, Boolean isNumericParam,
                                        Boolean isDateParam);
 
+    /**
+     * Find By Name.
+     *
+     * @param name String the name
+     * @return List<Validations>
+     */
     public List<Validations> findByName(String name);
 
+    /**
+     * Find Validations By.
+     *
+     * @param demo Integer the demo
+     * @param type String the type
+     * @param validationId Integer the validationId
+     * @return List<Object[]>
+     */
     public List<Object[]> findValidationsBy(Integer demo, String type, Integer validationId);
 }

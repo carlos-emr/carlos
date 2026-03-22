@@ -43,11 +43,38 @@ import io.github.carlos_emr.carlos.commn.model.EFormDocs;
  */
 
 public interface EFormDocsDao extends AbstractDao<EFormDocs> {
+    /**
+     * Find By Fdid Id Doc No Doc Type.
+     *
+     * @param fdid Integer the fdid
+     * @param documentNo Integer the documentNo
+     * @param docType String the docType
+     * @return List<EFormDocs>
+     */
     List<EFormDocs> findByFdidIdDocNoDocType(Integer fdid, Integer documentNo, String docType);
 
+    /**
+     * Find By Fdid Id Doc Type.
+     *
+     * @param fdid Integer the fdid
+     * @param docType String the docType
+     * @return List<EFormDocs>
+     */
     List<EFormDocs> findByFdidIdDocType(Integer fdid, String docType);
 
+    /**
+     * Find By Fdid.
+     *
+     * @param fdid Integer the fdid
+     * @return List<EFormDocs>
+     */
     List<EFormDocs> findByFdid(Integer fdid);
 
+    /**
+     * Find Labs.
+     *
+     * @param fdid Integer the fdid
+     * @return List<Object[]>
+     */
     List<Object[]> findLabs(Integer fdid);
 }

@@ -41,7 +41,20 @@ import io.github.carlos_emr.carlos.commn.model.CdsFormOption;
  */
 
 public interface CdsFormOptionDao extends AbstractDao<CdsFormOption> {
+    /**
+     * Find By Version And Category.
+     *
+     * @param formVersion String the formVersion
+     * @param mainCatgeory String the mainCatgeory
+     * @return List<CdsFormOption>
+     */
     List<CdsFormOption> findByVersionAndCategory(String formVersion, String mainCatgeory);
 
+    /**
+     * Find By Version.
+     *
+     * @param formVersion String the formVersion
+     * @return List<CdsFormOption>
+     */
     List<CdsFormOption> findByVersion(String formVersion);
 }

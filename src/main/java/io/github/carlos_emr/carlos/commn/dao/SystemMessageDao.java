@@ -42,5 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.SystemMessage;
  */
 
 public interface SystemMessageDao extends AbstractDao<SystemMessage> {
+    /**
+     * Find All.
+     * @return List<SystemMessage>
+     */
     List<SystemMessage> findAll();
 }

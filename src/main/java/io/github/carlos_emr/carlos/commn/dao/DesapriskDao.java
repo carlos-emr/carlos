@@ -41,5 +41,12 @@ import io.github.carlos_emr.carlos.commn.model.Desaprisk;
  */
 
 public interface DesapriskDao extends AbstractDao<Desaprisk> {
+    /**
+     * Search.
+     *
+     * @param formNo Integer the formNo
+     * @param demographicNo Integer the demographicNo
+     * @return Desaprisk
+     */
     Desaprisk search(Integer formNo, Integer demographicNo);
 }

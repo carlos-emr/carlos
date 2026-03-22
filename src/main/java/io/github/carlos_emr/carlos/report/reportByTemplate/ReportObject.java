@@ -26,7 +26,7 @@
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-//This is an interface for classes representing each template 
+//This is an interface for classes representing each template
 
 
 package io.github.carlos_emr.carlos.report.reportByTemplate;
@@ -34,6 +34,15 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 import java.util.ArrayList;
 import java.util.Map;
 
+/**
+ * Interface representing a report template definition. Implementations hold template
+ * metadata (ID, title, description, type), parameter definitions, and SQL query
+ * generation logic for the Report By Template system.
+ *
+ * @see ReportObjectGeneric
+ * @see ReportManager
+ * @since 2001-01-01
+ */
 public interface ReportObject {
     public String getTemplateId();
 

@@ -43,7 +43,19 @@ import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilte
  */
 
 public interface ConsultResponseDao extends AbstractDao<ConsultationResponse> {
+    /**
+     * Get Consultation Count.
+     *
+     * @param filter ConsultationResponseSearchFilter the filter
+     * @return int
+     */
     int getConsultationCount(ConsultationResponseSearchFilter filter);
 
+    /**
+     * Search.
+     *
+     * @param filter ConsultationResponseSearchFilter the filter
+     * @return List<Object[]>
+     */
     List<Object[]> search(ConsultationResponseSearchFilter filter);
 }

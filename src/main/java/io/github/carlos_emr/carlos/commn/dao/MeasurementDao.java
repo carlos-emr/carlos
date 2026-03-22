@@ -157,10 +157,30 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      */
     public List<Measurement> findByAppointmentNo(Integer appointmentNo);
 
+    /**
+     * Find By Appointment No2.
+     *
+     * @param appointmentNo Integer the appointmentNo
+     * @return List<Measurement>
+     */
     public List<Measurement> findByAppointmentNo2(Integer appointmentNo);
 
+    /**
+     * Find By Appointment No And Type.
+     *
+     * @param appointmentNo Integer the appointmentNo
+     * @param type String the type
+     * @return List<Measurement>
+     */
     public List<Measurement> findByAppointmentNoAndType(Integer appointmentNo, String type);
 
+    /**
+     * Find Latest By Appointment No And Type.
+     *
+     * @param appointmentNo int the appointmentNo
+     * @param type String the type
+     * @return Measurement
+     */
     public Measurement findLatestByAppointmentNoAndType(int appointmentNo, String type);
 
     /**
@@ -174,10 +194,30 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      */
     public List<Measurement> findByDemographicIdObservedDate(Integer demographicId, Date startDate, Date endDate);
 
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demographicId Integer the demographicId
+     * @return List<Measurement>
+     */
     public List<Measurement> findByDemographicId(Integer demographicId);
 
+    /**
+     * Find.
+     *
+     * @param criteria SearchCriteria the criteria
+     * @return List<Measurement>
+     */
     public List<Measurement> find(SearchCriteria criteria);
 
+    /**
+     * Find By Id Type And Instruction.
+     *
+     * @param demographicId Integer the demographicId
+     * @param type String the type
+     * @param instructions String the instructions
+     * @return List<Measurement>
+     */
     public List<Measurement> findByIdTypeAndInstruction(Integer demographicId, String type, String instructions);
 
     /**
@@ -193,8 +233,22 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
     public Set<Integer> getAppointmentNosByDemographicNoAndType(int demographicNo, String type, Date startDate,
                                                                 Date endDate);
 
+    /**
+     * Get Measurements Prior To Date.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param d Date the d
+     * @return HashMap<String, Measurement>
+     */
     public HashMap<String, Measurement> getMeasurementsPriorToDate(Integer demographicNo, Date d);
 
+    /**
+     * Get Dates For Measurements.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param types String[] the types
+     * @return List<Date>
+     */
     public List<Date> getDatesForMeasurements(Integer demographicNo, String[] types);
 
     /**
@@ -210,8 +264,22 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
     public List<Object[]> findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(Integer demoNo,
                                                                                         String loincCode);
 
+    /**
+     * Find Lab Numbers.
+     *
+     * @param demoNo Integer the demoNo
+     * @param identCode String the identCode
+     * @return List<Object>
+     */
     public List<Object> findLabNumbers(Integer demoNo, String identCode);
 
+    /**
+     * Find Lab Numbers Order By Observed.
+     *
+     * @param demoNo Integer the demoNo
+     * @param identCode String the identCode
+     * @return List<Object>
+     */
     public List<Object> findLabNumbersOrderByObserved(Integer demoNo, String identCode);
 
     /**
@@ -233,24 +301,76 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      */
     public List<MeasurementType> findMeasurementsTypes(Integer demoNo);
 
+    /**
+     * Find Measurements And Providers.
+     *
+     * @param measurementId Integer the measurementId
+     * @return List<Object[]>
+     */
     public List<Object[]> findMeasurementsAndProviders(Integer measurementId);
 
+    /**
+     * Find Measurements And Providers By Type.
+     *
+     * @param type String the type
+     * @param demographicNo Integer the demographicNo
+     * @return List<Object[]>
+     */
     public List<Object[]> findMeasurementsAndProvidersByType(String type, Integer demographicNo);
 
+    /**
+     * Find Measurements And Providers By Demo And Type.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param type String the type
+     * @return Object[]
+     */
     public Object[] findMeasurementsAndProvidersByDemoAndType(Integer demographicNo, String type);
 
+    /**
+     * Find By Value.
+     *
+     * @param key String the key
+     * @param value String the value
+     * @return List<Measurement>
+     */
     public List<Measurement> findByValue(String key, String value);
 
     public List<Object> findObservationDatesByDemographicNoTypeAndMeasuringInstruction(Integer demo, String type,
                                                                                        String mInstrc);
 
+    /**
+     * Find By Demographic No Type And Measuring Instruction.
+     *
+     * @param demo Integer the demo
+     * @param type String the type
+     * @param mInstrc String the mInstrc
+     * @return List<Date>
+     */
     public List<Date> findByDemographicNoTypeAndMeasuringInstruction(Integer demo, String type, String mInstrc);
 
+    /**
+     * Find By Demographic No Type And Date.
+     *
+     * @param demo Integer the demo
+     * @param type String the type
+     * @param date java.util.Date the date
+     * @return Measurement
+     */
     public Measurement findByDemographicNoTypeAndDate(Integer demo, String type, java.util.Date date);
 
     public List<Measurement> findByDemoNoTypeDateAndMeasuringInstruction(Integer demoNo, Date from, Date to,
                                                                          String type, String instruction);
 
+    /**
+     * Find Last Entered.
+     *
+     * @param from Date the from
+     * @param to Date the to
+     * @param measurementType String the measurementType
+     * @param mInstrc String the mInstrc
+     * @return List<Object[]>
+     */
     public List<Object[]> findLastEntered(Date from, Date to, String measurementType, String mInstrc);
 
     public List<Measurement> findByDemographicNoTypeAndDate(Integer demographicNo, Date createDate,
@@ -259,15 +379,44 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
     public List<Object[]> findByDemoNoDateTypeMeasuringInstrAndDataField(Integer demographicNo, Date dateEntered,
                                                                          String measurementType, String mInstrc, String upper, String lower);
 
+    /**
+     * Find Last Entered.
+     *
+     * @param from Date the from
+     * @param to Date the to
+     * @param measurementType String the measurementType
+     * @return List<Object[]>
+     */
     public List<Object[]> findLastEntered(Date from, Date to, String measurementType);
 
+    /**
+     * Find By Demo No Date And Type.
+     *
+     * @param demoNo Integer the demoNo
+     * @param createDate Date the createDate
+     * @param type String the type
+     * @return List<Measurement>
+     */
     public List<Measurement> findByDemoNoDateAndType(Integer demoNo, Date createDate, String type);
 
     public List<Object[]> findByDemoNoDateTypeAndDataField(Integer demographicNo, Date dateEntered, String type,
                                                            String upper, String lower);
 
+    /**
+     * Find Types And Measuring Instruction By Demographic Id.
+     *
+     * @param demoNo Integer the demoNo
+     * @return List<Object[]>
+     */
     public List<Object[]> findTypesAndMeasuringInstructionByDemographicId(Integer demoNo);
 
+    /**
+     * Find By Create Date.
+     *
+     * @param from Date the from
+     * @param to Date the to
+     * @return List<Object[]>
+     */
     public List<Object[]> findByCreateDate(Date from, Date to);
 
     /**
@@ -301,14 +450,48 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      */
     public List<Measurement> findByType(Integer demographicId, List<String> types);
 
+    /**
+     * Find By Type.
+     *
+     * @param demographicId Integer the demographicId
+     * @param types List<String> the types
+     * @param after Date the after
+     * @return List<Measurement>
+     */
     public List<Measurement> findByType(Integer demographicId, List<String> types, Date after);
 
+    /**
+     * Find By Type.
+     *
+     * @param type String the type
+     * @return List<Measurement>
+     */
     public List<Measurement> findByType(String type);
 
+    /**
+     * Find By Type.
+     *
+     * @param types List<String> the types
+     * @return List<Measurement>
+     */
     public List<Measurement> findByType(List<String> types);
 
+    /**
+     * Find Demographic Ids By Type.
+     *
+     * @param types List<String> the types
+     * @return List<Integer>
+     */
     public List<Integer> findDemographicIdsByType(List<String> types);
 
+    /**
+     * Find By Type Before.
+     *
+     * @param demographicId Integer the demographicId
+     * @param type String the type
+     * @param date Date the date
+     * @return List<Measurement>
+     */
     public List<Measurement> findByTypeBefore(Integer demographicId, String type, Date date);
 
     public List<Measurement> findByProviderDemographicLastUpdateDate(String providerNo, Integer demographicId,
@@ -320,6 +503,12 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
     public List<Measurement> findLatestByDemographicObservedAfterDate(Integer demographicId,
                                                                       Date observedAfterDateExclusive);
 
+    /**
+     * Find New Measurements Since Demo Key.
+     *
+     * @param keyName String the keyName
+     * @return List<Integer>
+     */
     public List<Integer> findNewMeasurementsSinceDemoKey(String keyName);
 
     /**

@@ -39,6 +39,12 @@ import ca.ontario.health.edt.Faultexception;
 import ca.ontario.health.edt.ResourceResult;
 import ca.ontario.health.edt.ResponseResult;
 
+/**
+ * Creates user-friendly display messages from MCEDT web service response objects,
+ * translating resource results and response codes into readable status information.
+ *
+ * @since 2013-06-14
+ */
 public class McedtMessageCreator {
 
     public static String responseResultToString(ResponseResult result) {

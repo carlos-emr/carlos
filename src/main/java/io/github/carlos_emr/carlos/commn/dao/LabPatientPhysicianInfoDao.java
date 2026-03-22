@@ -43,13 +43,51 @@ import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
  */
 
 public interface LabPatientPhysicianInfoDao extends AbstractDao<LabPatientPhysicianInfo> {
+    /**
+     * Find Routings.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     List<Object[]> findRoutings(Integer demographicNo, String labType);
 
+    /**
+     * Find By Patient Name.
+     *
+     * @param status String the status
+     * @param labType String the labType
+     * @param providerNo String the providerNo
+     * @param patientLastName String the patientLastName
+     * @param patientFirstName String the patientFirstName
+     * @param patientHealthNumber String the patientHealthNumber
+     * @return List<Object[]>
+     */
     List<Object[]> findByPatientName(String status, String labType, String providerNo, String patientLastName, String patientFirstName, String patientHealthNumber);
 
+    /**
+     * Find By Demographic.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param labType String the labType
+     * @return List<Object[]>
+     */
     List<Object[]> findByDemographic(Integer demographicNo, String labType);
 
+    /**
+     * Find Lab Service Dates By Lab Id.
+     *
+     * @param labId Integer the labId
+     * @return List<Object[]>
+     */
     List<Object[]> findLabServiceDatesByLabId(Integer labId);
 
+    /**
+     * Get Lab Results Since.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param updateDate Date the updateDate
+     * @return List<Integer>
+     */
     List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate);
 }

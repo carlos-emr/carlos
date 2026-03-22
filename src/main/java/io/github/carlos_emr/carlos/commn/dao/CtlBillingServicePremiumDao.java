@@ -43,11 +43,35 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
  */
 
 public interface CtlBillingServicePremiumDao extends AbstractDao<CtlBillingServicePremium> {
+    /**
+     * Find By Service Code.
+     *
+     * @param serviceCode String the serviceCode
+     * @return List<CtlBillingServicePremium>
+     */
     List<CtlBillingServicePremium> findByServiceCode(String serviceCode);
 
+    /**
+     * Find By Status.
+     *
+     * @param status String the status
+     * @return List<CtlBillingServicePremium>
+     */
     List<CtlBillingServicePremium> findByStatus(String status);
 
+    /**
+     * Search_ctlpremium.
+     *
+     * @param status String the status
+     * @return List<Object[]>
+     */
     List<Object[]> search_ctlpremium(String status);
 
+    /**
+     * Find By Servce Codes.
+     *
+     * @param serviceCodes List<String> the serviceCodes
+     * @return List<CtlBillingServicePremium>
+     */
     List<CtlBillingServicePremium> findByServceCodes(List<String> serviceCodes);
 }

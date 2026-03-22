@@ -44,7 +44,26 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
  */
 
 public interface DocumentMergeDemographicDAO extends DocumentDao {
+    /**
+     * Find Documents.
+     *
+     * @param module String the module
+     * @param moduleid String the moduleid
+     * @param docType String the docType
+     * @param includePublic boolean the includePublic
+     * @param includeDeleted boolean the includeDeleted
+     * @param includeActive boolean the includeActive
+     * @param sort EDocSort the sort
+     * @param since Date the since
+     * @return List<Object[]>
+     */
     List<Object[]> findDocuments(String module, String moduleid, String docType, boolean includePublic, boolean includeDeleted, boolean includeActive, EDocSort sort, Date since);
 
+    /**
+     * Find By Demographic Id.
+     *
+     * @param demoNo String the demoNo
+     * @return List<Document>
+     */
     List<Document> findByDemographicId(String demoNo);
 }

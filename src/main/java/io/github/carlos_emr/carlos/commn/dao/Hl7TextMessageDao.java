@@ -45,11 +45,38 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 
 public interface Hl7TextMessageDao extends AbstractDao<Hl7TextMessage> {
 
+    /**
+     * Find By File Upload Check Id.
+     *
+     * @param id int the id
+     * @return List<Hl7TextMessage>
+     */
     public List<Hl7TextMessage> findByFileUploadCheckId(int id);
 
+    /**
+     * Find By Ids.
+     *
+     * @param ids List<Integer> the ids
+     * @return List<Hl7TextMessage>
+     */
 	public List<Hl7TextMessage> findByIds(List<Integer> ids);
 
+    /**
+     * Get Lab Results Since.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param updateDate Date the updateDate
+     * @return List<Integer>
+     */
     public List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate);
 
+    /**
+     * Find By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @param offset int the offset
+     * @param limit int the limit
+     * @return List<Hl7TextMessage>
+     */
     public List<Hl7TextMessage> findByDemographicNo(Integer demographicNo, int offset, int limit);
 }

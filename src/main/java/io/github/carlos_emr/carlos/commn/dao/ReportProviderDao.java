@@ -43,13 +43,44 @@ import io.github.carlos_emr.carlos.commn.model.ReportProvider;
  */
 
 public interface ReportProviderDao extends AbstractDao<ReportProvider> {
+    /**
+     * Find All.
+     * @return List<ReportProvider>
+     */
     List<ReportProvider> findAll();
 
+    /**
+     * Find By Action.
+     *
+     * @param action String the action
+     * @return List<ReportProvider>
+     */
     List<ReportProvider> findByAction(String action);
 
+    /**
+     * Find By Provider No Team And Action.
+     *
+     * @param providerNo String the providerNo
+     * @param team String the team
+     * @param action String the action
+     * @return List<ReportProvider>
+     */
     List<ReportProvider> findByProviderNoTeamAndAction(String providerNo, String team, String action);
 
+    /**
+     * Search_reportprovider.
+     *
+     * @param action String the action
+     * @return List<Object[]>
+     */
     List<Object[]> search_reportprovider(String action);
 
+    /**
+     * Search_reportprovider.
+     *
+     * @param action String the action
+     * @param providerNo String the providerNo
+     * @return List<Object[]>
+     */
     List<Object[]> search_reportprovider(String action, String providerNo);
 }

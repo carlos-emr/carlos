@@ -41,16 +41,60 @@ import io.github.carlos_emr.carlos.commn.model.ProviderInboxItem;
  */
 public interface ProviderInboxRoutingDao extends AbstractDao<ProviderInboxItem> {
 
+    /**
+     * Remove Link From Document.
+     *
+     * @param docType String the docType
+     * @param docId Integer the docId
+     * @param providerNo String the providerNo
+     * @return boolean
+     */
     public boolean removeLinkFromDocument(String docType, Integer docId, String providerNo);
 
+    /**
+     * Get Providers With Routing For Document.
+     *
+     * @param docType String the docType
+     * @param docId Integer the docId
+     * @return List<ProviderInboxItem>
+     */
     public List<ProviderInboxItem> getProvidersWithRoutingForDocument(String docType, Integer docId);
 
+    /**
+     * Has Provider Been Linked With Document.
+     *
+     * @param docType String the docType
+     * @param docId Integer the docId
+     * @param providerNo String the providerNo
+     * @return boolean
+     */
     public boolean hasProviderBeenLinkedWithDocument(String docType, Integer docId, String providerNo);
 
+    /**
+     * How Many Documents Linked With A Provider.
+     *
+     * @param providerNo String the providerNo
+     * @return int
+     */
     public int howManyDocumentsLinkedWithAProvider(String providerNo);
 
+    /**
+     * Find Documents Linked With Provider.
+     *
+     * @param docType String the docType
+     * @param docId Integer the docId
+     * @param providerNo String the providerNo
+     * @return List<ProviderInboxItem>
+     */
 	public List<ProviderInboxItem> findDocumentsLinkedWithProvider(String docType, Integer docId, String providerNo);
 
+    /**
+     * Add To Provider Inbox.
+     *
+     * @param providerNo String the providerNo
+     * @param labNo Integer the labNo
+     * @param labType String the labType
+     */
     public void addToProviderInbox(String providerNo, Integer labNo, String labType);
 
 }

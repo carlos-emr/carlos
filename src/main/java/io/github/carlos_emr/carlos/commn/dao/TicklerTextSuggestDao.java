@@ -44,7 +44,15 @@ import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 
 public interface TicklerTextSuggestDao extends AbstractDao<TicklerTextSuggest> {
 
+    /**
+     * Get Active Tickler Text Suggests.
+     * @return List<TicklerTextSuggest>
+     */
     public List<TicklerTextSuggest> getActiveTicklerTextSuggests();
 
+    /**
+     * Get Inactive Tickler Text Suggests.
+     * @return List<TicklerTextSuggest>
+     */
     public List<TicklerTextSuggest> getInactiveTicklerTextSuggests();
 }

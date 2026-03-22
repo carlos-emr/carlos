@@ -50,6 +50,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.*;
 
+/**
+ * Extracts and normalizes OAuth 1.0a parameters from HTTP servlet requests.
+ *
+ * <p>Reads Authorization header and query/form parameters, merges them per
+ * OAuth precedence, and builds an {@link OAuth1Request} for signature verification.
+ *
+ * @since 2026-01-18
+ */
 @Component
 public class OAuth1ParamParser {
 

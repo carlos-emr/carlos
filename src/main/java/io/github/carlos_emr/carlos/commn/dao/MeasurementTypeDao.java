@@ -41,19 +41,61 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
  */
 
 public interface MeasurementTypeDao extends AbstractDao<MeasurementType> {
+    /**
+     * Find All.
+     * @return List<MeasurementType>
+     */
     List<MeasurementType> findAll();
 
+    /**
+     * Find All Order By Name.
+     * @return List<MeasurementType>
+     */
     List<MeasurementType> findAllOrderByName();
 
+    /**
+     * Find All Order By Id.
+     * @return List<MeasurementType>
+     */
     List<MeasurementType> findAllOrderById();
 
+    /**
+     * Find By Type.
+     *
+     * @param type String the type
+     * @return List<MeasurementType>
+     */
     List<MeasurementType> findByType(String type);
 
+    /**
+     * Find By Measuring Instruction And Type Display Name.
+     *
+     * @param measuringInstruction String the measuringInstruction
+     * @param typeDisplayName String the typeDisplayName
+     * @return List<MeasurementType>
+     */
     List<MeasurementType> findByMeasuringInstructionAndTypeDisplayName(String measuringInstruction, String typeDisplayName);
 
+    /**
+     * Find By Type Display Name.
+     *
+     * @param typeDisplayName String the typeDisplayName
+     * @return List<MeasurementType>
+     */
     List<MeasurementType> findByTypeDisplayName(String typeDisplayName);
 
+    /**
+     * Find By Type And Measuring Instruction.
+     *
+     * @param type String the type
+     * @param measuringInstruction String the measuringInstruction
+     * @return List<MeasurementType>
+     */
     List<MeasurementType> findByTypeAndMeasuringInstruction(String type, String measuringInstruction);
 
+    /**
+     * Find Unique Type Display Names.
+     * @return List<Object>
+     */
     List<Object> findUniqueTypeDisplayNames();
 }

@@ -42,11 +42,36 @@ import io.github.carlos_emr.carlos.commn.model.View;
  */
 
 public interface ViewDao extends AbstractDao<View> {
+    /**
+     * Get View.
+     *
+     * @param view String the view
+     * @param role String the role
+     * @return Map<String, View>
+     */
     Map<String, View> getView(String view, String role);
 
+    /**
+     * Get View.
+     *
+     * @param view String the view
+     * @param role String the role
+     * @param providerNo String the providerNo
+     * @return Map<String, View>
+     */
     Map<String, View> getView(String view, String role, String providerNo);
 
+    /**
+     * Save View.
+     *
+     * @param v View the v
+     */
     void saveView(View v);
 
+    /**
+     * Delete.
+     *
+     * @param v View the v
+     */
     void delete(View v);
 }

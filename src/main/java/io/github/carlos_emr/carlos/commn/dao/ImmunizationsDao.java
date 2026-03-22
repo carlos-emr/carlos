@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.Immunizations;
  */
 
 public interface ImmunizationsDao extends AbstractDao<Immunizations> {
+    /**
+     * Find Current By Demographic No.
+     *
+     * @param demographicNo Integer the demographicNo
+     * @return List<Immunizations>
+     */
     List<Immunizations> findCurrentByDemographicNo(Integer demographicNo);
 }

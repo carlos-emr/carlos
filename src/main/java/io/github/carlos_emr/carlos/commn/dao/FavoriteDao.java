@@ -42,6 +42,35 @@ import io.github.carlos_emr.carlos.commn.model.Favorite;
  */
 
 public interface FavoriteDao extends AbstractDao<Favorite> {
+    /**
+     * Find By Provider No.
+     *
+     * @param providerNo String the providerNo
+     * @return List<Favorite>
+     */
     List<Favorite> findByProviderNo(String providerNo);
+    /**
+     * Find By Everything.
+     *
+     * @param providerNo String the providerNo
+     * @param favoriteName String the favoriteName
+     * @param bn String the bn
+     * @param gcn_SEQNO String the gcn_SEQNO
+     * @param customName String the customName
+     * @param takeMin float the takeMin
+     * @param takeMax float the takeMax
+     * @param frequencyCode String the frequencyCode
+     * @param duration String the duration
+     * @param durationUnit String the durationUnit
+     * @param quantity String the quantity
+     * @param repeat int the repeat
+     * @param nosubsInt boolean the nosubsInt
+     * @param prnInt boolean the prnInt
+     * @param parsedSpecial String the parsedSpecial
+     * @param gn String the gn
+     * @param unitName String the unitName
+     * @param customInstr boolean the customInstr
+     * @return Favorite
+     */
     Favorite findByEverything(String providerNo, String favoriteName, String bn, String gcn_SEQNO, String customName, float takeMin, float takeMax, String frequencyCode, String duration, String durationUnit, String quantity, int repeat, boolean nosubsInt, boolean prnInt, String parsedSpecial, String gn, String unitName, boolean customInstr);
 }

@@ -41,5 +41,9 @@ import io.github.carlos_emr.carlos.commn.model.IssueGroup;
  */
 
 public interface IssueGroupDao extends AbstractDao<IssueGroup> {
+    /**
+     * Find All.
+     * @return List<IssueGroup>
+     */
     List<IssueGroup> findAll();
 }

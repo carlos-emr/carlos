@@ -43,5 +43,11 @@ import io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript;
  */
 
 public interface SpecialistsJavascriptDao extends AbstractDao<SpecialistsJavascript> {
+    /**
+     * Find By Set Id.
+     *
+     * @param setId String the setId
+     * @return List<SpecialistsJavascript>
+     */
     List<SpecialistsJavascript> findBySetId(String setId);
 }
