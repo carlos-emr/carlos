@@ -110,7 +110,13 @@ public class ScheduleWs extends AbstractWs {
     }
 
     /**
-     * @deprecated you should use the method with the useGMTTime option
+     * Retrieves appointments for a patient with pagination using local time.
+     *
+     * @param demographicId Integer the patient demographic ID
+     * @param startIndex int the zero-based start index for pagination
+     * @param itemsToReturn int the maximum number of appointments to return
+     * @return AppointmentTransfer[] array of appointments in local time
+     * @deprecated Use {@link #getAppointmentsForPatient2(Integer, int, int, boolean)} with explicit GMT time control
      */
     @Deprecated
     public AppointmentTransfer[] getAppointmentsForPatient(Integer demographicId, int startIndex, int itemsToReturn) {
@@ -118,6 +124,13 @@ public class ScheduleWs extends AbstractWs {
         return (AppointmentTransfer.toTransfers(appointments, false));
     }
 
+    /**
+     * Retrieves a single appointment by ID with timezone control.
+     *
+     * @param appointmentId Integer the appointment ID to retrieve
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentTransfer the appointment data
+     */
     public AppointmentTransfer getAppointment2(Integer appointmentId, boolean useGMTTime) {
         Appointment appointment = scheduleManager.getAppointment(getLoggedInInfo(), appointmentId);
         return (AppointmentTransfer.toTransfer(appointment, useGMTTime));

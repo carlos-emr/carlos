@@ -51,6 +51,12 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+/**
+ * Upload handler for CML (Canadian Medical Laboratories) result files. Parses CML
+ * HL7 messages with version tracking and routes them through {@link MessageUploader}.
+ *
+ * @since 2007-01-18
+ */
 public class CMLHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();

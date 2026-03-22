@@ -26,6 +26,11 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth;
 
+/**
+ * Unchecked exception for signaling OAuth 1.0a failures with an associated HTTP status code.
+ *
+ * @since 2026-01-18
+ */
 public class OAuth1Exception extends RuntimeException {
     private final int httpCode;
     public OAuth1Exception(int httpCode, String message) {

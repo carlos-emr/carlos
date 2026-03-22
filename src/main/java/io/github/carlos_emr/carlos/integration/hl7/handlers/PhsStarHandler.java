@@ -71,6 +71,14 @@ import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
+/**
+ * Handler for processing incoming PHS Star HL7 ADT messages, extending
+ * {@link BasePhsStarHandler} to match and update patient demographics
+ * and create appointment/admission records from HL7 message data.
+ *
+ * @see BasePhsStarHandler
+ * @since 2012-07-12
+ */
 public class PhsStarHandler extends BasePhsStarHandler {
 
     Logger logger = MiscUtils.getLogger();

@@ -45,6 +45,13 @@ import ca.uhn.hl7v2.HL7Exception;
 import ca.uhn.hl7v2.model.Message;
 import ca.uhn.hl7v2.util.Terser;
 
+/**
+ * Base handler for PHS (Patient Health System) Star HL7 ADT messages, providing
+ * common parsing logic for extracting patient demographics, identifiers, and
+ * encounter data from HL7 v2 message segments using HAPI Terser.
+ *
+ * @since 2012-07-12
+ */
 public class BasePhsStarHandler {
 
     Logger logger = MiscUtils.getLogger();

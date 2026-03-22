@@ -32,6 +32,18 @@ package io.github.carlos_emr.carlos.prevention.reports;
 import java.util.Date;
 
 
+/**
+ * Data transfer object for a single patient row in a prevention compliance report.
+ *
+ * <p>Contains comprehensive patient demographics (name, HIN, phone, email, address),
+ * prevention compliance status (state, color, rank), follow-up tracking (last follow-up,
+ * next suggested procedure), and substitute decision maker information where applicable.
+ * Implements {@link Comparable} to sort by rank (severity).</p>
+ *
+ * @since 2001-2002
+ * @see PreventionReport
+ * @see io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay
+ */
 public class ReportItem implements Comparable<ReportItem> {
 
     private Integer demographicNo = null;

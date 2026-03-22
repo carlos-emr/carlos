@@ -3037,6 +3037,12 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genHl7LabResultPrefs";
     }
 
+    /**
+     * Updates the provider's "offer to file labs for others" HL7 preference via AJAX.
+     *
+     * @return String {@code null} (JSON response written directly)
+     * @throws RuntimeException if the provider lacks write access to the {@code _lab} security object
+     */
      public String setOfferFileForOthersPref() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
@@ -3053,6 +3059,12 @@ public class ProviderProperty2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Updates the provider's "allow others to file labs for you" HL7 preference via AJAX.
+     *
+     * @return String {@code null} (JSON response written directly)
+     * @throws RuntimeException if the provider lacks write access to the {@code _lab} security object
+     */
     public String setAllowOthersFileForYouPref() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {

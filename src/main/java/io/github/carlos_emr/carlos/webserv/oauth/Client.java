@@ -25,6 +25,14 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth;
 
+/**
+ * Domain model representing an OAuth 1.0a client (consumer application).
+ *
+ * <p>Contains the consumer key, secret, application name, and optional callback URI
+ * for per-client authorization redirect handling.
+ *
+ * @since 2026-01-18
+ */
 public class Client {
     private String consumerKey;
     private String secret;

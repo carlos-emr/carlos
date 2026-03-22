@@ -35,6 +35,13 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 
+/**
+ * Data access interface for security object-privilege mappings that define
+ * role-based access permissions to security objects in the CARLOS EMR system.
+ *
+ * @since 2005-01-01
+ * @see io.github.carlos_emr.carlos.model.security.Secobjprivilege
+ */
 public interface SecobjprivilegeDao {
 
     public void save(Secobjprivilege secobjprivilege);

@@ -25,6 +25,11 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth;
 
+/**
+ * Domain model representing an OAuth 1.0a scope/permission granted to a client application.
+ *
+ * @since 2026-01-18
+ */
 public class OAuth1Permission {
     private String permission;
     private String description;

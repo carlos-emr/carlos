@@ -27,6 +27,12 @@ package io.github.carlos_emr.carlos.webserv.oauth;
 
 import java.util.*;
 
+/**
+ * Representation of a normalized OAuth 1.0a request containing the HTTP method,
+ * base URL, and sorted parameter map used for signature computation.
+ *
+ * @since 2026-01-18
+ */
 public class OAuth1Request {
     public String method;
     public String urlBase; // scheme://host[:port]/path (no query)

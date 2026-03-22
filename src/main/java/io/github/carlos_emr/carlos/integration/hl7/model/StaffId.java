@@ -30,6 +30,12 @@
 
 package io.github.carlos_emr.carlos.integration.hl7.model;
 
+/**
+ * Model representing an HL7 staff/provider identifier with a type code,
+ * used in PHS Star ADT message handling.
+ *
+ * @since 2012-07-12
+ */
 public class StaffId {
     private String id;
     private String typeCode;

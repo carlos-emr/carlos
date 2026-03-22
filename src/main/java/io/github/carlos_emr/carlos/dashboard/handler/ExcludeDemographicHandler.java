@@ -278,6 +278,13 @@ public class ExcludeDemographicHandler {
         return result;
     }
 
+    /**
+     * Resolves the drilldown identifier string for the given indicator template ID
+     * by loading the drilldown data and composing the name|subCategory|category key.
+     *
+     * @param indicatorTemplateId int the indicator template ID
+     * @return String the drilldown identifier, or {@code null} if not found
+     */
     public String getDrilldownIdentifier(int indicatorTemplateId) {
         logger.info("entering getDrilldownIdentifer with indicatorTemplateId=" + indicatorTemplateId);
         String identifier = null;
@@ -296,6 +303,14 @@ public class ExcludeDemographicHandler {
         return identifier;
     }
 
+    /**
+     * Composes a drilldown identifier string from the given components.
+     *
+     * @param name String the indicator name
+     * @param category String the indicator category
+     * @param subCategory String the indicator sub-category
+     * @return String the composite identifier in the format "name|subCategory|category"
+     */
     public String getDrilldownIdentifier(String name, String category, String subCategory) {
         return name + "|" + subCategory + "|" + category;
     }

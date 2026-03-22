@@ -60,6 +60,12 @@ import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link LookupDao} for lookup table and code management.
+ *
+ * @since 2005-01-01
+ * @see LookupDao
+ */
 @Transactional
 public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 

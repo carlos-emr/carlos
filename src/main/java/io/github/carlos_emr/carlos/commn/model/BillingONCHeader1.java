@@ -49,6 +49,17 @@ import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Represents an Ontario billing claim header in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code billing_on_cheader1} table and stores the primary header
+ * information for Ontario OHIP billing claims, including patient, provider,
+ * facility, and claim status details.</p>
+ *
+ * @see BillingONItem
+ * @see BillingONExt
+ * @since 2006-01-01
+ */
 @Entity
 @Table(name = "billing_on_cheader1")
 public class BillingONCHeader1 extends AbstractModel<Integer> implements Serializable {
