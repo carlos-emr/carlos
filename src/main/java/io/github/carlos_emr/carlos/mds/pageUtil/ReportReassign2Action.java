@@ -55,6 +55,12 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for reassigning MDS lab reports to a different provider,
+ * transferring report routing responsibility from one provider to another.
+ *
+ * @since 2001-01-01
+ */
 public class ReportReassign2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

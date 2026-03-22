@@ -196,14 +196,32 @@ public interface VacancyTemplateManager {
         return criteriaTypeDAO.getAllCriteriaTypes();
     }
 
+    /**
+     * Retrieves criteria types defined for a specific waitlist program.
+     *
+     * @param programId Integer the waitlist program identifier
+     * @return List&lt;CriteriaType&gt; list of criteria types for the program
+     */
     public static List<CriteriaType> getAllCriteriaTypesByWlProgramId(Integer programId) {
         return criteriaTypeDAO.getAllCriteriaTypesByWlProgramId(programId);
     }
 
+    /**
+     * Retrieves refined criteria for a specific vacancy.
+     *
+     * @param vacancyId Integer the vacancy identifier
+     * @return List&lt;Criteria&gt; list of refined criteria
+     */
     public static List<Criteria> getRefinedCriteriasByVacancyId(Integer vacancyId) {
         return criteriaDAO.getRefinedCriteriasByVacancyId(vacancyId);
     }
 
+    /**
+     * Retrieves all criteria for a specific vacancy.
+     *
+     * @param vacancyId Integer the vacancy identifier
+     * @return List&lt;Criteria&gt; list of criteria
+     */
     public static List<Criteria> getCriteriasByVacancyId(Integer vacancyId) {
         return criteriaDAO.getCriteriasByVacancyId(vacancyId);
     }

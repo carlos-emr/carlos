@@ -60,6 +60,12 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for applying acknowledgment macros to MDS lab reports,
+ * allowing providers to batch-acknowledge multiple lab results with predefined comments.
+ *
+ * @since 2001-01-01
+ */
 public class ReportMacro2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
