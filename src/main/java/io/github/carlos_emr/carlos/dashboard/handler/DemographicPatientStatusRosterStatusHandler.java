@@ -96,6 +96,14 @@ public class DemographicPatientStatusRosterStatusHandler {
         return true;
     }
 
+    /**
+     * Sets a single patient's status to inactive ("IN"). Updates the last update user
+     * and date for audit trail purposes.
+     *
+     * @param demographicNo String the demographic number to update
+     * @return Boolean {@code true} if the update succeeded, {@code false} if the
+     *         demographic was not found or the provider number is unavailable
+     */
     public Boolean setPatientStatusInactive(String demographicNo) {
         Demographic demographic = demographicDao.getDemographic(demographicNo);
         if (demographic != null) {
@@ -115,6 +123,15 @@ public class DemographicPatientStatusRosterStatusHandler {
         return false;
     }
 
+    /**
+     * Updates the roster status for a single patient. Updates the last update user
+     * and date for audit trail purposes.
+     *
+     * @param demographicNo String the demographic number to update
+     * @param rosterStatus String the new roster status value
+     * @return Boolean {@code true} if the update succeeded, {@code false} if the
+     *         demographic was not found or the provider number is unavailable
+     */
     public Boolean setRosterStatus(String demographicNo, String rosterStatus) {
         Demographic demographic = demographicDao.getDemographic(demographicNo);
         if (demographic != null) {

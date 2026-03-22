@@ -67,6 +67,11 @@ import org.springframework.stereotype.Component;
 @Path("/consentService/")
 @Produces("application/xml")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for managing patient consent records and consent types.
+ *
+ * @since 2012-08-13
+ */
 public class ConsentService extends AbstractServiceImpl {
 
     private static final Logger logger = MiscUtils.getLogger();

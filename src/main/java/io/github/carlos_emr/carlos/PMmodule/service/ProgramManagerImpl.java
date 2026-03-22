@@ -159,10 +159,12 @@ public class ProgramManagerImpl implements ProgramManager {
         return programs;
     }
 
+    /** {@inheritDoc} */
     public String getProgramName(String programId) {
         return programDao.getProgramName(Integer.valueOf(programId));
     }
 
+    /** {@inheritDoc} */
     public Integer getProgramIdByProgramName(String programName) {
         return programDao.getProgramIdByProgramName(programName);
     }

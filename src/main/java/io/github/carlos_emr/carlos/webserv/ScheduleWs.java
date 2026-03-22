@@ -316,6 +316,14 @@ public class ScheduleWs extends AbstractWs {
         return (results.toArray(new Integer[0]));
     }
 
+    /**
+     * Retrieves appointments for a specific patient updated after a given date with timezone control.
+     *
+     * @param lastUpdate Calendar only return appointments updated after this date
+     * @param demographicId Integer the patient demographic ID
+     * @param useGMTTime boolean if true, times are returned in GMT; otherwise in server local time
+     * @return AppointmentTransfer[] array of matching appointments
+     */
     public AppointmentTransfer[] getAppointmentsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId, @WebParam(name = "useGMTTime") boolean useGMTTime) {
         List<Appointment> appointments = scheduleManager.getAppointmentByDemographicIdUpdatedAfterDate(getLoggedInInfo(), demographicId, lastUpdate.getTime());
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));

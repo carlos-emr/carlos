@@ -32,6 +32,12 @@ package io.github.carlos_emr.carlos.model;
  * @author JZhang
  */
 
+/**
+ * Hibernate entity representing an organizational code entry in the lst_orgcd table,
+ * mapping organizational hierarchy for programs and facilities.
+ *
+ * @since 2005-01-01
+ */
 public class LstOrgcd implements java.io.Serializable {
 
     // Fields

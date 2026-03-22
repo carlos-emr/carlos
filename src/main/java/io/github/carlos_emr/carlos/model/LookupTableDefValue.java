@@ -25,6 +25,12 @@
  */
 package io.github.carlos_emr.carlos.model;
 
+/**
+ * Value object representing a lookup table definition, including the module context,
+ * table identifier, and description metadata.
+ *
+ * @since 2005-01-01
+ */
 public class LookupTableDefValue {
     String moduleId;
     String moduleName;

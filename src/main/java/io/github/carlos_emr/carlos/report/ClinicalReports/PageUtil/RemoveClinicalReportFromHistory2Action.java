@@ -36,6 +36,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
 /**
  * Struts 2 action that removes a clinical report from the user's session history.
  * The report is identified by its index in the session-stored {@code ClinicalReports}
@@ -44,9 +47,6 @@ import jakarta.servlet.http.HttpServletResponse;
  * @see RunClinicalReport2Action
  * @since 2006-06-17
  */
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-
 public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

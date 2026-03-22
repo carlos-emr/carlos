@@ -58,6 +58,13 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 
+/**
+ * Helper class for rendering lab results in the web UI. Provides methods for
+ * constructing lab display keys, converting lab data to XML documents, building
+ * acknowledgement summaries, and generating cumulative lab value tables.
+ *
+ * @since 2007-01-18
+ */
 public class LabDisplayHelper {
     private static Logger logger = MiscUtils.getLogger();
 

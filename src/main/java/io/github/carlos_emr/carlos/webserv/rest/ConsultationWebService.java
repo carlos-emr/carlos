@@ -113,6 +113,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 @Path("/consults")
 @Component("consultationWebService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for specialist consultation request and response management.
+ *
+ * @since 2012-08-13
+ */
 public class ConsultationWebService extends AbstractServiceImpl {
 
     Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
