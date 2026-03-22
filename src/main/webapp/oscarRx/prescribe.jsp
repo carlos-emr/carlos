@@ -319,7 +319,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 		<div>
         <label id="labelQuantity_<%=Encode.forHtmlAttribute(rand)%>" style="float:left;width:80px;">Qty/Mitte:</label><input
             size="8" <%if (rx.isCustomNote()) {%> disabled <%}%> type="text" id="quantity_<%=Encode.forHtmlAttribute(rand)%>"
-            name="quantity_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(quantityText)%>" onblur="updateQty(this);"/>
+            name="quantity_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(quantityText)%>" 
+            onblur="updateQty(this);getCost('cost_<%=Encode.forHtmlAttribute(rand)%>','<%=Encode.forHtmlAttribute(rand)%>','<%=rx.getRegionalIdentifier()%>',this.value) ">
         <label style="">Repeats:</label><input type="text" size="5" id="repeats_<%=Encode.forHtmlAttribute(rand)%>"  <%if (rx.isCustomNote()) {%>
                                                disabled <%}%> name="repeats_<%=Encode.forHtmlAttribute(rand)%>" value="<%=Encode.forHtmlAttribute(repeats)%>"
                                                onInput="updateLongTerm('<%=Encode.forJavaScriptAttribute(rand) %>',this)"
