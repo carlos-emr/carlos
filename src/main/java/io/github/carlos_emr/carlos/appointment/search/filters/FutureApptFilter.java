@@ -78,6 +78,12 @@ public class FutureApptFilter implements AvailableTimeSlotFilter {
 
     }
 
+    /**
+     * Adds the configured buffer (in minutes) to the given calendar.
+     *
+     * @param params Map&lt;String, String&gt; the filter parameters containing the "buffer" key
+     * @param now Calendar the calendar to advance by the buffer amount
+     */
     public void setBuffer(Map<String, String> params, Calendar now) {
         String buffer = null;
         if (params != null && params.get("buffer") != null) {
@@ -90,7 +96,14 @@ public class FutureApptFilter implements AvailableTimeSlotFilter {
         }
     }
 
-    //Used for testing to be able to adjust when "now" is
+    /**
+     * Overrides the "now" time using the {@code nowDate} parameter if present.
+     * Used for testing to simulate a specific current time.
+     *
+     * @param params Map&lt;String, String&gt; the filter parameters containing the optional "nowDate" key
+     *               in {@code yyyy-MM-dd HH:mm:ss} format
+     * @param now Calendar the calendar to set to the specified date
+     */
     public void setNowDate(Map<String, String> params, Calendar now) {
         String nowDate = null;
         if (params != null && params.get("nowDate") != null) {

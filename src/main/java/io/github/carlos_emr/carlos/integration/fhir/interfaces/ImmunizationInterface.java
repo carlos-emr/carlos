@@ -32,12 +32,15 @@ import io.github.carlos_emr.carlos.commn.interfaces.Immunization;
 
 
 /**
- * An interface to be used with any object model that references data for an immunization.
- * <p>
- * The getImmunizationProperty method can be used in conjunction with the ImmunizationProperty enum
- * to fetch key:value pairs from an entity class.
- * <p>
- * This interface is currently being used in FHIR mapping.
+ * Interface for object models that reference immunization data for FHIR mapping.
+ *
+ * <p>The {@code getImmunizationProperty} method can be used in conjunction with the
+ * ImmunizationProperty enum to fetch key:value pairs from an entity class.</p>
+ *
+ * <p>Extends the base {@link Immunization} interface and is currently used
+ * in FHIR resource mapping for immunization submissions.</p>
+ *
+ * @since 2026-03-17
  */
 public interface ImmunizationInterface extends Immunization {
 }

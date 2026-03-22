@@ -30,10 +30,22 @@ public class ORUR01Manager {
 		return (ca.uhn.hl7v2.model.v21.message.ORU_R01) obj;
 	}*/
 
+    /**
+     * Casts the given object to an HL7 v2.2 ORU_R01 message.
+     *
+     * @param obj Object the HAPI message object to cast
+     * @return ca.uhn.hl7v2.model.v22.message.ORU_R01 the typed ORU_R01 message
+     */
     public static ca.uhn.hl7v2.model.v22.message.ORU_R01 getORUR01_22(Object obj) {
         return (ca.uhn.hl7v2.model.v22.message.ORU_R01) obj;
     }
 
+    /**
+     * Casts the given object to an HL7 v2.3 ORU_R01 message.
+     *
+     * @param obj Object the HAPI message object to cast
+     * @return ca.uhn.hl7v2.model.v23.message.ORU_R01 the typed ORU_R01 message
+     */
     public static ca.uhn.hl7v2.model.v23.message.ORU_R01 getORUR01_23(Object obj) {
         return (ca.uhn.hl7v2.model.v23.message.ORU_R01) obj;
     }

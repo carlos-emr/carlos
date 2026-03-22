@@ -122,6 +122,13 @@ public class LookupListManager2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Updates the display order of a lookup list item.
+     *
+     * <p>Reads "lookupListItemId" and "lookupListItemDisplayOrder" from request parameters.
+     *
+     * @return String SUCCESS after updating the display order
+     */
     @SuppressWarnings("unused")
     public String order() {
 
@@ -140,6 +147,14 @@ public class LookupListManager2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Adds a new item to a lookup list with an auto-generated UUID value.
+     *
+     * <p>Reads "lookupListItemLabel" and "lookupListId" from request parameters.
+     * The new item is assigned a display order one greater than the last existing item.
+     *
+     * @return String SUCCESS after persisting the new item
+     */
     @SuppressWarnings("unused")
     public String add() {
 
@@ -182,6 +197,13 @@ public class LookupListManager2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Removes a lookup list item by its ID.
+     *
+     * <p>Reads "lookupListItemId" from the request parameter.
+     *
+     * @return String SUCCESS after removing the item
+     */
     @SuppressWarnings("unused")
     public String remove() {
 

@@ -168,6 +168,13 @@ public class PreventionData {
         return insertId;
     }
 
+    /**
+     * Adds an extended key-value property to a prevention record.
+     *
+     * @param preventionId String the prevention record ID
+     * @param keyval String the property key (e.g., "lot", "route", "comments")
+     * @param val String the property value
+     */
     public static void addPreventionKeyValue(String preventionId, String keyval, String val) {
         try {
             PreventionExt preventionExt = new PreventionExt();
@@ -181,6 +188,12 @@ public class PreventionData {
         }
     }
 
+    /**
+     * Returns all extended key-value properties for a prevention record.
+     *
+     * @param preventionId String the prevention record ID
+     * @return Map&lt;String, String&gt; the key-value properties, empty map if none found
+     */
     public static Map<String, String> getPreventionKeyValues(String preventionId) {
         Map<String, String> h = new HashMap<String, String>();
 
@@ -198,6 +211,11 @@ public class PreventionData {
         return h;
     }
 
+    /**
+     * Soft-deletes a prevention record by setting its deleted flag to {@code true}.
+     *
+     * @param id String the prevention record ID
+     */
     public static void deletePreventionData(String id) {
         try {
             Prevention prevention = preventionDao.find(Integer.valueOf(id));

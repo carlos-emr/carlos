@@ -14,7 +14,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 /**
- * Manages document attachments within the OpenO EMR healthcare system.
+ * Manages document attachments within the CARLOS EMR healthcare system.
  *
  * <p>This interface provides comprehensive functionality for managing medical document attachments
  * across various healthcare contexts including consultations, eForms, laboratory results, and

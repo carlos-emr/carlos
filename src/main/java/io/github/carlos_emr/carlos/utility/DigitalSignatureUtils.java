@@ -51,10 +51,23 @@ public class DigitalSignatureUtils {
 
     public static final String SIGNATURE_REQUEST_ID_KEY = "signatureRequestId";
 
+    /**
+     * Generates a unique signature request ID by combining the provider number
+     * with the current system time in milliseconds.
+     *
+     * @param providerNo String the provider number
+     * @return String a unique request identifier
+     */
     public static String generateSignatureRequestId(String providerNo) {
         return (providerNo + System.currentTimeMillis());
     }
 
+    /**
+     * Returns the temporary file path where a signature image is stored during capture.
+     *
+     * @param signatureRequestId String the signature request identifier
+     * @return String the absolute path to the temporary signature JPEG file
+     */
     public static String getTempFilePath(String signatureRequestId) {
         String temppath = System.getProperty("java.io.tmpdir");
         Path path = Paths.get(temppath, "signature_" + signatureRequestId + ".jpg");

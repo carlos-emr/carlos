@@ -48,6 +48,20 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing on-call clinic schedule entries in CARLOS EMR.
+ *
+ * <p>Provides JSON-based CRUD operations for on-call clinic records. Routes via
+ * the "method" request parameter:
+ * <ul>
+ *   <li>Save - Persists a new on-call clinic entry from JSON</li>
+ *   <li>Delete - Removes an on-call clinic entry by ID</li>
+ *   <li>(default) Load - Returns all on-call clinic entries as JSON</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.carlos.commn.dao.OnCallClinicDao
+ * @since 2026-03-17
+ */
 public class SaveOnCallClinic2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -637,6 +637,11 @@ public class UserPreference2Action extends ActionSupport {
         return results;
     }
 
+    /**
+     * Constructs a list of providers for default billing payee selection.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; providers with "LastName,FirstName" labels and provider numbers
+     */
     public static ArrayList<LabelValueBean> constructPayeeList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 

@@ -35,11 +35,37 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AppDefinition;
 
+/**
+ * DAO interface for managing OAuth application definitions.
+ * <p>
+ * Provides operations to retrieve application definitions by name or consumer key,
+ * supporting the CARLOS EMR OAuth 1.0a authentication framework.
+ *
+ * @since 2001
+ */
 public interface AppDefinitionDao extends AbstractDao<AppDefinition> {
 
+    /**
+     * Retrieves all application definitions.
+     *
+     * @return List of all {@link AppDefinition} records
+     */
     public List<AppDefinition> findAll();
 
+    /**
+     * Finds an application definition by its unique name.
+     *
+     * @param name String the application name
+     * @return the matching {@link AppDefinition}, or {@code null} if not found
+     */
     public AppDefinition findByName(String name);
-    
+
+    /**
+     * Finds an application definition by its OAuth consumer key.
+     * Searches within the XML configuration stored in the entity.
+     *
+     * @param consumerKey String the OAuth consumer key
+     * @return the matching {@link AppDefinition}, or {@code null} if not found
+     */
     public AppDefinition findByConsumerKey(String consumerKey);
 }

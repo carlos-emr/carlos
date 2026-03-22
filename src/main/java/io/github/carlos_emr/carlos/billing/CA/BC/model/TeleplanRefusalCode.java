@@ -39,6 +39,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Teleplan refusal code in the BC MSP billing system.
+ * Maps to the {@code teleplan_refusal_code} table, providing a lookup of refusal
+ * codes and their descriptions used when MSP claims are refused.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplan_refusal_code")
 public class TeleplanRefusalCode extends AbstractModel<Integer> {

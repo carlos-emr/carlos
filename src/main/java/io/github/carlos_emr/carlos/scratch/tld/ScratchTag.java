@@ -36,20 +36,46 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * JSP custom tag that outputs the appropriate scratch pad (notepad) image path based on
+ * whether the provider has any scratch pad content.
+ *
+ * <p>Renders the path to either a filled notepad icon ({@code notepad.gif}) or an empty
+ * notepad icon ({@code notepad_blank.gif}) during the tag's start processing. Currently
+ * always renders the filled icon as the efficiency check was removed.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ScratchTag extends TagSupport {
 
     public ScratchTag() {
         scratchFilled = false;
     }
 
+    /**
+     * Sets the provider number used to determine the scratch pad state.
+     *
+     * @param providerNo1 String the provider number
+     */
     public void setProviderNo(String providerNo1) {
         providerNo = providerNo1;
     }
 
+    /**
+     * Returns the provider number.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Outputs the scratch pad image path when the tag is encountered.
+     *
+     * @return int {@link #EVAL_BODY_INCLUDE} to continue processing the tag body
+     * @throws JspException if an error occurs during tag processing
+     */
     public int doStartTag() throws JspException {
 
         if (providerNo != null) {
@@ -69,6 +95,12 @@ public class ScratchTag extends TagSupport {
         return (EVAL_BODY_INCLUDE);
     }
 
+    /**
+     * Completes the tag processing and continues page evaluation.
+     *
+     * @return int {@link #EVAL_PAGE} to continue evaluating the rest of the page
+     * @throws JspException if an error occurs during tag processing
+     */
     public int doEndTag() throws JspException {
         return EVAL_PAGE;
     }

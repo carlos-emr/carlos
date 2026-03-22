@@ -36,16 +36,58 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyClientMatch;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface for managing {@link VacancyClientMatch} entities that
+ * track the results of client-vacancy matching in the waitlist subsystem.
+ *
+ * @since 2001-09-17
+ * @see VacancyClientMatch
+ * @see VacancyClientMatchDaoImpl
+ */
 public interface VacancyClientMatchDao extends AbstractDao<VacancyClientMatch> {
 
+    /**
+     * Finds match records by client and vacancy IDs.
+     *
+     * @param clientId int the client demographic ID
+     * @param vacancyId int the vacancy ID
+     * @return List&lt;VacancyClientMatch&gt; matching records
+     */
     public List<VacancyClientMatch> findByClientIdAndVacancyId(int clientId, int vacancyId);
 
+    /**
+     * Finds all match records for a specific client.
+     *
+     * @param clientId int the client demographic ID
+     * @return List&lt;VacancyClientMatch&gt; match records for the client
+     */
     public List<VacancyClientMatch> findByClientId(int clientId);
 
+    /**
+     * Finds all match records with a specific status.
+     *
+     * @param status String the match status to filter by
+     * @return List&lt;VacancyClientMatch&gt; match records with the specified status
+     */
     public List<VacancyClientMatch> findBystatus(String status);
 
+    /**
+     * Updates the status of match records for a client-vacancy combination.
+     *
+     * @param status String the new status
+     * @param clientId int the client demographic ID
+     * @param vacancyId int the vacancy ID
+     */
     public void updateStatus(String status, int clientId, int vacancyId);
 
+    /**
+     * Updates the status and rejection reason for match records of a client-vacancy combination.
+     *
+     * @param status String the new status
+     * @param rejectedReason String the rejection reason
+     * @param clientId int the client demographic ID
+     * @param vacancyId int the vacancy ID
+     */
     public void updateStatusAndRejectedReason(String status, String rejectedReason, int clientId, int vacancyId);
 
 }

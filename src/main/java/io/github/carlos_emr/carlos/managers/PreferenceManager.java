@@ -37,6 +37,19 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
+/**
+ * Service interface for managing provider-specific display preferences in the
+ * CARLOS EMR encounter summary view.
+ *
+ * <p>Controls the visibility and ordering of Cumulative Patient Profile (CPP)
+ * summary items such as social history, medical history, ongoing concerns,
+ * reminders, allergies, medications, and prevention records. Preferences are
+ * stored per-provider and influence the encounter left-panel layout.</p>
+ *
+ * @see PreferenceManagerImpl
+ * @see io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt
+ * @since 2026-03-17
+ */
 public interface PreferenceManager {
     public static final String SOCHX = "SocHistory";
     public static final String MEDHX = "MedHistory";

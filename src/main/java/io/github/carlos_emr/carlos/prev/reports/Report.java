@@ -130,14 +130,29 @@ public class Report {
         return up2date;
     }
 
+    /**
+     * Sets the number of patients who are up-to-date on this prevention.
+     *
+     * @param up2date int the up-to-date patient count
+     */
     public void setUp2date(int up2date) {
         this.up2date = up2date;
     }
 
+    /**
+     * Returns the search configuration used to generate this report.
+     *
+     * @return PreventionSearchTo1 the search configuration transfer object
+     */
     public PreventionSearchTo1 getSearchConfig() {
         return searchConfig;
     }
 
+    /**
+     * Sets the search configuration used to generate this report.
+     *
+     * @param searchConfig PreventionSearchTo1 the search configuration transfer object
+     */
     public void setSearchConfig(PreventionSearchTo1 searchConfig) {
         this.searchConfig = searchConfig;
     }

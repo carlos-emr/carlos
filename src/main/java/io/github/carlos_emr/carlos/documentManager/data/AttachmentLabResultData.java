@@ -78,6 +78,11 @@ public class AttachmentLabResultData {
         return labDate;
     }
 
+    /**
+     * Returns the lab result date formatted as a display string using the default date format.
+     *
+     * @return String the formatted date string, or null if the date is not set
+     */
     public String getLabDateFormated() {
         return DateUtils.formatDate(this.labDate, null);
     }
@@ -86,6 +91,12 @@ public class AttachmentLabResultData {
         this.labDate = labDate;
     }
 
+    /**
+     * Returns the map of historical version IDs to their formatted dates for this lab result.
+     * The map is ordered from oldest to newest version using a {@link LinkedHashMap}.
+     *
+     * @return Map of String segment IDs to String formatted date strings
+     */
     public Map<String, String> getLabVersionIds() {
         return labVersionIds;
     }

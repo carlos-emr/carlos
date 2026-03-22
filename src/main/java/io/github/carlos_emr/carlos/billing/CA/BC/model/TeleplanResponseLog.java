@@ -38,6 +38,12 @@ import jakarta.persistence.Table;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 
+/**
+ * JPA entity representing a Teleplan response processing log entry in the BC MSP billing system.
+ * Maps to the {@code teleplan_response_log} table, recording response file processing details.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplan_response_log")
 public class TeleplanResponseLog extends AbstractModel<Integer> {

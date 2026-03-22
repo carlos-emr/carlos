@@ -37,9 +37,27 @@ import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing scheduled background jobs in the CARLOS EMR system.
+ *
+ * <p>Provides CRUD operations for job definitions and job type registrations.
+ * Jobs implement the OscarRunnable interface and are executed by the system
+ * scheduler for tasks such as data synchronization, report generation, and
+ * automated clinical reminders.</p>
+ *
+ * @see OscarJobManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.OscarJob
+ * @see io.github.carlos_emr.carlos.commn.model.OscarJobType
+ * @since 2026-03-17
+ */
 public interface OscarJobManager {
 
-
+    /**
+     * Saves a new scheduled job definition.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param oscarJob OscarJob the job definition to save
+     */
     public void saveJob(LoggedInInfo loggedInInfo, OscarJob oscarJob);
 
     public void updateJob(LoggedInInfo loggedInInfo, OscarJob oscarJob);

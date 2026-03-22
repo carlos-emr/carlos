@@ -45,8 +45,11 @@ package io.github.carlos_emr.carlos.util;
 
 /**
  * Concatenates multiple PDF files into a single output document using Apache PDFBox.
+ * Accepts a mix of file paths (as Strings) and {@link java.io.InputStream} objects.
+ * Handles encrypted PDFs by removing security before merging, and logs any files
+ * that could not be included in the merged output.
  *
- * @author Mark Thompson
+ * @since 2001-01-01
  */
 
 import java.io.*;
@@ -64,6 +67,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class ConcatPDF {
 
 
+    /**
+     * Concatenates PDF documents from a list of file paths and/or input streams
+     * and writes the merged result to a file.
+     *
+     * @param alist ArrayList of Objects (String file paths or InputStreams) representing PDF sources
+     * @param filename String the output file path for the merged PDF
+     */
     public static void concat(ArrayList<Object> alist, String filename) {
         try (OutputStream os = new FileOutputStream(filename)) {
             concat(alist, os);

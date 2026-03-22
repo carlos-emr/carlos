@@ -38,6 +38,18 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.Date;
 
+/**
+ * Base class for eForm data objects providing common fields and rendering utilities
+ * shared between template forms and filled form instances. Holds form metadata
+ * (name, subject, date, creator) and the HTML content, along with methods for
+ * replacing image path markers in the HTML with context-appropriate URLs.
+ *
+ * <p>Subclassed by {@link EForm} which adds database loading, field value injection,
+ * AP execution, and other runtime behaviors.</p>
+ *
+ * @see EForm
+ * @since 2006-05-25
+ */
 public class EFormBase {
     protected final String imageMarker = "${oscar_image_path}";
     protected final String jsMarker = "${oscar_javascript_path}";

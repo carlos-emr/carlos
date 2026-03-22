@@ -33,9 +33,13 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * Toggles variable for displaying reason on appointment page
+ * Struts2 action that toggles the display of personal information on the appointment page.
  *
- * @author rjonasz
+ * <p>Manages a session-scoped {@code showPersonal} boolean attribute that controls whether
+ * patient personal details (such as appointment reason) are visible on the schedule view.
+ * Each invocation flips the current state, defaulting to {@code true} if not previously set.</p>
+ *
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

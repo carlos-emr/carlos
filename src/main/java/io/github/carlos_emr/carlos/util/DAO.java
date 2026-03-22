@@ -38,8 +38,20 @@ import java.sql.SQLException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
+/**
+ * Base Data Access Object class providing utility methods for safely closing JDBC
+ * resources ({@link ResultSet}, {@link PreparedStatement}, {@link Connection}) and
+ * rolling back transactions. Subclasses use these methods for consistent resource cleanup.
+ *
+ * @since 2001-01-01
+ */
 public class DAO {
 
+    /**
+     * Safely closes a {@link ResultSet}, logging any errors.
+     *
+     * @param rs ResultSet the result set to close (may be null)
+     */
     protected void close(ResultSet rs) {
         if (rs != null) {
             try {

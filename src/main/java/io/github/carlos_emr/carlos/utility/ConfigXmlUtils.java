@@ -42,6 +42,15 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+/**
+ * Utility class for reading and accessing application configuration from XML files.
+ *
+ * <p>Loads configuration from {@code /config.xml} at startup and supports an override
+ * configuration file specified via a system property. Configuration is organized into
+ * categories and properties, accessible as strings, booleans, integers, nodes, or lists.
+ *
+ * @since 2026-03-17
+ */
 public final class ConfigXmlUtils {
     private static Logger logger = MiscUtils.getLogger();
     private static final String DEFAULT_CONFIG_FILE = "/config.xml";
@@ -130,10 +139,20 @@ public final class ConfigXmlUtils {
         return categoryMap == null ? null : categoryMap.get(property);
     }
 
+    /**
+     * Reloads the configuration from all config files.
+     */
     public static void reloadConfig() {
         config = getConfigMap();
     }
 
+    /**
+     * Returns a configuration property value as a trimmed string.
+     *
+     * @param category String the configuration category
+     * @param property String the property name within the category
+     * @return String the property value, or {@code null} if not found or blank
+     */
     public static String getPropertyString(String category, String property) {
         Node node = (Node) getProperty(config, category, property);
         return node != null ? StringUtils.trimToNull(node.getTextContent()) : null;

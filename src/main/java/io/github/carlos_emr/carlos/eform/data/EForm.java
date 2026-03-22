@@ -63,6 +63,21 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Represents a complete eForm with runtime behaviors including database loading,
+ * field value injection, database AP execution, measurement handling, and
+ * HTML manipulation for form rendering.
+ *
+ * <p>Extends {@link EFormBase} to add constructors that load form templates from
+ * the database by form ID or form data ID, plus methods that process the HTML
+ * content to inject AP-retrieved values, set form actions, handle digital
+ * signatures, and manage linked eForm openers.</p>
+ *
+ * @see EFormBase
+ * @see EFormLoader
+ * @see APExecute
+ * @since 2006-05-25
+ */
 public class EForm extends EFormBase {
     private static EFormDataDao eFormDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
     private static Logger log = MiscUtils.getLogger();

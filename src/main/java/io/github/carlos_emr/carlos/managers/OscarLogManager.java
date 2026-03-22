@@ -36,8 +36,37 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for querying audit log records in the CARLOS EMR system.
+ *
+ * <p>Provides access to provider activity logs, particularly recent patient
+ * record access history for audit and "recently viewed" functionality.</p>
+ *
+ * @see OscarLogManagerImpl
+ * @since 2026-03-17
+ */
 public interface OscarLogManager {
+
+    /**
+     * Retrieves recently viewed patient demographics by a specific provider, with pagination.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param providerNo String the provider number
+     * @param startPosition int the starting index for pagination
+     * @param itemsToReturn int the maximum number of records to return
+     * @return List of Object arrays containing demographic view log data
+     */
     public List<Object[]> getRecentDemographicsViewedByProvider(LoggedInInfo loggedInInfo, String providerNo, int startPosition, int itemsToReturn);
 
+    /**
+     * Retrieves recently viewed patient demographics by a provider after a given date.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param providerNo String the provider number
+     * @param date Date the inclusive lower bound for view timestamps
+     * @param startPosition int the starting index for pagination
+     * @param itemsToReturn int the maximum number of records to return
+     * @return List of Object arrays containing demographic view log data
+     */
     public List<Object[]> getRecentDemographicsViewedByProviderAfterDateIncluded(LoggedInInfo loggedInInfo, String providerNo, Date date, int startPosition, int itemsToReturn);
 }

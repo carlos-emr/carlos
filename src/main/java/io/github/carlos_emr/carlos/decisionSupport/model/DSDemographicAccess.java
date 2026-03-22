@@ -600,6 +600,16 @@ public class DSDemographicAccess {
         return getDemographicData(loggedInInfo).getAge() + " y";
     }
 
+    /**
+     * Evaluates a single age condition against the patient's age.
+     * <p>
+     * Supports units: "y" (years, default), "m" (months), "d" (days).
+     * </p>
+     *
+     * @param statement DSValue containing the age comparison expression
+     * @return boolean true if the patient's age satisfies the condition
+     * @throws DecisionSupportException if the unit is unrecognized or comparison fails
+     */
     public boolean isAge(DSValue statement) throws DecisionSupportException {
         logger.debug("IS AGE CALLED");
         String compareAge = getDemographicData(loggedInInfo).getAgeInYears() + "";
@@ -613,10 +623,22 @@ public class DSDemographicAccess {
         return statement.testValue(compareAge);
     }
 
+    /**
+     * Gets the patient's age in days.
+     *
+     * @return long the patient's age in days
+     */
     public long getAgeDays() {
         return DemographicData.getAgeInDays(getDemographicData(loggedInInfo));
     }
 
+    /**
+     * Checks if the patient's age matches any of the specified conditions (OR logic).
+     *
+     * @param ageStatements String comma-separated age conditions (e.g., ">=18 y,<=65 y")
+     * @return boolean true if any age condition is satisfied
+     * @throws DecisionSupportException if age comparison fails
+     */
     public boolean isAgeAny(String ageStatements) throws DecisionSupportException {
         List<DSValue> statements = DSValue.createDSValues(ageStatements);
         for (DSValue statement : statements) {

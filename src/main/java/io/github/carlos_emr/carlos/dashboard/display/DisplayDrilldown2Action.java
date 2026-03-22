@@ -207,6 +207,15 @@ public class DisplayDrilldown2Action extends ActionSupport {
     }
 
 
+    /**
+     * Searches the list of indicator templates for one whose shared metric set name
+     * matches the given value.
+     *
+     * @param x LoggedInInfo the logged-in user context
+     * @param templates List of IndicatorTemplate the templates to search
+     * @param sharedMetricSetName String the shared metric set name to match
+     * @return IndicatorTemplate the matching template, or {@code null} if not found
+     */
     protected IndicatorTemplate findIndicatorTemplateBySharedMetricSetName(LoggedInInfo x, List<IndicatorTemplate> templates, String sharedMetricSetName) {
 
         for (IndicatorTemplate template : templates) {
@@ -226,6 +235,16 @@ public class DisplayDrilldown2Action extends ActionSupport {
     }
 
 
+    /**
+     * Searches the list of indicator templates for one matching both the shared metric
+     * set name and the metric label.
+     *
+     * @param x LoggedInInfo the logged-in user context
+     * @param templates List of IndicatorTemplate the templates to search
+     * @param sharedMetricSetName String the shared metric set name to match
+     * @param metricLabel String the metric label to match
+     * @return IndicatorTemplate the matching template, or {@code null} if not found
+     */
     protected IndicatorTemplate findIndicatorTemplateBySharedMetricSetNameAndMatricLabel(LoggedInInfo x, List<IndicatorTemplate> templates, String sharedMetricSetName, String metricLabel) {
 
         for (IndicatorTemplate template : templates) {

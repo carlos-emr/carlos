@@ -305,6 +305,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
+    /** {@inheritDoc} */
     public List<AppointmentArchive> getAppointmentArchiveUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn) {
         List<AppointmentArchive> results = appointmentArchiveDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
 
@@ -313,6 +314,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
+    /** {@inheritDoc} */
     public List<AppointmentStatus> getAppointmentStatuses(LoggedInInfo loggedInInfo) {
         List<AppointmentStatus> results = appointmentStatusDao.findAll(0, 100);
 
@@ -325,6 +327,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (results);
     }
 
+    /** {@inheritDoc} */
     public List<Integer> getAllDemographicIdByProgramProvider(LoggedInInfo loggedInInfo, Integer programId, String providerNo) {
         List<Integer> results = oscarAppointmentDao.findAllDemographicIdByProgramProvider(programId, providerNo);
 

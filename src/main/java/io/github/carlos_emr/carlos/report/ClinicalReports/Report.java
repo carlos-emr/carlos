@@ -31,7 +31,12 @@
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
 /**
- * @author jay
+ * Placeholder class for clinical report definitions. Currently unused but reserved
+ * for future structured report model objects within the clinical reporting framework.
+ *
+ * @see ClinicalReportManager
+ * @see ReportEvaluator
+ * @since 2006-06-17
  */
 public class Report {
 

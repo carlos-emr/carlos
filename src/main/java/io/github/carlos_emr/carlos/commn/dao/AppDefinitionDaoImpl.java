@@ -46,6 +46,7 @@ public class AppDefinitionDaoImpl extends AbstractDaoImpl<AppDefinition> impleme
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public List<AppDefinition> findAll() {
         Query query = createQuery("x", null);
@@ -53,6 +54,7 @@ public class AppDefinitionDaoImpl extends AbstractDaoImpl<AppDefinition> impleme
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public AppDefinition findByName(String name) {
         Query query = entityManager.createQuery("select x from AppDefinition x where x.name = ?1");
@@ -66,6 +68,7 @@ public class AppDefinitionDaoImpl extends AbstractDaoImpl<AppDefinition> impleme
     }
     
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public AppDefinition findByConsumerKey(String consumerKey) {
         Query query = entityManager.createQuery("select x from AppDefinition x where x.config like ?1");

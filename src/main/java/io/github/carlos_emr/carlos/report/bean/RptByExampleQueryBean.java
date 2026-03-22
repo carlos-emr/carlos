@@ -33,6 +33,14 @@ package io.github.carlos_emr.carlos.report.bean;
 import org.apache.commons.text.StringEscapeUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Data bean representing a saved "Report By Example" SQL query. Holds the query
+ * text, owning provider information, creation date, and a JavaScript-escaped
+ * version of the query for safe embedding in client-side scripts.
+ *
+ * @see RptByExampleQueryBeanHandler
+ * @since 2001-01-01
+ */
 public class RptByExampleQueryBean {
 
     int id;

@@ -45,7 +45,17 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 
 /**
- * @author jay
+ * Struts2 action for downloading demographic import log files.
+ *
+ * <p>Streams import log files from the servlet container's temporary directory to
+ * the user's browser as downloadable attachments. Includes path traversal protection
+ * via filename sanitization and {@link PathValidationUtils} validation.</p>
+ *
+ * <p><b>Security:</b> Requires "_demographic" read privilege. Sanitizes HTTP headers
+ * to prevent response splitting attacks.</p>
+ *
+ * @see io.github.carlos_emr.carlos.utility.PathValidationUtils
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

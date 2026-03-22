@@ -45,6 +45,7 @@ public class AppUserDaoImpl extends AbstractDaoImpl<AppUser> implements AppUserD
         super(AppUser.class);
     }
 
+    /** {@inheritDoc} */
     @Override
     public AppUser findForProvider(int appId, String providerNo) {
         Query query = entityManager.createQuery("select x from AppUser x where x.appId = ?1 and x.providerNo = ?2");

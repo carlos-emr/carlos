@@ -36,7 +36,14 @@ import java.io.Serializable;
 
 
 /**
- * An interface used for all contact types in Oscar.
+ * Common interface for all contact types in CARLOS EMR.
+ *
+ * <p>Provides a unified contract for entities that represent contacts
+ * (professionals, organizations, or personal contacts) with standard
+ * fields for name, address, phone, fax, and practitioner identifiers.
+ * Used in FHIR resource mapping for Organization and Practitioner resources.</p>
+ *
+ * @since 2026-03-17
  */
 public interface ContactInterface extends Serializable {
 

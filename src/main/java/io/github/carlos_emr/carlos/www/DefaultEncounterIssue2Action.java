@@ -46,12 +46,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
-/**
- * @author Administrator
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for managing default encounter issues.
+ *
+ * <p>Provides CRUD operations for configuring the default set of clinical issues
+ * that are automatically associated with new patient encounters. Supports listing,
+ * editing, saving, and removing default issue assignments.
+ *
+ * @since 2012-08-13
+ */
 public class DefaultEncounterIssue2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

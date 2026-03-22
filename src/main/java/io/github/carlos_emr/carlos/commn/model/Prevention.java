@@ -55,6 +55,33 @@ import java.time.temporal.ChronoUnit;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ImmunizationInterface;
 
+/**
+ * Represents a prevention/immunization record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code preventions} table and tracks immunizations, screenings, and other
+ * preventive healthcare measures administered to patients. Implements the
+ * {@link ImmunizationInterface} for FHIR interoperability, allowing prevention records
+ * to be exposed as standardized immunization resources.</p>
+ *
+ * <p>Prevention records support multiple states:</p>
+ * <ul>
+ *   <li><strong>Administered:</strong> normal completed prevention with a date</li>
+ *   <li><strong>Refused:</strong> patient declined the prevention (refused='1')</li>
+ *   <li><strong>Ineligible:</strong> patient is not eligible (refused='2')</li>
+ *   <li><strong>Completed Externally:</strong> done outside this clinic (refused='3')</li>
+ *   <li><strong>Never:</strong> prevention should never be given (never='1')</li>
+ *   <li><strong>Deleted:</strong> soft-deleted record (deleted='1')</li>
+ * </ul>
+ *
+ * <p>Extended properties (lot number, route, dose, manufacturer, etc.) are stored in
+ * the related {@link PreventionExt} table via a bidirectional one-to-many relationship.
+ * The {@link ImmunizationInterface} methods delegate to these extension properties.</p>
+ *
+ * @see PreventionExt
+ * @see ImmunizationInterface
+ * @see DemographicData
+ * @since 2012-01-11
+ */
 @Entity
 @Table(name = "preventions")
 public class Prevention extends AbstractModel<Integer> implements Serializable, ImmunizationInterface, DemographicData {

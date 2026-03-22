@@ -39,9 +39,17 @@ import io.github.carlos_emr.carlos.PMmodule.model.VacancyClientMatch;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA-based implementation of {@link VacancyClientMatchDao} for managing
+ * {@link VacancyClientMatch} entities.
+ *
+ * @since 2001-09-17
+ * @see VacancyClientMatchDao
+ */
 @Repository
 public class VacancyClientMatchDaoImpl extends AbstractDaoImpl<VacancyClientMatch> implements VacancyClientMatchDao {
 
+    /** Default constructor initializing with VacancyClientMatch entity class. */
     public VacancyClientMatchDaoImpl() {
         super(VacancyClientMatch.class);
     }

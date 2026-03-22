@@ -129,12 +129,15 @@ public class ClientManagerImpl implements ClientManager {
         return results;
     }
 
+    /** {@inheritDoc} */
     public ClientReferral getClientReferral(String id) {
         return referralDAO.getClientReferral(Long.valueOf(id));
     }
 
-    /*
-     * This should always be a new one. add the queue to the program.
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Saves the referral and automatically adds it to the program queue.</p>
      */
     public void saveClientReferral(ClientReferral referral) {
 
@@ -143,6 +146,7 @@ public class ClientManagerImpl implements ClientManager {
     }
 
 
+    /** {@inheritDoc} */
     public void addClientReferralToProgramQueue(ClientReferral referral) {
         if (referral.getStatus().equalsIgnoreCase(ClientReferral.STATUS_ACTIVE)) {
             ProgramQueue queue = new ProgramQueue();

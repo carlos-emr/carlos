@@ -44,6 +44,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.CalendarScheduleCodePairTransfer;
 
 
+/**
+ * Restricts open-access schedule codes to same-day booking only.
+ *
+ * <p>Time slots with open-access codes (configurable via the {@code codes} parameter,
+ * defaulting to {@code 'o'}) are only allowed if they fall within 24 hours of the
+ * current time. Non-open-access slots pass through unchanged.</p>
+ *
+ * @since 2026-03-17
+ */
 public class OpenAccessFilter implements AvailableTimeSlotFilter {
     private static Logger logger = MiscUtils.getLogger();
 

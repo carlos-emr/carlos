@@ -106,6 +106,13 @@ public class CarlosPropertiesCheck extends TagSupport {
     }
 
 
+    /**
+     * Evaluates the property condition and includes or skips the tag body accordingly.
+     *
+     * @return int {@link TagSupport#EVAL_BODY_INCLUDE} if the condition is met,
+     *         {@link TagSupport#SKIP_BODY} otherwise
+     * @throws JspException if tag processing fails
+     */
     public int doStartTag() throws JspException {
 
         boolean conditionMet = false;
@@ -143,12 +150,21 @@ public class CarlosPropertiesCheck extends TagSupport {
 
     }
 
+    /**
+     * Completes tag processing and continues page evaluation.
+     *
+     * @return int {@link TagSupport#EVAL_PAGE}
+     * @throws JspException if tag processing fails
+     */
     public int doEndTag() throws JspException {
 
         return (EVAL_PAGE);
 
     }
 
+    /**
+     * Releases tag resources and resets state for tag reuse.
+     */
     public void release() {
 
         super.release();
