@@ -47,7 +47,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Utility class for tracking and preventing duplicate file uploads in the lab module.
+ * Uses MD5 checksums to detect whether a file has already been uploaded, and provides
+ * methods to persist and retrieve upload metadata.
+ *
+ * @since 2007-01-18
  */
 public final class FileUploadCheck {
 
@@ -55,12 +59,26 @@ public final class FileUploadCheck {
         // no instantiation allowed
     }
 
+    /**
+     * Checks whether a file with the given MD5 checksum has already been uploaded.
+     *
+     * @param md5sum String the MD5 hash of the file content
+     * @return boolean {@code true} if a record with this checksum exists in the database
+     */
     private static boolean hasFileBeenUploaded(String md5sum) {
         FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
         List<io.github.carlos_emr.carlos.commn.model.FileUploadCheck> checks = dao.findByMd5Sum(md5sum);
         return !checks.isEmpty();
     }
 
+    /**
+     * Determines whether a file at the given filesystem path has already been uploaded
+     * by computing its MD5 checksum and checking against the database.
+     *
+     * @param fileLocation String the absolute path to the file on disk
+     * @return boolean {@code true} if this file has been previously uploaded
+     * @throws IOException if the file cannot be read
+     */
     public static boolean hasFileBeenUploadedByFileLocation(String fileLocation) throws IOException {
         InputStream is = null;
 
@@ -74,6 +92,13 @@ public final class FileUploadCheck {
 
     }
 
+    /**
+     * Retrieves file upload metadata by its database identifier.
+     *
+     * @param id Integer the primary key of the file upload record
+     * @return Map&lt;String, String&gt; containing keys "providerNo", "filename", "md5sum", and "dateTime";
+     *         empty map if no record is found
+     */
     public static Map<String, String> getFileInfo(Integer id) {
         Map<String, String> fileInfo = new HashMap<String, String>();
         FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
@@ -91,6 +116,13 @@ public final class FileUploadCheck {
         fileInfo.put("dateTime", ConversionUtils.toTimestampString(c.getDateTime()));
     }
 
+    /**
+     * Retrieves file upload metadata by its MD5 checksum.
+     *
+     * @param md5sum String the MD5 hash to search for
+     * @return Hashtable&lt;String, String&gt; containing keys "providerNo", "filename", "md5sum", and "dateTime";
+     *         empty if no matching record is found
+     */
     public static Hashtable<String, String> getFileInfo(String md5sum) {
         Hashtable<String, String> fileInfo = new Hashtable<String, String>();
         FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
@@ -104,10 +136,18 @@ public final class FileUploadCheck {
         return fileInfo;
     }
 
+    /** Return value indicating that the file was not saved (duplicate or error). */
     public static final int UNSUCCESSFUL_SAVE = -1;
 
     /**
-     * Used to add a new file to the database, checks to see if it already has been added
+     * Adds a new file upload record to the database if the file has not been previously uploaded.
+     * This method is synchronized to prevent race conditions during concurrent uploads.
+     *
+     * @param name String the original filename
+     * @param is InputStream the file content stream used to compute the MD5 checksum
+     * @param provider String the provider number of the uploading user
+     * @return int the generated record ID on success, or {@link #UNSUCCESSFUL_SAVE} if the file
+     *         was already uploaded or an error occurred
      */
     public static synchronized int addFile(String name, InputStream is, String provider) {
         int fileUploaded = UNSUCCESSFUL_SAVE;

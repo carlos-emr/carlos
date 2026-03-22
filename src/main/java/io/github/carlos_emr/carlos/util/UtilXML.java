@@ -52,8 +52,21 @@ import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.xml.sax.InputSource;
 
+/**
+ * Utility class for XML document manipulation using the W3C DOM API.
+ * Provides methods for creating, parsing, serializing, and traversing XML documents,
+ * as well as extracting text content and attribute values into {@link Properties} maps.
+ * Also includes XML escaping and unescaping routines.
+ *
+ * @since 2001-01-01
+ */
 public class UtilXML {
 
+    /**
+     * Creates a new empty XML {@link Document}.
+     *
+     * @return Document a new empty document, or null if creation fails
+     */
     public static Document newDocument() {
         try {
             Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
@@ -64,10 +77,25 @@ public class UtilXML {
         }
     }
 
+    /**
+     * Adds a child element with the specified name to the parent node.
+     *
+     * @param parentNode Node the parent node to append the new element to
+     * @param name String the tag name for the new element
+     * @return Element the newly created and appended element
+     */
     public static Element addNode(Node parentNode, String name) {
         return addNode(parentNode, name, null);
     }
 
+    /**
+     * Adds a child element with the specified name and optional text content to the parent node.
+     *
+     * @param parentNode Node the parent node to append the new element to
+     * @param name String the tag name for the new element
+     * @param value String the text content for the element, or null for an empty element
+     * @return Element the newly created and appended element
+     */
     public static Element addNode(Node parentNode, String name, String value) {
         Element node = null;
         if (parentNode.getNodeType() == 9)
@@ -79,6 +107,12 @@ public class UtilXML {
         return (Element) parentNode.appendChild(node);
     }
 
+    /**
+     * Serializes an XML {@link Document} to its string representation.
+     *
+     * @param xmlDoc Document the XML document to serialize
+     * @return String the XML string
+     */
     public static String toXML(Document xmlDoc) {
         StringWriter ret = new StringWriter();
         DOMSource src = new DOMSource(xmlDoc);
@@ -94,6 +128,13 @@ public class UtilXML {
         return ret.toString();
     }
 
+    /**
+     * Serializes an XML {@link Document} to its string representation with a DOCTYPE system identifier.
+     *
+     * @param xmlDoc Document the XML document to serialize
+     * @param dtdname String the DOCTYPE SYSTEM identifier to include in the output
+     * @return String the XML string with DOCTYPE declaration
+     */
     public static String toXML(Document xmlDoc, String dtdname) {
         StringWriter ret = new StringWriter();
         DOMSource src = new DOMSource(xmlDoc);
@@ -111,6 +152,12 @@ public class UtilXML {
         return ret.toString();
     }
 
+    /**
+     * Serializes an XML {@link Node} to its string representation.
+     *
+     * @param xmlDoc Node the XML node to serialize
+     * @return String the XML string
+     */
     public static String toXML(Node xmlDoc) {
         StringWriter ret = new StringWriter();
         DOMSource src = new DOMSource(xmlDoc);
@@ -124,6 +171,13 @@ public class UtilXML {
         return ret.toString();
     }
 
+    /**
+     * Parses an XML string into a {@link Document}. Disables external entities and DTD
+     * processing to prevent XXE attacks.
+     *
+     * @param xmlInput String the XML content to parse
+     * @return Document the parsed document, or null if parsing fails
+     */
     public static Document parseXML(String xmlInput) {
         Document document;
         try {
@@ -151,6 +205,15 @@ public class UtilXML {
         return document;
     }
 
+    /**
+     * Parses an XML file into a {@link Document}.
+     *
+     * @param fileName String the path to the XML file
+     * @return Document the parsed document
+     * @throws IOException if the file cannot be read
+     * @throws FileNotFoundException if the file does not exist
+     * @throws Exception if XML parsing fails
+     */
     public static Document parseXMLFile(String fileName)
             throws IOException, FileNotFoundException, Exception {
         InputSource is = new InputSource(new FileReader(fileName));
@@ -159,6 +222,12 @@ public class UtilXML {
     }
 
 
+    /**
+     * Extracts the text content from a node, including serialized XML of any child elements.
+     *
+     * @param node Node the node to extract text from
+     * @return String the concatenated text content
+     */
     public static String getText(Node node) {
         String ret = "";
         if (node.hasChildNodes()) {
@@ -175,6 +244,12 @@ public class UtilXML {
         return ret;
     }
 
+    /**
+     * Appends a text node with the specified content to the given node and normalizes it.
+     *
+     * @param node Node the node to append text to
+     * @param text String the text content to append
+     */
     public static void setText(Node node, String text) {
         Text txt = node.getOwnerDocument().createTextNode(text);
         node.appendChild(txt);
@@ -184,13 +259,25 @@ public class UtilXML {
 
     static Properties prop = null;
 
-    // name - tagName, value - text
+    /**
+     * Extracts tag name/text content pairs from the node tree into a {@link Properties} map.
+     * Keys are tag names, values are the text content of those tags.
+     *
+     * @param node Node the root node to traverse
+     * @return Properties the extracted name-value pairs
+     */
     public static Properties getPropText(Node node) {
         prop = new Properties();
         setPropText(node);
         return prop;
     }
 
+    /**
+     * Recursively traverses the node tree and populates the static {@code prop} field
+     * with tag name/text content pairs.
+     *
+     * @param node Node the current node being traversed
+     */
     public static void setPropText(Node node) {
         NodeList list = node.getChildNodes();
 
@@ -205,13 +292,32 @@ public class UtilXML {
         }
     }
 
-    // name - attrName1, value - attrName2
+    /**
+     * Extracts attribute value pairs from elements matching the specified tag name.
+     * For each matching element, the value of {@code attrName1} becomes the key
+     * and the value of {@code attrName2} becomes the value in the returned properties.
+     *
+     * @param node Node the root node to traverse
+     * @param tagName String the tag name to match
+     * @param attrName1 String the attribute whose value becomes the property key
+     * @param attrName2 String the attribute whose value becomes the property value
+     * @return Properties the extracted attribute pairs
+     */
     public static Properties getPropText(Node node, String tagName, String attrName1, String attrName2) {
         prop = new Properties();
         setPropText(node, tagName, attrName1, attrName2);
         return prop;
     }
 
+    /**
+     * Recursively traverses the node tree and populates the static {@code prop} field
+     * with pairs of attribute values from matching elements.
+     *
+     * @param node Node the current node being traversed
+     * @param tag String the tag name to match
+     * @param attr1 String the first attribute name (becomes property key)
+     * @param attr2 String the second attribute name (becomes property value)
+     */
     public static void setPropText(Node node, String tag, String attr1, String attr2) {
         StringBuilder sb1 = new StringBuilder();
         StringBuilder sb2 = new StringBuilder();
@@ -237,13 +343,30 @@ public class UtilXML {
         }
     }
 
-    // name - attrName1, value - text
+    /**
+     * Extracts attribute-value/text-content pairs from elements matching the specified tag name.
+     * For each matching element, the value of {@code attrName1} becomes the key
+     * and the element's text content becomes the value.
+     *
+     * @param node Node the root node to traverse
+     * @param tagName String the tag name to match
+     * @param attrName1 String the attribute whose value becomes the property key
+     * @return Properties the extracted pairs
+     */
     public static Properties getPropText(Node node, String tagName, String attrName1) {
         prop = new Properties();
         setPropText(node, tagName, attrName1);
         return prop;
     }
 
+    /**
+     * Recursively traverses the node tree and populates the static {@code prop} field
+     * with attribute value/text content pairs from matching elements.
+     *
+     * @param node Node the current node being traversed
+     * @param tag String the tag name to match
+     * @param attr1 String the attribute name whose value becomes the property key
+     */
     public static void setPropText(Node node, String tag, String attr1) {
         String attrName = "";
         NodeList list = node.getChildNodes();
@@ -276,7 +399,16 @@ public class UtilXML {
         }
     }
 
-    //get subtag '<tag attr="attr1"> </tag>' xml string
+    /**
+     * Finds the first element matching the specified tag name and attribute value,
+     * and returns its serialized XML string.
+     *
+     * @param node Node the root node to search
+     * @param tag String the tag name to match
+     * @param attrName String the attribute name to check
+     * @param attr1 String the attribute value to match
+     * @return String the serialized XML of the matching element, or null if not found
+     */
     public static String getNodeXML(Node node, String tag, String attrName, String attr1) {
         String ret = null;
         NodeList list = node.getChildNodes();
@@ -309,6 +441,13 @@ public class UtilXML {
     *-Paul
    */
 
+    /**
+     * Escapes ampersands and unmatched opening angle brackets in pre-formed XML content.
+     * Matched XML tags (those with corresponding closing tags) are preserved.
+     *
+     * @param xml String the XML content to escape
+     * @return String the escaped XML content
+     */
     public static String escapeXML(String xml) {
         xml = xml.replaceAll("&", "&amp;");
         int pointer1 = 0;
@@ -335,6 +474,12 @@ public class UtilXML {
         return xml;
     }
 
+    /**
+     * Escapes all ampersands and angle brackets in the given string.
+     *
+     * @param xml String the string to escape
+     * @return String the fully escaped string
+     */
     public static String escapeAllXML(String xml) {
         xml = xml.replaceAll("&", "&amp;");
         xml = xml.replaceAll("<", "&lt;");

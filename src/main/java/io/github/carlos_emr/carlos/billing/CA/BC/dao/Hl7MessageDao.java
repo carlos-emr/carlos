@@ -36,14 +36,32 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Message;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link Hl7Message} entities.
+ * Provides persistence operations for HL7 messages used in BC PathNet
+ * lab result processing, including queries that join with patient lab routing.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7MessageDao extends AbstractDaoImpl<Hl7Message> {
 
+    /**
+     * Constructs a new {@code Hl7MessageDao} with the {@link Hl7Message} entity class.
+     */
     public Hl7MessageDao() {
         super(Hl7Message.class);
     }
 
+    /**
+     * Finds HL7 messages and their patient lab routing records for a given demographic and lab type.
+     * Results are grouped by message ID.
+     *
+     * @param demographicNo Integer the demographic (patient) number
+     * @param labType String the type of lab result (e.g., "BCP" for BC PathNet)
+     * @return List of Object arrays, each containing an {@link Hl7Message} and a PatientLabRouting
+     */
     public List<Object[]> findByDemographicAndLabType(Integer demographicNo, String labType) {
         String sql = "SELECT m, patientLabRouting FROM Hl7Message m, PatientLabRouting patientLabRouting WHERE patientLabRouting.labNo = m.id AND patientLabRouting.labType = ?1 AND patientLabRouting.demographicNo = ?2 GROUP BY m.id, patientLabRouting";
 

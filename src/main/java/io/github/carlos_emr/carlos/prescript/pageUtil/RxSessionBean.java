@@ -41,6 +41,16 @@ import io.github.carlos_emr.CarlosProperties;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * Session-scoped bean that maintains prescription workflow state for a provider-patient session.
+ * <p>
+ * Stores the prescription stash (in-progress prescriptions), allergy warnings, drug interaction
+ * data, re-prescription drug lists, and favorite-to-random-ID mappings. This bean is stored
+ * in the HTTP session under the key "RxSessionBean" and is shared across all prescription
+ * actions during a single prescribing session.
+ *
+ * @since 2026-03-17
+ */
 public class RxSessionBean implements java.io.Serializable {
     private static final Logger logger = MiscUtils.getLogger();
 

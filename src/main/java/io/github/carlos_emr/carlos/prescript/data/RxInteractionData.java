@@ -36,7 +36,13 @@ import java.util.Vector;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author Jay Gallagher
+ * Singleton cache for drug-drug interaction data, keyed by ATC code combinations.
+ * <p>
+ * Manages a thread-safe cache of interaction results retrieved from the DrugRef service.
+ * Supports preloading interactions via background {@link RxInteractionWorker} threads,
+ * with the ability to wait for in-progress lookups before returning results.
+ *
+ * @since 2026-03-17
  */
 public class RxInteractionData {
     static RxInteractionData rxInteractionData = new RxInteractionData();

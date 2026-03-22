@@ -27,6 +27,16 @@
 
 package io.github.carlos_emr.carlos.casemgmt.common;
 
+/**
+ * JSP custom tag that conditionally renders its body based on the provider's
+ * role-based access rights within the case management module.
+ *
+ * <p>Evaluates whether the specified provider has the given access type for
+ * the specified access name, demographic number, and program. Supports an
+ * optional {@code reverse} attribute to invert the access check logic.</p>
+ *
+ * @since 2026-03-17
+ */
 public class SecurityAccess extends BasicTag {
 
     private String accessName;
@@ -37,34 +47,78 @@ public class SecurityAccess extends BasicTag {
     private String reverse;
 
 
+    /**
+     * Sets the name of the access right to check (e.g., "read", "write").
+     *
+     * @param accessName String the access right name
+     */
     public void setAccessName(String accessName) {
         this.accessName = accessName;
     }
 
+    /**
+     * Sets the provider number whose access is being evaluated.
+     *
+     * @param providerNo String the healthcare provider identifier
+     */
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
 
+    /**
+     * Sets the demographic (patient) number for the access check.
+     *
+     * @param demoNo String the patient demographic number
+     */
     public void setDemoNo(String demoNo) {
         this.demoNo = demoNo;
     }
 
+    /**
+     * Sets the type of access being checked.
+     *
+     * @param accessType String the access type identifier
+     */
     public void setAccessType(String accessType) {
         this.accessType = accessType;
     }
 
+    /**
+     * Returns the program identifier for the access check.
+     *
+     * @return String the program ID
+     */
     public String getProgramId() {
         return programId;
     }
 
+    /**
+     * Sets the program identifier for the access check.
+     *
+     * @param programId String the program ID
+     */
     public void setProgramId(String programId) {
         this.programId = programId;
     }
 
+    /**
+     * Sets whether to invert the access check result.
+     * When set to "true", the tag body is rendered only if the provider
+     * does NOT have the specified access.
+     *
+     * @param reverse String "true" to invert the access check, any other value for normal behavior
+     */
     public void setReverse(String reverse) {
         this.reverse = reverse;
     }
 
+    /**
+     * Evaluates the access check and determines whether to include the tag body.
+     * Normalizes empty or "null" program IDs to "0" before performing the check.
+     *
+     * @return int {@code EVAL_BODY_INCLUDE} if access is granted (or denied when reversed),
+     *         {@code SKIP_BODY} otherwise
+     */
     public int doStartTag() {
         if ("".equalsIgnoreCase(programId) || "null".equalsIgnoreCase(programId)) programId = "0";
         boolean hasAccess = getCaseManagementManager().hasAccessRight(accessName, accessType, providerNo, demoNo, programId);

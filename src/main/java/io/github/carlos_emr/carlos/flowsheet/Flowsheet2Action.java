@@ -85,6 +85,22 @@ import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for managing user-created clinical flowsheets. Provides CRUD operations
+ * for custom flowsheets including creating from templates, adding/removing measurement and
+ * prevention items, configuring warning rules and target indicator rulesets, and listing
+ * flowsheets by scope (system, provider, or patient).
+ *
+ * <p>Flowsheet definitions are stored as XML documents conforming to the
+ * {@code flowsheets.oscarehr.org} schema. This action parses and manipulates
+ * those XML documents via the XMLBeans-generated {@link FlowsheetDocument} API,
+ * returning JSON responses to the client.</p>
+ *
+ * <p>Method routing is handled through a {@code method} request parameter
+ * dispatched in {@link #execute()}.</p>
+ *
+ * @since 2026-03-17
+ */
 public class Flowsheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -100,6 +116,18 @@ public class Flowsheet2Action extends ActionSupport {
 
     private SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 
+    /**
+     * Dispatches to the appropriate handler method based on the {@code method} request parameter.
+     * Supported methods include: getTemplateDetails, addMeasurement, addPrevention,
+     * getValidations, getMeasurementTypes, getPreventionTypes, addNewFlowsheet,
+     * deleteFlowsheet, removeItem, getWarnings, removeWarning, removeTarget,
+     * getIndicators, getTargets, saveFlowsheetItemWarning, saveFlowsheetItemTarget,
+     * saveFlowsheetItem, getFlowsheetItem, getFlowsheet, getTemplateNames,
+     * listSystem, list, and reload. Defaults to {@link #list()} if no method is specified.
+     *
+     * @return String the Struts result name, or {@code null} when writing JSON directly to the response
+     * @throws Exception if an error occurs during method dispatch or execution
+     */
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if ("getTemplateDetails".equals(method)) {

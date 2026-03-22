@@ -43,10 +43,25 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Manages the linkage between lab requests and lab reports, allowing the system to
+ * track which lab request originated a given lab report. Also synchronizes request
+ * date/time values into the measurements extension table for flowsheet display.
+ *
+ * @since 2007-01-18
+ */
 public class LabRequestReportLink {
     private static LabRequestReportLinkDao dao = SpringUtils.getBean(LabRequestReportLinkDao.class);
     private static MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
 
+    /**
+     * Retrieves the request-report link information for a given lab report.
+     *
+     * @param reportTable String the name of the report table (e.g., "hl7TextInfo")
+     * @param reportId Long the report record identifier
+     * @return HashMap&lt;String, Object&gt; containing link metadata (id, request_table, request_id,
+     *         request_date, report_table, report_id); empty map if no link exists
+     */
     public static HashMap<String, Object> getLinkByReport(String reportTable, Long reportId) {
         HashMap<String, Object> link = new HashMap<String, Object>();
 
@@ -64,6 +79,14 @@ public class LabRequestReportLink {
         return link;
     }
 
+    /**
+     * Retrieves the request-report link information for a given lab request.
+     *
+     * @param requestTable String the name of the request table
+     * @param reqId Long the request record identifier
+     * @return HashMap&lt;String, Object&gt; containing link metadata (id, request_table, request_id,
+     *         request_date, report_table, report_id); empty map if no link exists
+     */
     public static HashMap<String, Object> getLinkByRequestId(String requestTable, Long reqId) {
         HashMap<String, Object> link = new HashMap<String, Object>();
 

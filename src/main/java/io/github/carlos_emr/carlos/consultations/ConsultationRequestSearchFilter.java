@@ -30,12 +30,28 @@ package io.github.carlos_emr.carlos.consultations;
 
 import java.util.Date;
 
+/**
+ * Filter criteria for searching consultation requests with sorting and pagination support.
+ *
+ * <p>Encapsulates all search parameters for consultation request queries, including
+ * date range filters (referral and appointment dates), status, team, demographic,
+ * MRP (Most Responsible Provider), and urgency. Supports configurable sort modes
+ * and directions for result ordering. Defaults to sorting by referral date descending.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ConsultationRequestSearchFilter {
 
+    /**
+     * Available sort columns for consultation request search results.
+     */
     public static enum SORTMODE {
         Demographic, Service, Consultant, Team, Status, MRP, AppointmentDate, FollowUpDate, ReferralDate, Urgency
     }
 
+    /**
+     * Sort direction for search results.
+     */
     public static enum SORTDIR {
         asc, desc
     }

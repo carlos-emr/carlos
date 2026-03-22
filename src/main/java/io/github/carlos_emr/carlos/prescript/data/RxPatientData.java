@@ -49,6 +49,16 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data access class for patient information used in the prescription module.
+ * <p>
+ * Provides patient search, demographic retrieval, allergy management, disease tracking,
+ * and prescription history access. Contains the nested {@link Patient} class that wraps
+ * a {@link io.github.carlos_emr.carlos.commn.model.Demographic} entity with convenience
+ * methods for the prescription workflow.
+ *
+ * @since 2026-03-17
+ */
 public class RxPatientData {
     private static Logger logger = MiscUtils.getLogger();
     private static final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);

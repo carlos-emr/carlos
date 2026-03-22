@@ -32,6 +32,15 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
+/**
+ * Display transfer object for allergy information in the prescription UI.
+ * <p>
+ * Wraps allergy data with formatted display values including severity, onset,
+ * and type descriptions derived from the {@link Allergy} model. Used to pass
+ * allergy display data between the action layer and JSP views.
+ *
+ * @since 2026-03-17
+ */
 public final class AllergyDisplay {
     private Integer id;
     private String entryDate;

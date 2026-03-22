@@ -36,7 +36,14 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author Jay Gallagher
+ * Background worker thread that checks for drug-drug interactions based on ATC codes.
+ * <p>
+ * Queries the DrugRef service asynchronously to identify interactions between a set of
+ * ATC codes representing the patient's current medications. Results are stored in the
+ * shared {@link RxInteractionData} singleton for retrieval by the prescription interface.
+ * Database connections are properly released in the finally block.
+ *
+ * @since 2026-03-17
  */
 public class RxInteractionWorker extends Thread {
     RxInteractionData interactionData = null;

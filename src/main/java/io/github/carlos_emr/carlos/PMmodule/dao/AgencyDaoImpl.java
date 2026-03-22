@@ -40,11 +40,22 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link AgencyDao} for managing {@link Agency} entities.
+ *
+ * <p>Uses HQL queries via {@link HqlQueryHelper} to retrieve agency records
+ * and the Hibernate session API to persist and merge them.</p>
+ *
+ * @since 2005-01-18
+ * @see AgencyDao
+ * @see Agency
+ */
 @Transactional
 public class AgencyDaoImpl extends AbstractHibernateDao implements AgencyDao {
 
     private Logger log = MiscUtils.getLogger();
 
+    /** {@inheritDoc} */
     public Agency getLocalAgency() {
         Agency agency = null;
 
@@ -57,6 +68,7 @@ public class AgencyDaoImpl extends AbstractHibernateDao implements AgencyDao {
         return agency;
     }
 
+    /** {@inheritDoc} */
     public void saveAgency(Agency agency) {
         if (agency == null) {
             throw new IllegalArgumentException();

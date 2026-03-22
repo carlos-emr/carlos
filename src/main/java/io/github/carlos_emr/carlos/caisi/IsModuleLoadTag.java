@@ -32,15 +32,48 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * JSP custom tag that conditionally includes its body content based on whether
+ * a named CARLOS EMR module is enabled in the system properties.
+ *
+ * <p>Checks {@link CarlosProperties} for the module name property, treating values
+ * of "yes", "true", or "on" (case-insensitive) as enabled. The tag supports a
+ * {@code reverse} attribute to invert the logic, allowing content to be shown
+ * only when a module is <em>disabled</em>.</p>
+ *
+ * <p>Usage in JSP:</p>
+ * <pre>{@code
+ * <caisi:isModuleLoad moduleName="CAISI">
+ *     <!-- Content shown only when CAISI module is enabled -->
+ * </caisi:isModuleLoad>
+ * }</pre>
+ *
+ * @since 2005-01-19
+ */
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;
     private boolean reverse = false;
 
+    /**
+     * Sets the name of the module property to check in {@link CarlosProperties}.
+     *
+     * @param moduleName String the property key identifying the module (e.g. "CAISI")
+     */
     public void setModuleName(String moduleName) {
         this.moduleName = moduleName;
     }
 
+    /**
+     * Evaluates whether the configured module is enabled and determines whether
+     * to include or skip the tag body.
+     *
+     * <p>When {@code reverse} is {@code false} (default), returns {@code EVAL_BODY_INCLUDE}
+     * if the module is enabled. When {@code reverse} is {@code true}, the logic is inverted.</p>
+     *
+     * @return int {@code EVAL_BODY_INCLUDE} to render the body, or {@code SKIP_BODY} to skip it
+     * @throws JspException if the module property cannot be read from {@link CarlosProperties}
+     */
     public int doStartTag() throws JspException {
         try {
 

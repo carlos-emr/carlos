@@ -36,14 +36,32 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Orc;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link Hl7Orc} entities.
+ * Provides persistence operations for HL7 ORC (Common Order) segments
+ * in the BC PathNet lab integration, including filler order lookups
+ * and message-based queries.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 @SuppressWarnings("unchecked")
 public class Hl7OrcDao extends AbstractDaoImpl<Hl7Orc> {
 
+    /**
+     * Constructs a new {@code Hl7OrcDao} with the {@link Hl7Orc} entity class.
+     */
     public Hl7OrcDao() {
         super(Hl7Orc.class);
     }
 
+    /**
+     * Finds filler order numbers and the latest result status change date for a given message ID.
+     * Groups results by message ID.
+     *
+     * @param messageId Integer the HL7 message ID
+     * @return List of Object arrays containing filler order number and max results report status change date
+     */
     public List<Object[]> findFillerAndStatusChageByMessageId(Integer messageId) {
         String sql = "SELECT orc.fillerOrderNumber, MAX(obr.resultsReportStatusChange) " +
                 "FROM Hl7Orc orc, Hl7Pid pid, Hl7Obr obr " +
@@ -56,6 +74,12 @@ public class Hl7OrcDao extends AbstractDaoImpl<Hl7Orc> {
         return query.getResultList();
     }
 
+    /**
+     * Finds ORC and PID pairs for a given message ID.
+     *
+     * @param messageId Integer the HL7 message ID
+     * @return List of Object arrays containing {@link Hl7Orc} and Hl7Pid entities
+     */
     public List<Object[]> findOrcAndPidByMessageId(Integer messageId) {
         String sql = "SELECT orc, pid FROM Hl7Orc orc, Hl7Pid pid WHERE orc.pidId = pid.id AND pid.messageId = ?1";
         Query query = entityManager.createQuery(sql);

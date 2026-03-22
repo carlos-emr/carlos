@@ -30,6 +30,17 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.model.BaseObject;
 
+/**
+ * Persistent entity representing a Cumulative Patient Profile (CPP) in the case management system.
+ * The CPP aggregates key clinical summary sections for a patient including social history,
+ * family history, medical history, ongoing concerns, reminders, risk factors, past medications,
+ * and support system information.
+ *
+ * <p>Each CPP record is associated with a single demographic (patient) and tracks the
+ * last-updating provider and timestamp.</p>
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementCPP extends BaseObject {
     private Long id;
     private String demographic_no;

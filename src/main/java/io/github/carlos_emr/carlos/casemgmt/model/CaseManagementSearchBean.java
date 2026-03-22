@@ -27,6 +27,13 @@
 
 package io.github.carlos_emr.carlos.casemgmt.model;
 
+/**
+ * Value object encapsulating search criteria for filtering case management notes.
+ * Supports filtering by demographic number, date range, provider, role, program,
+ * encounter type, and free-text search.
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementSearchBean {
 
     private String demographicNo;

@@ -37,29 +37,46 @@ import io.github.carlos_emr.carlos.commn.model.FacilityMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Transactional implementation of the {@link OrganizationMessageManager} interface
+ * that delegates to {@link FacilityMessageDao} for persistence operations.
+ *
+ * <p>Manages the lifecycle of facility messages including creation, updates,
+ * and retrieval with various filtering strategies by facility and program.</p>
+ *
+ * @see OrganizationMessageManager
+ * @see io.github.carlos_emr.carlos.commn.dao.FacilityMessageDao
+ * @since 2026-03-17
+ */
 @Transactional
 public class OrganizationMessageManagerImpl implements OrganizationMessageManager {
 
     @Autowired
     private FacilityMessageDao facilityMessageDao;
 
+    /** {@inheritDoc} */
     public FacilityMessage getMessage(String messageId) {
         return facilityMessageDao.find(Integer.valueOf(messageId));
     }
 
+    /** {@inheritDoc} */
     public void saveFacilityMessage(FacilityMessage msg) {
+        // New messages have null or zero ID; persist them as new entities
         if (msg.getId() == null || msg.getId().intValue() == 0) {
             msg.setId(null);
             facilityMessageDao.persist(msg);
         } else {
+            // Existing messages are merged to update their state
             facilityMessageDao.merge(msg);
         }
     }
 
+    /** {@inheritDoc} */
     public List<FacilityMessage> getMessages() {
         return facilityMessageDao.getMessages();
     }
 
+    /** {@inheritDoc} */
     public List<FacilityMessage> getMessagesByFacilityId(Integer facilityId) {
         if (facilityId == null || facilityId.intValue() == 0) {
             return null;
@@ -67,6 +84,7 @@ public class OrganizationMessageManagerImpl implements OrganizationMessageManage
         return facilityMessageDao.getMessagesByFacilityId(facilityId);
     }
 
+    /** {@inheritDoc} */
     public List<FacilityMessage> getMessagesByFacilityIdOrNull(Integer facilityId) {
         if (facilityId == null || facilityId.intValue() == 0) {
             return null;
@@ -74,6 +92,7 @@ public class OrganizationMessageManagerImpl implements OrganizationMessageManage
         return facilityMessageDao.getMessagesByFacilityIdOrNull(facilityId);
     }
 
+    /** {@inheritDoc} */
     public List<FacilityMessage> getMessagesByFacilityIdAndProgramId(Integer facilityId, Integer programId) {
         if (facilityId == null || facilityId.intValue() == 0) {
             return null;
@@ -81,6 +100,7 @@ public class OrganizationMessageManagerImpl implements OrganizationMessageManage
         return facilityMessageDao.getMessagesByFacilityIdAndProgramId(facilityId, programId);
     }
 
+    /** {@inheritDoc} */
     public List<FacilityMessage> getMessagesByFacilityIdOrNullAndProgramIdOrNull(Integer facilityId, Integer programId) {
         if (facilityId == null || facilityId.intValue() == 0) {
             return null;

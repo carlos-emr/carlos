@@ -42,6 +42,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.SxmlMisc;
 
+/**
+ * Data access class for provider information used in prescription generation.
+ * <p>
+ * Retrieves provider details including name, practitioner number, and clinic information
+ * (address, phone, fax). Supports provider-specific overrides for contact information
+ * via user properties, allowing individual providers to customize the clinic details
+ * that appear on their prescriptions.
+ *
+ * @since 2026-03-17
+ */
 public class RxProviderData {
 
     private ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);

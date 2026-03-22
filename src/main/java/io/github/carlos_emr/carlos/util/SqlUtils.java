@@ -44,6 +44,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.db.DBHandler;
 
+/**
+ * Utility class providing convenience methods for executing SQL queries and managing
+ * JDBC resources. Includes methods for running arbitrary queries, constructing SQL
+ * IN clause strings, and safely closing database connections, statements, and result sets.
+ *
+ * @since 2001-01-01
+ */
 public class SqlUtils {
     private static Logger logger = MiscUtils.getLogger();
 
@@ -178,6 +185,14 @@ public class SqlUtils {
         }
     }
 
+    /**
+     * Closes the provided Hibernate Session, Statement, and ResultSet, logging warnings
+     * for any errors. Pass {@code null} for resources that should not be closed.
+     *
+     * @param session Session the Hibernate session to close, or null
+     * @param s Statement the JDBC statement to close, or null
+     * @param rs ResultSet the JDBC result set to close, or null
+     */
     public static void closeResources(Session session, Statement s, ResultSet rs) {
         closeResources(s, rs);
 
@@ -186,6 +201,13 @@ public class SqlUtils {
         }
     }
 
+    /**
+     * Closes the provided Statement and ResultSet, logging warnings for any errors.
+     * Pass {@code null} for resources that should not be closed.
+     *
+     * @param s Statement the JDBC statement to close, or null
+     * @param rs ResultSet the JDBC result set to close, or null
+     */
     public static void closeResources(Statement s, ResultSet rs) {
         if (rs != null) {
             try {

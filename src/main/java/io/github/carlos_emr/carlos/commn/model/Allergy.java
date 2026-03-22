@@ -45,6 +45,30 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 
+/**
+ * Represents a patient allergy record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code allergies} table and tracks both drug and non-drug allergies
+ * for a patient (demographic). Each allergy record includes the allergen description,
+ * reaction details, severity, onset timing, and classification codes such as
+ * ATC (Anatomical Therapeutic Chemical) codes and regional identifiers.</p>
+ *
+ * <p>Allergy type codes map to classification categories:</p>
+ * <ul>
+ *   <li>8 - ATC Class (anatomical class)</li>
+ *   <li>10 - AHFS Class (therapeutic class)</li>
+ *   <li>11 - Generic Name</li>
+ *   <li>12 - Compound</li>
+ *   <li>13 - Brand Name</li>
+ *   <li>14 - Ingredient</li>
+ * </ul>
+ *
+ * <p>Life stage codes indicate when the allergy was identified:
+ * N (Newborn), I (Infant), C (Child), T (Adolescent), A (Adult).</p>
+ *
+ * @see DemographicData
+ * @since 2012-01-11
+ */
 @Entity
 @Table(name = "allergies")
 public class Allergy extends AbstractModel<Integer> implements DemographicData {
@@ -135,38 +159,79 @@ public class Allergy extends AbstractModel<Integer> implements DemographicData {
 	@Transient
 	private String substance;
 
+    /**
+     * Returns whether this allergy record has been archived (soft-deleted).
+     *
+     * @return boolean {@code true} if the allergy is archived, {@code false} otherwise
+     */
     public boolean getArchived() {
         return archived;
     }
 
+    /**
+     * Sets the archived (soft-delete) status of this allergy record.
+     *
+     * @param archived boolean {@code true} to archive, {@code false} to activate
+     */
     public void setArchived(boolean archived) {
         this.archived = archived;
     }
 
+    /**
+     * Returns the allergy identifier. Alias for {@link #getId()}.
+     *
+     * @return Integer the allergy ID
+     */
     public Integer getAllergyId() {
         return id;
     }
 
+    /** {@inheritDoc} */
     public Integer getId() {
         return id;
     }
 
+    /**
+     * Sets the allergy record identifier.
+     *
+     * @param id Integer the allergy ID to set
+     */
     public void setId(Integer id) {
         this.id = id;
     }
 
+    /**
+     * Returns the demographic (patient) number associated with this allergy.
+     *
+     * @return int the demographic number
+     */
     public int getDemographicNo() {
         return demographicNo;
     }
 
+    /**
+     * Sets the demographic (patient) number for this allergy.
+     *
+     * @param demographic_no Integer the demographic number to set
+     */
     public void setDemographicNo(Integer demographic_no) {
         this.demographicNo = demographic_no;
     }
 
+    /**
+     * Returns the textual description of the allergen.
+     *
+     * @return String the allergy description
+     */
     public String getDescription() {
         return description;
     }
 
+    /**
+     * Sets the textual description of the allergen. The value is trimmed to null.
+     *
+     * @param description String the allergy description
+     */
     public void setDescription(String description) {
         this.description = StringUtils.trimToNull(description);
     }

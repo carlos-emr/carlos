@@ -38,6 +38,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
+/**
+ * Utility class for creating and resolving tickler reminders for patients.
+ * Provides convenience methods that wrap {@link TicklerManager} operations,
+ * including duplicate detection before creating new ticklers.
+ *
+ * @since 2026-03-17
+ */
 public class TicklerCreator {
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
@@ -46,11 +53,13 @@ public class TicklerCreator {
     }
 
     /**
-     * createTickler
+     * Creates a tickler for a patient if one with the same message does not already exist.
+     * The tickler is assigned to the same provider who creates it.
      *
-     * @param demoNo  the demographic no
-     * @param provNo  the providers no
-     * @param message the tickler message
+     * @param loggedInInfo LoggedInInfo the current session context
+     * @param demoNo String the patient demographic number
+     * @param provNo String the provider number (used as both creator and assignee)
+     * @param message String the tickler message text
      */
     public void createTickler(LoggedInInfo loggedInInfo, String demoNo, String provNo, String message) {
         if (!ticklerExists(loggedInInfo, demoNo, message)) {
@@ -66,6 +75,15 @@ public class TicklerCreator {
     }
 
 
+    /**
+     * Creates a tickler for a patient with a specific assignee, without checking for duplicates.
+     *
+     * @param loggedInInfo LoggedInInfo the current session context
+     * @param demoNo String the patient demographic number
+     * @param provNo String the provider number of the tickler creator
+     * @param message String the tickler message text
+     * @param assignedTo String the provider number of the assigned recipient
+     */
     public void createTickler(LoggedInInfo loggedInInfo, String demoNo, String provNo, String message, String assignedTo) {
         Tickler t = new Tickler();
         t.setDemographicNo(Integer.parseInt(demoNo));
@@ -77,11 +95,12 @@ public class TicklerCreator {
 
 
     /**
-     * Returns true if a tickler with the specified parameters exists
+     * Checks whether an active tickler already exists for the given patient with the specified message.
      *
-     * @param demoNo  String
-     * @param message String
-     * @return boolean
+     * @param loggedInInfo LoggedInInfo the current session context
+     * @param demoNo String the patient demographic number
+     * @param message String the tickler message to search for
+     * @return boolean true if an active tickler with the given message exists for the patient
      */
     public boolean ticklerExists(LoggedInInfo loggedInInfo, String demoNo, String message) {
         CustomFilter filter = new CustomFilter();
@@ -93,10 +112,12 @@ public class TicklerCreator {
     }
 
     /**
-     * resolveTicklers
+     * Resolves (completes) ticklers matching the given reminder string for a list of patients.
      *
-     * @param cdmPatientNos Vector (strings)
-     * @param remString     String
+     * @param loggedInInfo LoggedInInfo the current session context
+     * @param providerNo String the provider number performing the resolution
+     * @param cdmPatientNos List of String patient demographic numbers whose ticklers should be resolved
+     * @param remString String the reminder string to match against tickler messages
      */
     public void resolveTicklers(LoggedInInfo loggedInInfo, String providerNo, List<String> cdmPatientNos, String remString) {
         ticklerManager.resolveTicklers(loggedInInfo, providerNo, cdmPatientNos, remString);

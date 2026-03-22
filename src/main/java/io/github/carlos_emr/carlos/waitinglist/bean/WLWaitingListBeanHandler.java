@@ -43,15 +43,40 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Loads and manages the patients on a specific waiting list, and provides
+ * automatic cleanup of patients who have received appointments.
+ *
+ * <p>On construction, retrieves all patients for a given waiting list ID along
+ * with their demographic information. Also resolves the waiting list name
+ * for display purposes.</p>
+ *
+ * @since 2026-03-17
+ */
 public class WLWaitingListBeanHandler {
 
     List<WLPatientWaitingListBean> waitingListArrayList = new ArrayList<WLPatientWaitingListBean>();
     String waitingListName = "";
 
+    /**
+     * Constructs the handler and loads all patients for the specified waiting list.
+     *
+     * @param waitingListID String the unique identifier of the waiting list
+     */
     public WLWaitingListBeanHandler(String waitingListID) {
         init(waitingListID);
     }
 
+    /**
+     * Initializes the handler by loading all patients and resolving the waiting list name.
+     *
+     * <p>Queries the {@link WaitingListDao} for joined waiting list entries and
+     * demographic records, building display beans with patient name, phone,
+     * position, note, and enrollment date.</p>
+     *
+     * @param waitingListID String the waiting list identifier to load
+     * @return {@code true} always (retained for backward compatibility)
+     */
     public boolean init(String waitingListID) {
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
         List<Object[]> waitingListsAndDemographics = dao.findWaitingListsAndDemographics(ConversionUtils.fromIntString(waitingListID));
@@ -83,6 +108,12 @@ public class WLWaitingListBeanHandler {
         return true;
     }
 
+    /**
+     * Removes patients from the waiting list who already have appointments scheduled,
+     * then re-numbers remaining positions sequentially.
+     *
+     * @param waitingListID String the waiting list identifier to update
+     */
     static public void updateWaitingList(String waitingListID) {
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
 
@@ -116,10 +147,20 @@ public class WLWaitingListBeanHandler {
         }
     }
 
+    /**
+     * Returns the list of patient beans for this waiting list.
+     *
+     * @return List&lt;WLPatientWaitingListBean&gt; the patients on the waiting list
+     */
     public List<WLPatientWaitingListBean> getWaitingList() {
         return waitingListArrayList;
     }
 
+    /**
+     * Returns the display name of this waiting list.
+     *
+     * @return String the waiting list name, or empty string if not resolved
+     */
     public String getWaitingListName() {
         return waitingListName;
     }

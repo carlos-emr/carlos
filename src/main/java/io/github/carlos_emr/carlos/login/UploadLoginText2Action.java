@@ -50,6 +50,19 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
 
+/**
+ * Struts2 action that handles uploading the Acceptable Use Agreement text file
+ * and configuring its validity duration for CARLOS EMR.
+ *
+ * <p>Administrators use this action to upload a new login agreement text file
+ * (saved as OSCARloginText.txt) and configure how long the agreement remains
+ * valid (forever from a specific date, or for a time period such as days/weeks/months/years).
+ *
+ * <p>Requires {@code _admin} write privilege.
+ *
+ * @see io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager
+ * @since 2026-03-17
+ */
 public class UploadLoginText2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -57,6 +70,15 @@ public class UploadLoginText2Action extends ActionSupport {
     private static Logger _logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes the agreement text file upload and validity duration configuration.
+     *
+     * <p>Validates admin privileges, parses validity settings from request parameters,
+     * persists the configuration property, and saves the uploaded text file to the
+     * DOCUMENT_DIR directory.
+     *
+     * @return String SUCCESS on completion, with "error" attribute set on the request
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
@@ -131,10 +153,20 @@ public class UploadLoginText2Action extends ActionSupport {
 
     private File importFile;
 
+    /**
+     * Gets the uploaded agreement text file.
+     *
+     * @return File the uploaded file
+     */
     public File getImportFile() {
         return importFile;
     }
 
+    /**
+     * Sets the uploaded agreement text file from the Struts2 file upload interceptor.
+     *
+     * @param importFile File the uploaded file
+     */
     @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;

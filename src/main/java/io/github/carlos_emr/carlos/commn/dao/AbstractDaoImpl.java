@@ -49,6 +49,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
+/**
+ * Abstract JPA-based implementation of {@link AbstractDao} providing standard CRUD,
+ * batch, and query-building operations for all entity types in the CARLOS EMR system.
+ * <p>
+ * Subclasses must pass their entity class to the constructor. This class manages
+ * the JPA {@link EntityManager} via Spring's {@code @PersistenceContext} injection
+ * and provides helper methods for building JPQL queries, applying pagination limits,
+ * and executing parameterized native SQL.
+ *
+ * @param <T> the entity type, which must extend {@link AbstractModel}
+ * @since 2005
+ */
 @Transactional
 public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements AbstractDao<T> {
 
@@ -59,6 +71,11 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     @Autowired
     private EntityManagerFactory entityManagerFactory;
 
+    /**
+     * Constructs this DAO for the specified entity model class.
+     *
+     * @param modelClass Class the JPA entity class this DAO manages
+     */
     public AbstractDaoImpl(Class<T> modelClass) {
         setModelClass(modelClass);
     }
@@ -87,11 +104,19 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         entityManager.persist(o);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void batchPersist(List<T> oList) {
         batchPersist(oList, 25);
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Uses a separate {@link EntityManager} and manual transaction management
+     * to flush and clear the persistence context at each batch boundary,
+     * preventing excessive memory consumption for large insert operations.
+     */
     @Override
     public void batchPersist(List<T> oList, int batchSize) {
         EntityManager batchEntityManager = null;
@@ -132,11 +157,19 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         entityManager.remove(o);
     }
 
+    /** {@inheritDoc} */
     @Override
     public void batchRemove(List<T> oList) {
         batchRemove(oList, 25);
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Uses a separate {@link EntityManager} with manual transaction management.
+     * Each entity is re-attached via {@link EntityManager#getReference(Class, Object)}
+     * before removal to ensure it belongs to the batch entity manager's session.
+     */
     @Override
     public void batchRemove(List<T> oList, int batchSize) {
         EntityManager batchEntityManager = null;
@@ -181,11 +214,13 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         entityManager.refresh(o);
     }
 
+    /** {@inheritDoc} */
     @Override
     public T find(Object id) {
         return (entityManager.find(modelClass, id));
     }
 
+    /** {@inheritDoc} */
     @Override
     public T find(int id) {
         return (entityManager.find(modelClass, id));
@@ -253,6 +288,12 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         return query.getResultList();
     }
 
+    /**
+     * Returns the maximum number of results allowed for list queries.
+     * Subclasses may override to provide a different limit.
+     *
+     * @return int the maximum select size, defaults to {@link #MAX_LIST_RETURN_SIZE}
+     */
     protected int getMaxSelectSize() {
         return MAX_LIST_RETURN_SIZE;
     }
@@ -274,6 +315,14 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         return true;
     }
 
+    /**
+     * Executes the given query expecting at most one result.
+     * Sets max results to 1 to prevent loading excess data.
+     *
+     * @param query the JPA query to execute
+     * @return the single result, or {@code null} if no results exist
+     * @throws NonUniqueResultException if more than one result is returned
+     */
     protected T getSingleResultOrNull(Query query) {
         query.setMaxResults(1);
 

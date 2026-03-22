@@ -39,10 +39,24 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jackson
+ * Provides configurable colour hex codes for various clinical and administrative
+ * categories in the case management UI. Each public field holds a six-character
+ * hex colour string (without the '#' prefix) for a specific category such as
+ * prescriptions, labs, allergies, and clinical notes.
+ *
+ * <p>The concrete class can be overridden via the {@code ColourClass} property
+ * in {@link io.github.carlos_emr.CarlosProperties} to allow custom colour schemes.</p>
+ *
+ * @since 2026-03-17
  */
 public class Colour {
 
+    /**
+     * Returns a {@code Colour} instance based on the configured {@code ColourClass} property.
+     * Falls back to the default {@code Colour} class if the configured class cannot be loaded.
+     *
+     * @return Colour the configured colour scheme instance, or the default instance on error
+     */
     public static Colour getInstance() {
         Colour c = null;
         try {

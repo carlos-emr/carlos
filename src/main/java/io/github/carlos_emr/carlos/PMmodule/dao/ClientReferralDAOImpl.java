@@ -43,11 +43,23 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link ClientReferralDAO} for managing
+ * {@link ClientReferral} entities.
+ *
+ * <p>Provides query methods for retrieving referrals by client, facility, program,
+ * and status, as well as enrichment logic for referral history reporting.</p>
+ *
+ * @since 2005-01-18
+ * @see ClientReferralDAO
+ * @see ClientReferral
+ */
 @Transactional
 public class ClientReferralDAOImpl extends AbstractHibernateDao implements ClientReferralDAO {
 
     private Logger log = MiscUtils.getLogger();
 
+    /** {@inheritDoc} */
     public List<ClientReferral> getReferrals() {
         @SuppressWarnings("unchecked")
         List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral");
@@ -59,6 +71,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return results;
     }
 
+    /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getReferrals(Long clientId) {
 
@@ -80,6 +93,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return results;
     }
 
+    /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getReferralsByFacility(Long clientId, Integer facilityId) {
 
@@ -105,6 +119,13 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return results;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>For each referral, looks up the previous referral to determine the referring
+     * program name and whether it was an external program. Falls back to the admission
+     * table if no prior referral exists.</p>
+     */
     // [ 1842692 ] RFQ Feature - temp change for pmm referral history report
     // - suggestion: to add a new field to the table client_referral (Referring program/agency)
     public List<ClientReferral> displayResult(List<ClientReferral> lResult) {
@@ -149,6 +170,13 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return ret;
     }
 
+    /**
+     * Checks whether the specified program is of type 'external'.
+     *
+     * @param programId Integer the program ID to check
+     * @return {@code true} if the program exists and is external, {@code false} otherwise
+     * @throws IllegalArgumentException if programId is {@code null} or not positive
+     */
     private boolean isExternalProgram(Integer programId) {
         boolean result = false;
 
@@ -171,6 +199,13 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return result;
     }
 
+    /**
+     * Retrieves admissions for a demographic, ordered by admission date descending.
+     *
+     * @param demographicNo Integer the demographic number of the client
+     * @return List&lt;Admission&gt; admissions for the specified client
+     * @throws IllegalArgumentException if demographicNo is {@code null} or not positive
+     */
     private List<Admission> getAdmissions(Integer demographicNo) {
         if (demographicNo == null || demographicNo <= 0) {
             throw new IllegalArgumentException();
@@ -183,6 +218,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
     }
     // end of change
 
+    /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getActiveReferrals(Long clientId, Integer facilityId) {
         if (clientId == null || clientId.longValue() <= 0) {
@@ -219,6 +255,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return results;
     }
 
+    /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> getActiveReferralsByClientAndProgram(Long clientId, Long programId) {
         if (clientId == null || clientId.intValue() <= 0) {
@@ -246,6 +283,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return results;
     }
 
+    /** {@inheritDoc} */
     public ClientReferral getClientReferral(Long id) {
         if (id == null || id.longValue() <= 0) {
             throw new IllegalArgumentException();
@@ -260,6 +298,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return result;
     }
 
+    /** {@inheritDoc} */
     public void saveClientReferral(ClientReferral referral) {
         if (referral == null) {
             throw new IllegalArgumentException();
@@ -277,6 +316,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
 
     }
 
+    /** {@inheritDoc} */
     @SuppressWarnings("unchecked")
     public List<ClientReferral> search(ClientReferral referral) {
         if (referral != null && referral.getProgramId() != null && referral.getProgramId() > 0) {
@@ -286,6 +326,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
         return (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral");
     }
 
+    /** {@inheritDoc} */
     public List<ClientReferral> getClientReferralsByProgram(int programId) {
         @SuppressWarnings("unchecked")
         List<ClientReferral> results = (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral cr where cr.ProgramId = ?1", Long.valueOf(programId));

@@ -32,9 +32,19 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link LogTeleplanTx} entities.
+ * Provides persistence operations for Teleplan transaction logs in the BC MSP
+ * billing system. Inherits standard CRUD from {@link AbstractDaoImpl}.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class LogTeleplanTxDao extends AbstractDaoImpl<LogTeleplanTx> {
 
+    /**
+     * Constructs a new {@code LogTeleplanTxDao} with the {@link LogTeleplanTx} entity class.
+     */
     public LogTeleplanTxDao() {
         super(LogTeleplanTx.class);
     }

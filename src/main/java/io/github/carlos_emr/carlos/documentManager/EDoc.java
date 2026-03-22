@@ -50,6 +50,26 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 
+/**
+ * Represents an electronic document (EDoc) in the CARLOS EMR document management system.
+ *
+ * <p>This value object encapsulates all metadata and file information for a clinical document,
+ * including description, type, classification, creator/reviewer information, observation dates,
+ * and file storage details. It serves as the primary data transfer object between the document
+ * management UI layer and the persistence layer ({@link Document} and {@link CtlDocument} entities).
+ *
+ * <p>Documents are uniquely identified by {@code docId} and are naturally ordered by that ID.
+ * An {@link #OBSERVATION_DATE_COMPARATOR} is also provided for date-based sorting.
+ *
+ * <p>When constructed with a filename, the {@link #preliminaryProcessing()} method automatically
+ * prepends a timestamp to the filename and records the creation datetime.
+ *
+ * @see EDocUtil
+ * @see EDocFactory
+ * @see Document
+ * @see CtlDocument
+ * @since 2006-07-27
+ */
 public class EDoc extends TagObject implements Comparable<EDoc> {
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -95,6 +115,23 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     public EDoc() {
     }
 
+    /**
+     * Constructs an EDoc with core metadata and applies preliminary processing (timestamp prefix on filename).
+     *
+     * @param description String the document description/title
+     * @param type String the document type (e.g., "consult", "referral")
+     * @param fileName String the original filename of the uploaded document
+     * @param html String the HTML content for HTML-type documents
+     * @param creatorId String the provider number of the document creator
+     * @param responsibleId String the provider number of the responsible provider
+     * @param source String the document source
+     * @param status char the document status character ('A' for active, 'D' for deleted, etc.)
+     * @param observationDate String the clinical observation date in yyyy-MM-dd format
+     * @param reviewerId String the provider number of the reviewer
+     * @param reviewDateTime String the review date/time string
+     * @param module String the module context (e.g., "demographic", "provider")
+     * @param moduleId String the module-specific identifier (e.g., demographic number)
+     */
     public EDoc(String description, String type, String fileName, String html, String creatorId, String responsibleId, String source, char status, String observationDate, String reviewerId, String reviewDateTime, String module, String moduleId) {
         this.setDescription(description.trim());
         this.setType(type.trim());
@@ -112,6 +149,24 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         preliminaryProcessing();
     }
 
+    /**
+     * Constructs an EDoc with core metadata and a page count, then applies preliminary processing.
+     *
+     * @param description String the document description/title
+     * @param type String the document type
+     * @param fileName String the original filename
+     * @param html String the HTML content for HTML-type documents
+     * @param creatorId String the provider number of the document creator
+     * @param responsibleId String the provider number of the responsible provider
+     * @param source String the document source
+     * @param status char the document status character
+     * @param observationDate String the clinical observation date in yyyy-MM-dd format
+     * @param reviewerId String the provider number of the reviewer
+     * @param reviewDateTime String the review date/time string
+     * @param module String the module context
+     * @param moduleId String the module-specific identifier
+     * @param numberOfPages int the number of pages in the document
+     */
     public EDoc(String description, String type, String fileName, String html, String creatorId, String responsibleId, String source, char status, String observationDate, String reviewerId, String reviewDateTime, String module, String moduleId, int numberOfPages) {
         this.setDescription(description.trim());
         this.setType(type.trim());
@@ -130,6 +185,24 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         preliminaryProcessing();
     }
 
+    /**
+     * Constructs an EDoc with core metadata and optional filename timestamp processing.
+     *
+     * @param description String the document description/title
+     * @param type String the document type
+     * @param fileName String the original filename
+     * @param html String the HTML content for HTML-type documents
+     * @param creatorId String the provider number of the document creator
+     * @param responsibleId String the provider number of the responsible provider
+     * @param source String the document source
+     * @param status char the document status character
+     * @param observationDate String the clinical observation date in yyyy-MM-dd format
+     * @param reviewerId String the provider number of the reviewer
+     * @param reviewDateTime String the review date/time string
+     * @param module String the module context
+     * @param moduleId String the module-specific identifier
+     * @param updateFilename boolean when true, applies preliminary processing to prepend a timestamp to the filename
+     */
     public EDoc(String description, String type, String fileName, String html, String creatorId, String responsibleId, String source, char status, String observationDate, String reviewerId, String reviewDateTime, String module, String moduleId, boolean updateFilename) {
         this.setDescription(description.trim());
         this.setType(type.trim());
@@ -217,6 +290,12 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         }
     }
 
+    /**
+     * Returns the full file system path to this document's file. If the path has not been
+     * explicitly set, it is constructed from the configured DOCUMENT_DIR and the filename.
+     *
+     * @return String the absolute file path to the document
+     */
     public String getFilePath() {
 
         if (this.filePath == null) {
@@ -231,6 +310,12 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         this.filePath = filePath;
     }
 
+    /**
+     * Opens a {@link FileOutputStream} to this document's file path for writing content.
+     *
+     * @return OutputStream an output stream to the document file
+     * @throws FileNotFoundException if the document directory does not exist or is not writable
+     */
     public OutputStream getFileOutputStream() throws FileNotFoundException {
         OutputStream os = null;
         try {
@@ -242,6 +327,12 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return os;
     }
 
+    /**
+     * Reads the entire document file into a byte array.
+     *
+     * @return byte[] the file contents as a byte array
+     * @throws IOException if the file cannot be read
+     */
     public byte[] getFileBytes() throws IOException {
         return (FileUtils.readFileToByteArray(new File(getFilePath())));
     }
@@ -353,6 +444,11 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return creatorId;
     }
 
+    /**
+     * Looks up and returns the display name of the document creator from the provider table.
+     *
+     * @return String the creator's full name, or empty string if not found
+     */
     public String getCreatorName() {
         String creatorName = EDocUtil.getProviderName(creatorId);
         return creatorName;
@@ -366,6 +462,11 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return responsibleId;
     }
 
+    /**
+     * Looks up and returns the display name of the responsible provider from the provider table.
+     *
+     * @return String the responsible provider's full name, or empty string if not found
+     */
     public String getResponsibleName() {
         String responsibleName = EDocUtil.getProviderName(responsibleId);
         return responsibleName;
@@ -513,11 +614,21 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return reviewerId;
     }
 
+    /**
+     * Looks up and returns the display name of the document reviewer from the provider table.
+     *
+     * @return String the reviewer's full name, or empty string if not found
+     */
     public String getReviewerName() {
         String reviewerName = EDocUtil.getProviderName(reviewerId);
         return reviewerName;
     }
 
+    /**
+     * Returns the OHIP billing number of the document reviewer.
+     *
+     * @return String the reviewer's OHIP number, or empty string if the reviewer is not found
+     */
     public String getReviewerOhip() {
         Provider provider = EDocUtil.getProvider(reviewerId);
         if (provider != null) {
@@ -562,6 +673,12 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         this.restrictToProgram = restrictToProgram;
     }
 
+    /**
+     * Converts this EDoc into a {@link Document} persistence entity by mapping all
+     * metadata fields to the entity's properties. Creates a new Document instance on each call.
+     *
+     * @return Document the populated persistence entity ready for database storage
+     */
     public Document getDocument() {
 
         document = new Document();
@@ -588,6 +705,14 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return document;
     }
 
+    /**
+     * Converts this EDoc into a {@link CtlDocument} persistence entity that represents
+     * the document-to-module mapping. The module name is normalized to lowercase.
+     *
+     * @return CtlDocument the populated control document entity
+     * @throws IllegalArgumentException if the module is null
+     * @throws NumberFormatException if the moduleId is not a valid integer
+     */
     public CtlDocument getCtlDocument() {
 
         ctlDocument = new CtlDocument();

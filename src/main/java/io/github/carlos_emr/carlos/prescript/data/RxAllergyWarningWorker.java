@@ -40,7 +40,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 
 /**
- * @author Jay Gallagher
+ * Background worker thread that checks for allergy warnings against a specific drug's ATC code.
+ * <p>
+ * Queries the DrugRef service asynchronously to determine which of a patient's existing
+ * allergies are triggered by a given drug. Results are stored in the {@link RxSessionBean}
+ * for display in the prescription interface. Database connections are properly released
+ * in the finally block to prevent resource leaks.
+ *
+ * @since 2026-03-17
  */
 public class RxAllergyWarningWorker extends Thread {
     RxSessionBean sessionBean = null;

@@ -46,7 +46,22 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author Jay Gallagher
+ * Represents a patient's prevention and immunization profile used for Drools-based
+ * clinical decision support evaluation.
+ *
+ * <p>Holds patient demographics (sex, date of birth), a collection of
+ * {@link PreventionItem} entries grouped by prevention type, and accumulates
+ * clinical warnings and reminders produced by the prevention rule engine
+ * ({@link PreventionDS}).</p>
+ *
+ * <p>This class is inserted as a fact into the Drools {@code KieSession} where
+ * prevention rules evaluate the patient's age, sex, and immunization history
+ * to generate appropriate clinical decision support messages.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionItem
+ * @see PreventionDS
+ * @see PreventionDSImpl
  */
 public class Prevention {
     private static Logger log = MiscUtils.getLogger();
@@ -63,32 +78,66 @@ public class Prevention {
 
     int ageInMonths = -1;
 
+    /** Default no-argument constructor. */
     public Prevention() {
     }
 
+    /**
+     * Constructs a Prevention profile with name, sex, and date of birth.
+     *
+     * @param nam String the patient's name (used for debug logging)
+     * @param se String the patient's sex code ("M" or "F")
+     * @param birthdate Date the patient's date of birth
+     */
     public Prevention(String nam, String se, Date birthdate) {
         name = nam;
         sex = se;
         DOB = birthdate;
     }
 
+    /**
+     * Constructs a Prevention profile with sex and date of birth.
+     *
+     * @param se String the patient's sex code ("M" or "F")
+     * @param birthdate Date the patient's date of birth
+     */
     public Prevention(String se, Date birthdate) {
         sex = se;
         DOB = birthdate;
     }
 
+    /**
+     * Constructs a Prevention profile for the given demographic number.
+     *
+     * @param demographicNo String the patient's demographic number
+     */
     public Prevention(String demographicNo) {
 
     }
 
+    /**
+     * Logs a debug message prefixed with the patient's name.
+     *
+     * @param logMessage String the message to log
+     */
     public void log(String logMessage) {
         log.debug(name + " :" + logMessage);
     }
 
+    /**
+     * Sets the patient's sex code.
+     *
+     * @param s String the sex code ("M" or "F")
+     */
     public void setSex(String s) {
         sex = s;
     }
 
+    /**
+     * Returns the patient's sex code.
+     *
+     * @return String the sex code ("M" or "F"), or {@code null} if not set
+     */
     public String getSex() {
         return sex;
     }
@@ -101,19 +150,40 @@ public class Prevention {
         this.name = name;
     }
 
+    /**
+     * Adds a warning message to the general warnings list.
+     *
+     * @param warn String the warning message text
+     */
     public void addWarning(String warn) {
         messageList.add(warn);
     }
 
+    /**
+     * Adds a warning message associated with a specific prevention type.
+     *
+     * @param prevName String the prevention type name (used as map key)
+     * @param warn String the warning message text
+     */
     public void addWarning(String prevName, String warn) {
         addWarning(warn);
         warnings.put(prevName, warn);
     }
 
+    /**
+     * Returns the list of all accumulated warning messages.
+     *
+     * @return ArrayList&lt;String&gt; the warning messages, never {@code null}
+     */
     public ArrayList<String> getWarnings() {
         return messageList;
     }
 
+    /**
+     * Returns the map of prevention-type-specific warning messages.
+     *
+     * @return Map keyed by prevention type name with warning message values
+     */
     @SuppressWarnings("rawtypes")
     public Map getWarningMsgs() {
         return warnings;

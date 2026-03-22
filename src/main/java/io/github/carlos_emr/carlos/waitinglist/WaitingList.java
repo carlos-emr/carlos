@@ -32,10 +32,14 @@ package io.github.carlos_emr.carlos.waitinglist;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/*
- * This class is an interface with the file WEB-INF/classes
- * It is a singleton class. Do not instaciate it, use the method getInstance().
- * Every time that the properties file changes, tomcat must be restarted.
+/**
+ * Provides access to waiting list existence checks within the EMR system.
+ *
+ * <p>This class acts as a facade over the {@link WaitingListNameDao} to determine
+ * whether any active waiting lists are configured. Although originally designed as
+ * a singleton, each call to {@link #getInstance()} creates a new instance.</p>
+ *
+ * @since 2026-03-17
  */
 public class WaitingList {
 
@@ -44,18 +48,30 @@ public class WaitingList {
     }
 
     /**
-     * @return WaitingList the instance of WaitingList
+     * Creates and returns a new instance of {@code WaitingList}.
+     *
+     * @return WaitingList a new instance of this class
      */
     public static WaitingList getInstance() {
         return new WaitingList();
     }
 
+    /**
+     * Checks whether any active waiting list names exist in the database.
+     *
+     * @return {@code true} if at least one active waiting list name exists, {@code false} otherwise
+     */
     public boolean checkWaitingListTable() {
         WaitingListNameDao dao = SpringUtils.getBean(WaitingListNameDao.class);
         long count = dao.countActiveWatingListNames();
         return count > 0;
     }
 
+    /**
+     * Convenience method that delegates to {@link #checkWaitingListTable()}.
+     *
+     * @return {@code true} if active waiting lists exist, {@code false} otherwise
+     */
     public boolean getFound() {
         return checkWaitingListTable();
     }

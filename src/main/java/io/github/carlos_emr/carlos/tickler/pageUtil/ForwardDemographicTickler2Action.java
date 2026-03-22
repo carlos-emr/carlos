@@ -42,14 +42,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 
-/**
- * This class is used to forward to the add tickler screen with the demographic preselected
- *
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that forwards to the add tickler screen with a patient demographic
+ * preselected. Resolves the patient or provider name and optionally attaches a document
+ * reference (type and ID) to the request for linking.
+ *
+ * <p>Requires {@code _tickler} update privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ForwardDemographicTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -62,6 +66,16 @@ public class ForwardDemographicTickler2Action extends ActionSupport {
     public ForwardDemographicTickler2Action() {
     }
 
+    /**
+     * Resolves the demographic or provider name from request parameters and sets
+     * request attributes for the tickler creation form. If the demographic number
+     * differs from the provider number, the patient name is looked up; otherwise
+     * the provider name is used. Optionally sets document type and ID attributes
+     * for document-linked ticklers.
+     *
+     * @return String {@link #SUCCESS} after setting request attributes
+     * @throws RuntimeException if the logged-in user lacks {@code _tickler} update privilege
+     */
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_tickler", "u", null)) {
             throw new RuntimeException("missing required sec object (_tickler)");

@@ -28,9 +28,29 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+/**
+ * Configuration interface for application-level authentication providers.
+ *
+ * <p>Defines the contract for authentication configuration objects (e.g., OAuth 1.0a)
+ * that integrate with third-party services. Implementations provide the provider
+ * name and type used to identify and route authentication flows.
+ *
+ * @see AppOAuth1Config
+ * @since 2026-03-17
+ */
 public interface AppAuthConfig {
 
+    /**
+     * Returns the display name of this authentication configuration.
+     *
+     * @return String the authentication provider name
+     */
     String getName();
 
+    /**
+     * Returns the authentication type identifier (e.g., "oauth1").
+     *
+     * @return String the authentication type
+     */
     String getType();
 }

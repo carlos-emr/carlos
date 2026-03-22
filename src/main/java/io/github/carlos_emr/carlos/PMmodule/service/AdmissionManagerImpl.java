@@ -60,6 +60,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Transactional implementation of {@link AdmissionManager} for managing client admissions
+ * within the CARLOS EMR Program Management module.
+ *
+ * <p>Handles the complete admission lifecycle including program admission, discharge,
+ * community program transfers, and joint admissions for family dependents. Enforces
+ * program capacity limits, service restrictions, and temporary bed program constraints.</p>
+ *
+ * <p>This manager coordinates with multiple DAOs and services including
+ * {@link ProgramQueueDao} for queue management, {@link ClientReferralDAO} for referral tracking,
+ * and {@link ClientRestrictionManager} for service restriction enforcement.</p>
+ *
+ * @see AdmissionManager
+ * @see Admission
+ * @since 2005
+ */
 @Transactional
 public class AdmissionManagerImpl implements AdmissionManager {
 
@@ -70,22 +86,27 @@ public class AdmissionManagerImpl implements AdmissionManager {
     private ProgramClientStatusDAO programClientStatusDAO;
     private ClientRestrictionManager clientRestrictionManager;
 
+    /** {@inheritDoc} */
     public List<Admission> getAdmissions_archiveView(String programId, Integer demographicNo) {
         return dao.getAdmissions_archiveView(Integer.valueOf(programId), demographicNo);
     }
 
+    /** {@inheritDoc} */
     public Admission getAdmission(String programId, Integer demographicNo) {
         return dao.getAdmission(Integer.valueOf(programId), demographicNo);
     }
 
+    /** {@inheritDoc} */
     public Admission getCurrentAdmission(String programId, Integer demographicNo) {
         return dao.getCurrentAdmission(Integer.valueOf(programId), demographicNo);
     }
 
+    /** {@inheritDoc} */
     public List<Admission> getAdmissionsByFacility(Integer demographicNo, Integer facilityId) {
         return dao.getAdmissionsByFacility(demographicNo, facilityId);
     }
 
+    /** {@inheritDoc} */
     public List<Admission> getCurrentAdmissionsByFacility(Integer demographicNo, Integer facilityId) {
         return dao.getCurrentAdmissionsByFacility(demographicNo, facilityId);
     }

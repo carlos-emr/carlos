@@ -47,12 +47,27 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
-/**
- * @author rjonasz
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that handles the Acceptable Use Agreement (AUA) workflow during CARLOS EMR login.
+ *
+ * <p>After successful authentication, providers may be required to accept the clinic's
+ * acceptable use agreement before proceeding. This action processes the provider's
+ * accept or refuse decision and redirects accordingly.
+ *
+ * <p>Workflow:
+ * <ul>
+ *   <li>If the provider accepts, their signed confidentiality date is updated and they
+ *       are redirected to the originally requested URL stored in the session.</li>
+ *   <li>If the provider refuses, the refusal is logged and they are redirected to logout.</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager
+ * @see Login2Action
+ * @since 2026-03-17
+ */
 public class LoginAgreement2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -61,6 +76,16 @@ public class LoginAgreement2Action extends ActionSupport {
 
     private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
+    /**
+     * Processes the provider's response to the Acceptable Use Agreement.
+     *
+     * <p>Reads the "submit" request parameter to determine if the provider accepted
+     * or refused. On acceptance, updates the provider's signed confidentiality date
+     * and redirects to the proceed URL. On refusal, logs the event and returns "Logout".
+     *
+     * @return String "Logout" if refused, or NONE after redirect on acceptance
+     * @throws ServletException if a servlet processing error occurs
+     */
     public String execute() throws ServletException {
 
         String userAgreement = request.getParameter("submit");

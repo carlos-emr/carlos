@@ -32,16 +32,49 @@ import java.util.List;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Base abstract model class for all persistent domain entities in the CARLOS EMR system.
+ *
+ * <p>Provides common identity, equality, and utility operations for JPA/Hibernate-managed
+ * entities. All model classes should extend this class, parameterized with their primary
+ * key type (typically {@link Integer}).</p>
+ *
+ * <p>Equality and hash code are based on the persistent identifier ({@link #getId()}).
+ * Calling these methods on transient (not yet persisted) entities will log a warning
+ * and fall back to {@link Object} identity semantics.</p>
+ *
+ * @param <T> the type of the primary key (e.g., {@link Integer}, {@link Long})
+ * @since 2012-01-11
+ */
 public abstract class AbstractModel<T> implements java.io.Serializable {
     protected static final String OBJECT_NOT_YET_PERISTED = "The object is not persisted yet, this operation requires the object to already be persisted.";
 
+    /**
+     * Returns the persistent identifier for this entity.
+     *
+     * @return T the primary key value, or {@code null} if the entity has not been persisted
+     */
     public abstract T getId();
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Uses Apache Commons {@link ReflectionToStringBuilder} to generate a
+     * string representation of all fields for debugging purposes.</p>
+     */
     @Override
     public String toString() {
         return (ReflectionToStringBuilder.toString(this));
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns the hash code of the persistent identifier. If the entity has not
+     * been persisted yet, logs a warning and delegates to {@link Object#hashCode()}.
+     * Special handling exists for calls originating from {@link #toString()} to
+     * avoid spurious warnings.</p>
+     */
     @Override
     public int hashCode() {
         if (getId() == null) {
@@ -59,6 +92,12 @@ public abstract class AbstractModel<T> implements java.io.Serializable {
         return (getId().hashCode());
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Two entities are considered equal if they are of the same class and share
+     * the same persistent identifier. Logs a warning if either entity has not been persisted.</p>
+     */
     @Override
     public boolean equals(Object o) {
         if (getClass() != o.getClass()) return (false);

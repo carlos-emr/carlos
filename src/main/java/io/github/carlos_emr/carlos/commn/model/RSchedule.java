@@ -41,6 +41,16 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * JPA entity representing a recurring schedule entry for a healthcare provider.
+ *
+ * <p>Maps to the {@code rschedule} table and stores provider availability
+ * information including date ranges, day-of-week specifications, and
+ * available hour configurations. Supports alternating week schedules
+ * through separate {@code availHour} and {@code availHourB} fields.</p>
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "rschedule")
 public class RSchedule extends AbstractModel<Integer> {

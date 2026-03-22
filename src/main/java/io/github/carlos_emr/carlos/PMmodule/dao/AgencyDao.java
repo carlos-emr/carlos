@@ -33,10 +33,35 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 
+/**
+ * Data access interface for managing {@link Agency} entities within the
+ * Program Management module.
+ *
+ * <p>Provides methods to retrieve and persist agency information used by
+ * the CARLOS EMR community integration subsystem.</p>
+ *
+ * @since 2005-01-18
+ * @see Agency
+ * @see AgencyDaoImpl
+ */
 public interface AgencyDao {
 
+    /**
+     * Retrieves the local agency record.
+     *
+     * @return Agency the first agency found in the system, or {@code null} if none exists
+     */
     public Agency getLocalAgency();
 
+    /**
+     * Saves or updates an agency record.
+     *
+     * <p>If the agency has no ID it will be persisted as a new record;
+     * otherwise the existing record will be merged.</p>
+     *
+     * @param agency Agency the agency entity to save
+     * @throws IllegalArgumentException if agency is {@code null}
+     */
     public void saveAgency(Agency agency);
 
 }

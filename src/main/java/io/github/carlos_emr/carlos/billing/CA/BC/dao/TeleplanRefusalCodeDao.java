@@ -34,13 +34,29 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanRefusalCode;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link TeleplanRefusalCode} entities.
+ * Provides lookup operations for Teleplan refusal codes used in BC MSP
+ * billing claim processing to indicate reasons for claim refusal.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class TeleplanRefusalCodeDao extends AbstractDaoImpl<TeleplanRefusalCode> {
 
+    /**
+     * Constructs a new {@code TeleplanRefusalCodeDao} with the {@link TeleplanRefusalCode} entity class.
+     */
     protected TeleplanRefusalCodeDao() {
         super(TeleplanRefusalCode.class);
     }
 
+    /**
+     * Finds refusal codes matching the specified code value.
+     *
+     * @param code String the refusal code to search for
+     * @return List of {@link TeleplanRefusalCode} entities matching the code
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanRefusalCode> findByCode(String code) {
         jakarta.persistence.Query q = createQuery("c", "c.code = ?1");

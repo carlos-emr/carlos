@@ -35,9 +35,12 @@ import java.util.Hashtable;
 import java.util.Map;
 
 /**
- * Used to sort a list of Lab hashtable or map objects
+ * Comparator for sorting lab result collections (Map or Hashtable instances) by their
+ * "collDate" (collection date) field in descending order (newest first).
+ * Each object being compared must be a Map or Hashtable containing a "collDate" key
+ * with a {@link Date} value.
  *
- * @author jay
+ * @since 2007-01-18
  */
 @SuppressWarnings("rawtypes")
 public class SortHashtable implements Comparator {
@@ -47,6 +50,15 @@ public class SortHashtable implements Comparator {
     public SortHashtable() {
     }
 
+    /**
+     * Compares two Map or Hashtable objects by their "collDate" values in descending order.
+     *
+     * @param object Object the first map to compare
+     * @param object0 Object the second map to compare
+     * @return int negative if the first date is after the second, positive if before, zero if equal
+     * @throws IllegalArgumentException if either object is not a Map/Hashtable or contains
+     *         a non-Date value for the "collDate" key
+     */
     public int compare(Object object, Object object0) {
         int ret = 0;
 

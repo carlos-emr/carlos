@@ -34,18 +34,77 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FacilityMessage;
 
+/**
+ * Service interface for managing organization-level messages associated with
+ * facilities and programs in the CARLOS EMR system.
+ *
+ * <p>Facility messages are used to communicate announcements, alerts, or notices
+ * to healthcare providers within a specific facility or program context.
+ * Messages can be scoped to individual facilities, programs, or combinations
+ * of both.</p>
+ *
+ * @see OrganizationMessageManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.FacilityMessage
+ * @since 2026-03-17
+ */
 public interface OrganizationMessageManager {
+
+    /**
+     * Retrieves a single facility message by its identifier.
+     *
+     * @param messageId String the unique identifier of the message
+     * @return FacilityMessage the message record, or null if not found
+     */
     FacilityMessage getMessage(String messageId);
 
+    /**
+     * Saves or updates a facility message. New messages (with null or zero ID)
+     * are persisted; existing messages are merged.
+     *
+     * @param msg FacilityMessage the message to save or update
+     */
     void saveFacilityMessage(FacilityMessage msg);
 
+    /**
+     * Retrieves all facility messages in the system.
+     *
+     * @return List of all FacilityMessage records
+     */
     List<FacilityMessage> getMessages();
 
+    /**
+     * Retrieves messages associated with a specific facility.
+     *
+     * @param facilityId Integer the facility identifier to filter by
+     * @return List of FacilityMessage records for the facility, or null if facilityId is null or zero
+     */
     List<FacilityMessage> getMessagesByFacilityId(Integer facilityId);
 
+    /**
+     * Retrieves messages for a specific facility, including messages with
+     * a null facility assignment (global messages).
+     *
+     * @param facilityId Integer the facility identifier to filter by
+     * @return List of FacilityMessage records for the facility or with null facility, or null if facilityId is null or zero
+     */
     List<FacilityMessage> getMessagesByFacilityIdOrNull(Integer facilityId);
 
+    /**
+     * Retrieves messages scoped to both a specific facility and program.
+     *
+     * @param facilityId Integer the facility identifier to filter by
+     * @param programId Integer the program identifier to filter by
+     * @return List of FacilityMessage records matching both criteria, or null if facilityId is null or zero
+     */
     List<FacilityMessage> getMessagesByFacilityIdAndProgramId(Integer facilityId, Integer programId);
 
+    /**
+     * Retrieves messages matching a facility and/or program, including records
+     * where either the facility or program assignment is null.
+     *
+     * @param facilityId Integer the facility identifier to filter by
+     * @param programId Integer the program identifier to filter by
+     * @return List of FacilityMessage records matching the criteria, or null if facilityId is null or zero
+     */
     List<FacilityMessage> getMessagesByFacilityIdOrNullAndProgramIdOrNull(Integer facilityId, Integer programId);
 }

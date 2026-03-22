@@ -31,6 +31,15 @@
 package io.github.carlos_emr.carlos.waitinglist.bean;
 
 
+/**
+ * Data transfer object representing a waiting list name definition.
+ *
+ * <p>Holds the metadata for a waiting list including its name, associated
+ * provider group, creating provider, and creation date. Used for display
+ * in the waiting list name management UI.</p>
+ *
+ * @since 2026-03-17
+ */
 public class WLWaitingListNameBean {
 
     String waitingListName;
@@ -39,6 +48,15 @@ public class WLWaitingListNameBean {
     String providerNo;
     String createdDate;
 
+    /**
+     * Constructs a waiting list name bean with all required fields.
+     *
+     * @param nameId          String the unique identifier of the waiting list name
+     * @param waitingListName String the display name of the waiting list
+     * @param groupNo         String the provider group number this list belongs to
+     * @param providerNo      String the provider number who created this list
+     * @param createdDate     String the date the waiting list was created
+     */
     public WLWaitingListNameBean(String nameId, String waitingListName, String groupNo,
                                  String providerNo, String createdDate) {
         this.waitingListName = waitingListName;
@@ -48,22 +66,47 @@ public class WLWaitingListNameBean {
         this.createdDate = createdDate;
     }
 
+    /**
+     * Returns the display name of this waiting list.
+     *
+     * @return String the waiting list name
+     */
     public String getWaitingListName() {
         return waitingListName;
     }
 
+    /**
+     * Returns the unique identifier of this waiting list name.
+     *
+     * @return String the waiting list name ID
+     */
     public String getId() {
         return ID;
     }
 
+    /**
+     * Returns the provider group number associated with this waiting list.
+     *
+     * @return String the group number
+     */
     public String getGroupNo() {
         return groupNo;
     }
 
+    /**
+     * Returns the provider number of the creator of this waiting list.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Returns the date this waiting list was created.
+     *
+     * @return String the creation date in string format
+     */
     public String getCreatedDate() {
         return createdDate;
     }

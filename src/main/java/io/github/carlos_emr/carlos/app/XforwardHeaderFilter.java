@@ -33,13 +33,40 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.io.IOException;
 
+/**
+ * Servlet filter that resolves the client's real IP address from the {@code X-FORWARDED-FOR}
+ * header when the application is behind a reverse proxy or load balancer.
+ *
+ * <p>Wraps incoming {@link HttpServletRequest} objects with a {@link ModifyRemoteAddress}
+ * wrapper that overrides {@link HttpServletRequest#getRemoteAddr()} to return the first
+ * IP address in the {@code X-FORWARDED-FOR} header chain, if present.
+ *
+ * @since 2026-03-17
+ */
 public class XforwardHeaderFilter implements Filter {
 
+    /**
+     * Initializes the filter. No configuration is required.
+     *
+     * @param filterConfig FilterConfig the filter configuration
+     * @throws ServletException if initialization fails
+     */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         // do default
     }
 
+    /**
+     * Wraps HTTP requests with a {@link ModifyRemoteAddress} wrapper that extracts
+     * the client IP from the {@code X-FORWARDED-FOR} header. Non-HTTP requests
+     * pass through unchanged.
+     *
+     * @param request  ServletRequest the incoming request
+     * @param response ServletResponse the outgoing response
+     * @param chain    FilterChain the filter chain
+     * @throws IOException      if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     */
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         if (request instanceof HttpServletRequest) {
@@ -49,13 +76,26 @@ public class XforwardHeaderFilter implements Filter {
         }
     }
 
+    /**
+     * Called when the filter is taken out of service. No cleanup is required.
+     */
     @Override
     public void destroy() {
         // do default
     }
 
+    /**
+     * Request wrapper that overrides {@link #getRemoteAddr()} to return the client IP
+     * from the {@code X-FORWARDED-FOR} header. When the header contains multiple
+     * comma-separated addresses (proxy chain), the first address (original client) is used.
+     */
     static class ModifyRemoteAddress extends HttpServletRequestWrapper {
 
+        /**
+         * Creates a new wrapper around the given request.
+         *
+         * @param request HttpServletRequest the original request to wrap
+         */
         public ModifyRemoteAddress(HttpServletRequest request) {
             super(request);
         }

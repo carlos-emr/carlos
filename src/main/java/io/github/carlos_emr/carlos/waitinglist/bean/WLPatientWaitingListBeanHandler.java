@@ -39,14 +39,37 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Loads and provides access to all waiting list entries for a specific patient.
+ *
+ * <p>On construction, queries the {@link WaitingListDao} to find all waiting lists
+ * the given patient belongs to, and populates a collection of
+ * {@link WLPatientWaitingListBean} objects for display in the UI.</p>
+ *
+ * @since 2026-03-17
+ */
 public class WLPatientWaitingListBeanHandler {
 
     List<WLPatientWaitingListBean> patientWaitingList = new ArrayList<WLPatientWaitingListBean>();
 
+    /**
+     * Constructs the handler and loads all waiting list entries for the given patient.
+     *
+     * @param demographicNo String the patient demographic number to look up
+     */
     public WLPatientWaitingListBeanHandler(String demographicNo) {
         init(demographicNo);
     }
 
+    /**
+     * Initializes the handler by querying for all waiting lists associated with the patient.
+     *
+     * <p>Joins {@link WaitingListName} and {@link WaitingList} entities to build
+     * display beans containing the list name, position, note, and enrollment date.</p>
+     *
+     * @param demographicNo String the patient demographic number
+     * @return {@code true} always (retained for backward compatibility)
+     */
     public boolean init(String demographicNo) {
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
         List<Object[]> lists = dao.findByDemographic(ConversionUtils.fromIntString(demographicNo));
@@ -63,6 +86,11 @@ public class WLPatientWaitingListBeanHandler {
         return verdict;
     }
 
+    /**
+     * Returns the list of waiting list entries for the patient.
+     *
+     * @return List&lt;WLPatientWaitingListBean&gt; the patient's waiting list entries
+     */
     public List<WLPatientWaitingListBean> getPatientWaitingList() {
         return patientWaitingList;
     }

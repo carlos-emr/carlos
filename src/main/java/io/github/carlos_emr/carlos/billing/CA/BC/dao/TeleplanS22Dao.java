@@ -38,13 +38,32 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS22;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link TeleplanS22} entities.
+ * Provides persistence operations for Teleplan S22 (remittance claim detail) records,
+ * used in BC MSP Teleplan billing response processing.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class TeleplanS22Dao extends AbstractDaoImpl<TeleplanS22> {
 
+    /**
+     * Constructs a new {@code TeleplanS22Dao} with the {@link TeleplanS22} entity class.
+     */
     public TeleplanS22Dao() {
         super(TeleplanS22.class);
     }
 
+    /**
+     * Searches S22 records by parent S21 ID, excluding a specified type, and filtering by practitioner number.
+     * Results are ordered by ID.
+     *
+     * @param s21Id Integer the parent S21 record ID
+     * @param type String the S22 type to exclude from results
+     * @param practitionerNo String the practitioner number pattern (supports LIKE wildcards)
+     * @return List of matching {@link TeleplanS22} records
+     */
     @SuppressWarnings("unchecked")
     public List<TeleplanS22> search_taS22(Integer s21Id, String type, String practitionerNo) {
         Query q = entityManager.createQuery("select t from TeleplanS22 t where t.s21Id=?1 and t.s22Type<>?2 and t.practitionerNo like ?3 order by t.id");

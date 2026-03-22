@@ -32,6 +32,17 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+/**
+ * Persistent entity representing extended key-value metadata associated with a
+ * {@link CaseManagementNote}. Each extension stores a string key, an optional string value,
+ * and an optional date value for a specific note.
+ *
+ * <p>Common key constants are defined as static fields (e.g., {@link #STARTDATE},
+ * {@link #TREATMENT}, {@link #PROBLEMSTATUS}) and date-type keys follow the naming
+ * convention "XXX Date".</p>
+ *
+ * @since 2026-03-17
+ */
 public class CaseManagementNoteExt {
 
     // Key Value constants ***All date value key must be in format "XXX Date"
@@ -93,6 +104,11 @@ public class CaseManagementNoteExt {
         return this.dateValue;
     }
 
+    /**
+     * Returns the date value formatted as a "yyyy-MM-dd" string.
+     *
+     * @return String the formatted date string, or null if the date value is null
+     */
     public String getDateValueStr() {
         return UtilDateUtilities.DateToString(this.dateValue, "yyyy-MM-dd");
     }
@@ -101,6 +117,13 @@ public class CaseManagementNoteExt {
         this.dateValue = dateValue;
     }
 
+    /**
+     * Parses a date string and sets the date value. Supports multiple formats based on
+     * string length: "yyyy-MM-dd" (8+ chars), "yyyy-MM" (6+ chars), or "yyyy" (4 chars).
+     * Sets the date value to null if the string does not match any supported format.
+     *
+     * @param dateValue String the date string to parse
+     */
     public void setDateValue(String dateValue) {
         if (dateValue.trim().length() >= 8) {
             setDateValue(UtilDateUtilities.StringToDate(dateValue, "yyyy-MM-dd"));

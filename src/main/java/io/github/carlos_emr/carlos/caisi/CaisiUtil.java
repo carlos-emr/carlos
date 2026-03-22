@@ -27,7 +27,27 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Utility class for CAISI (Client Access to Integrated Services and Information)
+ * community integration operations.
+ *
+ * <p>Provides helper methods for manipulating query strings used in CAISI module URLs.</p>
+ *
+ * @since 2005-01-19
+ */
 public class CaisiUtil {
+    /**
+     * Removes a named parameter and its value from a URL query string.
+     *
+     * <p>Locates the parameter by name in the query string and removes it along
+     * with its value and any trailing or leading ampersand separator.</p>
+     *
+     * @param str String the full query string to modify
+     * @param attr String the parameter name to remove (e.g. "demographicNo")
+     * @return String the query string with the specified parameter removed,
+     *         or {@code null} if the input string is {@code null},
+     *         or the original string if the parameter is not found
+     */
     public static String removeAttr(String str, String attr) {
         if (str == null) return (null);
 

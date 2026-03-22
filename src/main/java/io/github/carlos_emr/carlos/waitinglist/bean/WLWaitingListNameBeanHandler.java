@@ -38,6 +38,15 @@ import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Loads and provides access to the set of waiting list name definitions for a provider group.
+ *
+ * <p>On construction, queries the {@link WaitingListNameDao} for all active (non-historical)
+ * waiting list names belonging to the specified group, and populates both a list of
+ * {@link WLWaitingListNameBean} objects and a parallel list of plain name strings.</p>
+ *
+ * @since 2026-03-17
+ */
 public class WLWaitingListNameBeanHandler {
 
     List<WLWaitingListNameBean> waitingListNameList = new ArrayList<WLWaitingListNameBean>();
@@ -48,10 +57,23 @@ public class WLWaitingListNameBeanHandler {
     private WaitingListNameDao waitingListNameDao = SpringUtils.getBean(WaitingListNameDao.class);
     //  private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
+    /**
+     * Constructs the handler and loads all active waiting list names for the given group.
+     *
+     * @param groupNo    String the provider group number to filter by
+     * @param providerNo String the provider number (currently unused in query, retained for compatibility)
+     */
     public WLWaitingListNameBeanHandler(String groupNo, String providerNo) {
         init(groupNo, providerNo);
     }
 
+    /**
+     * Initializes the handler by loading all active waiting list names for the group.
+     *
+     * @param groupNo    String the provider group number to filter by
+     * @param providerNo String the provider number (reserved for future use)
+     * @return {@code true} always (retained for backward compatibility)
+     */
     public boolean init(String groupNo, String providerNo) {
         List<WaitingListName> wlNames = null;
 
@@ -69,6 +91,11 @@ public class WLWaitingListNameBeanHandler {
         return true;
     }
 
+    /**
+     * Returns the list of waiting list name beans with full metadata.
+     *
+     * @return List&lt;WLWaitingListNameBean&gt; the waiting list name definitions
+     */
     public List<WLWaitingListNameBean> getWaitingListNameList() {
         return waitingListNameList;
     }

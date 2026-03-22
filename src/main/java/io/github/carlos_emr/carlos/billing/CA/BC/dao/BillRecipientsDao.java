@@ -36,13 +36,29 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillRecipients} entities.
+ * Provides persistence operations for BC billing recipients,
+ * which represent the parties associated with a billing transaction.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillRecipientsDao extends AbstractDaoImpl<BillRecipients> {
 
+    /**
+     * Constructs a new {@code BillRecipientsDao} with the {@link BillRecipients} entity class.
+     */
     public BillRecipientsDao() {
         super(BillRecipients.class);
     }
 
+    /**
+     * Finds all billing recipients associated with the specified billing number.
+     *
+     * @param billingNo int the billing number to search for
+     * @return List of {@link BillRecipients} matching the billing number
+     */
     public List<BillRecipients> findByBillingNo(int billingNo) {
         Query q = entityManager.createQuery("SELECT b FROM BillRecipients b WHERE b.billingNo=?1");
 

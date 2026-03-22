@@ -53,6 +53,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
 
+/**
+ * Data access and business logic class for prescription management.
+ * <p>
+ * Provides comprehensive prescription operations including creation, retrieval, saving,
+ * printing, re-prescribing, and favorites management. Contains the nested {@link Prescription}
+ * class representing a single prescription entry and the {@link Favorite} class for
+ * saved prescription templates. Interacts with the drug database via {@link DrugDao}
+ * and {@link PrescriptionDao}.
+ *
+ * @since 2026-03-17
+ */
 public class RxPrescriptionData {
 
     private static final Logger logger = MiscUtils.getLogger();

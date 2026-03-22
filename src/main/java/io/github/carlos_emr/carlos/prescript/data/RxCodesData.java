@@ -39,6 +39,15 @@ import io.github.carlos_emr.carlos.commn.model.CtlFrequency;
 import io.github.carlos_emr.carlos.commn.model.CtlSpecialInstructions;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data access class for prescription-related code lookups, including frequency codes
+ * and special instructions.
+ * <p>
+ * Provides access to configurable frequency codes (e.g., BID, TID) and special
+ * instruction templates used in the prescription writing interface.
+ *
+ * @since 2026-03-17
+ */
 public class RxCodesData {
 
     private CtlFrequencyDao ctlFrequencyDao = (CtlFrequencyDao) SpringUtils.getBean(CtlFrequencyDao.class);

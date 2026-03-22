@@ -39,8 +39,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * This class handles actions related to Multi-Factor Authentication (MFA).
- * It provides functionality to reset the MFA secret for a user.
+ * Struts 2 action for Multi-Factor Authentication (MFA) management operations.
+ *
+ * <p>Provides administrative MFA operations dispatched via the {@code method} request
+ * parameter. Currently supports resetting a user's MFA secret through the
+ * {@link #resetMfa()} method.
+ *
+ * <p>Follows the CARLOS 2Action pattern with method-based routing.
+ *
+ * @since 2026-03-17
  */
 public final class MfaActions2Action extends ActionSupport {
 
@@ -52,6 +59,11 @@ public final class MfaActions2Action extends ActionSupport {
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
     private final MfaManager mfaManager = SpringUtils.getBean(MfaManager.class);
 
+    /**
+     * Dispatches to the appropriate MFA operation based on the {@code method} request parameter.
+     *
+     * @return String the Struts result name, or the result of the dispatched method
+     */
     public String execute() {
         String method = request.getParameter("method");
         if (METHOD_RESET_MFA.equals(method)) {

@@ -54,6 +54,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Provides data access methods for encounter forms and patient form instances.
+ * Retrieves available form definitions and patient-specific form records from
+ * the database, with support for grouping by edit date and sorting by
+ * creation or edit timestamps.
+ *
+ * <p>Contains inner classes {@link Form} for form definitions and
+ * {@link PatientForm} for patient-specific form instances.</p>
+ *
+ * @since 2001-01-01
+ */
 public class EctFormData {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -68,10 +79,22 @@ public class EctFormData {
             "Reception Assessment"
     );
 
+    /**
+     * Checks whether the given form name corresponds to a removed CAISI form.
+     *
+     * @param formName String the form name to check
+     * @return boolean true if the form has been removed
+     */
     public static boolean isRemovedCaisiForm(String formName) {
         return REMOVED_CAISI_FORM_NAMES.stream().anyMatch(removedName -> removedName.equalsIgnoreCase(formName));
     }
 
+    /**
+     * Retrieves all available encounter form definitions, excluding removed CAISI forms.
+     * Results are sorted with BC forms first.
+     *
+     * @return Form[] array of available form definitions
+     */
     public static Form[] getForms() {
         List<EncounterForm> results = encounterFormDao.findAll();
         Collections.sort(results, EncounterForm.BC_FIRST_COMPARATOR);
@@ -125,6 +148,13 @@ public class EctFormData {
 
     }
 
+    /**
+     * Retrieves patient form instances from all form tables, grouped by edit date.
+     * Excludes removed CAISI forms.
+     *
+     * @param demographicId Integer the demographic (patient) ID
+     * @return ArrayList of PatientForm instances grouped by edit date
+     */
     public static ArrayList<PatientForm> getGroupedPatientFormsFromAllTables(Integer demographicId) {
         // grab all of the forms
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
@@ -147,6 +177,15 @@ public class EctFormData {
         return (allResults);
     }
 
+    /**
+     * Retrieves patient forms from a specific table, grouped by edit date.
+     *
+     * @param demoNo String the demographic number
+     * @param formName String the form name
+     * @param table String the database table name for this form type
+     * @param jsp String the JSP page path for viewing the form
+     * @return ArrayList of PatientForm instances grouped by last-edited date
+     */
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
         table = StringUtils.trimToNull(table);
         if (table == null) return (new ArrayList<PatientForm>());
@@ -190,6 +229,13 @@ public class EctFormData {
         return (forms);
     }
 
+    /**
+     * Retrieves all patient form instances from all form tables without grouping.
+     * Excludes removed CAISI forms.
+     *
+     * @param demographicId Integer the demographic (patient) ID
+     * @return ArrayList of all PatientForm instances across all form tables
+     */
     public static ArrayList<PatientForm> getAllPatientFormsFromAllTables(Integer demographicId) {
         // grab all of the forms
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
@@ -212,6 +258,14 @@ public class EctFormData {
         return (allResults);
     }
 
+    /**
+     * Retrieves all patient form instances from a specific table for a given patient.
+     *
+     * @param demoNo String the demographic number
+     * @param formName String the form name (may be null)
+     * @param table String the database table name for this form type
+     * @return ArrayList of PatientForm instances ordered by ID descending
+     */
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
         table = StringUtils.trimToNull(table);
         if (table == null) return (new ArrayList<PatientForm>());
@@ -263,10 +317,25 @@ public class EctFormData {
         return (forms);
     }
 
+    /**
+     * Retrieves patient form instances from a specific table as an array.
+     *
+     * @param demoNo String the demographic number
+     * @param table String the database table name for this form type
+     * @return PatientForm[] array of patient form instances
+     */
     public static PatientForm[] getPatientForms(String demoNo, String table) {
         return (getPatientFormsAsArrayList(demoNo, null, table).toArray(new PatientForm[0]));
     }
 
+    /**
+     * Retrieves patient forms sorted by creation date descending.
+     *
+     * @param loggedInInfo LoggedInInfo the current session information
+     * @param demoNo String the demographic number
+     * @param table String the database table name
+     * @return PatientForm[] array sorted by creation date
+     */
     public static PatientForm[] getPatientFormsFromLocalAndRemote(LoggedInInfo loggedInInfo, String demoNo, String table) {
         ArrayList<PatientForm> results = getPatientFormsAsArrayList(demoNo, null, table);
 
@@ -275,6 +344,15 @@ public class EctFormData {
         return (results.toArray(new PatientForm[0]));
     }
 
+    /**
+     * Retrieves patient forms with optional sorting by edited date.
+     *
+     * @param loggedInInfo LoggedInInfo the current session information
+     * @param demoNo String the demographic number
+     * @param table String the database table name
+     * @param sortByEdited Boolean if true, sort by edited date instead of creation date
+     * @return PatientForm[] array of patient forms
+     */
     public static PatientForm[] getPatientFormsFromLocalAndRemote(LoggedInInfo loggedInInfo, String demoNo, String table, Boolean sortByEdited) {
         PatientForm[] results = getPatientFormsFromLocalAndRemote(loggedInInfo, demoNo, table);
 

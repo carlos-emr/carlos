@@ -37,6 +37,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Bean that loads and holds the latest electronic chart data for a patient.
+ * Retrieves the most recent eChart entry from the database via {@link EChartDao}
+ * and exposes its fields (social history, family history, medical history, etc.)
+ * for use in JSP views.
+ *
+ * @since 2001-01-01
+ */
 public class EctEChartBean {
 
     public Date eChartTimeStamp;
@@ -51,9 +59,18 @@ public class EctEChartBean {
     public String encounter;
     public String subject;
 
+    /**
+     * Default constructor. Fields remain uninitialized until {@link #setEChartBean(String)} is called.
+     */
     public EctEChartBean() {
     }
 
+    /**
+     * Loads the latest eChart data for the specified demographic number.
+     * If no chart exists, all fields are initialized to empty strings.
+     *
+     * @param demoNo String the demographic (patient) number
+     */
     public void setEChartBean(String demoNo) {
         demographicNo = demoNo;
 

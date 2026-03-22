@@ -33,13 +33,33 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
+/**
+ * Base JSP tag class for case management tags. Provides Spring application context
+ * access and convenience methods for retrieving the {@link CaseManagementManager} bean.
+ *
+ * <p>Subclasses should extend this tag to gain access to the Spring-managed
+ * case management services within JSP custom tags.</p>
+ *
+ * @since 2026-03-17
+ */
 public class BasicTag extends TagSupport {
+
+    /**
+     * Retrieves the Spring application context from the servlet context.
+     *
+     * @return ApplicationContext the Spring web application context
+     */
     public ApplicationContext getAppContext() {
         ApplicationContext cont = WebApplicationContextUtils.getWebApplicationContext(
                 pageContext.getServletContext());
         return cont;
     }
 
+    /**
+     * Retrieves the {@link CaseManagementManager} Spring bean from the application context.
+     *
+     * @return CaseManagementManager the case management service manager
+     */
     public CaseManagementManager getCaseManagementManager() {
 
         CaseManagementManager bpm = (CaseManagementManager) getAppContext()

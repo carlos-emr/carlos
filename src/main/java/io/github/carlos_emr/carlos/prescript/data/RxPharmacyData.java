@@ -48,7 +48,13 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * @author Jay Gallagher
+ * Data access class for pharmacy information management in the prescription module.
+ * <p>
+ * Provides CRUD operations for pharmacies, patient-pharmacy linking, and pharmacy
+ * search functionality. Supports preferred pharmacy ordering per patient and maintains
+ * pharmacy history through versioned records.
+ *
+ * @since 2026-03-17
  */
 public class RxPharmacyData {
 

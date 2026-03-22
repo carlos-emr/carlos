@@ -35,49 +35,80 @@ import io.github.carlos_emr.carlos.daos.LookupDao;
 import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 
+/**
+ * Implementation of the {@link LookupManager} interface that delegates
+ * lookup table operations to the {@link LookupDao} data access object.
+ *
+ * <p>This service provides CRUD operations on configurable lookup tables
+ * and their code values. It is typically configured via Spring dependency
+ * injection with a {@link LookupDao} instance.</p>
+ *
+ * @see LookupManager
+ * @see LookupDao
+ * @since 2026-03-17
+ */
 public class LookupManagerImpl implements LookupManager {
     private LookupDao lookupDao = null;
 
+    /** {@inheritDoc} */
     public List LoadCodeList(String tableId, boolean activeOnly, String code, String codeDesc) {
         return lookupDao.LoadCodeList(tableId, activeOnly, code, codeDesc);
     }
 
+    /** {@inheritDoc} */
     public List LoadCodeList(String tableId, boolean activeOnly, String parentCode, String code, String codeDesc) {
         return lookupDao.LoadCodeList(tableId, activeOnly, parentCode, code, codeDesc);
     }
 
+    /** {@inheritDoc} */
     public LookupTableDefValue GetLookupTableDef(String tableId) {
         return lookupDao.GetLookupTableDef(tableId);
     }
 
+    /** {@inheritDoc} */
     public LookupCodeValue GetLookupCode(String tableId, String code) {
         return lookupDao.GetCode(tableId, code);
     }
 
+    /** {@inheritDoc} */
     public List LoadFieldDefList(String tableId) {
         return lookupDao.LoadFieldDefList(tableId);
     }
 
+    /** {@inheritDoc} */
     public List GetCodeFieldValues(LookupTableDefValue tableDef, String code) {
         return lookupDao.GetCodeFieldValues(tableDef, code);
     }
 
+    /** {@inheritDoc} */
     public List GetCodeFieldValues(LookupTableDefValue tableDef) {
         return lookupDao.GetCodeFieldValues(tableDef);
     }
 
+    /** {@inheritDoc} */
     public String SaveCodeValue(boolean isNew, LookupTableDefValue tableDef, List fieldDefList) throws SQLException {
         return lookupDao.SaveCodeValue(isNew, tableDef, fieldDefList);
     }
 
+    /** {@inheritDoc} */
     public int getCountOfActiveClient(String orgCd) throws SQLException {
         return lookupDao.getCountOfActiveClient(orgCd);
     }
 
+    /**
+     * Returns the lookup data access object used by this manager.
+     *
+     * @return LookupDao the current DAO instance
+     */
     public LookupDao getLookupDao() {
         return lookupDao;
     }
 
+    /**
+     * Sets the lookup data access object via Spring dependency injection.
+     *
+     * @param lookupDao LookupDao the DAO instance to use for database operations
+     */
     public void setLookupDao(LookupDao lookupDao) {
         this.lookupDao = lookupDao;
     }

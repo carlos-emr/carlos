@@ -42,7 +42,18 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 /**
- * HttpServletRequestWrapper that allows for multiple reads of multipart/form-data
+ * {@link HttpServletRequestWrapper} that caches the request body to allow multiple reads
+ * of multipart/form-data and other request content.
+ *
+ * <p>Used by {@link CarlosCsrfGuardFilter} to allow CSRFGuard token extraction and
+ * downstream servlet file upload processing to both read the request input stream.
+ * Without this wrapper, the first read would consume the stream, making it unavailable
+ * for subsequent reads.
+ *
+ * <p>Enforces a maximum body size of {@link #MAX_BODY_SIZE} (500 MB) to prevent
+ * memory exhaustion from oversized uploads.
+ *
+ * @since 2026-03-17
  */
 public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     private ByteArrayOutputStream cachedBytes;
@@ -91,6 +102,11 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         return new BufferedReader(new InputStreamReader(getInputStream(), encoding));
     }
 
+    /**
+     * Reads and caches the entire request input stream into {@code cachedBytes}.
+     *
+     * @throws IOException if the stream cannot be read or the body exceeds {@link #MAX_BODY_SIZE}
+     */
     private void cacheInputStream() throws IOException {
         cachedBytes = new ByteArrayOutputStream();
         try {
@@ -107,10 +123,18 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         }
     }
 
-    /* An inputstream which reads the cached request body */
+    /**
+     * {@link ServletInputStream} implementation that reads from a cached byte array,
+     * allowing the request body to be re-read after initial consumption.
+     */
     private static class CachedServletInputStream extends ServletInputStream {
         private final ByteArrayInputStream input;
 
+        /**
+         * Creates a new input stream backed by the given cached bytes.
+         *
+         * @param cachedBytes ByteArrayOutputStream the cached request body
+         */
         public CachedServletInputStream(ByteArrayOutputStream cachedBytes) {
             /* create a new input stream from the cached request body */
             input = new ByteArrayInputStream(cachedBytes.toByteArray());

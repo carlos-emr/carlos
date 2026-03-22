@@ -39,6 +39,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
+/**
+ * Data access class for drug reference information via the DrugRef XML-RPC service.
+ * <p>
+ * Provides drug search, monograph retrieval, allergy warning checks, and drug-drug
+ * interaction lookups. Contains nested inner classes for drug-related data structures
+ * including {@link DrugMonograph}, {@link MinDrug}, {@link DrugSearch}, {@link Tag},
+ * and {@link Interaction}.
+ *
+ * @since 2026-03-17
+ */
 public class RxDrugData {
 
     /**

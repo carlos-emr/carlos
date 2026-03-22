@@ -36,9 +36,19 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingNotes;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Data access object for {@link BillingNotes} entities.
+ * Provides persistence operations for billing notes in the BC billing system,
+ * supporting lookup by billing master number and optional note type filtering.
+ *
+ * @since 2026-03-17
+ */
 @Repository
 public class BillingNoteDao extends AbstractDaoImpl<BillingNotes> {
 
+    /**
+     * Constructs a new {@code BillingNoteDao} with the {@link BillingNotes} entity class.
+     */
     protected BillingNoteDao() {
         super(BillingNotes.class);
     }

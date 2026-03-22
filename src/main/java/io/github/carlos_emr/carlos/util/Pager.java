@@ -35,6 +35,13 @@ import java.util.ResourceBundle;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
+/**
+ * Generates HTML pagination links for navigating paged result sets.
+ * Reads configurable values for page header title and maximum visible page
+ * indices from the {@code oscarResources} resource bundle.
+ *
+ * @since 2001-01-01
+ */
 public class Pager {
     private static int MAX_PAGE_INDEX = 15;
     private static String HEADER = "Result page";
@@ -57,6 +64,16 @@ public class Pager {
         }
     }
 
+    /**
+     * Generates an HTML pagination bar with numbered page links, previous, and next controls.
+     * Returns an empty string if all results fit on a single page.
+     *
+     * @param offset int the zero-based offset of the current page
+     * @param length int the total number of results
+     * @param size int the number of results per page
+     * @param url String the base URL for pagination links (query parameters are appended)
+     * @return String the HTML pagination bar, or an empty string if pagination is unnecessary
+     */
     public static String generate(int offset, int length, int size, String url) {
         if (length > size) {
             String pref;

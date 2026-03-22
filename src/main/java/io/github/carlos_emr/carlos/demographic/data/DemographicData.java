@@ -49,7 +49,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @Deprecated: use DemographicManager.  There is no need for this.
+ * Legacy helper class providing convenience methods for patient demographic operations.
+ *
+ * <p>This class wraps {@link DemographicManager} to provide demographic data access,
+ * age calculations, date-of-birth formatting, sex determination, and duplicate-checked
+ * demographic record creation. It also provides access to demographic notes via
+ * {@link DemographicCustDao}.</p>
+ *
+ * @deprecated Use {@link DemographicManager} directly instead. This class adds no
+ *             additional value beyond delegating to the manager layer.
+ * @see io.github.carlos_emr.carlos.managers.DemographicManager
+ * @since 2026-03-17
  */
 @Deprecated
 public class DemographicData {
@@ -57,9 +67,19 @@ public class DemographicData {
     private DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
+    /**
+     * Constructs a new DemographicData instance with Spring-managed dependencies.
+     */
     public DemographicData() {
     }
 
+    /**
+     * Returns the patient's first and last name concatenated with a space.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo String the patient demographic number
+     * @return String "FirstName LastName", or empty string if not found
+     */
     public String getDemographicFirstLastName(LoggedInInfo loggedInInfo, String demographicNo) {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         if (demographic != null) {
@@ -69,6 +89,13 @@ public class DemographicData {
         return "";
     }
 
+    /**
+     * Returns the patient's date of birth as a Date object.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo String the patient demographic number
+     * @return Date the patient's date of birth, or null if not found or unparseable
+     */
     public Date getDemographicDOB(LoggedInInfo loggedInInfo, String demographicNo) {
         DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
         Date date = null;
@@ -84,6 +111,17 @@ public class DemographicData {
     }
 
 
+    /**
+     * Looks up a demographic number by patient name, phone numbers, and email.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param firstName String the patient's first name
+     * @param lastName String the patient's last name
+     * @param hPhone String the patient's home phone number
+     * @param wPhone String the patient's work phone number
+     * @param email String the patient's email address
+     * @return String the demographic number if found, or empty string if no match
+     */
     public String getDemoNoByNamePhoneEmail(LoggedInInfo loggedInInfo, String firstName, String lastName, String hPhone, String wPhone, String email) {
         Demographic demographic = demographicManager.getDemographicByNamePhoneEmail(loggedInInfo, firstName, lastName, hPhone, wPhone, email);
 

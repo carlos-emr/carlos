@@ -44,6 +44,15 @@ import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData.Patient;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * Helper bean that assembles allergy display data for a given patient.
+ * <p>
+ * Retrieves active allergies from the patient record and converts them into
+ * {@link AllergyDisplay} objects with formatted dates using partial date support.
+ * Used by JSP views to render the allergy list with locale-appropriate formatting.
+ *
+ * @since 2026-03-17
+ */
 public final class AllergyHelperBean {
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 

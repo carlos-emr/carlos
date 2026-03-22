@@ -46,7 +46,12 @@ import java.util.Map;
 
 
 /**
- * @author Jay Gallagher
+ * JSP custom tag that renders a tickler count indicator for a provider. Outputs an
+ * HTML {@code <span>} element with the CSS class {@code tabalert} when the provider
+ * has active ticklers, and displays the count as a superscript badge. Respects
+ * the provider's tickler view settings for the "assigned to" filter.
+ *
+ * @since 2026-03-17
  */
 public class TicklerTag extends TagSupport {
 
@@ -55,6 +60,14 @@ public class TicklerTag extends TagSupport {
         numNewLabs = 0;
     }
 
+    /**
+     * Evaluates the active tickler count for the configured provider and writes
+     * the opening {@code <span>} tag. If the count is greater than zero, the
+     * {@code tabalert} CSS class is applied to highlight the indicator.
+     *
+     * @return int {@link #EVAL_BODY_INCLUDE} to evaluate the tag body
+     * @throws JspException if an error occurs during tag processing
+     */
     public int doStartTag() throws JspException {
         HttpServletRequest request = (HttpServletRequest) pageContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -87,15 +100,33 @@ public class TicklerTag extends TagSupport {
     }
 
 
+    /**
+     * Sets the provider number for which to display the tickler count.
+     *
+     * @param providerNo1 String the provider number
+     */
     public void setProviderNo(String providerNo1) {
         providerNo = providerNo1;
     }
 
+    /**
+     * Returns the provider number for which the tickler count is displayed.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
 
+    /**
+     * Writes the closing portion of the tickler indicator. If the count is greater
+     * than zero, the count is rendered as a {@code <sup>} element before closing
+     * the {@code <span>} tag.
+     *
+     * @return int {@link #EVAL_PAGE} to continue evaluating the rest of the page
+     * @throws JspException if an error occurs during tag processing
+     */
     public int doEndTag() throws JspException {
         try {
             JspWriter out = super.pageContext.getOut();

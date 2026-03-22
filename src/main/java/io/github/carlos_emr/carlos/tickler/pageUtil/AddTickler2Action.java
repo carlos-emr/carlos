@@ -41,12 +41,19 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.tickler.TicklerData;
 
-/**
- * @author Jay Gallagher
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that handles creating one or more ticklers from the add tickler form.
+ * Supports batch creation when multiple demographic numbers are submitted. Applies
+ * default values for status (Active), priority (Normal), service date (now), and
+ * assignee (creator) when not explicitly provided.
+ *
+ * <p>Requires {@code _tickler} write privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class AddTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -58,6 +65,14 @@ public class AddTickler2Action extends ActionSupport {
     public AddTickler2Action() {
     }
 
+    /**
+     * Creates ticklers for each submitted demographic number using form parameters for
+     * message, status, priority, service date, and assignee. Iterates over the {@code demo}
+     * parameter array to support batch tickler creation.
+     *
+     * @return String "close" on successful creation
+     * @throws RuntimeException if the logged-in user lacks {@code _tickler} write privilege
+     */
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_tickler", "w", null)) {
             throw new RuntimeException("missing required sec object (_tickler)");

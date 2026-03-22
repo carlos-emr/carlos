@@ -49,6 +49,17 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 
+/**
+ * Struts 2 action that handles tickler editing and text suggestion management.
+ * Routes between {@link #editTickler()} and {@link #updateTextSuggest()} based on
+ * the {@code method} request parameter. Editing a tickler supports updating status,
+ * priority, assignee, service date, and adding comments, with a full change history
+ * maintained via {@link TicklerUpdate} records.
+ *
+ * <p>Requires {@code _tickler} update privilege for tickler editing.</p>
+ *
+ * @since 2026-03-17
+ */
 public class EditTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -57,6 +68,12 @@ public class EditTickler2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Dispatches to {@link #editTickler()} when the {@code method} parameter is
+     * "editTickler", otherwise dispatches to {@link #updateTextSuggest()}.
+     *
+     * @return String the result name from the delegated method
+     */
     public String execute() {
         if ("editTickler".equals(request.getParameter("method"))) {
             return editTickler();
@@ -64,6 +81,16 @@ public class EditTickler2Action extends ActionSupport {
         return updateTextSuggest();
     }
 
+    /**
+     * Edits an existing tickler by updating its status, priority, assignee, and service date.
+     * Optionally adds a comment. Maintains a change history by creating {@link TicklerUpdate}
+     * records for each modification. On the first edit, the original tickler state is
+     * back-filled into the update history to preserve the baseline.
+     *
+     * @return String "close" on success, "failure" if required parameters are missing or tickler not found,
+     *         "error" if the service date cannot be parsed
+     * @throws RuntimeException if the logged-in user lacks {@code _tickler} update privilege
+     */
     public String editTickler() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -198,6 +225,13 @@ public class EditTickler2Action extends ActionSupport {
 
     }
 
+    /**
+     * Updates the active/inactive status of tickler text suggestions. Processes two arrays
+     * of text suggestion identifiers: active texts are enabled and inactive texts are disabled.
+     * New text values that cannot be parsed as existing IDs are created as new suggestions.
+     *
+     * @return String "close" on success, "failure" if the active or inactive text arrays are null
+     */
     public String updateTextSuggest() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

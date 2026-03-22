@@ -64,6 +64,21 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FilenameUtils;
 
+/**
+ * Struts2 action for fax operations including queuing, previewing, and preparing outbound faxes.
+ *
+ * <p>This action dispatches requests based on the {@code method} parameter to handle the full
+ * lifecycle of an outbound fax: prepare a PDF document, preview it, queue it for transmission,
+ * and retrieve page counts. Security validation ensures the user has {@code _fax} write privilege
+ * and authorized access to the patient record before processing.</p>
+ *
+ * <p>Struts parameter binding is handled via {@link StrutsParameter}-annotated setters for
+ * fax metadata such as file path, recipient, demographic number, and transaction context.</p>
+ *
+ * @see io.github.carlos_emr.carlos.managers.FaxManager
+ * @see FaxJobParams
+ * @since 2026-03-17
+ */
 public class Fax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -75,6 +90,14 @@ public class Fax2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    /**
+     * Dispatches fax requests based on the {@code method} parameter.
+     *
+     * <p>Supported methods: {@code queue}, {@code prepareFax}, {@code getPreview},
+     * {@code getPageCount}. Defaults to {@link #cancel()} if no method matches.</p>
+     *
+     * @return String Struts result name, or null for methods that write directly to the response
+     */
     public String execute() {
         String method = request.getParameter("method");
         if ("queue".equals(method)) {
@@ -91,6 +114,15 @@ public class Fax2Action extends ActionSupport {
         return cancel();
     }
 
+    /**
+     * Cancels the fax workflow, flushes temporary files, and redirects based on transaction type.
+     *
+     * <p>For {@code CONSULTATION} transactions, redirects to the consultation view.
+     * For {@code EFORM} transactions, redirects to the eform data view.
+     * Otherwise returns the transaction type string as the Struts result.</p>
+     *
+     * @return String Struts result name, or {@link #NONE} after redirect
+     */
     @SuppressWarnings("unused")
     public String cancel() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -409,54 +441,110 @@ public class Fax2Action extends ActionSupport {
         JSONUtil.jsonResponse(response, jsonObject);
     }
 
+    /** Path to the temporary or permanent PDF file to be faxed */
     private String faxFilePath;
+    /** Identifier for the source transaction (e.g., consultation or eform ID) */
     private Integer transactionId;
+    /** Patient demographic number for access control and audit */
     private Integer demographicNo;
+    /** Source transaction type (e.g., CONSULTATION, EFORM) */
     private String transactionType;
+    /** Recipient name for the fax cover page */
     private String recipient;
+    /** Destination fax number */
     private String recipientFaxNumber;
+    /** Letterhead fax number for the sender */
     private String letterheadFax;
+    /** Sender fax number displayed on the cover page */
     private String senderFaxNumber;
+    /** Optional comments for the fax cover page */
     private String comments;
+    /** Cover page template identifier */
     private String coverpage;
+    /** JSON-encoded additional recipients for copy-to faxing */
     private String[] copyToRecipients;
 
+    /**
+     * Returns the fax file path.
+     *
+     * @return String path to the PDF document being faxed
+     */
     public String getFaxFilePath() {
         return faxFilePath;
     }
 
+    /**
+     * Sets the fax file path from Struts parameter binding.
+     *
+     * @param faxFilePath String path to the PDF document
+     */
     @StrutsParameter
     public void setFaxFilePath(String faxFilePath) {
         this.faxFilePath = faxFilePath;
     }
 
+    /**
+     * Returns the source transaction identifier.
+     *
+     * @return Integer the transaction ID (consultation ID, eform ID, etc.)
+     */
     public Integer getTransactionId() {
         return transactionId;
     }
 
+    /**
+     * Sets the source transaction identifier from Struts parameter binding.
+     *
+     * @param transactionId Integer the transaction ID
+     */
     @StrutsParameter
     public void setTransactionId(Integer transactionId) {
         this.transactionId = transactionId;
     }
 
+    /**
+     * Returns the patient demographic number.
+     *
+     * @return Integer the patient demographic number
+     */
     public Integer getDemographicNo() {
         return demographicNo;
     }
 
+    /**
+     * Sets the patient demographic number from Struts parameter binding.
+     *
+     * @param demographicNo Integer the patient demographic number
+     */
     @StrutsParameter
     public void setDemographicNo(Integer demographicNo) {
         this.demographicNo = demographicNo;
     }
 
+    /**
+     * Returns the source transaction type.
+     *
+     * @return String the transaction type name (e.g., CONSULTATION, EFORM)
+     */
     public String getTransactionType() {
         return transactionType;
     }
 
+    /**
+     * Sets the source transaction type from Struts parameter binding.
+     *
+     * @param transactionType String the transaction type name
+     */
     @StrutsParameter
     public void setTransactionType(String transactionType) {
         this.transactionType = transactionType;
     }
 
+    /**
+     * Returns the fax recipient name.
+     *
+     * @return String the recipient name for the cover page
+     */
     public String getRecipient() {
         return recipient;
     }
