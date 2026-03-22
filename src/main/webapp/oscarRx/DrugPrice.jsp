@@ -48,6 +48,7 @@
     @since 2026-03-22
 --%>
 
+<%@page import="java.math.BigDecimal" %>
 <%@page import="java.util.*" %>
 <%@page import="java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceLookup" %>
@@ -62,13 +63,16 @@
 		    NumberFormat formatter = NumberFormat.getCurrencyInstance(Locale.CANADA);
 
             if (cost != null && !cost.isEmpty() && cost.matches("\\d+(\\.\\d+)?")){
-				//lets cast to float
-				float fa = Float.valueOf(cost);
-				float money = fa;
-				if (quantity != null && !quantity.isEmpty() && !quantity.equals("0") && quantity.matches("\\d+(\\.\\d+)?")){
-					float fb = Float.valueOf(quantity);
-					money = fa * fb;
-					moneyString = formatter.format(money)+"/"+quantity;
+				BigDecimal unitPrice = new BigDecimal(cost);
+				BigDecimal money = unitPrice;
+				if (quantity != null && !quantity.isEmpty() && quantity.matches("\\d+(\\.\\d+)?")) {
+					BigDecimal qty = new BigDecimal(quantity);
+					if (qty.compareTo(BigDecimal.ZERO) > 0) {
+						money = unitPrice.multiply(qty);
+						moneyString = formatter.format(money)+"/"+quantity;
+					} else {
+						moneyString = formatter.format(unitPrice)+"/1";
+					}
 				} else {
 				    //lets format it
 					moneyString = formatter.format(money)+"/1";

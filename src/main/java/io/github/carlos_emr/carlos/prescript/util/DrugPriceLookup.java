@@ -49,6 +49,7 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -133,14 +134,25 @@ public class DrugPriceLookup {
 	private static InputStream resolveOdbInputStream(ResourceStorageDao resourceStorageDao) throws IOException {
 		String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
 		if (fileName != null && !fileName.isEmpty()) {
-			log.info("loading odb file from property {}", fileName);
-			return new BufferedInputStream(new FileInputStream(fileName));
+			java.io.File formularyFile = new java.io.File(fileName);
+			try {
+				PathValidationUtils.validateExistingPath(formularyFile, formularyFile.getParentFile());
+				log.info("loading odb file from property {}", fileName);
+				return new BufferedInputStream(new FileInputStream(formularyFile));
+			} catch (SecurityException e) {
+				log.error("Formulary file path validation failed, skipping property source: {}", fileName, e);
+			}
 		}
 
 		ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);
 		if (resourceStorage != null) {
-			log.info("loading odb file from resource storage id {}", resourceStorage.getId());
-			return new ByteArrayInputStream(resourceStorage.getFileContents());
+			byte[] contents = resourceStorage.getFileContents();
+			if (contents != null) {
+				log.info("loading odb file from resource storage id {}", resourceStorage.getId());
+				return new ByteArrayInputStream(contents);
+			}
+			log.warn("Active LU_CODES resource {} has no file contents; falling back to bundled formulary",
+					resourceStorage.getId());
 		}
 
 		String dosing = "oscar/oscarRx/data_extract_20250730.xml";
