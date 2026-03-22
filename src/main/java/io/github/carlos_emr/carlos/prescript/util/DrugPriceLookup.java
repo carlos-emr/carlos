@@ -93,7 +93,7 @@ public class DrugPriceLookup {
 	 */
 	static public String getPriceInfoForDin(String din) {
 		if (din == null) {
-			log.info("din null returning null");
+			log.debug("din null returning null");
 			return null;
 		}
 		loadCostLookupInformation();
