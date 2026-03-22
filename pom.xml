@@ -1722,6 +1722,20 @@
                             </execution>
                         </executions>
                     </plugin>
+                    <!-- Dependency lock is already validated in the build job.
+                         Skip in jspc profile because JitPack can shadow Maven Central
+                         artifacts under alternate groupIds in CI environments with cold
+                         caches, causing false dependency-lock failures. -->
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
