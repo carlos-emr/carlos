@@ -26,5 +26,9 @@ echo 'Loading demo data for development...'
 mysql -u root -p"$DB_PASSWORD" oscar < /scripts/development.sql
 echo 'Preparing demographic names for development environment...'
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
+echo 'Seeding Rich Text Letter eForm...'
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2012-07-12.sql
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2022-03-24.sql
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
 cd ../../
 echo 'Database initialization complete!'
