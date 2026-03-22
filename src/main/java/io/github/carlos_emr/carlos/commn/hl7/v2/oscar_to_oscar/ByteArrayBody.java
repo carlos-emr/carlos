@@ -36,6 +36,13 @@ import java.io.OutputStream;
 import org.apache.hc.client5.http.entity.mime.AbstractContentBody;
 import org.apache.hc.core5.http.ContentType;
 
+/**
+ * HTTP multipart body implementation for transmitting binary data as a byte array
+ * in inter-EMR communication. Used when sending HL7 messages with embedded
+ * binary attachments via HTTP POST.
+ *
+ * @since 2007-01-18
+ */
 public class ByteArrayBody extends AbstractContentBody {
 
     private byte[] byteArray;

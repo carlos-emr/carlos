@@ -53,7 +53,11 @@ import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.parser.PipeParser;
 
 /**
- * Class HL7A04Data
+ * Aggregates appointment, clinic, demographic, and program data needed to construct
+ * an HL7 ADT_A04 (Register a Patient) message. Provides methods to generate the
+ * complete A04 message string from the collected data.
+ *
+ * @since 2007-01-18
  */
 public class HL7A04Data {
 

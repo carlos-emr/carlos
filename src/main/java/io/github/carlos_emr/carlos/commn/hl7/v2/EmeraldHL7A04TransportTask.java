@@ -46,7 +46,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Class HL7A04TransportTask
+ * Scheduled timer task that monitors a directory for HL7 ADT_A04 (Register a Patient)
+ * message files and transports them to the Emerald system via TCP socket connection.
+ * Successfully sent files are moved to a "sent" directory; failures are moved to a "fail" directory.
+ *
+ * @since 2007-01-18
  */
 public class EmeraldHL7A04TransportTask extends TimerTask {
 

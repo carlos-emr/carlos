@@ -88,6 +88,11 @@ import java.util.List;
 @Component("rxWebService")
 @Produces("application/xml")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for prescription management operations including CRUD and renewal.
+ *
+ * @since 2013-01-01
+ */
 public class RxWebService extends AbstractServiceImpl {
 
     private static Logger logger = MiscUtils.getLogger();

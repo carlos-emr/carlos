@@ -55,10 +55,12 @@ public class OscarSecurityManagerImpl implements OscarSecurityManager {
         this.dao = dao;
     }
 
+    /** {@inheritDoc} */
     public List<SecUserRole> getUserRoles(String providerNo) {
         return dao.getUserRoles(providerNo);
     }
 
+    /** {@inheritDoc} */
     public boolean hasAdminRole(String providerNo) {
         return dao.hasAdminRole(providerNo);
     }

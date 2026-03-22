@@ -40,6 +40,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Path("/status")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for system health status and connectivity checks.
+ *
+ * @since 2012-08-13
+ */
 public class StatusService extends AbstractServiceImpl {
 
     @Autowired

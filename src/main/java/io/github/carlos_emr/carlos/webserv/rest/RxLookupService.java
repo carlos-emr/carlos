@@ -56,6 +56,11 @@ import java.util.List;
 @Component("rxLookupService")
 @Produces("application/xml")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for prescription drug lookup and reference data operations.
+ *
+ * @since 2013-01-01
+ */
 public class RxLookupService extends AbstractServiceImpl {
 
     private static Logger logger = MiscUtils.getLogger();

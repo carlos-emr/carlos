@@ -38,24 +38,94 @@ import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyTemplateDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue;
 
+/**
+ * Service interface for managing program queues within the CARLOS EMR Program Management module.
+ *
+ * <p>Program queues hold clients who have been referred to a program but not yet admitted.
+ * This interface provides operations for queue retrieval, persistence, and rejection
+ * processing, including enrichment with vacancy and template information.</p>
+ *
+ * @see ProgramQueueManagerImpl
+ * @see ProgramQueue
+ * @since 2005
+ */
 public interface ProgramQueueManager {
+
+    /**
+     * Sets the vacancy data access object.
+     *
+     * @param vacancyDao VacancyDao the vacancy DAO to inject
+     */
     void setVacancyDao(VacancyDao vacancyDao);
 
+    /**
+     * Sets the vacancy template data access object.
+     *
+     * @param vacancyTemplateDao VacancyTemplateDao the vacancy template DAO to inject
+     */
     void setVacancyTemplateDao(VacancyTemplateDao vacancyTemplateDao);
 
+    /**
+     * Sets the program queue data access object.
+     *
+     * @param dao ProgramQueueDao the program queue DAO to inject
+     */
     void setProgramQueueDao(ProgramQueueDao dao);
 
+    /**
+     * Sets the client referral data access object.
+     *
+     * @param dao ClientReferralDAO the client referral DAO to inject
+     */
     void setClientReferralDAO(ClientReferralDAO dao);
 
+    /**
+     * Retrieves a program queue entry by its identifier.
+     *
+     * @param queueId String the queue entry identifier
+     * @return ProgramQueue the queue entry
+     */
     ProgramQueue getProgramQueue(String queueId);
 
+    /**
+     * Retrieves all queue entries for a specific program.
+     *
+     * @param programId Long the program identifier
+     * @return List&lt;ProgramQueue&gt; list of queue entries for the program
+     */
     List<ProgramQueue> getProgramQueuesByProgramId(Long programId);
 
+    /**
+     * Persists a program queue entry.
+     *
+     * @param programQueue ProgramQueue the queue entry to save
+     */
     void saveProgramQueue(ProgramQueue programQueue);
 
+    /**
+     * Retrieves active queue entries for a program, enriched with vacancy and template names.
+     *
+     * @param programId Long the program identifier
+     * @return List&lt;ProgramQueue&gt; list of active queue entries with enriched vacancy data
+     */
     List<ProgramQueue> getActiveProgramQueuesByProgramId(Long programId);
 
+    /**
+     * Retrieves the active queue entry for a specific client in a specific program.
+     *
+     * @param programId String the program identifier
+     * @param demographicNo String the client demographic number
+     * @return ProgramQueue the active queue entry, or {@code null} if not queued
+     */
     ProgramQueue getActiveProgramQueue(String programId, String demographicNo);
 
+    /**
+     * Rejects a client from the program queue and updates the associated referral.
+     *
+     * @param programId String the program identifier
+     * @param clientId String the client demographic number
+     * @param notes String rejection notes
+     * @param rejectionReason String the reason for rejection
+     */
     void rejectQueue(String programId, String clientId, String notes, String rejectionReason);
 }

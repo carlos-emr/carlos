@@ -53,6 +53,11 @@ import io.github.carlos_emr.carlos.prevention.PreventionDS;
 
 @Path("/resources")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for system resource and configuration operations.
+ *
+ * @since 2012-08-13
+ */
 public class ResourceService extends AbstractServiceImpl {
     private static final Logger logger = MiscUtils.getLogger();
 

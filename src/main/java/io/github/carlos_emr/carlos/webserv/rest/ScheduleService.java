@@ -111,6 +111,11 @@ import org.w3c.dom.Document;
 @Path("/schedule")
 @Component("scheduleService")
 @Consumes(MediaType.APPLICATION_JSON)
+/**
+ * REST service for appointment scheduling, calendar, and provider schedule operations.
+ *
+ * @since 2012-08-13
+ */
 public class ScheduleService extends AbstractServiceImpl {
 
     Logger logger = MiscUtils.getLogger();
