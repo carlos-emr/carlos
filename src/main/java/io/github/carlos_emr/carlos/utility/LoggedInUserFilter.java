@@ -41,13 +41,39 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 
+/**
+ * Servlet filter that populates the {@link LoggedInInfo} object in the HTTP session
+ * on every request.
+ *
+ * <p>Extracts the logged-in provider, security credentials, current facility, locale,
+ * and IP address from the session and request, then stores a fresh {@link LoggedInInfo}
+ * instance in the session for use by downstream components.
+ *
+ * @since 2026-03-17
+ */
 public class LoggedInUserFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Initializes the filter and logs startup.
+     *
+     * @param filterConfig FilterConfig the filter configuration
+     * @throws ServletException if initialization fails
+     */
     public void init(FilterConfig filterConfig) throws ServletException {
         logger.info("Starting Filter : " + getClass().getSimpleName());
     }
 
+    /**
+     * Generates and stores a fresh {@link LoggedInInfo} in the session, then continues
+     * the filter chain.
+     *
+     * @param tmpRequest  ServletRequest the servlet request
+     * @param tmpResponse ServletResponse the servlet response
+     * @param chain       FilterChain the filter chain
+     * @throws IOException      if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     */
     public void doFilter(ServletRequest tmpRequest, ServletResponse tmpResponse, FilterChain chain) throws IOException, ServletException {
         logger.debug("Entering LoggedInUserFilter.doFilter()");
 
@@ -60,10 +86,19 @@ public class LoggedInUserFilter implements jakarta.servlet.Filter {
         chain.doFilter(tmpRequest, tmpResponse);
     }
 
+    /**
+     * Called when the filter is taken out of service. No cleanup is required.
+     */
     public void destroy() {
         // can't think of anything to do right now.
     }
 
+    /**
+     * Creates a {@link LoggedInInfo} from the current HTTP session attributes and request data.
+     *
+     * @param request HttpServletRequest the current request
+     * @return LoggedInInfo populated with provider, security, facility, locale, and IP data
+     */
     public static LoggedInInfo generateLoggedInInfoFromSession(HttpServletRequest request) {
         HttpSession session = request.getSession();
 

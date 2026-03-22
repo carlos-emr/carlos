@@ -36,32 +36,60 @@ import javax.security.auth.callback.NameCallback;
 import javax.security.auth.callback.PasswordCallback;
 import javax.security.auth.callback.UnsupportedCallbackException;
 
+/**
+ * JAAS callback handler that supplies username and password credentials to login modules.
+ *
+ * <p>Handles {@link NameCallback} and {@link PasswordCallback} by providing the
+ * pre-configured username and password. Throws {@link UnsupportedCallbackException}
+ * for any other callback type.
+ *
+ * @see LoginModuleFactory
+ * @see BaseLoginModule
+ * @since 2026-03-17
+ */
 public class OscarCallbackHandler implements CallbackHandler {
 
     private String userName;
     private String password;
 
+    /**
+     * Constructs a callback handler with the specified credentials.
+     *
+     * @param userName String the username to provide to login modules
+     * @param password String the password to provide to login modules
+     */
     public OscarCallbackHandler(String userName, String password) {
         setUserName(userName);
         setPassword(password);
     }
 
+    /** @return String the username */
     public String getUserName() {
         return userName;
     }
 
+    /** @param userName String the username */
     public void setUserName(String userName) {
         this.userName = userName;
     }
 
+    /** @return String the password */
     public String getPassword() {
         return password;
     }
 
+    /** @param password String the password */
     public void setPassword(String password) {
         this.password = password;
     }
 
+    /**
+     * Handles JAAS callbacks by supplying the stored username and password.
+     *
+     * @param callbacks Callback[] the array of callbacks to handle
+     * @throws IOException if an I/O error occurs
+     * @throws UnsupportedCallbackException if a callback type other than NameCallback or PasswordCallback is encountered
+     */
     @Override
     public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
         for (Callback callback : callbacks) {

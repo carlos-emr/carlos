@@ -255,6 +255,13 @@ public class StringUtils {
         return ret;
     }
 
+    /**
+     * Returns the substring up to (but not including) the first occurrence of a delimiter.
+     *
+     * @param str String the input string
+     * @param firstChar String the delimiter to search for
+     * @return String the substring before the delimiter, or the original string if not found
+     */
     public static String returnStringToFirst(String str, String firstChar) {
         String ret = str;
         if (str != null) {
@@ -286,7 +293,13 @@ public class StringUtils {
 
     }
 
-    //joins an array into a string; array elements separated by a specified delimiter
+    /**
+     * Joins an array of strings into a single string separated by the specified delimiter.
+     *
+     * @param strArray String[] the array to join
+     * @param delimiter String the separator between elements
+     * @return String the joined string
+     */
     public static String join(String[] strArray, String delimiter) {
         StringBuilder result = new StringBuilder();
         for (int i = 0, arrayLength = strArray.length; i < arrayLength; i++) {
@@ -298,7 +311,13 @@ public class StringUtils {
         return result.toString();
     }
 
-    //arraylist elements must be string types
+    /**
+     * Joins a list of objects into a single string separated by the specified delimiter.
+     *
+     * @param strArray List the list to join (elements must be String-compatible)
+     * @param delimiter String the separator between elements
+     * @return String the joined string
+     */
     public static String join(List strArray, String delimiter) {
         StringBuilder result = new StringBuilder();
         for (int i = 0, arrayLength = strArray.size(); i < arrayLength; i++) {
@@ -310,6 +329,13 @@ public class StringUtils {
         return result.toString();
     }
 
+    /**
+     * Splits a string by the specified delimiter and returns the tokens as an ArrayList.
+     *
+     * @param rawString String the string to split
+     * @param delimiter String the delimiter characters
+     * @return ArrayList of String tokens
+     */
     public static ArrayList<String> split(String rawString, String delimiter) {
         ArrayList<String> result = new ArrayList<String>();
         StringTokenizer st = new StringTokenizer(rawString, delimiter);
@@ -321,6 +347,13 @@ public class StringUtils {
         return result;
     }
 
+    /**
+     * Splits a string by the specified delimiter and returns the tokens as a String array.
+     *
+     * @param rawString String the string to split
+     * @param delimiter String the delimiter characters
+     * @return String[] the array of tokens
+     */
     public static String[] splitToStringArray(String rawString, String delimiter) {
         StringTokenizer st = new StringTokenizer(rawString, delimiter);
         String[] result = new String[st.countTokens()];
@@ -389,6 +422,13 @@ public class StringUtils {
         return mystringBuffer.toString();
     }
 
+    /**
+     * Null-safe string equality check.
+     *
+     * @param s1 String the first string (may be null)
+     * @param s2 String the second string (may be null)
+     * @return boolean true if both are null or both are equal
+     */
     public static boolean nullSafeEquals(String s1, String s2) {
         if (s1 == null && s2 == null) return true;
         if (s1 != null)

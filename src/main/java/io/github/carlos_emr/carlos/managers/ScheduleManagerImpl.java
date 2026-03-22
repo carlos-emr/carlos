@@ -209,6 +209,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (scheduleTemplateCodes);
     }
 
+    /** {@inheritDoc} */
     public List<AppointmentType> getAppointmentTypes() {
         List<AppointmentType> appointmentTypes = appointmentTypeDao.listAll();
 
@@ -216,6 +217,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         return (appointmentTypes);
     }
 
+    /** {@inheritDoc} */
     public void addAppointment(LoggedInInfo loggedInInfo, Security security, Appointment appointment) {
         appointment.setCreatorSecurityId(security.getSecurityNo());
         appointment.setCreator(security.getUserName());

@@ -65,10 +65,23 @@ public class DisplayDashboard2Action extends ActionSupport {
     private ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Delegates to {@link #getDashboard()}.
+     *
+     * @return String the result from {@link #getDashboard()}
+     */
     public String execute() {
         return getDashboard();
     }
 
+    /**
+     * Loads the dashboard data for the current or requested provider and sets it
+     * as a request attribute. If the user has {@code _dashboardChgUser} privilege,
+     * a list of all active providers is also made available for the provider switcher.
+     *
+     * @return String {@link #SUCCESS} with dashboard data, or "unauthorized" if
+     *         the user lacks {@code _dashboardDisplay} read privilege
+     */
     @SuppressWarnings("unused")
     public String getDashboard() {
 

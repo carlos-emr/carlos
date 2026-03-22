@@ -63,6 +63,17 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for managing diagnosis code associations between issue lists
+ * and the disease registry.
+ *
+ * <p>Provides CRUD operations for {@link DxAssociation} records via method-based
+ * routing. Supports retrieving all associations, adding/clearing associations,
+ * CSV import/export, and auto-populating associations from case management issues.
+ * Requires {@code _dxresearch} privilege with appropriate access level per operation.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchLoadAssociations2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -78,6 +89,13 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Routes the request to the appropriate handler method based on the {@code method}
+     * request parameter.
+     *
+     * @return String "success" after method delegation
+     * @throws Exception if an error occurs during processing
+     */
     public String execute() throws Exception {
         String method = request.getParameter("method");
 
@@ -98,6 +116,13 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return SUCCESS;
      }
 
+    /**
+     * Retrieves all diagnosis code associations with their descriptions and writes
+     * them as a JSON array to the response.
+     *
+     * @return String {@code null} (response written directly)
+     * @throws IOException if an I/O error occurs writing the response
+     */
     public String getAllAssociations() throws IOException {
         checkPrivilege(request, PRIVILEGE_READ);
 
@@ -122,6 +147,12 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Removes all diagnosis code associations and returns the count of records updated.
+     *
+     * @return String {@code null} (response written directly)
+     * @throws IOException if an I/O error occurs writing the response
+     */
     public String clearAssociations() throws IOException {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 
@@ -133,6 +164,12 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Adds a new diagnosis code association from request parameters.
+     *
+     * @return String {@code null} (response written directly)
+     * @throws IOException if an I/O error occurs writing the response
+     */
     public String addAssociation() throws IOException {
         checkPrivilege(request, PRIVILEGE_WRITE);
 
@@ -150,6 +187,12 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Exports all diagnosis code associations as a CSV file download.
+     *
+     * @return String {@code null} (response written directly as CSV download)
+     * @throws IOException if an I/O error occurs writing the response
+     */
     public String export() throws IOException {
         checkPrivilege(request, PRIVILEGE_READ);
 

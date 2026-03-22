@@ -56,6 +56,16 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link ProviderDao} for managing {@link Provider} entities.
+ *
+ * <p>Provides query methods for providers by status, type, billing credentials,
+ * team, facility, and practitioner number. Supports provider-facility
+ * association management and paginated search.</p>
+ *
+ * @since 2005-01-18
+ * @see ProviderDao
+ */
 @SuppressWarnings("unchecked")
 @Transactional
 public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao {

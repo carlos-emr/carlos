@@ -40,6 +40,19 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 
+/**
+ * Data access interface for managing {@link Provider} entities within the
+ * Program Management module.
+ *
+ * <p>Provides comprehensive query operations for healthcare providers including
+ * filtering by type, status, role, billing credentials, team, facility, and
+ * practitioner number. Also supports provider-facility associations and
+ * name-based search with pagination.</p>
+ *
+ * @since 2005-01-18
+ * @see Provider
+ * @see ProviderDaoImpl
+ */
 @SuppressWarnings("unchecked")
 public interface ProviderDao {
 

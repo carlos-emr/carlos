@@ -482,6 +482,11 @@ public class UserPreference2Action extends ActionSupport {
         return results;
     }
 
+    /**
+     * Constructs a list of hours (0-22) for schedule start/end hour selection.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; hour options from 0 to 22
+     */
     public static ArrayList<LabelValueBean> constructScheduleHourList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
         for (int x = 0; x < 23; x++) {
@@ -490,6 +495,11 @@ public class UserPreference2Action extends ActionSupport {
         return results;
     }
 
+    /**
+     * Constructs a list of schedule time slot periods (5, 10, 15, 20, 30, 60 minutes).
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; period options in minutes
+     */
     public static ArrayList<LabelValueBean> constructSchedulePeriodList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
         results.add(new LabelValueBean("5", "5"));
@@ -501,6 +511,11 @@ public class UserPreference2Action extends ActionSupport {
         return results;
     }
 
+    /**
+     * Constructs a list of provider group names for the "My Group" preference selection.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; available provider group options
+     */
     public static ArrayList<LabelValueBean> constructMyGroupList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 

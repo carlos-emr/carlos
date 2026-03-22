@@ -42,6 +42,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that loads and displays a single dashboard indicator panel.
+ *
+ * <p>Retrieves indicator data by ID via {@link DashboardManager}, optionally
+ * scoped to a specific provider. The resulting {@link IndicatorBean} is set
+ * as a request attribute for rendering. Requires {@code _dashboardDisplay}
+ * read privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class DisplayIndicator2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

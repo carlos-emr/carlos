@@ -35,6 +35,18 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionSearchTo1;
 
 import io.github.carlos_emr.carlos.prevention.reports.ReportItem;
 
+/**
+ * Data model representing a prevention report summary for a specific prevention type.
+ *
+ * <p>Tracks aggregate statistics for patient prevention compliance including total patients
+ * evaluated, ineligible patients excluded, and patients who are up-to-date on the prevention.
+ * Contains the search configuration used to generate the report and a list of individual
+ * report items with per-patient details.</p>
+ *
+ * @since 2001-01-01
+ * @see io.github.carlos_emr.carlos.prevention.reports.ReportItem
+ * @see io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionSearchTo1
+ */
 public class Report {
 
     private int totalPatients = 0;

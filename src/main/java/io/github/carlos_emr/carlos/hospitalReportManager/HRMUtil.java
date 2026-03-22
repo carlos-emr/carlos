@@ -78,9 +78,22 @@ public class HRMUtil {
 
     }
 
-    /*
-     * Return information about each HRM document associated with a particular demographic
-     * Because multiple versions of a single HRM document can be received,
+    /**
+     * Lists HRM documents associated with a particular demographic, with optional
+     * duplicate filtering and configurable sorting.
+     *
+     * <p>Returns summary information for each document including ID, time received,
+     * report type, status, date, category, description, sub-class, and display name.
+     * Because multiple versions of a single HRM document can be received, the
+     * {@code filterDuplicates} flag controls whether only the newest version is shown.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the current user session context
+     * @param sortBy String the column to sort by ("report_name", "report_date", "time_received", "category")
+     * @param sortAsc boolean {@code true} for ascending sort, {@code false} for descending
+     * @param demographicNo String the demographic number to list documents for
+     * @param filterDuplicates boolean {@code true} to show only the newest version of duplicate reports
+     * @return ArrayList&lt;HashMap&lt;String, ? extends Object&gt;&gt; list of document summary maps,
+     *         or an empty list if the region is not Ontario or privileges are missing
      */
     public static ArrayList<HashMap<String, ? extends Object>> listHRMDocuments(LoggedInInfo loggedInInfo, String sortBy, boolean sortAsc, String demographicNo, boolean filterDuplicates) {
         if (!CarlosProperties.getInstance().isOntarioBillingRegion()) {
@@ -289,6 +302,12 @@ public class HRMUtil {
         return (docsToDisplay);
     }
 
+    /**
+     * Lists all HRM sub-class mappings for administrative display and configuration.
+     *
+     * @return ArrayList&lt;HashMap&lt;String, ? extends Object&gt;&gt; list of mapping summary maps
+     *         containing id, sub_class, class, category, mnemonic, description, and mappingId
+     */
     public static ArrayList<HashMap<String, ? extends Object>> listMappings() {
         ArrayList<HashMap<String, ? extends Object>> hrmdocslist = new ArrayList<HashMap<String, ?>>();
 
@@ -313,6 +332,15 @@ public class HRMUtil {
 
     }
 
+    /**
+     * Retrieves an HRM document by ID, enriched with a computed display name
+     * based on description, sub-class, report type, and cancellation status.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session context
+     * @param hrmId Integer the HRM document ID
+     * @return HRMDocument the document with display name set, or {@code null} if the report cannot be parsed
+     * @throws SecurityException if the provider lacks {@code _hrm} read privilege
+     */
     public static HRMDocument getHRMDocumentById(LoggedInInfo loggedInInfo, Integer hrmId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm)");

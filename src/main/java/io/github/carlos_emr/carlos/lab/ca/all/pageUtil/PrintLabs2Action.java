@@ -56,7 +56,12 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 
 /**
- * @author wrighd
+ * Struts2 action for generating printable lab reports as PDF or RTF documents.
+ * Determines the appropriate output format based on the lab type (e.g., VIHA RTF labs
+ * vs standard PDF), generates the document via {@link LabPDFCreator}, and streams
+ * it to the client as a file download. Requires {@code _lab} read privilege.
+ *
+ * @since 2007-11-27
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

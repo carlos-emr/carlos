@@ -42,6 +42,15 @@ import java.util.TreeSet;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Singleton properties loader for roster termination reason codes.
+ *
+ * <p>Loads reason codes and descriptions from the {@code roster_termination_reasons.properties}
+ * classpath resource. Provides lookup by code and a sorted set of all available codes
+ * for use in UI dropdown menus.</p>
+ *
+ * @since 2026-03-17
+ */
 public class RosterTermReasonProperties extends Properties {
     private static RosterTermReasonProperties rosterTermReasonProperties = new RosterTermReasonProperties();
     private static SortedSet<String> termReasons = new TreeSet<String>();
@@ -64,14 +73,30 @@ public class RosterTermReasonProperties extends Properties {
         }
     }
 
+    /**
+     * Returns the singleton instance of RosterTermReasonProperties.
+     *
+     * @return RosterTermReasonProperties the shared instance
+     */
     public static RosterTermReasonProperties getInstance() {
         return rosterTermReasonProperties;
     }
 
+    /**
+     * Returns the termination reason description for the given code.
+     *
+     * @param code String the roster termination reason code
+     * @return String the reason description, or null if not found
+     */
     public String getReasonByCode(String code) {
         return rosterTermReasonProperties.getProperty(code);
     }
 
+    /**
+     * Returns a sorted set of all available termination reason codes.
+     *
+     * @return SortedSet&lt;String&gt; the sorted reason codes
+     */
     public SortedSet<String> getTermReasonCodes() {
         if (termReasons.isEmpty()) {
 

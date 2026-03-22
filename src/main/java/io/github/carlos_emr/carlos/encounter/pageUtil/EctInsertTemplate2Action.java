@@ -39,6 +39,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that inserts an encounter template into the current encounter session.
+ * Retrieves the template content by name and appends it to the encounter text.
+ *
+ * @since 2001-01-01
+ */
 public final class EctInsertTemplate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

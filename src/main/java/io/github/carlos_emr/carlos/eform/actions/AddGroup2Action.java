@@ -53,6 +53,12 @@ public class AddGroup2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Creates a new eForm group with the specified {@code groupName}.
+     *
+     * @return String {@code SUCCESS} result name
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");

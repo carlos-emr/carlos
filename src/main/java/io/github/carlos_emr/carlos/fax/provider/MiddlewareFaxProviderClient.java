@@ -344,8 +344,13 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Validates that middleware connection parameters are configured.
-     * Called before any API operation to fail fast with a clear message.
+     * Validates that all required middleware connection parameters are configured and non-empty.
+     *
+     * <p>Checks URL, site user, fax user, site password, and fax password. Called before
+     * any API operation to fail fast with a descriptive message indicating which field is missing.</p>
+     *
+     * @param faxConfig FaxConfig the fax configuration to validate
+     * @throws FaxProviderException if any required middleware field is null or blank
      */
     private void validateMiddlewareConfig(FaxConfig faxConfig) throws FaxProviderException {
         if (faxConfig.getUrl() == null || faxConfig.getUrl().trim().isEmpty()) {

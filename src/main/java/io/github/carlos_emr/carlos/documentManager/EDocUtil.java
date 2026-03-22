@@ -92,7 +92,30 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-// all SQL statements here
+/**
+ * Central utility class for electronic document (EDoc) operations in the CARLOS EMR
+ * document management system.
+ *
+ * <p>Provides static methods for the full document lifecycle including:
+ * <ul>
+ *   <li>Creating, updating, and deleting document records and their module associations</li>
+ *   <li>Querying documents by module, demographic, provider, and various filter criteria</li>
+ *   <li>Managing document types (CtlDocType) for filtering and categorization</li>
+ *   <li>File I/O operations including copying, streaming, and PDF page counting</li>
+ *   <li>Provider lookup and name resolution for document metadata</li>
+ *   <li>Consultation and eForm attachment retrieval</li>
+ *   <li>Case management note linking for document audit trails</li>
+ *   <li>Acknowledgement and review status tracking</li>
+ * </ul>
+ *
+ * <p>This class uses lazy-initialized DAO references obtained from {@link SpringUtils} and
+ * operates primarily through static methods for backward compatibility with legacy callers.
+ *
+ * @see EDoc
+ * @see EDocFactory
+ * @see DocumentDao
+ * @since 2006-07-27
+ */
 public final class EDocUtil {
 
     private static ConsultDocsDao consultDocsDao = null;

@@ -119,6 +119,11 @@ public class PreventionItem {
         this.inelligible = pp.isIneligible();
     }
 
+    /**
+     * Returns whether the prevention is marked as "never" (value "1").
+     *
+     * @return boolean {@code true} if the never flag equals "1"
+     */
     public boolean getNeverVal() {
         boolean ret = false;
         if (never != null && never.equals("1")) {
@@ -163,10 +168,20 @@ public class PreventionItem {
         this.nextDate = nextDate;
     }
 
+    /**
+     * Returns whether this prevention was recorded as a remote entry.
+     *
+     * @return boolean {@code true} if this is a remote entry
+     */
     public boolean isRemoteEntry() {
         return remoteEntry;
     }
 
+    /**
+     * Sets whether this prevention was recorded as a remote entry.
+     *
+     * @param remoteEntry boolean {@code true} if this is a remote entry
+     */
     public void setRemoteEntry(boolean remoteEntry) {
         this.remoteEntry = remoteEntry;
     }

@@ -156,10 +156,20 @@ public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communi
         }
     }
 
+    /**
+     * Adds a single recipient as a contained resource in the Communication.
+     *
+     * @param oscarFhirResource the CARLOS FHIR resource to add as a contained recipient
+     */
     public void addContainedRecipient(AbstractOscarFhirResource<?, ?> oscarFhirResource) {
         addContainedResource(oscarFhirResource.getFhirResource());
     }
 
+    /**
+     * Adds a recipient reference link to the Communication.
+     *
+     * @param referenceLink the reference string (e.g., "#Organization123")
+     */
     public void addRecipientReference(String referenceLink) {
         getCommunication().addRecipient().setReference(referenceLink);
     }
@@ -229,6 +239,11 @@ public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communi
                 .setValue(identifier);
     }
 
+    /**
+     * Returns the concatenated reason text from all reason codes on this Communication.
+     *
+     * @return String the reason text, or {@code null} if no reasons are set
+     */
     public String getReason() {
 
         List<CodeableConcept> reasons = getCommunication().getReasonCode();
@@ -255,6 +270,11 @@ public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communi
         getCommunication().getReasonCodeFirstRep().setText(reason);
     }
 
+    /**
+     * Returns the current status of the Communication.
+     *
+     * @return CommunicationStatus the communication status
+     */
     public CommunicationStatus getStatus() {
         return getCommunication().getStatus();
     }
@@ -284,6 +304,11 @@ public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communi
         addContainedResource(patient);
     }
 
+    /**
+     * Returns the subject resource of the Communication.
+     *
+     * @return BaseResource the subject (typically a Patient resource)
+     */
     public BaseResource getSubject() {
         return getCommunication().getSubjectTarget();
     }

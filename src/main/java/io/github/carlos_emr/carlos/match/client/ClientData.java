@@ -50,22 +50,47 @@ public class ClientData {
     private int formId;
     private Map<String, String> clientData = new HashMap<String, String>();
 
+    /**
+     * Returns the client (demographic) identifier.
+     *
+     * @return int the client identifier
+     */
     public int getClientId() {
         return clientId;
     }
 
+    /**
+     * Sets the client (demographic) identifier.
+     *
+     * @param clientId int the client identifier to set
+     */
     public void setClientId(int clientId) {
         this.clientId = clientId;
     }
 
+    /**
+     * Returns the waitlist intake form identifier.
+     *
+     * @return int the form identifier
+     */
     public int getFormId() {
         return formId;
     }
 
+    /**
+     * Sets the waitlist intake form identifier.
+     *
+     * @param formId int the form identifier to set
+     */
     public void setFormId(int formId) {
         this.formId = formId;
     }
 
+    /**
+     * Returns the map of client attribute key-value pairs from the intake form.
+     *
+     * @return Map of String attribute names to String values
+     */
     public Map<String, String> getClientData() {
         return clientData;
     }

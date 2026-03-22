@@ -32,6 +32,19 @@ package io.github.carlos_emr.carlos.documentManager.data;
 
 import java.io.File;
 
+/**
+ * Form data bean for the add/edit document workflow in the CARLOS EMR document management system.
+ *
+ * <p>Holds all form fields submitted during document creation or editing, including document
+ * metadata (type, class, description, source), file data, review information, and program
+ * restriction settings. This bean mirrors the fields in {@link AddEditDocument2Action} and
+ * {@link AddEditHtml2Action} and is used as a data transfer object between the JSP form
+ * layer and the action classes.
+ *
+ * @see AddEditDocument2Action
+ * @see AddEditHtml2Action
+ * @since 2006-07-27
+ */
 public class AddEditDocument2Form {
     private String function = "";
     private String functionId = "";

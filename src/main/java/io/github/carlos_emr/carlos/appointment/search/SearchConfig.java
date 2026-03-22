@@ -783,6 +783,14 @@ public class SearchConfig {
         return new String(unencryptedByteArray, "UTF8");
     }
 
+    /**
+     * Creates a {@code BookingType} by encrypting the appointment type ID and provider number
+     * into a secure identifier.
+     *
+     * @param appointmentType AppointmentType the appointment type
+     * @param providerNo String the provider number
+     * @return BookingType the booking type with encrypted ID
+     */
     public BookingType getBookingType(AppointmentType appointmentType, String providerNo) {
         BookingType bookingType = new BookingType();
 
@@ -796,6 +804,12 @@ public class SearchConfig {
         return bookingType;
     }
 
+    /**
+     * Decrypts a booking type ID string and extracts the appointment type ID.
+     *
+     * @param encryptedStr String the encrypted booking type ID
+     * @return Long the appointment type ID, or {@code null} if decryption fails
+     */
     public Long getAppointmentTypeId(String encryptedStr) {
         try {
             String combinedString = decrypt(encryptedStr);
@@ -807,6 +821,14 @@ public class SearchConfig {
         return null;
     }
 
+    /**
+     * Encrypts a time slot into a secure booking reference string containing the
+     * date, provider, appointment type, schedule code, timezone, and demographic number.
+     *
+     * @param toEncyrpt TimeSlot the time slot to encrypt
+     * @return String the encrypted booking reference
+     * @throws Exception if encryption fails
+     */
     public String encrypt(TimeSlot toEncyrpt) throws Exception {
 
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmssZ");
@@ -815,6 +837,13 @@ public class SearchConfig {
         return encrypt(combinedString);
     }
 
+    /**
+     * Decrypts an encrypted booking reference string back into a {@code TimeSlot}.
+     *
+     * @param toDecrypt String the encrypted booking reference
+     * @return TimeSlot the reconstructed time slot
+     * @throws Exception if decryption or parsing fails
+     */
     public TimeSlot decryptTimeSlot(String toDecrypt) throws Exception {
         TimeSlot timeslot = new TimeSlot();
 
@@ -846,6 +875,12 @@ public class SearchConfig {
 
     }
 
+    /**
+     * Looks up an appointment type by its ID.
+     *
+     * @param appointmentTypeId Long the appointment type ID to find
+     * @return AppointmentType the matching appointment type, or {@code null} if not found
+     */
     public AppointmentType getAppointmentType(Long appointmentTypeId) {
         for (AppointmentType appointmentType : appointmentTypes) {
             if (appointmentType.getId() == appointmentTypeId.longValue()) {

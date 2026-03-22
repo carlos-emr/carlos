@@ -466,6 +466,11 @@ public class DSDemographicAccess {
     }
 
 
+    /**
+     * Retrieves all active prescriptions for this patient.
+     *
+     * @return List of Prescription objects representing the patient's active medications
+     */
     public List<Prescription> getRxCodes() {
         logger.debug("GET RX CODES CALLED");
         try {
@@ -478,7 +483,12 @@ public class DSDemographicAccess {
         return new ArrayList<Prescription>();
     }
 
-    //generally for testing
+    /**
+     * Returns a comma-separated string of all active prescription ATC codes. Primarily for testing.
+     *
+     * @return String formatted ATC codes (e.g., "atc:C09AA,atc:N02BE")
+     * @throws DecisionSupportException if prescription data cannot be retrieved
+     */
     public String getRxCodesStr() throws DecisionSupportException {
         String returnStr = "";
         try {
@@ -493,6 +503,13 @@ public class DSDemographicAccess {
         }
     }
 
+    /**
+     * Checks if the patient has an active prescription matching the specified code.
+     *
+     * @param rxCode DSValue containing the prescription code to match (defaults to ATC type)
+     * @return boolean true if an active prescription matches the code
+     * @throws DecisionSupportException if prescription data cannot be retrieved
+     */
     public boolean hasRxCode(DSValue rxCode) throws DecisionSupportException {
         String codeType = rxCode.getValueType();
         if (codeType == null) codeType = "atc";

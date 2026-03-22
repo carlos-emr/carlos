@@ -50,6 +50,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Struts2 action that unlinks a lab result from a patient demographic record.
+ * Resets the patient-lab routing to unmatched status, restores the lab to provider
+ * inboxes with unacknowledged status, and returns a JSON response with the result.
+ * Requires {@code _lab} update privilege. Audit-logged via {@link OscarAuditLogger}.
+ *
+ * @since 2007-01-18
+ */
 public class UnlinkDemographic2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

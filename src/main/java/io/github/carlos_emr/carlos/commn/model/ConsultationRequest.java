@@ -38,6 +38,30 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Represents a consultation referral request in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code consultationRequests} table and tracks specialist referrals made by
+ * healthcare providers for their patients. Each request links a referring provider to a
+ * {@link ProfessionalSpecialist} and contains the clinical information needed for the
+ * consultation, including reason for referral, current medications, allergies, and
+ * concurrent problems.</p>
+ *
+ * <p>Key relationships:</p>
+ * <ul>
+ *   <li>{@link ProfessionalSpecialist} - the specialist being consulted (eager-loaded)</li>
+ *   <li>{@link DemographicContact} - the demographic contact for the referral</li>
+ *   <li>{@link LookupListItem} - appointment instructions from the lookup list</li>
+ *   <li>{@link ConsultationRequestExt} - extension records for additional data</li>
+ * </ul>
+ *
+ * <p>The request includes letterhead information for generating printed consultation
+ * letters and an optional signature image reference.</p>
+ *
+ * @see ProfessionalSpecialist
+ * @see ConsultationRequestExt
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "consultationRequests")
 public class ConsultationRequest extends AbstractModel<Integer> implements Serializable {

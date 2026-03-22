@@ -231,7 +231,12 @@ public class ReportEvaluator {
     }
 
 
-    //TODO:HACK for now! replace with something more flexible
+    /**
+     * Generates a CSV-formatted string of the report summary including provider name
+     * (if available), numerator count, denominator count, and percentage.
+     *
+     * @return String the CSV representation of the report summary
+     */
     public String getCSV() {
         String csv = null;
         if (denominator.hasReplaceableValues()) {
@@ -245,6 +250,12 @@ public class ReportEvaluator {
     }
 
 
+    /**
+     * Builds the display name for this report evaluation combining the numerator
+     * name, denominator name, and any replaceable value details (e.g. provider name).
+     *
+     * @return String the composite report name
+     */
     public String getName() {
         StringBuilder name = new StringBuilder();
         name.append(numerator.getNumeratorName());
@@ -275,6 +286,11 @@ public class ReportEvaluator {
 
     //private String getProvider
 
+    /**
+     * Returns the list of per-patient result hashtables from the evaluation.
+     *
+     * @return ArrayList&lt;Hashtable&lt;String, Object&gt;&gt; the result list
+     */
     public ArrayList<Hashtable<String, Object>> getReportResultList() {
         return reportResultList;
     }

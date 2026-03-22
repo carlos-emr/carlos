@@ -79,10 +79,12 @@ public class ClientManagerImpl implements ClientManager {
 
     private boolean outsideOfDomainEnabled;
 
+    /** {@inheritDoc} */
     public boolean isOutsideOfDomainEnabled() {
         return outsideOfDomainEnabled;
     }
 
+    /** {@inheritDoc} */
     public Demographic getClientByDemographicNo(String demographicNo) {
         if (demographicNo == null || demographicNo.length() == 0) {
             return null;
