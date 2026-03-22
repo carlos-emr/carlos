@@ -187,7 +187,15 @@ public class LogAction {
 
 
     /**
-     * ported from the old caisi pmm_log
+     * Persists a log entry synchronously using the provider from the HTTP session.
+     *
+     * <p>Originally ported from the CAISI PMM log system. Extracts the provider
+     * from the session and records the access with the remote IP address.</p>
+     *
+     * @param accessType String the type of access being logged
+     * @param entity String the entity type being accessed
+     * @param entityId String the identifier of the entity
+     * @param request HttpServletRequest the current HTTP request for session and IP extraction
      */
     public static void log(String accessType, String entity, String entityId, HttpServletRequest request) {
         OscarLog log = new OscarLog();

@@ -146,6 +146,16 @@ public class MeasurementData2Action extends ActionSupport {
 
 
 
+    /**
+     * Retrieves the latest measurement values for a patient and generates jQuery script
+     * to populate form fields. Supports filtering by "fresh" measurement types (only
+     * showing values from the current appointment) and tracks intraocular pressure
+     * timestamps for applanation and NCT readings. Also highlights fields associated
+     * with the current and previous appointments via CSS classes and data attributes.
+     *
+     * @return {@code null}; writes jQuery script text directly to the response
+     * @throws IOException if writing to the response fails
+     */
     public String getLatestValues() throws IOException {
         String demographicNo = request.getParameter("demographicNo");
         String typeStr = request.getParameter("types");

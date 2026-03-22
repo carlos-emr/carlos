@@ -484,12 +484,18 @@ public class AdmissionManagerImpl implements AdmissionManager {
         this.programClientStatusDAO = programClientStatusDAO;
     }
 
+    /**
+     * Sets the client restriction manager for service restriction enforcement.
+     *
+     * @param clientRestrictionManager ClientRestrictionManager the restriction manager to inject
+     */
     @Autowired
     public void setClientRestrictionManager(ClientRestrictionManager clientRestrictionManager) {
         this.clientRestrictionManager = clientRestrictionManager;
     }
 
 
+    /** {@inheritDoc} */
     public boolean isActiveInCurrentFacility(LoggedInInfo loggedInInfo, int demographicId) {
         List<Admission> results = getCurrentAdmissionsByFacility(demographicId, loggedInInfo.getCurrentFacility().getId());
         if (results != null && results.size() > 0) return (true);

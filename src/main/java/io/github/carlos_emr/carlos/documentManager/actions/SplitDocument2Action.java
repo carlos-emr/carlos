@@ -288,6 +288,12 @@ public class SplitDocument2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Rotates all pages of the specified document by 90 degrees clockwise and clears cached page images.
+     *
+     * @return String null (no view rendering)
+     * @throws Exception if the PDF cannot be loaded or saved
+     */
     public String rotate90() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 
@@ -311,6 +317,14 @@ public class SplitDocument2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Removes the first page from a multi-page PDF document. The document must have at
+     * least two pages. After removal, the page count is decremented in the database and
+     * cached page images are cleared.
+     *
+     * @return String null (no view rendering)
+     * @throws Exception if the PDF cannot be loaded or saved
+     */
     public String removeFirstPage() throws Exception {
         Document doc = documentDao.getDocument(request.getParameter("document"));
 

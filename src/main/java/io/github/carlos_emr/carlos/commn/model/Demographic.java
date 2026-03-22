@@ -1121,6 +1121,13 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         links = StringUtils.EMPTY;
     }
 
+    /**
+     * Left-pads the given text with zeros to reach the specified length.
+     *
+     * @param text String the text to pad
+     * @param num int the desired total length
+     * @return String the zero-padded text
+     */
     public String addZero(String text, int num) {
         text = text.trim();
 

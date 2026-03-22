@@ -320,20 +320,44 @@ public final class ProviderPreferencesUIBean {
         return (results);
     }
 
+    /**
+     * Returns the encounter form names selected for display on the provider's appointment screen.
+     *
+     * @param providerNo String the provider number
+     * @return Collection&lt;String&gt; the selected encounter form names
+     */
     public static Collection<String> getCheckedEncounterFormNames(String providerNo) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
         return (providerPreference.getAppointmentScreenForms());
     }
 
+    /**
+     * Returns the eForm links selected for display on the provider's appointment screen.
+     *
+     * @param providerNo String the provider number
+     * @return Collection&lt;ProviderPreference.EformLink&gt; the selected eForm links (ID and name pairs)
+     */
     public static Collection<ProviderPreference.EformLink> getCheckedEFormIds(String providerNo) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
         return (providerPreference.getAppointmentScreenEForms());
     }
 
+    /**
+     * Retrieves the provider preference entity directly by provider number, without auto-creating.
+     *
+     * @param providerNo String the provider number
+     * @return ProviderPreference the provider's preferences, or {@code null} if none exist
+     */
     public static ProviderPreference getProviderPreferenceByProviderNo(String providerNo) {
         return providerPreferenceDao.find(providerNo);
     }
 
+    /**
+     * Returns the quick links configured for display on the provider's appointment screen.
+     *
+     * @param providerNo String the provider number
+     * @return Collection&lt;ProviderPreference.QuickLink&gt; the provider's configured quick links
+     */
     public static Collection<ProviderPreference.QuickLink> getQuickLinks(String providerNo) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 

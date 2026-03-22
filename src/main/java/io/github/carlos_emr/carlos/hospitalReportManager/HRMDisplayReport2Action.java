@@ -27,11 +27,26 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ModelDriven;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for displaying an HRM report to a provider.
+ *
+ * <p>Uses the {@link ModelDriven} pattern with {@link HRMReportCriteria} to receive
+ * search/display criteria from the request. Requires {@code _hrm} read privilege.</p>
+ *
+ * @see HRMReportCriteria
+ * @see HRMDocumentToProvider
+ * @since 2008-11-05
+ */
 public class HRMDisplayReport2Action extends ActionSupport implements ModelDriven<HRMReportCriteria> {
 
     // Model object holds all request parameters
     private HRMReportCriteria criteria = new HRMReportCriteria();
 
+    /**
+     * Returns the model object that holds request parameters for the HRM report display.
+     *
+     * @return HRMReportCriteria the report criteria model
+     */
     @Override
     public HRMReportCriteria getModel() {
         return criteria;
@@ -42,6 +57,12 @@ public class HRMDisplayReport2Action extends ActionSupport implements ModelDrive
             (HRMDocumentToProviderDao) SpringUtils.getBean(HRMDocumentToProviderDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Validates HRM read privileges and prepares the criteria model for the display JSP.
+     *
+     * @return String "display" result on success
+     * @throws SecurityException if the provider lacks {@code _hrm} read privilege
+     */
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

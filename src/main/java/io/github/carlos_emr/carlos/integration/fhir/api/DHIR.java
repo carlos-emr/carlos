@@ -164,16 +164,26 @@ public class DHIR {
     }
 
     /**
-     * Get the raw JSON string of the entire Bundle message.
-     * For a single transmission payload.
+     * Gets the raw JSON string of the entire Bundle message for a single transmission payload.
+     *
+     * @param loggedInInfo the logged-in user session context
+     * @param demographicNo the patient's demographic ID
+     * @param preventionId the specific prevention/immunization record ID
+     * @return String the FHIR Bundle serialized as a pretty-printed JSON string
      */
     public static String getMessageJSON(LoggedInInfo loggedInInfo, int demographicNo, int preventionId) {
         return DHIR.getFhirBundleBuilder(loggedInInfo, demographicNo, preventionId).getMessageJson();
     }
 
     /**
-     * The Message Header from this bundle message.
-     * This is useful for retrieving the destination endpoint, etc...
+     * Gets the MessageHeader from the bundle message for a specific immunization.
+     *
+     * <p>Useful for retrieving the destination endpoint, sender details, and focus references.</p>
+     *
+     * @param loggedInInfo the logged-in user session context
+     * @param demographicNo the patient's demographic ID
+     * @param preventionId the specific prevention/immunization record ID
+     * @return MessageHeader the FHIR MessageHeader resource from the bundle
      */
     public static MessageHeader getMessageHeader(LoggedInInfo loggedInInfo, int demographicNo, int preventionId) {
         return DHIR.getFhirBundleBuilder(loggedInInfo, demographicNo, preventionId).getMessageHeader();

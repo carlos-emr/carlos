@@ -423,6 +423,16 @@ public class Utility {
         return sb.toString();
     }
 
+    /**
+     * Replaces all occurrences of a pattern in a string with a replacement string.
+     *
+     * <p>The pattern is escaped for regex special characters before splitting.</p>
+     *
+     * @param str String the source string
+     * @param pattern String the pattern to find and replace
+     * @param replaceTo String the replacement string
+     * @return String the resulting string with all replacements applied
+     */
     public static String replace(String str, String pattern, String replaceTo) {
         String patternEsc = getEscapedPattern(pattern);
         String[] buff = str.split(patternEsc);

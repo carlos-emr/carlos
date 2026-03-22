@@ -49,6 +49,11 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public class ProvinceNames extends ArrayList<String> {
 
+    /**
+     * Returns the singleton ProvinceNames instance.
+     *
+     * @return ProvinceNames the shared instance containing configured province names
+     */
     public static ProvinceNames getInstance() {
         return pNames;
     }
@@ -68,6 +73,11 @@ public class ProvinceNames extends ArrayList<String> {
         }
     }
 
+    /**
+     * Indicates whether province names were configured in application properties.
+     *
+     * @return boolean true if the {@code province_names} property was set and non-empty
+     */
     public boolean isDefined() {
         return isDefined;
     }

@@ -38,7 +38,16 @@ import io.github.carlos_emr.carlos.commn.model.View;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author rjonasz
+ * Struts2 action for saving provider-specific view configuration settings.
+ *
+ * <p>Persists customizable display parameters for a named view (e.g., schedule columns,
+ * appointment display options). View settings are scoped by view name, provider number,
+ * and user role, allowing different configurations per provider and role combination.</p>
+ *
+ * <p>Request parameters (excluding {@code method}) are treated as key-value pairs and
+ * merged with existing view settings, then saved via {@link ViewDao}.</p>
+ *
+ * @since 2026-03-17
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

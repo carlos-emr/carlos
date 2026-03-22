@@ -41,6 +41,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a billing recipient in the BC billing system.
+ * Maps to the {@code bill_recipients} table, storing the name and address
+ * of parties associated with a billing transaction.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "bill_recipients")
 public class BillRecipients extends AbstractModel<Integer> {

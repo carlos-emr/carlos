@@ -184,14 +184,29 @@ public class TimeSlot {
         }
     };
 
+    /**
+     * Returns a comparator that orders time slots chronologically by available appointment time.
+     *
+     * @return Comparator&lt;TimeSlot&gt; the chronological time slot comparator
+     */
     public static Comparator<TimeSlot> getTimeSlotComparator() {
         return TIMESLOT_DATE_COMPARATOR;
     }
 
+    /**
+     * Returns the demographic (patient) number associated with this time slot.
+     *
+     * @return Integer the demographic number, or {@code null} if not set
+     */
     public Integer getDemographicNo() {
         return demographicNo;
     }
 
+    /**
+     * Sets the demographic (patient) number associated with this time slot.
+     *
+     * @param demographicNo Integer the demographic number
+     */
     public void setDemographicNo(Integer demographicNo) {
         this.demographicNo = demographicNo;
     }

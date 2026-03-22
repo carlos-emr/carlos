@@ -292,6 +292,12 @@ public class DSDemographicAccess {
         return found;
     }
 
+    /**
+     * Checks if any of the specified ATC codes match the dynamic arguments (OR logic).
+     *
+     * @param atcCodes String comma-separated ATC codes to check
+     * @return boolean true if any specified ATC code matches a dynamic argument
+     */
     public boolean hasATCcodeAny(String atcCodes) {
         logger.debug("HASATCCODEANY CALLED");
         boolean found = false;

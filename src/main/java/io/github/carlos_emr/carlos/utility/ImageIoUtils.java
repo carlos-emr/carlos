@@ -197,6 +197,14 @@ public class ImageIoUtils {
         return image;
     }
 
+    /**
+     * Writes a buffered image to the output stream in JPEG format with the specified quality.
+     *
+     * @param outputStream OutputStream the destination stream
+     * @param quality      float the JPEG compression quality (0.0 to 1.0)
+     * @param image        BufferedImage the image to write
+     * @throws IOException if writing fails
+     */
     public static void writeJpg(OutputStream outputStream, float quality, BufferedImage image) throws IOException {
         ImageWriter jpgImageWriter = getJpgImageWriter();
 
@@ -219,6 +227,12 @@ public class ImageIoUtils {
 
     }
 
+    /**
+     * Returns a JPEG image writer from the ImageIO service provider.
+     *
+     * @return ImageWriter a JPEG image writer
+     * @throws IllegalStateException if no JPEG writer is available
+     */
     public static ImageWriter getJpgImageWriter() {
         Iterator<ImageWriter> writers = ImageIO.getImageWritersBySuffix("jpg");
         if (writers.hasNext()) {
@@ -228,6 +242,13 @@ public class ImageIoUtils {
         }
     }
 
+    /**
+     * Writes a buffered image to the output stream in PNG format.
+     *
+     * @param outputStream OutputStream the destination stream
+     * @param image        BufferedImage the image to write
+     * @throws IOException if writing fails
+     */
     public static void writePng(OutputStream outputStream, BufferedImage image) throws IOException {
         ImageWriter pngImageWriter = getPngImageWriter();
 
@@ -247,6 +268,12 @@ public class ImageIoUtils {
 
     }
 
+    /**
+     * Returns a PNG image writer from the ImageIO service provider.
+     *
+     * @return ImageWriter a PNG image writer
+     * @throws IllegalStateException if no PNG writer is available
+     */
     public static ImageWriter getPngImageWriter() {
         Iterator<ImageWriter> writers = ImageIO.getImageWritersBySuffix("png");
         if (writers.hasNext()) {
@@ -256,6 +283,12 @@ public class ImageIoUtils {
         }
     }
 
+    /**
+     * Converts an {@link Image} to a {@link BufferedImage} with RGB color model.
+     *
+     * @param image Image the source image to convert
+     * @return BufferedImage a new buffered image containing the source image data
+     */
     public static BufferedImage toBufferedImage(Image image) {
         BufferedImage bufferedImage = new BufferedImage(image.getWidth((ImageObserver) null), image.getHeight((ImageObserver) null), 1);
         Graphics2D g2d = bufferedImage.createGraphics();

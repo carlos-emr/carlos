@@ -925,6 +925,14 @@ public class CppPreferencesUIBean {
         return sb.toString();
     }
 
+    /**
+     * Generates an HTML checkbox input element, checked if the current value is {@code "on"}.
+     *
+     * @param label String the display label shown next to the checkbox
+     * @param value String the form field name for the checkbox
+     * @param currentValue String the current stored value ({@code "on"} means checked)
+     * @return String the HTML checkbox input element with label
+     */
     public static String getCheckbox(String label, String value, String currentValue) {
         String checked = new String();
         if (currentValue != null && currentValue.equals("on")) {

@@ -42,6 +42,13 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a billing history record in the BC billing system.
+ * Maps to the {@code billing_history} table, tracking status changes, payment amounts,
+ * and practitioner information for billing master records.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_history")
 public class BillingHistory extends AbstractModel<Integer> {

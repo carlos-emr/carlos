@@ -42,9 +42,15 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.db.DBHandler;
 
 /**
- * This is for straight SQLDenominators  not sure if it should return a more specialised list
+ * SQL-based clinical report denominator that retrieves a list of patient demographic
+ * numbers by executing a SQL query against the database. Supports replaceable values
+ * (e.g. provider number, date ranges) that are substituted into the SQL template
+ * using {@code ${key}} placeholders before execution.
  *
- * @author jay
+ * @see Denominator
+ * @see SQLNumerator
+ * @see ReportEvaluator
+ * @since 2006-06-17
  */
 public class SQLDenominator implements Denominator {
     String sql = null;
@@ -62,6 +68,12 @@ public class SQLDenominator implements Denominator {
     public SQLDenominator() {
     }
 
+    /**
+     * Sets the SQL query template. May contain {@code ${key}} placeholders
+     * that are replaced with values from {@link #replaceableValues}.
+     *
+     * @param sql String the SQL query template
+     */
     public void setSQL(String sql) {
         this.sql = sql;
     }

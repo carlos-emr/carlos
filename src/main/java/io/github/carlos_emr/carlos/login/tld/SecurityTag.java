@@ -71,19 +71,29 @@ public class SecurityTag implements Tag {
     private String rights = "r";
     private boolean reverse = false;
 
+    /** {@inheritDoc} */
     public void setPageContext(PageContext arg0) {
         this.pageContext = arg0;
 
     }
 
+    /** {@inheritDoc} */
     public void setParent(Tag arg0) {
         this.parentTag = arg0;
     }
 
+    /** {@inheritDoc} */
     public Tag getParent() {
         return this.parentTag;
     }
 
+    /**
+     * Evaluates the user's privilege and decides whether to include or skip the tag body.
+     *
+     * @return int EVAL_BODY_INCLUDE if the user has the required privilege, SKIP_BODY otherwise
+     *         (inverted when reverse is true)
+     * @throws JspException if an error occurs during tag evaluation
+     */
     public int doStartTag() throws JspException {
         int ret = 0;
         Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
@@ -122,6 +132,12 @@ public class SecurityTag implements Tag {
         return ret;
     }
 
+    /**
+     * Always continues evaluating the rest of the page after this tag.
+     *
+     * @return int EVAL_PAGE
+     * @throws JspException if an error occurs
+     */
     public int doEndTag() throws JspException {
         return EVAL_PAGE;
     }
@@ -129,6 +145,7 @@ public class SecurityTag implements Tag {
     public void release() {
     }
 
+    /** @return String the security object name to check privileges for */
     public String getObjectName() {
         return objectName;
     }

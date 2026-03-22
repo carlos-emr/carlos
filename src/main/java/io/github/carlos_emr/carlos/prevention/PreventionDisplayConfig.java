@@ -58,6 +58,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 
+/**
+ * Singleton configuration manager for prevention and immunization display items.
+ *
+ * <p>Loads prevention type definitions from an XML configuration file (default:
+ * {@code PreventionItems.xml}) and merges them with entries from the Canadian Vaccine
+ * Catalogue (CVC). Also loads prevention configuration sets from
+ * {@code PreventionConfigSets.xml} that define age/sex-based display filtering rules.</p>
+ *
+ * <p>Prevention items are keyed by name and stored as attribute maps. CVC mappings
+ * take precedence when {@code preferCVC} is set on a {@link CVCMapping} record.</p>
+ *
+ * @since 2001-2002
+ * @see PreventionData
+ * @see io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager
+ */
 public class PreventionDisplayConfig {
     private static Logger log = MiscUtils.getLogger();
     private static PreventionDisplayConfig preventionDisplayConfig = new PreventionDisplayConfig();
