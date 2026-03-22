@@ -82,18 +82,22 @@ public class ProviderManagerImpl implements ProviderManager {
         this.secUserRoleDao = secUserRoleDao;
     }
 
+    /** {@inheritDoc} */
     public Provider getProvider(String providerNo) {
         return providerDao.getProvider(providerNo);
     }
 
+    /** {@inheritDoc} */
     public String getProviderName(String providerNo) {
         return providerDao.getProviderName(providerNo);
     }
 
+    /** {@inheritDoc} */
     public List<Provider> getProviders() {
         return providerDao.getProviders();
     }
 
+    /** {@inheritDoc} */
     public List<Provider> getActiveProviders() {
         return providerDao.getActiveProviders();
     }

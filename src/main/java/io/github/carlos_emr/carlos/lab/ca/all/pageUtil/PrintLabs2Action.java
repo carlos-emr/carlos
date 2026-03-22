@@ -55,6 +55,9 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
 /**
  * Struts2 action for generating printable lab reports as PDF or RTF documents.
  * Determines the appropriate output format based on the lab type (e.g., VIHA RTF labs
@@ -63,9 +66,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
  *
  * @since 2007-11-27
  */
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-
 public class PrintLabs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
