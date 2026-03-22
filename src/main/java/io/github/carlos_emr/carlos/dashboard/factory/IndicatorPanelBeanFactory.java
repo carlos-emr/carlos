@@ -42,6 +42,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Builds the Panels that hold the Indicators by sub-category.
+ *
+ * <p>For each unique sub-category within a given category, creates an
+ * {@link IndicatorPanelBean} containing either pre-built {@link IndicatorBean}
+ * objects (single-threaded mode) or indicator IDs for deferred loading
+ * (multi-threaded mode).</p>
+ *
+ * @since 2026-03-17
  */
 public class IndicatorPanelBeanFactory {
 
@@ -52,6 +59,13 @@ public class IndicatorPanelBeanFactory {
     private List<IndicatorPanelBean> indicatorPanelBeans;
     private HashSet<String> subcategories;
 
+    /**
+     * Constructs the factory, extracts sub-categories from the template list,
+     * and builds indicator panels for each sub-category.
+     *
+     * @param category String the indicator category to build panels for
+     * @param indicatorTemplateXMLList List of IndicatorTemplateXML the parsed indicator templates
+     */
     public IndicatorPanelBeanFactory(String category, List<IndicatorTemplateXML> indicatorTemplateXMLList) {
 
         logger.info("Building Indicator Panels for category " + category);

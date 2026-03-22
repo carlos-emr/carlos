@@ -1212,26 +1212,41 @@ public class DSDemographicAccess {
         return null;
     }
 
+    /**
+     * Gets the patient demographic number used by this access object.
+     *
+     * @return String the patient identifier
+     */
     public String getDemographicNo() {
         return demographicNo;
     }
 
     /**
-     * @return the passedGuideline
+     * Checks whether this patient passed the clinical guideline evaluation.
+     * <p>
+     * Set to true by the Drools rule consequence when all conditions are satisfied.
+     * </p>
+     *
+     * @return boolean true if the guideline conditions were met for this patient
      */
     public boolean isPassedGuideline() {
         return passedGuideline;
     }
 
     /**
-     * @param passedGuideline the passedGuideline to set
+     * Sets the guideline evaluation result.
+     *
+     * @param passedGuideline boolean true if the guideline conditions were met
      */
     public void setPassedGuideline(boolean passedGuideline) {
         this.passedGuideline = passedGuideline;
     }
 
     /**
-     * @return the demographicData
+     * Gets the patient's demographic data, loading from the database on first access.
+     *
+     * @param loggedInInfo LoggedInInfo session information for the evaluating provider
+     * @return Demographic the patient's demographic record
      */
     public Demographic getDemographicData(LoggedInInfo loggedInInfo) {
         if (this.demographicData == null) {

@@ -391,12 +391,18 @@ public class ClientManagerImpl implements ClientManager {
         this.clientRestrictionManager = clientRestrictionManager;
     }
 
+    /**
+     * Sets whether outside-of-domain client search is enabled.
+     *
+     * @param outsideOfDomainEnabled boolean {@code true} to enable cross-domain client search
+     */
     @Autowired
     public void setOutsideOfDomainEnabled(boolean outsideOfDomainEnabled) {
         this.outsideOfDomainEnabled = outsideOfDomainEnabled;
     }
 
 
+    /** {@inheritDoc} */
     public boolean checkHealthCardExists(String hin, String hcType) {
         List<Demographic> results = this.dao.searchByHealthCard(hin, hcType);
         return (results.size() > 0) ? true : false;

@@ -440,6 +440,15 @@ public final class DateUtils {
 
     }
 
+    /**
+     * Calculates the next calendar day from the given date components, handling month
+     * boundaries, year rollover, and leap years.
+     *
+     * @param day int the day of month (1-31)
+     * @param month int the month (1-12)
+     * @param year int the year
+     * @return String the next day in {@code year-month-day} format
+     */
     public String NextDay(int day, int month, int year) {
 
         boolean leapyear;
@@ -560,6 +569,16 @@ public final class DateUtils {
 
     }
 
+    /**
+     * Calculates the date that is {@code numDays} after the given date components,
+     * handling month boundaries, year rollover, and leap years.
+     *
+     * @param day int the starting day of month (1-31)
+     * @param month int the starting month (1-12)
+     * @param year int the starting year
+     * @param numDays int the number of days to advance
+     * @return String the resulting date in {@code year-month-day} format
+     */
     public String NextDay(int day, int month, int year, int numDays) {
 
         int modValue = 28;
@@ -712,11 +731,25 @@ public final class DateUtils {
         return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
     }
 
+    /**
+     * Returns the absolute number of days between two Calendar dates.
+     *
+     * @param cal1 Calendar the first date
+     * @param cal2 Calendar the second date
+     * @return long the absolute number of days between the two dates
+     */
     public static long getNumberOfDaysBetweenTwoDates(Calendar cal1, Calendar cal2) {
         long timeInMillis = Math.abs(cal1.getTimeInMillis() - cal2.getTimeInMillis());
         return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
     }
 
+    /**
+     * Returns the absolute number of days between two dates.
+     *
+     * @param date1 Date the first date
+     * @param date2 Date the second date
+     * @return long the absolute number of days between the two dates
+     */
     public static long getNumberOfDaysBetweenTwoDates(Date date1, Date date2) {
         long timeInMillis = Math.abs(date1.getTime() - date2.getTime());
         return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
@@ -772,6 +805,13 @@ public final class DateUtils {
         }
     }
 
+    /**
+     * Null-safe conversion of an ISO date string ({@code yyyy-MM-dd}) to a Date.
+     *
+     * @param isoDateString String the ISO date string, or null
+     * @return Date the parsed date, or null if input is null
+     * @throws IllegalArgumentException if the string is not a valid ISO date
+     */
     public static Date toDate(String isoDateString) {
         GregorianCalendar cal = toGregorianCalendarDate(isoDateString);
         if (cal != null) return (cal.getTime());
@@ -831,6 +871,13 @@ public final class DateUtils {
         return ((int) (ms / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY));
     }
 
+    /**
+     * Calculates day difference (date2 - date1). Returns null if either is null.
+     *
+     * @param date1 Calendar the first date
+     * @param date2 Date the second date
+     * @return Integer the day difference, or null
+     */
     public static Integer calculateDayDifference(Calendar date1, Date date2) {
 
         return (calculateDayDifference(date1, toCalendar(date2)));

@@ -66,14 +66,32 @@ import io.github.carlos_emr.carlos.integration.fhir.utils.FhirUtils;
  */
 
 /**
- * Any Organizational unit that has compiled and is in stewardship of patient data.
+ * FHIR resource mapping for organizational units that are in stewardship of patient data.
+ *
+ * <p>Maps between CARLOS EMR contact entities (implementing {@link ContactInterface})
+ * and FHIR DSTU3 Organization resources. Handles name, address, telecom (phone/fax),
+ * and identifier mappings.</p>
+ *
+ * @param <T> the CARLOS EMR model type that implements ContactInterface
+ * @since 2026-03-17
  */
 public class Organization<T extends AbstractModel<Integer> & ContactInterface> extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.Organization, T> {
 
+    /**
+     * Constructs an Organization from a CARLOS EMR contact entity.
+     *
+     * @param contact the source contact entity
+     */
     public Organization(T contact) {
         super(new org.hl7.fhir.dstu3.model.Organization(), contact);
     }
 
+    /**
+     * Constructs an Organization from a CARLOS EMR entity with configuration for attribute filtering.
+     *
+     * @param clinic the source entity (typically a Clinic)
+     * @param configurationManager the FHIR configuration manager
+     */
     public Organization(T clinic, OscarFhirConfigurationManager configurationManager) {
         super(new org.hl7.fhir.dstu3.model.Organization(), clinic, configurationManager);
     }

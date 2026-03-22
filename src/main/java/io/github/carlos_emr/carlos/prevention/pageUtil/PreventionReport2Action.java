@@ -168,11 +168,21 @@ public class PreventionReport2Action extends ActionSupport {
         return patientSet;
     }
 
+    /**
+     * Sets the saved patient set query name.
+     *
+     * @param patientSet String the patient set name
+     */
     @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
 
+    /**
+     * Returns the prevention type name for the report.
+     *
+     * @return String the prevention type (e.g., "PAP", "Flu", "Mammogram")
+     */
     public String getPrevention() {
         return prevention;
     }

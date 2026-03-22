@@ -36,6 +36,17 @@ import java.util.TreeMap;
 
 import io.github.carlos_emr.carlos.dao.OscarSuperDao;
 
+/**
+ * Default implementation of {@link OscarSuperManager} that maintains a registry
+ * of named {@link OscarSuperDao} instances for generic query execution.
+ *
+ * <p>DAOs are registered during initialization and looked up by name at query time.
+ * Currently registers the provider DAO; additional DAOs can be added to the registry
+ * by extending the {@link #init()} method.</p>
+ *
+ * @since 2005-01-01
+ * @see OscarSuperManager
+ */
 public class OscarSuperManagerImpl implements OscarSuperManager {
 
     private Map<String, OscarSuperDao> oscarDaoMap = new TreeMap<String, OscarSuperDao>();

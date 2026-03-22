@@ -69,6 +69,13 @@ import ca.uhn.hl7v2.validation.impl.NoValidation;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 
+/**
+ * HL7 message handler for Excelleris Ontario lab results. Parses ORU_R01 v2.3 messages
+ * from the Excelleris lab information system used in Ontario, with specific handling
+ * for observation dates, result statuses, and embedded PDF documents.
+ *
+ * @since 2007-01-18
+ */
 public class ExcellerisOntarioHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();

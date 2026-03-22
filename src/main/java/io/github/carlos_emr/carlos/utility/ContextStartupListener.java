@@ -49,6 +49,15 @@ import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceRe
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Servlet context listener that initializes the CARLOS EMR application on startup.
+ *
+ * <p>Performs essential initialization tasks including: configuring logging, registering
+ * the shutdown hook, creating the default OSCAR program and site if missing, starting
+ * the job execution framework, loading caches, and running the HRM fix helper.
+ *
+ * @since 2026-03-17
+ */
 public class ContextStartupListener implements jakarta.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
     private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
@@ -106,6 +115,9 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         }
     }
 
+    /**
+     * Loads program access caches and role caches for all active programs.
+     */
     public void loadCaches() {
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
         for (Program program : programDao.getActivePrograms()) {

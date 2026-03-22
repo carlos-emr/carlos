@@ -105,6 +105,12 @@ public class DemographicExportHelper {
         return options;
     }
 
+    /**
+     * Exports all medications for a patient into the CDS PatientRecord document.
+     *
+     * @param demoNo String the patient demographic number
+     * @param patientRec PatientRecord the CDS patient record to add medications to
+     */
     public void addMedications(String demoNo, PatientRecord patientRec) {
         addMedications(demoNo, patientRec, null);
     }
@@ -375,26 +381,56 @@ public class DemographicExportHelper {
         return dosageMultiple[0].trim();
     }
 
+    /**
+     * Returns the PartialDateDao instance.
+     *
+     * @return PartialDateDao the partial date data access object
+     */
     public PartialDateDao getPartialDateDao() {
         return partialDateDao;
     }
 
+    /**
+     * Sets the PartialDateDao instance.
+     *
+     * @param partialDateDao PartialDateDao the partial date data access object
+     */
     public void setPartialDateDao(PartialDateDao partialDateDao) {
         this.partialDateDao = partialDateDao;
     }
 
+    /**
+     * Returns the CaseManagementManager instance.
+     *
+     * @return CaseManagementManager the case management manager
+     */
     public CaseManagementManager getCmm() {
         return cmm;
     }
 
+    /**
+     * Sets the CaseManagementManager instance.
+     *
+     * @param cmm CaseManagementManager the case management manager
+     */
     public void setCmm(CaseManagementManager cmm) {
         this.cmm = cmm;
     }
 
+    /**
+     * Returns the list of errors accumulated during the export process.
+     *
+     * @return List&lt;String&gt; the export error messages
+     */
     public List<String> getExportErrors() {
         return exportErrors;
     }
 
+    /**
+     * Sets the list of export error messages.
+     *
+     * @param exportErrors List&lt;String&gt; the export error messages
+     */
     public void setExportErrors(List<String> exportErrors) {
         this.exportErrors = exportErrors;
     }

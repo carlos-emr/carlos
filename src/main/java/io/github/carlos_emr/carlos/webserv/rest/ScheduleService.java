@@ -416,6 +416,13 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Updates the urgency level of an existing appointment.
+     *
+     * @param id Integer the appointment ID
+     * @param appt AppointmentTo1 containing the new urgency value
+     * @return SchedulingResponse containing the updated appointment
+     */
     @Path("/appointment/{id}/updateUrgency")
     @Produces("application/json")
     @Consumes("application/json")

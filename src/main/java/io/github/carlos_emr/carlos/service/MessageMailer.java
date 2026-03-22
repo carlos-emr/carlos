@@ -35,8 +35,19 @@
 package io.github.carlos_emr.carlos.service;
 
 /**
- * @author mweston4
+ * Interface for message-based email sending within the CARLOS EMR messaging system.
+ *
+ * <p>Implementations encapsulate the email content and recipient details, providing
+ * a simple {@link #send()} method to trigger delivery.</p>
+ *
+ * @since 2001-01-01
  */
 public interface MessageMailer {
+
+    /**
+     * Sends the encapsulated email message.
+     *
+     * @throws Exception if the email cannot be sent due to configuration or delivery errors
+     */
     public void send() throws Exception;
 }

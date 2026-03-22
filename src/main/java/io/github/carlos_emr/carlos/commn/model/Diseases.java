@@ -41,6 +41,17 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents a patient disease/diagnosis record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code diseases} table and tracks diagnosed conditions for patients
+ * using ICD-9 coding. Each disease record links a patient (demographic) to a specific
+ * ICD-9 diagnostic code with entry date tracking.</p>
+ *
+ * @see DiagnosticCode
+ * @see Demographic
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "diseases")
 public class Diseases extends AbstractModel<Integer> {

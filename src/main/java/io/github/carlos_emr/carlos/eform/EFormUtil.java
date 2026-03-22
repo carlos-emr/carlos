@@ -484,6 +484,12 @@ public class EFormUtil {
         return (results);
     }
 
+    /**
+     * Loads multiple eForm data records by their form data IDs.
+     *
+     * @param ids List of Integer form data IDs to load
+     * @return ArrayList of HashMap containing form data metadata
+     */
     public static ArrayList<HashMap<String, ? extends Object>> loadEformsByFdis(List<Integer> ids) {
 
         List<EFormData> allEformDatas = eFormDataDao.findByFdids(ids);
@@ -509,6 +515,12 @@ public class EFormUtil {
         return (results);
     }
 
+    /**
+     * Loads an eForm template by its form ID, returning all metadata and HTML content.
+     *
+     * @param fid String the form ID to load
+     * @return HashMap containing form properties (fid, formName, formHtml, formSubject, etc.)
+     */
     public static HashMap<String, Object> loadEForm(String fid) {
 
         Integer id = Integer.valueOf(fid);
@@ -537,6 +549,12 @@ public class EFormUtil {
         return (curht);
     }
 
+    /**
+     * Updates an existing eForm template in the database with the values from
+     * the provided form object.
+     *
+     * @param updatedForm EFormBase the form object containing updated values
+     */
     public static void updateEForm(EFormBase updatedForm) {
         // Updates the form - used by editForm
 
@@ -618,6 +636,11 @@ public class EFormUtil {
         return (maxId == null ? null : maxId.toString());
     }
 
+    /**
+     * Marks an eForm template as deleted (sets current status to false).
+     *
+     * @param fid String the form ID to delete
+     */
     public static void delEForm(String fid) {
         setFormStatus(fid, false);
     }
@@ -675,6 +698,16 @@ public class EFormUtil {
         return values;
     }
 
+    /**
+     * Persists eForm field name-value pairs to the database for a saved form data record.
+     * The names and values lists must be the same size.
+     *
+     * @param names ArrayList of String field names
+     * @param values ArrayList of String field values
+     * @param fdid Integer the form data ID
+     * @param fid Integer the form template ID
+     * @param demographic_no Integer the demographic number
+     */
     public static void addEFormValues(ArrayList<String> names, ArrayList<String> values, Integer fdid, Integer fid, Integer demographic_no) {
         // adds parsed values and names to DB
         // names.size and values.size must equal!
@@ -694,12 +727,26 @@ public class EFormUtil {
         }
     }
 
+    /**
+     * Checks whether an eForm with the given name already exists in the database.
+     *
+     * @param eFormName String the form name to check
+     * @return boolean true if a form with this name exists
+     */
     public static boolean formExistsInDB(String eFormName) {
 
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.findByName(eFormName);
         return eform != null;
     }
 
+    /**
+     * Returns the count of forms with the given name that are not the specified form ID.
+     * Used to check for name conflicts when renaming a form.
+     *
+     * @param formName String the form name to check
+     * @param fid String the form ID to exclude from the count
+     * @return int the number of other forms with the same name
+     */
     public static int formExistsInDBn(String formName, String fid) {
 
         Long result = eformDao.countFormsOtherThanSpecified(formName, ConversionUtils.fromIntString(fid));

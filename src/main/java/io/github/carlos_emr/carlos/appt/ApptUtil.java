@@ -85,6 +85,14 @@ public class ApptUtil {
         return (ApptData) request.getSession().getAttribute(SESSION_APPT_BEAN);
     }
 
+    /**
+     * Resolves the background color for a location from pipe-delimited site and color strings.
+     *
+     * @param site String pipe-delimited site names
+     * @param colo String pipe-delimited color values corresponding to sites
+     * @param loca String the location name to match
+     * @return String the matching color, or "white" if no match is found
+     */
     public static String getColorFromLocation(String site, String colo, String loca) {
         String ret = "white";
         String[] s = site.split("\\|");
@@ -98,6 +106,13 @@ public class ApptUtil {
         return ret;
     }
 
+    /**
+     * Resolves the background color for a site by name from a list of Site objects.
+     *
+     * @param sites List&lt;Site&gt; the available sites
+     * @param siteName String the site name to look up
+     * @return String the background color, or "white" if not found
+     */
     public static String getColorFromLocation(List<Site> sites, String siteName) {
         for (Site s : sites) {
             if (s.getName().equals(siteName))
@@ -106,6 +121,13 @@ public class ApptUtil {
         return "white";
     }
 
+    /**
+     * Resolves the short name for a site by its full name.
+     *
+     * @param sites List&lt;Site&gt; the available sites
+     * @param siteName String the site name to look up
+     * @return String the short name, or an empty string if not found
+     */
     public static String getShortNameFromLocation(List<Site> sites, String siteName) {
         for (Site s : sites) {
             if (s.getName().equals(siteName))
@@ -114,6 +136,13 @@ public class ApptUtil {
         return "";
     }
 
+    /**
+     * Finds a site by its name from a list of Site objects.
+     *
+     * @param sites List&lt;Site&gt; the available sites
+     * @param siteName String the site name to look up
+     * @return Site the matching site, or {@code null} if not found
+     */
     public static Site getSiteFromName(List<Site> sites, String siteName) {
         for (Site s : sites) {
             if (s.getName().equals(siteName))

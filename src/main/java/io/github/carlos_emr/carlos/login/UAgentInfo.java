@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.login;
  * For example, enquiring whether it's as specific as an iPod Touch or
  * as general as a smartphone class device.
  * The object's methods return true, or false.
+ *
+ * @since 2026-03-17
  */
 public class UAgentInfo {
     // User-Agent and Accept HTTP request headers

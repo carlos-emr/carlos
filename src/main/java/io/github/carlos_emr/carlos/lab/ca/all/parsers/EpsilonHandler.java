@@ -43,6 +43,12 @@ import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.util.Terser;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
+/**
+ * HL7 message handler for Epsilon laboratory results. Extends {@link DefaultGenericHandler}
+ * with Epsilon-specific parsing overrides for ORU_R01 v2.3 messages.
+ *
+ * @since 2007-01-18
+ */
 public class EpsilonHandler extends DefaultGenericHandler {
     private ORU_R01 msg = null;
     private static Logger logger = MiscUtils.getLogger();

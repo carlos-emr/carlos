@@ -109,6 +109,12 @@ public class VisitReportData {
         return retVisit;
     }
 
+    /**
+     * Counts billing visits by appointment provider grouped by visit type.
+     * Returns a 6-element array indexed by visit type code.
+     *
+     * @return String[] counts indexed by visit type (0-5)
+     */
     public String[] getApptProviderCount() {
         String retval, retcount;
         String[] retVisit = new String[6];

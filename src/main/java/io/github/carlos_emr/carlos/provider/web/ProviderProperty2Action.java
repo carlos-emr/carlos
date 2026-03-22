@@ -1236,7 +1236,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
-    //WORKLOAD MANAGEMENT SCREEN PROPERTY
+    /**
+     * Displays the workload management billing service type preference form.
+     *
+     * @return String {@code "gen"} to forward to the generic preference configuration JSP
+     */
     public String viewWorkLoadManagement() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1268,6 +1272,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    /**
+     * Saves the provider's workload management billing service type preference.
+     *
+     * @return String {@code "gen"} to re-display with success status
+     */
     public String saveWorkLoadManagement() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

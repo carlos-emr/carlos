@@ -50,11 +50,21 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Integration utility for Ontario MD (OntarioMD.ca) authentication and disease list services.
+ *
+ * <p>Provides SOAP-based authentication to obtain session tokens for the OntarioMD portal,
+ * and maintains a reference list of disease community keywords used for clinical decision support.
+ *
+ * @since 2026-03-17
  */
 public class OntarioMD {
 
 
+    /**
+     * Returns whether the OntarioMD incoming requestor property is configured.
+     *
+     * @return boolean {@code true} if the property is set
+     */
     static public boolean hasIncomingRequestor() {
         return CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }

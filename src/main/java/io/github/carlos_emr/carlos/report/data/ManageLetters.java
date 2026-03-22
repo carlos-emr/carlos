@@ -51,10 +51,12 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.OscarDocumentCreator;
 
 /**
- * @author jay
+ * Service class for managing JasperReports-based patient letter templates. Provides
+ * CRUD operations for report letter files stored as BLOBs in the {@code reportLetters}
+ * table, including saving, archiving, retrieving, streaming, and logging letter generation.
+ *
+ * @since 2001-01-01
  */
-
-
 public class ManageLetters {
 
     private static Logger logger = MiscUtils.getLogger();

@@ -50,6 +50,21 @@ import io.github.carlos_emr.carlos.integration.fhir.interfaces.ContactInterface;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactRelationship;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactType;
 
+/**
+ * Represents a general contact entity in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code Contact} table using single-table inheritance with a
+ * {@code type} discriminator column. This is the base class for various contact
+ * subtypes (e.g., healthcare providers, organizations, family members) that can
+ * be associated with patients via {@link DemographicContact}.</p>
+ *
+ * <p>Implements {@link ContactInterface} for FHIR interoperability, allowing
+ * contacts to be exported as standardized FHIR resources.</p>
+ *
+ * @see DemographicContact
+ * @see ContactInterface
+ * @since 2001-01-01
+ */
 @Entity
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "type")
