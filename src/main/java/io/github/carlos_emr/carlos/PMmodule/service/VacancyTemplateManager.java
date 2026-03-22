@@ -248,10 +248,22 @@ public interface VacancyTemplateManager {
         return vacancyTemplateDAO.getActiveVacancyTemplatesByWlProgramId(programId);
     }
 
+    /**
+     * Retrieves a criteria type by its identifier.
+     *
+     * @param id Integer the criteria type identifier
+     * @return CriteriaType the criteria type record
+     */
     public static CriteriaType getCriteriaTypeById(Integer id) {
         return criteriaTypeDAO.find(id);
     }
 
+    /**
+     * Retrieves a vacancy by its identifier.
+     *
+     * @param id Integer the vacancy identifier
+     * @return Vacancy the vacancy record
+     */
     public static Vacancy getVacancyById(Integer id) {
         return vacancyDAO.find(id);
     }
