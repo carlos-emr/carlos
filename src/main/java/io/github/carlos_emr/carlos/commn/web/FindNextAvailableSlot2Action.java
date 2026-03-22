@@ -163,9 +163,9 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
                         }
                     }
 
-                    // Mark slots occupied by existing (non-cancelled) appointments as 0
+                    // Mark slots occupied by existing (non-cancelled/no-show) appointments as 0
                     List<Appointment> booked = appointmentDao.findByProviderAndDayandNotStatuses(
-                            providerNo, searchDate, new String[]{"N", "C"});
+                            providerNo, searchDate, new String[]{"C", "CS", "CV", "N", "NS", "NV"});
                     for (Appointment appt : booked) {
                         String startStr = StringUtils.trimToEmpty(ConversionUtils.toTimeString(appt.getStartTime()));
                         String endStr   = StringUtils.trimToEmpty(ConversionUtils.toTimeString(appt.getEndTime()));

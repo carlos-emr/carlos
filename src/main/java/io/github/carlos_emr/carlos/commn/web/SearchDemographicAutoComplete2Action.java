@@ -144,7 +144,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
-            h.put("fomattedDob", demo.getFormattedDob());
+            h.put("formattedDob", demo.getFormattedDob());
             h.put("formattedName", demo.getFormattedName());
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
             h.put("status", demo.getPatientStatus() != null ? demo.getPatientStatus() : "");
@@ -197,7 +197,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
             // Derived fields required by jQuery autocomplete widget (label/value are the standard autocomplete contract)
             String statusLabel = h.getOrDefault("status", "");
-            h.put("label", h.getOrDefault("formattedName", "") + " " + h.getOrDefault("fomattedDob", "") + " (" + statusLabel + ")");
+            h.put("label", h.getOrDefault("formattedName", "") + " " + h.getOrDefault("formattedDob", "") + " (" + statusLabel + ")");
             h.put("value", h.getOrDefault("demographicNo", ""));
             // Alias fields to match the field names accessed by the JS select handler
             h.put("provider", h.getOrDefault("providerName", ""));

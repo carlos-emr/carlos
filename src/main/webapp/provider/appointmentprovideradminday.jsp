@@ -2562,31 +2562,45 @@
         var scheduleViewAll = document.getElementById('scheduleViewAll').value;
         var scheduleView = document.getElementById('scheduleView').value;
 
-        /* Translated UI strings — injected server-side for i18n */
+        <%-- OWASP-encode each i18n message for JavaScript string context --%>
+        <fmt:message var="qsNoPatientsFound"    key="provider.appointmentProviderAdminDay.quickSearch.noPatientsFound"/>
+        <fmt:message var="qsAddNewPatient"      key="provider.appointmentProviderAdminDay.quickSearch.addNewPatient"/>
+        <fmt:message var="qsBadgeMasterFile"    key="provider.appointmentProviderAdminDay.quickSearch.badgeMasterFile"/>
+        <fmt:message var="qsBadgeEChart"        key="provider.appointmentProviderAdminDay.quickSearch.badgeEChart"/>
+        <fmt:message var="qsBadgePrescriptions" key="provider.appointmentProviderAdminDay.quickSearch.badgePrescriptions"/>
+        <fmt:message var="qsBadgeApptTitle"     key="provider.appointmentProviderAdminDay.quickSearch.badgeApptTitle"/>
+        <fmt:message var="qsLabelDob"           key="provider.appointmentProviderAdminDay.quickSearch.labelDob"/>
+        <fmt:message var="qsLabelHin"           key="provider.appointmentProviderAdminDay.quickSearch.labelHin"/>
+        <fmt:message var="qsNoMrpAlert"         key="provider.appointmentProviderAdminDay.quickSearch.noMrpAlert"/>
+        <fmt:message var="qsNoSlotsAlert"       key="provider.appointmentProviderAdminDay.quickSearch.noSlotsAlert"/>
+        <fmt:message var="qsSlotErrorAlert"     key="provider.appointmentProviderAdminDay.quickSearch.slotErrorAlert"/>
+        /* Translated UI strings — OWASP-encoded for JS string context to prevent injection */
         var msgs = {
-            noPatientsFound:  '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.noPatientsFound"/>',
-            addNewPatient:    '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.addNewPatient"/>',
-            badgeMasterFile:  '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.badgeMasterFile"/>',
-            badgeEChart:      '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.badgeEChart"/>',
-            badgePrescriptions: '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.badgePrescriptions"/>',
-            badgeApptTitle:   '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.badgeApptTitle"/>',
-            labelDob:         '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.labelDob"/>',
-            labelHin:         '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.labelHin"/>',
-            noMrpAlert:       '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.noMrpAlert"/>',
-            noSlotsAlert:     '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.noSlotsAlert"/>',
-            slotErrorAlert:   '<fmt:message key="provider.appointmentProviderAdminDay.quickSearch.slotErrorAlert"/>'
+            noPatientsFound:    '${e:forJavaScript(qsNoPatientsFound)}',
+            addNewPatient:      '${e:forJavaScript(qsAddNewPatient)}',
+            badgeMasterFile:    '${e:forJavaScript(qsBadgeMasterFile)}',
+            badgeEChart:        '${e:forJavaScript(qsBadgeEChart)}',
+            badgePrescriptions: '${e:forJavaScript(qsBadgePrescriptions)}',
+            badgeApptTitle:     '${e:forJavaScript(qsBadgeApptTitle)}',
+            labelDob:           '${e:forJavaScript(qsLabelDob)}',
+            labelHin:           '${e:forJavaScript(qsLabelHin)}',
+            noMrpAlert:         '${e:forJavaScript(qsNoMrpAlert)}',
+            noSlotsAlert:       '${e:forJavaScript(qsNoSlotsAlert)}',
+            slotErrorAlert:     '${e:forJavaScript(qsSlotErrorAlert)}'
         };
 
         /**
          * Detect search type from the query string.
          * - comma present → name (Last, First)
-         * - pure digits or digits + separators → phone (8-digit handled as DOB by backend)
+         * - 8 pure digits → dob (YYYYMMDD format)
+         * - pure digits or digits + separators → phone
          * - letters followed by digits → HIN
          * - digit + space + letters → address
          * - default → name
          */
         function detectSearchType(query) {
             if (query.indexOf(',') !== -1) return 'name';
+            if (/^\d{8}$/.test(query)) return 'dob';
             if (/^[\d\s\-().+]+$/.test(query)) return 'phone';
             if (/^[A-Za-z]{2,4}\d{4,}/i.test(query)) return 'hin';
             if (/^\d+\s+[A-Za-z]/i.test(query)) return 'address';
@@ -2663,13 +2677,16 @@
             row.setAttribute('role', 'option');
             row.setAttribute('aria-selected', 'false');
 
-            // Clicking anywhere on row (except badges) opens Master File / E-Chart
+            // Clicking anywhere on row (except badges) opens the E-Chart
             row.addEventListener('click', function(e) {
                 if (e.target.closest && e.target.closest('.qs-badge')) return;
                 if (item.demographicNo) {
-                    popupPage(710, 1024, ctx + '/demographic/demographiccontrol.jsp?demographic_no='
-                        + encodeURIComponent(item.demographicNo)
-                        + '&displaymode=edit&dboperation=search_detail');
+                    popupPage(710, 1024, ctx + '/oscarEncounter/IncomingEncounter.do'
+                        + '?demographicNo='  + encodeURIComponent(item.demographicNo)
+                        + '&providerNo='     + encodeURIComponent(scheduleProviderNo)
+                        + '&curProviderNo='  + encodeURIComponent(scheduleProviderNo)
+                        + '&curDate='        + encodeURIComponent(scheduleCurrentDate)
+                        + '&encType=&status=');
                     hideDropdown();
                 }
             });
@@ -2852,7 +2869,7 @@
                         return;
                     }
 
-                    // Navigate the schedule to the next available day
+                    // Navigate the schedule to the next available day (include provider_no to preserve schedule context)
                     var navUrl = 'providercontrol.jsp'
                         + '?year='          + encodeURIComponent(String(slot.year))
                         + '&month='         + encodeURIComponent(String(slot.month))
@@ -2860,7 +2877,8 @@
                         + '&view='          + encodeURIComponent(scheduleView)
                         + '&displaymode=day'
                         + '&dboperation=searchappointmentday'
-                        + '&viewall='       + encodeURIComponent(scheduleViewAll);
+                        + '&viewall='       + encodeURIComponent(scheduleViewAll)
+                        + '&provider_no='   + encodeURIComponent(slot.providerNo);
                     window.location.href = navUrl;
                 })
                 .catch(function(err) {
