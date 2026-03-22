@@ -1,0 +1,37 @@
+# PathValidationUtils - Path Traversal Sanitizer Models
+#
+# Registers PathValidationUtils methods as neutral summaries so CodeQL
+# does not propagate taint through them. These methods validate/sanitize
+# file paths and throw SecurityException on invalid input, making their
+# return values safe from path traversal (CWE-022).
+#
+# See: src/main/java/io/github/carlos_emr/carlos/utility/PathValidationUtils.java
+
+extensions:
+
+  # Mark all public PathValidationUtils methods as neutral summaries.
+  # This tells CodeQL that taint does NOT flow from arguments to return values,
+  # preventing false positives on java/path-injection (CWE-022) and related queries.
+  - addsTo:
+      pack: codeql/java-all
+      extensible: neutralModel
+    data:
+      # validatePath(String, File) -> File
+      # Sanitizes user-provided filename and validates path within allowed directory
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validatePath", "(String,File)", "summary"]
+
+      # validateExistingPath(File, File) -> File
+      # Validates existing file path is within allowed directory
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateExistingPath", "(File,File)", "summary"]
+
+      # validateUpload(File) -> File
+      # Validates uploaded source file is from allowed temp location
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(File)", "summary"]
+
+      # validateUpload(File, String, File) -> File
+      # End-to-end upload validation: source + filename sanitization + destination
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateUpload", "(File,String,File)", "summary"]
+
+      # isInAllowedTempDirectory(File) -> boolean
+      # Guard condition: checks if file is in allowed temp directory
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "isInAllowedTempDirectory", "(File)", "summary"]
