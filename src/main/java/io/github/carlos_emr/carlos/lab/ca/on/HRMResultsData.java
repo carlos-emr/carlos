@@ -33,6 +33,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Provides data access and population logic for Hospital Report Manager (HRM) documents.
+ * Retrieves HRM documents filtered by provider, demographic, and date range, and converts
+ * them into {@link LabResultData} objects for unified display in the lab results interface.
+ *
+ * @since 2008-01-01
+ */
 public class HRMResultsData {
 
     private static Logger logger = MiscUtils.getLogger();

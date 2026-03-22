@@ -133,6 +133,7 @@ public class ProviderManagerImpl implements ProviderManager {
     }
 
 
+    /** {@inheritDoc} */
     public List<Agency> getAgencyDomain(String providerNo) {
         Agency localAgency = agencyDao.getLocalAgency();
         List<Agency> agencies = new ArrayList<Agency>();
@@ -140,10 +141,12 @@ public class ProviderManagerImpl implements ProviderManager {
         return agencies;
     }
 
+    /** {@inheritDoc} */
     public List<Provider> getProvidersByType(String type) {
         return providerDao.getProvidersByType(type);
     }
 
+    /** {@inheritDoc} */
     public List<SecUserRole> getSecUserRoles(String providerNo) {
         return secUserRoleDao.getUserRoles(providerNo);
     }

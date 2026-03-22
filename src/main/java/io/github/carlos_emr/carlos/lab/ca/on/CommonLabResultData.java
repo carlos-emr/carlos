@@ -55,6 +55,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Central aggregator for lab results across all lab types (HL7, MDS, PathNET, Spire, HRM).
+ * Provides unified methods for retrieving, acknowledging, and managing lab results
+ * regardless of their source, with support for pagination, filtering, and provider routing.
+ *
+ * @since 2007-01-18
+ */
 public class CommonLabResultData {
 
     private static Logger logger = MiscUtils.getLogger();
