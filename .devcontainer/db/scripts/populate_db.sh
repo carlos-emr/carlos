@@ -30,5 +30,7 @@ echo 'Seeding Rich Text Letter eForm...'
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2012-07-12.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2022-03-24.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
+echo 'Modernizing Rich Text Letter eForm to v2.2...'
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-22-rtl-v22-modernize.sql
 cd ../../
 echo 'Database initialization complete!'
