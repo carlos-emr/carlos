@@ -226,10 +226,22 @@ public interface VacancyTemplateManager {
         return criteriaDAO.getCriteriasByVacancyId(vacancyId);
     }
 
+    /**
+     * Retrieves refined criteria for a specific template.
+     *
+     * @param templateId Integer the template identifier
+     * @return List&lt;Criteria&gt; list of refined criteria
+     */
     public static List<Criteria> getRefinedCriteriasByTemplateId(Integer templateId) {
         return criteriaDAO.getRefinedCriteriasByTemplateId(templateId);
     }
 
+    /**
+     * Retrieves active vacancy templates for a waitlist program.
+     *
+     * @param programId Integer the waitlist program identifier
+     * @return List&lt;VacancyTemplate&gt; list of active templates, or {@code null} if programId is null
+     */
     public static List<VacancyTemplate> getActiveVacancyTemplatesByWlProgramId(Integer programId) {
         if (programId == null)
             return null;

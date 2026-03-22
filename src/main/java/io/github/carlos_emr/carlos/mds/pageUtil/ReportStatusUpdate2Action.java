@@ -56,6 +56,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for updating the acknowledgment status of MDS lab reports,
+ * allowing providers to mark reports as acknowledged, filed, or requiring follow-up.
+ *
+ * @since 2001-01-01
+ */
 public class ReportStatusUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

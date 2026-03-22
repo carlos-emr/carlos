@@ -56,6 +56,12 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for routing MDS lab reports to the Most Responsible Provider (MRP)
+ * of the associated patient demographic.
+ *
+ * @since 2001-01-01
+ */
 public class SendMostResponProv2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
