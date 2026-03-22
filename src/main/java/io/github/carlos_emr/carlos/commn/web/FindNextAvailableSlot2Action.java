@@ -52,8 +52,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Struts 2 action that finds the next available appointment slot across a set of schedule providers.
  *
  * <p>Searches forward from the given start date (or tomorrow if omitted), checking each provider's
- * schedule template for days with open slots. Returns the first provider/day/time combination found
- * as JSON, suitable for driving the quick-search "Appt" badge navigation.</p>
+ * schedule template for days with open slots. Returns the <em>third</em> available provider/day/time
+ * combination found as JSON, suitable for driving the quick-search "Appt" badge navigation.</p>
  *
  * <h3>Request parameters</h3>
  * <ul>
@@ -78,6 +78,8 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     /** Maximum days to search ahead before giving up. */
     private static final int MAX_LOOKAHEAD_DAYS = 60;
+    /** Number of available slots to skip before returning (returns the Nth available slot). */
+    private static final int TARGET_SLOT_ORDINAL = 3;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -124,7 +126,8 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
         OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
 
-        // Search forward up to MAX_LOOKAHEAD_DAYS
+        // Search forward up to MAX_LOOKAHEAD_DAYS, returning the Nth available slot
+        int slotsFound = 0;
         for (int day = 0; day < MAX_LOOKAHEAD_DAYS; day++) {
             int searchYear  = searchCal.get(Calendar.YEAR);
             int searchMonth = searchCal.get(Calendar.MONTH) + 1;
@@ -194,7 +197,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
                             continue;
                         }
 
-                        int slotsNeeded = slotDuration / timecodeInterval;
+                        int slotsNeeded = Math.max(1, (slotDuration + timecodeInterval - 1) / timecodeInterval);
                         boolean enoughRoom = true;
                         for (int n = 1; n < slotsNeeded; n++) {
                             if ((i + n) >= timecodeLength || schedArr[i + n] != 1) {
@@ -204,6 +207,12 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
                         }
 
                         if (enoughRoom) {
+                            slotsFound++;
+                            if (slotsFound < TARGET_SLOT_ORDINAL) {
+                                // Skip ahead past this slot and continue searching
+                                i += Math.max(1, slotsNeeded) - 1;
+                                continue;
+                            }
                             int startHour = (i * timecodeInterval) / 60;
                             int startMin  = (i * timecodeInterval) % 60;
                             String startTime = String.format("%02d:%02d", startHour, startMin);
