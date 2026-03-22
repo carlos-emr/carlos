@@ -39,6 +39,11 @@ import org.springframework.beans.BeanUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * SOAP web service transfer object for appointment archive data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class AppointmentArchiveTransfer {
     private Integer id;
     private Integer appointmentId;

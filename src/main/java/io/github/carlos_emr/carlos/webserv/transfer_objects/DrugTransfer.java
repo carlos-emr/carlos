@@ -35,6 +35,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * SOAP web service transfer object for drug/medication data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public class DrugTransfer {
 
     private Integer id;

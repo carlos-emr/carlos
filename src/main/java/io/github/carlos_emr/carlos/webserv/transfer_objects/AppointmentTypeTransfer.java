@@ -34,6 +34,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 
+/**
+ * SOAP web service transfer object for appointment type data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class AppointmentTypeTransfer {
 
     private Integer id = null;

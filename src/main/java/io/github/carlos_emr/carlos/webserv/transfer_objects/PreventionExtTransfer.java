@@ -33,6 +33,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PreventionExt;
 
+/**
+ * SOAP web service transfer object for prevention extension data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public class PreventionExtTransfer {
 
     private Integer id;

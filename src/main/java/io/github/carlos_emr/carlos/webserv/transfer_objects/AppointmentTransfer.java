@@ -40,6 +40,11 @@ import org.springframework.beans.BeanUtils;
 
 import io.github.carlos_emr.carlos.util.DateUtils;
 
+/**
+ * SOAP web service transfer object for appointment data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class AppointmentTransfer {
 
     private static final TimeZone GMT_TIME_ZONE = TimeZone.getTimeZone("GMT");

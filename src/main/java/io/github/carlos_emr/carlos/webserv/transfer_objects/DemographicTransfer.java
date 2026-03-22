@@ -38,6 +38,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * SOAP web service transfer object for patient demographic data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class DemographicTransfer {
 
     private Integer demographicNo;

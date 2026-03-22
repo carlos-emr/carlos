@@ -35,6 +35,11 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * SOAP web service transfer object for provider property data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class ProviderPropertyTransfer {
 
     private Integer id;

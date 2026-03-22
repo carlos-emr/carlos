@@ -34,6 +34,11 @@ import java.util.List;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 
+/**
+ * SOAP web service transfer object for program-provider assignment data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class ProgramProviderTransfer {
 
     private Long id;

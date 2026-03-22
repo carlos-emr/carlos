@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
+/**
+ * SOAP web service transfer object for login result (extended version) data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class LoginResultTransfer2 {
     private Integer securityId;
     private String securityTokenKey;

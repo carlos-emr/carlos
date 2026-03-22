@@ -34,6 +34,11 @@ package io.github.carlos_emr.carlos.webserv.transfer_objects;
  * @deprecated 2015-01-28
  */
 @Deprecated
+/**
+ * SOAP web service transfer object for login result data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class LoginResultTransfer {
     private Integer securityId;
     private String securityTokenKey;

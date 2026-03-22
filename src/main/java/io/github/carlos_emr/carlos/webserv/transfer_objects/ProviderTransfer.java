@@ -38,6 +38,11 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * SOAP web service transfer object for healthcare provider data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class ProviderTransfer {
     private String providerNo;
     private String comments;

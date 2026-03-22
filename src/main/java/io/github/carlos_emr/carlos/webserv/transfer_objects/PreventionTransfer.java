@@ -40,6 +40,11 @@ import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * SOAP web service transfer object for prevention/immunization data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class PreventionTransfer {
 
     private Integer Id;

@@ -112,18 +112,22 @@ public class ProviderManagerImpl implements ProviderManager {
         return providerDao.getActiveProviders(providerNo, shelterId);
     }
 
+    /** {@inheritDoc} */
     public List<Provider> search(String name) {
         return providerDao.search(name);
     }
 
+    /** {@inheritDoc} */
     public List<ProgramProvider> getProgramDomain(String providerNo) {
         return programProviderDAO.getProgramDomain(providerNo);
     }
 
+    /** {@inheritDoc} */
     public List<ProgramProvider> getProgramDomainByFacility(String providerNo, Integer facilityId) {
         return programProviderDAO.getProgramDomainByFacility(providerNo, facilityId);
     }
 
+    /** {@inheritDoc} */
     public List<Facility> getFacilitiesInProgramDomain(String providerNo) {
         return programProviderDAO.getFacilitiesInProgramDomain(providerNo);
     }

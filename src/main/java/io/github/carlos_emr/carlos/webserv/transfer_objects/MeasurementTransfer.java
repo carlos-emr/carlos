@@ -37,6 +37,11 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import org.springframework.beans.BeanUtils;
 
+/**
+ * SOAP web service transfer object for clinical measurement data in inter-EMR communication.
+ *
+ * @since 2012-08-13
+ */
 public final class MeasurementTransfer {
 
     private Integer id;
