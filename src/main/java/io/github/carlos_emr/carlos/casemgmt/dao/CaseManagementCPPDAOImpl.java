@@ -41,8 +41,12 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
-/*
- * Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061
+/**
+ * Hibernate-based implementation of {@link CaseManagementCPPDAO}. Retrieves CPP records
+ * ordered by update date (most recent first) and normalizes null fields to empty strings
+ * before persisting.
+ *
+ * @since 2026-03-17
  */
 @Transactional
 public class CaseManagementCPPDAOImpl extends AbstractHibernateDao implements CaseManagementCPPDAO {

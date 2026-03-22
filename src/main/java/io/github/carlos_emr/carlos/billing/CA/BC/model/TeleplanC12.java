@@ -39,6 +39,14 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Teleplan C12 (claim rejection/correction) record.
+ * Maps to the {@code teleplanC12} table, storing MSP claim rejection details
+ * including explanation codes, practitioner number, and office folio claim number.
+ * Default status is 'O' (open).
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplanC12")
 public class TeleplanC12 extends AbstractModel<Integer> {
@@ -232,6 +240,11 @@ public class TeleplanC12 extends AbstractModel<Integer> {
         this.status = status;
     }
 
+    /**
+     * Returns all seven explanation codes as a string array for convenient iteration.
+     *
+     * @return String[] array containing exp1 through exp7 values
+     */
     public String[] getExps() {
         return new String[]{getExp1(), getExp2(), getExp3(), getExp4(), getExp5(), getExp6(), getExp7()};
     }

@@ -28,7 +28,16 @@
 package io.github.carlos_emr.carlos.match;
 
 /**
- * @author AnooshTech
+ * Service interface for processing vacancy-client matching events in the program
+ * management module.
+ *
+ * <p>Defines the contract for matching clients (patients) to program vacancies
+ * based on configurable criteria. Implementations handle different event types
+ * such as new client creation, vacancy creation, and scheduled matching runs.</p>
+ *
+ * @see MatchManager
+ * @see MatchManagerException
+ * @since 2026-03-17
  */
 public interface IMatchManager {
     /**

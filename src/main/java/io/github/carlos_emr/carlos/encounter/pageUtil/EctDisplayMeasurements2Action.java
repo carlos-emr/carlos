@@ -54,6 +54,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 
+/**
+ * Displays clinical measurement entries (vitals, lab values) for a patient
+ * in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayMeasurements2Action extends EctDisplayAction {
     private static final String cmd = "measurements";
     FlowsheetDao flowsheetDao = (FlowsheetDao) SpringUtils.getBean(FlowsheetDao.class);

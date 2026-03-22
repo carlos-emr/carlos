@@ -36,10 +36,33 @@ import java.util.List;
 import io.github.carlos_emr.carlos.managers.model.ServiceType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing billing service types in the CARLOS EMR system.
+ *
+ * <p>Provides access to unique billing service type records used in the
+ * Canadian provincial healthcare billing subsystem (BC Teleplan, Ontario OHIP).</p>
+ *
+ * @see BillingManagerImpl
+ * @see io.github.carlos_emr.carlos.managers.model.ServiceType
+ * @since 2026-03-17
+ */
 public interface BillingManager {
 
+    /**
+     * Retrieves all unique billing service types.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @return List of ServiceType representing all unique service types
+     */
     public List<ServiceType> getUniqueServiceTypes(LoggedInInfo loggedInInfo);
 
+    /**
+     * Retrieves unique billing service types filtered by type category.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param type String the service type category to filter by
+     * @return List of ServiceType matching the specified type
+     */
     public List<ServiceType> getUniqueServiceTypes(LoggedInInfo loggedInInfo, String type);
 }
 

@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+/**
+ * String utility class providing methods for truncation, splitting, joining, null-safe
+ * comparison, numeric/date validation, line break normalization, and CSV generation.
+ *
+ * @since 2001-01-01
+ */
 public class StringUtils {
 
     private static Logger logger = MiscUtils.getLogger();

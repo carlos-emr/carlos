@@ -38,7 +38,17 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
 /**
- * @author Marc Dumontier
+ * Service interface for managing eForm report tool configurations in the
+ * CARLOS EMR system.
+ *
+ * <p>The eForm report tool extracts submitted eForm data into reportable
+ * tables, supporting population-level analysis of eForm responses.
+ * Operations include creating report definitions, populating report
+ * data tables, and marking the latest form submissions per demographic.</p>
+ *
+ * @see EFormReportToolManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.EFormReportTool
+ * @since 2026-03-17
  */
 public interface EFormReportToolManager {
 

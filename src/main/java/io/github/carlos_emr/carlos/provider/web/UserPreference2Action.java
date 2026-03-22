@@ -53,6 +53,21 @@ import java.io.InputStream;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import java.util.*;
 
+/**
+ * Struts2 action for the legacy provider preferences page.
+ *
+ * <p>Manages a wide range of provider-configurable settings including schedule hours,
+ * prescription defaults (Rx3, page size, DOB display), clinical defaults (sex, HC type),
+ * encounter form selections, eForm favorites, consultation team warnings, workload management,
+ * and password changes. Preferences are stored as {@link UserProperty} records keyed by
+ * {@code "pref.<property_name>"}.</p>
+ *
+ * <p>Also provides static utility methods for constructing HTML form elements (selects,
+ * checkboxes) used by the preference JSP views, and reference data lists for Canadian
+ * provinces, billing service types, schedule periods, and provider teams.</p>
+ *
+ * @since 2026-03-17
+ */
 public class UserPreference2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -75,6 +90,13 @@ public class UserPreference2Action extends ActionSupport {
         defaults.put("pref." + UserProperty.RX_USE_RX3, "yes");
     }
 
+    /**
+     * Retrieves a request parameter, returning an empty string if the parameter is absent.
+     *
+     * @param request {@link HttpServletRequest} the current HTTP request
+     * @param name String the parameter name to retrieve
+     * @return String the parameter value, or empty string if null
+     */
     public String getParameter(HttpServletRequest request, String name) {
         String val = request.getParameter(name);
         if (val == null) {
@@ -84,6 +106,9 @@ public class UserPreference2Action extends ActionSupport {
     }
 
 
+    /**
+     * Loads site-level preference defaults from the {@code /WEB-INF/classes/pref.defaults} file.
+     */
     protected void init() {
         try {
             InputStream in = ServletActionContext.getServletContext().getResourceAsStream("/WEB-INF/classes/pref.defaults");
@@ -102,6 +127,12 @@ public class UserPreference2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Dispatches to {@link #saveGeneral()} if the {@code method} parameter is {@code "saveGeneral"},
+     * otherwise displays the preference form via {@link #form()}.
+     *
+     * @return String the Struts2 result name
+     */
     @Override
     public String execute() {
         if ("saveGeneral".equals(request.getParameter("method"))) {
@@ -110,6 +141,14 @@ public class UserPreference2Action extends ActionSupport {
         return form();
     }
 
+    /**
+     * Prepares the preference form by loading default, site, and provider-specific preferences.
+     *
+     * <p>Merges preferences in order of priority: code defaults, site defaults from
+     * {@code pref.defaults}, then provider-specific values from the database.</p>
+     *
+     * @return String {@code "form"} to render the preferences JSP
+     */
     public String form() {
         if (!inited) init();
         Map<String, String> prefs = new HashMap<String, String>();
@@ -127,6 +166,16 @@ public class UserPreference2Action extends ActionSupport {
         return "form";
     }
 
+    /**
+     * Saves all submitted preferences and optionally processes a password change.
+     *
+     * <p>Iterates over all request parameters prefixed with {@code "pref."}, persisting each
+     * as a {@link UserProperty}. Multi-value parameters (encounter forms, eForms) are
+     * comma-joined before saving. If a new password is provided, delegates to
+     * {@link #changePassword(HttpServletRequest)}.</p>
+     *
+     * @return String the result from {@link #form()} to re-display with updated values
+     */
     public String saveGeneral() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -194,6 +243,13 @@ public class UserPreference2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Generates HTML {@code name} and {@code value} attributes for a text input from the preferences map.
+     *
+     * @param prefs Map&lt;String, String&gt; the current preferences
+     * @param key String the preference key
+     * @return String HTML attributes in the form {@code name="key" value="value"}
+     */
     public static String getTextData(Map<String, String> prefs, String key) {
         String val = prefs.get(key);
         if (val == null) {

@@ -42,11 +42,27 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
+/**
+ * Role-based access control utility for checking security object privileges.
+ * Queries the {@link SecObjPrivilegeDao} to retrieve privilege definitions and evaluates
+ * whether a given role name has the required access rights (read, write, execute, etc.)
+ * for specified security objects.
+ *
+ * @since 2005-01-01
+ */
 public class OscarRoleObjectPrivilege {
 
     private static PageContext pageContext;
     private static String rights = "r";
 
+    /**
+     * Retrieves privilege properties for the specified security object name(s).
+     * Returns a vector containing: [0] Properties of role-to-privilege mappings,
+     * [1] Vector of role names, [2] ArrayList of priority values.
+     *
+     * @param objName String comma-separated security object names
+     * @return Vector containing privilege properties, role names, and priorities
+     */
     public static Vector<Object> getPrivilegeProp(String objName) {
         Properties prop = new Properties();
         Vector<String> roleInObj = new Vector<String>();
@@ -67,6 +83,14 @@ public class OscarRoleObjectPrivilege {
         return ret;
     }
 
+    /**
+     * Retrieves privilege properties for the specified security object name(s) as an ArrayList.
+     * Returns a list containing: [0] Properties of role-to-privilege mappings,
+     * [1] ArrayList of role names.
+     *
+     * @param objName String comma-separated security object names
+     * @return ArrayList containing privilege properties and role names
+     */
     public static ArrayList<Object> getPrivilegePropAsArrayList(String objName) {
         ArrayList<Object> ret = new ArrayList<Object>();
         Properties prop = new Properties();
@@ -124,14 +148,42 @@ public class OscarRoleObjectPrivilege {
     }
 
 
+    /**
+     * Checks if the given role has read privilege for the specified security objects.
+     *
+     * @param roleName String comma-separated role names for the provider
+     * @param propPrivilege Properties the role-to-privilege mappings
+     * @param roleInObj List of role names associated with the security objects
+     * @return boolean true if the role has read privilege
+     */
     public static boolean checkPrivilege(String roleName, Properties propPrivilege, List<String> roleInObj) {
         return checkPrivilege(roleName, propPrivilege, roleInObj, rights);
     }
 
+    /**
+     * Checks if the given role has the specified privilege for the security objects.
+     *
+     * @param roleName String comma-separated role names for the provider
+     * @param propPrivilege Properties the role-to-privilege mappings
+     * @param roleInObj List of role names associated with the security objects
+     * @param rightCustom String the required right level (e.g., "r", "w", "x")
+     * @return boolean true if the role has the required privilege
+     */
     public static boolean checkPrivilege(String roleName, Properties propPrivilege, List<String> roleInObj, String rightCustom) {
         return checkPrivilege(roleName, propPrivilege, roleInObj, null, rightCustom);
     }
 
+    /**
+     * Checks if the given role has the specified privilege, respecting priority ordering.
+     * Higher-priority roles are evaluated first and can override lower-priority ones.
+     *
+     * @param roleName String comma-separated role names for the provider
+     * @param propPrivilege Properties the role-to-privilege mappings
+     * @param roleInObj List of role names associated with the security objects
+     * @param priority List of priority values corresponding to roleInObj entries (may be null)
+     * @param rightCustom String the required right level (e.g., "r", "w", "x")
+     * @return boolean true if the role has the required privilege
+     */
     public static boolean checkPrivilege(String roleName, Properties propPrivilege, List<String> roleInObj, List<String> priority, String rightCustom) {
         boolean ret = false;
         Properties propRoleName = getVecRole(roleName);
@@ -175,6 +227,11 @@ public class OscarRoleObjectPrivilege {
         return ret;
     }
 
+    /**
+     * Returns the Spring {@link ApplicationContext} from the servlet context.
+     *
+     * @return ApplicationContext the web application context
+     */
     public ApplicationContext getAppContext() {
         return WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext());
     }

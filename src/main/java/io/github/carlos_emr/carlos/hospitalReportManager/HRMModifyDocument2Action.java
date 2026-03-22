@@ -40,6 +40,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 method-based action for modifying HRM documents.
+ *
+ * <p>Routes to different operations via the "method" request parameter, supporting:
+ * makeIndependent, signOff, assignProvider, removeDemographic, assignDemographic,
+ * makeActiveSubClass, removeProvider, addComment, deleteComment, setDescription,
+ * and updateCategory. All operations require {@code _hrm} write privilege and
+ * return AJAX-compatible results.</p>
+ *
+ * @see HRMDocument
+ * @since 2008-11-05
+ */
 public class HRMModifyDocument2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -51,6 +63,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Dispatches to the appropriate modification method based on the "method" request parameter.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String execute() {
         String method = request.getParameter("method");
 
@@ -86,6 +104,13 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Detaches an HRM document from its parent-child report chain,
+     * reassigning children to a new parent if this was the parent document.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String makeIndependent() {
         String reportId = request.getParameter("reportId");
 
@@ -127,6 +152,13 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Signs off one or more HRM reports for the currently logged-in provider,
+     * updating the signed-off status and timestamp.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String signOff() {
         String[] reportIds = request.getParameterValues("reportId");
 
@@ -174,6 +206,13 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Assigns an HRM document to a provider and applies any applicable
+     * incoming lab forwarding rules. Removes unclaimed ("-1") entries.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String assignProvider() {
         //Gets the Dao for incoming lab rules
         IncomingLabRulesDao incomingLabRulesDao = SpringUtils.getBean(IncomingLabRulesDao.class);
@@ -234,6 +273,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Removes all demographic (patient) associations from an HRM document.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String removeDemographic() {
         String hrmDocumentId = request.getParameter("reportId");
 
@@ -260,6 +305,13 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
     }
 
+    /**
+     * Assigns an HRM document to a new demographic (patient), replacing any
+     * existing demographic association.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String assignDemographic() {
         String hrmDocumentId = request.getParameter("reportId");
         String demographicNo = request.getParameter("demographicNo");
@@ -298,6 +350,13 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Sets a specific sub-class as the active one for an HRM document,
+     * deactivating all other sub-classes.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String makeActiveSubClass() {
         String hrmDocumentId = request.getParameter("reportId");
         String subClassId = request.getParameter("subClassId");
@@ -326,6 +385,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Removes a provider association from an HRM document by mapping ID.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String removeProvider() {
         String providerMappingId = request.getParameter("providerMappingId");
 
@@ -345,6 +410,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Adds a comment to an HRM document from the currently logged-in provider.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String addComment() {
         String documentId = request.getParameter("reportId");
         String commentString = request.getParameter("comment");
@@ -373,6 +444,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Deletes a comment from an HRM document by comment ID.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String deleteComment() {
         String commentId = request.getParameter("commentId");
 
@@ -391,6 +468,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Sets a custom description on an HRM document.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String setDescription() {
         String documentId = request.getParameter("reportId");
         String descriptionString = request.getParameter("description");
@@ -418,6 +501,12 @@ public class HRMModifyDocument2Action extends ActionSupport {
         return "ajax";
     }
 
+    /**
+     * Updates the category assignment for an HRM document.
+     *
+     * @return String "ajax" result name
+     * @throws SecurityException if the provider lacks {@code _hrm} write privilege
+     */
     public String updateCategory() {
         String hrmDocumentId = request.getParameter("reportId");
 

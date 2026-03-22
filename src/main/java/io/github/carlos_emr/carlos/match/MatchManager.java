@@ -36,7 +36,16 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author AnooshTech
+ * Default implementation of {@link IMatchManager} that processes vacancy-client matching
+ * events by delegating to the {@link Matcher} engine and persisting results.
+ *
+ * <p>Handles three event types: client creation (matches new client to existing vacancies),
+ * vacancy creation (matches new vacancy to existing waitlisted clients), and scheduled
+ * events (placeholder for future batch processing).</p>
+ *
+ * @see IMatchManager
+ * @see Matcher
+ * @since 2026-03-17
  */
 public class MatchManager implements IMatchManager {
 
@@ -69,6 +78,7 @@ public class MatchManager implements IMatchManager {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public <E> String processEvent(E entity, Event event) throws MatchManagerException {
         switch (event) {

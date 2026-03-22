@@ -53,6 +53,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that provides JSON-based diagnosis code search endpoints.
+ *
+ * <p>Routes requests via the {@code method} parameter to search ICD-9, ICD-10,
+ * or MSP diagnostic codes, validate codes against a coding system, or retrieve
+ * code descriptions. All responses are returned as JSON.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxCodeSearchJSON2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -60,6 +69,13 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Routes the request to the appropriate search method based on the {@code method}
+     * request parameter. Supported methods: searchICD9, searchICD10, searchMSP,
+     * validateCode, getDescription.
+     *
+     * @return String {@code null} for JSON responses written directly to the response
+     */
     public String execute() {
         String method = request.getParameter("method");
         if ("searchICD9".equals(method)) {
@@ -77,6 +93,11 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         
     }
 
+    /**
+     * Searches ICD-9 codes by keyword and writes the matching results as JSON.
+     *
+     * @return String always {@code null} (response written directly)
+     */
     @SuppressWarnings("unused")
     public String searchICD9() {
 
@@ -96,6 +117,11 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Searches ICD-10 codes by keyword and writes the matching results as JSON.
+     *
+     * @return String always {@code null} (response written directly)
+     */
     @SuppressWarnings("unused")
     public String searchICD10() {
 
@@ -140,6 +166,12 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Validates whether a diagnosis code exists in the specified coding system.
+     * Writes a JSON object with a {@code dxvalid} boolean field.
+     *
+     * @return String always {@code null} (response written directly)
+     */
     @SuppressWarnings("unused")
     public String validateCode() {
 
@@ -163,6 +195,12 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves the description for a diagnosis code in the specified coding system.
+     * Writes a JSON object with {@code dxvalid}, {@code description}, and {@code code} fields.
+     *
+     * @return String always {@code null} (response written directly)
+     */
     @SuppressWarnings("unused")
     public String getDescription() {
 

@@ -41,6 +41,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Displays internal messages for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayMsg2Action extends EctDisplayAction {
 
     private static final String cmd = "msgs";

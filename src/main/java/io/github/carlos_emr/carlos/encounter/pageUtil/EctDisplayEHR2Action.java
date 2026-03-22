@@ -32,6 +32,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+/**
+ * Placeholder action for external EHR integration display in the encounter left navbar.
+ * Previously handled ClinicalConnect integration; currently returns empty content.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayEHR2Action extends EctDisplayAction {
 
     private static final String cmd = "ehr";

@@ -48,12 +48,27 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that loads the items of a named diagnosis quick list into the session.
+ *
+ * <p>Used to populate the quick list items panel when a user selects a different
+ * quick list in the diagnosis research UI. Requires {@code _dxresearch} read privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchLoadQuickListItems2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Loads quick list items into the HTTP session for the specified quick list name.
+     *
+     * @return String "success" on successful load
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if an I/O error occurs
+     */
     public String execute()
             throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
@@ -78,10 +93,20 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
 
     private String quickListName;
 
+    /**
+     * Returns the quick list name to load.
+     *
+     * @return String the quick list name
+     */
     public String getQuickListName() {
         return quickListName;
     }
 
+    /**
+     * Sets the quick list name to load.
+     *
+     * @param quickListName String the quick list name
+     */
     @StrutsParameter
     public void setQuickListName(String quickListName) {
         this.quickListName = quickListName;

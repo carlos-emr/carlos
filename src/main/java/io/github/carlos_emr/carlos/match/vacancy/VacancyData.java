@@ -34,33 +34,71 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * @author AnooshTech
+ * Data transfer object holding the matching criteria for a program vacancy.
+ *
+ * <p>Contains the vacancy and program identifiers along with a map of template data
+ * entries keyed by parameter name. Each {@link VacancyTemplateData} entry defines
+ * the matching criteria (values, ranges, weights) for a specific vacancy attribute.</p>
+ *
+ * @see VacancyTemplateData
+ * @see Matcher
+ * @since 2026-03-17
  */
 public class VacancyData {
     private int vacancy_id;
     private int program_id;
     private Map<String, VacancyTemplateData> vacancyData = new HashMap<String, VacancyTemplateData>();
 
+    /**
+     * Returns the vacancy identifier.
+     *
+     * @return int the vacancy identifier
+     */
     public int getVacancy_id() {
         return vacancy_id;
     }
 
+    /**
+     * Sets the vacancy identifier.
+     *
+     * @param vacancy_id int the vacancy identifier to set
+     */
     public void setVacancy_id(int vacancy_id) {
         this.vacancy_id = vacancy_id;
     }
 
+    /**
+     * Returns the program identifier associated with this vacancy.
+     *
+     * @return int the program identifier
+     */
     public int getProgram_id() {
         return program_id;
     }
 
+    /**
+     * Sets the program identifier associated with this vacancy.
+     *
+     * @param program_id int the program identifier to set
+     */
     public void setProgram_id(int program_id) {
         this.program_id = program_id;
     }
 
+    /**
+     * Returns the map of vacancy matching criteria keyed by parameter name.
+     *
+     * @return Map of String parameter names to {@link VacancyTemplateData} criteria
+     */
     public Map<String, VacancyTemplateData> getVacancyData() {
         return vacancyData;
     }
 
+    /**
+     * Sets the map of vacancy matching criteria.
+     *
+     * @param vacancyData Map of String parameter names to {@link VacancyTemplateData} criteria
+     */
     public void setVacancyData(Map<String, VacancyTemplateData> vacancyData) {
         this.vacancyData = vacancyData;
     }

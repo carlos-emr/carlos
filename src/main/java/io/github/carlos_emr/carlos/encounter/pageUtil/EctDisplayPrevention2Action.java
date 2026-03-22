@@ -41,6 +41,11 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
 
+/**
+ * Displays immunization and prevention entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayPrevention2Action extends EctDisplayAction {
     private static final String cmd = "preventions";
 

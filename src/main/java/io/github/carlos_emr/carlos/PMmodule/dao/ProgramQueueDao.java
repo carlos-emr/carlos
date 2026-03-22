@@ -35,16 +35,67 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue;
 
+/**
+ * Data access interface for managing {@link ProgramQueue} entities that represent
+ * client queue entries for program admission.
+ *
+ * @since 2005-01-18
+ * @see ProgramQueue
+ * @see ProgramQueueDaoImpl
+ */
 public interface ProgramQueueDao {
+
+    /**
+     * Retrieves a program queue entry by its ID.
+     *
+     * @param queueId Long the queue entry ID
+     * @return ProgramQueue the queue entry, or {@code null} if not found
+     * @throws IllegalArgumentException if queueId is {@code null} or not positive
+     */
     public ProgramQueue getProgramQueue(Long queueId);
 
+    /**
+     * Retrieves all queue entries for a specific program, ordered by ID.
+     *
+     * @param programId Long the program ID
+     * @return List&lt;ProgramQueue&gt; queue entries for the program
+     * @throws IllegalArgumentException if programId is {@code null}
+     */
     public List<ProgramQueue> getProgramQueuesByProgramId(Long programId);
 
+    /**
+     * Retrieves active queue entries for a program, ordered by referral date.
+     *
+     * @param programId Long the program ID
+     * @return List&lt;ProgramQueue&gt; active queue entries
+     * @throws IllegalArgumentException if programId is {@code null}
+     */
     public List<ProgramQueue> getActiveProgramQueuesByProgramId(Long programId);
 
+    /**
+     * Saves or updates a program queue entry.
+     *
+     * @param programQueue ProgramQueue the queue entry to persist
+     */
     public void saveProgramQueue(ProgramQueue programQueue);
 
+    /**
+     * Retrieves a queue entry by program and client IDs.
+     *
+     * @param programId Long the program ID
+     * @param clientId Long the client demographic ID
+     * @return ProgramQueue the queue entry, or {@code null} if not found
+     * @throws IllegalArgumentException if either parameter is {@code null}
+     */
     public ProgramQueue getQueue(Long programId, Long clientId);
 
+    /**
+     * Retrieves an active queue entry for a client in a specific program.
+     *
+     * @param programId Long the program ID
+     * @param demographicNo Long the demographic number of the client
+     * @return ProgramQueue the active queue entry, or {@code null} if not found
+     * @throws IllegalArgumentException if parameters are invalid
+     */
     public ProgramQueue getActiveProgramQueue(Long programId, Long demographicNo);
 }

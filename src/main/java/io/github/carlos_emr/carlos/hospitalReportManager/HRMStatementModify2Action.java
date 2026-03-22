@@ -24,6 +24,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for creating or updating a provider's confidentiality statement
+ * that is appended to printed HRM reports.
+ *
+ * <p>Reads the "statement" request parameter and persists it via
+ * {@link HRMProviderConfidentialityStatementDao}. Sets a "statementSuccess" request
+ * attribute indicating whether the operation succeeded.</p>
+ *
+ * @see HRMProviderConfidentialityStatement
+ * @since 2008-11-05
+ */
 public class HRMStatementModify2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -31,6 +42,11 @@ public class HRMStatementModify2Action extends ActionSupport {
 
     HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 
+    /**
+     * Saves or updates the confidentiality statement for the currently logged-in provider.
+     *
+     * @return String {@link ActionSupport#SUCCESS} on completion
+     */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

@@ -42,6 +42,13 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that restores a previously deleted eForm template, making it
+ * available again in the eForm library. Requires {@code _eform} write privilege.
+ *
+ * @see EFormUtil#restoreEForm(String)
+ * @since 2006-05-25
+ */
 public class RestoreEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -49,6 +56,12 @@ public class RestoreEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Restores the eForm template identified by the {@code fid} request parameter.
+     *
+     * @return String {@code SUCCESS} result name
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

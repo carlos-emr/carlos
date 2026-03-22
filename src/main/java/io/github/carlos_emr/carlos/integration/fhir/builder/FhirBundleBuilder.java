@@ -82,6 +82,15 @@ import io.github.carlos_emr.carlos.integration.fhir.model.Sender;
  * 
  */
 
+/**
+ * Builds a FHIR Bundle message of type MESSAGE containing a MessageHeader and entries.
+ *
+ * <p>Extends {@link AbstractFhirMessageBuilder} to produce a Bundle wrapper where each
+ * resource is added as a bundle entry. The MessageHeader is automatically inserted
+ * as the first entry upon construction.</p>
+ *
+ * @since 2026-03-17
+ */
 public class FhirBundleBuilder extends AbstractFhirMessageBuilder<Bundle> {
 
     /**
@@ -101,11 +110,21 @@ public class FhirBundleBuilder extends AbstractFhirMessageBuilder<Bundle> {
         setBundle(new Bundle());
     }
 
+    /**
+     * Constructs a bundle builder using the configuration manager's Sender and Destination.
+     *
+     * @param configurationManager the FHIR configuration manager providing sender and destination
+     */
     public FhirBundleBuilder(OscarFhirConfigurationManager configurationManager) {
         super(configurationManager);
         setBundle(new Bundle());
     }
 
+    /**
+     * Returns the assembled FHIR Bundle.
+     *
+     * @return Bundle the FHIR Bundle resource containing all added entries
+     */
     public Bundle getBundle() {
         return getWrapper();
     }

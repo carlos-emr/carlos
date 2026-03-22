@@ -72,6 +72,19 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
+/**
+ * Spring service implementation of {@link ScheduleManager} for provider schedule
+ * and appointment management.
+ *
+ * <p>Coordinates between schedule-related DAOs (schedule dates, templates, holidays,
+ * appointments) to build day-level work schedules and manage appointment lifecycle
+ * operations. All patient-data access is audit-logged via {@link LogAction}.</p>
+ *
+ * <p>Includes consent-aware filtering for inter-EMR data sharing scenarios
+ * and double-booking detection for appointment conflict resolution.</p>
+ *
+ * @since 2026-03-17
+ */
 @Service
 public class ScheduleManagerImpl implements ScheduleManager {
 

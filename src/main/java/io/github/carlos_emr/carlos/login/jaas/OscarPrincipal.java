@@ -33,24 +33,53 @@ import java.security.Principal;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 
 /**
- * Adapter class for bridging OSCAR providers to the JAAS principal.
+ * JAAS Principal adapter that bridges CARLOS EMR providers to the JAAS security framework.
+ *
+ * <p>Extends {@link Provider} to inherit provider data while implementing {@link Principal}
+ * for integration with JAAS Subject authentication. Used by {@link BaseLoginModule} and
+ * {@link LdapLoginModule} to represent authenticated providers.
+ *
+ * @see OscarRole
+ * @see OscarGroup
+ * @since 2026-03-17
  */
 public class OscarPrincipal extends Provider implements Principal {
 
     private String name;
 
+    /** Default constructor. */
     public OscarPrincipal() {
         super();
     }
 
+    /**
+     * Constructs an OscarPrincipal by copying fields from an existing Provider.
+     *
+     * @param provider Provider the provider to copy from
+     */
     public OscarPrincipal(Provider provider) {
         super(provider);
     }
 
+    /**
+     * Constructs an OscarPrincipal with the specified provider fields.
+     *
+     * @param providerNo String the provider number
+     * @param lastName String the provider's last name
+     * @param providerType String the provider type
+     * @param sex String the provider's sex
+     * @param specialty String the provider's specialty
+     * @param firstName String the provider's first name
+     */
     public OscarPrincipal(String providerNo, String lastName, String providerType, String sex, String specialty, String firstName) {
         super(providerNo, lastName, providerType, sex, specialty, firstName);
     }
 
+    /**
+     * Constructs an OscarPrincipal with just the provider number.
+     *
+     * @param providerNo String the provider number
+     */
     public OscarPrincipal(String providerNo) {
         super(providerNo);
     }
@@ -60,6 +89,11 @@ public class OscarPrincipal extends Provider implements Principal {
         return name;
     }
 
+    /**
+     * Sets the principal name (typically the login username).
+     *
+     * @param name String the principal name
+     */
     public void setName(String name) {
         this.name = name;
     }

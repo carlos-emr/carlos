@@ -45,6 +45,11 @@ import java.net.URLEncoder;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Displays tickler (reminder) entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayTickler2Action extends EctDisplayAction {
     private static final String cmd = "tickler";
 

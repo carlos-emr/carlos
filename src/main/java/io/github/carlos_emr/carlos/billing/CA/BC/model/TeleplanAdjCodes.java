@@ -39,6 +39,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a Teleplan adjustment code in the BC MSP billing system.
+ * Maps to the {@code teleplan_adj_codes} table, providing a lookup of adjustment
+ * codes and their descriptions used in remittance processing.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "teleplan_adj_codes")
 public class TeleplanAdjCodes extends AbstractModel<Integer> {

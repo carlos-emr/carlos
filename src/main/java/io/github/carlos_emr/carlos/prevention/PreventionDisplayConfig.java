@@ -93,6 +93,11 @@ public class PreventionDisplayConfig {
         // use getInstance()
     }
 
+    /**
+     * Returns the singleton instance, loading prevention definitions on first access.
+     *
+     * @return PreventionDisplayConfig the singleton instance
+     */
     static public PreventionDisplayConfig getInstance() {
         if (preventionDisplayConfig.prevList == null) {
             preventionDisplayConfig.loadPreventions();
@@ -100,6 +105,11 @@ public class PreventionDisplayConfig {
         return preventionDisplayConfig;
     }
 
+    /**
+     * Returns all configured prevention types as a list of attribute maps.
+     *
+     * @return ArrayList&lt;HashMap&lt;String, String&gt;&gt; the prevention type definitions
+     */
     public ArrayList<HashMap<String, String>> getPreventions() {
         if (prevList == null) {
             loadPreventions();
@@ -107,6 +117,12 @@ public class PreventionDisplayConfig {
         return prevList;
     }
 
+    /**
+     * Returns the prevention definition for the given prevention type name.
+     *
+     * @param s String the prevention type name (e.g., "Flu", "DTaP-IPV")
+     * @return HashMap&lt;String, String&gt; the attribute map, or {@code null} if not found
+     */
     public HashMap<String, String> getPrevention(String s) {
         if (prevHash == null) {
             loadPreventions();
@@ -115,6 +131,11 @@ public class PreventionDisplayConfig {
         return prevHash.get(s);
     }
 
+    /**
+     * Loads prevention type definitions from the XML configuration file and merges
+     * with Canadian Vaccine Catalogue (CVC) entries. Sources are checked in order:
+     * the {@code PREVENTION_ITEMS} property, then the classpath default.
+     */
     public void loadPreventions() {
         prevList = new ArrayList<HashMap<String, String>>();
         prevHash = new HashMap<String, HashMap<String, String>>();
@@ -201,6 +222,11 @@ public class PreventionDisplayConfig {
     }
 
 
+    /**
+     * Returns all prevention configuration sets (age/sex display filter groups).
+     *
+     * @return ArrayList&lt;Map&lt;String, Object&gt;&gt; the configuration sets
+     */
     public ArrayList<Map<String, Object>> getConfigurationSets() {
         log.debug("returning config sets");
         if (configList == null) {
@@ -211,6 +237,11 @@ public class PreventionDisplayConfig {
     }
 
 
+    /**
+     * Loads prevention configuration sets from the XML configuration file.
+     * Sources are checked in order: the {@code PREVENTION_CONFIG_SETS} property,
+     * then the classpath default.
+     */
     public void loadConfigurationSets() {
         getPreventions();
         configHash = new HashMap<String, Map<String, Object>>();
@@ -262,6 +293,15 @@ public class PreventionDisplayConfig {
     }
 
 
+    /**
+     * Returns a CSS display style attribute based on whether the patient matches
+     * the age and sex criteria defined in the configuration set.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param setHash Map&lt;String, Object&gt; the configuration set with minAge, maxAge, sex keys
+     * @param Demographic_no String the patient's demographic number
+     * @return String empty string if visible, or {@code style="display:none;"} if hidden
+     */
     public String getDisplay(LoggedInInfo loggedInInfo, Map<String, Object> setHash, String Demographic_no) {
         String display = "style=\"display:none;\"";
         DemographicData dData = new DemographicData();
@@ -318,6 +358,16 @@ public class PreventionDisplayConfig {
         return display;
     }
 
+    /**
+     * Determines whether a prevention item should be displayed for the given patient,
+     * considering age, sex, minimum record count, and hidden-item configuration.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in session context
+     * @param setHash Map&lt;String, String&gt; the prevention item attributes
+     * @param Demographic_no String the patient's demographic number
+     * @param numberOfPrevs int the number of existing prevention records for this type
+     * @return boolean {@code true} if the prevention item should be displayed
+     */
     public boolean display(LoggedInInfo loggedInInfo, Map<String, String> setHash, String Demographic_no, int numberOfPrevs) {
         boolean display = false;
         PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);

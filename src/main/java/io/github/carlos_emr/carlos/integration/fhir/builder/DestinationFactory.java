@@ -33,12 +33,32 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.Settings;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
+/**
+ * Factory for creating {@link Destination} objects from FHIR destination configuration.
+ *
+ * <p>Resolves destination name and endpoint URL from {@link FhirDestination} enums
+ * or {@link Settings} objects.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class DestinationFactory {
 
+    /**
+     * Creates a Destination from a FhirDestination enum constant.
+     *
+     * @param destination the FHIR destination enum providing title and endpoint
+     * @return Destination configured with the enum's title and endpoint
+     */
     public static final Destination getDestination(FhirDestination destination) {
         return new Destination(destination.title(), destination.endpoint());
     }
 
+    /**
+     * Creates a Destination from a Settings object.
+     *
+     * @param settings the FHIR settings containing destination configuration, or {@code null}
+     * @return Destination configured from settings, or an empty-named destination if settings is null
+     */
     public static final Destination getDestination(Settings settings) {
         FhirDestination destination = null;
         String title = "";

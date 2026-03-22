@@ -43,6 +43,11 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.*;
 
+/**
+ * Displays electronic form (eForm) entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayEForm2Action extends EctDisplayAction {
     private static Logger logger = MiscUtils.getLogger();
     //private final static String BGCOLOUR = "11CC00";

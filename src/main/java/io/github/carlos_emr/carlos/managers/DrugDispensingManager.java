@@ -32,7 +32,21 @@
 package io.github.carlos_emr.carlos.managers;
 
 
+/**
+ * Service interface for querying drug dispensing status in the CARLOS EMR system.
+ *
+ * <p>Provides dispensing state information for prescribed medications.</p>
+ *
+ * @see DrugDispensingManagerImpl
+ * @since 2026-03-17
+ */
 public interface DrugDispensingManager {
 
+    /**
+     * Retrieves the current dispensing status for a drug prescription.
+     *
+     * @param drugId Integer the drug prescription identifier
+     * @return String the dispensing status code
+     */
     public String getStatus(Integer drugId);
 }

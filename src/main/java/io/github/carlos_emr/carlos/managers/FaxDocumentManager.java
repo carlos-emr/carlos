@@ -40,6 +40,18 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
+/**
+ * Service interface for rendering clinical documents into fax-ready PDF format
+ * and generating fax cover pages in the CARLOS EMR system.
+ *
+ * <p>Supports rendering eForms, clinical forms, and generating cover pages
+ * with clinic branding and recipient/sender details for outbound fax
+ * transmissions.</p>
+ *
+ * @see FaxDocumentManagerImpl
+ * @see FaxManager
+ * @since 2026-03-17
+ */
 public interface FaxDocumentManager {
 
     //	@Autowired

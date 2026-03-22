@@ -37,30 +37,103 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 
 /**
+ * Data access interface for managing {@link ProgramClientRestriction} entities that
+ * control client access restrictions to specific programs.
  *
+ * <p>Restrictions can be scoped by program, client (demographic), or facility,
+ * and can be enabled or disabled. Each restriction is hydrated with related
+ * client, program, and provider objects.</p>
+ *
+ * @since 2005-05-28
+ * @see ProgramClientRestriction
+ * @see ProgramClientRestrictionDAOImpl
  */
 public interface ProgramClientRestrictionDAO {
 
+    /**
+     * Finds enabled restrictions for a specific program and client.
+     *
+     * @param programId int the program ID
+     * @param demographicNo int the demographic number of the client
+     * @return Collection&lt;ProgramClientRestriction&gt; matching enabled restrictions
+     */
     public Collection<ProgramClientRestriction> find(int programId, int demographicNo);
 
+    /**
+     * Saves or updates a client restriction record.
+     *
+     * @param restriction ProgramClientRestriction the restriction to persist
+     */
     public void save(ProgramClientRestriction restriction);
 
+    /**
+     * Finds a restriction by its unique identifier.
+     *
+     * @param restrictionId int the restriction ID
+     * @return ProgramClientRestriction the restriction, or {@code null} if not found
+     */
     public ProgramClientRestriction find(int restrictionId);
 
+    /**
+     * Finds all enabled restrictions for a specific program.
+     *
+     * @param programId int the program ID
+     * @return Collection&lt;ProgramClientRestriction&gt; enabled restrictions ordered by demographic number
+     */
     public Collection<ProgramClientRestriction> findForProgram(int programId);
 
+    /**
+     * Finds all disabled restrictions for a specific program.
+     *
+     * @param programId int the program ID
+     * @return Collection&lt;ProgramClientRestriction&gt; disabled restrictions ordered by demographic number
+     */
     public Collection<ProgramClientRestriction> findDisabledForProgram(int programId);
 
+    /**
+     * Finds all enabled restrictions for a specific client.
+     *
+     * @param demographicNo int the demographic number of the client
+     * @return Collection&lt;ProgramClientRestriction&gt; enabled restrictions ordered by program ID
+     */
     public Collection<ProgramClientRestriction> findForClient(int demographicNo);
 
+    /**
+     * Finds all enabled restrictions for a client within a specific facility.
+     *
+     * @param demographicNo int the demographic number of the client
+     * @param facilityId int the facility ID
+     * @return Collection&lt;ProgramClientRestriction&gt; enabled restrictions ordered by program ID
+     */
     public Collection<ProgramClientRestriction> findForClient(int demographicNo, int facilityId);
 
+    /**
+     * Finds all disabled restrictions for a specific client.
+     *
+     * @param demographicNo int the demographic number of the client
+     * @return Collection&lt;ProgramClientRestriction&gt; disabled restrictions ordered by program ID
+     */
     public Collection<ProgramClientRestriction> findDisabledForClient(int demographicNo);
 
+    /**
+     * Sets the DemographicDao used for hydrating restriction relationships.
+     *
+     * @param demographicDao DemographicDao the demographic data access object
+     */
     public void setDemographicDao(DemographicDao demographicDao);
 
+    /**
+     * Sets the ProgramDao used for hydrating restriction relationships.
+     *
+     * @param programDao ProgramDao the program data access object
+     */
     public void setProgramDao(ProgramDao programDao);
 
+    /**
+     * Sets the ProviderDao used for hydrating restriction relationships.
+     *
+     * @param providerDao ProviderDao the provider data access object
+     */
     public void setProviderDao(ProviderDao providerDao);
 
 }

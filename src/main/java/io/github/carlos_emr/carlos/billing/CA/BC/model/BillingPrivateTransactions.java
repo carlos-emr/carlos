@@ -44,6 +44,13 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 import io.github.carlos_emr.carlos.entities.PrivateBillTransaction;
 
+/**
+ * JPA entity representing a private billing transaction in the BC billing system.
+ * Maps to the {@code billing_private_transactions} table, storing payment receipt
+ * information for private (non-MSP) billing transactions.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_private_transactions")
 public class BillingPrivateTransactions extends AbstractModel<Integer> {
@@ -116,6 +123,13 @@ public class BillingPrivateTransactions extends AbstractModel<Integer> {
         this.paymentTypeId = paymentTypeId;
     }
 
+    /**
+     * Converts this entity to a {@link PrivateBillTransaction} transfer object.
+     * If the target is null, a new instance is created.
+     *
+     * @param target PrivateBillTransaction the target object to populate, or null to create a new one
+     * @return PrivateBillTransaction the populated transfer object
+     */
     public PrivateBillTransaction toTx(PrivateBillTransaction target) {
         if (target == null)
             target = new PrivateBillTransaction();

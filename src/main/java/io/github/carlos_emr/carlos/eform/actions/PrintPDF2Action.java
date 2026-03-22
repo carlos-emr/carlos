@@ -51,6 +51,20 @@ import io.github.carlos_emr.carlos.eform.util.EFormPrintPDFUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that handles PDF printing and graphing of eForm data. Supports
+ * two submission modes: {@code graph} for rendering growth chart graphs and
+ * {@code printAll} for printing all pages of a multi-page form as PDF.
+ *
+ * <p>Delegates PDF generation to {@link EFormPrintPDFUtil} for graph data
+ * preparation and redirects to the PDF creation servlet.</p>
+ *
+ * <p>Requires {@code _eform} read privilege.</p>
+ *
+ * @see EFormPrintPDFUtil
+ * @see io.github.carlos_emr.carlos.eform.util.EFormPDFServlet
+ * @since 2006-05-25
+ */
 public final class PrintPDF2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -59,6 +73,15 @@ public final class PrintPDF2Action extends ActionSupport {
     private Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes the print/graph request by collecting form parameters, preparing
+     * graph data if needed, and redirecting to the PDF generation servlet.
+     *
+     * @return String {@code NONE} (redirect handled via response)
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if the redirect fails
+     * @throws SecurityException if the user lacks {@code _eform} read privilege
+     */
     public String execute() throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 

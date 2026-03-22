@@ -61,7 +61,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Struts2 action controller for measurement data operations in OpenO EMR.
+ * Struts2 action controller for measurement data operations in CARLOS EMR.
  * This 2Action class follows the modern Struts2 migration pattern and provides
  * AJAX endpoints for measurement data retrieval, saving, and manipulation.
  * 
@@ -258,6 +258,15 @@ public class MeasurementData2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves measurements for a patient grouped by observation date. For each distinct
+     * measurement date, fetches all measurements recorded on or prior to that date.
+     * Returns the grouped data as a JSON response when the {@code json} request parameter
+     * is set to "true".
+     *
+     * @return {@code null}; writes a JSON map of date-keyed measurement groups to the response
+     * @throws Exception if an error occurs during data retrieval or response writing
+     */
     public String getMeasurementsGroupByDate() throws Exception {
         String demographicNo = request.getParameter("demographicNo");
         String[] types = (request.getParameter("types") != null ? request.getParameter("types") : "").split(",");
@@ -347,6 +356,15 @@ public class MeasurementData2Action extends ActionSupport {
     }
 
 
+    /**
+     * Batch saves multiple measurement values from a single request. All request parameters
+     * (excluding {@code action}, {@code demographicNo}, and {@code appointmentNo}) are
+     * treated as measurement type/value pairs and persisted as individual measurement records.
+     * Each measurement is associated with the current provider, date, demographic, and appointment.
+     *
+     * @return {@code null}; writes a JSON response with success status when {@code json} parameter is "true"
+     * @throws Exception if an error occurs during persistence or response writing
+     */
     public String saveValues() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -405,6 +423,15 @@ public class MeasurementData2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Retrieves the most recent measurement value for each specified type within an optional
+     * date range. Accepts a comma-separated list of measurement types via the {@code typeList}
+     * parameter and an optional {@code searchDate} in either {@code yyyy-MM-dd} or
+     * {@code dd/MM/yyyy} format to restrict results to a single day.
+     *
+     * @return {@code null}; writes a JSON object mapping each type to its latest value
+     * @throws Exception if date parsing fails or an error occurs during data retrieval
+     */
     public String getDataByType() throws Exception {
         String demoNo = request.getParameter("demoNo");
         String typeList = request.getParameter("typeList");

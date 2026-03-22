@@ -40,6 +40,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Displays unresolved clinical issues for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayIssues2Action extends EctDisplayAction {
     private String cmd = "unresolvedIssues";
 

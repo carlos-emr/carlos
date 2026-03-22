@@ -56,6 +56,21 @@ import io.github.carlos_emr.OscarDocumentCreator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for generating and printing client laboratory specimen labels as PDF.
+ *
+ * <p>This action creates PDF labels used for identifying patient laboratory specimens.
+ * It supports configurable printer settings per provider, including silent printing
+ * mode for high-volume clinical environments. The label template is loaded from either
+ * a custom file in the user's home directory ({@code ClientLabLabel.xml}) or from the
+ * default classpath resource.</p>
+ *
+ * <p><b>Security:</b> Requires "_demographic" read privilege.</p>
+ *
+ * @see io.github.carlos_emr.OscarDocumentCreator
+ * @see io.github.carlos_emr.carlos.commn.model.UserProperty
+ * @since 2026-03-17
+ */
 public class PrintClientLabLabel2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -63,9 +78,22 @@ public class PrintClientLabLabel2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Constructs a new PrintClientLabLabel2Action instance.
+     */
     public PrintClientLabLabel2Action() {
     }
 
+    /**
+     * Generates a client lab label PDF and streams it to the HTTP response.
+     *
+     * <p>Retrieves provider-specific printer preferences, loads the label template
+     * from the user's home directory or classpath fallback, and generates the PDF
+     * using JasperReports. Optionally injects JavaScript for automatic printing.</p>
+     *
+     * @return String SUCCESS after streaming the PDF
+     * @throws SecurityException if the user lacks "_demographic" read privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {

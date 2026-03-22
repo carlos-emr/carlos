@@ -33,13 +33,31 @@ import java.security.Principal;
 
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 
+/**
+ * JAAS Principal adapter that wraps a {@link SecUserRole} to represent a user's role
+ * in the JAAS security framework.
+ *
+ * <p>Extends {@link SecUserRole} to inherit role data while implementing
+ * {@link Principal} for JAAS Subject integration. The principal name is
+ * the role name (e.g., "doctor", "admin").
+ *
+ * @see OscarGroup
+ * @see BaseLoginModule
+ * @since 2026-03-17
+ */
 public class OscarRole extends SecUserRole implements Principal, Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** Default constructor. */
     public OscarRole() {
     }
 
+    /**
+     * Constructs an OscarRole by copying fields from an existing SecUserRole.
+     *
+     * @param role SecUserRole the role to copy from
+     */
     public OscarRole(SecUserRole role) {
         setRoleName(role.getRoleName());
         setProviderNo(role.getProviderNo());
@@ -47,6 +65,11 @@ public class OscarRole extends SecUserRole implements Principal, Serializable {
         setOrgCd(role.getOrgCd());
     }
 
+    /**
+     * Constructs an OscarRole with the specified role name.
+     *
+     * @param name String the role name
+     */
     public OscarRole(String name) {
         setRoleName(name);
     }

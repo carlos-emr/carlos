@@ -816,11 +816,46 @@ public class Hl7textResultsData {
         return labResults;
     }
 
+    /**
+     * Populates HL7 lab results with pagination and abnormal result filtering support.
+     * Delegates to the full-parameter overload with {@code null} date range.
+     *
+     * @param providerNo String the provider number
+     * @param demographicNo String the patient demographic number, or {@code null}
+     * @param patientFirstName String patient first name filter
+     * @param patientLastName String patient last name filter
+     * @param patientHealthNumber String patient health insurance number filter
+     * @param status String the acknowledgement status filter
+     * @param isPaged boolean whether to apply pagination
+     * @param page Integer the page number (zero-based)
+     * @param pageSize Integer the number of results per page
+     * @param mixLabsAndDocs boolean whether to include documents alongside lab results
+     * @param isAbnormal Boolean filter for abnormal results, or {@code null} for all
+     * @return ArrayList&lt;LabResultData&gt; the populated list of lab results
+     */
     public static ArrayList<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber,
                                                                   String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal) {
         return populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, null, null);
     }
 
+    /**
+     * Populates HL7 lab results with full filtering including pagination, abnormal flag, and date range.
+     *
+     * @param providerNo String the provider number
+     * @param demographicNo String the patient demographic number, or {@code null}
+     * @param patientFirstName String patient first name filter
+     * @param patientLastName String patient last name filter
+     * @param patientHealthNumber String patient health insurance number filter
+     * @param status String the acknowledgement status filter
+     * @param isPaged boolean whether to apply pagination
+     * @param page Integer the page number (zero-based)
+     * @param pageSize Integer the number of results per page
+     * @param mixLabsAndDocs boolean whether to include documents alongside lab results
+     * @param isAbnormal Boolean filter for abnormal results, or {@code null} for all
+     * @param startDate Date the start of the date range filter, or {@code null}
+     * @param endDate Date the end of the date range filter, or {@code null}
+     * @return ArrayList&lt;LabResultData&gt; the populated list of lab results
+     */
     public static ArrayList<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
 
         if (providerNo == null) {

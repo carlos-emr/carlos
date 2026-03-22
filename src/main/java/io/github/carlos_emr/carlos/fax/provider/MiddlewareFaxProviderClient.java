@@ -163,7 +163,14 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Lists inbound fax metadata from middleware endpoint.
+     * Lists inbound fax metadata from the middleware relay endpoint.
+     *
+     * <p>Sends an authenticated GET request to the middleware fax list endpoint and
+     * deserializes the JSON response into a list of {@link FaxJob} objects.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration with middleware URL and credentials
+     * @return List&lt;FaxJob&gt; list of inbound fax metadata available for download
+     * @throws FaxProviderException when the middleware returns an error or communication fails
      */
     @Override
     public List<FaxJob> listInboundFaxes(FaxConfig faxConfig) throws FaxProviderException {

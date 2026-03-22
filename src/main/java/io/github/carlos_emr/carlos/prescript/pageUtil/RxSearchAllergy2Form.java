@@ -34,12 +34,14 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
  * Form bean for allergy search requests in RxSearchAllergy2Action.
- *
+ * <p>
  * Note: JsonIgnoreProperties is required because the search form in ShowAllergies2.jsp
  * contains a nested AJAX-loaded form (AddReaction2.jsp) with additional fields like
  * 'reactionDescription', 'ID', 'name', etc. When JavaScript serializes all form fields
  * for the search request, these extra fields would cause Jackson parsing errors without
  * this annotation.
+ *
+ * @since 2026-03-17
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class RxSearchAllergy2Form {

@@ -12,6 +12,21 @@ import io.woo.htmltopdf.HtmlToPdf;
 import io.woo.htmltopdf.HtmlToPdfObject;
 import io.woo.htmltopdf.PdfPageSize;
 
+/**
+ * HTML-to-PDF converter implementation using the wkhtmltopdf library (via {@code io.woo.htmltopdf}).
+ *
+ * <p>This is the primary PDF converter for the CARLOS EMR document management system. It uses
+ * a bundled native wkhtmltopdf shared library to convert HTML content to PDF with Letter-size
+ * pages, print media type enabled, and JavaScript disabled for security.
+ *
+ * <p>Configuration is applied via a settings map including intelligent shrinking, minimum font
+ * size, UTF-8 encoding, and page margins. Local file access is enabled to allow resolution of
+ * resources referenced in the HTML.
+ *
+ * @see EDocConverterInterface
+ * @see ConvertToEdoc
+ * @since 2018-10-15
+ */
 public class InternalEDocConverter implements EDocConverterInterface {
     /**
      * Converts HTML to PDF using the internal io.woo.htmltopdf library.

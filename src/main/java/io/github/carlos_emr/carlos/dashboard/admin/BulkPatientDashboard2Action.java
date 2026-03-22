@@ -57,6 +57,17 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for bulk patient operations from the dashboard, including
+ * excluding patients from indicators, adding ICD-9 codes to the disease registry,
+ * setting patients inactive, and retrieving ICD-9 descriptions.
+ *
+ * <p>Routes requests to the appropriate handler method based on the {@code method}
+ * request parameter. All operations notify the acting provider and the MRP
+ * (Most Responsible Provider) via system messages.</p>
+ *
+ * @since 2026-03-17
+ */
 public class BulkPatientDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -79,6 +90,12 @@ public class BulkPatientDashboard2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Dispatches to the appropriate handler method based on the {@code method} request parameter.
+     * Defaults to {@link #excludePatients()} if no recognized method is specified.
+     *
+     * @return String the action result string from the delegated method
+     */
     public String execute() {
         String method = request.getParameter("method");
         if ("addToDiseaseRegistry".equals(method)) {
@@ -91,6 +108,14 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         return excludePatients();
     }
 
+    /**
+     * Excludes the specified patients from a dashboard indicator. Reads patient IDs
+     * and indicator ID from request parameters, delegates exclusion to
+     * {@link ExcludeDemographicHandler}, and sends notification messages to the
+     * acting provider and MRP.
+     *
+     * @return String {@code null} after processing
+     */
     public String excludePatients() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -138,6 +163,13 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         return request.getParameter("dxUpdateICD9Code");
     }
 
+    /**
+     * Adds an ICD-9 diagnosis code to the disease registry for multiple patients.
+     * Requires {@code _dxresearch} write privilege. Logs audit entries for each patient
+     * and notifies the provider and MRP.
+     *
+     * @return String {@code null} after processing, "unauthorized" if privilege check fails
+     */
     public String addToDiseaseRegistry() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

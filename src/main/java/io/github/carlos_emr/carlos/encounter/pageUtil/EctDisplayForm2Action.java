@@ -50,6 +50,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
+/**
+ * Displays encounter form entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayForm2Action extends EctDisplayAction {
 
     private static Logger logger = MiscUtils.getLogger();

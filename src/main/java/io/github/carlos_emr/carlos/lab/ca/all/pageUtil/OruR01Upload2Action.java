@@ -61,6 +61,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.GregorianCalendar;
 
+/**
+ * Struts2 action for uploading ORU_R01 (Observation Result) HL7 messages to a remote
+ * professional specialist via the EMR-to-EMR communication protocol. Validates the uploaded
+ * file, constructs an HL7 v2.6 ORU_R01 message, and transmits it to the designated specialist.
+ * Requires {@code _lab} write privilege.
+ *
+ * @since 2007-01-18
+ */
 public class OruR01Upload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -68,6 +76,13 @@ public class OruR01Upload2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Processes the ORU_R01 upload form, validates the file, builds the HL7 message,
+     * and sends it to the selected specialist.
+     *
+     * @return String "result" on completion
+     * @throws IOException if file reading fails
+     */
     @Override
     public String execute() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {

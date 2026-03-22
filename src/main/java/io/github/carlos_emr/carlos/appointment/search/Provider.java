@@ -45,6 +45,16 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.BookingProviderTransfer
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
+/**
+ * Represents a healthcare provider configured for online appointment booking.
+ *
+ * <p>Contains the provider number, allowed appointment types with schedule template codes,
+ * per-appointment-type duration overrides, team member associations, filter definitions,
+ * and messaging configuration. Providers can be deserialized from XML configuration
+ * or from REST transfer objects.</p>
+ *
+ * @since 2026-03-17
+ */
 public class Provider {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -62,34 +72,75 @@ public class Provider {
 
     private ArrayList<Map<String, String>> suggestedRelationships;
 
+    /**
+     * Returns the provider number.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Returns the list of filter definitions applied to this provider's schedule.
+     *
+     * @return List&lt;FilterDefinition&gt; the filter definitions
+     */
     public List<FilterDefinition> getFilter() {
         return filters;
     }
 
+    /**
+     * Returns the map of appointment type IDs to custom durations in minutes.
+     *
+     * @return Map&lt;Long, Integer&gt; appointment type ID to duration mapping
+     */
     public Map<Long, Integer> getAppointmentDurations() {
         return appointmentDurations;
     }
 
+    /**
+     * Returns the map of appointment type IDs to allowed schedule template codes.
+     *
+     * @return Map&lt;String, Character[]&gt; appointment type ID to allowed code arrays
+     */
     public Map<String, Character[]> getAppointmentTypes() {
         return appointmentTypes;
     }
 
+    /**
+     * Returns the list of team members associated with this provider.
+     *
+     * @return List&lt;Provider&gt; the team member providers
+     */
     public List<Provider> getTeamMembers() {
         return teamMembers;
     }
 
+    /**
+     * Returns the messaging system user ID for this provider.
+     *
+     * @return String the message user ID
+     */
     public String getMessageUserId() {
         return messageUserId;
     }
 
+    /**
+     * Returns the list of suggested patient-provider relationships for this provider.
+     *
+     * @return ArrayList&lt;Map&lt;String, String&gt;&gt; list of relationship attribute maps
+     */
     public ArrayList<Map<String, String>> getSuggestedRelationships() {
         return suggestedRelationships;
     }
 
+    /**
+     * Parses all filter child nodes from the given XML node into a list of filter definitions.
+     *
+     * @param node Node the parent XML node containing filter child elements
+     * @return List&lt;FilterDefinition&gt; the parsed filter definitions
+     */
     public static List<FilterDefinition> getFilterArray(Node node) {
         List<Node> filterNodes = XmlUtils.getChildNodes(node, "filter");
         List<FilterDefinition> returnVal = new ArrayList<FilterDefinition>();
@@ -99,6 +150,13 @@ public class Provider {
         return returnVal;
     }
 
+    /**
+     * Creates a {@code Provider} from an XML node including team members, filters,
+     * allowed appointments, and suggested relationships.
+     *
+     * @param node Node the XML node representing this provider
+     * @return Provider the parsed provider
+     */
     public static Provider fromXml(Node node) {
         Provider provider = new Provider();
         provider.providerNo = XmlUtils.getAttributeValue(node, "providerNo");
@@ -191,22 +249,49 @@ public class Provider {
         return map;
     }
 
+    /**
+     * Returns the provider's last name.
+     *
+     * @return String the last name
+     */
     public String getLastName() {
         return lastName;
     }
 
+    /**
+     * Sets the provider's last name.
+     *
+     * @param lastName String the last name
+     */
     public void setLastName(String lastName) {
         this.lastName = lastName;
     }
 
+    /**
+     * Returns the provider's first name.
+     *
+     * @return String the first name
+     */
     public String getFirstName() {
         return firstName;
     }
 
+    /**
+     * Sets the provider's first name.
+     *
+     * @param firstName String the first name
+     */
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
 
+    /**
+     * Creates a {@code Provider} from a REST booking provider transfer object,
+     * including team members and filter configuration from the transfer's flags.
+     *
+     * @param provider BookingProviderTransfer the transfer object
+     * @return Provider the converted provider
+     */
     public static Provider fromProvider(BookingProviderTransfer provider) {
         Provider returnProvider = new Provider();
         returnProvider.appointmentDurations = new HashMap<Long, Integer>();

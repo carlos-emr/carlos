@@ -46,6 +46,17 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.util.HashMap;
 
+/**
+ * Struts2 action for creating and editing eForm HTML templates. Handles both
+ * new eForm creation (when {@code fid} is empty) and updating existing eForms.
+ * Validates that the form name is provided and does not conflict with existing forms.
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @see EFormUtil#saveEForm(String, String, String, String, boolean, boolean, String)
+ * @see EFormUtil#updateEForm(EFormBase)
+ * @since 2006-05-25
+ */
 public class HtmlEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -53,6 +64,13 @@ public class HtmlEdit2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Creates or updates an eForm template based on the submitted form properties.
+     * Sets request attributes for validation errors or success status.
+     *
+     * @return String {@code SUCCESS} result name
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");

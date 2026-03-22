@@ -35,13 +35,27 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 
 /**
- * Anyone modifying get and set methods should take note of the dataCache and
- * add/remove items as appropriate.
+ * Data access interface for {@link ClientImage} entities. Provides save, retrieve,
+ * and delete operations for patient photographs. Implementations should be aware
+ * of the data cache and update it when modifying image records.
+ *
+ * @since 2026-03-17
  */
 public interface ClientImageDAO {
 
+    /**
+     * Saves or updates the given client image record.
+     *
+     * @param clientImage ClientImage the image entity to persist
+     */
     public void saveClientImage(ClientImage clientImage);
 
+    /**
+     * Retrieves the client image for the specified patient.
+     *
+     * @param clientId Integer the patient demographic number
+     * @return ClientImage the image entity, or null if no image exists
+     */
     public ClientImage getClientImage(Integer clientId);
 
     /**

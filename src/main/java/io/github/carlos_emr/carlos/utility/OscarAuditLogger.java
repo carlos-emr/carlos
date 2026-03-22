@@ -32,6 +32,15 @@ package io.github.carlos_emr.carlos.utility;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 
+/**
+ * Singleton audit logger for recording user actions in the CARLOS EMR system.
+ *
+ * <p>Persists audit log entries to the database via {@link OscarLogDao}, capturing
+ * the action performed, content context, associated demographic, IP address, and
+ * the logged-in provider. Used for regulatory compliance and security auditing.
+ *
+ * @since 2026-03-17
+ */
 public class OscarAuditLogger {
 
     private static OscarAuditLogger instance = new OscarAuditLogger();
@@ -41,10 +50,23 @@ public class OscarAuditLogger {
 
     }
 
+    /**
+     * Returns the singleton instance of the audit logger.
+     *
+     * @return OscarAuditLogger the shared audit logger instance
+     */
     public static OscarAuditLogger getInstance() {
         return instance;
     }
 
+    /**
+     * Logs an audit event with the specified action, content, and data.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info (may be {@code null})
+     * @param action       String the action being performed (e.g., "read", "write", "delete")
+     * @param content      String the content type or category being accessed
+     * @param data         String additional data or details about the action
+     */
     public void log(LoggedInInfo loggedInInfo, String action, String content, String data) {
         try {
             OscarLog logItem = new OscarLog();
@@ -61,6 +83,15 @@ public class OscarAuditLogger {
         }
     }
 
+    /**
+     * Logs an audit event with the specified action, content, demographic, and data.
+     *
+     * @param loggedInInfo  LoggedInInfo the current user's session info (may be {@code null})
+     * @param action        String the action being performed
+     * @param content       String the content type or category being accessed
+     * @param demographicNo Integer the patient demographic number associated with the action
+     * @param data          String additional data or details about the action
+     */
     public void log(LoggedInInfo loggedInInfo, String action, String content, Integer demographicNo, String data) {
         try {
             OscarLog logItem = new OscarLog();
@@ -78,6 +109,17 @@ public class OscarAuditLogger {
         }
     }
 
+    /**
+     * Logs a detailed audit event with action, content, keyword, IP address, demographic, and data.
+     *
+     * @param loggedInInfo  LoggedInInfo the current user's session info (may be {@code null})
+     * @param action        String the action being performed
+     * @param content       String the content type or category being accessed
+     * @param keyword       String a keyword or content identifier for search/filtering
+     * @param ipAddress     String the IP address of the requesting client
+     * @param demographicNo Integer the patient demographic number associated with the action
+     * @param data          String additional data or details about the action
+     */
     public void log(LoggedInInfo loggedInInfo, String action, String content, String keyword, String ipAddress, Integer demographicNo, String data) {
         try {
             OscarLog logItem = new OscarLog();

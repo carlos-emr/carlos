@@ -49,12 +49,28 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Struts2 action for managing eForm import and export operations. Routes to
+ * either {@link #importEForm()} or {@link #exportEForm()} based on the
+ * {@code method} request parameter.
+ *
+ * <p>Export requires {@code _eform} read privilege; import requires write privilege.</p>
+ *
+ * @see EFormExportZip
+ * @since 2006-05-25
+ */
 public class ManageEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Routes to import or export based on the {@code method} request parameter.
+     *
+     * @return String the Struts2 result name
+     * @throws Exception if import or export fails
+     */
     public String execute() throws Exception {
         if ("importEForm".equals(request.getParameter("method"))) {
             return importEForm();
@@ -62,6 +78,13 @@ public class ManageEForm2Action extends ActionSupport {
         return exportEForm();
     }
 
+    /**
+     * Exports a single eForm as a ZIP archive streamed to the HTTP response.
+     *
+     * @return String null (response is handled directly)
+     * @throws Exception if the export fails
+     * @throws SecurityException if the user lacks {@code _eform} read privilege
+     */
     public String exportEForm() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "r", null)) {
@@ -80,6 +103,13 @@ public class ManageEForm2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Imports eForms from an uploaded ZIP archive file.
+     *
+     * @return String {@code SUCCESS} on success, {@code "fail"} if import errors occurred
+     * @throws Exception if the import fails
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String importEForm() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

@@ -81,6 +81,13 @@ public class HRMDisplayReport2Action extends ActionSupport implements ModelDrive
         return "display";
     }
 
+    /**
+     * Looks up the provider-to-document association for a given provider and HRM document.
+     *
+     * @param providerNo String the provider number
+     * @param hrmDocumentId Integer the HRM document ID
+     * @return HRMDocumentToProvider the association record, or {@code null} if not found
+     */
     public static HRMDocumentToProvider getHRMDocumentFromProvider(String providerNo, Integer hrmDocumentId) {
         return hrmDocumentToProviderDao.findByHrmDocumentIdAndProviderNo(hrmDocumentId, providerNo);
     }

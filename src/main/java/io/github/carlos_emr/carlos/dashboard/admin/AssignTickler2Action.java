@@ -51,6 +51,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action for assigning ticklers to multiple patients from the dashboard.
+ *
+ * <p>Handles both the display of the tickler assignment form (populating priorities,
+ * text suggestions, providers, and categories) and the persistence of new ticklers
+ * across a set of demographic IDs received as a JSON array. Requires {@code _tickler}
+ * write privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class AssignTickler2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -63,6 +73,14 @@ public class AssignTickler2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Dispatches to either the tickler form view or the save handler based on the
+     * {@code method} request parameter. Populates form data (priorities, providers,
+     * text suggestions, categories) for display when no method is specified.
+     *
+     * @return String "unauthorized" if the user lacks {@code _tickler} write privilege,
+     *         {@link #SUCCESS} for the form view, or delegates to {@link #saveTickler()}
+     */
     public String execute() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -91,6 +109,15 @@ public class AssignTickler2Action extends ActionSupport {
     }
 
 
+    /**
+     * Creates and saves ticklers for the specified demographics. Reads tickler parameters
+     * from the request, creates a master tickler via {@link TicklerHandler}, then applies
+     * it to all demographic IDs. Writes a JSON success/failure response directly to the
+     * output stream.
+     *
+     * @return String {@code null} on successful JSON write, "unauthorized" if privilege
+     *         check fails, or "error" if the JSON response cannot be written
+     */
     @SuppressWarnings({"unchecked", "unused"})
     public String saveTickler() {
 

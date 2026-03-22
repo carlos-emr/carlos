@@ -33,6 +33,12 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 
+/**
+ * Displays Hospital Report Manager (HRM) document listings for a patient
+ * in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayHRM2Action extends EctDisplayAction {
 
     private static Logger logger = MiscUtils.getLogger();

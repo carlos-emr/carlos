@@ -35,6 +35,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a billing status type lookup value in the BC billing system.
+ * Maps to the {@code billingstatus_types} table, providing display names and sort ordering
+ * for single-character billing status codes.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billingstatus_types")
 public class BillingStatusTypes extends AbstractModel<Character> {

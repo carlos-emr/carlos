@@ -40,6 +40,12 @@ import io.github.carlos_emr.Misc;
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Miscellaneous utility class providing HTML/JavaScript/MySQL escaping, Base64 encoding/decoding,
+ * type conversion, string manipulation, and result set processing helpers.
+ *
+ * @since 2001-01-01
+ */
 public class UtilMisc {
     /**
      * @deprecated use apache's StringEscapeUtils instead.
@@ -118,6 +124,13 @@ public class UtilMisc {
         return sb.toString();
     }
 
+    /**
+     * Escapes a string for safe inclusion in MySQL queries by escaping backslashes,
+     * single quotes, and converting newlines to literal {@code \r\n}.
+     *
+     * @param S String the string to escape
+     * @return String the MySQL-escaped string, or null if input is null
+     */
     public static String mysqlEscape(String S) {
         if (null == S) {
             return S;
@@ -164,6 +177,13 @@ public class UtilMisc {
         return sb.toString();
     }
 
+    /**
+     * Converts a string to title case (first letter of each word capitalized, rest lowercase).
+     * Words are separated by spaces or commas.
+     *
+     * @param S String the string to convert
+     * @return String the title-cased string, or null if input is null
+     */
     public static String toUpperLowerCase(String S) {
         if (S == null) {
             return S;
@@ -187,6 +207,14 @@ public class UtilMisc {
         return sb.toString();
     }
 
+    /**
+     * Returns a string truncated to the specified limit, using a default if the input is null.
+     *
+     * @param s String the input string (may be null)
+     * @param dflt String the default value if input is null
+     * @param nLimit int the maximum length
+     * @return String the truncated string
+     */
     public static String getShortStr(String s, String dflt, int nLimit) {
         if (s == null) {
             s = dflt;
@@ -198,22 +226,52 @@ public class UtilMisc {
         return s;
     }
 
+    /**
+     * Encodes a string to Base64.
+     *
+     * @param plainText String the text to encode
+     * @return String the Base64-encoded string
+     */
     public static String encode64(String plainText) {
         return (new String(Base64.encodeBase64(plainText.getBytes())));
     }
 
+    /**
+     * Decodes a Base64-encoded string back to plain text.
+     *
+     * @param encodedText String the Base64-encoded text
+     * @return String the decoded plain text
+     */
     public static String decode64(String encodedText) {
         return (new String(Base64.decodeBase64(encodedText.getBytes())));
     }
 
+    /**
+     * Converts a boolean to an integer (1 for true, 0 for false).
+     *
+     * @param Expression boolean the value to convert
+     * @return int 1 if true, 0 if false
+     */
     public static int BoolToInt(boolean Expression) {
         return !Expression ? 0 : 1;
     }
 
+    /**
+     * Converts an integer to a boolean (false for 0, true for non-zero).
+     *
+     * @param Expression int the value to convert
+     * @return boolean false if 0, true otherwise
+     */
     public static boolean IntToBool(int Expression) {
         return Expression != 0;
     }
 
+    /**
+     * Formats a float value to a locale-specific number string.
+     *
+     * @param value float the value to format
+     * @return String the formatted number string
+     */
     public static String FloatToString(float value) {
         Float f = Float.valueOf(value);
         NumberFormat fmt = NumberFormat.getNumberInstance();
@@ -221,6 +279,13 @@ public class UtilMisc {
         return s;
     }
 
+    /**
+     * Parses a string to a float value.
+     *
+     * @param value String the string to parse
+     * @return float the parsed float value
+     * @throws NumberFormatException if the string cannot be parsed
+     */
     public static float StringToFloat(String value) {
         return Float.parseFloat(value);
     }
@@ -244,6 +309,14 @@ public class UtilMisc {
 
     }
 
+    /**
+     * Inline-if function returning one of two objects based on a boolean expression.
+     *
+     * @param Expression boolean the condition to evaluate
+     * @param TruePart Object the value returned if the condition is true
+     * @param FalsePart Object the value returned if the condition is false
+     * @return Object the selected value
+     */
     public static Object IIf(boolean Expression, Object TruePart,
                              Object FalsePart) {
         if (Expression) {
@@ -253,6 +326,12 @@ public class UtilMisc {
         }
     }
 
+    /**
+     * Joins an array of objects into a comma-separated string with each element single-quoted.
+     *
+     * @param array Object[] the array to join
+     * @return String the joined string (e.g., {@code 'a', 'b', 'c'})
+     */
     public static String joinArray(Object array[]) {
         String ret = "";
         for (int i = 0; i < array.length; i++) {
@@ -268,6 +347,14 @@ public class UtilMisc {
         return ret;
     }
 
+    /**
+     * Replaces all occurrences of a search string within an expression with a replacement string.
+     *
+     * @param expression String the source string (may be null)
+     * @param searchFor String the substring to search for
+     * @param replaceWith String the replacement string
+     * @return String the modified string, or null if expression is null
+     */
     public static String replace(String expression, String searchFor,
                                  String replaceWith) {
         if (expression != null) {
@@ -360,8 +447,15 @@ public class UtilMisc {
     }
 
 
-    //returns a 2d array from the result set
-    //Used by 'report by template'
+    /**
+     * Converts a {@link ResultSet} into a two-dimensional string array. The first row
+     * contains column names, and subsequent rows contain the data values.
+     * Used by the "report by template" feature.
+     *
+     * @param rs ResultSet the result set to convert
+     * @return String[][] the column names and data as a 2D array
+     * @throws SQLException if a database access error occurs
+     */
     public static String[][] getArrayFromResultSet(ResultSet rs) throws SQLException {
         ResultSetMetaData rsmd = rs.getMetaData();
         int columns = rsmd.getColumnCount();

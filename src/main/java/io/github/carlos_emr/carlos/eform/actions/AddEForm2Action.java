@@ -68,6 +68,19 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
 
+/**
+ * Struts2 action that saves a submitted eForm, persisting the form data and field values
+ * to the database. Supports multiple post-save operations including faxing, printing,
+ * saving as an eDoc, downloading as PDF, and emailing the eForm.
+ *
+ * <p>Also handles attachment of documents, labs, HRM reports, forms, and other eForms
+ * to the saved eForm data record, and writes encounter template notes when configured.</p>
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @see EFormUtil#addEFormValues(java.util.ArrayList, java.util.ArrayList, Integer, Integer, Integer)
+ * @since 2006-05-25
+ */
 public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -79,6 +92,14 @@ public class AddEForm2Action extends ActionSupport {
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 
+    /**
+     * Saves the submitted eForm data and processes post-save actions (fax, print,
+     * save as eDoc, download, email). Compares the current form HTML against the
+     * previous submission to avoid duplicate saves.
+     *
+     * @return String the Struts2 result name directing to the appropriate view
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

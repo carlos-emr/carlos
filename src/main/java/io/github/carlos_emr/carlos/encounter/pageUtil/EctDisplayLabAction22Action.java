@@ -49,6 +49,11 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Displays laboratory result entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayLabAction22Action extends EctDisplayAction {
     private static final Logger logger = MiscUtils.getLogger();
     private static final String cmd = "labs";

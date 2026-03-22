@@ -78,10 +78,21 @@ public class SQLDenominator implements Denominator {
         this.sql = sql;
     }
 
+    /**
+     * Sets the result column name to extract demographic numbers from.
+     *
+     * @param str String the result column name (defaults to "demographic_no")
+     */
     public void setResultString(String str) {
         this.resultString = str;
     }
 
+    /**
+     * Executes the SQL query (with replaceable values substituted) and returns
+     * the resulting list of patient demographic numbers.
+     *
+     * @return List the list of demographic number strings
+     */
     public List getDenominatorList() {
         ArrayList list = new ArrayList();
         try {
@@ -125,6 +136,14 @@ public class SQLDenominator implements Denominator {
         this.id = id;
     }
 
+    /**
+     * Replaces all {@code ${key}} placeholders in the given string with values
+     * from the replacers map.
+     *
+     * @param str String the template string containing placeholders
+     * @param replacers Hashtable the key-value replacements
+     * @return String the string with all placeholders substituted
+     */
     public String replaceAll(String str, Hashtable replacers) {
         Enumeration e = replacers.keys();
         while (e.hasMoreElements()) {

@@ -47,6 +47,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 
+/**
+ * Displays patient photo documents in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayPhotos2Action extends EctDisplayAction {
     //private static final String BGCOLOUR = "476BB3";
     private static final String cmd = "photos";

@@ -59,6 +59,16 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 
+/**
+ * Central configuration for the online appointment booking search engine.
+ *
+ * <p>Holds all settings needed to search for available appointment slots, including
+ * provider definitions, appointment types, schedule template code durations, time slot
+ * filters, encryption keys for secure booking references, timezone, and pagination limits.
+ * Configurations can be serialized to/from XML documents and converted from REST transfer objects.</p>
+ *
+ * @since 2026-03-17
+ */
 public class SearchConfig {
     protected static Logger logger = MiscUtils.getLogger();
 
@@ -78,6 +88,15 @@ public class SearchConfig {
     private String appointmentLocation = null;
     private String title;
 
+    /**
+     * Returns the providers and their allowed schedule codes for a given appointment type,
+     * including the specified provider and any of their team members.
+     *
+     * @param demographicNo Integer the patient demographic number (currently unused)
+     * @param appointmentTypeId Long the appointment type to look up
+     * @param providerNo String the primary provider number (MRP)
+     * @return Map&lt;Provider, Character[]&gt; map of providers to their allowed schedule codes
+     */
     public Map<Provider, Character[]> getProvidersForAppointmentType(Integer demographicNo, Long appointmentTypeId, String providerNo) {
 
         Map<Provider, Character[]> map = new HashMap<Provider, Character[]>();
@@ -107,27 +126,62 @@ public class SearchConfig {
 
     }
 
+    /**
+     * Returns the display title for this search configuration.
+     *
+     * @return String the configuration title
+     */
     public String getTitle() {
         return title;
     }
 
+    /**
+     * Returns the maximum number of days to search ahead for available appointments.
+     *
+     * @return int the search-ahead day limit
+     */
     public int getDaysToSearchAheadLimit() {
         return daysToSearchAheadLimit;
     }
 
+    /**
+     * Sets the maximum number of days to search ahead for available appointments.
+     *
+     * @param daysToSearchAheadLimit int the search-ahead day limit
+     */
     public void setDaysToSearchAheadLimit(int daysToSearchAheadLimit) {
         this.daysToSearchAheadLimit = daysToSearchAheadLimit;
     }
 
+    /**
+     * Returns the number of appointment options to return per search result page.
+     *
+     * @return int the number of options to return
+     */
     public int getNumberOfAppointmentOptionsToReturn() {
         return numberOfAppointmentOptionsToReturn;
     }
 
+    /**
+     * Sets the number of appointment options to return per search result page.
+     *
+     * @param numberOfAppointmentOptionsToReturn int the number of options to return
+     */
     public void setNumberOfAppointmentOptionsToReturn(int numberOfAppointmentOptionsToReturn) {
         this.numberOfAppointmentOptionsToReturn = numberOfAppointmentOptionsToReturn;
     }
 
 
+    /**
+     * Returns the appointment duration in minutes, checking the MRP's own settings
+     * and their team members' overrides before falling back to the default code duration.
+     *
+     * @param mrp String the Most Responsible Provider number
+     * @param provider String the provider number to resolve the duration for
+     * @param appointmentId Long the appointment type ID
+     * @param code Character the schedule template code
+     * @return Integer the duration in minutes
+     */
     public Integer getAppointmentDuration(String mrp, String provider, Long appointmentId, Character code) {
         Integer appointmentDuration = appointmentCodeDurations.get(code);
         if (mrp != null && mrp.equals(provider)) {
@@ -145,7 +199,17 @@ public class SearchConfig {
         return appointmentDuration;
     }
 
-    //BUG:doesnot look at team me
+    /**
+     * Returns the appointment duration for a single provider, checking provider-specific
+     * overrides before falling back to the default code duration.
+     *
+     * <p>Note: This method does not check team member overrides.</p>
+     *
+     * @param provider String the provider number
+     * @param appointmentId Long the appointment type ID
+     * @param code Character the schedule template code
+     * @return Integer the duration in minutes
+     */
     public Integer getAppointmentDuration(String provider, Long appointmentId, Character code) {
         Integer appointmentDuration = appointmentCodeDurations.get(code);
         if (providers.get(provider) != null && providers.get(provider).getAppointmentDurations() != null && providers.get(provider).getAppointmentDurations().get(appointmentId) != null) {
@@ -154,6 +218,14 @@ public class SearchConfig {
         return appointmentDuration;
     }
 
+    /**
+     * Looks up a provider by the MRP's provider number, checking the MRP first and
+     * then their team members.
+     *
+     * @param mrp String the Most Responsible Provider number
+     * @param providerNo String the provider number to find
+     * @return Provider the matching provider, or {@code null} if not found
+     */
     public Provider getProvider(String mrp, String providerNo) {
         if (mrp != null && providers.get(mrp) != null) {
             Provider p = providers.get(mrp);
@@ -170,11 +242,21 @@ public class SearchConfig {
         return null;
     }
 
+    /**
+     * Returns the global filter definitions applied to appointment searches.
+     *
+     * @return List&lt;FilterDefinition&gt; the filter definitions, or {@code null} if none
+     */
     public List<FilterDefinition> getFilter() {
         return filters;
     }
 
 
+    /**
+     * Returns the advance booking buffer in minutes from the FutureApptFilter configuration.
+     *
+     * @return Integer the number of minutes of advance buffer, or {@code null} if not configured
+     */
     public Integer getNumberOfMinutesAdvance() {
         if (filters != null) {
             for (FilterDefinition fd : filters) {

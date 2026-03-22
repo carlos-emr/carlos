@@ -17,7 +17,7 @@ import org.apache.xmlbeans.xml.stream.XMLStreamException;
 import org.w3c.dom.Node;
 
 /**
- * XML document representing a clinical flowsheet configuration in the OpenO EMR system.
+ * XML document representing a clinical flowsheet configuration in the CARLOS EMR system.
  * <p>
  * Flowsheets are structured data collection forms used in healthcare settings to track
  * patient measurements, clinical indicators, and preventive care over time. This document
@@ -37,7 +37,7 @@ import org.w3c.dom.Node;
  * flowsheet definitions from various sources (files, streams, URLs, DOM nodes).
  * </p>
  * <p>
- * Flowsheets in OpenO EMR enable:
+ * Flowsheets in CARLOS EMR enable:
  * </p>
  * <ul>
  * <li>Standardized chronic disease management (diabetes, hypertension, etc.)</li>
@@ -350,7 +350,7 @@ public interface FlowsheetDocument extends XmlObject {
     * <li><b>Diagnosis Code Triggers</b>: ICD codes that activate this flowsheet for relevant patients</li>
     * </ul>
     * <p>
-    * Common flowsheet examples in OpenO EMR include:
+    * Common flowsheet examples in CARLOS EMR include:
     * </p>
     * <ul>
     * <li>Diabetes flowsheet - tracking HbA1c, blood glucose, foot exams, eye exams</li>

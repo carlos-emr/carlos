@@ -49,6 +49,11 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Displays document listings for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayDocs2Action extends EctDisplayAction {
     private static Logger logger = MiscUtils.getLogger();
 

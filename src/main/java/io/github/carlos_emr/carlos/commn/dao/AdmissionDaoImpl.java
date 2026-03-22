@@ -45,15 +45,26 @@ import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of {@link AdmissionDao} for managing patient program admissions.
+ * <p>
+ * Provides JPQL-based queries for admission retrieval, filtering by program, facility,
+ * team, status, and date ranges. Supports the CARLOS EMR case management module's
+ * admission and discharge workflows.
+ *
+ * @since 2001
+ */
 @Repository
 public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements AdmissionDao {
 
+    /** Constructs the admission DAO for the {@link Admission} entity class. */
     public AdmissionDaoImpl() {
         super(Admission.class);
     }
 
     private Logger log = MiscUtils.getLogger();
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getAdmissions_archiveView(Integer programId, Integer demographicNo) {
         Admission admission = null;
@@ -84,6 +95,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return rs;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Admission getAdmission(Integer programId, Integer demographicNo) {
         Admission admission = null;
@@ -114,6 +126,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return admission;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Admission getCurrentAdmission(Integer programId, Integer demographicNo) {
         Admission admission = null;
@@ -147,6 +160,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return admission;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getAdmissions() {
         String queryStr = "select a FROM Admission a ORDER BY a.admissionDate DESC";
@@ -163,6 +177,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return rs;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getAdmissions(Integer demographicNo) {
         if (demographicNo == null || demographicNo <= 0) {
@@ -183,6 +198,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return rs;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getAdmissionsASC(Integer demographicNo) {
         if (demographicNo == null || demographicNo <= 0) {
@@ -229,6 +245,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
     }
 
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getAdmissionsByProgramAndClient(Integer demographicNo, Integer programId) {
         if (demographicNo == null || demographicNo <= 0) {
@@ -250,6 +267,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return rs;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getAdmissionsByProgramId(Integer programId, Boolean automaticDischarge, Integer days) {
         if (programId == null || programId <= 0) {
@@ -308,6 +326,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getCurrentAdmissions(Integer demographicNo) {
         if (demographicNo == null || demographicNo <= 0) {
@@ -329,6 +348,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getDischargedAdmissions(Integer demographicNo) {
         if (demographicNo == null || demographicNo <= 0) {
@@ -368,6 +388,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getCurrentAdmissionsByFacility(Integer demographicNo, Integer facilityId) {
         if (demographicNo == null || demographicNo <= 0) {
@@ -397,6 +418,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public Admission getCurrentExternalProgramAdmission(ProgramDao programDAO, Integer demographicNo) {
         if (programDAO == null) {
@@ -435,6 +457,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
 
     // TODO: rewrite
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getCurrentServiceProgramAdmission(ProgramDao programDAO, Integer demographicNo) {
         if (programDAO == null) {
@@ -471,6 +494,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public Admission getCurrentCommunityProgramAdmission(ProgramDao programDAO, Integer demographicNo) {
         if (programDAO == null) {
@@ -506,6 +530,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getCurrentAdmissionsByProgramId(Integer programId) {
         if (programId == null || programId <= 0) {
@@ -525,11 +550,13 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Admission getAdmission(int id) {
         return (getAdmission(Long.valueOf(id)));
     }
 
+    /** {@inheritDoc} */
     @Override
     public Admission getAdmission(Long id) {
 
@@ -546,6 +573,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return admission;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void saveAdmission(Admission admission) {
         if (admission == null) {
@@ -559,6 +587,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getAdmissionsInTeam(Integer programId, Integer teamId) {
         if (programId == null || programId <= 0) {
@@ -584,6 +613,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Admission getTemporaryAdmission(Integer demographicNo) {
         Admission result = null;
@@ -609,6 +639,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
     }
 
     @SuppressWarnings("unchecked")
+    /** {@inheritDoc} */
     @Override
     public List search(AdmissionSearchBean searchBean) {
         if (searchBean == null) {
@@ -660,6 +691,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> getClientIdByProgramDate(int programId, Date dt) {
         String q = "select a FROM Admission a WHERE a.programId=?1 and a.admissionDate<=?2 and (a.dischargeDate>=?3 or (a.dischargeDate is null))";
@@ -672,6 +704,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return rs;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Integer getLastClientStatusFromAdmissionByProgramIdAndClientId(Integer programId, Integer demographicId) {
         if (programId == null || programId <= 0) {
@@ -766,6 +799,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return rs;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean wasInProgram(Integer programId, Integer clientId) {
         if (getAdmission(programId, clientId) != null)
@@ -841,6 +875,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return rs;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<Admission> findAdmissionsByProgramAndDate(Integer programNo, Date day, int startIndex,
                                                           int numToReturn) {
@@ -867,6 +902,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         return results;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Integer findAdmissionsByProgramAndDateAsCount(Integer programNo, Date day) {
 

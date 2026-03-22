@@ -43,7 +43,18 @@ import io.github.carlos_emr.carlos.match.vacancy.VacancyTemplateData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author AnooshTech
+ * Matching engine that computes compatibility scores between clients on a waitlist
+ * and available program vacancies.
+ *
+ * <p>Compares client data attributes against vacancy template criteria using weighted
+ * Levenshtein distance for string matching and range checking for numeric values.
+ * Results are returned as sorted lists of {@link VacancyClientMatch} objects with
+ * computed match percentages.</p>
+ *
+ * @see VacancyData
+ * @see ClientData
+ * @see VacancyClientMatch
+ * @since 2026-03-17
  */
 public class Matcher {
 
@@ -51,6 +62,12 @@ public class Matcher {
     private VacancyDao vacancyDao = SpringUtils.getBean(VacancyDao.class);
 
 
+    /**
+     * Lists all waitlisted clients matched against a specific vacancy, sorted by match percentage.
+     *
+     * @param vacancyId int the unique identifier of the vacancy to match against
+     * @return List of {@link VacancyClientMatch} sorted by descending match percentage
+     */
     public List<VacancyClientMatch> listClientMatchesForVacancy(int vacancyId) {
         List<VacancyClientMatch> vacancyClientMatches = new ArrayList<VacancyClientMatch>();
         VacancyData vacancyData = waitlistDao.loadVacancyData(vacancyId);
@@ -63,6 +80,13 @@ public class Matcher {
         return vacancyClientMatches;
     }
 
+    /**
+     * Lists clients matched against a vacancy within a specific waitlist program.
+     *
+     * @param vacancyId int the unique identifier of the vacancy
+     * @param wlProgramId int the waitlist program identifier to scope the client search
+     * @return List of {@link VacancyClientMatch} sorted by descending match percentage
+     */
     public List<VacancyClientMatch> listClientMatchesForVacancy(int vacancyId, int wlProgramId) {
         List<VacancyClientMatch> vacancyClientMatches = new ArrayList<VacancyClientMatch>();
         VacancyData vacancyData = waitlistDao.loadVacancyData(vacancyId, wlProgramId);
@@ -75,6 +99,13 @@ public class Matcher {
         return vacancyClientMatches;
     }
 
+    /**
+     * Lists all vacancies matched against a specific client within a program.
+     *
+     * @param clientId int the demographic number of the client
+     * @param programId int the program identifier to scope the vacancy search
+     * @return List of {@link VacancyClientMatch} sorted by descending match percentage
+     */
     public List<VacancyClientMatch> listVacancyMatchesForClient(int clientId, int programId) {
         List<VacancyClientMatch> vacancyClientMatches = new ArrayList<VacancyClientMatch>();
         ClientData clientData = waitlistDao.getClientData(clientId);
@@ -87,6 +118,13 @@ public class Matcher {
         return vacancyClientMatches;
     }
 
+    /**
+     * Lists all current vacancies matched against a specific client across all programs.
+     *
+     * @param clientId int the demographic number of the client
+     * @return List of {@link VacancyClientMatch} sorted by descending match percentage;
+     *         empty list if the client has no data attributes
+     */
     public List<VacancyClientMatch> listVacancyMatchesForClient(int clientId) {
         List<VacancyClientMatch> vacancyClientMatches = new ArrayList<VacancyClientMatch>();
         ClientData clientData = waitlistDao.getClientData(clientId);

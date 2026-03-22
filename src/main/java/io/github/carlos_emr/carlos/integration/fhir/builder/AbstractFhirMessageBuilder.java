@@ -52,7 +52,14 @@ import ca.uhn.fhir.context.FhirContext;
 
 
 /**
- * Builds a FHIR message with the given OscarFhirResources.
+ * Abstract base builder for constructing FHIR messages with CARLOS EMR FHIR resources.
+ *
+ * <p>Provides the common infrastructure for assembling FHIR messages including
+ * MessageHeader construction from Sender/Destination objects, resource reference tracking,
+ * attachment handling, and JSON serialization via HAPI FHIR (DSTU3).</p>
+ *
+ * @param <T> the FHIR wrapper resource type (e.g., Bundle, Communication)
+ * @since 2026-03-17
  */
 public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
 
@@ -67,8 +74,18 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
     private HashMap<ReferenceKey, Reference> references;
     private OscarFhirConfigurationManager oscarFhirConfigurationManager;
 
+    /**
+     * Adds a raw FHIR resource to the message wrapper.
+     *
+     * @param resource the FHIR BaseResource to add
+     */
     public abstract void addResource(BaseResource resource);
 
+    /**
+     * Adds an attachment to the message. Implementation varies by message type.
+     *
+     * @param attachment the FHIR Attachment to add
+     */
     protected abstract void addAttachment(Attachment attachment);
 
     /**
@@ -81,6 +98,11 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         setEndpointParameters(sender, destination);
     }
 
+    /**
+     * Constructs a message builder using the configuration manager's Sender and Destination.
+     *
+     * @param oscarFhirConfigurationManager the FHIR configuration manager providing sender and destination
+     */
     protected AbstractFhirMessageBuilder(OscarFhirConfigurationManager oscarFhirConfigurationManager) {
         setEndpointParameters(oscarFhirConfigurationManager.getSender(), oscarFhirConfigurationManager.getDestination());
         this.oscarFhirConfigurationManager = oscarFhirConfigurationManager;
@@ -116,10 +138,20 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         this.wrapper = wrapper;
     }
 
+    /**
+     * Returns the shared FHIR context instance (DSTU3).
+     *
+     * @return FhirContext the DSTU3 FHIR context used for serialization
+     */
     public static final FhirContext getFhirContext() {
         return fhirContext;
     }
 
+    /**
+     * Replaces the shared FHIR context instance.
+     *
+     * @param fhirContext the new FhirContext to use for serialization
+     */
     public static void setFhirContext(FhirContext fhirContext) {
         AbstractFhirMessageBuilder.fhirContext = fhirContext;
     }
@@ -244,6 +276,11 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         return resourceToJson(getWrapper());
     }
 
+    /**
+     * Returns the Sender configured for this message.
+     *
+     * @return Sender the message sender
+     */
     public Sender getSender() {
         return sender;
     }
@@ -252,6 +289,11 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         this.sender = sender;
     }
 
+    /**
+     * Returns the Destination configured for this message.
+     *
+     * @return Destination the message destination
+     */
     public Destination getDestination() {
         return destination;
     }
@@ -285,12 +327,23 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         }
     }
 
+    /**
+     * Adds multiple CARLOS FHIR resources to the message.
+     *
+     * @param oscarFhirResources the list of resources to add
+     */
     public void addResources(List<AbstractOscarFhirResource<?, ?>> oscarFhirResources) {
         for (AbstractOscarFhirResource<?, ?> oscarFhirResource : oscarFhirResources) {
             addResource(oscarFhirResource);
         }
     }
 
+    /**
+     * Adds a single CARLOS FHIR resource to the message, applying resource filters
+     * and tracking the reference.
+     *
+     * @param oscarFhirResource the CARLOS FHIR resource to add
+     */
     public void addResource(AbstractOscarFhirResource<?, ?> oscarFhirResource) {
         resourceFilter(oscarFhirResource);
         getResources().add(oscarFhirResource);
@@ -306,24 +359,48 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         return getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);
     }
 
+    /**
+     * Attaches a PDF document to the message.
+     *
+     * @param pdf the PDF content as a string
+     * @param title the attachment title
+     */
     public void attachPDF(String pdf, String title) {
         Attachment attachment = new Attachment();
         attachment.setContentType("application/pdf");
         setAttachment(pdf, title, attachment);
     }
 
+    /**
+     * Attaches a rich text (RTF) document to the message.
+     *
+     * @param rtf the RTF content as a string
+     * @param title the attachment title
+     */
     public void attachRichText(String rtf, String title) {
         Attachment attachment = new Attachment();
         attachment.setContentType("text/rtf");
         setAttachment(rtf, title, attachment);
     }
 
+    /**
+     * Attaches a plain text document to the message.
+     *
+     * @param text the text content
+     * @param title the attachment title
+     */
     public void attachText(String text, String title) {
         Attachment attachment = new Attachment();
         attachment.setContentType("text/plain");
         setAttachment(text, title, attachment);
     }
 
+    /**
+     * Attaches an XML document to the message.
+     *
+     * @param xml the XML content as a string
+     * @param title the attachment title
+     */
     public void attachXML(String xml, String title) {
         Attachment attachment = new Attachment();
         attachment.setContentType("text/xml");
@@ -336,6 +413,11 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         addAttachment(attachment);
     }
 
+    /**
+     * Returns the map of resource references tracked by this builder.
+     *
+     * @return HashMap mapping ReferenceKey to FHIR Reference objects
+     */
     public HashMap<ReferenceKey, Reference> getReferences() {
         if (references == null) {
             setReferences(new HashMap<ReferenceKey, Reference>());
@@ -369,6 +451,14 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
 
 }
 
+/**
+ * Composite key for tracking FHIR resource references by class name and resource ID.
+ *
+ * <p>Used internally by {@link AbstractFhirMessageBuilder} to maintain a lookup map
+ * of references added to the message.</p>
+ *
+ * @since 2026-03-17
+ */
 final class ReferenceKey {
 
     private String className;

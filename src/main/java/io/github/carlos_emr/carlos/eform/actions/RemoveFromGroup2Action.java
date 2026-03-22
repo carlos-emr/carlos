@@ -42,6 +42,13 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that removes an eForm from a named group. Requires
+ * {@code _eform} write privilege.
+ *
+ * @see EFormUtil#remEFormFromGroup(String, String)
+ * @since 2006-05-25
+ */
 public class RemoveFromGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -49,6 +56,13 @@ public class RemoveFromGroup2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Removes the eForm identified by {@code fid} from the group identified
+     * by {@code groupName}, then sets the group view attribute for the result page.
+     *
+     * @return String {@code SUCCESS} result name
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

@@ -28,9 +28,21 @@
 package io.github.carlos_emr.carlos.match;
 
 /**
- * @author AnooshTech
+ * Exception thrown when an error occurs during vacancy-client match processing.
+ *
+ * <p>Typically thrown by {@link IMatchManager#processEvent(Object, IMatchManager.Event)}
+ * when an invalid or unsupported event type is received.</p>
+ *
+ * @see IMatchManager
+ * @see MatchManager
+ * @since 2026-03-17
  */
 public class MatchManagerException extends Exception {
+    /**
+     * Constructs a new exception with the specified detail message.
+     *
+     * @param message String the detail message explaining the matching error
+     */
     public MatchManagerException(String message) {
         super(message);
     }

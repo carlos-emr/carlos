@@ -35,6 +35,16 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 
+/**
+ * JAAS group implementation that holds a named collection of {@link Principal} members.
+ *
+ * <p>Used by the JAAS login modules to represent groups of principals such as
+ * "Roles", "CallerPrincipal", and "AuthPrincipal" in the authenticated Subject.
+ *
+ * @see BaseLoginModule
+ * @see OscarRole
+ * @since 2026-03-17
+ */
 public class OscarGroup implements Principal, Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -43,9 +53,15 @@ public class OscarGroup implements Principal, Serializable {
 
     private List<Principal> principals = new ArrayList<Principal>();
 
+    /** Default constructor. */
     public OscarGroup() {
     }
 
+    /**
+     * Constructs a group with the specified name.
+     *
+     * @param roleName String the name for this group (e.g., "Roles", "CallerPrincipal")
+     */
     public OscarGroup(String roleName) {
         setName(roleName);
     }
@@ -55,6 +71,7 @@ public class OscarGroup implements Principal, Serializable {
         return name;
     }
 
+    /** @param name String the group name */
     public void setName(String name) {
         this.name = name;
     }

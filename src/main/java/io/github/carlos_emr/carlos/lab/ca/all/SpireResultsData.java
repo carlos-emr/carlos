@@ -43,6 +43,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Provides data population logic for Spire lab results. Spire labs are a type of HL7 text-based
+ * lab result that are queried via the HL7 text info table and presented with priority,
+ * abnormal status, and report status information.
+ *
+ * @since 2007-01-18
+ */
 public class SpireResultsData {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -50,6 +57,19 @@ public class SpireResultsData {
     public SpireResultsData() {
     }
 
+    /**
+     * Populates Spire lab result data filtered by provider, patient demographics, and status.
+     * Maps HL7 priority codes (C, S, U, A, L) to human-readable labels and determines
+     * abnormal and final result flags.
+     *
+     * @param providerNo String the provider number for routing lookup, or {@code null}
+     * @param demographicNo String the patient demographic number, or {@code null} for provider-based lookup
+     * @param patientFirstName String patient first name filter
+     * @param patientLastName String patient last name filter
+     * @param patientHealthNumber String patient health insurance number filter
+     * @param status String the acknowledgement status filter
+     * @return ArrayList&lt;LabResultData&gt; the populated list of Spire lab results
+     */
     public static ArrayList<LabResultData> populateSpireResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status) {
 
         if (providerNo == null) {

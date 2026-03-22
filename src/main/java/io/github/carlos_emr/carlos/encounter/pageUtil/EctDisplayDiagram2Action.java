@@ -41,6 +41,12 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 
+/**
+ * Displays diagram/body chart options in the encounter left navbar,
+ * providing popup menu selections for row and grid display modes.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayDiagram2Action extends EctDisplayAction {
     private static final String cmd = "diagrams";
 

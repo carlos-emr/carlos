@@ -42,12 +42,29 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * The purpose of this servlet is to allow a local process to convert an html page into a pdf file in a manner similar to viewing a pdf with a browser and selecting print to file
+ * Servlet that allows a local process to convert an HTML eForm page into a PDF file,
+ * similar to viewing a page in a browser and selecting "print to file".
+ *
+ * <p>Restricted to localhost access only for security. Forwards the request to the
+ * eForm data display JSP, whose rendered HTML output can then be captured for PDF conversion.
+ *
+ * @since 2012-08-13
  */
 public final class EformViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Handles GET requests by forwarding to the eForm data display JSP for PDF generation.
+     *
+     * <p>Only accepts requests from the local machine (127.0.0.1). All remote requests
+     * receive a 403 Forbidden response.
+     *
+     * @param request HttpServletRequest the incoming request, which must originate from localhost
+     * @param response HttpServletResponse the response to write to
+     * @throws ServletException if the forwarded JSP encounters an error
+     * @throws IOException if an I/O error occurs during forwarding or response writing
+     */
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.

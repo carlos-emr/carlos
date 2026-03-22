@@ -364,6 +364,13 @@ public final class ProviderPreferencesUIBean {
         return (providerPreference.getAppointmentScreenQuickLinks());
     }
 
+    /**
+     * Adds a new quick link to the provider's appointment screen preferences.
+     *
+     * @param providerNo String the provider number
+     * @param name String the display name for the quick link
+     * @param url String the URL the quick link should navigate to
+     */
     public static void addQuickLink(String providerNo, String name, String url) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 
@@ -378,6 +385,12 @@ public final class ProviderPreferencesUIBean {
         providerPreferenceDao.merge(providerPreference);
     }
 
+    /**
+     * Removes a quick link from the provider's appointment screen preferences by name.
+     *
+     * @param providerNo String the provider number
+     * @param name String the name of the quick link to remove
+     */
     public static void removeQuickLink(String providerNo, String name) {
         ProviderPreference providerPreference = getProviderPreference(providerNo);
 

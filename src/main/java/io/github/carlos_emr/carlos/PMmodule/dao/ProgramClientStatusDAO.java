@@ -35,16 +35,64 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 
+/**
+ * Data access interface for managing {@link ProgramClientStatus} entities that
+ * define client status categories within programs.
+ *
+ * @since 2005-01-18
+ * @see ProgramClientStatus
+ * @see ProgramClientStatusDAOImpl
+ */
 public interface ProgramClientStatusDAO {
+
+    /**
+     * Retrieves all client status definitions for a program.
+     *
+     * @param programId Integer the program ID
+     * @return List&lt;ProgramClientStatus&gt; status definitions for the program
+     */
     public List<ProgramClientStatus> getProgramClientStatuses(Integer programId);
 
+    /**
+     * Saves or updates a program client status definition.
+     *
+     * @param status ProgramClientStatus the status to save
+     */
     public void saveProgramClientStatus(ProgramClientStatus status);
 
+    /**
+     * Retrieves a program client status by its ID.
+     *
+     * @param id String the status ID
+     * @return ProgramClientStatus the status record, or {@code null} if not found
+     * @throws IllegalArgumentException if id is {@code null} or represents a negative number
+     */
     public ProgramClientStatus getProgramClientStatus(String id);
 
+    /**
+     * Deletes a program client status by its ID.
+     *
+     * @param id String the status ID to delete
+     */
     public void deleteProgramClientStatus(String id);
 
+    /**
+     * Checks whether a client status name already exists for a program.
+     *
+     * @param programId Integer the program ID
+     * @param statusName String the status name to check
+     * @return {@code true} if the name already exists, {@code false} otherwise
+     * @throws IllegalArgumentException if parameters are invalid
+     */
     public boolean clientStatusNameExists(Integer programId, String statusName);
 
+    /**
+     * Retrieves all currently admitted clients in a specific status within a program.
+     *
+     * @param programId Integer the program ID
+     * @param statusId Integer the status ID (stored as team ID in admissions)
+     * @return List&lt;Admission&gt; current admissions matching the criteria
+     * @throws IllegalArgumentException if parameters are invalid
+     */
     public List<Admission> getAllClientsInStatus(Integer programId, Integer statusId);
 }

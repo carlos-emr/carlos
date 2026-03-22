@@ -42,6 +42,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Displays electronic consultation (eConsult) entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayEconsult2Action extends EctDisplayAction {
 
     private final String cmd = "eConsult";

@@ -47,6 +47,17 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/**
+ * Struts2 action for downloading binary file attachments from HRM reports.
+ *
+ * <p>Looks up an HRM document by its hash, parses the report, and streams the binary
+ * attachment content to the response with the appropriate MIME type and RFC 5987
+ * Content-Disposition header. Requires {@code _hrm} read privilege.</p>
+ *
+ * @see HRMReport
+ * @see HRMReportParser
+ * @since 2008-11-05
+ */
 public class HRMDownloadFile2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
@@ -54,6 +65,15 @@ public class HRMDownloadFile2Action extends ActionSupport {
     private HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Locates the HRM document by hash, validates it contains binary content,
+     * and streams the attachment to the HTTP response.
+     *
+     * @return String {@link ActionSupport#NONE} after writing to the response stream
+     * @throws Exception if the hash is missing, no document is found, or the report
+     *         does not contain binary content
+     * @throws SecurityException if the provider lacks {@code _hrm} read privilege
+     */
     public String execute() throws Exception {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

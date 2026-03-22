@@ -47,6 +47,20 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Service interface for managing the complete fax lifecycle in the CARLOS EMR system.
+ *
+ * <p>Provides operations for rendering documents to fax-ready PDFs, creating and
+ * persisting fax jobs with multiple recipients, managing cover pages, generating
+ * preview images, logging fax transactions, and controlling the fax scheduler.
+ * Supports consultation requests, prescriptions, eForms, clinical forms, and
+ * general documents as fax sources.</p>
+ *
+ * @see FaxManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.FaxJob
+ * @see io.github.carlos_emr.carlos.commn.model.FaxConfig
+ * @since 2026-03-17
+ */
 public interface FaxManager {
 
     enum TransactionType {CONSULTATION, EFORM, FORM, RX, DOCUMENT}

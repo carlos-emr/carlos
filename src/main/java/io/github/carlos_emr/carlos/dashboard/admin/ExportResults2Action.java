@@ -44,6 +44,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action that exports dashboard drilldown query results as a CSV file download.
+ *
+ * <p>Retrieves indicator data from the {@link DashboardManager}, formats it as CSV,
+ * and streams the result to the client as a file attachment. The exported filename
+ * is sanitized to prevent HTTP response splitting and file system attacks.
+ * Requires {@code _tickler} write privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class ExportResults2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -53,6 +63,14 @@ public class ExportResults2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
 
+    /**
+     * Exports dashboard drilldown results as a CSV file. Reads the indicator ID and name
+     * from request parameters, generates the CSV content via {@link DashboardManager},
+     * and writes it to the response output stream as a downloadable attachment.
+     *
+     * @return String {@code null} after streaming the CSV response, or "unauthorized"
+     *         if the user lacks the required privilege
+     */
     public String execute() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

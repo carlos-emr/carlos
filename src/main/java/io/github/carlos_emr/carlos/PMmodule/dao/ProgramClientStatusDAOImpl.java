@@ -40,6 +40,13 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Hibernate-based implementation of {@link ProgramClientStatusDAO} for managing
+ * {@link ProgramClientStatus} entities.
+ *
+ * @since 2005-01-18
+ * @see ProgramClientStatusDAO
+ */
 @Transactional
 public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements ProgramClientStatusDAO {
 

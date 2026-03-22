@@ -46,6 +46,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+/**
+ * Displays patient contacts in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayContacts2Action extends EctDisplayAction {
 
     private static final String cmd = "contacts";

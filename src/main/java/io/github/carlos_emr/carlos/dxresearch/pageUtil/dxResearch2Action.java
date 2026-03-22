@@ -51,12 +51,29 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Struts2 action that adds or reactivates diagnosis research entries for a patient.
+ *
+ * <p>Processes one or more diagnosis codes submitted from the research form. If an
+ * existing entry is found for the patient and code, it is reactivated; otherwise a
+ * new entry is persisted. Supports both single-code and multi-code submission modes.
+ * Requires {@code _dxresearch} write privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Processes diagnosis code submissions, creating or reactivating research entries.
+     *
+     * @return String "success" or NONE after redirect
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if an I/O error occurs during redirect
+     */
     public String execute()
             throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
@@ -192,19 +209,39 @@ public class dxResearch2Action extends ActionSupport {
     private String forward;
     private String curCodingSystem;
 
+    /**
+     * Returns the patient demographic number.
+     *
+     * @return String the demographic number
+     */
     public String getDemographicNo() {
         return demographicNo;
     }
 
+    /**
+     * Sets the patient demographic number.
+     *
+     * @param demographicNo String the demographic number
+     */
     @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
 
+    /**
+     * Returns the provider number.
+     *
+     * @return String the provider number
+     */
     public String getProviderNo() {
         return providerNo;
     }
 
+    /**
+     * Sets the provider number.
+     *
+     * @param providerNo String the provider number
+     */
     @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
@@ -282,6 +319,11 @@ public class dxResearch2Action extends ActionSupport {
         this.forward = forward;
     }
 
+    /**
+     * Returns the currently selected coding system identifier.
+     *
+     * @return String the coding system (e.g. "icd9", "icd10")
+     */
     public String getSelectedCodingSystem() {
         return curCodingSystem;
     }

@@ -41,6 +41,13 @@ import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link ProgramFunctionalUserDAO} for managing
+ * {@link ProgramFunctionalUser} and {@link FunctionalUserType} entities.
+ *
+ * @since 2005-01-18
+ * @see ProgramFunctionalUserDAO
+ */
 @Transactional
 public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implements ProgramFunctionalUserDAO {
 

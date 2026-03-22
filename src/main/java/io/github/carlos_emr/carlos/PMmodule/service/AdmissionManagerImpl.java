@@ -503,10 +503,12 @@ public class AdmissionManagerImpl implements AdmissionManager {
         return (false);
     }
 
+    /** {@inheritDoc} */
     public List getActiveAnonymousAdmissions() {
         return dao.getActiveAnonymousAdmissions();
     }
 
+    /** {@inheritDoc} */
     public boolean wasInProgram(Integer programId, Integer clientId) {
         if (dao.getAdmission(programId, clientId) != null)
             return true;
@@ -516,6 +518,7 @@ public class AdmissionManagerImpl implements AdmissionManager {
     }
 
 
+    /** {@inheritDoc} */
     public List<Admission> findAdmissionsByProgramAndDate(LoggedInInfo loggedInInfo, Integer programNo, Date day, int startIndex, int numToReturn) {
         List<Admission> results = dao.findAdmissionsByProgramAndDate(programNo, day, startIndex, numToReturn);
 
@@ -525,6 +528,7 @@ public class AdmissionManagerImpl implements AdmissionManager {
         return results;
     }
 
+    /** {@inheritDoc} */
     public Integer findAdmissionsByProgramAndDateAsCount(LoggedInInfo loggedInInfo, Integer programNo, Date day) {
         Integer count = dao.findAdmissionsByProgramAndDateAsCount(programNo, day);
 

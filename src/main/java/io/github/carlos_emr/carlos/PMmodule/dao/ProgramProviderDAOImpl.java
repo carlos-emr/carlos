@@ -46,6 +46,16 @@ import java.util.List;
 import java.util.Map;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+/**
+ * Hibernate-based implementation of {@link ProgramProviderDAO} for managing
+ * {@link ProgramProvider} entities with caching support.
+ *
+ * <p>Uses a {@link QueueCache} to cache provider-program lookups by provider
+ * number and program ID combination, with a one-hour TTL.</p>
+ *
+ * @since 2005-01-18
+ * @see ProgramProviderDAO
+ */
 @Transactional
 public class ProgramProviderDAOImpl extends AbstractHibernateDao implements ProgramProviderDAO {
 

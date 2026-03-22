@@ -59,11 +59,25 @@ public class ProviderView2Action extends ActionSupport {
 
     private ViewDao userViewDAO = SpringUtils.getBean(ViewDao.class);
 
+    /**
+     * Delegates to {@link #save()} to persist view settings.
+     *
+     * @return String {@code null} (no Struts result navigation)
+     */
     public String execute() {
 
         return save();
     }
 
+    /**
+     * Saves all request parameters (except {@code method}) as view settings for the
+     * current provider, role, and view name.
+     *
+     * <p>Existing settings for the same view are loaded first, then merged with
+     * incoming parameters. All resulting entries are persisted via {@link ViewDao#saveView(View)}.</p>
+     *
+     * @return String {@code null} (no Struts result navigation)
+     */
     public String save() {
 
         String view_name = request.getParameter("view_name");

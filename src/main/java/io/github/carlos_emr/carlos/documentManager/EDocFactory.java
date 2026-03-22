@@ -39,7 +39,19 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author apavel
+ * Factory for creating {@link EDoc} instances with properly formatted metadata in the
+ * CARLOS EMR document management system.
+ *
+ * <p>Provides a convenience method for constructing EDoc objects from typed parameters
+ * (using {@link Date} objects instead of raw strings), automatically formatting dates
+ * to the expected string formats used by the persistence layer.
+ *
+ * <p>Also defines the standard enumerations for document status ({@link Status}) and
+ * module context ({@link Module}) used throughout the document management subsystem.
+ *
+ * @see EDoc
+ * @see EDocUtil
+ * @since 2006-07-27
  */
 public class EDocFactory {
     public enum Status {

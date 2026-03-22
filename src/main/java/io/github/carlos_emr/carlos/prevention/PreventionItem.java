@@ -36,7 +36,16 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Represents a single prevention or immunization record used as a fact in the
+ * Drools decision support engine.
+ *
+ * <p>Each item captures the prevention type name, date performed, next scheduled date,
+ * and status flags (never, refused, ineligible, remote entry). Instances are added
+ * to a {@link Prevention} profile and evaluated by the prevention rule base.</p>
+ *
+ * @since 2001-2002
+ * @see Prevention
+ * @see PreventionData
  */
 public class PreventionItem {
 
@@ -49,9 +58,16 @@ public class PreventionItem {
     private boolean inelligible = false;
     private boolean remoteEntry = false;
 
+    /** Default no-argument constructor. */
     public PreventionItem() {
     }
 
+    /**
+     * Constructs a prevention item with a type name and date performed.
+     *
+     * @param name String the prevention type name
+     * @param d Date the date the prevention was performed
+     */
     public PreventionItem(String name, Date d) {
         this.name = name;
         datePreformed = d;

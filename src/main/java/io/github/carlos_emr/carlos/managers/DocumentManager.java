@@ -47,12 +47,45 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 
+/**
+ * Service interface for managing clinical documents in the CARLOS EMR system.
+ *
+ * <p>Provides comprehensive document lifecycle management including creation,
+ * retrieval, storage, rendering to PDF, and acknowledgment tracking. Documents
+ * are associated with patient demographics and can be queried by type, date,
+ * program, or provider.</p>
+ *
+ * @see DocumentManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Document
+ * @since 2026-03-17
+ */
 public interface DocumentManager {
 
+    /**
+     * Retrieves a document by its identifier.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param id Integer the document identifier
+     * @return Document the document record, or null if not found
+     */
     public Document getDocument(LoggedInInfo loggedInInfo, Integer id);
 
+    /**
+     * Retrieves all documents for a patient.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param demographicNo Integer the patient demographic number
+     * @return List of Document records for the patient
+     */
     public List<Document> getDocumentsByDemographicNo(LoggedInInfo loggedInInfo, Integer demographicNo);
 
+    /**
+     * Retrieves the control document mapping for a document identifier.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param documentId Integer the document identifier
+     * @return CtlDocument the control document mapping
+     */
     public CtlDocument getCtlDocumentByDocumentId(LoggedInInfo loggedInInfo, Integer documentId);
 
     /**

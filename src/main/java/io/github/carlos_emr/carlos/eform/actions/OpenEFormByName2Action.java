@@ -45,6 +45,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that opens an eForm by its name rather than by ID. Looks up the
+ * eForm ID from the database using the provided {@code eform_name} parameter and
+ * redirects to the eForm add/view page.
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @since 2006-05-25
+ */
 public class OpenEFormByName2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -52,6 +61,14 @@ public class OpenEFormByName2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Looks up the eForm by name and redirects to the form add page. Redirects to
+     * an error path if the eForm name is not found or the demographic number is missing.
+     *
+     * @return String always returns null (redirect handled via response)
+     * @throws IOException if the redirect fails
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() throws IOException {
         String eform_name = request.getParameter("eform_name");
         String demographic_no = request.getParameter("demographic_no");

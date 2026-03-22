@@ -150,34 +150,46 @@ public class SecurityTag implements Tag {
         return objectName;
     }
 
+    /** @param objectName String the security object name to check privileges for */
     public void setObjectName(String objectName) {
         this.objectName = objectName;
     }
 
+    /** @return String the role name of the current user */
     public String getRoleName() {
         return roleName;
     }
 
+    /** @param roleName String the role name of the current user */
     public void setRoleName(String roleName) {
         this.roleName = roleName;
     }
 
+    /** @return String the required rights (e.g., "r" for read, "w" for write) */
     public String getRights() {
         return rights;
     }
 
+    /** @param rights String the required rights (e.g., "r" for read, "w" for write) */
     public void setRights(String rights) {
         this.rights = rights;
     }
 
+    /** @return boolean true if the privilege check result should be inverted */
     public boolean isReverse() {
         return reverse;
     }
 
+    /** @param reverse boolean true to invert the privilege check (show body when user lacks privilege) */
     public void setReverse(boolean reverse) {
         this.reverse = reverse;
     }
 
+    /**
+     * Gets the Spring application context from the servlet context.
+     *
+     * @return ApplicationContext the Spring web application context
+     */
     public ApplicationContext getAppContext() {
         return WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext());
     }

@@ -37,10 +37,33 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing healthcare facilities in the CARLOS EMR system.
+ *
+ * <p>Facilities represent physical clinic locations or organizational units
+ * within the EMR deployment, supporting multi-site configurations.</p>
+ *
+ * @see FacilityManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.Facility
+ * @since 2026-03-17
+ */
 public interface FacilityManager {
 
+    /**
+     * Retrieves the default facility for the system.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @return Facility the default facility configuration
+     */
     public Facility getDefaultFacility(LoggedInInfo loggedInInfo);
 
+    /**
+     * Retrieves all facilities, optionally filtered by active status.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param active Boolean if non-null, filters by active status; null returns all
+     * @return List of Facility records matching the criteria
+     */
     public List<Facility> getAllFacilities(LoggedInInfo loggedInInfo, Boolean active);
 }
  

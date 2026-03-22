@@ -483,7 +483,12 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
     /**
      * Validates that SRFax credentials are configured and non-empty.
-     * Called before any API operation to fail fast with a clear message.
+     *
+     * <p>Called before any API operation to fail fast with a clear message rather than
+     * sending an unauthenticated request to the SRFax API.</p>
+     *
+     * @param faxConfig FaxConfig the fax configuration to validate
+     * @throws FaxProviderException if faxUser or faxPasswd is null or blank
      */
     private void validateCredentials(FaxConfig faxConfig) throws FaxProviderException {
         if (faxConfig.getFaxUser() == null || faxConfig.getFaxUser().trim().isEmpty()) {
@@ -495,7 +500,13 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Creates the standard SRFax authentication parameters (access_id, access_pwd) from fax configuration.
+     * Creates the standard SRFax authentication parameters from fax configuration.
+     *
+     * <p>Builds the base parameter list containing {@code access_id}, {@code access_pwd},
+     * and {@code sResponseFormat=JSON} that all SRFax API calls require.</p>
+     *
+     * @param faxConfig FaxConfig the fax configuration containing SRFax credentials
+     * @return List&lt;NameValuePair&gt; mutable list of authentication parameters ready for action-specific additions
      */
     private List<NameValuePair> createAuthParams(FaxConfig faxConfig) {
         List<NameValuePair> params = new ArrayList<>();
@@ -506,7 +517,15 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Ensures provider response indicates success.
+     * Validates that the SRFax API response indicates success.
+     *
+     * <p>Checks the top-level {@code Status} field in the JSON response. Throws
+     * {@link FaxProviderException} if the status indicates failure, is missing, or
+     * is unrecognized (logged as a warning but treated as success for forward-compatibility).</p>
+     *
+     * @param root JsonNode the parsed JSON response from SRFax
+     * @param errorMessage String context message to prepend to failure details
+     * @throws FaxProviderException if the response indicates failure or is malformed
      */
     private void ensureSuccess(JsonNode root, String errorMessage) throws FaxProviderException {
         // Per SRFax spec, Status is always at the top level of the JSON response.
@@ -543,7 +562,11 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Reads a nested text value from a JSON object path.
+     * Reads a nested text value from a JSON object by traversing the given path of keys.
+     *
+     * @param root JsonNode the root JSON node to traverse
+     * @param path String[] ordered sequence of keys to follow into the JSON tree
+     * @return String the text value at the final path node, or null if any node is missing or null
      */
     private String textAt(JsonNode root, String... path) {
         JsonNode node = nodeAt(root, path);
@@ -554,7 +577,11 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Reads a nested JSON node from a path.
+     * Reads a nested JSON node by traversing the given path of keys.
+     *
+     * @param root JsonNode the root JSON node to traverse
+     * @param path String[] ordered sequence of keys to follow into the JSON tree
+     * @return JsonNode the node at the final path position, or null if any intermediate node is missing
      */
     private JsonNode nodeAt(JsonNode root, String... path) {
         JsonNode cursor = root;
@@ -568,7 +595,13 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Returns first available text value from a list of candidate keys.
+     * Returns the first non-empty text value found among the candidate keys, or the fallback.
+     *
+     * @param root JsonNode the JSON node to search
+     * @param key1 String first candidate key to check
+     * @param key2 String second candidate key to check
+     * @param fallback String default value if no candidate key has a non-empty value
+     * @return String the first non-empty text value, or the fallback
      */
     private String textOrDefault(JsonNode root, String key1, String key2, String fallback) {
         String v1 = textAt(root, key1);
@@ -582,6 +615,16 @@ public class SRFaxProviderClient implements FaxProviderClient {
         return fallback;
     }
 
+    /**
+     * Returns the first non-empty text value found among three candidate keys, or the fallback.
+     *
+     * @param root JsonNode the JSON node to search
+     * @param key1 String first candidate key to check
+     * @param key2 String second candidate key to check
+     * @param key3 String third candidate key to check
+     * @param fallback String default value if no candidate key has a non-empty value
+     * @return String the first non-empty text value, or the fallback
+     */
     private String textOrDefault(JsonNode root, String key1, String key2, String key3, String fallback) {
         String v1 = textAt(root, key1);
         if (v1 != null && !v1.isEmpty()) {

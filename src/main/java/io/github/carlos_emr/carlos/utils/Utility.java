@@ -445,12 +445,27 @@ public class Utility {
         return sb.toString();
     }
 
+    /**
+     * Appends two strings together with a separator, handling null/empty values gracefully.
+     *
+     * @param str1 String the first string
+     * @param str2 String the second string
+     * @param sep String the separator to place between the strings
+     * @return String the combined string, or whichever string is non-empty if the other is empty
+     */
     public static String append(String str1, String str2, String sep) {
         if (IsEmpty(str1)) return str2;
         if (IsEmpty(str2)) return str1;
         return str1 + sep + str2;
     }
 
+    /**
+     * Joins an array of strings into a single string using the specified separator.
+     *
+     * @param str String[] the array of strings to join
+     * @param sep String the separator to place between elements
+     * @return String the joined string, or empty string if the array is null or empty
+     */
     public static String merge(String[] str, String sep) {
         if (str == null || str.length == 0) return "";
         StringBuilder sb = new StringBuilder();
@@ -463,6 +478,17 @@ public class Utility {
     }
 
 
+    /**
+     * Reads a field definition template file and parses it into a list of FieldDefinition objects.
+     *
+     * <p>The template format differs based on whether the file is in an "in" directory,
+     * which includes an additional start index field in the fixed-width record layout.</p>
+     *
+     * @param pathLoc String the base path location
+     * @param dir String the subdirectory containing the template file
+     * @param filename String the template filename
+     * @return ArrayList list of FieldDefinition objects parsed from the template
+     */
     public static ArrayList getTemplate(String pathLoc, String dir, String filename) {
         FieldDefinition fDev = null; // clientImageMgr.getClientImage(demoNo);
         ArrayList list = new ArrayList();

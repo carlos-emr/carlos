@@ -49,7 +49,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Common base for a login module.
+ * Abstract base JAAS login module that provides the common authentication workflow
+ * for CARLOS EMR.
+ *
+ * <p>Implements the standard JAAS lifecycle (initialize, login, commit, abort, logout)
+ * and delegates actual credential validation to subclasses via the
+ * {@link #authenticate(String, char[])} template method. Optionally populates
+ * role and caller principal groups when authorization is enabled.
+ *
+ * @see LdapLoginModule for the LDAP authentication implementation
+ * @see OscarPrincipal
+ * @see OscarGroup
+ * @since 2026-03-17
  */
 public class BaseLoginModule implements LoginModule {
 

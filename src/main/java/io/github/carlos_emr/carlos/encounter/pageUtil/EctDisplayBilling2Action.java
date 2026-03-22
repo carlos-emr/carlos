@@ -55,6 +55,11 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 
+/**
+ * Displays billing history entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayBilling2Action extends EctDisplayAction {
 
     private static final String cmd = "Billing";

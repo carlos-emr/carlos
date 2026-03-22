@@ -46,12 +46,27 @@ import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that initializes the diagnosis research page for a patient.
+ *
+ * <p>Loads all diagnosis research entries, available quick lists, and quick list
+ * items into the HTTP session for rendering the diagnosis research JSP view.
+ * Requires {@code _dxresearch} read privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class dxSetupResearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Loads diagnosis research data, coding systems, and quick lists into the session.
+     *
+     * @return String "success" on successful initialization
+     * @throws Exception if an error occurs during data loading
+     */
     public String execute()
             throws Exception {
 

@@ -36,12 +36,43 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.DemographicSets;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+/**
+ * Service interface for managing named demographic set groupings in the
+ * CARLOS EMR system.
+ *
+ * <p>Demographic sets allow healthcare providers to define and maintain
+ * named groups of patients for reporting, outreach, or administrative purposes.</p>
+ *
+ * @see DemographicSetsManagerImpl
+ * @see io.github.carlos_emr.carlos.commn.model.DemographicSets
+ * @since 2026-03-17
+ */
 public interface DemographicSetsManager {
 
-
+    /**
+     * Retrieves all demographic set records with pagination.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param offset int the starting index for pagination
+     * @param itemsToReturn int the maximum number of records to return
+     * @return List of DemographicSets records
+     */
     public List<DemographicSets> getAllDemographicSets(LoggedInInfo loggedInInfo, int offset, int itemsToReturn);
 
+    /**
+     * Retrieves all distinct demographic set names.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @return List of String set names
+     */
     public List<String> getNames(LoggedInInfo loggedInInfo);
 
+    /**
+     * Retrieves all demographic set entries for a given set name.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session context
+     * @param setName String the name of the demographic set
+     * @return List of DemographicSets entries belonging to the named set
+     */
     public List<DemographicSets> getByName(LoggedInInfo loggedInInfo, String setName);
 }

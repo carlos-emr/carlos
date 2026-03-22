@@ -38,6 +38,13 @@ import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
+/**
+ * JPA entity representing a billing tray fee mapping in the BC billing system.
+ * Maps to the {@code billing_trayfees} table, associating billing service codes
+ * with their corresponding tray fee service codes.
+ *
+ * @since 2026-03-17
+ */
 @Entity
 @Table(name = "billing_trayfees")
 public class BillingTrayFee extends AbstractModel<Integer> {

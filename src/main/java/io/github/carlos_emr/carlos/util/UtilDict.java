@@ -108,6 +108,13 @@ public final class UtilDict extends Properties {
             setDef(names[i][0], names[i][1]);
     }
 
+    /**
+     * Sets multiple values from parallel arrays of keys and values.
+     * If the arrays differ in length, the shorter length is used.
+     *
+     * @param names String[] the keys
+     * @param vals String[] the values
+     */
     public void setDef(String[] names, String[] vals) {
         int len = names.length;
         if (len > vals.length) len = vals.length;
@@ -116,6 +123,11 @@ public final class UtilDict extends Properties {
         }
     }
 
+    /**
+     * Populates this dictionary from all request parameters in the given HTTP request.
+     *
+     * @param req HttpServletRequest the request whose parameters to import
+     */
     public void setDef(HttpServletRequest req) {
         Enumeration varEnum = req.getParameterNames();
         while (varEnum.hasMoreElements()) {

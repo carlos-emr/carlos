@@ -49,12 +49,29 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that handles adding and removing items from a diagnosis quick list.
+ *
+ * <p>Supports two operations via the {@code forward} parameter:
+ * "add" validates and persists new diagnosis codes to a quick list, and
+ * "remove" deletes selected items from the quick list.
+ * Requires {@code _dxresearch} write privilege.</p>
+ *
+ * @since 2026-03-17
+ */
 public class dxResearchUpdateQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Executes the quick list update operation (add or remove items).
+     *
+     * @return String "success" or NONE after redirect on validation failure
+     * @throws ServletException if a servlet error occurs
+     * @throws IOException if an I/O error occurs during redirect
+     */
     public String execute() throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
             throw new RuntimeException("missing required sec object (_dxresearch)");
@@ -147,6 +164,11 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
     private String xml_research5;
     private String selectedCodingSystem;
 
+    /**
+     * Returns the five diagnosis code input fields as an array.
+     *
+     * @return String[] the diagnosis code values from the form
+     */
     public String[] getXmlResearch() {
         return new String[]{xml_research1, xml_research2, xml_research3, xml_research4, xml_research5};
     }

@@ -38,7 +38,18 @@ import java.util.Map;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
- * @author Jay Gallagher
+ * Singleton cache for formatted patient name, age, and sex strings.
+ *
+ * <p>Provides efficient access to "LastName, FirstName Sex Age" formatted strings
+ * by caching the underlying data in a Hashtable keyed by demographic number.
+ * This avoids repeated database lookups when displaying patient identifiers
+ * across multiple UI components.</p>
+ *
+ * <p>Use {@link #resetDemographic(String)} to invalidate the cache entry when
+ * a patient's demographic information is updated.</p>
+ *
+ * @see DemographicData
+ * @since 2026-03-17
  */
 public class DemographicNameAgeString {
 

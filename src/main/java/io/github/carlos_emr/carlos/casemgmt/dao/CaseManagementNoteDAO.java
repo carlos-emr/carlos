@@ -53,8 +53,21 @@ import io.github.carlos_emr.carlos.utility.EncounterUtil;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Data access interface for {@link CaseManagementNote} entities. Provides comprehensive
+ * query, search, and persistence operations for clinical notes including filtering by
+ * demographic, issue, provider, program, date range, and encounter type. Also includes
+ * encounter count statistics via JDBC.
+ *
+ * @since 2026-03-17
+ */
 public interface CaseManagementNoteDAO {
 
+    /**
+     * Retrieves all case management notes.
+     *
+     * @return List&lt;CaseManagementNote&gt; all notes in the system
+     */
     public List<CaseManagementNote> findAll();
 
     public List<Provider> getEditors(CaseManagementNote note);
@@ -139,6 +152,9 @@ public interface CaseManagementNoteDAO {
 
     public List<Integer> getNotesByFacilitySince(Date date, List<Program> programs);
 
+    /**
+     * Holds unique and non-unique demographic encounter counts broken down by encounter type.
+     */
     public static class EncounterCounts {
         public HashMap<EncounterUtil.EncounterType, Integer> uniqueCounts = new HashMap<EncounterUtil.EncounterType, Integer>();
         public HashMap<EncounterUtil.EncounterType, Integer> nonUniqueCounts = new HashMap<EncounterUtil.EncounterType, Integer>();

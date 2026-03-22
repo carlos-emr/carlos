@@ -312,18 +312,45 @@ public class DSDemographicAccess {
         return found;
     }
 
+    /**
+     * Not implemented. Negation check for ATC code presence.
+     *
+     * @param atcCode String ATC code to check
+     * @return boolean (never returns normally)
+     * @throws DecisionSupportException always thrown as this operator is not implemented
+     */
     public boolean hasATCcodeNot(String atcCode) throws DecisionSupportException {
         throw new DecisionSupportException("NOT IMPLEMENTED");
     }
 
+    /**
+     * Not implemented. Checks if not all ATC codes are present in dynamic arguments.
+     *
+     * @param atcCode String ATC code to check
+     * @return boolean (never returns normally)
+     * @throws DecisionSupportException always thrown as this operator is not implemented
+     */
     public boolean hasATCcodeNotall(String atcCode) throws DecisionSupportException {
         throw new DecisionSupportException("NOT IMPLEMENTED");
     }
 
+    /**
+     * Checks that none of the specified ATC codes match the dynamic arguments.
+     *
+     * @param atcCode String comma-separated ATC codes to check
+     * @return boolean true if none of the specified ATC codes match
+     */
     public boolean hasATCcodeNotany(String atcCode) {
         return !this.hasATCcodeAny(atcCode);
     }
 
+    /**
+     * Not implemented. Checks if all specified ATC codes are present in dynamic arguments.
+     *
+     * @param atcCode String ATC code to check
+     * @return boolean (never returns normally)
+     * @throws DecisionSupportException always thrown as this operator is not implemented
+     */
     public boolean hasATCcodeAll(String atcCode) throws DecisionSupportException {
         throw new DecisionSupportException("NOT IMPLEMENTED");
     }
@@ -331,12 +358,22 @@ public class DSDemographicAccess {
 
 
 
+    /**
+     * Retrieves all diagnosis research codes for this patient.
+     *
+     * @return List of dxResearchBean objects representing the patient's diagnosis codes
+     */
     public List<dxResearchBean> getDxCodes() {
         dxResearchBeanHandler handler = new dxResearchBeanHandler(demographicNo);
         List<dxResearchBean> dxCodes = handler.getDxResearchBeanVector();
         return dxCodes;
     }
 
+    /**
+     * Returns a comma-separated string of all diagnosis codes in "type:code" format.
+     *
+     * @return String formatted diagnosis codes (e.g., "icd9:250,icd10:E11")
+     */
     public String getDxCodesStr() {
         List<dxResearchBean> dxCodes = this.getDxCodes();
         String returnStr = "";
@@ -349,6 +386,13 @@ public class DSDemographicAccess {
 
     }
 
+    /**
+     * Checks if the patient has a specific active diagnosis code.
+     *
+     * @param codeType String the coding system (e.g., "icd9", "icd10")
+     * @param code String the diagnosis code value
+     * @return boolean true if the patient has an active diagnosis matching the type and code
+     */
     public boolean hasDxCode(String codeType, String code) {
         logger.debug("HAS DX CODES CALLED");
         List<dxResearchBean> dxCodes = this.getDxCodes();
@@ -361,6 +405,12 @@ public class DSDemographicAccess {
         return false;
     }
 
+    /**
+     * Checks if the patient has any of the specified diagnosis codes (OR logic).
+     *
+     * @param dxCodesStr String comma-separated diagnosis codes in "type:code" format
+     * @return boolean true if the patient has at least one matching active diagnosis
+     */
     public boolean hasDxCodesAny(String dxCodesStr) {
         List<DSValue> testDxCodes = DSValue.createDSValues(dxCodesStr);
         for (DSValue testDxCode : testDxCodes) {
@@ -370,6 +420,12 @@ public class DSDemographicAccess {
         return false;
     }
 
+    /**
+     * Checks if the patient has all of the specified diagnosis codes (AND logic).
+     *
+     * @param dxCodesStr String comma-separated diagnosis codes in "type:code" format
+     * @return boolean true if the patient has all specified active diagnoses
+     */
     public boolean hasDxCodesAll(String dxCodesStr) {
         List<DSValue> testDxCodes = DSValue.createDSValues(dxCodesStr);
         for (DSValue testDxCode : testDxCodes) {

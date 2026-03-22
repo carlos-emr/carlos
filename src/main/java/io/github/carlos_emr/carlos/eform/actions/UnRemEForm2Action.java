@@ -42,6 +42,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that un-removes (restores) a previously removed eForm data record
+ * by setting its {@code current} flag back to true. This differs from
+ * {@link RestoreEForm2Action} which restores eForm templates; this action restores
+ * individual filled eForm data instances.
+ *
+ * <p>Requires {@code _eform} write privilege.</p>
+ *
+ * @since 2006-05-25
+ */
 public class UnRemEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -49,6 +59,14 @@ public class UnRemEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Restores the eForm data record identified by the {@code fdid} request parameter
+     * by setting its current flag to true. Returns different result names based on
+     * the {@code callpage} parameter.
+     *
+     * @return String the Struts2 result name ({@code SUCCESS} or {@code "independent"})
+     * @throws SecurityException if the user lacks {@code _eform} write privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {

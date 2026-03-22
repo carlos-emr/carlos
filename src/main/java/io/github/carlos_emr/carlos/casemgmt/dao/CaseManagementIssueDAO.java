@@ -38,6 +38,13 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
+/**
+ * Data access interface for {@link CaseManagementIssue} entities. Provides query
+ * and persistence operations for the association between clinical issues and patient
+ * demographics, including filtering by note, resolution status, and program.
+ *
+ * @since 2026-03-17
+ */
 public interface CaseManagementIssueDAO {
 
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no);

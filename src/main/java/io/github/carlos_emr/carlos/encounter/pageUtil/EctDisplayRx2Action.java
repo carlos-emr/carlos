@@ -43,6 +43,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Displays active prescriptions (Rx) for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayRx2Action extends EctDisplayAction {
     private String cmd = "Rx";
 

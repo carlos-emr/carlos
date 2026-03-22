@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+/**
+ * Data access interface for {@link Issue} entities. Provides CRUD operations
+ * and search capabilities for clinical issue definitions, supporting queries
+ * by code, type, role, and free-text search with pagination.
+ *
+ * @since 2026-03-17
+ */
 public interface IssueDAO {
 
     public Issue getIssue(Long id);

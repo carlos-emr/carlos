@@ -43,6 +43,11 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Displays pregnancy-related information for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayPregnancy2Action extends EctDisplayAction {
 
     private static final String cmd = "pregnancy";

@@ -35,11 +35,38 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 
+/**
+ * Data access interface for querying default role-based program access rights.
+ * Used to determine global default access permissions when program-specific
+ * access rules are not defined.
+ *
+ * @since 2026-03-17
+ */
 public interface RoleProgramAccessDAO {
 
+    /**
+     * Retrieves all default access rights for the specified role.
+     *
+     * @param roleId Long the security role identifier
+     * @return List&lt;DefaultRoleAccess&gt; the default access rights for the role
+     */
     public List<DefaultRoleAccess> getDefaultAccessRightByRole(Long roleId);
 
+    /**
+     * Retrieves default access rights for the specified role filtered by access type.
+     *
+     * @param roleId Long the security role identifier
+     * @param accessType String the access type to filter by
+     * @return List&lt;DefaultRoleAccess&gt; the filtered default access rights
+     */
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType);
 
+    /**
+     * Checks whether the specified role has the given access right by default.
+     *
+     * @param accessName String the access right name to check
+     * @param roleId Long the security role identifier
+     * @return boolean true if the role has the specified default access
+     */
     public boolean hasAccess(String accessName, Long roleId);
 }

@@ -1138,14 +1138,31 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         return text;
     }
 
+    /**
+     * Calculates the patient's current age based on their date of birth fields.
+     * Uses default values (1900-01-01) for any missing birth date components.
+     *
+     * @return String the calculated age as a string
+     */
     public String getAge() {
         return (String.valueOf(Utility.calcAge(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE))));
     }
 
+    /**
+     * Calculates the patient's age as of a specified date.
+     *
+     * @param asofDate Date the reference date to calculate age at
+     * @return String the calculated age as a string
+     */
     public String getAgeAsOf(Date asofDate) {
         return Utility.calcAgeAtDate(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), asofDate);
     }
 
+    /**
+     * Returns the subject pronoun based on the patient's recorded sex.
+     *
+     * @return String "he" for male, "she" for female, "they" otherwise
+     */
     public String getSubjectPronoun() {
         if ("M".equals(sex)) {
             return "he";
@@ -1156,6 +1173,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
     }
 
+    /**
+     * Returns the possessive pronoun based on the patient's recorded sex.
+     *
+     * @return String "his" for male, "her" for female, "their" otherwise
+     */
     public String getPossessivePronoun() {
         if ("M".equals(sex)) {
             return "his";
@@ -1166,10 +1188,21 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
     }
 
+    /**
+     * Calculates the patient's current age in whole years.
+     *
+     * @return int the age in years
+     */
     public int getAgeInYears() {
         return Utility.getNumYears(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), Calendar.getInstance().getTime());
     }
 
+    /**
+     * Calculates the patient's age in whole years as of a specified date.
+     *
+     * @param asofDate Date the reference date to calculate age at
+     * @return int the age in years
+     */
     public int getAgeInYearsAsOf(Date asofDate) {
         return Utility.getNumYears(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), asofDate);
     }
@@ -1318,10 +1351,20 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         this.sexDesc = sexDesc;
     }
 
+    /**
+     * Returns whether this patient has active program admissions.
+     *
+     * @return boolean {@code true} if the patient has one or more active admissions
+     */
     public boolean isActive() {
         return activeCount > 0;
     }
 
+    /**
+     * Returns whether this patient has any health safety alerts.
+     *
+     * @return boolean {@code true} if the patient has one or more HS alerts
+     */
     public boolean hasHsAlert() {
         return hsAlertCount > 0;
     }
@@ -1342,6 +1385,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         this.hsAlertCount = hsAlertCount;
     }
 
+    /**
+     * Sets the date of birth fields from a {@link Calendar} object.
+     * Splits the calendar into individual day, month, and year string fields.
+     *
+     * @param cal Calendar the birth date, or {@code null} to clear all birth date fields
+     */
     public void setBirthDay(Calendar cal) {
         if (cal == null) {
             dateOfBirth = monthOfBirth = yearOfBirth = null;
@@ -1352,6 +1401,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
     }
 
+    /**
+     * Returns the patient's date of birth as a {@link GregorianCalendar}.
+     * Reconstructed from the individual year, month, and day string fields.
+     *
+     * @return GregorianCalendar the birth date, or {@code null} if any component is missing
+     */
     public GregorianCalendar getBirthDay() {
         GregorianCalendar cal = null;
 
@@ -1480,12 +1535,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         this.pronounId = pronounId;
     }
 
+    /** Comparator that orders demographics by formatted display name (case-insensitive). */
     public static final Comparator<Demographic> FormattedNameComparator = new Comparator<Demographic>() {
         @Override
         public int compare(Demographic dm1, Demographic dm2) {
             return dm1.getFormattedName().compareToIgnoreCase(dm2.getFormattedName());
         }
     };
+    /** Comparator that orders demographics by last name. */
     public static final Comparator<Demographic> LastNameComparator = new Comparator<Demographic>() {
         public int compare(Demographic dm1, Demographic dm2) {
             return dm1.getLastName().compareTo(dm2.getLastName());

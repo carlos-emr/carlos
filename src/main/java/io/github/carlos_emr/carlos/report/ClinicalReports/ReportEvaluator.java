@@ -44,7 +44,20 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasureme
 import io.github.carlos_emr.carlos.mds.data.ProviderData;
 
 /**
- * @author Jay
+ * Evaluates a clinical report by iterating over the patient population defined by a
+ * {@link Denominator} and testing each patient against a primary {@link Numerator}
+ * and up to 11 additional numerators. Collects pass/fail results, counts, percentages,
+ * and optional measurement data for each patient.
+ *
+ * <p>Results are stored in an internal list of hashtables accessible via
+ * {@link #getReportResultList()}, and summary statistics are available through
+ * {@link #getNumeratorCount()}, {@link #getDenominatorCount()}, and
+ * {@link #getPercentage()}.</p>
+ *
+ * @see Numerator
+ * @see Denominator
+ * @see ClinicalReportManager
+ * @since 2006-06-17
  */
 public class ReportEvaluator {
 
@@ -64,18 +77,53 @@ public class ReportEvaluator {
     public ReportEvaluator() {
     }
 
+    /**
+     * Evaluates a report with a single numerator against the denominator population.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param deno Denominator the patient population
+     * @param numer Numerator the clinical criterion to evaluate
+     */
     public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer) {
         evaluate(loggedInInfo, deno, numer, null, null, true);
     }
 
+    /**
+     * Evaluates a report with a primary numerator and additional numerators.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param deno Denominator the patient population
+     * @param numer Numerator the primary criterion
+     * @param numer2 Numerator[] additional numerators (all must pass for a positive result)
+     */
     public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, Numerator[] numer2) {
         evaluate(loggedInInfo, deno, numer, numer2, null, true);
     }
 
+    /**
+     * Evaluates a report with additional measurement fields to include in results.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param deno Denominator the patient population
+     * @param numer Numerator the clinical criterion
+     * @param additionalFields List&lt;KeyValue&gt; extra measurement fields to attach to results
+     */
     public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, List<KeyValue> additionalFields) {
         evaluate(loggedInInfo, deno, numer, null, additionalFields, true);
     }
 
+    /**
+     * Full evaluation method. Iterates over the denominator patient list, evaluates
+     * the primary numerator and all additional numerators for each patient, and
+     * collects results with optional measurement data.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @param deno Denominator the patient population
+     * @param numer Numerator the primary criterion
+     * @param numers Numerator[] additional numerators (all must pass for a positive result)
+     * @param additionalFields List&lt;KeyValue&gt; extra measurement fields to attach, or {@code null}
+     * @param includeFalseResults boolean whether to include patients who fail the criteria
+     */
     public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, Numerator[] numers, List<KeyValue> additionalFields, boolean includeFalseResults) {
         denominator = deno;
         numerator = numer;
@@ -138,6 +186,11 @@ public class ReportEvaluator {
 
     }
 
+    /**
+     * Returns the total number of patients in the denominator set.
+     *
+     * @return int the denominator count
+     */
     public int getDenominatorCount() {
         return denominatorCount;
     }

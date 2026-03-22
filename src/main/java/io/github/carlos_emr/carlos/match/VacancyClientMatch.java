@@ -31,7 +31,16 @@ package io.github.carlos_emr.carlos.match;
 import java.util.Date;
 
 /**
- * @author AnooshTech
+ * Represents the result of matching a waitlisted client against a program vacancy,
+ * including the computed match percentage and current processing status.
+ *
+ * <p>Implements {@link Comparable} to allow sorting by match percentage in descending
+ * order, so the best matches appear first in result lists.</p>
+ *
+ * @see Matcher
+ * @see VacancyData
+ * @see ClientData
+ * @since 2026-03-17
  */
 public class VacancyClientMatch implements Comparable<VacancyClientMatch> {
     public enum VacancyClientMatchStatus {
@@ -47,26 +56,56 @@ public class VacancyClientMatch implements Comparable<VacancyClientMatch> {
     private String rejectionReason;
     private double matchPercentage;
 
+    /**
+     * Returns the client (demographic) identifier.
+     *
+     * @return int the client identifier
+     */
     public int getClient_id() {
         return client_id;
     }
 
+    /**
+     * Sets the client (demographic) identifier.
+     *
+     * @param client_id int the client identifier to set
+     */
     public void setClient_id(int client_id) {
         this.client_id = client_id;
     }
 
+    /**
+     * Returns the vacancy identifier.
+     *
+     * @return int the vacancy identifier
+     */
     public int getVacancy_id() {
         return vacancy_id;
     }
 
+    /**
+     * Sets the vacancy identifier.
+     *
+     * @param vacancy_id int the vacancy identifier to set
+     */
     public void setVacancy_id(int vacancy_id) {
         this.vacancy_id = vacancy_id;
     }
 
+    /**
+     * Returns the waitlist intake form identifier.
+     *
+     * @return int the form identifier
+     */
     public int getForm_id() {
         return form_id;
     }
 
+    /**
+     * Sets the waitlist intake form identifier.
+     *
+     * @param form_id int the form identifier to set
+     */
     public void setForm_id(int form_id) {
         this.form_id = form_id;
     }
@@ -103,10 +142,20 @@ public class VacancyClientMatch implements Comparable<VacancyClientMatch> {
         this.rejectionReason = rejectionReason;
     }
 
+    /**
+     * Returns the computed match percentage between the client and vacancy.
+     *
+     * @return double the match percentage (0-100)
+     */
     public double getMatchPercentage() {
         return matchPercentage;
     }
 
+    /**
+     * Sets the computed match percentage between the client and vacancy.
+     *
+     * @param matchPercentage double the match percentage to set (0-100)
+     */
     public void setMatchPercentage(double matchPercentage) {
         this.matchPercentage = matchPercentage;
     }

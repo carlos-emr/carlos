@@ -136,6 +136,12 @@ public final class DateUtils {
         return dateFormatter.format(date);
     }
 
+    /**
+     * Returns an ISO datetime string without the 'T' separator and without seconds.
+     *
+     * @param cal Calendar the calendar to format
+     * @return String the formatted datetime (e.g., "2026-03-22 14:30"), or empty string if {@code null}
+     */
     public static String getIsoDateTimeNoTNoSeconds(Calendar cal) {
         if (cal == null) {
             return "";
@@ -145,18 +151,43 @@ public final class DateUtils {
         }
     }
 
+    /**
+     * Returns an ISO datetime string with the 'T' separator replaced by a space.
+     *
+     * @param cal Calendar the calendar to format
+     * @return String the formatted datetime, or empty string if {@code null}
+     */
     public static String getIsoDateTimeNoT(Calendar cal) {
         return cal == null ? "" : DateFormatUtils.ISO_DATETIME_FORMAT.format(cal).replace('T', ' ');
     }
 
+    /**
+     * Returns a standard ISO datetime string including the 'T' separator.
+     *
+     * @param cal Calendar the calendar to format
+     * @return String the ISO formatted datetime, or empty string if {@code null}
+     */
     public static String getIsoDateTime(Calendar cal) {
         return cal == null ? "" : DateFormatUtils.ISO_DATETIME_FORMAT.format(cal);
     }
 
+    /**
+     * Returns an ISO date string (date portion only, no time).
+     *
+     * @param cal Calendar the calendar to format
+     * @return String the ISO formatted date, or empty string if {@code null}
+     */
     public static String getIsoDate(Calendar cal) {
         return cal == null ? "" : DateFormatUtils.ISO_DATE_FORMAT.format(cal);
     }
 
+    /**
+     * Parses an ISO date string into a {@link Date}.
+     *
+     * @param s String the ISO date string to parse
+     * @return Date the parsed date, or {@code null} if the input is blank
+     * @throws ParseException if the string cannot be parsed
+     */
     public static Date parseIsoDate(String s) throws ParseException {
         s = StringUtils.trimToNull(s);
         if (s == null) {
@@ -168,6 +199,13 @@ public final class DateUtils {
         }
     }
 
+    /**
+     * Parses an ISO date string into a {@link GregorianCalendar}.
+     *
+     * @param s String the ISO date string to parse
+     * @return GregorianCalendar the parsed calendar, or {@code null} if the input is blank
+     * @throws ParseException if the string cannot be parsed
+     */
     public static GregorianCalendar parseIsoDateAsCalendar(String s) throws ParseException {
         Date date = parseIsoDate(s);
         if (date == null) {
@@ -180,6 +218,13 @@ public final class DateUtils {
         }
     }
 
+    /**
+     * Parses an ISO datetime string into a {@link Date}.
+     *
+     * @param s String the ISO datetime string to parse
+     * @return Date the parsed date, or {@code null} if the input is blank
+     * @throws ParseException if the string cannot be parsed
+     */
     public static Date parseIsoDateTime(String s) throws ParseException {
         s = StringUtils.trimToNull(s);
         if (s == null) {
@@ -191,6 +236,13 @@ public final class DateUtils {
         }
     }
 
+    /**
+     * Parses an ISO datetime string into a {@link GregorianCalendar}.
+     *
+     * @param s String the ISO datetime string to parse
+     * @return GregorianCalendar the parsed calendar, or {@code null} if the input is blank
+     * @throws ParseException if the string cannot be parsed
+     */
     public static GregorianCalendar parseIsoDateTimeAsCalendar(String s) throws ParseException {
         Date date = parseIsoDateTime(s);
         if (date == null) {
@@ -203,6 +255,13 @@ public final class DateUtils {
         }
     }
 
+    /**
+     * Calculates the difference in whole years between two calendar dates.
+     *
+     * @param date1 Calendar the earlier date
+     * @param date2 Calendar the later date
+     * @return Integer the number of complete years between the dates, or {@code null} if either is {@code null}
+     */
     public static Integer yearDifference(Calendar date1, Calendar date2) {
         if (date1 != null && date2 != null) {
             int yearDiff = date2.get(1) - date1.get(1);
@@ -216,10 +275,23 @@ public final class DateUtils {
         }
     }
 
+    /**
+     * Calculates a patient's age in years as of the specified date.
+     *
+     * @param dateOfBirth Calendar the patient's date of birth
+     * @param onThisDay   Calendar the reference date for the age calculation
+     * @return Integer the age in complete years, or {@code null} if either date is {@code null}
+     */
     public static Integer getAge(Calendar dateOfBirth, Calendar onThisDay) {
         return yearDifference(dateOfBirth, onThisDay);
     }
 
+    /**
+     * Resets the time portion of a calendar to midnight (00:00:00.000).
+     *
+     * @param cal Calendar the calendar to modify
+     * @return Calendar the same calendar instance with time set to beginning of day
+     */
     public static Calendar setToBeginningOfDay(Calendar cal) {
         cal.set(11, 0);
         cal.set(12, 0);
@@ -229,6 +301,13 @@ public final class DateUtils {
         return cal;
     }
 
+    /**
+     * Parses a JavaScript-style ISO datetime string without seconds (e.g., "2026-03-22 14:30").
+     *
+     * @param s String the datetime string to parse in "yyyy-MM-dd HH:mm" format
+     * @return Date the parsed date, or {@code null} if the input is blank
+     * @throws ParseException if the string cannot be parsed
+     */
     public static Date parseJsIsoDateTimeNoTNoSeconds(String s) throws ParseException {
         s = StringUtils.trimToNull(s);
         if (s == null) {

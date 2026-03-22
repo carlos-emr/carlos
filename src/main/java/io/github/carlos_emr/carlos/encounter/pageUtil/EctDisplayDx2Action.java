@@ -47,6 +47,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Vector;
 
+/**
+ * Displays disease/diagnosis (Dx) entries for a patient in the encounter left navbar.
+ *
+ * @since 2001-01-01
+ */
 public class EctDisplayDx2Action extends EctDisplayAction {
     private String cmd = "Dx";
 
