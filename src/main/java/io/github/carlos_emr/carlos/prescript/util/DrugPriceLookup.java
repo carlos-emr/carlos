@@ -55,7 +55,18 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * Parses xml file, storing a ConcurrentHashMap of DIN to price information.
+ * Utility class that parses an ODB formulary XML file and caches a DIN-to-unit-price mapping.
+ * <p>
+ * Supports loading formulary data from three sources in order of precedence:
+ * <ol>
+ *   <li>File path specified in the {@code odb_formulary_file} CarlosProperties key</li>
+ *   <li>Active {@link ResourceStorage} record of type {@link ResourceStorage#LU_CODES}</li>
+ *   <li>Bundled classpath resource {@code oscar/oscarRx/data_extract_20250730.xml}</li>
+ * </ol>
+ * The map is populated lazily on first use via double-checked locking and stored in a
+ * thread-safe {@link ConcurrentHashMap}.
+ *
+ * @since 2026-03-22
  */
 public class DrugPriceLookup {
 
@@ -64,24 +75,77 @@ public class DrugPriceLookup {
 	static final Map<String, String> costLookup = new ConcurrentHashMap<>();
 	static volatile boolean loaded = false;
 
-	/** Utility class - not instantiable */
+	/** Utility class — not instantiable. */
 	private DrugPriceLookup() {
 	}
 
+	/**
+	 * Returns the unit price string for the given DIN, or {@code null} if the DIN is
+	 * {@code null} or not present in the formulary.
+	 * <p>
+	 * Triggers lazy loading of the formulary data on the first call.
+	 *
+	 * @param din String the Drug Identification Number to look up
+	 * @return String the unit price as a raw string (e.g. {@code "12.50"}), or {@code null}
+	 *         if {@code din} is {@code null} or not found in the formulary
+	 * @since 2026-03-22
+	 */
 	static public String getPriceInfoForDin(String din) {
-		loadCostLookupInformation();
 		if (din == null) {
 			log.info("din null returning null");
 			return null;
 		}
+		loadCostLookupInformation();
 		log.debug("current lookup for din {} yields {}", din, costLookup.get(din));
 		return costLookup.get(din);
 	}
 
+	/**
+	 * Clears the internal price cache and reloads all formulary data from the configured source.
+	 * <p>
+	 * This method is thread-safe; it acquires the class-level monitor before clearing and
+	 * reloading.
+	 *
+	 * @since 2026-03-22
+	 */
 	static public synchronized void reLoadLookupInformation() {
 		loaded = false;
 		costLookup.clear();
 		loadCostLookupInformation();
+	}
+
+	/**
+	 * Resolves the formulary {@link InputStream} from the configured source.
+	 * <p>
+	 * Resolution order:
+	 * <ol>
+	 *   <li>{@code odb_formulary_file} property → file system path</li>
+	 *   <li>Active {@link ResourceStorage#LU_CODES} record → byte array</li>
+	 *   <li>Classpath resource {@code oscar/oscarRx/data_extract_20250730.xml}</li>
+	 * </ol>
+	 *
+	 * @param resourceStorageDao ResourceStorageDao the DAO used to look up database-stored formulary data
+	 * @return InputStream an open stream positioned at the beginning of the XML formulary,
+	 *         or {@code null} if no source is available
+	 * @throws IOException if the file-system source cannot be opened
+	 * @since 2026-03-22
+	 */
+	private static InputStream resolveOdbInputStream(ResourceStorageDao resourceStorageDao) throws IOException {
+		String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
+		if (fileName != null && !fileName.isEmpty()) {
+			log.info("loading odb file from property {}", fileName);
+			return new BufferedInputStream(new FileInputStream(fileName));
+		}
+
+		ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);
+		if (resourceStorage != null) {
+			log.info("loading odb file from resource storage id {}", resourceStorage.getId());
+			return new ByteArrayInputStream(resourceStorage.getFileContents());
+		}
+
+		String dosing = "oscar/oscarRx/data_extract_20250730.xml";
+		log.info("loading odb file from internal resource {}", dosing);
+		return DrugPriceLookup.class.getClassLoader().getResourceAsStream(dosing);
 	}
 
 	static private void loadCostLookupInformation() {
@@ -89,26 +153,8 @@ public class DrugPriceLookup {
 		if (!loaded) {
 			synchronized (DrugPriceLookup.class) {
 				if (!loaded) {
-					InputStream is = null;
 					ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
-					try {
-
-						String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
-						if (fileName != null && !fileName.isEmpty()) {
-							is = new BufferedInputStream(new FileInputStream(fileName));
-							log.info("loading odb file from property {}", fileName);
-
-						} else {
-							ResourceStorage resourceStorage = resourceStorageDao.findActive(ResourceStorage.LU_CODES);
-							if (resourceStorage != null) {
-								is = new ByteArrayInputStream(resourceStorage.getFileContents());
-								log.info("loading odb file from resource storage id {}", resourceStorage.getId());
-							} else {
-								String dosing = "oscar/oscarRx/data_extract_20250730.xml";
-								log.info("loading odb file from internal resource {}", dosing);
-								is = DrugPriceLookup.class.getClassLoader().getResourceAsStream(dosing);
-							}
-						}
+					try (InputStream is = resolveOdbInputStream(resourceStorageDao)) {
 
 						if (is == null) {
 							log.error("Drug price formulary resource could not be resolved; pricing will be unavailable");
@@ -122,6 +168,12 @@ public class DrugPriceLookup {
 						 * we want the drug.id (its din) and link it to drug.individualPrice its formulary cost per unit
 						 */
 						SAXBuilder parser = new SAXBuilder();
+						/* Harden against XXE attacks per OWASP guidelines */
+						parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+						parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+						parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+						parser.setExpandEntities(false);
+
 						Document doc = parser.build(is);
 						Element root = doc.getRootElement();
 						Element formulary = root.getChild("formulary");
@@ -148,14 +200,6 @@ public class DrugPriceLookup {
 
 					} catch (JDOMException | IOException e) {
 						MiscUtils.getLogger().error("Error", e);
-					} finally {
-						if (is != null) {
-							try {
-								is.close();
-							} catch (IOException e) {
-								MiscUtils.getLogger().error("Error", e);
-							}
-						}
 					}
 				}
 			}

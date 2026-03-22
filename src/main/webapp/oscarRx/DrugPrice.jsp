@@ -30,18 +30,28 @@
 --%>
 
 <%--
-    Document   : DrugPrice
-    Created on : Apr 10, 2022
-    Author     : phc
+    DrugPrice.jsp — Drug Price Lookup AJAX Endpoint
+
+    Purpose:
+    Returns an HTML snippet containing the estimated prescription cost for a given DIN
+    and quantity. Intended to be called via AJAX from the prescription writing interface.
+
+    Parameters (request):
+    - din      : Drug Identification Number used to look up the unit price
+    - qty      : Optional quantity multiplier; defaults to 1 if absent or zero
+    - randomId : Row identifier passed by the caller (not used in response)
+
+    Response:
+    Renders a <span> containing the formatted Canadian-dollar cost as "{price}/{quantity}",
+    or nothing if the DIN is not found or the price/quantity values are invalid.
+
+    @since 2026-03-22
 --%>
 
-
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic"%>
 <%@page import="java.util.*" %>
 <%@page import="java.text.*" %>
-<%@page import="oscar.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceLookup" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
            <%
 		    String din = request.getParameter("din");
@@ -49,7 +59,7 @@
 		    String quantity = request.getParameter("qty");
 		    String cost = DrugPriceLookup.getPriceInfoForDin(din);
 		    String moneyString = "";
-		    NumberFormat formatter = NumberFormat.getCurrencyInstance(new Locale("en", "US"));
+		    NumberFormat formatter = NumberFormat.getCurrencyInstance(Locale.CANADA);
 
             if (cost != null && !cost.isEmpty() && cost.matches("\\d+(\\.\\d+)?")){
 				//lets cast to float
@@ -65,6 +75,6 @@
                 }
          %>
             <span style="margin-left:2px; margin-right: 2px;">
-			<%=moneyString%>
+			<%=Encode.forHtml(moneyString)%>
             </span>
             <%}%>
