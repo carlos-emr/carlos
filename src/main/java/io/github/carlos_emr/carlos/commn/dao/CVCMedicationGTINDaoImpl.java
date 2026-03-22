@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CVCMedicationGTINDaoImpl extends AbstractDaoImpl<CVCMedicationGTIN> implements CVCMedicationGTINDao {
 
+    /** Constructs this DAO for the {@link CVCMedicationGTIN} entity class. */
+
     public CVCMedicationGTINDaoImpl() {
         super(CVCMedicationGTIN.class);
     }

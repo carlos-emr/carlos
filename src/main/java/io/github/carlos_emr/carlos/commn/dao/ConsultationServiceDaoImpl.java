@@ -52,6 +52,8 @@ public class ConsultationServiceDaoImpl extends AbstractDaoImpl<ConsultationServ
     public final boolean ACTIVE_ONLY = true;
     public final boolean WITH_INACTIVE = false;
 
+    /** Constructs this DAO for the {@link ConsultationServices} entity class. */
+
     public ConsultationServiceDaoImpl() {
         super(ConsultationServices.class);
     }

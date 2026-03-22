@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class FavoritesPrivilegeDaoImpl extends AbstractDaoImpl<FavoritesPrivilege> implements FavoritesPrivilegeDao {
 
+    /** Constructs this DAO for the {@link FavoritesPrivilege} entity class. */
+
     public FavoritesPrivilegeDaoImpl() {
         super(FavoritesPrivilege.class);
     }

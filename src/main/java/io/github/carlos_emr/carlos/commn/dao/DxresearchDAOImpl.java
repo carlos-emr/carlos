@@ -59,6 +59,8 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
 public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements DxresearchDAO {
     private static final Logger logger = MiscUtils.getLogger();
 
+    /** Constructs this DAO for the {@link Dxresearch} entity class. */
+
     public DxresearchDAOImpl() {
         super(Dxresearch.class);
     }

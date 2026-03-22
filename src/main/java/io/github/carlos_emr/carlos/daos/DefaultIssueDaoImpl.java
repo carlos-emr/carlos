@@ -40,6 +40,12 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.model.DefaultIssue;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 
+/**
+ * JPA-based implementation of {@link DefaultIssueDao} for default clinical issue persistence.
+ *
+ * @since 2005-01-01
+ * @see DefaultIssueDao
+ */
 public class DefaultIssueDaoImpl extends AbstractDaoImpl<DefaultIssue> implements DefaultIssueDao {
 
     public DefaultIssueDaoImpl() {

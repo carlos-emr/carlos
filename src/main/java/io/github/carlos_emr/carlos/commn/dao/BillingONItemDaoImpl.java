@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class BillingONItemDaoImpl extends AbstractDaoImpl<BillingONItem> implements BillingONItemDao {
 
+    /** Constructs this DAO for the {@link BillingONItem} entity class. */
+
     public BillingONItemDaoImpl() {
         super(BillingONItem.class);
     }

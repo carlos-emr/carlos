@@ -39,6 +39,18 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 
+/**
+ * Data access interface for managing lookup tables, code values, and organizational
+ * hierarchy in the CARLOS EMR system.
+ *
+ * <p>Provides operations for loading code lists, retrieving lookup table definitions,
+ * managing code field values, saving organization codes for programs and facilities,
+ * and executing stored procedures for lookup data management.</p>
+ *
+ * @since 2005-01-01
+ * @see io.github.carlos_emr.carlos.model.LookupCodeValue
+ * @see io.github.carlos_emr.carlos.model.LookupTableDefValue
+ */
 public interface LookupDao {
 
     public List LoadCodeList(String tableId, boolean activeOnly, String code, String codeDesc);

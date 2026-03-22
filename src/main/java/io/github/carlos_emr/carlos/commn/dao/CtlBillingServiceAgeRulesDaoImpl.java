@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CtlBillingServiceAgeRulesDaoImpl extends AbstractDaoImpl<CtlBillingServiceAgeRules> implements CtlBillingServiceAgeRulesDao {
 
+    /** Constructs this DAO for the {@link CtlBillingServiceAgeRules} entity class. */
+
     public CtlBillingServiceAgeRulesDaoImpl() {
         super(CtlBillingServiceAgeRules.class);
     }

@@ -47,6 +47,8 @@ import jakarta.persistence.Query;
 
 public class LookupListItemDaoImpl extends AbstractDaoImpl<LookupListItem> implements LookupListItemDao {
 
+    /** Constructs this DAO for the {@link LookupListItem} entity class. */
+
     public LookupListItemDaoImpl() {
         super(LookupListItem.class);
     }

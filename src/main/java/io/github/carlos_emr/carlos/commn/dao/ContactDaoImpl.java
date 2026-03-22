@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class ContactDaoImpl extends AbstractDaoImpl<Contact> implements ContactDao {
 
+    /** Constructs this DAO for the {@link Contact} entity class. */
+
     public ContactDaoImpl() {
         super(Contact.class);
     }

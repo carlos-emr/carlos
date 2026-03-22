@@ -52,6 +52,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements PartialDateDao {
 
+    /** Constructs this DAO for the {@link PartialDate} entity class. */
+
     public PartialDateDaoImpl() {
         super(PartialDate.class);
     }

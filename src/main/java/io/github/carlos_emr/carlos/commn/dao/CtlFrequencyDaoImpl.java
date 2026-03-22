@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CtlFrequencyDaoImpl extends AbstractDaoImpl<CtlFrequency> implements CtlFrequencyDao {
 
+    /** Constructs this DAO for the {@link CtlFrequency} entity class. */
+
     public CtlFrequencyDaoImpl() {
         super(CtlFrequency.class);
     }

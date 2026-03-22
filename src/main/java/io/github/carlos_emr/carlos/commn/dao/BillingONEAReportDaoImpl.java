@@ -50,6 +50,8 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
 
 public class BillingONEAReportDaoImpl extends AbstractDaoImpl<BillingONEAReport> implements BillingONEAReportDao {
 
+    /** Constructs this DAO for the {@link BillingONEAReport} entity class. */
+
     public BillingONEAReportDaoImpl() {
         super(BillingONEAReport.class);
     }

@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class ORNPreImplementationReportLogDaoImpl extends AbstractDaoImpl<ORNPreImplementationReportLog> implements ORNPreImplementationReportLogDao {
 
+    /** Constructs this DAO for the {@link ORNPreImplementationReportLog} entity class. */
+
     public ORNPreImplementationReportLogDaoImpl() {
         super(ORNPreImplementationReportLog.class);
     }

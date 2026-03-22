@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 
 public class LogLettersDaoImpl extends AbstractDaoImpl<LogLetters> implements LogLettersDao {
 
+    /** Constructs this DAO for the {@link LogLetters} entity class. */
+
     public LogLettersDaoImpl() {
         super(LogLetters.class);
     }

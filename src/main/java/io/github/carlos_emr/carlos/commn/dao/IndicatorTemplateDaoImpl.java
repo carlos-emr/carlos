@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class IndicatorTemplateDaoImpl extends AbstractDaoImpl<IndicatorTemplate> implements IndicatorTemplateDao {
 
+    /** Constructs this DAO for the {@link IndicatorTemplate} entity class. */
+
     public IndicatorTemplateDaoImpl() {
         super(IndicatorTemplate.class);
     }

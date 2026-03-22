@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class BatchBillingDaoImpl extends AbstractDaoImpl<BatchBilling> implements BatchBillingDAO {
 
+    /** Constructs this DAO for the {@link BatchBilling} entity class. */
+
     public BatchBillingDaoImpl() {
         super(BatchBilling.class);
     }

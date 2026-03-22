@@ -45,6 +45,8 @@ import org.springframework.stereotype.Repository;
 
 public class FunctionalCentreDaoImpl extends AbstractDaoImpl<FunctionalCentre> implements FunctionalCentreDao {
 
+    /** Constructs this DAO for the {@link FunctionalCentre} entity class. */
+
     public FunctionalCentreDaoImpl() {
         super(FunctionalCentre.class);
     }

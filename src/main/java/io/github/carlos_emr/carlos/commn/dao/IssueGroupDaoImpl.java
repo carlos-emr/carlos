@@ -45,6 +45,8 @@ import org.springframework.stereotype.Repository;
 
 public class IssueGroupDaoImpl extends AbstractDaoImpl<IssueGroup> implements IssueGroupDao {
 
+    /** Constructs this DAO for the {@link IssueGroup} entity class. */
+
     public IssueGroupDaoImpl() {
         super(IssueGroup.class);
     }

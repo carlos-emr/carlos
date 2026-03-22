@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 
 public class TicklerUpdateDaoImpl extends AbstractDaoImpl<TicklerUpdate> implements TicklerUpdateDao {
 
+    /** Constructs this DAO for the {@link TicklerUpdate} entity class. */
+
     public TicklerUpdateDaoImpl() {
         super(TicklerUpdate.class);
     }

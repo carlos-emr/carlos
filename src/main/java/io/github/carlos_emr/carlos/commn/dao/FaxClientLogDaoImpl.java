@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class FaxClientLogDaoImpl extends AbstractDaoImpl<FaxClientLog> implements FaxClientLogDao {
 
+    /** Constructs this DAO for the {@link FaxClientLog} entity class. */
+
     public FaxClientLogDaoImpl() {
         super(FaxClientLog.class);
     }

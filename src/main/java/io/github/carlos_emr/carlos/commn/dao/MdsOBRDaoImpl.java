@@ -50,6 +50,8 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
 
 public class MdsOBRDaoImpl extends AbstractDaoImpl<MdsOBR> implements MdsOBRDao {
 
+    /** Constructs this DAO for the {@link MdsOBR} entity class. */
+
     public MdsOBRDaoImpl() {
         super(MdsOBR.class);
     }

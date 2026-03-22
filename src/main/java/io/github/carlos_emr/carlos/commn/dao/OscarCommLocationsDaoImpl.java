@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class OscarCommLocationsDaoImpl extends AbstractDaoImpl<OscarCommLocations> implements OscarCommLocationsDao {
 
+    /** Constructs this DAO for the {@link OscarCommLocations} entity class. */
+
     public OscarCommLocationsDaoImpl() {
         super(OscarCommLocations.class);
     }

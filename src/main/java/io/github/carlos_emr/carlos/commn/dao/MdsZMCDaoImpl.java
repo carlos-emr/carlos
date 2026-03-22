@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class MdsZMCDaoImpl extends AbstractDaoImpl<MdsZMC> implements MdsZMCDao {
 
+    /** Constructs this DAO for the {@link MdsZMC} entity class. */
+
     public MdsZMCDaoImpl() {
         super(MdsZMC.class);
     }

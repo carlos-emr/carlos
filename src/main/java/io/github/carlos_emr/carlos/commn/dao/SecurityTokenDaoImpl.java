@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class SecurityTokenDaoImpl extends AbstractDaoImpl<SecurityToken> implements SecurityTokenDao {
 
+    /** Constructs this DAO for the {@link SecurityToken} entity class. */
+
     public SecurityTokenDaoImpl() {
         super(SecurityToken.class);
     }

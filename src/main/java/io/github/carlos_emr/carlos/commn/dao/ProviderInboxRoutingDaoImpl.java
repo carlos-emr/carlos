@@ -51,6 +51,8 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 @Repository
 public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxItem> implements ProviderInboxRoutingDao {
 
+    /** Constructs this DAO for the {@link ProviderInboxItem} entity class. */
+
     public ProviderInboxRoutingDaoImpl() {
         super(ProviderInboxItem.class);
     }

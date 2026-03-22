@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.commn.model.TableModification;
 
 public class TableModificationDaoImpl extends AbstractDaoImpl<TableModification> implements TableModificationDao {
 
+    /** Constructs this DAO for the {@link TableModification} entity class. */
+
     public TableModificationDaoImpl() {
         super(TableModification.class);
     }

@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class RBTGroupDaoImpl extends AbstractDaoImpl<RBTGroup> implements RBTGroupDao {
 
+    /** Constructs this DAO for the {@link RBTGroup} entity class. */
+
     public RBTGroupDaoImpl() {
         super(RBTGroup.class);
     }

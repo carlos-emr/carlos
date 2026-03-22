@@ -51,6 +51,8 @@ import org.springframework.stereotype.Repository;
  */
 
 public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
+    /** Constructs this DAO for the {@link Queue} entity class. */
+
     public QueueDaoImpl() {
         super(Queue.class);
     }

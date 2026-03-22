@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPhysicianInfo> implements LabPatientPhysicianInfoDao {
 
+    /** Constructs this DAO for the {@link LabPatientPhysicianInfo} entity class. */
+
     public LabPatientPhysicianInfoDaoImpl() {
         super(LabPatientPhysicianInfo.class);
     }

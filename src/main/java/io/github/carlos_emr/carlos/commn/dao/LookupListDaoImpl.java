@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements LookupListDao {
 
+    /** Constructs this DAO for the {@link LookupList} entity class. */
+
     public LookupListDaoImpl() {
         super(LookupList.class);
     }

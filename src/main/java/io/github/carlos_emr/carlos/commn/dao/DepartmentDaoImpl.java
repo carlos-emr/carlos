@@ -46,6 +46,8 @@ import java.util.List;
 
 public class DepartmentDaoImpl extends AbstractDaoImpl<Department> implements DepartmentDao {
 
+    /** Constructs this DAO for the {@link Department} entity class. */
+
     public DepartmentDaoImpl() {
         super(Department.class);
     }

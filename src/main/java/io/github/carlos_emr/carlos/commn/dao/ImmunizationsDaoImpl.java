@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class ImmunizationsDaoImpl extends AbstractDaoImpl<Immunizations> implements ImmunizationsDao {
 
+    /** Constructs this DAO for the {@link Immunizations} entity class. */
+
     public ImmunizationsDaoImpl() {
         super(Immunizations.class);
     }

@@ -56,6 +56,8 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     
     private static final Logger logger = MiscUtils.getLogger();
 
+    /** Constructs this DAO for the {@link EFormData} entity class. */
+
     public EFormDataDaoImpl() {
         super(EFormData.class);
     }

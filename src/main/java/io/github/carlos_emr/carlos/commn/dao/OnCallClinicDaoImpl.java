@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class OnCallClinicDaoImpl extends AbstractDaoImpl<OnCallClinic> implements OnCallClinicDao {
 
+    /** Constructs this DAO for the {@link OnCallClinic} entity class. */
+
     public OnCallClinicDaoImpl() {
         super(OnCallClinic.class);
     }

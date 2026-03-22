@@ -50,6 +50,8 @@ import org.springframework.stereotype.Repository;
 
 public class MessageTblDaoImpl extends AbstractDaoImpl<MessageTbl> implements MessageTblDao {
 
+    /** Constructs this DAO for the {@link MessageTbl} entity class. */
+
     public MessageTblDaoImpl() {
         super(MessageTbl.class);
     }

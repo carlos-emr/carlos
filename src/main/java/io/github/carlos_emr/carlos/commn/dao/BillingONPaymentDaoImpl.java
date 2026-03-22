@@ -64,6 +64,8 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
     @Autowired
     private BillingONCHeader1Dao billingONCHeader1Dao;
 
+    /** Constructs this DAO for the {@link BillingONPayment} entity class. */
+
     public BillingONPaymentDaoImpl() {
         super(BillingONPayment.class);
     }

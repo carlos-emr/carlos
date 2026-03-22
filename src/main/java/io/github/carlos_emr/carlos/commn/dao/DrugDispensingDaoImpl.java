@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class DrugDispensingDaoImpl extends AbstractDaoImpl<DrugDispensing> implements DrugDispensingDao {
 
+    /** Constructs this DAO for the {@link DrugDispensing} entity class. */
+
     public DrugDispensingDaoImpl() {
         super(DrugDispensing.class);
     }

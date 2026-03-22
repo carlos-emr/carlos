@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.commn.model.MdsNTE;
 
 public class MdsNTEDaoImpl extends AbstractDaoImpl<MdsNTE> implements MdsNTEDao {
 
+    /** Constructs this DAO for the {@link MdsNTE} entity class. */
+
     public MdsNTEDaoImpl() {
         super(MdsNTE.class);
     }

@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class WorkFlowDaoImpl extends AbstractDaoImpl<WorkFlow> implements WorkFlowDao {
 
+    /** Constructs this DAO for the {@link WorkFlow} entity class. */
+
     public WorkFlowDaoImpl() {
         super(WorkFlow.class);
     }

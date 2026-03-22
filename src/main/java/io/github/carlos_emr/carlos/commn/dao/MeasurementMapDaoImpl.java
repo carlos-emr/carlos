@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class MeasurementMapDaoImpl extends AbstractDaoImpl<MeasurementMap> implements MeasurementMapDao {
 
+    /** Constructs this DAO for the {@link MeasurementMap} entity class. */
+
     public MeasurementMapDaoImpl() {
         super(MeasurementMap.class);
     }

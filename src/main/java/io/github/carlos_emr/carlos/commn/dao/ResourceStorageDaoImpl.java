@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class ResourceStorageDaoImpl extends AbstractDaoImpl<ResourceStorage> implements ResourceStorageDao {
 
+    /** Constructs this DAO for the {@link ResourceStorage} entity class. */
+
     public ResourceStorageDaoImpl() {
         super(ResourceStorage.class);
     }

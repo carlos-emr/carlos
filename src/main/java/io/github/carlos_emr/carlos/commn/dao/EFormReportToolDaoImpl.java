@@ -53,6 +53,8 @@ import org.springframework.stereotype.Repository;
 
 public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> implements EFormReportToolDao {
 
+    /** Constructs this DAO for the {@link EFormReportTool} entity class. */
+
     public EFormReportToolDaoImpl() {
         super(EFormReportTool.class);
     }

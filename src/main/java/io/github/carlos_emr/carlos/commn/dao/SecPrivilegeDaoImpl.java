@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class SecPrivilegeDaoImpl extends AbstractDaoImpl<SecPrivilege> implements SecPrivilegeDao {
 
+    /** Constructs this DAO for the {@link SecPrivilege} entity class. */
+
     public SecPrivilegeDaoImpl() {
         super(SecPrivilege.class);
     }

@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class CountryCodeDaoImpl extends AbstractDaoImpl<CountryCode> implements CountryCodeDao {
 
+    /** Constructs this DAO for the {@link CountryCode} entity class. */
+
     public CountryCodeDaoImpl() {
         super(CountryCode.class);
     }

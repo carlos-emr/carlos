@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class DesAnnualReviewPlanDaoImpl extends AbstractDaoImpl<DesAnnualReviewPlan> implements DesAnnualReviewPlanDao {
 
+    /** Constructs this DAO for the {@link DesAnnualReviewPlan} entity class. */
+
     public DesAnnualReviewPlanDaoImpl() {
         super(DesAnnualReviewPlan.class);
     }

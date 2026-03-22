@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class FrmLabReqPreSetDaoImpl extends AbstractDaoImpl<FrmLabReqPreSet> implements FrmLabReqPreSetDao {
 
+    /** Constructs this DAO for the {@link FrmLabReqPreSet} entity class. */
+
     public FrmLabReqPreSetDaoImpl() {
         super(FrmLabReqPreSet.class);
     }

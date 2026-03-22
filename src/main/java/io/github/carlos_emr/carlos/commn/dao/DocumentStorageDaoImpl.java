@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 
 public class DocumentStorageDaoImpl extends AbstractDaoImpl<DocumentStorage> implements DocumentStorageDao {
 
+    /** Constructs this DAO for the {@link DocumentStorage} entity class. */
+
     public DocumentStorageDaoImpl() {
         super(DocumentStorage.class);
     }

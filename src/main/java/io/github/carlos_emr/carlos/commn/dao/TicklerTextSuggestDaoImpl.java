@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class TicklerTextSuggestDaoImpl extends AbstractDaoImpl<TicklerTextSuggest> implements TicklerTextSuggestDao {
 
+    /** Constructs this DAO for the {@link TicklerTextSuggest} entity class. */
+
     public TicklerTextSuggestDaoImpl() {
         super(TicklerTextSuggest.class);
     }

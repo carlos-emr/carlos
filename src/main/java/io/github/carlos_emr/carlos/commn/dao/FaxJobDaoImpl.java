@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class FaxJobDaoImpl extends AbstractDaoImpl<FaxJob> implements FaxJobDao {
 
+    /** Constructs this DAO for the {@link FaxJob} entity class. */
+
     public FaxJobDaoImpl() {
         super(FaxJob.class);
     }

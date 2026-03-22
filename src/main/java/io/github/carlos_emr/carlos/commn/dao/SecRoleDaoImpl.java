@@ -48,6 +48,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 public class SecRoleDaoImpl extends AbstractDaoImpl<SecRole> implements SecRoleDao {
 
+    /** Constructs this DAO for the {@link SecRole} entity class. */
+
     public SecRoleDaoImpl() {
         super(SecRole.class);
     }

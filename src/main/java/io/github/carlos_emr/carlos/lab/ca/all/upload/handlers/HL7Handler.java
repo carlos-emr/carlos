@@ -52,7 +52,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
 /**
+ * Generic HL7 upload handler for standard HL7 lab result files that do not match
+ * a vendor-specific handler. Parses flat files with MSH-delimited messages and
+ * routes them through {@link MessageUploader}.
  *
+ * @since 2007-01-18
  */
 public class HL7Handler implements MessageHandler {
 

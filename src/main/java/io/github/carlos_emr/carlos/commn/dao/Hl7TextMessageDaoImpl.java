@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class Hl7TextMessageDaoImpl extends AbstractDaoImpl<Hl7TextMessage> implements Hl7TextMessageDao {
 
+    /** Constructs this DAO for the {@link Hl7TextMessage} entity class. */
+
     public Hl7TextMessageDaoImpl() {
         super(Hl7TextMessage.class);
     }

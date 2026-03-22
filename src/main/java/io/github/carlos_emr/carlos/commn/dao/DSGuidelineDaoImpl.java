@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class DSGuidelineDaoImpl extends AbstractDaoImpl<DSGuideline> implements DSGuidelineDao {
 
+    /** Constructs this DAO for the {@link DSGuideline} entity class. */
+
     public DSGuidelineDaoImpl() {
         super(DSGuideline.class);
     }

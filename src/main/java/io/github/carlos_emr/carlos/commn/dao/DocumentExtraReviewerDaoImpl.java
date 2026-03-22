@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class DocumentExtraReviewerDaoImpl extends AbstractDaoImpl<DocumentExtraReviewer> implements DocumentExtraReviewerDao {
 
+    /** Constructs this DAO for the {@link DocumentExtraReviewer} entity class. */
+
     public DocumentExtraReviewerDaoImpl() {
         super(DocumentExtraReviewer.class);
     }

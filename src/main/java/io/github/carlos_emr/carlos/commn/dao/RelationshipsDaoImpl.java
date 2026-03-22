@@ -47,6 +47,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class RelationshipsDaoImpl extends AbstractDaoImpl<Relationships> implements RelationshipsDao {
 
+    /** Constructs this DAO for the {@link Relationships} entity class. */
+
     public RelationshipsDaoImpl() {
         super(Relationships.class);
     }

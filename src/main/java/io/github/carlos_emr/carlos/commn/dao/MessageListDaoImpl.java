@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class MessageListDaoImpl extends AbstractDaoImpl<MessageList> implements MessageListDao {
 
+    /** Constructs this DAO for the {@link MessageList} entity class. */
+
     public MessageListDaoImpl() {
         super(MessageList.class);
     }

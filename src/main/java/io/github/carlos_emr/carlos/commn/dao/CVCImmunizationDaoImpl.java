@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class CVCImmunizationDaoImpl extends AbstractDaoImpl<CVCImmunization> implements CVCImmunizationDao {
 
+    /** Constructs this DAO for the {@link CVCImmunization} entity class. */
+
     public CVCImmunizationDaoImpl() {
         super(CVCImmunization.class);
     }

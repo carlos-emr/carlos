@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class TicklerLinkDaoImpl extends AbstractDaoImpl<TicklerLink> implements TicklerLinkDao {
 
+    /** Constructs this DAO for the {@link TicklerLink} entity class. */
+
     public TicklerLinkDaoImpl() {
         super(TicklerLink.class);
     }

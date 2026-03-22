@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class LabRequestReportLinkDaoImpl extends AbstractDaoImpl<LabRequestReportLink> implements LabRequestReportLinkDao {
 
+    /** Constructs this DAO for the {@link LabRequestReportLink} entity class. */
+
     public LabRequestReportLinkDaoImpl() {
         super(LabRequestReportLink.class);
     }

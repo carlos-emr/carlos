@@ -46,6 +46,8 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 
 public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements PreventionDao {
 
+    /** Constructs this DAO for the {@link Prevention} entity class. */
+
     public PreventionDaoImpl() {
         super(Prevention.class);
     }

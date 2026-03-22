@@ -49,6 +49,8 @@ import jakarta.persistence.Query;
 
 public class ProviderLabRoutingFavoritesDaoImpl extends AbstractDaoImpl<ProviderLabRoutingFavorite> implements ProviderLabRoutingFavoritesDao {
 
+    /** Constructs this DAO for the {@link ProviderLabRoutingFavorite} entity class. */
+
     public ProviderLabRoutingFavoritesDaoImpl() {
         super(ProviderLabRoutingFavorite.class);
     }

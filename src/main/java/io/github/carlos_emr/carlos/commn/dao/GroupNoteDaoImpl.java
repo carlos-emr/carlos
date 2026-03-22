@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class GroupNoteDaoImpl extends AbstractDaoImpl<GroupNoteLink> implements GroupNoteDao {
 
+    /** Constructs this DAO for the {@link GroupNoteLink} entity class. */
+
     public GroupNoteDaoImpl() {
         super(GroupNoteLink.class);
     }

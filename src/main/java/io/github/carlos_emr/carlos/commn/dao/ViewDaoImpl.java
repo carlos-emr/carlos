@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class ViewDaoImpl extends AbstractDaoImpl<View> implements ViewDao {
 
+    /** Constructs this DAO for the {@link View} entity class. */
+
     public ViewDaoImpl() {
         super(View.class);
     }

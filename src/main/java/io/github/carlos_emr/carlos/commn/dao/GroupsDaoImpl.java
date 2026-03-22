@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class GroupsDaoImpl extends AbstractDaoImpl<Groups> implements GroupsDao {
 
+    /** Constructs this DAO for the {@link Groups} entity class. */
+
     public GroupsDaoImpl() {
         super(Groups.class);
     }

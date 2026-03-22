@@ -55,6 +55,8 @@ import java.util.*;
 
 public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implements OscarAppointmentDao {
 
+    /** Constructs this DAO for the {@link Appointment} entity class. */
+
     public OscarAppointmentDaoImpl() {
         super(Appointment.class);
     }

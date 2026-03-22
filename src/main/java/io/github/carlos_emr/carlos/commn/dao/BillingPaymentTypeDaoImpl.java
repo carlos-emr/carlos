@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class BillingPaymentTypeDaoImpl extends AbstractDaoImpl<BillingPaymentType> implements BillingPaymentTypeDao {
 
+    /** Constructs this DAO for the {@link BillingPaymentType} entity class. */
+
     public BillingPaymentTypeDaoImpl() {
         super(BillingPaymentType.class);
     }

@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 
 public class MdsPV1DaoImpl extends AbstractDaoImpl<MdsPV1> implements MdsPV1Dao {
 
+    /** Constructs this DAO for the {@link MdsPV1} entity class. */
+
     public MdsPV1DaoImpl() {
         super(MdsPV1.class);
     }

@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implements ReportAgeSexDao {
 
+    /** Constructs this DAO for the {@link ReportAgeSex} entity class. */
+
     public ReportAgeSexDaoImpl() {
         super(ReportAgeSex.class);
     }

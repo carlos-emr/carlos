@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements IchppccodeDao {
 
+    /** Constructs this DAO for the {@link Ichppccode} entity class. */
+
     public IchppccodeDaoImpl() {
         super(Ichppccode.class);
     }

@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 
 public class HashAuditDaoImpl extends AbstractDaoImpl<HashAudit> implements HashAuditDao {
 
+    /** Constructs this DAO for the {@link HashAudit} entity class. */
+
     public HashAuditDaoImpl() {
         super(HashAudit.class);
     }

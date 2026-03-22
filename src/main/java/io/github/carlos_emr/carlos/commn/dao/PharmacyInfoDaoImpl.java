@@ -51,6 +51,8 @@ import org.springframework.stereotype.Repository;
 
 public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implements PharmacyInfoDao {
 
+    /** Constructs this DAO for the {@link PharmacyInfo} entity class. */
+
     public PharmacyInfoDaoImpl() {
         super(PharmacyInfo.class);
     }

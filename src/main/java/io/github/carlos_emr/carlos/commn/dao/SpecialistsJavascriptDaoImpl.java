@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class SpecialistsJavascriptDaoImpl extends AbstractDaoImpl<SpecialistsJavascript> implements SpecialistsJavascriptDao {
 
+    /** Constructs this DAO for the {@link SpecialistsJavascript} entity class. */
+
     public SpecialistsJavascriptDaoImpl() {
         super(SpecialistsJavascript.class);
     }

@@ -55,6 +55,8 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 
 public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransaction> implements BillingOnTransactionDao {
 
+    /** Constructs this DAO for the {@link BillingOnTransaction} entity class. */
+
     public BillingOnTransactionDaoImpl() {
         super(BillingOnTransaction.class);
     }

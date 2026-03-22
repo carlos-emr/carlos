@@ -46,6 +46,8 @@ import java.util.*;
  */
 
 public class SystemPreferencesDaoImpl extends AbstractDaoImpl<SystemPreferences> implements SystemPreferencesDao {
+    /** Constructs this DAO for the {@link SystemPreferences} entity class. */
+
     public SystemPreferencesDaoImpl() {
         super(SystemPreferences.class);
     }

@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class DataExportDaoImpl extends AbstractDaoImpl<DataExport> implements DataExportDao {
 
+    /** Constructs this DAO for the {@link DataExport} entity class. */
+
     public DataExportDaoImpl() {
         super(DataExport.class);
     }

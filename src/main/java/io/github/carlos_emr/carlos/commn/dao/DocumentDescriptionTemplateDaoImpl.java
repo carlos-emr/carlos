@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class DocumentDescriptionTemplateDaoImpl extends AbstractDaoImpl<DocumentDescriptionTemplate> implements DocumentDescriptionTemplateDao {
 
+    /** Constructs this DAO for the {@link DocumentDescriptionTemplate} entity class. */
+
     public DocumentDescriptionTemplateDaoImpl() {
         super(DocumentDescriptionTemplate.class);
     }

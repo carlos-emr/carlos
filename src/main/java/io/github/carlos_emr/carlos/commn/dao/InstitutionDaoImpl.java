@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class InstitutionDaoImpl extends AbstractDaoImpl<Institution> implements InstitutionDao {
 
+    /** Constructs this DAO for the {@link Institution} entity class. */
+
     public InstitutionDaoImpl() {
         super(Institution.class);
     }

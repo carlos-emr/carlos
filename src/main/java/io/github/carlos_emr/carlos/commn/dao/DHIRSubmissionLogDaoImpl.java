@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class DHIRSubmissionLogDaoImpl extends AbstractDaoImpl<DHIRSubmissionLog> implements DHIRSubmissionLogDao {
 
+    /** Constructs this DAO for the {@link DHIRSubmissionLog} entity class. */
+
     public DHIRSubmissionLogDaoImpl() {
         super(DHIRSubmissionLog.class);
     }

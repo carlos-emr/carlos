@@ -31,6 +31,12 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Upload handler for Alpha laboratory result files. Extends {@link DefaultHandler}
+ * for standard HL7 file parsing with Alpha-specific message type routing.
+ *
+ * @since 2007-01-18
+ */
 public class AlphaHandler extends DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
 

@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class ReportLettersDaoImpl extends AbstractDaoImpl<ReportLetters> implements ReportLettersDao {
 
+    /** Constructs this DAO for the {@link ReportLetters} entity class. */
+
     public ReportLettersDaoImpl() {
         super(ReportLetters.class);
     }

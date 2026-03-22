@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class OscarJobDaoImpl extends AbstractDaoImpl<OscarJob> implements OscarJobDao {
 
+    /** Constructs this DAO for the {@link OscarJob} entity class. */
+
     public OscarJobDaoImpl() {
         super(OscarJob.class);
     }

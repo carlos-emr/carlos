@@ -42,6 +42,8 @@ import org.springframework.stereotype.Repository;
 
 public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> implements DigitalSignatureDao {
 
+    /** Constructs this DAO for the {@link DigitalSignature} entity class. */
+
     public DigitalSignatureDaoImpl() {
         super(DigitalSignature.class);
     }

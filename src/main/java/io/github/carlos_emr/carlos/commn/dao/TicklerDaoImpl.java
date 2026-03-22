@@ -85,6 +85,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         ORDER_BY_CLAUSES = Collections.unmodifiableMap(m);
     }
 
+    /** Constructs this DAO for the {@link Tickler} entity class. */
+
     public TicklerDaoImpl() {
         super(Tickler.class);
     }

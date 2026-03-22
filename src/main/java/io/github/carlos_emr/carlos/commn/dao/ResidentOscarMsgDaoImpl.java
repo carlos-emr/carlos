@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class ResidentOscarMsgDaoImpl extends AbstractDaoImpl<ResidentOscarMsg> implements ResidentOscarMsgDao {
 
+    /** Constructs this DAO for the {@link ResidentOscarMsg} entity class. */
+
     public ResidentOscarMsgDaoImpl() {
         super(ResidentOscarMsg.class);
     }

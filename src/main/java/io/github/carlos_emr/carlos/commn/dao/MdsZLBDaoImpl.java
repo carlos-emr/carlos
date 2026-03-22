@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 
 public class MdsZLBDaoImpl extends AbstractDaoImpl<MdsZLB> implements MdsZLBDao {
 
+    /** Constructs this DAO for the {@link MdsZLB} entity class. */
+
     public MdsZLBDaoImpl() {
         super(MdsZLB.class);
     }

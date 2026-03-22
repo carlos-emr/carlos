@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class SnomedCoreDaoImpl extends AbstractCodeSystemDaoImpl<SnomedCore> implements SnomedCoreDao {
 
+    /** Constructs this DAO for the {@link SnomedCore} entity class. */
+
     public SnomedCoreDaoImpl() {
         super(SnomedCore.class);
     }

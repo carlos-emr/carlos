@@ -60,6 +60,8 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     }
 
 
+    /** Constructs this DAO for the {@link ProviderLabRoutingModel} entity class. */
+
     public ProviderLabRoutingDaoImpl() {
         super(ProviderLabRoutingModel.class);
     }

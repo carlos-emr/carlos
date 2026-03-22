@@ -61,6 +61,8 @@ public class FlowSheetCustomizationDaoImpl extends AbstractDaoImpl<FlowSheetCust
         "AND (fd.providerNo='' AND fd.demographicNo='0') " +
         "ORDER BY fd.providerNo ASC";
 
+    /** Constructs this DAO for the {@link FlowSheetCustomization} entity class. */
+
     public FlowSheetCustomizationDaoImpl() {
         super(FlowSheetCustomization.class);
     }

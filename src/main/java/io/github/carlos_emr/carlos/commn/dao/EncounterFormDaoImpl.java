@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> implements EncounterFormDao {
 
+    /** Constructs this DAO for the {@link EncounterForm} entity class. */
+
     public EncounterFormDaoImpl() {
         super(EncounterForm.class);
     }

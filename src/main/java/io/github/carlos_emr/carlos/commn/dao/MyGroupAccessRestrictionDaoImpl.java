@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class MyGroupAccessRestrictionDaoImpl extends AbstractDaoImpl<MyGroupAccessRestriction> implements MyGroupAccessRestrictionDao {
 
+    /** Constructs this DAO for the {@link MyGroupAccessRestriction} entity class. */
+
     public MyGroupAccessRestrictionDaoImpl() {
         super(MyGroupAccessRestriction.class);
     }

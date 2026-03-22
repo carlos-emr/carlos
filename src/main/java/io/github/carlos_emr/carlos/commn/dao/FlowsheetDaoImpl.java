@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class FlowsheetDaoImpl extends AbstractDaoImpl<Flowsheet> implements FlowsheetDao {
 
+    /** Constructs this DAO for the {@link Flowsheet} entity class. */
+
     public FlowsheetDaoImpl() {
         super(Flowsheet.class);
     }

@@ -42,6 +42,15 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Represents an Ontario billing extension record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code billing_on_ext} table and stores additional key-value
+ * data associated with Ontario OHIP billing claims.</p>
+ *
+ * @see BillingONCHeader1
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "billing_on_ext")
 public class BillingONExt extends AbstractModel<Integer> implements Serializable {

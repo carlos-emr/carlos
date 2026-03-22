@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CustomFilterDaoImpl extends AbstractDaoImpl<CustomFilter> implements CustomFilterDao {
 
+    /** Constructs this DAO for the {@link CustomFilter} entity class. */
+
     public CustomFilterDaoImpl() {
         super(CustomFilter.class);
     }

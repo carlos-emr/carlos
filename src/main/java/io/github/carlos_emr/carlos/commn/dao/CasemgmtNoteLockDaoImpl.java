@@ -45,6 +45,8 @@ import java.util.List;
  */
 
 public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> implements CasemgmtNoteLockDao {
+    /** Constructs this DAO for the {@link CasemgmtNoteLock} entity class. */
+
     public CasemgmtNoteLockDaoImpl() {
         super(CasemgmtNoteLock.class);
     }

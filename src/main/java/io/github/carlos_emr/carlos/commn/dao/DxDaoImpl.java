@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class DxDaoImpl extends AbstractDaoImpl<DxAssociation> implements DxDao {
 
+    /** Constructs this DAO for the {@link DxAssociation} entity class. */
+
     public DxDaoImpl() {
         super(DxAssociation.class);
     }

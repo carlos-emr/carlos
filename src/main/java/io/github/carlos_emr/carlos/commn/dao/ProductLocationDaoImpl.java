@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 
 public class ProductLocationDaoImpl extends AbstractDaoImpl<ProductLocation> implements ProductLocationDao {
 
+    /** Constructs this DAO for the {@link ProductLocation} entity class. */
+
     public ProductLocationDaoImpl() {
         super(ProductLocation.class);
     }

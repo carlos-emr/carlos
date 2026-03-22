@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 
 public class ProviderPreferenceDaoImpl extends AbstractDaoImpl<ProviderPreference> implements ProviderPreferenceDao {
 
+    /** Constructs this DAO for the {@link ProviderPreference} entity class. */
+
     public ProviderPreferenceDaoImpl() {
         super(ProviderPreference.class);
     }

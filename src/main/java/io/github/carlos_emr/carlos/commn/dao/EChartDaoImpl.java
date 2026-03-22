@@ -51,6 +51,8 @@ import org.springframework.stereotype.Repository;
 public class EChartDaoImpl extends AbstractDaoImpl<EChart> implements EChartDao {
 
 
+    /** Constructs this DAO for the {@link EChart} entity class. */
+
     public EChartDaoImpl() {
         super(EChart.class);
     }

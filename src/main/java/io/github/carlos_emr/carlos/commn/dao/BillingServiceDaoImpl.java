@@ -57,6 +57,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> implements BillingServiceDao {
     static public final String BC = "BC";
 
+    /** Constructs this DAO for the {@link BillingService} entity class. */
+
     public BillingServiceDaoImpl() {
         super(BillingService.class);
     }

@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CaisiAccessTypeDaoImpl extends AbstractDaoImpl<CaisiAccessType> implements CaisiAccessTypeDao {
 
+    /** Constructs this DAO for the {@link CaisiAccessType} entity class. */
+
     public CaisiAccessTypeDaoImpl() {
         super(CaisiAccessType.class);
     }

@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplateCode> implements ScheduleTemplateCodeDao {
 
+    /** Constructs this DAO for the {@link ScheduleTemplateCode} entity class. */
+
     public ScheduleTemplateCodeDaoImpl() {
         super(ScheduleTemplateCode.class);
     }

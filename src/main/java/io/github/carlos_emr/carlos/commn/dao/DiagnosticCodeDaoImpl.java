@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class DiagnosticCodeDaoImpl extends AbstractDaoImpl<DiagnosticCode> implements DiagnosticCodeDao {
 
+    /** Constructs this DAO for the {@link DiagnosticCode} entity class. */
+
     public DiagnosticCodeDaoImpl() {
         super(DiagnosticCode.class);
     }

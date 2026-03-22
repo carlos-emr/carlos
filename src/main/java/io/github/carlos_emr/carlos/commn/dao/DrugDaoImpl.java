@@ -50,6 +50,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
+    /** Constructs this DAO for the {@link Drug} entity class. */
+
     public DrugDaoImpl() {
         super(Drug.class);
     }

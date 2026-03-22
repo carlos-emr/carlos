@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CtlDiagCodeDaoImpl extends AbstractDaoImpl<CtlDiagCode> implements CtlDiagCodeDao {
 
+    /** Constructs this DAO for the {@link CtlDiagCode} entity class. */
+
     public CtlDiagCodeDaoImpl() {
         super(CtlDiagCode.class);
     }

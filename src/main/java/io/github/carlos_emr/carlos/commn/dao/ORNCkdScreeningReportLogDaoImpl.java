@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class ORNCkdScreeningReportLogDaoImpl extends AbstractDaoImpl<ORNCkdScreeningReportLog> implements ORNCkdScreeningReportLogDao {
 
+    /** Constructs this DAO for the {@link ORNCkdScreeningReportLog} entity class. */
+
     public ORNCkdScreeningReportLogDaoImpl() {
         super(ORNCkdScreeningReportLog.class);
     }

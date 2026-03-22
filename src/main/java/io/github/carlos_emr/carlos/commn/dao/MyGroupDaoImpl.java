@@ -49,6 +49,8 @@ import java.util.List;
 
 public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupDao {
 
+    /** Constructs this DAO for the {@link MyGroup} entity class. */
+
     public MyGroupDaoImpl() {
         super(MyGroup.class);
     }

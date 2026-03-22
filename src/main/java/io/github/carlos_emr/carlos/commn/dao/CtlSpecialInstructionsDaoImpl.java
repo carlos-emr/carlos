@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class CtlSpecialInstructionsDaoImpl extends AbstractDaoImpl<CtlSpecialInstructions> implements CtlSpecialInstructionsDao {
 
+    /** Constructs this DAO for the {@link CtlSpecialInstructions} entity class. */
+
     public CtlSpecialInstructionsDaoImpl() {
         super(CtlSpecialInstructions.class);
     }

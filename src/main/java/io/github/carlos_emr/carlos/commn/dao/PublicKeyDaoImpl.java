@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class PublicKeyDaoImpl extends AbstractDaoImpl<PublicKey> implements PublicKeyDao {
 
+    /** Constructs this DAO for the {@link PublicKey} entity class. */
+
     public PublicKeyDaoImpl() {
         super(PublicKey.class);
     }

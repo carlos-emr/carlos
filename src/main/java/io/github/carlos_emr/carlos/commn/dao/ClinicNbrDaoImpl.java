@@ -33,6 +33,8 @@ import org.springframework.stereotype.Repository;
 
 public class ClinicNbrDaoImpl extends AbstractDaoImpl<ClinicNbr> implements ClinicNbrDao {
 
+    /** Constructs this DAO for the {@link ClinicNbr} entity class. */
+
     public ClinicNbrDaoImpl() {
         super(ClinicNbr.class);
     }

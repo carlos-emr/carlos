@@ -48,6 +48,8 @@ import java.util.*;
 
 public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> implements DemographicExtDao {
 
+    /** Constructs this DAO for the {@link DemographicExt} entity class. */
+
     public DemographicExtDaoImpl() {
         super(DemographicExt.class);
     }

@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class MsgDemoMapDaoImpl extends AbstractDaoImpl<MsgDemoMap> implements MsgDemoMapDao {
 
+    /** Constructs this DAO for the {@link MsgDemoMap} entity class. */
+
     public MsgDemoMapDaoImpl() {
         super(MsgDemoMap.class);
     }

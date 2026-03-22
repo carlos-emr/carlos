@@ -48,6 +48,8 @@ import java.util.List;
 
 public class Icd10DaoImpl extends AbstractDaoImpl<Icd10> implements Icd10Dao {
 
+    /** Constructs this DAO for the {@link Icd10} entity class. */
+
     public Icd10DaoImpl() {
         super(Icd10.class);
     }

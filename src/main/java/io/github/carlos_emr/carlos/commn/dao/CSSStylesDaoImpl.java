@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class CSSStylesDaoImpl extends AbstractDaoImpl<CssStyle> implements CSSStylesDAO {
 
+    /** Constructs this DAO for the {@link CssStyle} entity class. */
+
     public CSSStylesDaoImpl() {
         super(CssStyle.class);
     }

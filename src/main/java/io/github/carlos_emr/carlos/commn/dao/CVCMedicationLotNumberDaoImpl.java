@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 public class CVCMedicationLotNumberDaoImpl extends AbstractDaoImpl<CVCMedicationLotNumber>
         implements CVCMedicationLotNumberDao {
 
+    /** Constructs this DAO for the {@link CVCMedicationLotNumber} entity class. */
+
     public CVCMedicationLotNumberDaoImpl() {
         super(CVCMedicationLotNumber.class);
     }

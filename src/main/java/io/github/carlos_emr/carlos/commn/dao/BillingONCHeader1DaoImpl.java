@@ -83,6 +83,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     @Autowired
     private GstControlDao gstControlDao;
 
+    /** Constructs this DAO for the {@link BillingONCHeader1} entity class. */
+
     public BillingONCHeader1DaoImpl() {
         super(BillingONCHeader1.class);
     }

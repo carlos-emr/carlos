@@ -54,6 +54,8 @@ import org.springframework.stereotype.Repository;
 public class ISO36612DaoImpl extends AbstractDaoImpl<ISO36612> implements ISO36612Dao {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** Constructs this DAO for the {@link ISO36612} entity class. */
+
     public ISO36612DaoImpl() {
         super(ISO36612.class);
     }

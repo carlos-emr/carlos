@@ -47,6 +47,8 @@ import java.util.List;
 
 public class ServiceRequestTokenDaoImpl extends AbstractDaoImpl<ServiceRequestToken> implements ServiceRequestTokenDao {
 
+    /** Constructs this DAO for the {@link ServiceRequestToken} entity class. */
+
     public ServiceRequestTokenDaoImpl() {
         super(ServiceRequestToken.class);
     }

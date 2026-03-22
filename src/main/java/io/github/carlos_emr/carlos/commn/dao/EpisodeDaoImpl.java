@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class EpisodeDaoImpl extends AbstractDaoImpl<Episode> implements EpisodeDao {
 
+    /** Constructs this DAO for the {@link Episode} entity class. */
+
     public EpisodeDaoImpl() {
         super(Episode.class);
     }

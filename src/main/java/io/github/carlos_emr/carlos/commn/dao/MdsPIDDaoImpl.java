@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.commn.model.MdsPID;
 
 public class MdsPIDDaoImpl extends AbstractDaoImpl<MdsPID> implements MdsPIDDao {
 
+    /** Constructs this DAO for the {@link MdsPID} entity class. */
+
     public MdsPIDDaoImpl() {
         super(MdsPID.class);
     }

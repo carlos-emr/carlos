@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class EFormGroupDaoImpl extends AbstractDaoImpl<EFormGroup> implements EFormGroupDao {
 
+    /** Constructs this DAO for the {@link EFormGroup} entity class. */
+
     public EFormGroupDaoImpl() {
         super(EFormGroup.class);
     }

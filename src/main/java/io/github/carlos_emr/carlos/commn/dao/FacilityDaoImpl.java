@@ -45,6 +45,8 @@ import org.springframework.stereotype.Repository;
 
 public class FacilityDaoImpl extends AbstractDaoImpl<Facility> implements FacilityDao {
 
+    /** Constructs this DAO for the {@link Facility} entity class. */
+
     public FacilityDaoImpl() {
         super(Facility.class);
     }

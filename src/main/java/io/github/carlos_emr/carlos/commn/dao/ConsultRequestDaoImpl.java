@@ -55,6 +55,8 @@ import org.springframework.stereotype.Repository;
 
 public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultRequestDao {
 
+    /** Constructs this DAO for the {@link ConsultationRequest} entity class. */
+
     public ConsultRequestDaoImpl() {
         super(ConsultationRequest.class);
     }

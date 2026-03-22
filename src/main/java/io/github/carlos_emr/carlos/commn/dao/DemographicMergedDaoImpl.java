@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class DemographicMergedDaoImpl extends AbstractDaoImpl<DemographicMerged> implements DemographicMergedDao {
 
+    /** Constructs this DAO for the {@link DemographicMerged} entity class. */
+
     public DemographicMergedDaoImpl() {
         super(DemographicMerged.class);
     }

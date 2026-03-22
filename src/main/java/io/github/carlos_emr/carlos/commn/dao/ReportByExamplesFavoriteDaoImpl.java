@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class ReportByExamplesFavoriteDaoImpl extends AbstractDaoImpl<ReportByExamplesFavorite> implements ReportByExamplesFavoriteDao {
 
+    /** Constructs this DAO for the {@link ReportByExamplesFavorite} entity class. */
+
     public ReportByExamplesFavoriteDaoImpl() {
         super(ReportByExamplesFavorite.class);
     }

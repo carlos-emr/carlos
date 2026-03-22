@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialists> implements ServiceSpecialistsDao {
 
+    /** Constructs this DAO for the {@link ServiceSpecialists} entity class. */
+
     public ServiceSpecialistsDaoImpl() {
         super(ServiceSpecialists.class);
     }

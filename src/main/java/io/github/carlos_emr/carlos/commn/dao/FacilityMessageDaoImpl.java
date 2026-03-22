@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class FacilityMessageDaoImpl extends AbstractDaoImpl<FacilityMessage> implements FacilityMessageDao {
 
+    /** Constructs this DAO for the {@link FacilityMessage} entity class. */
+
     public FacilityMessageDaoImpl() {
         super(FacilityMessage.class);
     }

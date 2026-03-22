@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class QuickListUserDaoImpl extends AbstractDaoImpl<QuickListUser> implements QuickListUserDao {
 
+    /** Constructs this DAO for the {@link QuickListUser} entity class. */
+
     public QuickListUserDaoImpl() {
         super(QuickListUser.class);
     }

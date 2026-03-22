@@ -49,6 +49,8 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 
 public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> implements ConsultationRequestDao {
 
+    /** Constructs this DAO for the {@link ConsultationRequest} entity class. */
+
     public ConsultationRequestDaoImpl() {
         super(ConsultationRequest.class);
     }

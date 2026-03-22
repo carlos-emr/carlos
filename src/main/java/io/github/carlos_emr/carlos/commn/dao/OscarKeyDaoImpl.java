@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 
 public class OscarKeyDaoImpl extends AbstractDaoImpl<OscarKey> implements OscarKeyDao {
 
+    /** Constructs this DAO for the {@link OscarKey} entity class. */
+
     public OscarKeyDaoImpl() {
         super(OscarKey.class);
     }

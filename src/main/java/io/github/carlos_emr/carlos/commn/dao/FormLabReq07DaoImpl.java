@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class FormLabReq07DaoImpl extends AbstractDaoImpl<FormLabReq07> implements FormLabReq07Dao {
 
+    /** Constructs this DAO for the {@link FormLabReq07} entity class. */
+
     public FormLabReq07DaoImpl() {
         super(FormLabReq07.class);
     }

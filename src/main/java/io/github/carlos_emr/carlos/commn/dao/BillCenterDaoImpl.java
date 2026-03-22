@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class BillCenterDaoImpl extends AbstractDaoImpl<BillCenter> implements BillCenterDao {
 
+    /** Constructs this DAO for the {@link BillCenter} entity class. */
+
     public BillCenterDaoImpl() {
         super(BillCenter.class);
     }

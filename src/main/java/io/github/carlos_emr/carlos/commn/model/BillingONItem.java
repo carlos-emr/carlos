@@ -34,7 +34,13 @@ import java.util.Date;
 import jakarta.persistence.*;
 
 /**
- * @author mweston4
+ * Represents an Ontario billing line item in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code billing_on_item} table and stores individual service
+ * codes and fees within an Ontario OHIP billing claim.</p>
+ *
+ * @see BillingONCHeader1
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "billing_on_item")

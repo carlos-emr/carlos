@@ -45,6 +45,8 @@ import org.springframework.stereotype.Repository;
 
 public class CdsHospitalisationDaysDaoImpl extends AbstractDaoImpl<CdsHospitalisationDays> implements CdsHospitalisationDaysDao {
 
+    /** Constructs this DAO for the {@link CdsHospitalisationDays} entity class. */
+
     public CdsHospitalisationDaysDaoImpl() {
         super(CdsHospitalisationDays.class);
     }

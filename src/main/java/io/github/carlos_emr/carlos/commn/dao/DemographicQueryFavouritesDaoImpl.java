@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class DemographicQueryFavouritesDaoImpl extends AbstractDaoImpl<DemographicQueryFavourite> implements DemographicQueryFavouritesDao {
 
+    /** Constructs this DAO for the {@link DemographicQueryFavourite} entity class. */
+
     public DemographicQueryFavouritesDaoImpl() {
         super(DemographicQueryFavourite.class);
     }

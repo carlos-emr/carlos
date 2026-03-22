@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class FlowSheetUserCreatedDaoImpl extends AbstractDaoImpl<FlowSheetUserCreated> implements FlowSheetUserCreatedDao {
 
+    /** Constructs this DAO for the {@link FlowSheetUserCreated} entity class. */
+
     public FlowSheetUserCreatedDaoImpl() {
         super(FlowSheetUserCreated.class);
     }

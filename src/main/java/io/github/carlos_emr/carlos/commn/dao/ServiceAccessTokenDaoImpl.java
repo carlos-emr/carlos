@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 public class ServiceAccessTokenDaoImpl extends AbstractDaoImpl<ServiceAccessToken> implements ServiceAccessTokenDao {
 
 
+    /** Constructs this DAO for the {@link ServiceAccessToken} entity class. */
+
     public ServiceAccessTokenDaoImpl() {
         super(ServiceAccessToken.class);
     }

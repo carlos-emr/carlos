@@ -59,6 +59,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
 
     Logger logger = MiscUtils.getLogger();
 
+    /** Constructs this DAO for the {@link Document} entity class. */
+
     public DocumentResultsDaoImpl() {
         super(Document.class);
     }

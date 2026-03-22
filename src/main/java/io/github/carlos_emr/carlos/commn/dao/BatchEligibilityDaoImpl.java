@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 
 public class BatchEligibilityDaoImpl extends AbstractDaoImpl<BatchEligibility> implements BatchEligibilityDao {
 
+    /** Constructs this DAO for the {@link BatchEligibility} entity class. */
+
     public BatchEligibilityDaoImpl() {
         super(BatchEligibility.class);
     }

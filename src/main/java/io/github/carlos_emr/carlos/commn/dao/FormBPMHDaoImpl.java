@@ -42,6 +42,8 @@ import org.springframework.stereotype.Repository;
 
 public class FormBPMHDaoImpl extends AbstractDaoImpl<FormBPMH> implements FormBPMHDao {
 
+    /** Constructs this DAO for the {@link FormBPMH} entity class. */
+
     public FormBPMHDaoImpl() {
         super(FormBPMH.class);
     }

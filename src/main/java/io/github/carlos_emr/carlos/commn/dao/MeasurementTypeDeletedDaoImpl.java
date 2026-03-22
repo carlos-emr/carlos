@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 
 public class MeasurementTypeDeletedDaoImpl extends AbstractDaoImpl<MeasurementTypeDeleted> implements MeasurementTypeDeletedDao {
 
+    /** Constructs this DAO for the {@link MeasurementTypeDeleted} entity class. */
+
     public MeasurementTypeDeletedDaoImpl() {
         super(MeasurementTypeDeleted.class);
     }

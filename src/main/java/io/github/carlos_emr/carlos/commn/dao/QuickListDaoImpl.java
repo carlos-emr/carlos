@@ -55,6 +55,8 @@ import org.springframework.stereotype.Repository;
 public class QuickListDaoImpl extends AbstractDaoImpl<QuickList> implements QuickListDao {
     private static final Logger logger = MiscUtils.getLogger();
 
+    /** Constructs this DAO for the {@link QuickList} entity class. */
+
     public QuickListDaoImpl() {
         super(QuickList.class);
     }

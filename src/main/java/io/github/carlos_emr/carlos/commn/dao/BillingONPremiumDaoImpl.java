@@ -58,6 +58,8 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 @Repository
 public class BillingONPremiumDaoImpl extends AbstractDaoImpl<BillingONPremium> implements BillingONPremiumDao {
 
+    /** Constructs this DAO for the {@link BillingONPremium} entity class. */
+
     public BillingONPremiumDaoImpl() {
         super(BillingONPremium.class);
     }

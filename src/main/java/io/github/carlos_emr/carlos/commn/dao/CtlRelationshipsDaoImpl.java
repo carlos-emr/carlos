@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CtlRelationshipsDaoImpl extends AbstractDaoImpl<CtlRelationships> implements CtlRelationshipsDao {
 
+    /** Constructs this DAO for the {@link CtlRelationships} entity class. */
+
     public CtlRelationshipsDaoImpl() {
         super(CtlRelationships.class);
     }

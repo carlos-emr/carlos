@@ -52,6 +52,8 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
 
     private static final String ACTIVE_WHERE_CLAUSE = " p.status = '1'";
 
+    /** Constructs this DAO for the {@link ProviderData} entity class. */
+
     public ProviderDataDaoImpl() {
         super(ProviderData.class);
     }

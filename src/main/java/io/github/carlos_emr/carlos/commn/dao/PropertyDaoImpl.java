@@ -50,6 +50,8 @@ import org.springframework.stereotype.Repository;
 
 public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements PropertyDao {
 
+    /** Constructs this DAO for the {@link Property} entity class. */
+
     public PropertyDaoImpl() {
         super(Property.class);
     }

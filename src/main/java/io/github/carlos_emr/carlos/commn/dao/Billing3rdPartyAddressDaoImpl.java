@@ -54,6 +54,8 @@ import org.springframework.stereotype.Repository;
 
 public class Billing3rdPartyAddressDaoImpl extends AbstractDaoImpl<Billing3rdPartyAddress> implements Billing3rdPartyAddressDao {
 
+    /** Constructs this DAO for the {@link Billing3rdPartyAddress} entity class. */
+
     public Billing3rdPartyAddressDaoImpl() {
         super(Billing3rdPartyAddress.class);
     }

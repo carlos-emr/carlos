@@ -27,6 +27,8 @@ import java.util.List;
  */
 
 public class EReferAttachmentDataDaoImpl extends AbstractDaoImpl<EReferAttachmentData> implements EReferAttachmentDataDao {
+    /** Constructs this DAO for the {@link EReferAttachmentData} entity class. */
+
     public EReferAttachmentDataDaoImpl() {
         super(EReferAttachmentData.class);
     }

@@ -45,6 +45,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class Icd9DaoImpl extends AbstractCodeSystemDaoImpl<Icd9> implements Icd9Dao {
 
+    /** Constructs this DAO for the {@link Icd9} entity class. */
+
     public Icd9DaoImpl() {
         super(Icd9.class);
     }

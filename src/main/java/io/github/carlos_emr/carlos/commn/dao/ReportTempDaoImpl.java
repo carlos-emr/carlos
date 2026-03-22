@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class ReportTempDaoImpl extends AbstractDaoImpl<ReportTemp> implements ReportTempDao {
 
+    /** Constructs this DAO for the {@link ReportTemp} entity class. */
+
     public ReportTempDaoImpl() {
         super(ReportTemp.class);
     }

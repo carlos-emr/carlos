@@ -52,6 +52,8 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class DemographicArchiveDaoImpl extends AbstractDaoImpl<DemographicArchive> implements DemographicArchiveDao {
 
+    /** Constructs this DAO for the {@link DemographicArchive} entity class. */
+
     public DemographicArchiveDaoImpl() {
         super(DemographicArchive.class);
     }

@@ -118,6 +118,12 @@ public class ExcludeDemographicHandler {
         return demoExts;
     }
 
+    /**
+     * Excludes a single patient from a dashboard indicator.
+     *
+     * @param demographicNo Integer the demographic number to exclude
+     * @param indicatorName String the indicator identifier
+     */
     public void excludeDemoId(Integer demographicNo, String indicatorName) {
         if (demographicNo == null || indicatorName == null || indicatorName.isEmpty()) return;
         String providerNo = getProviderNo();
@@ -130,6 +136,12 @@ public class ExcludeDemographicHandler {
         logger.info("demo: " + demographicNo + " excluded from indicatorTemplate " + indicatorName);
     }
 
+    /**
+     * Excludes multiple patients from a dashboard indicator.
+     *
+     * @param demographicNos List of Integer the demographic numbers to exclude
+     * @param indicatorName String the indicator identifier
+     */
     public void excludeDemoIds(List<Integer> demographicNos, String indicatorName) {
         if (demographicNos == null || demographicNos.isEmpty() || indicatorName == null || indicatorName.isEmpty())
             return;
@@ -140,6 +152,12 @@ public class ExcludeDemographicHandler {
         }
     }
 
+    /**
+     * Removes exclusions for the specified patients from a dashboard indicator.
+     *
+     * @param demographicNos List of Integer the demographic numbers to un-exclude
+     * @param indicatorName String the indicator identifier
+     */
     public void unExcludeDemoIds(List<Integer> demographicNos, String indicatorName) {
         if (demographicNos == null || demographicNos.isEmpty() || indicatorName == null || indicatorName.isEmpty())
             return;

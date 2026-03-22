@@ -63,6 +63,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
     public final static String KEY_TOTAL = "total";
     public final static String KEY_GST = "gst";
 
+    /** Constructs this DAO for the {@link BillingONExt} entity class. */
+
     public BillingONExtDaoImpl() {
         super(BillingONExt.class);
     }

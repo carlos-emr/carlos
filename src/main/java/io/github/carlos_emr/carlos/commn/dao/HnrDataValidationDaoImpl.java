@@ -45,6 +45,8 @@ import org.springframework.stereotype.Repository;
 
 public class HnrDataValidationDaoImpl extends AbstractDaoImpl<HnrDataValidation> implements HnrDataValidationDao {
 
+    /** Constructs this DAO for the {@link HnrDataValidation} entity class. */
+
     public HnrDataValidationDaoImpl() {
         super(HnrDataValidation.class);
     }

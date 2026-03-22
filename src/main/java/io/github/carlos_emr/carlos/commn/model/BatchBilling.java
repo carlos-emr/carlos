@@ -45,7 +45,12 @@ import jakarta.persistence.TemporalType;
 
 
 /**
- * The persistent class for the batch_billing database table.
+ * Represents a batch billing submission record in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code batch_billing} table and tracks batched billing claims
+ * submitted to provincial health insurance plans for processing.</p>
+ *
+ * @since 2001-01-01
  */
 @Entity
 @Table(name = "batch_billing")

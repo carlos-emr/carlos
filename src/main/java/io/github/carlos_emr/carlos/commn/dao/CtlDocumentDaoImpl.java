@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class CtlDocumentDaoImpl extends AbstractDaoImpl<CtlDocument> implements CtlDocumentDao {
 
+    /** Constructs this DAO for the {@link CtlDocument} entity class. */
+
     public CtlDocumentDaoImpl() {
         super(CtlDocument.class);
     }

@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class MeasurementGroupStyleDaoImpl extends AbstractDaoImpl<MeasurementGroupStyle> implements MeasurementGroupStyleDao {
 
+    /** Constructs this DAO for the {@link MeasurementGroupStyle} entity class. */
+
     public MeasurementGroupStyleDaoImpl() {
         super(MeasurementGroupStyle.class);
     }

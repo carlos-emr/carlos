@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class RScheduleDaoImpl extends AbstractDaoImpl<RSchedule> implements RScheduleDao {
 
+    /** Constructs this DAO for the {@link RSchedule} entity class. */
+
     public RScheduleDaoImpl() {
         super(RSchedule.class);
     }

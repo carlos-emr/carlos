@@ -52,6 +52,8 @@ import org.springframework.stereotype.Repository;
 public class ProviderDefaultProgramDaoImpl extends AbstractDaoImpl<ProviderDefaultProgram>
         implements ProviderDefaultProgramDao {
 
+    /** Constructs this DAO for the {@link ProviderDefaultProgram} entity class. */
+
     public ProviderDefaultProgramDaoImpl() {
         super(ProviderDefaultProgram.class);
     }

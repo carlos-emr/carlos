@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class JointAdmissionDaoImpl extends AbstractDaoImpl<JointAdmission> implements JointAdmissionDao {
 
+    /** Constructs this DAO for the {@link JointAdmission} entity class. */
+
     public JointAdmissionDaoImpl() {
         super(JointAdmission.class);
     }

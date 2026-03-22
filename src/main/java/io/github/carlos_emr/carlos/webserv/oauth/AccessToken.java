@@ -35,6 +35,14 @@ package io.github.carlos_emr.carlos.webserv.oauth;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Domain model representing an OAuth 1.0a access token issued to a client.
+ *
+ * <p>Encapsulates the token key/secret pair, client reference, user subject,
+ * lifetime, and granted scopes. Used by token services and signature verifiers.
+ *
+ * @since 2026-01-18
+ */
 public class AccessToken {
 
     private Client client;

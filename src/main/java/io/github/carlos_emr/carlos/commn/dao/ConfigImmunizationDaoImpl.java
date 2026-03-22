@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class ConfigImmunizationDaoImpl extends AbstractDaoImpl<ConfigImmunization> implements ConfigImmunizationDao {
 
+    /** Constructs this DAO for the {@link ConfigImmunization} entity class. */
+
     public ConfigImmunizationDaoImpl() {
         super(ConfigImmunization.class);
     }

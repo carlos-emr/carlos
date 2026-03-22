@@ -55,6 +55,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class BillingONRepoDaoImpl extends AbstractDaoImpl<BillingONRepo> implements BillingONRepoDao {
 
+    /** Constructs this DAO for the {@link BillingONRepo} entity class. */
+
     public BillingONRepoDaoImpl() {
         super(BillingONRepo.class);
     }

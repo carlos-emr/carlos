@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class CVCMappingDaoImpl extends AbstractDaoImpl<CVCMapping> implements CVCMappingDao {
 
+    /** Constructs this DAO for the {@link CVCMapping} entity class. */
+
     public CVCMappingDaoImpl() {
         super(CVCMapping.class);
     }

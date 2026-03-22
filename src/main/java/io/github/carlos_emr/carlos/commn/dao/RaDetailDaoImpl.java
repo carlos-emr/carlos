@@ -72,6 +72,8 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
     //In addition to this list, the functions that use this string may have additional situations hardcoded; search for use of this string directly
     private static String irrelevantErrorCodes = "('EV','55','57','HM','30','B2','I6','V8')";
 
+    /** Constructs this DAO for the {@link RaDetail} entity class. */
+
     public RaDetailDaoImpl() {
         super(RaDetail.class);
     }

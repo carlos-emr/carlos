@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements DashboardDao {
 
+    /** Constructs this DAO for the {@link Dashboard} entity class. */
+
     public DashboardDaoImpl() {
         super(Dashboard.class);
     }

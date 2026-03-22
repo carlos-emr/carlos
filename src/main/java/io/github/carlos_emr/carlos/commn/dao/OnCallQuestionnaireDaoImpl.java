@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.commn.model.OnCallQuestionnaire;
 
 public class OnCallQuestionnaireDaoImpl extends AbstractDaoImpl<OnCallQuestionnaire> implements OnCallQuestionnaireDao {
 
+    /** Constructs this DAO for the {@link OnCallQuestionnaire} entity class. */
+
     public OnCallQuestionnaireDaoImpl() {
         super(OnCallQuestionnaire.class);
     }

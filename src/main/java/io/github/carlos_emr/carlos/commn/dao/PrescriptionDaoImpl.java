@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implements PrescriptionDao {
 
+    /** Constructs this DAO for the {@link Prescription} entity class. */
+
     public PrescriptionDaoImpl() {
         super(Prescription.class);
     }

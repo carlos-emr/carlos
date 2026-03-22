@@ -56,7 +56,11 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
 
 /**
- * @author wrighd
+ * Upload handler for PATHL7 (Excelleris/PathNET) laboratory result files.
+ * Parses flat files containing Excelleris-format HL7 messages and routes
+ * them through {@link MessageUploader} with PATHL7 type designation.
+ *
+ * @since 2007-01-18
  */
 public class PATHL7Handler implements MessageHandler {
 

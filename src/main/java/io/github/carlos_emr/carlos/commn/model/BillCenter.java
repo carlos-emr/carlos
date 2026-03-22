@@ -33,6 +33,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Represents a billing center in the CARLOS EMR system.
+ *
+ * <p>Maps to the {@code billcenter} table and defines billing submission centers
+ * for routing healthcare claims to the appropriate provincial processing facility.</p>
+ *
+ * @since 2001-01-01
+ */
 @Entity
 @Table(name = "billcenter")
 public class BillCenter extends AbstractModel<String> {

@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 
 public class SpecialtyDaoImpl extends AbstractDaoImpl<Specialty> implements SpecialtyDao {
 
+    /** Constructs this DAO for the {@link Specialty} entity class. */
+
     public SpecialtyDaoImpl() {
         super(Specialty.class);
     }

@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class FileUploadCheckDaoImpl extends AbstractDaoImpl<FileUploadCheck> implements FileUploadCheckDao {
 
+    /** Constructs this DAO for the {@link FileUploadCheck} entity class. */
+
     public FileUploadCheckDaoImpl() {
         super(FileUploadCheck.class);
     }

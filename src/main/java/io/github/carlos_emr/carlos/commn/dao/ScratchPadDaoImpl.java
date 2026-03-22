@@ -46,6 +46,8 @@ import java.util.List;
 
 public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements ScratchPadDao {
 
+    /** Constructs this DAO for the {@link ScratchPad} entity class. */
+
     public ScratchPadDaoImpl() {
         super(ScratchPad.class);
     }

@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class SystemMessageDaoImpl extends AbstractDaoImpl<SystemMessage> implements SystemMessageDao {
 
+    /** Constructs this DAO for the {@link SystemMessage} entity class. */
+
     public SystemMessageDaoImpl() {
         super(SystemMessage.class);
     }

@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class FormDaoImpl extends AbstractDaoImpl<Form> implements FormDao {
 
+    /** Constructs this DAO for the {@link Form} entity class. */
+
     public FormDaoImpl() {
         super(Form.class);
     }

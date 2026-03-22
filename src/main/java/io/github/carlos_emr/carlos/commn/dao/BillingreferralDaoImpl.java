@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> implements BillingreferralDao {
 
+    /** Constructs this DAO for the {@link Billingreferral} entity class. */
+
     public BillingreferralDaoImpl() {
         super(Billingreferral.class);
     }

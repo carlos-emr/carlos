@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class RemoteAttachmentsDaoImpl extends AbstractDaoImpl<RemoteAttachments> implements RemoteAttachmentsDao {
 
+    /** Constructs this DAO for the {@link RemoteAttachments} entity class. */
+
     public RemoteAttachmentsDaoImpl() {
         super(RemoteAttachments.class);
     }

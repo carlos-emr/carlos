@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class LabTestResultsDaoImpl extends AbstractDaoImpl<LabTestResults> implements LabTestResultsDao {
 
+    /** Constructs this DAO for the {@link LabTestResults} entity class. */
+
     public LabTestResultsDaoImpl() {
         super(LabTestResults.class);
     }

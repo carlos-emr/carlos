@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 
 public class TicklerCommentDaoImpl extends AbstractDaoImpl<TicklerComment> implements TicklerCommentDao {
 
+    /** Constructs this DAO for the {@link TicklerComment} entity class. */
+
     public TicklerCommentDaoImpl() {
         super(TicklerComment.class);
     }

@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class IncomingLabRulesDaoImpl extends AbstractDaoImpl<IncomingLabRules> implements IncomingLabRulesDao {
 
+    /** Constructs this DAO for the {@link IncomingLabRules} entity class. */
+
     public IncomingLabRulesDaoImpl() {
         super(IncomingLabRules.class);
     }

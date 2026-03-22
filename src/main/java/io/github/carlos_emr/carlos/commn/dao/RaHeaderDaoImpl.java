@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class RaHeaderDaoImpl extends AbstractDaoImpl<RaHeader> implements RaHeaderDao {
 
+    /** Constructs this DAO for the {@link RaHeader} entity class. */
+
     public RaHeaderDaoImpl() {
         super(RaHeader.class);
     }

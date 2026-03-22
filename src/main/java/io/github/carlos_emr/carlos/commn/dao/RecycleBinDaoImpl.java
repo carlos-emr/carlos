@@ -44,6 +44,8 @@ import org.springframework.stereotype.Repository;
 
 public class RecycleBinDaoImpl extends AbstractDaoImpl<RecycleBin> implements RecycleBinDao {
 
+    /** Constructs this DAO for the {@link RecycleBin} entity class. */
+
     public RecycleBinDaoImpl() {
         super(RecycleBin.class);
     }

@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class DesapriskDaoImpl extends AbstractDaoImpl<Desaprisk> implements DesapriskDao {
 
+    /** Constructs this DAO for the {@link Desaprisk} entity class. */
+
     public DesapriskDaoImpl() {
         super(Desaprisk.class);
     }

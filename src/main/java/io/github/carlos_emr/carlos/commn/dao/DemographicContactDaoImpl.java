@@ -49,6 +49,8 @@ import org.springframework.stereotype.Repository;
 
 public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContact> implements DemographicContactDao {
 
+    /** Constructs this DAO for the {@link DemographicContact} entity class. */
+
     public DemographicContactDaoImpl() {
         super(DemographicContact.class);
     }

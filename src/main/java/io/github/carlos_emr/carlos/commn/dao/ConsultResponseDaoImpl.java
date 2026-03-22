@@ -54,6 +54,8 @@ import org.springframework.stereotype.Repository;
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
     private Logger logger = MiscUtils.getLogger();
 
+    /** Constructs this DAO for the {@link ConsultationResponse} entity class. */
+
     public ConsultResponseDaoImpl() {
         super(ConsultationResponse.class);
     }

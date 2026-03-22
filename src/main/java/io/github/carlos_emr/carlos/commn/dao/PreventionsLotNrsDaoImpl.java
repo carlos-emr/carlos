@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class PreventionsLotNrsDaoImpl extends AbstractDaoImpl<PreventionsLotNrs> implements PreventionsLotNrsDao {
 
+    /** Constructs this DAO for the {@link PreventionsLotNrs} entity class. */
+
     public PreventionsLotNrsDaoImpl() {
         super(PreventionsLotNrs.class);
     }

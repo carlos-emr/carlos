@@ -49,6 +49,8 @@ public class CaseManagementTmpSaveDaoImpl extends AbstractDaoImpl<CaseManagement
 
     private static final String NOTE_TAG_REGEXP = "^\\[[[:digit:]]{2}-[[:alpha:]]{3}-[[:digit:]]{4} \\.\\: [^]]*\\][[:space:]]+$";
 
+    /** Constructs this DAO for the {@link CaseManagementTmpSave} entity class. */
+
     public CaseManagementTmpSaveDaoImpl() {
         super(CaseManagementTmpSave.class);
     }

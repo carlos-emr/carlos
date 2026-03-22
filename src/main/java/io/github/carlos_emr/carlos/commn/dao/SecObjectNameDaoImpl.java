@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class SecObjectNameDaoImpl extends AbstractDaoImpl<SecObjectName> implements SecObjectNameDao {
 
+    /** Constructs this DAO for the {@link SecObjectName} entity class. */
+
     public SecObjectNameDaoImpl() {
         super(SecObjectName.class);
     }

@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink> implements QueueDocumentLinkDao {
 
+    /** Constructs this DAO for the {@link QueueDocumentLink} entity class. */
+
     public QueueDocumentLinkDaoImpl() {
         super(QueueDocumentLink.class);
     }

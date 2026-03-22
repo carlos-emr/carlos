@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class ServiceClientDaoImpl extends AbstractDaoImpl<ServiceClient> implements ServiceClientDao {
 
+    /** Constructs this DAO for the {@link ServiceClient} entity class. */
+
     public ServiceClientDaoImpl() {
         super(ServiceClient.class);
     }

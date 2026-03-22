@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class CdsClientFormDaoImpl extends AbstractDaoImpl<CdsClientForm> implements CdsClientFormDao {
 
+    /** Constructs this DAO for the {@link CdsClientForm} entity class. */
+
     public CdsClientFormDaoImpl() {
         super(CdsClientForm.class);
     }

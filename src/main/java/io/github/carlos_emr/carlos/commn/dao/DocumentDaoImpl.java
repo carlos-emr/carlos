@@ -60,6 +60,8 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
 public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements DocumentDao {
 
+    /** Constructs this DAO for the {@link Document} entity class. */
+
     public DocumentDaoImpl() {
         super(Document.class);
     }

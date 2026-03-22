@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class ReportTableFieldCaptionDaoImpl extends AbstractDaoImpl<ReportTableFieldCaption> implements ReportTableFieldCaptionDao {
 
+    /** Constructs this DAO for the {@link ReportTableFieldCaption} entity class. */
+
     public ReportTableFieldCaptionDaoImpl() {
         super(ReportTableFieldCaption.class);
     }

@@ -33,6 +33,8 @@ import java.util.Date;
 
 /**
  * Represents an immutable range of dates. Null {@link #getTo()} or {@link #getFrom()} dates represent open ranges.
+ *
+ * @since 2026-03-17
  */
 public class DateRange implements Serializable {
 
@@ -80,6 +82,11 @@ public class DateRange implements Serializable {
         return true;
     }
 
+    /**
+     * Returns the start date of the range, or {@code null} for an open-ended start.
+     *
+     * @return Date the start date
+     */
     public Date getFrom() {
         return from;
     }
@@ -88,6 +95,11 @@ public class DateRange implements Serializable {
         this.from = from;
     }
 
+    /**
+     * Returns the end date of the range, or {@code null} for an open-ended end.
+     *
+     * @return Date the end date
+     */
     public Date getTo() {
         return to;
     }

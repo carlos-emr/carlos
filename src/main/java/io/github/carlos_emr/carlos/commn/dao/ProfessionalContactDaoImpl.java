@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class ProfessionalContactDaoImpl extends AbstractDaoImpl<ProfessionalContact> implements ProfessionalContactDao {
 
+    /** Constructs this DAO for the {@link ProfessionalContact} entity class. */
+
     public ProfessionalContactDaoImpl() {
         super(ProfessionalContact.class);
     }

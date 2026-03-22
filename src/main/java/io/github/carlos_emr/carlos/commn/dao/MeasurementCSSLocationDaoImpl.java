@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class MeasurementCSSLocationDaoImpl extends AbstractDaoImpl<MeasurementCSSLocation> implements MeasurementCSSLocationDao {
 
+    /** Constructs this DAO for the {@link MeasurementCSSLocation} entity class. */
+
     public MeasurementCSSLocationDaoImpl() {
         super(MeasurementCSSLocation.class);
     }

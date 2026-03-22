@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class ClientLinkDaoImpl extends AbstractDaoImpl<ClientLink> implements ClientLinkDao {
 
+    /** Constructs this DAO for the {@link ClientLink} entity class. */
+
     public ClientLinkDaoImpl() {
         super(ClientLink.class);
     }

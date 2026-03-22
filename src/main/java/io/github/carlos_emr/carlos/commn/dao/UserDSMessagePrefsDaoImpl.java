@@ -51,6 +51,8 @@ import org.springframework.stereotype.Repository;
 public class UserDSMessagePrefsDaoImpl extends AbstractDaoImpl<UserDSMessagePrefs> implements UserDSMessagePrefsDao {
     private static Logger logger = MiscUtils.getLogger();
 
+    /** Constructs this DAO for the {@link UserDSMessagePrefs} entity class. */
+
     public UserDSMessagePrefsDaoImpl() {
         super(UserDSMessagePrefs.class);
     }

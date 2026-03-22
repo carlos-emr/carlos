@@ -53,6 +53,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingDao {
 
+    /** Constructs this DAO for the {@link Billing} entity class. */
+
     public BillingDaoImpl() {
         super(Billing.class);
     }

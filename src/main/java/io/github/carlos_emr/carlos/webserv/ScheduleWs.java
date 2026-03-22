@@ -72,6 +72,11 @@ public class ScheduleWs extends AbstractWs {
     @Autowired
     private ScheduleManager scheduleManager;
 
+    /**
+     * Retrieves all schedule template codes as transfer objects.
+     *
+     * @return ScheduleTemplateCodeTransfer[] array of all template codes
+     */
     public ScheduleTemplateCodeTransfer[] getScheduleTemplateCodes() {
         List<ScheduleTemplateCode> scheduleTemplateCodes = scheduleManager.getScheduleTemplateCodes();
         return (ScheduleTemplateCodeTransfer.toTransfer(scheduleTemplateCodes));

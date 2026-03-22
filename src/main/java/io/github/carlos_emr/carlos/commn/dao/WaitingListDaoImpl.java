@@ -47,6 +47,8 @@ import org.springframework.stereotype.Repository;
 
 public class WaitingListDaoImpl extends AbstractDaoImpl<WaitingList> implements WaitingListDao {
 
+    /** Constructs this DAO for the {@link WaitingList} entity class. */
+
     public WaitingListDaoImpl() {
         super(WaitingList.class);
     }

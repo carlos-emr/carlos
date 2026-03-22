@@ -50,6 +50,8 @@ import org.springframework.stereotype.Repository;
 public class CtlBillingServiceDaoImpl extends AbstractDaoImpl<CtlBillingService> implements CtlBillingServiceDao {
 
 
+    /** Constructs this DAO for the {@link CtlBillingService} entity class. */
+
     public CtlBillingServiceDaoImpl() {
         super(CtlBillingService.class);
     }

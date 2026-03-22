@@ -52,6 +52,8 @@ import org.springframework.stereotype.Repository;
 
 public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarLogDao {
 
+    /** Constructs this DAO for the {@link OscarLog} entity class. */
+
     public OscarLogDaoImpl() {
         super(OscarLog.class);
     }

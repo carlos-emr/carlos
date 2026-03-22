@@ -48,6 +48,8 @@ import org.springframework.stereotype.Repository;
 
 public class PageMonitorDaoImpl extends AbstractDaoImpl<PageMonitor> implements PageMonitorDao {
 
+    /** Constructs this DAO for the {@link PageMonitor} entity class. */
+
     public PageMonitorDaoImpl() {
         super(PageMonitor.class);
     }

@@ -2821,6 +2821,11 @@ public class ProviderProperty2Action extends ActionSupport {
         return prop;
     }
 
+    /**
+     * Saves the provider's prevention warning preferences (SSO, ISPA, non-ISPA).
+     *
+     * @return String {@code "genPreventionPrefs"} to re-display with success status
+     */
     public String savePreventionPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

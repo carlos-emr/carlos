@@ -51,6 +51,8 @@ import org.springframework.stereotype.Repository;
 
 public class ValidationsDaoImpl extends AbstractDaoImpl<Validations> implements ValidationsDao {
 
+    /** Constructs this DAO for the {@link Validations} entity class. */
+
     public ValidationsDaoImpl() {
         super(Validations.class);
     }

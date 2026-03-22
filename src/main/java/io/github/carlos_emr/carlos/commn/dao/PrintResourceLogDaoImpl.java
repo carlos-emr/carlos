@@ -46,6 +46,8 @@ import org.springframework.stereotype.Repository;
 
 public class PrintResourceLogDaoImpl extends AbstractDaoImpl<PrintResourceLog> implements PrintResourceLogDao {
 
+    /** Constructs this DAO for the {@link PrintResourceLog} entity class. */
+
     public PrintResourceLogDaoImpl() {
         super(PrintResourceLog.class);
     }

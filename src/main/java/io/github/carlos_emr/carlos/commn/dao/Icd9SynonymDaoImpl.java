@@ -51,6 +51,8 @@ import org.springframework.stereotype.Repository;
 
 public class Icd9SynonymDaoImpl extends AbstractDaoImpl<Icd9Synonym> implements Icd9SynonymDao {
 
+    /** Constructs this DAO for the {@link Icd9Synonym} entity class. */
+
     public Icd9SynonymDaoImpl() {
         super(Icd9Synonym.class);
     }

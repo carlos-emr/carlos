@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
 
 public class BillingONErrorCodeDaoImpl extends AbstractDaoImpl<BillingONErrorCode> implements BillingONErrorCodeDao {
 
+    /** Constructs this DAO for the {@link BillingONErrorCode} entity class. */
+
     public BillingONErrorCodeDaoImpl() {
         super(BillingONErrorCode.class);
     }

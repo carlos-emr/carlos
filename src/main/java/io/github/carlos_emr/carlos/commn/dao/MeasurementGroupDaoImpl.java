@@ -49,6 +49,8 @@ import io.github.carlos_emr.CarlosProperties;
 
 public class MeasurementGroupDaoImpl extends AbstractDaoImpl<MeasurementGroup> implements MeasurementGroupDao {
 
+    /** Constructs this DAO for the {@link MeasurementGroup} entity class. */
+
     public MeasurementGroupDaoImpl() {
         super(MeasurementGroup.class);
     }

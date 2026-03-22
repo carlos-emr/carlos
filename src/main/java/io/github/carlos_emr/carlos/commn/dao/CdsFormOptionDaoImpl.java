@@ -45,6 +45,8 @@ import org.springframework.stereotype.Repository;
 
 public class CdsFormOptionDaoImpl extends AbstractDaoImpl<CdsFormOption> implements CdsFormOptionDao {
 
+    /** Constructs this DAO for the {@link CdsFormOption} entity class. */
+
     public CdsFormOptionDaoImpl() {
         super(CdsFormOption.class);
     }

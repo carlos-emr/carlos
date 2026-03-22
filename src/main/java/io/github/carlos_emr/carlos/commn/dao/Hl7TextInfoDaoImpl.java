@@ -62,6 +62,8 @@ import io.github.carlos_emr.CarlosProperties;
 
 public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements Hl7TextInfoDao {
 
+    /** Constructs this DAO for the {@link Hl7TextInfo} entity class. */
+
     public Hl7TextInfoDaoImpl() {
         super(Hl7TextInfo.class);
     }
