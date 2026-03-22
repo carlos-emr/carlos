@@ -110,6 +110,11 @@ public class DrugPriceLookup {
 							}
 						}
 
+						if (is == null) {
+							log.error("Drug price formulary resource could not be resolved; pricing will be unavailable");
+							return;
+						}
+
 						/*
 						 * Parses xml file.
 						 * Simplified structure is
@@ -120,13 +125,22 @@ public class DrugPriceLookup {
 						Document doc = parser.build(is);
 						Element root = doc.getRootElement();
 						Element formulary = root.getChild("formulary");
+						if (formulary == null) {
+							log.error("Drug price XML is missing <formulary> element; pricing will be unavailable");
+							return;
+						}
 						Iterator<Element> drugs = formulary.getDescendants(new ElementFilter("drug")).iterator();
 
 						while (drugs.hasNext()) {
 							Element drug = drugs.next();
+							if (drug.getAttribute("id") == null) {
+								continue;
+							}
 							String din = drug.getAttribute("id").getValue();
 							String cost = drug.getChildText("individualPrice");
-							costLookup.put(din, cost);
+							if (din != null && cost != null) {
+								costLookup.put(din, cost);
+							}
 						}
 
 						log.debug("Drug Prices loaded=true size: {}", costLookup.size());

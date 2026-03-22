@@ -29,7 +29,7 @@
 
 --%>
 
-<%-- 
+<%--
     Document   : DrugPrice
     Created on : Apr 10, 2022
     Author     : phc
@@ -47,24 +47,24 @@
 		    String din = request.getParameter("din");
 		    String randomId = request.getParameter("randomId");
 		    String quantity = request.getParameter("qty");
-		    String cost = oscar.oscarRx.util.DrugPriceLookup.getPriceInfoForDin(din);
+		    String cost = DrugPriceLookup.getPriceInfoForDin(din);
 		    String moneyString = "";
 		    NumberFormat formatter = NumberFormat.getCurrencyInstance(new Locale("en", "US"));
-		
-            if (cost != null && cost !="" && cost.matches("\\d*(\\.\\d+)?")){
+
+            if (cost != null && !cost.isEmpty() && cost.matches("\\d+(\\.\\d+)?")){
 				//lets cast to float
 				float fa = Float.valueOf(cost);
 				float money = fa;
-				if (quantity != null && quantity !="" && quantity !="0" && quantity.matches("\\d*(\\.\\d+)?")){
+				if (quantity != null && !quantity.isEmpty() && !quantity.equals("0") && quantity.matches("\\d+(\\.\\d+)?")){
 					float fb = Float.valueOf(quantity);
 					money = fa * fb;
 					moneyString = formatter.format(money)+"/"+quantity;
 				} else {
 				    //lets format it
-					moneyString = formatter.format(money)+"/1";			
-                }				
+					moneyString = formatter.format(money)+"/1";
+                }
          %>
             <span style="margin-left:2px; margin-right: 2px;">
-			<%=moneyString%>	
+			<%=moneyString%>
             </span>
             <%}%>
