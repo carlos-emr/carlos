@@ -165,6 +165,15 @@ public interface VacancyTemplateManager {
     }
 
 
+    /**
+     * Retrieves the selected criteria for a template/vacancy and type combination.
+     * Prioritizes vacancy-specific criteria over template-level criteria.
+     *
+     * @param templateId Integer the template identifier, may be {@code null}
+     * @param vacancyId Integer the vacancy identifier, may be {@code null}
+     * @param typeId Integer the criteria type identifier
+     * @return Criteria the matching criteria record, or {@code null} if not found
+     */
     public static Criteria getSelectedCriteria(Integer templateId, Integer vacancyId, Integer typeId) {
         if (templateId == null && typeId == null)
             return null;
@@ -178,6 +187,11 @@ public interface VacancyTemplateManager {
             return criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(templateId, vacancyId, typeId);
     }
 
+    /**
+     * Retrieves all criteria type definitions.
+     *
+     * @return List&lt;CriteriaType&gt; list of all criteria types
+     */
     public static List<CriteriaType> getAllCriteriaTypes() {
         return criteriaTypeDAO.getAllCriteriaTypes();
     }

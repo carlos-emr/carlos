@@ -47,6 +47,12 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for matching unlinked MDS lab results to patient demographics,
+ * linking lab segments to the correct patient record in the system.
+ *
+ * @since 2001-01-01
+ */
 public class PatientMatch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
