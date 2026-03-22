@@ -54,14 +54,17 @@ public class FormsManagerImpl implements FormsManager {
         this.formsDAO = dao;
     }
 
+    /** {@inheritDoc} */
     public void saveForm(Object o) {
         formsDAO.saveForm(o);
     }
 
+    /** {@inheritDoc} */
     public Object getCurrentForm(String clientId, Class clazz) {
         return formsDAO.getCurrentForm(clientId, clazz);
     }
 
+    /** {@inheritDoc} */
     public List getFormInfo(String clientId, Class clazz) {
         return formsDAO.getFormInfo(clientId, clazz);
     }

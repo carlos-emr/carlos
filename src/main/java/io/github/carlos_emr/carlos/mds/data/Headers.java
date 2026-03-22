@@ -37,6 +37,12 @@ package io.github.carlos_emr.carlos.mds.data;
 
 import java.util.ArrayList;
 
+/**
+ * Container for MDS lab report header information, holding the column headers
+ * and segment identifiers used in report display formatting.
+ *
+ * @since 2001-01-01
+ */
 public class Headers {
 
     Headers(String rF, String rS, String[] rH) {

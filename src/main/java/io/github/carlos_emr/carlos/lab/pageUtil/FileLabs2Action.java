@@ -51,6 +51,13 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for filing (acknowledging) lab results. Handles batch lab acknowledgement
+ * by linking labs to demographics and updating provider routing status.
+ * Returns a JSON response with the filing results. Requires {@code _lab} write privilege.
+ *
+ * @since 2007-01-18
+ */
 public class FileLabs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
