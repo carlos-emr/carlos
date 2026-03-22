@@ -37,6 +37,12 @@ package io.github.carlos_emr.carlos.mds.data;
 
 import java.util.ArrayList;
 
+/**
+ * Container for MDS lab result data including test values, reference ranges,
+ * abnormal flags, and associated mnemonics for display formatting.
+ *
+ * @since 2001-01-01
+ */
 public class Results {
 
     Results(String n, String rR, String u, String oV, String aF, String oI, String rS, ArrayList newnotes, String lID) {

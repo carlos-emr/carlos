@@ -142,11 +142,23 @@ public interface VacancyTemplateManager {
         return (results);
     }
 
+    /**
+     * Retrieves a vacancy template by its identifier.
+     *
+     * @param templateId Integer the template identifier
+     * @return VacancyTemplate the vacancy template record
+     */
     public static VacancyTemplate getVacancyTemplateByTemplateId(Integer templateId) {
         VacancyTemplate vacancyTemplate = vacancyTemplateDAO.find(templateId);
         return (vacancyTemplate);
     }
 
+    /**
+     * Retrieves a criteria record by its identifier.
+     *
+     * @param id Integer the criteria identifier
+     * @return Criteria the criteria record
+     */
     public static Criteria getCriteriaByCriteriaId(Integer id) {
         Criteria c = criteriaDAO.find(id);
         return (c);
