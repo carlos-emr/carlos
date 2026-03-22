@@ -71,6 +71,13 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
+/**
+ * JPA entity representing a billing master record in the BC MSP billing system.
+ * Contains all claim details including service codes, diagnostic codes, amounts,
+ * provider information, and submission tracking fields.
+ *
+ * @since 2001-01-01
+ */
 public class Billingmaster {
 
     /**

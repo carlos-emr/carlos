@@ -93,10 +93,17 @@ public class ProgramQueueManagerImpl implements ProgramQueueManager {
         return dao.getProgramQueuesByProgramId(programId);
     }
 
+    /** {@inheritDoc} */
     public void saveProgramQueue(ProgramQueue programQueue) {
         dao.saveProgramQueue(programQueue);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Enriches each queue entry with vacancy name and template name from
+     * the associated referral and vacancy records.</p>
+     */
     public List<ProgramQueue> getActiveProgramQueuesByProgramId(Long programId) {
         List<ProgramQueue> queue = dao.getActiveProgramQueuesByProgramId(programId);
         List<ProgramQueue> q = new ArrayList<ProgramQueue>();
