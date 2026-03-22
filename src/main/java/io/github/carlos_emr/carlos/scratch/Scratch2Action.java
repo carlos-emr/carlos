@@ -42,8 +42,18 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 /**
+ * Struts2 action for managing provider scratch pad (notepad) entries via JSON responses.
  *
- * @author jay
+ * <p>Provides CRUD operations for scratch pad notes associated with individual providers.
+ * Supports saving/retrieving notes, viewing historical versions, and soft-deleting entries.
+ * Uses method-based routing via the {@code method} request parameter.</p>
+ *
+ * <p>Enforces provider-level access control by verifying that the requesting session user
+ * matches the target provider number before allowing modifications.</p>
+ *
+ * @see ScratchData
+ * @see JSONAction
+ * @since 2026-03-17
  */
 public class Scratch2Action extends JSONAction {
 

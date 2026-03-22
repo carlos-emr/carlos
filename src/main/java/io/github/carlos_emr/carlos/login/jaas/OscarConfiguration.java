@@ -43,6 +43,9 @@ import javax.security.auth.login.Configuration;
  * <p>
  * Please consider using proper file-based configuration instead by specifying "java.sec.auth.login.config" property with the value
  * containing the full path to JAAS configuration file.
+ *
+ * @see LoginModuleFactory
+ * @since 2026-03-17
  */
 public class OscarConfiguration extends Configuration {
 
@@ -61,11 +64,24 @@ public class OscarConfiguration extends Configuration {
         this.moduleName = moduleName;
     }
 
+    /**
+     * Creates a new configuration instance with login context name, module name, and options.
+     *
+     * @param contextName String name of the login context
+     * @param moduleName String complete class name of the login module
+     * @param options Map of String to Object configuration options for the login module
+     */
     public OscarConfiguration(String contextName, String moduleName, Map<String, Object> options) {
         this(contextName, moduleName);
         this.options = options;
     }
 
+    /**
+     * Sets a configuration option for the login module.
+     *
+     * @param key String the option key
+     * @param value String the option value
+     */
     public void setOption(String key, String value) {
         this.options.put(key, value);
     }

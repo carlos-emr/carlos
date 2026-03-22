@@ -92,10 +92,12 @@ public class ClientManagerImpl implements ClientManager {
         return dao.getClientByDemographicNo(Integer.valueOf(demographicNo));
     }
 
+    /** {@inheritDoc} */
     public List<Demographic> getClients() {
         return dao.getClients();
     }
 
+    /** {@inheritDoc} */
     public List<Demographic> search(ClientSearchFormBean criteria, boolean returnOptinsOnly, boolean excludeMerged) {
         return dao.search(criteria, returnOptinsOnly, excludeMerged);
     }

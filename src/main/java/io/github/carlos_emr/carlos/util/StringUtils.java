@@ -438,10 +438,24 @@ public class StringUtils {
 
     }
 
+    /**
+     * Null-safe case-insensitive string equality check.
+     *
+     * @param s1 String the first string
+     * @param s2 String the second string
+     * @return boolean true if both are equal ignoring case
+     */
     public static boolean nullSafeEqualsIgnoreCase(String s1, String s2) {
         return nullSafeEquals(s1.toUpperCase(), s2.toUpperCase());
     }
 
+    /**
+     * Case-insensitive check for whether a string contains a search word.
+     *
+     * @param text String the text to search within (may be null)
+     * @param searchWord String the word to search for (may be null)
+     * @return boolean true if the text contains the search word (case-insensitive)
+     */
     public static boolean containsIgnoreCase(String text, String searchWord) {
         if (text == null || searchWord == null) return false;
 
@@ -451,14 +465,32 @@ public class StringUtils {
         return text.contains(searchWord);
     }
 
+    /**
+     * Returns the input string if it is non-null and non-empty, otherwise returns an empty string.
+     *
+     * @param maybeNullText String the input (may be null)
+     * @return String the input or an empty string
+     */
     static public String noNull(String maybeNullText) {
         return filled(maybeNullText) ? maybeNullText : "";
     }
 
+    /**
+     * Checks if a string is null, empty, or the literal "null".
+     *
+     * @param s String the string to check
+     * @return boolean true if the string is considered empty
+     */
     static public boolean empty(String s) {
         return isNullOrEmpty(s);
     }
 
+    /**
+     * Checks if a string has meaningful content (non-null, non-empty, and not "null").
+     *
+     * @param s String the string to check
+     * @return boolean true if the string has content
+     */
     static public boolean filled(String s) {
         return !isNullOrEmpty(s);
     }

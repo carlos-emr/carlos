@@ -6,6 +6,18 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Data transfer object representing a laboratory result with version tracking for the
+ * document attachment workflow in the CARLOS EMR system.
+ *
+ * <p>Each instance represents the latest version of a lab result and contains a map of
+ * its historical version IDs with their corresponding dates. This structure supports the
+ * attachment window (attachDocument.jsp) where lab results are displayed grouped by version
+ * to prevent duplicate selection and provide clear version history.
+ *
+ * @see DocumentAttachmentManager#getAllLabsSortedByVersions
+ * @since 2026-01-24
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;

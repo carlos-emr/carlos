@@ -305,6 +305,11 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
         this.professionalSpecialist = professionalSpecialist;
     }
 
+    /**
+     * Returns the specialist's ID from the associated {@link ProfessionalSpecialist}.
+     *
+     * @return Integer the specialist ID, or {@code null} if no specialist is assigned
+     */
     public Integer getSpecialistId() {
         if (professionalSpecialist != null)
             return this.professionalSpecialist.getId();
@@ -320,6 +325,11 @@ public class ConsultationRequest extends AbstractModel<Integer> implements Seria
         this.demographicContact = demographicContact;
     }
 
+    /**
+     * Returns the demographic contact ID from the associated {@link DemographicContact}.
+     *
+     * @return Integer the demographic contact ID, or {@code null} if none is assigned
+     */
     public Integer getDemographicContactId() {
         if (demographicContact != null) {
             return this.demographicContact.getId();

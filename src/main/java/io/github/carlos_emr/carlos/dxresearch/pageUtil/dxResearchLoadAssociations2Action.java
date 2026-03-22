@@ -214,6 +214,13 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Imports diagnosis code associations from an uploaded CSV file. Optionally
+     * replaces all existing associations before importing.
+     *
+     * @return String "success" or "error" if the file is invalid
+     * @throws IOException if an I/O error occurs during file processing
+     */
     public String uploadFile() throws IOException {
         checkPrivilege(request, PRIVILEGE_WRITE);
 
@@ -273,6 +280,13 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Auto-populates the disease registry by matching case management issues
+     * with existing associations and saving the corresponding diagnosis entries.
+     *
+     * @return String {@code null} (response written directly)
+     * @throws IOException if an I/O error occurs writing the response
+     */
     public String autoPopulateAssociations() throws IOException {
         checkPrivilege(request, PRIVILEGE_WRITE);
 
@@ -339,6 +353,11 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private File file; // Uploaded file
     private boolean replace = true; // Flag for replacement
 
+    /**
+     * Returns the uploaded CSV file.
+     *
+     * @return File the uploaded file, or {@code null} if no file was uploaded
+     */
     public File getFile() {
         return file;
     }
@@ -348,6 +367,11 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         this.file = file;
     }
 
+    /**
+     * Returns whether existing associations should be replaced on import.
+     *
+     * @return boolean {@code true} to clear existing associations before import
+     */
     public boolean isReplace() {
         return replace;
     }

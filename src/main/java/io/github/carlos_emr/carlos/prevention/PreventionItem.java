@@ -186,10 +186,20 @@ public class PreventionItem {
         this.remoteEntry = remoteEntry;
     }
 
+    /**
+     * Returns whether the patient is ineligible for this prevention.
+     *
+     * @return boolean {@code true} if ineligible
+     */
     public boolean isInelligible() {
         return this.inelligible;
     }
 
+    /**
+     * Sets whether the patient is ineligible for this prevention.
+     *
+     * @param inelligible boolean {@code true} if ineligible
+     */
     public void setInelligible(boolean inelligible) {
         this.inelligible = inelligible;
     }

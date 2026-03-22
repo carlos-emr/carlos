@@ -59,7 +59,18 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 
 /**
- * @author ronnie
+ * Parses Hospital Report Manager (HRM) XML files and provides access to report data.
+ *
+ * <p>This class unmarshals HRM OmdCds XML documents using JAXB to extract
+ * reports received and transaction information. It provides methods to access
+ * report content, author physician details, dates, OBR content, and
+ * transaction message IDs.</p>
+ *
+ * <p>HRM files conform to the Ontario OMD CDS (Clinical Data Standard) schema
+ * for electronic health report interchange between healthcare facilities.</p>
+ *
+ * @see io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds
+ * @since 2026-03-17
  */
 public class ReadHRMFile {
     private List<ReportsReceived> reportsReceived = null;
@@ -71,6 +82,11 @@ public class ReadHRMFile {
  *
  */
 
+    /**
+     * Constructs a ReadHRMFile by parsing the specified HRM XML file.
+     *
+     * @param hrmFile String the absolute file path to the HRM XML document, or null
+     */
     public ReadHRMFile(String hrmFile) {
         try {
             if (hrmFile == null) {

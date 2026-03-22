@@ -67,10 +67,20 @@ public class Report {
      */
     private List<ReportItem> items;
 
+    /**
+     * Returns the list of individual report items for this prevention report.
+     *
+     * @return List of ReportItem objects containing per-patient prevention details
+     */
     public List<ReportItem> getItems() {
         return items;
     }
 
+    /**
+     * Sets the list of individual report items for this prevention report.
+     *
+     * @param items List of ReportItem objects containing per-patient prevention details
+     */
     public void setItems(List<ReportItem> items) {
         this.items = items;
     }

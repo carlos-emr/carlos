@@ -35,6 +35,23 @@ import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlElement;
 import java.util.ArrayList;
 
+/**
+ * Represents a database access point (AP) configuration for eForms. Each AP
+ * defines a named SQL query and an output template that maps database column
+ * values to eForm field placeholders using {@code ${variable}} syntax.
+ *
+ * <p>APs are configured in {@code apconfig.xml} and parsed via JAXB. They
+ * support both standard SQL queries ({@code ap-sql}) and input SQL queries
+ * ({@code ap-insql}) for two-way data binding, as well as JSON output mode
+ * for client-side processing.</p>
+ *
+ * <p>Also provides static utility methods for template variable parsing,
+ * replacement, and cleanup.</p>
+ *
+ * @see EFormLoader
+ * @see EFormApConfig
+ * @since 2006-05-25
+ */
 @XmlAccessorType(XmlAccessType.NONE)
 public class DatabaseAP {
     @XmlElement(name = "ap-name")

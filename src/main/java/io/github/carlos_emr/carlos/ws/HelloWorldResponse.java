@@ -6,6 +6,11 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * JAXB response DTO for the HelloWorld web service test operation.
+ *
+ * @since 2012-08-13
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
 public class HelloWorldResponse implements Serializable
@@ -14,10 +19,20 @@ public class HelloWorldResponse implements Serializable
     @XmlElement(name = "return")
     protected String _return;
     
+    /**
+     * Returns the response string from the HelloWorld operation.
+     *
+     * @return String the response value
+     */
     public String getReturn() {
         return this._return;
     }
     
+    /**
+     * Sets the response string for the HelloWorld operation.
+     *
+     * @param return1 String the response value to set
+     */
     public void setReturn(final String return1) {
         this._return = return1;
     }

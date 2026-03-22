@@ -527,6 +527,11 @@ public class UserPreference2Action extends ActionSupport {
         return results;
     }
 
+    /**
+     * Constructs a sorted list of all available encounter forms.
+     *
+     * @return ArrayList&lt;LabelValueBean&gt; encounter form names sorted alphabetically
+     */
     public static ArrayList<LabelValueBean> constructEncounterFormList() {
         ArrayList<LabelValueBean> results = new ArrayList<LabelValueBean>();
 

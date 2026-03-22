@@ -62,10 +62,23 @@ public class DisplayIndicator2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
 
+    /**
+     * Delegates to {@link #getIndicator()}.
+     *
+     * @return String the result from {@link #getIndicator()}
+     */
     public String execute() {
         return getIndicator();
     }
 
+    /**
+     * Loads an indicator panel by ID and sets it as a request attribute.
+     * If a provider has been selected via the dashboard provider switcher,
+     * the indicator data is scoped to that provider.
+     *
+     * @return String {@link #SUCCESS} with indicator data, or "unauthorized"
+     *         if the user lacks {@code _dashboardDisplay} read privilege
+     */
     @SuppressWarnings("unused")
     public String getIndicator() {
 

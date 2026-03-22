@@ -36,20 +36,72 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 
+/**
+ * Data access interface for managing {@link SecUserRole} entities that define
+ * security role assignments for providers in the Program Management module.
+ *
+ * @since 2005-01-18
+ * @see SecUserRole
+ * @see SecUserRoleDaoImpl
+ */
 public interface SecUserRoleDao {
 
+    /**
+     * Retrieves all security roles assigned to a provider.
+     *
+     * @param providerNo String the provider number
+     * @return List&lt;SecUserRole&gt; roles for the provider
+     * @throws IllegalArgumentException if providerNo is {@code null}
+     */
     public List<SecUserRole> getUserRoles(String providerNo);
 
+    /**
+     * Retrieves all user role assignments with a specific role name.
+     *
+     * @param roleName String the role name to filter by
+     * @return List&lt;SecUserRole&gt; matching role assignments
+     */
     public List<SecUserRole> getSecUserRolesByRoleName(String roleName);
 
+    /**
+     * Finds role assignments matching both a role name and provider number.
+     *
+     * @param roleName String the role name
+     * @param providerNo String the provider number
+     * @return List&lt;SecUserRole&gt; matching assignments
+     */
     public List<SecUserRole> findByRoleNameAndProviderNo(String roleName, String providerNo);
 
+    /**
+     * Checks whether a provider has the 'admin' role.
+     *
+     * @param providerNo String the provider number
+     * @return {@code true} if the provider has admin role
+     * @throws IllegalArgumentException if providerNo is {@code null}
+     */
     public boolean hasAdminRole(String providerNo);
 
+    /**
+     * Finds a security user role by its ID.
+     *
+     * @param id Long the role assignment ID
+     * @return SecUserRole the role assignment, or {@code null} if not found
+     */
     public SecUserRole find(Long id);
 
+    /**
+     * Saves a new security user role assignment, setting the update date.
+     *
+     * @param sur SecUserRole the role assignment to save
+     */
     public void save(SecUserRole sur);
 
+    /**
+     * Retrieves provider numbers of roles updated after a given date.
+     *
+     * @param date Date the reference date
+     * @return List&lt;String&gt; provider numbers with updated roles
+     */
     public List<String> getRecordsAddedAndUpdatedSinceTime(Date date);
 
 }

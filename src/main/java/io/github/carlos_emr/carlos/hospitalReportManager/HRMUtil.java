@@ -395,6 +395,15 @@ public class HRMUtil {
         return displayHRMName;
     }
 
+    /**
+     * Renders an HRM report to a temporary PDF file on disk.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session context
+     * @param hrmId Integer the HRM document ID to render
+     * @return Path the path to the generated temporary PDF file
+     * @throws PDFGenerationException if the report cannot be converted to PDF
+     * @throws SecurityException if the provider lacks {@code _hrm} read privilege
+     */
     public static Path renderHRM(LoggedInInfo loggedInInfo, Integer hrmId) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm)");

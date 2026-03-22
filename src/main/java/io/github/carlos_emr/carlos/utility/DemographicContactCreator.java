@@ -44,10 +44,14 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * this class contains the utility methods for creating generic Contact objects and adds these
- * objects to a DemographicContact object as contact details.
- * This is a little backwards in order to combine several contact systems into one. Eventually
- * we could live without this class.
+ * Utility class for creating and populating generic {@link Contact} objects and attaching
+ * them to {@link DemographicContact} instances as contact details.
+ *
+ * <p>Bridges multiple contact systems (providers, contacts, professional specialists) into
+ * a unified contact representation. Resolves role names from numeric IDs, builds formatted
+ * contact names, and converts between contact types.
+ *
+ * @since 2026-03-17
  */
 public class DemographicContactCreator {
 
@@ -55,6 +59,12 @@ public class DemographicContactCreator {
     private static ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Populates contact details (name, phone, fax, etc.) for a list of demographic contacts.
+     *
+     * @param demographicContactList List&lt;DemographicContact&gt; the contacts to populate
+     * @return List&lt;DemographicContact&gt; the same list with contact details filled in
+     */
     public static List<DemographicContact> addContactDetailsToDemographicContact(List<DemographicContact> demographicContactList) {
         return fillContactNames(demographicContactList);
     }

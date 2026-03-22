@@ -190,34 +190,74 @@ public class FaxJobParams {
 
     // Getters for testing/debugging purposes
 
+    /**
+     * Returns the fax file path.
+     *
+     * @return String path to the fax PDF file
+     */
     public String getFaxFilePath() {
         return faxFilePath;
     }
 
+    /**
+     * Returns the recipient name.
+     *
+     * @return String the fax recipient name
+     */
     public String getRecipient() {
         return recipient;
     }
 
+    /**
+     * Returns the recipient fax number.
+     *
+     * @return String the destination fax number
+     */
     public String getRecipientFaxNumber() {
         return recipientFaxNumber;
     }
 
+    /**
+     * Returns the sender fax number.
+     *
+     * @return String the sender's fax number
+     */
     public String getSenderFaxNumber() {
         return senderFaxNumber;
     }
 
+    /**
+     * Returns the patient demographic number.
+     *
+     * @return Integer the patient demographic number
+     */
     public Integer getDemographicNo() {
         return demographicNo;
     }
 
+    /**
+     * Returns the cover page comments.
+     *
+     * @return String the fax cover page comments
+     */
     public String getComments() {
         return comments;
     }
 
+    /**
+     * Returns the cover page template identifier.
+     *
+     * @return String the cover page template name
+     */
     public String getCoverpage() {
         return coverpage;
     }
 
+    /**
+     * Returns the array of copy-to recipients.
+     *
+     * @return String[] additional recipients, or null if none
+     */
     public String[] getCopyToRecipients() {
         return copyToRecipients;
     }

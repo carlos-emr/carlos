@@ -37,6 +37,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 
+/**
+ * Factory for creating {@link Sender} objects pre-configured with the EMR's
+ * vendor information and clinic data.
+ *
+ * <p>Reads the build tag and web service endpoint from application properties,
+ * and retrieves the clinic entity from the database to populate the Sender's
+ * Organization resource.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class SenderFactory {
 
     private static String buildName = CarlosProperties.getInstance().getProperty("buildtag", "UNKNOWN");

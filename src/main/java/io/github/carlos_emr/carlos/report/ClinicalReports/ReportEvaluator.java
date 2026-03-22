@@ -295,6 +295,11 @@ public class ReportEvaluator {
         return reportResultList;
     }
 
+    /**
+     * Sets the report result list.
+     *
+     * @param reportResultList ArrayList&lt;Hashtable&lt;String, Object&gt;&gt; the result list
+     */
     public void setReportResultList(ArrayList<Hashtable<String, Object>> reportResultList) {
         this.reportResultList = reportResultList;
     }

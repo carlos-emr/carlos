@@ -34,6 +34,16 @@ import java.net.URL;
 import io.github.carlos_emr.carlos.integration.fhir.resources.ResourceAttributeFilter;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDestination;
 
+/**
+ * Factory for loading {@link ResourceAttributeFilter} instances from properties files
+ * based on the FHIR destination.
+ *
+ * <p>Filter files are loaded from the classpath under
+ * {@code /org/oscarehr/integration/fhir/filters/{destination}/resource_attribute.filter}
+ * and control which optional and mandatory FHIR attributes are included in outbound messages.</p>
+ *
+ * @since 2026-03-17
+ */
 public final class ResourceAttributeFilterFactory {
 
     private static final String ROOT_RESOURCE_URL = "/org/oscarehr/integration/fhir/filters/";
@@ -50,6 +60,12 @@ public final class ResourceAttributeFilterFactory {
      * Or if the filter URL is known:
      * <p>
      * getFilter("/dhir/Patient.filter")
+     */
+    /**
+     * Loads a ResourceAttributeFilter for the given FHIR destination.
+     *
+     * @param destination the FHIR destination whose filter properties file to load
+     * @return ResourceAttributeFilter the loaded filter, or {@code null} if no filter file exists
      */
     public static ResourceAttributeFilter getFilter(FhirDestination destination) {
         return getFilter(destination.name().toLowerCase());

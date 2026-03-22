@@ -525,6 +525,13 @@ public class DSDemographicAccess {
         return false;
     }
 
+    /**
+     * Checks if the patient has any of the specified prescription codes (OR logic).
+     *
+     * @param rxCodesStr String comma-separated prescription codes
+     * @return boolean true if at least one prescription matches
+     * @throws DecisionSupportException if prescription data cannot be retrieved
+     */
     public boolean hasRxCodesAny(String rxCodesStr) throws DecisionSupportException {
         List<DSValue> testRxCodes = DSValue.createDSValues(rxCodesStr);
         for (DSValue testRxCode : testRxCodes) {
