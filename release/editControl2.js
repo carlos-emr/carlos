@@ -125,7 +125,7 @@ function insertEditControl() {
     var italicButton =  '<span class="editControlButton" value="Italic" title="Italic" name="' + cfg_editorname + '" onclick="ex(\'italic\');"><i class="fa-solid fa-italic"></i></span>';
     var underlinedButton =  '<span class="editControlButton" value="Underline" title="Underline" name="' + cfg_editorname + '" onclick="ex(\'underline\');"><i class="fa-solid fa-underline"></i></span>';
     var strikethroughButton = '<span class="editControlButton" title="Strikethrough" name="' + cfg_editorname + '" onclick="ex(\'strikethrough\');"><i class="fa-solid fa-strikethrough"></i></span>';
-    var superscriptButton = '<span class="editControlButton" value="Underline" title="Superscript" name="' + cfg_editorname + '" onclick="ex(\'superscript\');"><i class="fa-solid fa-superscript"></i></span>';
+    var superscriptButton = '<span class="editControlButton" value="Superscript" title="Superscript" name="' + cfg_editorname + '" onclick="ex(\'superscript\');"><i class="fa-solid fa-superscript"></i></span>';
     var subscriptButton = '<span class="editControlButton" title="Subscript" name="' + cfg_editorname + '" onclick="ex(\'subscript\');"><i class="fa-solid fa-subscript"></i></span>';
     var leftButton = '<span class="editControlButton" title="Align Left" name="' + cfg_editorname + '" onclick="ex(\'justifyLeft\');"><i class="fa-solid fa-align-left"></i></span>';
     var centerButton = '<span class="editControlButton" title="Center Align" name="' + cfg_editorname + '" onclick="ex(\'justifyCenter\');"><i class="fa-solid fa-align-center"></i></span>';
@@ -158,7 +158,7 @@ function insertEditControl() {
 	var exportButton = '<span class="editControlButton" title="Export" name="' + cfg_editorname + '" onclick="doExport();"><i class="fa-solid fa-floppy-disk"></i></span>';
 	var insertHeading1Button = '<span class="editControlButton" title="Heading" name="' + cfg_editorname + '" onclick="ex(\'formatBlock\',\'<H1>\');"><i class="fa-solid fa-heading"></i></span>';
     var cutButton = '<span class="editControlButton" title="Cut" name="' + cfg_editorname + '" onclick="ex(\'cut\');"><i class="fa-solid fa-scissors"></i></span>';
-    var deleteButton = '<span class="editControlButton" title="Delete" name="' + cfg_editorname + '" onclick="ex(\'cut\');"><i class="fa-solid fa-trash"></i></span>';
+    var deleteButton = '<span class="editControlButton" title="Delete" name="' + cfg_editorname + '" onclick="ex(\'delete\');"><i class="fa-solid fa-trash"></i></span>';
     // paste deprecated long ago by all browsers
     //var pasteButton = '<span class="editControlButton" title="Paste" name="' + cfg_editorname + '" onclick="ex(\'paste\');"><i class="fa-solid fa-paste"></i></span>';
     var copyButton = '<span class="editControlButton" title="Copy" name="' + cfg_editorname + '" onclick="ex(\'copy\');"><i class="fa-solid fa-copy"></i></span>';
@@ -327,7 +327,7 @@ function loadDefaultTemplate() {
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); }
+		obj.onload = function() { parseTemplate(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
@@ -349,7 +349,7 @@ function loadTemplate(selectname){
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); }
+		obj.onload = function() { parseTemplate(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
@@ -497,7 +497,7 @@ function doTable() {
 	var cols = parseInt(colstext);
 	var table;
 	if ((rows > 0) && (cols > 0)) {
-		table = '<table style="text-align: left; width: 100%;" border="1" cellpadding="2" cellspacing="2"><tbody>'
+		table = '<table style="text-align: left; width: 100%;" border="1" cellpadding="2" cellspacing="2"><tbody>';
 		for (var i=0; i < rows; i++) {
 			table +='<tr>';
 			for (var j=0; j < cols; j++) {
@@ -909,7 +909,7 @@ function submitFaxButton() {
 			}
 				
 			// set the HTML contents of this edit control from the value saved in OSCAR (if any)
-			var contents = document.getElementById('Letter').value
+			var contents = document.getElementById('Letter').value;
 			if (contents.length == 0) {
 				parseTemplate();
 			} else {

@@ -32,17 +32,28 @@
 --%>
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+
     ArrayList<String> templates = EFormUtil.listRichTextLetterTemplates();
 %>
 <option value="">&mdash; template &mdash;</option>
 <option value="blank.rtl">blank</option>
 <% for (String template : templates) {
     if (!"blank.rtl".equalsIgnoreCase(template)) {
-        String displayName = template.substring(0, template.lastIndexOf("."));
+        int dotIndex = template.lastIndexOf('.');
+        String displayName = (dotIndex > 0) ? template.substring(0, dotIndex) : template;
 %>
 <option value="<%= Encode.forHtmlAttribute(template) %>"><%= Encode.forHtml(displayName) %></option>
 <%

@@ -39,8 +39,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.EFormData" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="java.util.List" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page contentType="text/html; charset=UTF-8" %>

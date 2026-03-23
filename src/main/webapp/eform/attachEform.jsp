@@ -40,8 +40,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
-<%@ page import="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Document" %>
@@ -67,11 +65,14 @@
     Integer demographicNo = Integer.parseInt(demoNo);
     Integer fdid = (requestId != null && requestId.matches("\\d+")) ? Integer.parseInt(requestId) : null;
 
-    DocumentAttachmentManager attachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     DocumentManager documentManager = SpringUtils.getBean(DocumentManager.class);
 
-    // Get available documents for this patient
-    List<Document> documents = documentManager.getDocumentsByDemographicNo(loggedInInfo, demographicNo);
+    List<Document> documents;
+    try {
+        documents = documentManager.getDocumentsByDemographicNo(loggedInInfo, demographicNo);
+    } catch (Exception e) {
+        documents = new ArrayList<>();
+    }
 %>
 <!DOCTYPE html>
 <html>
@@ -97,9 +98,9 @@
     <p>Patient Demographic: <%= Encode.forHtml(demoNo) %></p>
 
     <form method="post" action="../eform/attachDoc.do">
-        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
+        <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>">
         <% if (fdid != null) { %>
-        <input type="hidden" name="fdid" value="<%= fdid %>">
+        <input type="hidden" name="requestId" value="<%= fdid %>">
         <% } %>
 
         <div class="section">
@@ -109,7 +110,7 @@
                     for (Document doc : documents) { %>
                 <div class="doc-item">
                     <label>
-                        <input type="checkbox" name="docIds" value="<%= doc.getDocumentNo() %>">
+                        <input type="checkbox" name="attachedDocs" value="<%= doc.getDocumentNo() %>">
                         <%= Encode.forHtml(doc.getDocdesc() != null ? doc.getDocdesc() : "Document #" + doc.getDocumentNo()) %>
                     </label>
                 </div>

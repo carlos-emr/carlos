@@ -4,11 +4,12 @@
 -- Changes:
 --   a) Remove CDN jQuery 1.12.4 (host page injects jQuery 3.7.1)
 --   b) Remove jQuery UI 1.8.18 reference (host page injects jQuery UI 1.14.2)
---   c) Replace font-awesome.min.css with fontawesome-all.min.css (FA6)
+--   c) Replace font-awesome.min.css (FA4) with fontawesome-all.min.css (FA6)
 --   d) Remove jQuery UI colorPicker CSS and JS (not needed, color prompts use prompt())
 --   e) Fix saveRTL() escaping bug (chain from myNewString, add & escaping)
 --   f) Replace SQL injection in fpreventions() with safe server-side AJAX call
 --   g) Update version marker to v2.2
+--   h) Fix popupEformUpload() to pass requestId for attachment flow
 
 -- Only apply if RTL eForm exists
 DROP PROCEDURE IF EXISTS modernize_rtl_eform;
@@ -36,7 +37,7 @@ BEGIN
             '<!-- jQuery UI 1.14.2 injected by host page -->')
         WHERE form_name = 'Rich Text Letter';
 
-        -- (c) Replace FA3 CSS with FA6
+        -- (c) Replace FA4 CSS with FA6
         UPDATE eform SET form_html = REPLACE(form_html,
             '<link rel=\"stylesheet\" href=\"../css/font-awesome.min.css\">',
             '<link rel=\"stylesheet\" href=\"../css/fontawesome-all.min.css\">')
@@ -63,7 +64,7 @@ BEGIN
         -- (f) Replace SQL injection in fpreventions() with safe AJAX call
         UPDATE eform SET form_html = REPLACE(form_html,
             'function fpreventions(){\r\n    var sql2pass=\"SELECT   \'<br>\',  prevention_type as \'<b>PREVENTIONS\',\'&#160;&#160;&#160;Date:&#160;\' as \':\', LEFT(prevention_date,10) as \'</b>\' FROM preventions  WHERE demographic_no=\" + demographicNo + \" AND deleted=\'0\' GROUP by prevention_type, prevention_date \";\r\n    $(document).ready(function () {  \r\n        $.ajax({  \r\n            url: \"../oscarReport/RptByExample.do\" ,\r\n            data: { sql: sql2pass }\r\n        }).then(function(data) {  \r\n           //alert(data)\r\n           var elements = $(data);\r\n           var found = elements.find(\'.MainTableRightColumn table table\');\r\n           doHtml(found.html())\r\n        });  \r\n    });\r\n}',
-            'function fpreventions(){\r\n    $.ajax({\r\n        url: \"../eform/rtlPreventions.do\",\r\n        data: { demographic_no: demographicNo },\r\n        type: \'get\',\r\n        success: function(data) {\r\n            doHtml(\"<font size=\'3\'><b>Preventions:</b></font><br>\" + data);\r\n        }\r\n    });\r\n}')
+            'function fpreventions(){\r\n    $.ajax({\r\n        url: \"../eform/rtlPreventions.do\",\r\n        data: { demographic_no: demographicNo },\r\n        type: \'get\',\r\n        success: function(data) {\r\n            doHtml(\"<font size=\'3\'><b>Preventions:</b></font><br>\" + data);\r\n        },\r\n        error: function() {\r\n            doHtml(\"<font size=\'3\' color=\'red\'><b>Error loading preventions.</b> Please try again.</font>\");\r\n        }\r\n    });\r\n}')
         WHERE form_name = 'Rich Text Letter';
 
         -- (g) Update version marker
@@ -77,7 +78,18 @@ BEGIN
             '<!--V2.2 Mar 22, 2026 -->')
         WHERE form_name = 'Rich Text Letter';
 
-        SELECT 'RTL eForm modernized to v2.2' AS info;
+        -- (h) Fix popupEformUpload() to pass requestId so attachment flow works
+        UPDATE eform SET form_html = REPLACE(form_html,
+            'popup(\'../eform/attachEform.jsp?demo=\'+demographic_no);',
+            'popup(\'../eform/attachEform.jsp?demo=\'+demographic_no+\'&requestId=\'+fid);')
+        WHERE form_name = 'Rich Text Letter';
+
+        -- Verify the critical SQL injection fix was applied
+        IF (SELECT form_html FROM eform WHERE form_name = 'Rich Text Letter' LIMIT 1) LIKE '%RptByExample.do%' THEN
+            SELECT 'WARNING: fpreventions() SQL injection fix may not have been applied. The eForm HTML may have been manually modified. Check form_html for the Rich Text Letter eForm.' AS warning;
+        ELSE
+            SELECT 'RTL eForm modernized to v2.2' AS info;
+        END IF;
     END IF;
 END //
 DELIMITER ;

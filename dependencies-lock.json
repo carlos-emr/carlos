@@ -273,14 +273,6 @@
     "integrity" : "sha512:ak529k22lHqP1DCq+VRYn/k+WKRVFbfX2LPZlrBBSh6rRgD6olc8zroC3xwa2UkhjFSvQFFEUa7y3MbjkY24sQ=="
   }, {
     "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-fonts-extra",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:mVBQmNOXRPl0tyOtmGlqKzjSOQ71s6lgll5MKKH0fQQ1PWNMOuNNagUjD1Bnn8RV1h9Thq4tbq/nX2KMHKjxWg=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
     "artifactId" : "openpdf-html",
     "version" : "3.0.3",
     "scope" : "compile",
@@ -302,7 +294,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:k6ChjLktgFoDTRbYu9zuEvDSLLwcXeMl3yQ4bZMiarGpKe6SDRzfOd6GgMk8ODU97UzzKAmysBEJ6YPtGSeJtg=="
+    "integrity" : "sha512:J5UUjN6qTBVNHm/wZbWTqDJzvueKOn7s7vJpbgLhTc6HaE8E1qEnQ0az2XMzL2Lqn9YwDKaqqiR6+KuWEFUnvg=="
   }, {
     "groupId" : "com.github.librepdf",
     "artifactId" : "openrtf",
@@ -318,7 +310,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:UV+Mfq1Qz+xkGu2cgUL0f9N9PVkjBijDwhghzRaItamQ9pVlmEpNAwqnFOuFY55m3Oi6YdzBoQk2KYXrzNvMtQ=="
+    "integrity" : "sha512:fiXBLMWhIZZiGGp6MBg3zZU1wOAYiM/TU/gU17e9YdHePhNIPM0F0dimSeMUTM8CMN4khJyM809pvRJAaUuY/Q=="
   }, {
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",
@@ -326,7 +318,7 @@
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:waur/7IyGRRL+9h3csyFULacPYEAaNMmhvav1fVUfV4uYcATUGgLA8M90TsME0QWhu8GQPgbI3jcXQ5VJWFQFQ=="
+    "integrity" : "sha512:dysG29MQqKBqDC02Oa0tFsVKeLy4RSdLMD0UBpnrsVxkHU4HjyinVGf8BbWz01vCwF9/xEMk3LHJb3b5A3iCLg=="
   }, {
     "groupId" : "com.google.code.findbugs",
     "artifactId" : "jsr305",

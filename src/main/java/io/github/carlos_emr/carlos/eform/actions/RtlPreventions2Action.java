@@ -24,12 +24,15 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
@@ -52,12 +55,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public class RtlPreventions2Action extends ActionSupport {
 
+    private static final Logger logger = LogManager.getLogger(RtlPreventions2Action.class);
+
     private final HttpServletRequest request = ServletActionContext.getRequest();
     private final HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
 
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     @Override
     public String execute() throws IOException {
@@ -72,31 +77,44 @@ public class RtlPreventions2Action extends ActionSupport {
             return null;
         }
 
-        Integer demographicNo = Integer.parseInt(demoNoParam);
-        List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(loggedInInfo, demographicNo);
-
-        StringBuilder html = new StringBuilder();
-        if (preventions != null && !preventions.isEmpty()) {
-            html.append("<table border='1' cellpadding='2' cellspacing='0'>");
-            html.append("<tr><th>Prevention</th><th>Date</th></tr>");
-            for (Prevention p : preventions) {
-                if (p.isDeleted()) {
-                    continue;
-                }
-                String type = p.getPreventionType() != null ? p.getPreventionType() : "";
-                String date = p.getPreventionDate() != null ? DATE_FORMAT.format(p.getPreventionDate()) : "";
-                html.append("<tr><td>").append(Encode.forHtml(type))
-                    .append("</td><td>").append(Encode.forHtml(date))
-                    .append("</td></tr>");
-            }
-            html.append("</table>");
-        } else {
-            html.append("No preventions on file.");
+        Integer demographicNo;
+        try {
+            demographicNo = Integer.parseInt(demoNoParam);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic_no");
+            return null;
         }
+        try {
+            List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(loggedInInfo, demographicNo);
 
-        response.setContentType("text/html; charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            out.print(html.toString());
+            StringBuilder html = new StringBuilder();
+            if (preventions != null && !preventions.isEmpty()) {
+                html.append("<table border='1' cellpadding='2' cellspacing='0'>");
+                html.append("<tr><th>Prevention</th><th>Date</th></tr>");
+                for (Prevention p : preventions) {
+                    if (p.isDeleted()) {
+                        continue;
+                    }
+                    String type = p.getPreventionType() != null ? p.getPreventionType() : "";
+                    String date = p.getPreventionDate() != null
+                        ? DATE_FORMAT.format(p.getPreventionDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate())
+                        : "";
+                    html.append("<tr><td>").append(Encode.forHtml(type))
+                        .append("</td><td>").append(Encode.forHtml(date))
+                        .append("</td></tr>");
+                }
+                html.append("</table>");
+            } else {
+                html.append("No preventions on file.");
+            }
+
+            response.setContentType("text/html; charset=UTF-8");
+            try (PrintWriter out = response.getWriter()) {
+                out.print(html.toString());
+            }
+        } catch (Exception e) {
+            logger.error("Failed to retrieve preventions for demographic_no={}", demographicNo, e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to retrieve prevention data");
         }
         return null;
     }
