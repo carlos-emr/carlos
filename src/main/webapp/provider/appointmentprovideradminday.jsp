@@ -79,6 +79,7 @@
 
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
     }
 
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -2078,7 +2079,7 @@
                                                         <%
                                                             // Build tooltip variants for privacy-compliant display (dot-name format)
                                                             // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
-                                                            String timeRange = iS + ":" + (iSm > 10 ? "" : "0") + iSm + "-" + iE + ":" + iEm;
+                                                            String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
                                                             String dotTooltipShort = timeRange + " " + Encode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + Encode.forHtmlAttribute(type) : "");
                                                             String dotReasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
                                                             String dotNotesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
@@ -2630,7 +2631,10 @@
             if (abortController) fetchOpts.signal = abortController.signal;
 
             fetch(url, fetchOpts)
-                .then(function(r) { return r.json(); })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
                 .then(function(data) { renderResults(data); })
                 .catch(function(err) {
                     if (!err || err.name !== 'AbortError') {
@@ -2825,7 +2829,10 @@
                 + '&startDate='   + encodeURIComponent(scheduleCurrentDate);
 
             fetch(url, { credentials: 'same-origin' })
-                .then(function(r) { return r.json(); })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
                 .then(function(slot) {
                     if (!slot.found) {
                         badgeEl.textContent = origText;
