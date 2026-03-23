@@ -82,12 +82,17 @@ gh pr create                 # GitHub pull request creation
 
 The project includes two OWASP Encoder libraries (`pom.xml`):
 - **`encoder`** (1.4.0) — Java static methods: `Encode.forHtml()`, etc.
-- **`encoder-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc.
+- **`encoder-jakarta-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc. (Jakarta EE edition)
 
 **Taglib declaration** (required once per JSP that uses EL functions):
 ```jsp
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 ```
+
+> **Note**: The project uses `encoder-jakarta-jsp` (Jakarta EE), **not** the legacy `encoder-jsp`.
+> The Jakarta edition registers its TLD under `owasp.encoder.jakarta`, not the legacy URI
+> `https://www.owasp.org/index.php/OWASP_Java_Encoder_Project`. Using the wrong URI will
+> cause JSPC compilation failures in CI.
 
 **Quick-Reference — All Encoding Contexts:**
 
@@ -461,7 +466,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Security Libraries
 - **OWASP CSRFGuard 4.5 (Jakarta edition)**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder** (`encoder` 1.4.0): `Encode.*` static methods for Java code and JSP scriptlets
-- **OWASP Encoder JSP** (`encoder-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding
+- **OWASP Encoder JSP** (`encoder-jakarta-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding (taglib URI: `owasp.encoder.jakarta`)
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
 
