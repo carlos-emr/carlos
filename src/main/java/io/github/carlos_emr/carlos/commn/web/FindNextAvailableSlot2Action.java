@@ -1,23 +1,23 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
 package io.github.carlos_emr.carlos.commn.web;
@@ -105,11 +105,12 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         Calendar searchCal = new GregorianCalendar();
         String startDateParam = StringUtils.trimToNull(request.getParameter("startDate"));
         if (startDateParam != null) {
-            try {
-                java.util.Date parsedDate = ConversionUtils.fromDateString(startDateParam);
+            java.util.Date parsedDate = ConversionUtils.fromDateString(startDateParam);
+            if (parsedDate != null) {
                 searchCal.setTime(parsedDate);
-            } catch (Exception e) {
-                // Fall back to tomorrow if the date is unparseable
+            } else {
+                MiscUtils.getLogger().warn("FindNextAvailableSlot2Action: unparseable startDate '{}', defaulting to tomorrow",
+                        startDateParam);
                 searchCal.add(Calendar.DATE, 1);
             }
         } else {
@@ -128,6 +129,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
 
         // Search forward up to MAX_LOOKAHEAD_DAYS, returning the Nth available slot
         int slotsFound = 0;
+        int consecutiveErrors = 0;
         for (int day = 0; day < MAX_LOOKAHEAD_DAYS; day++) {
             int searchYear  = searchCal.get(Calendar.YEAR);
             int searchMonth = searchCal.get(Calendar.MONTH) + 1;
@@ -230,9 +232,15 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
                         }
                     }
                 }
+                consecutiveErrors = 0;
             } catch (Exception e) {
-                MiscUtils.getLogger().warn("FindNextAvailableSlot2Action: error checking date "
-                        + dateStr + ": " + e.getMessage());
+                consecutiveErrors++;
+                MiscUtils.getLogger().error("FindNextAvailableSlot2Action: error checking date "
+                        + dateStr + " for providers " + providerNosParam, e);
+                if (consecutiveErrors >= 5) {
+                    writeJson(Map.of("found", false, "error", "Scheduling system error. Please try again or contact support."));
+                    return null;
+                }
             }
 
             searchCal.add(Calendar.DATE, 1);
@@ -244,19 +252,19 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
     }
 
     /**
-     * Converts a time string in "HH:mm" format to total minutes since midnight.
+     * Converts a time string in "HH:mm" or "HH:mm:ss" format to total minutes since midnight.
      *
-     * @param timeStr String time in "HH:mm" format (e.g. "09:30")
+     * @param timeStr String time in "HH:mm" or "HH:mm:ss" format (e.g. "09:30" or "09:30:00")
      * @return int total minutes since midnight, or -1 if the string cannot be parsed
      */
     private int timeStrToMins(String timeStr) {
         if (timeStr == null) return -1;
         String trimmed = timeStr.trim();
-        int colonIdx = trimmed.indexOf(':');
-        if (colonIdx <= 0 || colonIdx == trimmed.length() - 1) return -1;
+        String[] parts = trimmed.split(":");
+        if (parts.length < 2) return -1;
         try {
-            int hours = Integer.parseInt(trimmed.substring(0, colonIdx));
-            int minutes = Integer.parseInt(trimmed.substring(colonIdx + 1));
+            int hours = Integer.parseInt(parts[0]);
+            int minutes = Integer.parseInt(parts[1]);
             if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return -1;
             return hours * 60 + minutes;
         } catch (NumberFormatException e) {

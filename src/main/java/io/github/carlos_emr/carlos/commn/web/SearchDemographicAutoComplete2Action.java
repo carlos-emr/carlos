@@ -105,9 +105,24 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         RxProviderData rx = new RxProviderData();
 
 
+        if (searchStr == null || searchStr.trim().isEmpty()) {
+            response.setContentType("application/json");
+            response.getWriter().write("[]");
+            return null;
+        }
+
         String searchType = request.getParameter("searchType");
         if (searchType == null) {
             searchType = "name";
+        }
+
+        // Parse inactive statuses once for activeOnly filtering across all search types
+        List<String> stati = null;
+        if (activeOnly) {
+            CarlosProperties props = CarlosProperties.getInstance();
+            String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
+            pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
+            stati = Arrays.asList(pstatus.split(","));
         }
 
         List<Demographic> list = null;
@@ -115,17 +130,24 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
             list = demographicDao.searchDemographicByDOB(searchStr.substring(0, 4) + "-" + searchStr.substring(4, 6) + "-" + searchStr.substring(6, 8), 100, 0, providerNo, outOfDomain);
         } else if ("hin".equals(searchType)) {
-            list = demographicDao.searchDemographicByHIN(searchStr, 20, 0, providerNo, outOfDomain);
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByHINAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByHIN(searchStr, 20, 0, providerNo, outOfDomain);
+            }
         } else if ("phone".equals(searchType)) {
-            list = demographicDao.searchDemographicByPhone(searchStr, 20, 0, providerNo, outOfDomain);
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByPhoneAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByPhone(searchStr, 20, 0, providerNo, outOfDomain);
+            }
         } else if ("address".equals(searchType)) {
-            list = demographicDao.searchDemographicByAddress(searchStr, 20, 0, providerNo, outOfDomain);
+            if (activeOnly) {
+                list = demographicDao.searchDemographicByAddressAndNotStatus(searchStr, stati, 20, 0, providerNo, outOfDomain);
+            } else {
+                list = demographicDao.searchDemographicByAddress(searchStr, 20, 0, providerNo, outOfDomain);
+            }
         } else if (activeOnly) {
-            CarlosProperties props = CarlosProperties.getInstance();
-            String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
-            pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
-            List<String> stati = Arrays.asList(pstatus.split(","));
-
             list = demographicDao.searchDemographicByNameAndNotStatus(searchStr, stati, 100, 0, providerNo, outOfDomain);
             if (list.size() == 100) {
                 MiscUtils.getLogger().warn("More results exists than returned");
@@ -145,6 +167,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
             h.put("formattedDob", demo.getFormattedDob());
+            h.put("fomattedDob", demo.getFormattedDob()); // backward compat: legacy misspelled key still used by 4+ JSPs
             h.put("formattedName", demo.getFormattedName());
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
             h.put("status", demo.getPatientStatus() != null ? demo.getPatientStatus() : "");
