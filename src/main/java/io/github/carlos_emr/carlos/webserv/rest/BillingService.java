@@ -38,12 +38,20 @@ import jakarta.ws.rs.core.MediaType;
 import io.github.carlos_emr.carlos.managers.BillingManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ServiceTypeConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ServiceTypeTo;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * REST service for billing configuration and service type lookups.
+ *
+ * <p>Provides endpoints for retrieving province-specific billing region,
+ * default billing view, and unique service type codes used by the billing UI.</p>
+ *
+ * @since 2013-01-01
+ */
 @Path("/billing")
 @Consumes(MediaType.APPLICATION_JSON)
 public class BillingService extends AbstractServiceImpl {
@@ -53,6 +61,12 @@ public class BillingService extends AbstractServiceImpl {
 
     private CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
+    /**
+     * Returns distinct billing service type codes, optionally filtered by type category.
+     *
+     * @param type String billing type filter (e.g. "MSP", "ICBC"), or {@code null} for all types
+     * @return AbstractSearchResponse containing the matching {@link ServiceTypeTo} list with total count
+     */
     @GET
     @Path("/uniqueServiceTypes")
     @Produces("application/json")
@@ -69,27 +83,35 @@ public class BillingService extends AbstractServiceImpl {
 
     }
 
+    /**
+     * Returns the configured billing region code (e.g. "BC", "ON") from system properties.
+     *
+     * @return RestResponse containing the uppercase region code, or an error if not configured
+     */
     @GET
     @Path("/billingRegion")
     @Produces("application/json")
-    public GenericRESTResponse billingRegion() {
-        boolean billRegionSet = true;
+    public RestResponse<String> billingRegion() {
         String billRegion = oscarProperties.getProperty("billregion", "").trim().toUpperCase();
         if (billRegion.isEmpty()) {
-            billRegionSet = false;
+            return RestResponse.errorResponse("Billing region not configured");
         }
-        return new GenericRESTResponse(billRegionSet, billRegion);
+        return RestResponse.successResponse(billRegion);
     }
 
+    /**
+     * Returns the configured default billing view name from system properties.
+     *
+     * @return RestResponse containing the view name, or an error if not configured
+     */
     @GET
     @Path("/defaultView")
     @Produces("application/json")
-    public GenericRESTResponse defaultView() {
-        boolean defaultViewSet = true;
+    public RestResponse<String> defaultView() {
         String defaultView = oscarProperties.getProperty("default_view", "").trim();
         if (defaultView.isEmpty()) {
-            defaultViewSet = false;
+            return RestResponse.errorResponse("Default view not configured");
         }
-        return new GenericRESTResponse(defaultViewSet, defaultView);
+        return RestResponse.successResponse(defaultView);
     }
 }

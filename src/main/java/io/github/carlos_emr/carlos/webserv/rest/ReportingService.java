@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.web.PatientListApptBean;
 import io.github.carlos_emr.carlos.web.PatientListApptItemBean;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormReportToolConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormReportToolTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MenuItemTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionSearchTo1;
@@ -160,34 +160,28 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/eformReportTool/add")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse addEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> addEFormReportTool(EFormReportToolTo1 json) {
 
         if (StringUtils.isEmpty(json.getName()) || json.getEformId() == 0) {
-            response.setSuccess(false);
-            response.setMessage("Need required fields");
-            return response;
+            return RestResponse.errorResponse("Need required fields");
         }
 
         EFormReportToolConverter converter = new EFormReportToolConverter();
 
         eformReportToolManager.addNew(getLoggedInInfo(), converter.getAsDomainObject(getLoggedInInfo(), json));
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
     @POST
     @Path("/eformReportTool/populate")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse populateEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> populateEFormReportTool(EFormReportToolTo1 json) {
 
         eformReportToolManager.populateReportTable(getLoggedInInfo(), json.getId());
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
 
@@ -195,26 +189,22 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/eformReportTool/remove")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse removeEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> removeEFormReportTool(EFormReportToolTo1 json) {
 
         eformReportToolManager.remove(getLoggedInInfo(), json.getId());
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
     @POST
     @Path("/eformReportTool/markLatest")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse markLatestEFormReportTool(EFormReportToolTo1 json) {
-
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> markLatestEFormReportTool(EFormReportToolTo1 json) {
 
         eformReportToolManager.markLatest(getLoggedInInfo(), json.getId());
 
-        return (response);
+        return RestResponse.successResponse(null);
     }
 
 
@@ -222,9 +212,7 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/preventionReport/saveNew")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse saveNewPreventionReport(PreventionSearchTo1 preventionSearch) {
-        GenericRESTResponse response = new GenericRESTResponse();
-
+    public RestResponse<String> saveNewPreventionReport(PreventionSearchTo1 preventionSearch) {
         //Next thing to do is to save the JSON object to the database
         ObjectMapper mapper = new ObjectMapper();
         try {
@@ -235,13 +223,11 @@ public class ReportingService extends AbstractServiceImpl {
             pr.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             pr.setUuid(UUID.randomUUID().toString());
             preventionReportDao.persist(pr);
-            response.setMessage("" + pr.getId());
-            response.setSuccess(true);
+            return RestResponse.successResponse("" + pr.getId());
         } catch (Exception e) {
             logger.error("error converting to STring");
-            response.setSuccess(false);
+            return RestResponse.errorResponse("Error saving prevention report");
         }
-        return (response);
     }
 
     @GET
@@ -267,7 +253,6 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
-        GenericRESTResponse response = new GenericRESTResponse();
         Report report = null;
         //Next thing to do is to save the JSON object to the database
         String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
@@ -303,8 +288,6 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
-        GenericRESTResponse response = new GenericRESTResponse();
-        Report report = null;
         //Next thing to do is to save the JSON object to the database
         String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
 
@@ -327,8 +310,6 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id) { // will need to change providers to an ojbect
-        GenericRESTResponse response = new GenericRESTResponse();
-
         PreventionReport pr = preventionReportDao.find(id);
         pr.setActive(false);
         preventionReportDao.merge(pr);

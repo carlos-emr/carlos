@@ -272,7 +272,7 @@
     "optional" : false,
     "integrity" : "sha512:ak529k22lHqP1DCq+VRYn/k+WKRVFbfX2LPZlrBBSh6rRgD6olc8zroC3xwa2UkhjFSvQFFEUa7y3MbjkY24sQ=="
   }, {
-    "groupId" : "com.github.librepdf",
+    "groupId" : "com.github.librepdf.openpdf",
     "artifactId" : "openpdf-html",
     "version" : "3.0.3",
     "scope" : "compile",

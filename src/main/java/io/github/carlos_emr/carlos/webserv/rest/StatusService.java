@@ -35,7 +35,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Path("/status")
@@ -48,9 +48,9 @@ public class StatusService extends AbstractServiceImpl {
     @GET
     @Path("/checkIfAuthed")
     @Produces("application/json")
-    public GenericRESTResponse checkIfAuthed() {
+    public RestResponse<String> checkIfAuthed() {
 
-        return new GenericRESTResponse(true, getLoggedInInfo().getLoggedInProviderNo());
+        return RestResponse.successResponse(getLoggedInInfo().getLoggedInProviderNo());
     }
 
 }

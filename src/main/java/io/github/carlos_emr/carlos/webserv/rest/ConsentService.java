@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsentTypeTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -178,13 +178,13 @@ public class ConsentService extends AbstractServiceImpl {
      * Adds a new consent type.
      * 
      * @param consentType The consent type to add
-     * @return GenericRESTResponse indicating success or failure
+     * @return RestResponse indicating success or failure
      */
     @POST
     @Path("/consentType")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse addConsentType(ConsentTypeTo1 consentType) {
+    public RestResponse<String> addConsentType(ConsentTypeTo1 consentType) {
         try {
             logger.debug("Adding consent type");
 
@@ -205,7 +205,7 @@ public class ConsentService extends AbstractServiceImpl {
             patientConsentManager.addConsentType(getLoggedInInfo(), ct);
 
             logger.info("Successfully added consent type: {}", consentType.getName());
-            return new GenericRESTResponse(true, "Consent type added successfully.");
+            return RestResponse.successResponse("Consent type added successfully.");
 
         } catch (jakarta.ws.rs.WebApplicationException e) {
             // propagate JAX-RS errors (e.g. 400 Bad Request)
@@ -214,7 +214,7 @@ public class ConsentService extends AbstractServiceImpl {
             // log full stack trace internally
             logger.error("Error adding consent type {}", consentType, e);
             // return a generic message to the client
-            return new GenericRESTResponse(false,
+            return RestResponse.errorResponse(
                 "An error occurred while processing your request.");
         }
     }

@@ -85,7 +85,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DocumentConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProfessionalSpecialistConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.ReferralResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachment;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachmentTo1;
@@ -321,22 +321,24 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Electronically sends a consultation referral request via HL7 to the configured remote system.
+     *
+     * @param requestId Integer the consultation request ID to transmit
+     * @return RestResponse with success confirmation or a user-facing error message
+     */
     @POST
     @Path("/eSendRequest")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.APPLICATION_JSON)
-    public GenericRESTResponse eSendRequest(@FormParam("requestId") Integer requestId) {
-        GenericRESTResponse rp = new GenericRESTResponse();
+    public RestResponse<String> eSendRequest(@FormParam("requestId") Integer requestId) {
         try {
             consultationManager.doHl7Send(getLoggedInInfo(), requestId);
-            rp.setSuccess(true);
-            rp.setMessage("Referral Electronically Sent");
+            return RestResponse.successResponse("Referral Electronically Sent");
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error contacting remote server.", e);
-            rp.setSuccess(false);
-            rp.setMessage("There was an error sending electronically, please try again or manually process the referral.");
+            return RestResponse.errorResponse("There was an error sending electronically, please try again or manually process the referral.");
         }
-        return rp;
     }
 
 
@@ -469,25 +471,31 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return null;
     }
 
+    /**
+     * Imports an Ontario Telemedicine Network (OTN) eConsult record into the local EMR.
+     *
+     * <p>Validates the econsult data and demographic association, then delegates to
+     * the consultation manager for persistence. Error details are logged server-side
+     * only; clients receive a generic error message to avoid leaking internal state.</p>
+     *
+     * @param data OtnEconsult the econsult payload including demographic number and file name
+     * @return RestResponse with success confirmation or a generic error message
+     */
     @POST
     @Path("/importEconsult")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public GenericRESTResponse importEconsult(OtnEconsult data) {
-        GenericRESTResponse response = new GenericRESTResponse();
-
+    public RestResponse<String> importEconsult(OtnEconsult data) {
         if (data != null && data.getDemographicNo() > 0) {
             try {
                 consultationManager.importEconsult(getLoggedInInfo(), data);
-                response.setSuccess(true);
-                response.setMessage("File " + data.getFileName() + " imported.");
+                return RestResponse.successResponse("File " + data.getFileName() + " imported.");
             } catch (Exception e) {
-                response.setSuccess(false);
-                response.setMessage(e.getMessage());
                 MiscUtils.getLogger().error("Exception", e);
+                return RestResponse.errorResponse("Unable to import econsult file.");
             }
         }
-        return response;
+        return RestResponse.errorResponse("Invalid or missing econsult data.");
     }
 
     @GET

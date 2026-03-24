@@ -28,7 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ChartNotesAjax.jsp — AJAX endpoint that returns rendered note HTML fragments.
 
+    Called by notesLoader() in newCaseManagementView.js.jsp via CarlosAjax.updater().
+    Returns a batch of notes (controlled by offset/numToReturn params) as HTML
+    inserted into #encMainDiv.
+
+    The 1 MB buffer prevents Tomcat 11 response truncation during CSRF filter
+    forward dispatch (see ChartNotes.jsp for full explanation).
+
+    @since 2006-01-01
+--%>
+
+<%@page buffer="1024kb" %>
+<% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>

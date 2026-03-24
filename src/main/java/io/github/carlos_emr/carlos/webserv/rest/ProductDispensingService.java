@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugProductResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugProductTemplateResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.ProductLocationResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugProductTemplateTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugProductTo1;
@@ -208,14 +208,10 @@ public class ProductDispensingService extends AbstractServiceImpl {
     @POST
     @Path("/deleteDrugProduct/{drugProductId}")
     @Produces("application/json")
-    public GenericRESTResponse deleteDrugProduct(@PathParam("drugProductId") Integer drugProductId) {
+    public RestResponse<String> deleteDrugProduct(@PathParam("drugProductId") Integer drugProductId) {
         drugProductManager.deleteDrugProduct(getLoggedInInfo(), drugProductId);
 
-        GenericRESTResponse response = new GenericRESTResponse();
-        response.setMessage("Product deleted");
-
-
-        return response;
+        return RestResponse.successResponse("Product deleted");
     }
 
     @GET
@@ -239,11 +235,8 @@ public class ProductDispensingService extends AbstractServiceImpl {
     @GET
     @Path("/status/{drugId}")
     @Produces("application/json")
-    public GenericRESTResponse getDispensingStatus(@PathParam("drugId") Integer drugId) {
-        GenericRESTResponse response = new GenericRESTResponse();
-        response.setMessage(drugDispensingManager.getStatus(drugId));
-
-        return response;
+    public RestResponse<String> getDispensingStatus(@PathParam("drugId") Integer drugId) {
+        return RestResponse.successResponse(drugDispensingManager.getStatus(drugId));
     }
 
     @GET

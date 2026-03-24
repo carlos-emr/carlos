@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.integration.mchcv.HCValidator;
 import io.github.carlos_emr.carlos.integration.mchcv.OnlineHCValidator;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientDetailStatusTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -110,16 +110,15 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
 
     @GET
     @Path("/isUniqueHC")
-    public GenericRESTResponse isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
         if (healthCardNo != null && !healthCardNo.trim().isEmpty() && demographicNo != null) {
             List<Demographic> demos = demographicManager.searchByHealthCard(getLoggedInInfo(), healthCardNo);
             if (demos != null) {
                 if (demos.size() > 1 || (demos.size() == 1 && !demos.get(0).getDemographicNo().equals(demographicNo))) {
-                    response.setSuccess(false);
+                    return RestResponse.errorResponse("Health card number is not unique");
                 }
             }
         }
-        return response;
+        return RestResponse.successResponse(null);
     }
 }

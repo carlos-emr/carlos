@@ -365,7 +365,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/discontinue")
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
-    public GenericRESTResponse discontinueDrug(@QueryParam("drugId") int drugId,
+    public RestResponse<String> discontinueDrug(@QueryParam("drugId") int drugId,
                                                @QueryParam("reason") String reason,
                                                @QueryParam("demographicNo") int demographicNo
     ) {
@@ -377,20 +377,11 @@ public class RxWebService extends AbstractServiceImpl {
             throw new AccessDeniedException("_rx", "w", demographicNo);
         }
 
-        GenericRESTResponse resp = new GenericRESTResponse();
-
         if (rxManager.discontinue(info, drugId, demographicNo, reason)) {
-
-            resp.setSuccess(true);
-            resp.setMessage("Successfully discontinued drug.");
-
+            return RestResponse.successResponse("Successfully discontinued drug.");
         } else {
-
-            resp.setSuccess(false);
-            resp.setMessage("Failed to discontinue drug.");
+            return RestResponse.errorResponse("Failed to discontinue drug.");
         }
-
-        return resp;
 
     }
 
@@ -583,38 +574,41 @@ public class RxWebService extends AbstractServiceImpl {
 
     }
 
+    /**
+     * Adds a new prescription favorite for the logged-in provider.
+     *
+     * <p>Favorites are provider-specific quick-select prescriptions that appear in
+     * the prescription UI for rapid re-use. Converts the transfer object to a
+     * domain {@code Favorite} entity before persisting.</p>
+     *
+     * @param newFavorite FavoriteTo1 the favorite prescription data to save
+     * @return RestResponse with success confirmation, or error if conversion or persistence fails
+     */
     @Path("/favorites")
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
-    public GenericRESTResponse addFavorite(FavoriteTo1 newFavorite) {
+    public RestResponse<String> addFavorite(FavoriteTo1 newFavorite) {
 
         // No access control check required, we are not accessing a patient record.
         // TODO: Revise access control policies and re-evalute this to see if it requires access control check.
 
         LoggedInInfo info = getLoggedInInfo();
 
-        GenericRESTResponse resp = new GenericRESTResponse();
-
         try {
 
             Favorite f = this.favoriteConverter.getAsDomainObject(info, newFavorite);
 
             if (this.rxManager.addFavorite(f)) {
-                resp.setSuccess(true);
-                resp.setMessage("added favorite");
+                return RestResponse.successResponse("added favorite");
             } else {
-                resp.setSuccess(false);
-                resp.setMessage("failed to add new favorite");
+                return RestResponse.errorResponse("failed to add new favorite");
             }
 
         } catch (ConversionException e) {
-            logger.error(e.getStackTrace());
-            resp.setSuccess(false);
-            resp.setMessage("Failed to add favorite.");
+            logger.error("Failed to add favorite", e);
+            return RestResponse.errorResponse("Failed to add favorite.");
         }
-
-        return resp;
 
     }
 

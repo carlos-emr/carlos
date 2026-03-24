@@ -20,7 +20,7 @@
  * LeadLab
  * University of Victoria
  * Victoria, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -34,12 +34,38 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * REST response wrapper for favorite drug endpoints.
+ *
+ * <p>Carries a list of {@link FavoriteTo1} results alongside simple success/message fields
+ * for backward-compatible JSON serialization.</p>
+ *
+ * @since 2013
+ */
 @XmlRootElement
-public class FavoriteResponse extends GenericRESTResponse implements Serializable {
+public class FavoriteResponse implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    private boolean success;
+    private String message;
     private List<FavoriteTo1> favorites;
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
 
     public List<FavoriteTo1> getDrugs() {
         return favorites;

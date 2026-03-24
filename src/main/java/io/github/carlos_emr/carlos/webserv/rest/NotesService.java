@@ -90,7 +90,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.CaseManagementIssueConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.IssueConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.TicklerNoteResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.CaseManagementIssueTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
@@ -118,6 +118,18 @@ public class NotesService extends AbstractServiceImpl {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * In-memory concurrent editing tracker for clinical notes.
+     *
+     * <p>Outer key: note UUID. Inner map: provider number to epoch-millis timestamp of
+     * last heartbeat. The UI polls {@link #setEditingNoteFlag} every ~5 minutes to
+     * renew the flag; {@link #clearDanglingFlags()} evicts entries older than 6 minutes
+     * to handle abandoned sessions. This prevents two providers from unknowingly
+     * overwriting each other's edits on the same note.</p>
+     *
+     * <p>Thread-safe: uses ConcurrentHashMap at both levels so concurrent REST calls
+     * from different providers do not corrupt the structure.</p>
+     */
     private static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> editList = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
 
     @Autowired
@@ -1616,7 +1628,7 @@ public class NotesService extends AbstractServiceImpl {
     @Path("/ticklerSaveNote")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse ticklerSaveNote(ObjectNode json) {
+    public RestResponse<String> ticklerSaveNote(ObjectNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
@@ -1733,7 +1745,7 @@ public class NotesService extends AbstractServiceImpl {
         caseManagementMgr.updateNote(cmn);
 
 
-        return new GenericRESTResponse();
+        return RestResponse.successResponse(null);
     }
 
 
@@ -1859,13 +1871,23 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Registers or renews a provider's editing flag for a clinical note.
+     *
+     * <p>Called by the UI on note open and periodically (~5 min) as a heartbeat.
+     * If another provider already holds a flag on this note, returns an error
+     * so the UI can warn the current user before they begin editing.</p>
+     *
+     * @param noteUUID String the unique identifier of the note being edited
+     * @param providerNo String the provider number of the editing user
+     * @return RestResponse with success if no conflict, or error if another provider is editing
+     */
     @POST
     @Path("/setEditingNoteFlag")
     @Produces("application/json")
-    public GenericRESTResponse setEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
-        GenericRESTResponse resp = new GenericRESTResponse(false, "Parameter error");
+    public RestResponse<String> setEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
-            return resp;
+            return RestResponse.errorResponse("Parameter error");
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) {
@@ -1874,22 +1896,28 @@ public class NotesService extends AbstractServiceImpl {
         }
         clearDanglingFlags();
 
-        resp.setSuccess(true);
-        resp.setMessage(null);
+        boolean success = true;
 
         if (!noteList.containsKey(providerNo)) { // only check for other editing user when initializing flag
             for (String key : noteList.keySet()) {
-                if (key != providerNo) {
-                    resp.setSuccess(false);
+                if (!key.equals(providerNo)) {
+                    success = false;
                     break;
                 }
             }
         }
         noteList.put(providerNo, new Date().getTime());
         editList.put(noteUUID, noteList);
-        return resp;
+        return success ? RestResponse.successResponse(null) : RestResponse.errorResponse("Note is being edited by another user");
     }
 
+    /**
+     * Evicts stale editing flags from the in-memory edit tracker.
+     *
+     * <p>Any provider flag older than 6 minutes (360,000 ms) is removed, since the UI
+     * heartbeat renews every ~5 minutes. The 1-minute grace period accounts for network
+     * latency. Notes with no remaining flags are removed entirely.</p>
+     */
     private void clearDanglingFlags() {
         long now = new Date().getTime();
         String[] noteUUIDs = editList.keySet().toArray(new String[editList.keySet().size()]);
@@ -1898,8 +1926,9 @@ public class NotesService extends AbstractServiceImpl {
             String[] providerNos = noteList.keySet().toArray(new String[noteList.keySet().size()]);
             for (String providerNo : providerNos) {
                 Long editTime = noteList.get(providerNo);
+                // 360,000 ms = 6 minutes; UI heartbeat renews every ~5 min, so 6 min means the session is stale
                 if (now - editTime >= 360000)
-                    noteList.remove(providerNo); //remove flag due 6 min (should be renewed/removed within 5 min)
+                    noteList.remove(providerNo);
             }
             if (noteList.isEmpty()) editList.remove(uuid);
             else editList.put(uuid, noteList);
@@ -1907,31 +1936,53 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Checks whether another provider has edited this note since the current provider started editing.
+     *
+     * <p>Compares timestamps in the edit tracker: if any other provider's timestamp is newer
+     * than the current provider's, returns an error so the UI can warn about a concurrent edit.
+     * Returns success (no conflict) if the current provider is the only editor or no newer
+     * edits exist.</p>
+     *
+     * @param noteUUID String the unique identifier of the note
+     * @param providerNo String the provider number of the current editor
+     * @return RestResponse with success if no newer edits exist, or error if another provider edited since
+     */
     @POST
     @Path("/checkEditNoteNew")
     @Produces("application/json")
-    public GenericRESTResponse checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
-        GenericRESTResponse resp = new GenericRESTResponse(true, null);
+    public RestResponse<String> checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
-            return resp;
+            return RestResponse.successResponse(null);
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList == null) return resp;
-        if (noteList.size() == 1 && noteList.containsKey(providerNo)) return resp;
+        if (noteList == null) return RestResponse.successResponse(null);
+        if (noteList.size() == 1 && noteList.containsKey(providerNo)) return RestResponse.successResponse(null);
 
         long myEditTime = 0;
         if (noteList.containsKey(providerNo)) myEditTime = noteList.get(providerNo);
+        boolean hasNewEdit = false;
         for (String key : noteList.keySet()) {
-            if (key != providerNo) {
+            if (!key.equals(providerNo)) {
                 if (noteList.get(key) > myEditTime) {
-                    resp.setSuccess(false);
+                    hasNewEdit = true;
                     break;
                 }
             }
         }
-        return resp;  //true = no new edit, false = warn about new edit
+        // true = no new edit, false = warn about new edit
+        return hasNewEdit ? RestResponse.errorResponse("Note has been edited by another user") : RestResponse.successResponse(null);
     }
 
+    /**
+     * Removes a provider's editing flag when they finish or cancel editing a note.
+     *
+     * <p>Silently returns on invalid parameters to avoid UI errors on page unload,
+     * where the browser may fire this as a best-effort cleanup request.</p>
+     *
+     * @param noteUUID String the unique identifier of the note
+     * @param providerNo String the provider number to remove from the edit tracker
+     */
     @POST
     @Path("/removeEditingNoteFlag")
     public void removeEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {

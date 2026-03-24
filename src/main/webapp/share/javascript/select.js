@@ -366,10 +366,13 @@ if (!Autocompleter.Local) {
 
         dropdown.style.position = 'absolute';
         dropdown.style.zIndex = '1000';
-        dropdown.style.maxHeight = '200px';
+        dropdown.style.maxHeight = '340px';
         dropdown.style.overflowY = 'auto';
+        dropdown.style.overflowX = 'hidden';
         dropdown.style.backgroundColor = '#fff';
-        dropdown.style.border = '1px solid #ccc';
+        dropdown.style.border = '1px solid #dee2e6';
+        dropdown.style.borderRadius = '0 0 8px 8px';
+        dropdown.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)';
         dropdown.style.display = 'none';
 
         function renderDropdown(matches) {
@@ -391,11 +394,12 @@ if (!Autocompleter.Local) {
             matches.forEach(function (text, idx) {
                 var li = document.createElement('li');
                 li.textContent = text;
-                li.style.padding = '4px 8px';
+                li.style.padding = '7px 14px';
                 li.style.cursor = 'pointer';
-                if (colours[text]) {
-                    li.style.backgroundColor = '#' + colours[text];
-                }
+                li.style.fontSize = '13px';
+                li.style.whiteSpace = 'nowrap';
+                li.style.overflow = 'hidden';
+                li.style.textOverflow = 'ellipsis';
 
                 li.addEventListener('mouseenter', function () {
                     highlightItem(idx);
@@ -409,13 +413,23 @@ if (!Autocompleter.Local) {
 
             dropdown.appendChild(ul);
 
-            // Position dropdown below the input
+            // Position dropdown directly below the input element.
+            // Use offsetParent-relative positioning when inside a positioned
+            // ancestor (e.g., the encounter fieldset with position:relative),
+            // otherwise fall back to viewport + scroll offset.
             var rect = input.getBoundingClientRect();
-            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-            dropdown.style.top = (rect.bottom + scrollTop) + 'px';
-            dropdown.style.left = (rect.left + scrollLeft) + 'px';
-            dropdown.style.width = rect.width + 'px';
+            var parent = dropdown.offsetParent;
+            if (parent && parent !== document.body && parent !== document.documentElement) {
+                var parentRect = parent.getBoundingClientRect();
+                dropdown.style.top = (rect.bottom - parentRect.top + parent.scrollTop) + 'px';
+                dropdown.style.left = (rect.left - parentRect.left + parent.scrollLeft) + 'px';
+            } else {
+                var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+                dropdown.style.top = (rect.bottom + scrollTop) + 'px';
+                dropdown.style.left = (rect.left + scrollLeft) + 'px';
+            }
+            dropdown.style.width = Math.max(rect.width, 250) + 'px';
 
             dropdown.style.display = 'block';
             activeIndex = -1;
@@ -424,15 +438,7 @@ if (!Autocompleter.Local) {
         function highlightItem(idx) {
             var lis = dropdown.querySelectorAll('li');
             lis.forEach(function (li, i) {
-                if (i === idx) {
-                    li.style.outline = '2px solid #316ac5';
-                    li.style.backgroundColor = colours[li.textContent] ? '#' + colours[li.textContent] : '#316ac5';
-                    li.style.color = '#fff';
-                } else {
-                    li.style.outline = '';
-                    li.style.backgroundColor = colours[li.textContent] ? '#' + colours[li.textContent] : '';
-                    li.style.color = '';
-                }
+                li.style.background = (i === idx) ? '#e9ecef' : '';
             });
             activeIndex = idx;
         }
