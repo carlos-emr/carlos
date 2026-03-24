@@ -410,9 +410,9 @@
             <tr>
                 <td class="fieldTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.encountertype"/></td>
                 <td class="fieldValue"><select
-                        name="encounter_type" onchange="setChangeFlag(true);">
-                    <option value="">&nbsp;</option>>
-                    <option value="face to face encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>>
+                        name="caseNote.encounter_type" onchange="setChangeFlag(true);">
+                    <option value="">&nbsp;</option>
+                    <option value="face to face encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>
                     <option value="telephone encounter with client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.telephoneencounterwithclient"/></option>
                     <option value="encounter without client"><fmt:setBundle basename="oscarResources"/><fmt:message key="casemanagementEntry.encounterwithoutclient"/></option>
                 </select></td>
