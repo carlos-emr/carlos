@@ -237,7 +237,8 @@
                 <version>6.9.0</version>
             </dependency>
             <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
-                 Fixes: CVE-2025-XXXXX missing authentication for critical functions (patched in 2.52.0). -->
+                 Security fix for missing authentication on critical functions (patched in 2.52.0);
+                 see the Dependabot alert for org.apache.artemis:artemis-server 2.50.0. -->
             <dependency>
                 <groupId>org.apache.artemis</groupId>
                 <artifactId>artemis-server</artifactId>
