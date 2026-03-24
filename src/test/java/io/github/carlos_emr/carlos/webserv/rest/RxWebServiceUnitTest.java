@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverterImpl;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.PrescriptionResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 
@@ -208,7 +208,7 @@ class RxWebServiceUnitTest {
         @DisplayName("should succeed with valid input")
         void shouldSucceed_withValidInput() {
             DrugTo1 t = createTestTransferObject();
-            GenericRESTResponse resp = service.addDrug(t, 1);
+            DrugResponse resp = service.addDrug(t, 1);
             assertThat(resp.isSuccess()).isTrue();
         }
 
@@ -225,7 +225,7 @@ class RxWebServiceUnitTest {
         void shouldFail_whenDrugIdCausesManagerToReject() {
             DrugTo1 t = createTestTransferObject();
             t.setDrugId(2);
-            GenericRESTResponse resp = service.addDrug(t, 1);
+            DrugResponse resp = service.addDrug(t, 1);
             assertThat(resp.isSuccess()).isFalse();
         }
 
@@ -234,7 +234,7 @@ class RxWebServiceUnitTest {
         void shouldHandleConversionException_forInvalidTransferObject() {
             DrugTo1 t = createTestTransferObject();
             t.setDrugId(3);
-            GenericRESTResponse resp = service.addDrug(t, 1);
+            DrugResponse resp = service.addDrug(t, 1);
             assertThat(resp.isSuccess()).isFalse();
         }
     }
@@ -293,17 +293,17 @@ class RxWebServiceUnitTest {
         @Test
         @DisplayName("should succeed with valid drug and demographic IDs")
         void shouldSucceed_withValidIds() {
-            GenericRESTResponse r = service.discontinueDrug(1, "deleted", 1);
+            RestResponse<String> r = service.discontinueDrug(1, "deleted", 1);
             assertThat(r).isNotNull();
-            assertThat(r.isSuccess()).isTrue();
+            assertThat(r.getStatus()).isEqualTo(io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus.SUCCESS);
         }
 
         @Test
         @DisplayName("should fail when drug or demographic ID is invalid")
         void shouldFail_whenIdsAreInvalid() {
-            GenericRESTResponse r = service.discontinueDrug(2, "delete", 1);
+            RestResponse<String> r = service.discontinueDrug(2, "delete", 1);
             assertThat(r).isNotNull();
-            assertThat(r.isSuccess()).isFalse();
+            assertThat(r.getStatus()).isEqualTo(io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus.ERROR);
         }
 
         @Test

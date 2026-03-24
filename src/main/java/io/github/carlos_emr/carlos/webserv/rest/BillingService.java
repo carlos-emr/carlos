@@ -38,7 +38,7 @@ import jakarta.ws.rs.core.MediaType;
 import io.github.carlos_emr.carlos.managers.BillingManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ServiceTypeConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ServiceTypeTo;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -72,24 +72,22 @@ public class BillingService extends AbstractServiceImpl {
     @GET
     @Path("/billingRegion")
     @Produces("application/json")
-    public GenericRESTResponse billingRegion() {
-        boolean billRegionSet = true;
+    public RestResponse<String> billingRegion() {
         String billRegion = oscarProperties.getProperty("billregion", "").trim().toUpperCase();
         if (billRegion.isEmpty()) {
-            billRegionSet = false;
+            return RestResponse.errorResponse("Billing region not configured");
         }
-        return new GenericRESTResponse(billRegionSet, billRegion);
+        return RestResponse.successResponse(billRegion);
     }
 
     @GET
     @Path("/defaultView")
     @Produces("application/json")
-    public GenericRESTResponse defaultView() {
-        boolean defaultViewSet = true;
+    public RestResponse<String> defaultView() {
         String defaultView = oscarProperties.getProperty("default_view", "").trim();
         if (defaultView.isEmpty()) {
-            defaultViewSet = false;
+            return RestResponse.errorResponse("Default view not configured");
         }
-        return new GenericRESTResponse(defaultViewSet, defaultView);
+        return RestResponse.successResponse(defaultView);
     }
 }

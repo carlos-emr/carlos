@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.TicklerConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.TicklerTextSuggestConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.TicklerResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerTextSuggestTo1;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -268,8 +268,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/complete")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse completeTicklers(JsonNode json) {
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> completeTicklers(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
             throw new RuntimeException("Access Denied");
@@ -285,15 +284,14 @@ public class TicklerWebService extends AbstractServiceImpl {
             ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
-        return response;
+        return RestResponse.successResponse(null);
     }
 
     @POST
     @Path("/delete")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse deleteTicklers(JsonNode json) {
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> deleteTicklers(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
             throw new RuntimeException("Access Denied");
@@ -308,15 +306,14 @@ public class TicklerWebService extends AbstractServiceImpl {
             ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
-        return response;
+        return RestResponse.successResponse(null);
     }
 
     @POST
     @Path("/update")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updateTickler(JsonNode json) {
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> updateTickler(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
             throw new RuntimeException("Access Denied");
@@ -344,9 +341,9 @@ public class TicklerWebService extends AbstractServiceImpl {
         String dt = json.get("serviceDate").asText();
         tickler.setServiceDate(jakarta.xml.bind.DatatypeConverter.parseDateTime(dt).getTime());
 
-        response.setSuccess(ticklerManager.updateTickler(getLoggedInInfo(), tickler));
+        boolean success = ticklerManager.updateTickler(getLoggedInInfo(), tickler);
 
-        if (response.isSuccess()) {
+        if (success) {
 
             if (json.has("ticklerComments")) {
                 ArrayNode arr = (ArrayNode) json.get("ticklerComments");
@@ -358,10 +355,10 @@ public class TicklerWebService extends AbstractServiceImpl {
                     }
                 }
             }
+            return RestResponse.successResponse(null);
         }
 
-
-        return response;
+        return RestResponse.errorResponse("Failed to update tickler");
     }
 
     @GET
@@ -386,8 +383,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/add")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse addTickler(Tickler tickler) {
-        GenericRESTResponse response = new GenericRESTResponse();
+    public RestResponse<String> addTickler(Tickler tickler) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
@@ -402,9 +398,10 @@ public class TicklerWebService extends AbstractServiceImpl {
             tickler.setProgramId(pp.getProgramId().intValue());
         }
 
-        response.setSuccess(ticklerManager.addTickler(getLoggedInInfo(), tickler));
-
-        return response;
+        if (ticklerManager.addTickler(getLoggedInInfo(), tickler)) {
+            return RestResponse.successResponse(null);
+        }
+        return RestResponse.errorResponse("Failed to add tickler");
     }
 
     @GET

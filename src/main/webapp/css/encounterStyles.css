@@ -32,6 +32,12 @@
 */
 
 
+body.encounter-layout {
+    overflow: hidden;
+    height: 100vh;
+    margin: 0;
+}
+
 :root * {
     font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
     font-size: 12px;
@@ -152,6 +158,7 @@ fieldset {
     background-color: transparent;
     border: 1px solid #cccccc !important;
     margin: 0;
+    position: relative;
 }
 
 fieldset legend {
@@ -182,6 +189,7 @@ textarea.txtArea {
     font-size: inherit;
     padding: 2px 5px;
     overflow: hidden;
+    resize: none;
 }
 
 textarea.unsigned-textarea, textarea.edit-textarea {
@@ -314,6 +322,7 @@ h3 {
 #navigation-layout {
     margin: auto 15px !important;
     height: 100vh;
+    overflow-y: auto;
     display: flex;
     flex-direction: row;
     gap: 3px;
@@ -345,7 +354,6 @@ div#leftNavBar {
     flex-direction: column;
     flex-grow: 1;
     flex-basis: 20%;
-    height: 100%;
     padding-bottom: 20px;
 }
 
@@ -365,7 +373,9 @@ div#notCPP {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
-    height: 100%;
+    height: 100vh;
+    position: sticky;
+    top: 0;
     flex-basis: 60%;
     align-content: end;
     width: 100%;
@@ -452,18 +462,14 @@ div.topBox h3 {
 }
 
 #cppBoxes .topBox-notes {
-    height: 100%;
-    max-height: 75px;
-    overflow-y: auto;
+    height: auto;
     border-left: 1px solid #cccccc;
     border-right: 1px solid #cccccc;
     border-bottom: 1px solid #cccccc;
 }
 
 #rightNavBar .topBox-notes {
-    height: 100%;
-    max-height: 500px;
-    overflow-y: auto;
+    height: auto;
 }
 
 div.topBox-notes ul li a {
@@ -486,6 +492,7 @@ div#encMainDiv {
 div#encMainDivWrapper {
     padding: 15px 15px 10px 10px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     border: thin solid #cccccc;
     margin: 0;
     background-color: whitesmoke;
@@ -969,7 +976,6 @@ div.newNote pre {
 
 div.expandedBox, div.cppBox {
     clear: both;
-    overflow: auto;
 }
 
 div.expandedBox {
@@ -1051,6 +1057,11 @@ div#issueNoteAssign {
     color: #800;
     margin: 0;
     padding: 0;
+}
+
+#enTemplate_list {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border-radius: 0 0 4px 4px;
 }
 
 div.passwd,div.passwdErr {

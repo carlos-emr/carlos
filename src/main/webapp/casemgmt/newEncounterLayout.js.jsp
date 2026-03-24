@@ -76,6 +76,9 @@
     function setTime() {
         ++totalSeconds;
         const aTimerButton = document.getElementById("aTimer");
+        if (!aTimerButton) {
+            return;
+        }
         if (totalSeconds > 5) {
             aTimerButton.innerHTML = pad(parseInt(totalSeconds / 60)) + ":" + pad(totalSeconds % 60);
         }
@@ -487,14 +490,9 @@
         }
 
         function getTemplateNames() {
-            if (typeof autoCompList === 'undefined' || typeof autoCompleted === 'undefined') return [];
-            // Filter to charting templates only: autoCompleted entries starting with ajaxInsertTemplate.
-            // autoCompList is shared with eforms (efmformadd_data.jsp), forms, and calculators,
-            // all of which use popupPage() — not ajaxInsertTemplate().
-            return autoCompList.filter(function (name) {
-                var func = autoCompleted[name];
-                return typeof func === 'string' && func.indexOf('ajaxInsertTemplate') === 0;
-            });
+            if (typeof autoCompList === 'undefined') return [];
+            // Return all items: charting templates, forms, and eForms
+            return autoCompList.slice();
         }
 
         function clearChildren(el) {
@@ -646,26 +644,23 @@
         };
     })();
 
-    // Forward wheel events from textareas to encMainDivWrapper so trackpad
-    // scrolling works even when the cursor is over the active note textarea.
-    // Only forwards when the textarea has no internal scrollable overflow,
-    // so read-only notes with overflow content can still be scrolled normally.
-    // Restricted to the focused case note textarea only, and skips modified
-    // wheel gestures (Ctrl/Meta for zoom, Alt for horizontal scroll).
+    // Encounter scroll routing:
+    // - Over encMainDivWrapper: native scroll (notes area scrolls)
+    // - Over left/right sidebars: scroll #navigation-layout (page scroll)
+    // - Over CPP boxes/control panel: scroll #navigation-layout
     document.addEventListener('wheel', function (event) {
-        if (event.target && event.target.tagName === 'TEXTAREA') {
-            // Only intercept wheel on the actively focused textarea
-            if (document.activeElement !== event.target) { return; }
-            // Skip modified wheel gestures (pinch-to-zoom, browser-assigned shortcuts)
-            if (event.ctrlKey || event.metaKey || event.altKey) { return; }
-            // Only intercept if this is the active case note (not other textareas in the wrapper)
-            if (typeof caseNote !== 'undefined' && event.target.id !== caseNote) { return; }
-            var wrapper = document.getElementById('encMainDivWrapper');
-            if (wrapper && wrapper.contains(event.target)) {
-                if (event.target.scrollHeight <= event.target.clientHeight) {
-                    event.preventDefault();
-                    wrapper.scrollTop += event.deltaY;
-                }
-            }
+        if (event.ctrlKey || event.metaKey || event.altKey) { return; }
+
+        var wrapper = document.getElementById('encMainDivWrapper');
+        if (wrapper && wrapper.contains(event.target)) {
+            // Let native scroll handle the notes area
+            return;
+        }
+
+        // Everything else: scroll navigation-layout
+        var navLayout = document.getElementById('navigation-layout');
+        if (navLayout) {
+            event.preventDefault();
+            navLayout.scrollTop += event.deltaY;
         }
     }, { passive: false, capture: true });

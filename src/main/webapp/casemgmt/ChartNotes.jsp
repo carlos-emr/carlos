@@ -29,6 +29,8 @@
 
 --%>
 
+<%@page buffer="1024kb" %>
+<% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
@@ -154,7 +156,7 @@
 <script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
 <script src="<c:out value="${ctx}"/>/share/javascript/select.js" type="text/javascript"></script>
-<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>"></script>
+<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript">
     ctx = "<c:out value="${ctx}"/>";
     imgPrintgreen.src = ctx + "/oscarEncounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
@@ -557,21 +559,25 @@
                         </svg>
                     </button>
                     <%
-
-                        if (facility.isEnableGroupNotes()) {
+                        try {
+                        if (facility != null && facility.isEnableGroupNotes()) {
                     %>
                     <input tabindex="16" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/group-gnote.png"/>" id="groupNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnGroupNote"/>'>
                     <% }
-                        if (facility.isEnablePhoneEncounter()) {
+                        if (facility != null && facility.isEnablePhoneEncounter()) {
                     %>
                     <input tabindex="25" type='image' src="<c:out value="${ctx}/oscarEncounter/graphics/attach.png"/>"
                            id="attachNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnAttachNote"/>'>
-                    <% } %>
+                    <% }
+                        } catch (Exception facilityEx) {
+                            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Facility check error in ChartNotes.jsp", facilityEx);
+                        }
+                    %>
                     <input tabindex="17" type='image'
                            src="<c:out value="${ctx}/oscarEncounter/graphics/media-floppy.png"/>" id="saveImg"
                            onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
@@ -663,6 +669,9 @@
 <%
     } catch (Exception e) {
         MiscUtils.getLogger().error("Unexpected error.", e);
+    }
+    try { out.flush(); } catch (java.io.IOException flushEx) {
+        MiscUtils.getLogger().debug("Failed to flush ChartNotes.jsp output", flushEx);
     }
 %>
 

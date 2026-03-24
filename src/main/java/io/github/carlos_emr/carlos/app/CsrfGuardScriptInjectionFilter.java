@@ -114,11 +114,15 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-        // Skip AJAX requests early (before wrapping)
-        String requestedWith = httpRequest.getHeader(AJAX_HEADER_NAME);
-        if (AJAX_HEADER_VALUE.equalsIgnoreCase(requestedWith)) {
-            chain.doFilter(request, response);
-            return;
+        // Skip AJAX requests on REQUEST dispatch only (not FORWARD).
+        // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent
+        // Tomcat 11 from truncating large JSP responses (> 8KB) during forward.
+        if (httpRequest.getDispatcherType() == jakarta.servlet.DispatcherType.REQUEST) {
+            String requestedWith = httpRequest.getHeader(AJAX_HEADER_NAME);
+            if (AJAX_HEADER_VALUE.equalsIgnoreCase(requestedWith)) {
+                chain.doFilter(request, response);
+                return;
+            }
         }
 
         // Skip Struts .do requests — Tomcat 11's RequestDispatcher.forward() closes

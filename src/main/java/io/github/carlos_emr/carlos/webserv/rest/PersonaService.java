@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.SecobjprivilegeConver
 import io.github.carlos_emr.carlos.webserv.rest.conversion.SecuserroleConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.DashboardPreferences;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.NavbarResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.PatientList;
 import io.github.carlos_emr.carlos.webserv.rest.to.PersonaResponse;
@@ -124,11 +124,12 @@ public class PersonaService extends AbstractServiceImpl {
     @GET
     @Path("/hasRight")
     @Produces("application/json")
-    public GenericRESTResponse hasRight(@QueryParam("objectName") String objectName, @QueryParam("privilege") String privilege, @QueryParam("demographicNo") String demographicNo) {
-        GenericRESTResponse response = new GenericRESTResponse();
-        response.setSuccess(securityInfoManager.hasPrivilege(getLoggedInInfo(), objectName, privilege, demographicNo));
-
-        return response;
+    public RestResponse<String> hasRight(@QueryParam("objectName") String objectName, @QueryParam("privilege") String privilege, @QueryParam("demographicNo") String demographicNo) {
+        boolean hasPrivilege = securityInfoManager.hasPrivilege(getLoggedInInfo(), objectName, privilege, demographicNo);
+        if (hasPrivilege) {
+            return RestResponse.successResponse(null);
+        }
+        return RestResponse.errorResponse("Access denied");
     }
 
     @POST
@@ -288,9 +289,9 @@ public class PersonaService extends AbstractServiceImpl {
     /**
      * Sets the default program for the logged-in provider.
      */
-    public GenericRESTResponse setDefaultProgram(@FormParam("programId") Integer programId) {
+    public RestResponse<String> setDefaultProgram(@FormParam("programId") Integer programId) {
         programManager2.setCurrentProgramInDomain(getLoggedInInfo().getLoggedInProviderNo(), programId);
-        return new GenericRESTResponse();
+        return RestResponse.successResponse(null);
     }
 
     @GET
@@ -423,9 +424,8 @@ public class PersonaService extends AbstractServiceImpl {
     @Path("/updatePreference")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updatePreference(ObjectNode json) {
+    public RestResponse<String> updatePreference(ObjectNode json) {
         Provider provider = getCurrentProvider();
-        GenericRESTResponse response = new GenericRESTResponse();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
             throw new RuntimeException("Access Denied");
@@ -436,19 +436,18 @@ public class PersonaService extends AbstractServiceImpl {
         if (up != null) {
             up.setValue(json.get("value") != null ? json.get("value").asText() : null);
             userPropertyDao.merge(up);
-            response.setSuccess(true);
+            return RestResponse.successResponse(null);
         }
 
-        return response;
+        return RestResponse.errorResponse("Preference not found");
     }
 
     @POST
     @Path("/updatePreferences")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse updatePreferences(ObjectNode json) {
+    public RestResponse<String> updatePreferences(ObjectNode json) {
         Provider provider = getCurrentProvider();
-        GenericRESTResponse response = new GenericRESTResponse();
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
             throw new RuntimeException("Access Denied");
@@ -475,13 +474,10 @@ public class PersonaService extends AbstractServiceImpl {
 
             propDao.saveProp(prop);
 
-            response.setSuccess(true);
-        } else {
-            response.setSuccess(false);
+            return RestResponse.successResponse(null);
         }
 
-
-        return response;
+        return RestResponse.errorResponse("No preference value provided");
 
     }
 

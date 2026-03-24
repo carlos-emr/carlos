@@ -277,6 +277,12 @@
         scrollToNote();
 
         enableNotePassthroughScroll($caseNoteElement);
+
+        // Auto-expand textarea as user types or presses Enter
+        $caseNoteElement.off('input.autosize').on('input.autosize', function() {
+            adjustCaseNote();
+        });
+
         $caseNoteElement.focus();
     }
 
@@ -307,18 +313,7 @@
         });
     }
 
-    function enableNavBarPassthroughScroll() {
-        jQuery('#leftNavBar, #rightNavBar').off('wheel.navpassthrough').on('wheel.navpassthrough', function(e) {
-            var wrapper = document.getElementById('encMainDivWrapper');
-            if (wrapper) {
-                wrapper.scrollTop += e.originalEvent.deltaY;
-                e.preventDefault();
-            }
-        });
-    }
-
     jQuery(function() {
-        enableNavBarPassthroughScroll();
 
         // Keyboard shortcuts
         jQuery(document).on('keydown', function(e) {
@@ -528,12 +523,11 @@
                 },
                 onComplete: function () {
                     $("notesLoading").hide();
-                    $("encMainDivWrapper").scrollTop = 10;
-
-                    <%--if (notesCurrentTop != null) {--%>
-                    <%--	$(notesCurrentTop).scrollIntoView();--%>
-                    <%--}--%>
-                    <%--scrollDownInnerBar();--%>
+                    // Scroll to bottom to show most recent notes
+                    var wrapper = $("encMainDivWrapper");
+                    if (wrapper) {
+                        wrapper.scrollTop = wrapper.scrollHeight;
+                    }
                 }
             });
     }
@@ -3082,45 +3076,37 @@ function autoSave() {
 
     }
 
-//resize case note text area to fill available viewport height, growing if content exceeds it
+//resize case note text area to fit all content using scrollHeight,
+    //then scroll the wrapper so the cursor line stays visible
     function adjustCaseNote() {
-        var MAXCHARS = 78;
-        var $note = jQuery("#" + caseNote);
-        if (!$note.length) return;
+        var note = document.getElementById(caseNote);
+        if (!note) return;
 
-        var payload = $note.val();
-        var numLines = 0;
-
-        // Use jQuery to get the computed line-height of the element
-        var lineHeightCSS = $note.css('line-height');
-        var lineHeight = parseFloat(lineHeightCSS);
-        if (isNaN(lineHeight) || lineHeight <= 0) {
-            lineHeight = parseFloat($note.css('font-size')) * 1.2;
-            if (isNaN(lineHeight) || lineHeight <= 0) lineHeight = 16;
-        }
-
-        var arrLines = payload.split("\n");
-
-        //we count each new line char and add a line for lines longer than max length
-        for (var idx = 0; idx < arrLines.length; ++idx) {
-            if (arrLines[idx].length >= MAXCHARS) {
-                numLines += Math.ceil(arrLines[idx].length / MAXCHARS);
-            } else
-                ++numLines;
-        }
-        //add a buffer
-        numLines += 2;
-
-        // Calculate the content height in pixels
-        var contentHeight = Math.ceil(lineHeight * numLines);
-
-        // Minimum height: 20 lines so the note area is always usable
+        // Minimum height: 20 lines
+        var lineHeight = parseFloat(getComputedStyle(note).lineHeight) || 16;
         var minHeight = Math.ceil(lineHeight * 20);
-        var noteHeight = Math.max(contentHeight, minHeight);
-        $note.css('height', noteHeight + 'px');
+
+        // Shrink to min first so scrollHeight reflects actual content
+        note.style.height = minHeight + 'px';
+        // Expand to fit all content (no internal textarea scrollbar)
+        var contentHeight = note.scrollHeight;
+        note.style.height = Math.max(contentHeight, minHeight) + 'px';
+
+        // Scroll wrapper so the cursor line is visible at the bottom
+        var wrapper = document.getElementById('encMainDivWrapper');
+        if (wrapper) {
+            // Estimate cursor Y position within the textarea
+            var textBeforeCursor = note.value.substring(0, note.selectionEnd);
+            var linesBeforeCursor = textBeforeCursor.split('\n').length;
+            var cursorY = note.offsetTop + (linesBeforeCursor * lineHeight);
+            var wrapperBottom = wrapper.scrollTop + wrapper.clientHeight;
+            if (cursorY > wrapperBottom - lineHeight) {
+                wrapper.scrollTop = cursorY - wrapper.clientHeight + lineHeight * 2;
+            }
+        }
 
         // Update character count
-        numChars = $note.val().length;
+        numChars = note.value.length;
     }
 
     function autoCompleteHideMenu(element, update) {

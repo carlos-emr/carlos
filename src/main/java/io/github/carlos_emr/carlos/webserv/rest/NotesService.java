@@ -90,7 +90,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.CaseManagementIssueConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.IssueConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
-import io.github.carlos_emr.carlos.webserv.rest.to.GenericRESTResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.TicklerNoteResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.CaseManagementIssueTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
@@ -1616,7 +1616,7 @@ public class NotesService extends AbstractServiceImpl {
     @Path("/ticklerSaveNote")
     @Produces("application/json")
     @Consumes("application/json")
-    public GenericRESTResponse ticklerSaveNote(ObjectNode json) {
+    public RestResponse<String> ticklerSaveNote(ObjectNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
@@ -1733,7 +1733,7 @@ public class NotesService extends AbstractServiceImpl {
         caseManagementMgr.updateNote(cmn);
 
 
-        return new GenericRESTResponse();
+        return RestResponse.successResponse(null);
     }
 
 
@@ -1862,10 +1862,9 @@ public class NotesService extends AbstractServiceImpl {
     @POST
     @Path("/setEditingNoteFlag")
     @Produces("application/json")
-    public GenericRESTResponse setEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
-        GenericRESTResponse resp = new GenericRESTResponse(false, "Parameter error");
+    public RestResponse<String> setEditingNoteFlag(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
-            return resp;
+            return RestResponse.errorResponse("Parameter error");
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) {
@@ -1874,20 +1873,19 @@ public class NotesService extends AbstractServiceImpl {
         }
         clearDanglingFlags();
 
-        resp.setSuccess(true);
-        resp.setMessage(null);
+        boolean success = true;
 
         if (!noteList.containsKey(providerNo)) { // only check for other editing user when initializing flag
             for (String key : noteList.keySet()) {
                 if (key != providerNo) {
-                    resp.setSuccess(false);
+                    success = false;
                     break;
                 }
             }
         }
         noteList.put(providerNo, new Date().getTime());
         editList.put(noteUUID, noteList);
-        return resp;
+        return success ? RestResponse.successResponse(null) : RestResponse.errorResponse("Note is being edited by another user");
     }
 
     private void clearDanglingFlags() {
@@ -1910,26 +1908,27 @@ public class NotesService extends AbstractServiceImpl {
     @POST
     @Path("/checkEditNoteNew")
     @Produces("application/json")
-    public GenericRESTResponse checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
-        GenericRESTResponse resp = new GenericRESTResponse(true, null);
+    public RestResponse<String> checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
-            return resp;
+            return RestResponse.successResponse(null);
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList == null) return resp;
-        if (noteList.size() == 1 && noteList.containsKey(providerNo)) return resp;
+        if (noteList == null) return RestResponse.successResponse(null);
+        if (noteList.size() == 1 && noteList.containsKey(providerNo)) return RestResponse.successResponse(null);
 
         long myEditTime = 0;
         if (noteList.containsKey(providerNo)) myEditTime = noteList.get(providerNo);
+        boolean hasNewEdit = false;
         for (String key : noteList.keySet()) {
             if (key != providerNo) {
                 if (noteList.get(key) > myEditTime) {
-                    resp.setSuccess(false);
+                    hasNewEdit = true;
                     break;
                 }
             }
         }
-        return resp;  //true = no new edit, false = warn about new edit
+        // true = no new edit, false = warn about new edit
+        return hasNewEdit ? RestResponse.errorResponse("Note has been edited by another user") : RestResponse.successResponse(null);
     }
 
     @POST
