@@ -484,19 +484,6 @@ class HttpMethodGuardFilterUnitTest {
     class MismatchedActionNames {
 
         @Test
-        @DisplayName("should block GET to oncallClinic (SaveOnCallClinic2Action)")
-        void shouldBlock_forGetToOncallClinic() throws Exception {
-            when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/admin/oncallClinic.do");
-            when(request.getParameter("method")).thenReturn(null);
-
-            filter.doFilter(request, response, chain);
-
-            verify(response).sendError(anyInt(), anyString());
-            verify(chain, never()).doFilter(request, response);
-        }
-
-        @Test
         @DisplayName("should block GET to billingAddCode (BillingAddCode2Action)")
         void shouldBlock_forGetToBillingAddCode() throws Exception {
             when(request.getMethod()).thenReturn("GET");

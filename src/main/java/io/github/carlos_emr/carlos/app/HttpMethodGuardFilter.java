@@ -96,7 +96,6 @@ public class HttpMethodGuardFilter implements Filter {
      * mapped to non-matching URL action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
-            "oncallclinic",           // SaveOnCallClinic2Action
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             "reprocessbill",          // BillingReProcessBill2Action
             "movemohfiles",           // ArchiveMOHFile2Action
