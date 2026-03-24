@@ -574,6 +574,16 @@ public class RxWebService extends AbstractServiceImpl {
 
     }
 
+    /**
+     * Adds a new prescription favorite for the logged-in provider.
+     *
+     * <p>Favorites are provider-specific quick-select prescriptions that appear in
+     * the prescription UI for rapid re-use. Converts the transfer object to a
+     * domain {@code Favorite} entity before persisting.</p>
+     *
+     * @param newFavorite FavoriteTo1 the favorite prescription data to save
+     * @return RestResponse with success confirmation, or error if conversion or persistence fails
+     */
     @Path("/favorites")
     @POST
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
@@ -596,7 +606,7 @@ public class RxWebService extends AbstractServiceImpl {
             }
 
         } catch (ConversionException e) {
-            logger.error(e.getStackTrace());
+            logger.error("Failed to add favorite", e);
             return RestResponse.errorResponse("Failed to add favorite.");
         }
 

@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ChartNotes.jsp — Renders the clinical notes panel inside the encounter page.
+
+    Loaded via jsp:include from newCaseManagementView.jsp. Displays filtered and
+    sorted clinical notes for a patient, with inline editing, issue assignment,
+    and template insertion.
+
+    The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
+    from truncating large AJAX forward responses. Without it, the
+    CsrfGuardScriptInjectionFilter's CaptureResponseWrapper can overflow the
+    default 8 KB JSP buffer during forward dispatch, causing silent truncation
+    of the notes HTML.
+
+    @since 2006-01-01
+--%>
 
 <%@page buffer="1024kb" %>
 <% response.setBufferSize(1024 * 1024); %>

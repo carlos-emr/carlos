@@ -86,7 +86,6 @@
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
               title="win2k-cold-1">
-        <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
         <link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/css/print.css" media="print">
 
         <script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>

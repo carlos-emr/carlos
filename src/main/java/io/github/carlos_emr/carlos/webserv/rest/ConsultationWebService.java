@@ -321,6 +321,12 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Electronically sends a consultation referral request via HL7 to the configured remote system.
+     *
+     * @param requestId Integer the consultation request ID to transmit
+     * @return RestResponse with success confirmation or a user-facing error message
+     */
     @POST
     @Path("/eSendRequest")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -465,6 +471,16 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return null;
     }
 
+    /**
+     * Imports an Ontario Telemedicine Network (OTN) eConsult record into the local EMR.
+     *
+     * <p>Validates the econsult data and demographic association, then delegates to
+     * the consultation manager for persistence. Error details are logged server-side
+     * only; clients receive a generic error message to avoid leaking internal state.</p>
+     *
+     * @param data OtnEconsult the econsult payload including demographic number and file name
+     * @return RestResponse with success confirmation or a generic error message
+     */
     @POST
     @Path("/importEconsult")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -476,7 +492,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
                 return RestResponse.successResponse("File " + data.getFileName() + " imported.");
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Exception", e);
-                return RestResponse.errorResponse(e.getMessage());
+                return RestResponse.errorResponse("Unable to import econsult file.");
             }
         }
         return RestResponse.errorResponse("Invalid or missing econsult data.");
