@@ -470,11 +470,14 @@ function doHtml(value) {
 		// No selection/cursor — append to end of document body
 		editorDoc.body.innerHTML += value;
 	}
+	// Return focus to the editor iframe so the user can continue typing
+	// immediately after a sidebar button inserts content
+	document.getElementById(cfg_editorname).contentWindow.focus();
 }
 
 function block(blockElements) {
 	for(i=0; i<blockElements.length; i++) {
-		var htm='<div>'+blockElements[i]+'<\div>';
+		var htm='<div>'+blockElements[i]+'</div>';
 		doHtml(htm);
 	}
 }
@@ -517,10 +520,18 @@ void [
 	doTable, doExport, doEdit, doBreak,
 	viewsource, usecss, popup,
 	printKey, submitFaxButton,
-	// Lab-grid and autocomplete functions defined later in the file; used by
-	// external JSP pages and inline onclick handlers that static analysis cannot see.
+	// Functions defined later in the file; used by external JSP pages,
+	// inline onclick handlers, and the DB-stored eForm HTML that static
+	// analysis cannot see. These are NOT dead code — removing them would
+	// break the RTL eForm at runtime.
 	isGenderLookup, Start, htmlLine,
+	// formIsRTL: read by efmshowform_data.jsp to detect RTL eForm type.
+	// formPath: currently unused (commented-out graph link feature) but
+	//   kept for potential future use. See TODO at its declaration.
 	formIsRTL, formPath, getMeasures,
+	// collapseFooter, consultantSearch, populateInputField: called from
+	// inline onclick/onKeyup handlers in the DB-stored form_html.
+	// tempBinHover (not in this list): called from onmouseover in form_html.
 	collapseFooter, consultantSearch, populateInputField
 ];
 
@@ -1078,6 +1089,9 @@ function submitFaxButton() {
 		}
 		return mystamp;
 	}
+	// Flag read by efmshowform_data.jsp and the eForm framework to identify this
+	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
+	// this as "unused" because the read happens in JSP/server-side code, not JS.
 	var formIsRTL = true;
 
 
@@ -1100,7 +1114,11 @@ if (location.search) {
 }
 
 
-// probably wrong fid  TODO
+// TODO: formPath is currently unused — its only two references (graph link URLs)
+// are commented out below in getMeasures(). The hardcoded fid=74 is a legacy
+// upstream value that would be wrong for most installations. If the graph link
+// feature is ever re-enabled, formPath should derive the fid from the URL
+// parameter (gup("fid")) instead of hardcoding it.
 var formPath = vPath + "/eform/efmshowform_data.jsp?fid=74&LabName="
 var measureArray = [];
 var measureDateArray = [];
@@ -1210,7 +1228,7 @@ function collapseFooter() {
 
             //professionalSpecialists  2020-Nov-04
             //request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchprofessionalSpecialists.json?keyword=' + term, true);
-            request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+term, true);
+            request.open('GET', '../oscarEncounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+encodeURIComponent(term), true);
             request.setRequestHeader("Content-Type", "application/json");
             request.onload = function() {
 
@@ -1325,6 +1343,9 @@ function collapseFooter() {
             bin.appendChild(img);
         }
 
+        // Called from inline onmouseover/onmouseout in the DB-stored form_html:
+        //   <div id="tempBin" onmouseover="tempBinHover(true)" onmouseout="tempBinHover(false)">
+        // Static analysis flags this as "unused" because the caller is in the database, not in JS.
         function tempBinHover(h) {
             if (h) {
                 searchDropDownFlag = true;
