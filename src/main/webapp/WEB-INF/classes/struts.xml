@@ -1549,6 +1549,7 @@
             <result name="success">/eform/efmmanageformgroups.jsp</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
         <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
             <result name="success">/billing/CA/BC/showServiceCodeAssocs.do</result>
         </action>
