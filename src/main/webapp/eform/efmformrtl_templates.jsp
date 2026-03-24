@@ -30,7 +30,7 @@
 
     @since 2026-03-22
 --%>
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
