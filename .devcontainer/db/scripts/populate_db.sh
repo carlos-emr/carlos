@@ -30,8 +30,8 @@ echo 'Creating eForm images directory for RTL asset deployment...'
 mkdir -p /var/lib/OscarDocument/oscar/eform/images/
 echo 'Seeding Rich Text Letter eForm...'
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2012-07-12.sql
+echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'
+mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
-echo 'Modernizing Rich Text Letter eForm to v2.2...'
-mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2026-03-22-rtl-v22-modernize.sql
 cd ../../
 echo 'Database initialization complete!'

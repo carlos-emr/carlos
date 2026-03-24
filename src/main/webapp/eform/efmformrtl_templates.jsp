@@ -24,9 +24,24 @@
 <%--
     efmformrtl_templates.jsp - RTL Template Dropdown Options
 
-    Returns <option> elements for the Rich Text Letter template dropdown.
-    Called via AJAX from editControl2.js Start() function to populate
-    the template <select> with available .rtl files from the eForm images directory.
+    AJAX endpoint that returns <option> HTML elements for the Rich Text Letter
+    template dropdown selector. Called by editControl2.js Start() function on
+    eForm load to populate the template <select> control.
+
+    How it works:
+      1. Enforces _eform read privilege (same check as all eForm endpoints)
+      2. Calls EFormUtil.listRichTextLetterTemplates() which scans the eForm
+         images directory for *.rtl files
+      3. Emits one <option> per template with OWASP-encoded filename as value
+         and the filename (minus extension) as display text
+      4. "blank.rtl" is always listed first as a static option and excluded
+         from the dynamic loop to avoid duplication
+
+    Called from: editControl2.js Start() -> $.ajax({url: "efmformrtl_templates.jsp"})
+    Response: HTML fragment (not a full page) — injected into #template select via .html()
+
+    Parameters: none (uses session for auth, no request parameters needed)
+    Security: _eform read privilege required
 
     @since 2026-03-22
 --%>
@@ -39,6 +54,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%
+    // Security: require _eform read privilege before listing templates
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
@@ -46,12 +62,17 @@
         return;
     }
 
+    // Scan the eForm images directory for .rtl template files
     ArrayList<String> templates = EFormUtil.listRichTextLetterTemplates();
 %>
+<%-- Default placeholder and blank template are always available --%>
 <option value="">&mdash; template &mdash;</option>
 <option value="blank.rtl">blank</option>
+<%-- Dynamically list any additional .rtl files uploaded by clinic admins --%>
 <% for (String template : templates) {
     if (!"blank.rtl".equalsIgnoreCase(template)) {
+        // Strip file extension for display (e.g., "referral.rtl" -> "referral")
+        // Guard: dotIndex > 0 handles files with no dot or leading dot
         int dotIndex = template.lastIndexOf('.');
         String displayName = (dotIndex > 0) ? template.substring(0, dotIndex) : template;
 %>

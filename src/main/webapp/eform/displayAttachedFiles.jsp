@@ -24,12 +24,30 @@
 <%--
     displayAttachedFiles.jsp - AJAX endpoint returning attached file list HTML
 
-    Returns an HTML fragment listing files attached to an eForm instance,
-    with color-coded classes (.doc, .lab, .hrm, .eform). Called by
-    fetchAttached() in the Rich Text Letter eForm HTML.
+    Returns an HTML fragment listing files attached to a saved eForm instance,
+    with color-coded CSS classes (.doc, .lab, .hrm, .eform) matching the RTL
+    sidebar legend. Displayed in the #tdAttachedDocs panel on the right side
+    of the Rich Text Letter editor.
+
+    Architecture:
+      - Called by: fetchAttached() in the DB-stored form_html (via $.ajax)
+      - URL: ../eform/displayAttachedFiles.jsp?requestId=<fdid>
+      - Response: HTML fragment (not a full page) — injected via jQuery .html()
+      - The fdid comes from the ${fdid} token replaced by EForm.setFdid()
+
+    Note on ${fdid} token:
+      For NEW forms (via efmformadd_data.jsp), the ${fdid} token is NOT replaced
+      because no eform_data record exists yet. The request arrives with the literal
+      string "${fdid}" as the requestId, which fails the \d+ regex check and
+      returns "No attachments" — this is expected behavior.
 
     Parameters:
-      - requestId: fdid of the eForm instance
+      - requestId: fdid of the eForm data instance (must be digits)
+
+    Security:
+      - Requires _eform read privilege
+      - requestId validated with \d+ regex before Integer.parseInt()
+      - All IDs OWASP-encoded in output
 
     @since 2026-03-22
 --%>
@@ -59,11 +77,20 @@
     Integer fdid = Integer.parseInt(requestId);
     DocumentAttachmentManager attachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
 
-    // Get attached document IDs by type
-    List<String> docIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.DOC, null);
-    List<String> labIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.LAB, null);
-    List<String> hrmIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, null);
-    List<String> eformIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, null);
+    List<String> docIds;
+    List<String> labIds;
+    List<String> hrmIds;
+    List<String> eformIds;
+    try {
+        docIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.DOC, null);
+        labIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.LAB, null);
+        hrmIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, null);
+        eformIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, null);
+    } catch (Exception e) {
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Failed to load attachments for fdid=" + fdid, e);
+        out.print("<em>Error loading attachments</em>");
+        return;
+    }
 
     boolean hasAttachments = (docIds != null && !docIds.isEmpty())
             || (labIds != null && !labIds.isEmpty())

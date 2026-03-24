@@ -1,7 +1,7 @@
 # Rich Text Letter eForm — Architecture & Setup
 
-> **Version**: v2.2 (March 2026)
-> **Migration**: `database/mysql/updates/update-2026-03-22-rtl-v22-modernize.sql`
+> **Version**: 2026.3.0 (March 2026)
+> **Migration**: `database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql`
 > **Dependencies**: Font Awesome 6, jQuery 3.7.1, jQuery UI 1.14.2 (injected by host page)
 
 ## Overview
@@ -31,15 +31,17 @@ This includes:
 - The `<form>` wrapper and hidden fields
 
 **Important**: The `addHeadJavascript()` method in `EForm.java` triggers JSoup DOM parsing via
-`ConvertToEdoc.getDocument()`. JSoup's `validateResourcePaths()` method validates all `<script>`
-and `<img>` tags by checking if their referenced files exist on disk. Tags referencing files that
-don't exist are **removed from the DOM**. This means:
+`ConvertToEdoc.getDocument()`. JSoup's `validateResourcePaths()` method validates **all** `<script>`
+and `<img>` tags in the entire document (not just `<head>`) by checking if their referenced files
+exist on disk. Tags referencing files that don't exist are **removed from the DOM**. This means:
 
-- Script tags in `<head>` that reference files via `displayImage.do?imagefile=` will be stripped
-  if the files haven't been deployed to the eForm images directory yet.
-- Script tags that must load from the eForm images directory (like `editControl2.js`) **must be
-  placed in `<body>`**, not `<head>`, to avoid being parsed and removed by JSoup before the
-  page is rendered.
+- `EFormAssetDeployer` must deploy `editControl2.js`, `blank.rtl`, and `editor_help.html` to the
+  eForm images directory **before** any RTL eForm is loaded. If the files are missing, JSoup
+  silently removes the `<script>` tags and the editor fails to render.
+- The 2026.3.0 form_html places `editControl2.js`, `stamps.js`, and the `insertEditControl()` config
+  block in `<body>` (after the `<form>` tag) rather than `<head>`. This ensures the form's DOM
+  elements exist before the editor script executes, and keeps the editor initialization adjacent
+  to the content it creates.
 
 ### 2. Static Asset Files (deployed by `EFormAssetDeployer`)
 
@@ -74,14 +76,16 @@ overwriting clinic-customized versions.
 ## Required Directories
 
 The RTL eForm requires the eForm images directory to exist before Tomcat starts. The path
-is derived from `CarlosProperties`:
+is resolved by `CarlosProperties.getEformImageDirectory()` using a two-tier lookup:
 
-```
-BASE_DOCUMENT_DIR / <context> / eform / images /
-```
+1. **Explicit property**: `EFORM_IMAGES_DIR` in `carlos.properties` (if set)
+2. **Fallback**: `Paths.get(BASE_DOCUMENT_DIR, "eform", "images")` — i.e., `BASE_DOCUMENT_DIR/eform/images/`
 
-For the default devcontainer configuration (`BASE_DOCUMENT_DIR=/var/lib/OscarDocument/`,
-context=`oscar`):
+The devcontainer explicitly sets `EFORM_IMAGES_DIR=/var/lib/OscarDocument/oscar/eform/images/`
+in its `carlos.properties`. On a fresh install where only `BASE_DOCUMENT_DIR` is configured,
+the path would be `BASE_DOCUMENT_DIR/eform/images/` (no context segment).
+
+For the default devcontainer:
 
 ```bash
 /var/lib/OscarDocument/oscar/eform/images/
@@ -117,8 +121,8 @@ Run in order via `populate_db.sh`:
 # 1. Seed the original RTL eForm (creates the eform row)
 mysql ... < database/mysql/updates/update-2012-07-12.sql
 
-# 2. Modernize to v2.2 (full replacement of form_html)
-mysql ... < database/mysql/updates/update-2026-03-22-rtl-v22-modernize.sql
+# 2. Modernize to 2026.3.0 (full replacement of form_html)
+mysql ... < database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql
 
 # 3. Enable the eForm (set status=1)
 mysql ... < database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
@@ -126,15 +130,15 @@ mysql ... < database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql
 
 ### Migration from v2.1
 
-The v2.2 migration script (`update-2026-03-22-rtl-v22-modernize.sql`) does a **full replacement**
+The 2026.3.0 migration script (`update-2026-03-22-rtl-2026.3.0-modernize.sql`) does a **full replacement**
 of `form_html`. It matches on `form_name = 'Rich Text Letter' AND subject LIKE 'Rich Text Letter Generator%'`
-and replaces the entire content with the known-good v2.2 HTML.
+and replaces the entire content with the known-good 2026.3.0 HTML.
 
 The script is idempotent: running it multiple times produces the same result.
 
 ---
 
-## v2.2 Changes from v2.1
+## 2026.3.0 Changes from v2.1
 
 | Change | Description |
 |--------|-------------|
@@ -145,7 +149,7 @@ The script is idempotent: running it multiple times produces the same result.
 | Fix `saveRTL()` escaping | Chain replacements from `myNewString` (not `theRTL`); add `&` escaping |
 | Fix `fpreventions()` SQL injection | Replaced raw SQL via `RptByExample.do` with safe AJAX to `rtlPreventions.do` |
 | Fix `popupEformUpload()` | Pass `requestId` so attachments link to the eForm instance |
-| Move scripts to `<body>` | Prevents JSoup from stripping script tags during DOM parsing |
+| Move scripts to `<body>` | Ensures form DOM exists before editor script executes; keeps editor init adjacent to content |
 
 ### Critical: Script Placement in `<body>`
 
@@ -154,13 +158,16 @@ block inside `<head>`. This worked when `efmformadd_data.jsp` output the form_ht
 
 In the current codebase, `addHeadJavascript()` (called at line 136-138 of `efmformadd_data.jsp`)
 triggers JSoup parsing of the form_html via `getDocument()`. JSoup's `validateResourcePaths()`
-then validates all script tags by checking if their referenced files exist on disk. Script tags
-with `src` attributes pointing to files served via `displayImage.do?imagefile=<filename>` are
-validated against the eForm images directory. If the file doesn't exist (or the directory hasn't
-been created), the script tag is **silently removed** from the DOM.
+then validates **all** script tags in the entire document (both `<head>` and `<body>`) by checking
+if their referenced files exist on disk. Script tags with `src` attributes pointing to files
+served via `displayImage.do?imagefile=<filename>` are resolved to the eForm images directory
+and checked with `Files.exists()`. If the file doesn't exist (because the directory hasn't been
+created or `EFormAssetDeployer` hasn't run), the script tag is **silently removed** from the DOM.
 
-The v2.2 form_html moves these scripts to `<body>` where they are not subject to JSoup's
-resource path validation in the `<head>` context.
+The 2026.3.0 form_html moves these scripts to `<body>` so that the form's DOM elements (`<form>`,
+`<textarea>`, etc.) are already parsed before `insertEditControl()` runs. The real protection
+against JSoup stripping is `EFormAssetDeployer`, which deploys the files to disk at startup
+before any eForm is rendered.
 
 ---
 
@@ -259,7 +266,7 @@ src/main/webapp/WEB-INF/classes/struts.xml          (action: eform/rtlPrevention
 ```
 database/mysql/updates/update-2012-07-12.sql        (v1.0 seed)
 database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql  (enable/disable)
-database/mysql/updates/update-2026-03-22-rtl-v22-modernize.sql  (v2.2 full replacement)
+database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql  (2026.3.0 full replacement)
 ```
 
 ### Release

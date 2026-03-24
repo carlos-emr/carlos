@@ -36,29 +36,63 @@ import org.springframework.web.context.ServletContextAware;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Deploys bundled eForm assets (editControl2.js, blank.rtl, editor_help.html)
- * to the eForm images directory on application startup.
+ * Deploys bundled Rich Text Letter (RTL) eForm assets from the WAR to the
+ * eForm images directory on application startup.
  *
+ * <h3>Architecture Context</h3>
+ * <p>The RTL eForm stores its HTML in the database ({@code eform.form_html} column),
+ * but references external JavaScript and template files via {@code displayImage.do}
+ * URLs. These files must exist on disk in the eForm images directory for the editor
+ * to function. This deployer bridges the gap between the WAR-bundled source files
+ * and the runtime filesystem location.</p>
+ *
+ * <h3>Deployed Assets</h3>
+ * <ul>
+ *   <li>{@code editControl2.js} — WYSIWYG editor engine (toolbar, iframe, formatting)</li>
+ *   <li>{@code blank.rtl} — Default blank letter template</li>
+ *   <li>{@code editor_help.html} — Help popup for the editor toolbar</li>
+ * </ul>
+ *
+ * <h3>Skip-if-Exists Behavior</h3>
  * <p>Files are only copied if they do not already exist in the target directory.
  * This prevents overwriting clinic-customized versions. To force an update,
- * an administrator must manually delete the file from the eForm images directory.</p>
+ * an administrator must manually delete the file from the eForm images directory
+ * and restart Tomcat.</p>
  *
+ * <h3>Intentional Exclusion</h3>
  * <p>The {@code stamps.js} file is intentionally NOT auto-deployed because it
- * contains clinic-specific doctor signature mappings that administrators create.</p>
+ * contains clinic-specific doctor signature image mappings that administrators
+ * create themselves through the eForm admin UI.</p>
  *
+ * <h3>JSoup Interaction Warning</h3>
+ * <p>If the eForm images directory does not exist or the assets are not deployed,
+ * JSoup's {@code ConvertToEdoc.validateResourcePaths()} will silently remove
+ * the {@code <script>} tags from the eForm HTML during rendering, causing the
+ * editor to fail without any visible error. Ensure this deployer runs successfully
+ * before any RTL eForm is loaded.</p>
+ *
+ * @see io.github.carlos_emr.carlos.documentManager.ConvertToEdoc#validateResourcePaths
+ * @see io.github.carlos_emr.CarlosProperties#getEformImageDirectory()
  * @since 2026-03-22
  */
 public class EFormAssetDeployer implements InitializingBean, ServletContextAware {
 
     private static final Logger logger = LogManager.getLogger(EFormAssetDeployer.class);
 
+    /** Path inside the WAR where bundled assets are stored (not web-accessible). */
     private static final String BUNDLED_ASSETS_PATH = "/WEB-INF/eform-assets/";
+
+    /**
+     * Assets to deploy. These filenames must match exactly what the RTL eForm's
+     * form_html references via {@code displayImage.do?imagefile=<filename>}.
+     */
     private static final String[] ASSETS = {
         "editControl2.js",
         "blank.rtl",
         "editor_help.html"
     };
 
+    /** Injected by Spring via {@link ServletContextAware} before {@link #afterPropertiesSet()}. */
     private jakarta.servlet.ServletContext servletContext;
 
     @Override
@@ -66,6 +100,14 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         this.servletContext = servletContext;
     }
 
+    /**
+     * Called by Spring after all properties are set. Deploys each bundled asset
+     * to the eForm images directory if it doesn't already exist there.
+     *
+     * <p>Exits early (with a warning log) if the directory is not configured
+     * or doesn't exist on disk. This is non-fatal — the application still starts,
+     * but the RTL editor will be broken until the directory is created and Tomcat restarted.</p>
+     */
     @Override
     public void afterPropertiesSet() {
         String imageDir = CarlosProperties.getInstance().getEformImageDirectory();
@@ -85,6 +127,12 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
     }
 
+    /**
+     * Copies a single asset from the WAR to the target directory if it doesn't already exist.
+     *
+     * @param filename  String the asset filename (e.g., "editControl2.js")
+     * @param targetDir File the eForm images directory to deploy into
+     */
     private void deployAsset(String filename, File targetDir) {
         File targetFile = new File(targetDir, filename);
         if (targetFile.exists()) {

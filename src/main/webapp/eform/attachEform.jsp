@@ -24,13 +24,24 @@
 <%--
     attachEform.jsp - eForm Attachment Popup for Rich Text Letter
 
-    Provides a popup interface for attaching documents, labs, HRM records,
-    and other eForms to a Rich Text Letter. Called by the [attach] toolbar
-    button in editControl2.js via popupEformUpload().
+    Opens in a popup window when the user clicks the [attach] toolbar button
+    in the RTL editor. Displays a list of the patient's documents as checkboxes
+    so the user can select which documents to attach to the current letter.
+
+    Architecture:
+      - Called by: popupEformUpload() in the DB-stored form_html
+      - URL: ../eform/attachEform.jsp?demo=<demographicNo>&requestId=<fid>
+      - Form POST target: ../eform/attachDoc.do (EFormAttachDocs2Action)
+      - The EFormAttachDocs2Action expects field names: demoNo, requestId, attachedDocs
 
     Parameters:
-      - demo: demographic number of the patient
-      - requestId: fdid of the current eForm instance (optional)
+      - demo: demographic number of the patient (validated as digits-only)
+      - requestId: fdid of the current eForm instance (optional for new forms)
+
+    Security:
+      - Requires _eform read privilege
+      - Input validated with regex before Integer.parseInt()
+      - All output OWASP-encoded with Encode.forHtml() / Encode.forHtmlAttribute()
 
     @since 2026-03-22
 --%>
@@ -71,6 +82,7 @@
     try {
         documents = documentManager.getDocumentsByDemographicNo(loggedInInfo, demographicNo);
     } catch (Exception e) {
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Failed to load documents for demographic " + demoNo, e);
         documents = new ArrayList<>();
     }
 %>

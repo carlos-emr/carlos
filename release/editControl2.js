@@ -1,6 +1,20 @@
-/*  editControl - a WYSIWYG edit control using iFrames and designMode
+/*  editControl2.js - WYSIWYG rich text editor for the Rich Text Letter eForm
     Copyright (C) 2009-2020 Peter Hutten-Czapski
-     Version 1.6 now about 600 lines of code
+    Modernized 2026 by CARLOS EMR Project (2026.3.0)
+
+    This file is deployed from WEB-INF/eform-assets/ to the eForm images directory
+    by EFormAssetDeployer at Tomcat startup. It is loaded by the RTL eForm's form_html
+    via: <script src="../eform/displayImage.do?imagefile=editControl2.js"></script>
+
+    Key architecture notes:
+    - This script builds a WYSIWYG toolbar and editor iframe using document.designMode
+    - Content insertion uses the Selection/Range API (execCommand('insertHtml') is deprecated)
+    - The RTL eForm's sidebar buttons (Patient Name, Allergies, etc.) call printKey()
+      which uses APCache.js to fetch patient data via AJAX, then calls doHtml() to insert it
+    - Template management loads .rtl files via efmformrtl_templates.jsp
+    - The Start() function is called from <body onload="Start()"> in the DB-stored form_html
+
+    Version 1.6 now about 600 lines of code
         NEW in 0.2 button styles, links, select box
         NEW in 0.3 help, date, rule, select all, and clean functions
         NEW in 0.4 code completely rewritten, more functions including images and
@@ -426,16 +440,36 @@ function parseText(obs) {
 	return obs;
 }
 
+/**
+ * Inserts HTML content at the current cursor position in the editor iframe.
+ * This is the primary content insertion mechanism used by all sidebar buttons
+ * (Patient Name, Allergies, Prescriptions, etc.) and the AP cache system.
+ *
+ * Uses the standard Selection/Range API to insert a document fragment at the
+ * current cursor position. Falls back to appending to the body if no selection
+ * exists (e.g., editor was never clicked/focused).
+ *
+ * @param {string} value - HTML string to insert (e.g., "<b>Aleshia Jones</b>")
+ */
 function doHtml(value) {
-	//insert HTML of value
-	if (isIE()){  //if you can't support insertHtml do something else
-		var tmp=window[cfg_editorname].document.body.innerHTML;
-		tmp=tmp+value;  // for IE this means append the text
-		window[cfg_editorname].document.body.innerHTML=tmp;
+	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
+
+	// Insert at cursor using the Selection/Range API
+	var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
+	if (sel && sel.rangeCount > 0) {
+		var range = sel.getRangeAt(0);
+		range.deleteContents();
+		// createContextualFragment parses the HTML string into DOM nodes
+		var frag = range.createContextualFragment(value);
+		range.insertNode(frag);
+		// Move cursor to end of inserted content so subsequent inserts append
+		range.collapse(false);
+		sel.removeAllRanges();
+		sel.addRange(range);
 	} else {
-		document.getElementById(cfg_editorname).contentWindow.document.execCommand("insertHtml", false, value);
+		// No selection/cursor — append to end of document body
+		editorDoc.body.innerHTML += value;
 	}
-	return;
 }
 
 function block(blockElements) {
@@ -885,12 +919,30 @@ function submitFaxButton() {
 		}
 	}
 	
+	/**
+	 * Initializes the Rich Text Letter editor on page load.
+	 * Called from <body onload="Start()"> in the DB-stored form_html.
+	 *
+	 * Performs three setup tasks:
+	 * 1. Loads available letter templates via AJAX from efmformrtl_templates.jsp
+	 * 2. Populates the AP cache from hidden .cacheInit fields injected by the JSP
+	 * 3. Initializes gender pronouns from the cached sex field
+	 * 4. Loads existing letter content into the editor (for saved forms)
+	 * 5. Calls updateAttached() to refresh the attachments panel
+	 *
+	 * Note: updateAttached() is defined in the DB-stored form_html, not here.
+	 */
 	function Start() {
-		
+
+			// Load template <option> elements into the template dropdown
 			$.ajax({
 				url : "efmformrtl_templates.jsp",
 				success : function(data) {
 					$("#template").html(data);
+					loadDefaultTemplate();
+				},
+				error : function(xhr, status, error) {
+					console.error('Failed to load letter templates: ' + status);
 					loadDefaultTemplate();
 				}
 			});
@@ -913,8 +965,17 @@ function submitFaxButton() {
 			if (contents.length == 0) {
 				parseTemplate();
 			} else {
+				// Decode HTML entities that saveRTL() encoded before saving.
+				// saveRTL() escapes & " < > ' so the content survives being stored in a
+				// textarea value. We reverse that here so the editor renders actual HTML
+				// (e.g., <br> as a line break, not literal "&lt;br&gt;" text).
+				// Decode in reverse order: entities containing & must be decoded last.
+				contents = contents.replace(/&#39;/g, "'");
+				contents = contents.replace(/&gt;/g, ">");
+				contents = contents.replace(/&lt;/g, "<");
+				contents = contents.replace(/&quot;/g, '"');
+				contents = contents.replace(/&amp;/g, "&");
 				seteditControlContents(cfg_editorname, contents);
-//				seteditControlContents(cfg_editorname, decodeURIComponent(contents));
 				document.getElementById(cfg_editorname).contentWindow.document.designMode = 'on';
 			}
 			maximize();
@@ -1044,6 +1105,17 @@ var formPath = vPath + "/eform/efmshowform_data.jsp?fid=74&LabName="
 var measureArray = [];
 var measureDateArray = [];
 
+/**
+ * Retrieves measurement/lab history for a given measurement type and inserts
+ * a formatted summary into the editor. Called by labgrid() and labgrid2()
+ * (the "Lab Grid" and "Vitals" sidebar buttons).
+ *
+ * Makes a synchronous XHR to efmshowform_data.jsp to fetch measurement data
+ * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
+ *
+ * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
+ * @param {number} max - Maximum number of historical values to display
+ */
 function getMeasures(measure, max) {
     var xmlhttp = new XMLHttpRequest();
     // pathArray was originally used to build newURL; kept for potential future use by callers.
@@ -1116,6 +1188,14 @@ function collapseFooter() {
 //-- Autocomplete  script --
         var searchDropDownFlag = false;
 
+        /**
+         * Searches for a consultant/specialist by name for the letter addressee field.
+         * Makes an XHR request to the provider search endpoint and displays matching
+         * providers in the tempBin dropdown. Selected consultant's address is inserted
+         * into the CopyTo textarea for "Paste Selected" to use.
+         *
+         * @param {string} term - Search term (minimum 2 characters, "lastname, firstname" format)
+         */
         function consultantSearch(term) {
             if (term.length < 2) {
                 document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
@@ -1167,7 +1247,10 @@ function collapseFooter() {
 
 
                 } else {
-                    console.log('error')
+                    console.error('Consultant search failed with status: ' + request.status);
+                    var tempBin = document.getElementById('tempBin');
+                    tempBin.style.display = 'block';
+                    tempBin.textContent = 'Search failed. Please try again.';
                 }
 
             } // end onload
