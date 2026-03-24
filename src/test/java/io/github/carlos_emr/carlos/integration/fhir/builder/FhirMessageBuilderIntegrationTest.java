@@ -274,13 +274,17 @@ class FhirMessageBuilderIntegrationTest {
         @Test
         @DisplayName("should contain Bundle resource type in JSON")
         void shouldContainBundleResourceType_inJson() {
-            assertThat(json).contains("\"resourceType\" : \"Bundle\"");
+            assertThat(json).contains("\"resourceType\": \"Bundle\"");
         }
 
         @Test
         @DisplayName("should contain MessageHeader as first entry")
         void shouldContainMessageHeader_asFirstEntry() {
-            assertThat(json).contains("\"resourceType\" : \"MessageHeader\"");
+            Bundle bundle = fhirBundleBuilder.getBundle();
+            assertThat(bundle).isNotNull();
+            assertThat(bundle.getEntry()).isNotEmpty();
+            assertThat(bundle.getEntryFirstRep().getResource()).isNotNull();
+            assertThat(bundle.getEntryFirstRep().getResource().fhirType()).isEqualTo("MessageHeader");
         }
 
         @Test
@@ -293,13 +297,13 @@ class FhirMessageBuilderIntegrationTest {
         @Test
         @DisplayName("should contain immunization resources in JSON")
         void shouldContainImmunizationResources_inJson() {
-            assertThat(json).contains("\"resourceType\" : \"Immunization\"");
+            assertThat(json).contains("\"resourceType\": \"Immunization\"");
         }
 
         @Test
         @DisplayName("should contain practitioner resources in JSON")
         void shouldContainPractitionerResources_inJson() {
-            assertThat(json).contains("\"resourceType\" : \"Practitioner\"");
+            assertThat(json).contains("\"resourceType\": \"Practitioner\"");
         }
 
         @Test

@@ -202,7 +202,7 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
-                PathValidationUtils.validateExistingPath(file, docDir);
+                file = PathValidationUtils.validateExistingPath(file, docDir);
             }
 
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();

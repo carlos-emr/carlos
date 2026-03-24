@@ -797,7 +797,7 @@ public class FaxManagerImpl implements FaxManager {
         File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
 
         try {
-            PathValidationUtils.validateExistingPath(file, documentDir);
+            file = PathValidationUtils.validateExistingPath(file, documentDir);
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
@@ -830,7 +830,7 @@ public class FaxManagerImpl implements FaxManager {
         File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
 
         try {
-            PathValidationUtils.validateExistingPath(file, documentDir);
+            file = PathValidationUtils.validateExistingPath(file, documentDir);
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {

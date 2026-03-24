@@ -537,3 +537,179 @@ div.reason-tag a {
         display: none !important;
     }
 }
+
+/* ===== Quick Patient Search Bar ===== */
+.quick-search-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.quick-search-input-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+#quickSearch {
+    width: 170px;
+    height: 24px;
+    padding: 2px 26px 2px 6px;
+    font-size: 0.8rem;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+#quickSearch:focus {
+    outline: none;
+    border-color: #4a90d9;
+    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+.quick-search-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    color: #6c757d;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.quick-search-clear:hover {
+    color: #343a40;
+}
+
+/* Dropdown container - floats over schedule */
+.quick-search-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 9999;
+    min-width: 360px;
+    max-width: 480px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* Result rows */
+.qs-result-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    background-color: #ffffff;
+}
+
+.qs-result-row.qs-alt {
+    background-color: #f7f9fb;
+}
+
+.qs-result-row:hover,
+.qs-result-row.qs-active {
+    background-color: #dce8f5;
+}
+
+/* Line 1: patient name + badges */
+.qs-line1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.qs-patient-name {
+    font-size: 0.875rem;
+    color: #212529;
+    font-weight: 700;
+}
+
+.qs-status-label {
+    font-weight: 400;
+    color: #6c757d;
+    font-size: 0.78rem;
+}
+
+/* Badge strip */
+.qs-badges {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.qs-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.qs-badge:hover {
+    text-decoration: none;
+    filter: brightness(0.85);
+}
+
+.qs-badge-m  { background: #6c757d; color: #fff; }
+.qs-badge-e  { background: #0d6efd; color: #fff; }
+.qs-badge-rx { background: #198754; color: #fff; }
+.qs-badge-appt { background: #fd7e14; color: #fff; }
+
+/* Lines 2-4: muted detail rows */
+.qs-line2,
+.qs-line3,
+.qs-line4 {
+    font-size: 0.775rem;
+    margin-top: 2px;
+}
+
+.qs-line2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.qs-muted {
+    color: #6c757d;
+}
+
+/* No-results and add-link rows */
+.qs-no-results {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.qs-add-link {
+    padding: 6px 10px;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.qs-add-link a {
+    font-size: 0.8rem;
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.qs-add-link a:hover {
+    text-decoration: underline;
+}

@@ -55,13 +55,9 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-
-<%@ page import="org.apache.commons.fileupload.DiskFileUpload" %>
-<%@ page import="org.apache.commons.fileupload.FileUpload" %>
-<%@ page import="org.apache.commons.fileupload.FileItem" %>
-<%@ page import="org.apache.commons.fileupload.FileUploadException" %>
-<%@ page import="java.io.File" %>
-<%@ page import="java.io.StringWriter" %>
+<%@ page import="java.io.InputStream" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="jakarta.servlet.http.Part" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
@@ -69,47 +65,37 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%
-    boolean isMultipart = FileUpload.isMultipartContent(request);
-    DiskFileUpload upload = new DiskFileUpload();
+    String contentType = request.getContentType();
+    boolean isMultipart = contentType != null && contentType.toLowerCase().startsWith("multipart/");
 
-    try {
-        //           Parse the request
-        @SuppressWarnings("unchecked")
-        List<FileItem> items = upload.parseRequest(request);
-        //Process the uploaded items
-        Iterator<FileItem> iter = items.iterator();
-        while (iter.hasNext()) {
-            FileItem item = iter.next();
+    if (isMultipart) {
+        try {
+            Collection<Part> parts = request.getParts();
+            for (Part part : parts) {
+                if (part.getSubmittedFileName() != null) {
+                    String contents;
+                    try (InputStream is = part.getInputStream()) {
+                        contents = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                    }
 
-            if (item.isFormField()) {
-            } else {
-                String contents = item.getString();
+                    MeasurementFlowSheet fs = MeasurementTemplateFlowSheetConfig.getInstance().validateFlowsheet(contents);
+                    if (fs != null) {
+                        Flowsheet f = new Flowsheet();
+                        f.setContent(contents);
+                        f.setCreatedDate(new java.util.Date());
+                        f.setEnabled(true);
+                        f.setExternal(false);
+                        f.setName(fs.getName());
 
-                //validate the data
-                //TODO: make sure no duplicates
-                MeasurementFlowSheet fs = null;
-                fs = MeasurementTemplateFlowSheetConfig.getInstance().validateFlowsheet(contents);
-                if (fs != null) {
-                    //save to db
-                    Flowsheet f = new Flowsheet();
-                    f.setContent(contents);
-                    f.setCreatedDate(new java.util.Date());
-                    f.setEnabled(true);
-                    f.setExternal(false);
-                    f.setName(fs.getName());
-
-                    FlowsheetDao flowsheetDao = (FlowsheetDao) SpringUtils.getBean(FlowsheetDao.class);
-                    flowsheetDao.persist(f);
-                    MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
-                } else {
-                    //error
+                        FlowsheetDao flowsheetDao = (FlowsheetDao) SpringUtils.getBean(FlowsheetDao.class);
+                        flowsheetDao.persist(f);
+                        MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
+                    }
                 }
             }
+        } catch (Exception e) {
+            // Error handling - redirect will follow
         }
-    } catch (FileUploadException e) {
-
-    } catch (Exception e) {
-
     }
 
     response.sendRedirect("manageFlowsheets.jsp");

@@ -1243,7 +1243,7 @@ public final class EDocUtil {
             // Use PathValidationUtils for validation
             // First try document directory
             try {
-                PathValidationUtils.validateExistingPath(inputFile, documentDir);
+                inputFile = PathValidationUtils.validateExistingPath(inputFile, documentDir);
                 return canonicalPath;
             } catch (SecurityException e) {
                 // Not in document directory, check temp directories

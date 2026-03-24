@@ -71,7 +71,7 @@ public class PhsStarHandler implements MessageHandler {
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
                 try {
-                    PathValidationUtils.validateExistingPath(file, docDir);
+                    file = PathValidationUtils.validateExistingPath(file, docDir);
                 } catch (SecurityException e) {
                     logger.error("Attempted to access file outside document directory: " + fileName);
                     MessageUploader.clean(fileId);
