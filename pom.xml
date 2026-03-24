@@ -76,7 +76,7 @@
         <!-- Slf4j Version -->
         <slf4j.version>2.0.17</slf4j.version>
         <!-- Hapi Fhir Version -->
-        <hapifhir.version>6.10.5</hapifhir.version>
+        <hapifhir.version>8.4.0</hapifhir.version>
         <!-- Apache CXF Version -->
         <cxf.version>4.1.5</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
@@ -223,18 +223,25 @@
                 <artifactId>serializer</artifactId>
                 <version>2.7.3</version>
             </dependency>
-            <!-- Override transitive org.hl7.fhir.core (6.1.2.2) from hapi-fhir-structures-dstu3.
-                 Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0).
-                 Aligned to 6.7.10 to reduce drift from HAPI FHIR development baseline (6.7.9). -->
+            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
+                 Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
+                 CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0). -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.7.10</version>
+                <version>6.9.0</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.7.10</version>
+                <version>6.9.0</version>
+            </dependency>
+            <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
+                 Fixes: CVE-2025-XXXXX missing authentication for critical functions (patched in 2.52.0). -->
+            <dependency>
+                <groupId>org.apache.artemis</groupId>
+                <artifactId>artemis-server</artifactId>
+                <version>2.52.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
